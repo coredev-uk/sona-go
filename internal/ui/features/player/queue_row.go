@@ -1,6 +1,7 @@
 package player
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -208,7 +209,7 @@ func (p *player) rowContent(c *ui.Context, r *queueRowIn, hot, movable bool) {
 			ui.Icon(c.Key("grip"), theme.Icon("grip-vertical")).FontSize(14).TextColor(faint).Margin(0, 0, 0, -2).IgnoreInput(true).Cursor(ui.CursorGrab)
 			return
 		}
-		label(c.Key("n"), itoa(r.num), "meta").TextColor(faint).FontFeatures("tnum")
+		label(c.Key("n"), strconv.Itoa(r.num), "meta").TextColor(faint).FontFeatures("tnum")
 	})
 	art := kit.Artwork(c.Key("art"), p.env.Art, it.Art.Small, 36, kit.ArtOpts{})
 	if r.autoPlay && !hot {

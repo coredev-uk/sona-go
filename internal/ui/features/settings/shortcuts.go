@@ -16,10 +16,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// shortcutGroups is how shortcuts are listed in Settings, in this order
-// (shared/module.ts shortcutGroups).
-var shortcutGroups = []module.ShortcutGroup{"playback", "view", "pages", "navigation", "general"}
-
 // The section's geometry (Shortcuts.tsx): the groups run in two columns
 // where the section is at least 46rem wide.
 const (
@@ -177,7 +173,7 @@ type shortcutGroup struct {
 // a group with nothing in it is left out.
 func groupShortcuts(shown []module.Shortcut) []shortcutGroup {
 	var out []shortcutGroup
-	for _, g := range shortcutGroups {
+	for _, g := range module.ShortcutGroups {
 		var list []module.Shortcut
 		for _, sh := range shown {
 			if sh.Group == g {
@@ -256,7 +252,7 @@ func watchWidth(c *ui.Context, e ui.Element) float32 {
 // shortcutGroup is a group: its heading (an h3 under the section's h2) over
 // its rows.
 func (s *settings) shortcutGroup(c *ui.Context, g shortcutGroup, v *shortcutView) {
-	title := groupTitle(g.group)
+	title := module.GroupTitle(g.group)
 	c = c.Key("group:" + string(g.group))
 	ui.Column(c).FillWidth().Padding(0, 0, groupPadBottom, 0).Role(ui.RoleGroup).Label(title).Children(func() {
 		theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Margin(0, 0, 8, 0)

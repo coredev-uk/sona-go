@@ -19,27 +19,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
-// groups are the shortcut groups in the order the palette and the help list
-// them (v0.2.0's shortcutGroups).
-var groups = []module.ShortcutGroup{"playback", "view", "pages", "navigation", "general"}
-
-// groupTitle is a group's heading.
-func groupTitle(g module.ShortcutGroup) string {
-	switch g {
-	case "playback":
-		return i18n.T("Playback")
-	case "view":
-		return i18n.T("View")
-	case "pages":
-		return i18n.T("Pages")
-	case "navigation":
-		return i18n.T("Navigation")
-	case "general":
-		return i18n.T("General")
-	}
-	return string(g)
-}
-
 // library is what the palette asks of the search service
 // (*services.SearchService).
 type library interface {

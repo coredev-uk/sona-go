@@ -188,9 +188,7 @@ func (r *rig) step() string { return r.h.Env.Surfaces.SetupStep() }
 
 func (r *rig) click(text string) {
 	r.t.Helper()
-	if err := r.tt.Click(text); err != nil {
-		r.t.Fatal(err)
-	}
+	r.tt.MustClick(text)
 	r.tt.Drain()
 }
 

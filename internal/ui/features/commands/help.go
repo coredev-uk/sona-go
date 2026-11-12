@@ -146,8 +146,7 @@ func (h *helpSheet) observe(ev ui.InputEvent) {
 // word a link to the shortcut settings where that page exists.
 func (h *helpSheet) about(c *ui.Context, env *module.Env) {
 	msg := i18n.T("Change any of them in <0>Settings</0>.")
-	before, rest, _ := strings.Cut(msg, "<0>")
-	name, after, _ := strings.Cut(rest, "</0>")
+	before, name, after, _ := i18n.SplitLink(msg)
 	// Spaces at the seams become the row's gap: the text measures without them.
 	gap := float32(0)
 	if strings.HasSuffix(before, " ") || strings.HasPrefix(name, " ") {
@@ -156,7 +155,9 @@ func (h *helpSheet) about(c *ui.Context, env *module.Env) {
 	before = strings.TrimSpace(before)
 	ui.Row(c.Key("about:line")).AlignItems(ui.Center).Gap(gap).Children(func() {
 		theme.Text(c.Key("a"), before, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
-		ui.Row(c.Key("link")).AlignItems(ui.Center).Children(func() { h.link(c, env, name, after) })
+		if name != "" { // a translation that lost its tags has no link
+			ui.Row(c.Key("link")).AlignItems(ui.Center).Children(func() { h.link(c, env, name, after) })
+		}
 	})
 }
 
@@ -190,7 +191,7 @@ func (h *helpSheet) filter(env *module.Env) []helpGroup {
 	}
 	words := strings.Fields(i18n.Fold(h.query))
 	var out []helpGroup
-	for _, g := range groups {
+	for _, g := range module.ShortcutGroups {
 		var list []module.BoundShortcut
 		for _, s := range all {
 			if s.Group == g && matchesWords(s, words) {
@@ -222,7 +223,7 @@ func matchesWords(s module.BoundShortcut, words []string) bool {
 	if s.Keywords != nil {
 		b.WriteString(" " + s.Keywords())
 	}
-	b.WriteString(" " + groupTitle(s.Group))
+	b.WriteString(" " + module.GroupTitle(s.Group))
 	for _, chord := range s.Keys {
 		b.WriteString(" " + kit.ChordText(chord) + " " + strings.Join(kit.ChordParts(chord), " "))
 	}
@@ -320,8 +321,8 @@ func (h *helpSheet) groups(c *ui.Context, sections []helpGroup, width float32) {
 // section is one group: its title over a hairline, then a row for each
 // shortcut, its label and its caps (or "Not set") in the group's key column.
 func (h *helpSheet) section(c *ui.Context, g helpGroup) {
-	ui.Column(c.Key("g:"+string(g.group))).FillWidth().Padding(0, 0, 24).Role(ui.RoleGroup).Label(groupTitle(g.group)).Children(func() {
-		theme.Text(c.Key("h"), groupTitle(g.group), "body").FontWeight(600).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Padding(0, 0, 6)
+	ui.Column(c.Key("g:"+string(g.group))).FillWidth().Padding(0, 0, 24).Role(ui.RoleGroup).Label(module.GroupTitle(g.group)).Children(func() {
+		theme.Text(c.Key("h"), module.GroupTitle(g.group), "body").FontWeight(600).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Padding(0, 0, 6)
 		ui.Box(c.Key("rule")).Height(1).FillWidth().Background(theme.C("line"))
 		for _, s := range g.list {
 			ui.Row(c.Key("s:"+s.ID)).MinHeight(helpRowHeight).FillWidth().Padding(2, 0).Gap(16).AlignItems(ui.Center).Role(ui.RoleListItem).Label(s.Label()).Children(func() {
@@ -341,5 +342,5 @@ func (h *helpSheet) section(c *ui.Context, g helpGroup) {
 // plainAbout is the line in the foot without its link markup, for the
 // dialog's description.
 func plainAbout() string {
-	return strings.NewReplacer("<0>", "", "</0>", "").Replace(i18n.T("Change any of them in <0>Settings</0>."))
+	return i18n.StripTags(i18n.T("Change any of them in <0>Settings</0>."))
 }

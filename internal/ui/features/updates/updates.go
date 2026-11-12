@@ -52,11 +52,7 @@ func (u *updates) module() module.Module {
 		ID:    "updates",
 		Slots: module.Slots{SidebarFooter: u.notice},
 		Init: func() {
-			for _, ev := range []string{services.EventUpdateAvailable, services.EventUpdateInstall} {
-				store.On(u.env.Bus, ev, func(s services.UpdateStatus) {
-					store.Set(u.env.Queries, store.KeyUpdates, s)
-				})
-			}
+			store.Mirror[services.UpdateStatus](u.env.Bus, u.env.Queries, u.env.Post, store.KeyUpdates, nil, services.EventUpdateAvailable, services.EventUpdateInstall)
 		},
 	}
 }
@@ -154,7 +150,7 @@ func (u *updates) view() {
 	}
 	go func() {
 		if err := open(); err != nil {
-			kit.ToastErrorf(i18n.T("Couldn't open the release"), i18n.ErrorText(services.CodeOf(err)))
+			kit.ToastFailure(i18n.T("Couldn't open the release"), err)
 		}
 	}()
 }

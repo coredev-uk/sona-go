@@ -49,6 +49,8 @@ type transport interface {
 type player struct {
 	env *module.Env
 	svc transport
+	// tr is the playback commands the bar, the keys and the lyrics share.
+	tr kit.Transport
 	// volume reports whether Sona sets the playback volume here
 	// (PlatformService capabilities).
 	volume func() bool
@@ -60,18 +62,14 @@ type player struct {
 	// Now Playing take a live station's programme from its schedule.
 	station func(ctx context.Context, id string) (services.StationDetail, error)
 
-	// seek is the seek bar while the user drags it: the position shown,
-	// committed when the pointer lets go. held is the position assistive
-	// technology is told while the slider has the focus and nobody moves it
-	// (holding says there is one): the bar and the time keep moving, but a
-	// screen reader reads every change of a focused slider, four times a
+	// seek is the seek bar while the user drags it. held is the position
+	// assistive technology is told while the slider has the focus and nobody
+	// moves it (holding says there is one): the bar and the time keep moving,
+	// but a screen reader reads every change of a focused slider, four times a
 	// second as the position ticks.
-	seek struct {
-		active  bool
-		secs    float64
-		holding bool
-		held    float64
-	}
+	seek    kit.SeekDrag
+	holding bool
+	held    float64
 
 	// ui is the panels' state (view.go); np is Now Playing's (nowplaying_state.go).
 	ui *view
@@ -106,7 +104,6 @@ func New(env *module.Env) module.Module {
 	p := newPlayer(env, pb, func() bool { return plat.Capabilities().Playback.Volume })
 	p.np.queueView = p.upNext
 	p.np.rating = func(c *ui.Context, cur *services.QueueItem) { p.ratingButtons(c, cur, false) }
-	auth := services.Service[services.AuthService](env.Core)
 	return module.Module{
 		ID:        "player",
 		Shortcuts: append(p.shortcuts(), p.nowPlayingShortcuts()...),
@@ -115,12 +112,13 @@ func New(env *module.Env) module.Module {
 			Bottom: p.bar, Aside: p.queueAside, Overlay: p.overlaySlot(),
 			Layer: p.roomLayer, LayerOpen: p.roomOpen,
 		},
-		Init: func() { p.init(); p.followAccount(auth) },
+		Init: p.init,
 	}
 }
 
 func newPlayer(env *module.Env, svc transport, volume func() bool) *player {
 	p := &player{env: env, svc: svc, volume: volume, now: time.Now, ui: newView()}
+	p.tr = kit.Transport{Svc: svc, Play: env.Play, Fail: p.fail}
 	p.station = func(ctx context.Context, id string) (services.StationDetail, error) {
 		if env.Core == nil {
 			return services.StationDetail{}, errors.ErrUnsupported
@@ -163,57 +161,10 @@ func (p *player) toasts(c *ui.Context) {
 	}
 }
 
-// The commands. Each says what it was doing (its toast's title) as a
-// literal, so the catalogue's extraction finds it.
-
-func (p *player) toggle() {
-	p.run(func() string { return i18n.T("Couldn't play or pause") }, p.svc.Toggle)
-}
-
-func (p *player) next() {
-	p.run(func() string { return i18n.T("Couldn't skip") }, p.svc.Next)
-}
-
-func (p *player) previous() {
-	p.run(func() string { return i18n.T("Couldn't go back") }, p.svc.Prev)
-}
-
-// seekTo seeks to a position in the playing song: the mirror shows it at
-// once, until Go's next snapshot.
-func (p *player) seekTo(pos time.Duration) {
-	ms := pos.Milliseconds()
-	now := p.now().UnixMilli()
-	p.env.Play.Patch(func(s *services.PlaybackState) { s.PositionMs, s.At = ms, now })
-	p.run(func() string { return i18n.T("Couldn't seek") }, func(ctx context.Context) error { return p.svc.Seek(ctx, ms) })
-}
-
-// seekBy seeks by delta from the live position, within the song; a song
-// that cannot seek (a live station) or has no length is left alone.
+// seekBy seeks by delta from the live position, unless the song cannot seek
+// (a live station), which is said.
 func (p *player) seekBy(delta time.Duration) {
-	s := p.env.Play.State()
-	if s.Current == nil || p.refuse(ctlSeek) || s.DurationMs <= 0 {
-		return
-	}
-	to := min(max(p.env.Play.Position()+delta, 0), time.Duration(s.DurationMs)*time.Millisecond)
-	p.seekTo(to)
-}
-
-// setVolume sets the volume (clamped to 0…1) and shows it at once.
-func (p *player) setVolume(v float64) {
-	v = min(max(v, 0), 1)
-	p.env.Play.Patch(func(s *services.PlaybackState) { s.Volume = v })
-	p.run(func() string { return i18n.T("Couldn't change the volume") }, func(ctx context.Context) error { return p.svc.SetVolume(ctx, v) })
-}
-
-// toggleMute mutes, or returns to the volume before.
-func (p *player) toggleMute() {
-	v := p.env.Play.State().Volume
-	if v > 0 {
-		p.env.Play.SetUnmuted(v)
-		p.setVolume(0)
-		return
-	}
-	p.setVolume(p.env.Play.Unmuted())
+	p.tr.SeekBy(delta, p.now(), func() bool { return p.refuse(ctlSeek) })
 }
 
 func (p *player) toggleShuffle() {

@@ -30,20 +30,6 @@ func walkFrom(t *testing.T, r *rig, first string) []string {
 	return append(slices.Clone(names[i:]), names[:i]...)
 }
 
-// inOrder fails unless want is a subsequence of got.
-func inOrder(t *testing.T, got, want []string) {
-	t.Helper()
-	i := 0
-	for _, g := range got {
-		if i < len(want) && g == want[i] {
-			i++
-		}
-	}
-	if i < len(want) {
-		t.Errorf("Tab walk %q lacks %q in that order", got, want)
-	}
-}
-
 // TestKeyboardWalk is every step of the setup: Tab reaches its primary
 // controls in reading order (the way out, the step's controls, the way on),
 // nothing is a trap or a control inside a control.
@@ -107,7 +93,7 @@ func TestKeyboardWalk(t *testing.T) {
 			r.open(tc.step)
 			r.tt.Until("the step", r.tt.Shows(tc.marks...))
 			r.tt.Frame()
-			inOrder(t, walkFrom(t, r, tc.want[0]), tc.want)
+			access.InOrder(t, walkFrom(t, r, tc.want[0]), tc.want...)
 		})
 	}
 }

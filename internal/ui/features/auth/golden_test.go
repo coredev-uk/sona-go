@@ -21,7 +21,7 @@ func goldenDialog(t *testing.T, name string, opts ...uitest.Option) {
 	// The dialog's 200 ms entrance, then a frame at rest.
 	r.tt.Advance(500 * time.Millisecond)
 	r.tt.Frame()
-	r.shows("Sign in to Apple Music")
+	r.tt.Want("Sign in to Apple Music")
 	uitest.Golden(t, r.tt.Image(), name)
 }
 
@@ -31,7 +31,7 @@ func TestGoldenAccountDialogSignedInLight(t *testing.T) {
 	r.tt.Drain()
 	r.tt.Advance(500 * time.Millisecond)
 	r.tt.Frame()
-	r.shows("Signed in to Apple Music", "Storefront: United Kingdom · British English")
+	r.tt.Want("Signed in to Apple Music", "Storefront: United Kingdom · British English")
 	uitest.Golden(t, r.tt.Image(), "account-dialog-signed-in-light")
 }
 
@@ -42,7 +42,7 @@ func TestGoldenAccountDialogStackedDark(t *testing.T) {
 	r.tt.Drain()
 	r.tt.Advance(500 * time.Millisecond)
 	r.tt.Frame()
-	r.shows("Sign in to Apple Music")
+	r.tt.Want("Sign in to Apple Music")
 	uitest.Golden(t, r.tt.Image(), "account-dialog-stacked-dark")
 }
 
@@ -53,7 +53,7 @@ func TestGoldenAccountMenuLight(t *testing.T) {
 	r.openMenu()
 	r.tt.Advance(500 * time.Millisecond)
 	r.tt.Frame()
-	r.shows("Signed in · United Kingdom")
+	r.tt.Want("Signed in · United Kingdom")
 	uitest.Golden(t, r.tt.Image(), "account-menu-light")
 }
 

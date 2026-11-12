@@ -44,11 +44,6 @@ func newRig(t *testing.T) *rig {
 	return r
 }
 
-func (r *rig) emit(s services.UpdateStatus) {
-	r.h.Bus.Emit(services.EventUpdateAvailable, s)
-	r.tt.Drain()
-}
-
 func TestNoticeShowsOnlyWhileANewerReleaseExists(t *testing.T) {
 	r := newRig(t)
 	r.tt.Drain()
@@ -56,18 +51,18 @@ func TestNoticeShowsOnlyWhileANewerReleaseExists(t *testing.T) {
 	if r.tt.HasText("New version") || r.tt.HasText("View") {
 		t.Fatalf("a notice with no update: %q", r.tt.Texts())
 	}
-	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.2.0", Available: false})
+	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.2.0", Available: false})
 	if r.tt.HasText("New version") {
 		t.Errorf("notice for the current release: %q", r.tt.Texts())
 	}
-	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, URL: "https://example.test/r"})
+	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, URL: "https://example.test/r"})
 	for _, w := range []string{"New version", "Sona 0.3.0", "View"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("notice lacks %q: %q", w, r.tt.Texts())
 		}
 	}
 	// A later result that finds nothing newer hides it again.
-	r.emit(services.UpdateStatus{Current: "0.3.0", Checkable: true, Latest: "0.3.0"})
+	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.3.0", Checkable: true, Latest: "0.3.0"})
 	if r.tt.HasText("New version") {
 		t.Errorf("notice stays after the update: %q", r.tt.Texts())
 	}
@@ -75,7 +70,7 @@ func TestNoticeShowsOnlyWhileANewerReleaseExists(t *testing.T) {
 
 func TestSelfUpdatingInstallsInPlaceWithProgress(t *testing.T) {
 	r := newRig(t)
-	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, SelfUpdate: true})
+	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, SelfUpdate: true})
 	if !r.tt.HasText("Install and restart") || r.tt.HasText("View") {
 		t.Fatalf("notice = %q", r.tt.Texts())
 	}
@@ -103,7 +98,7 @@ func TestSelfUpdatingInstallsInPlaceWithProgress(t *testing.T) {
 
 func TestViewOpensTheReleaseAndAFailureToasts(t *testing.T) {
 	r := newRig(t)
-	r.emit(services.UpdateStatus{Latest: "0.3.0", Available: true})
+	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Latest: "0.3.0", Available: true})
 	if err := r.tt.Click("View"); err != nil {
 		t.Fatal(err)
 	}
@@ -130,11 +125,11 @@ func TestModuleFillsTheSidebarFooterAndFollowsTheEvent(t *testing.T) {
 // nag about the version it came back from; a newer one is still offered.
 func TestNoticeSkipsTheVersionTheUserWentBackFrom(t *testing.T) {
 	r := newRig(t)
-	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, Declined: "0.3.0"})
+	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, Declined: "0.3.0"})
 	if r.tt.HasText("New version") {
 		t.Fatalf("the notice offers the version just left: %q", r.tt.Texts())
 	}
-	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.1", Available: true, Declined: "0.3.0"})
+	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.1", Available: true, Declined: "0.3.0"})
 	if !r.tt.HasText("Sona 0.3.1") {
 		t.Fatalf("a newer release is held back too: %q", r.tt.Texts())
 	}

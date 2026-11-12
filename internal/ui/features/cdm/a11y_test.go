@@ -19,13 +19,13 @@ func TestA11yNoticeLinkAndText(t *testing.T) {
 	const words = "Couldn't get Widevine · Retry in Settings"
 
 	r := newRig(t, true, uitest.Bare())
-	r.emit(services.CDMStatus{State: "downloading"})
+	r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "downloading"})
 	access.NoNestedControls(t, r.tt.Tester)
 	tr := access.Read(t, r.tt.Tester)
 	if n, ok := tr.Find(ui.RoleLink, "Waiting for Widevine to download"); !ok || !n.Has(access.Focusable) {
 		t.Errorf("download link: %+v\n%s", n, tr.Dump())
 	}
-	r.emit(failed)
+	r.tt.Emit(services.EventCDMStatus, failed)
 	tr = access.Read(t, r.tt.Tester)
 	n, ok := tr.Find(ui.RoleLink, words)
 	if !ok || n.Description != i18n.CDMProblem("network") || n.Description == "" {
@@ -38,7 +38,7 @@ func TestA11yNoticeLinkAndText(t *testing.T) {
 
 	// Without the page the line is text and nothing takes the focus.
 	r = newRig(t, false, uitest.Bare())
-	r.emit(services.CDMStatus{State: "ready"})
+	r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "ready"})
 	tr = access.Read(t, r.tt.Tester)
 	if len(tr.Roles(ui.RoleLink)) != 0 || !r.tt.HasText("Widevine is ready. Press play to start.") {
 		t.Errorf("ready line:\n%s", tr.Dump())

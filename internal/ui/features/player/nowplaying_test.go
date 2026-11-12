@@ -144,18 +144,7 @@ func newNPRigWith(t *testing.T, opts []uitest.Option, mutate ...func(*npRig)) *n
 
 // play shows a playing catalogue song at position ms.
 func (r *npRig) play(ms int64, mutate ...func(*services.PlaybackState)) {
-	s := store.EmptyState()
-	s.State = store.StatePlaying
-	s.Current = &services.QueueItem{
-		ID: "i.1", CatalogID: "1001", Name: "Song Title", Artist: "The Artist", Album: "The Album",
-		ArtistID: "a1", AlbumID: "al1", Explicit: true,
-	}
-	s.DurationMs, s.PositionMs, s.At = 240_000, ms, r.h.Clock.Now().UnixMilli()
-	s.Controls = services.PlaybackControls{Previous: true, Next: true, Seek: true, Shuffle: true, Repeat: true}
-	for _, m := range mutate {
-		m(&s)
-	}
-	r.h.Env.Play.Seed(s, services.QueueState{Index: -1})
+	r.h.Play(ms, append([]func(*services.PlaybackState){func(s *services.PlaybackState) { s.Current.Explicit = true }}, mutate...)...)
 }
 
 // advance moves the song and the tester's clock on by d, drawing frames.
@@ -352,9 +341,7 @@ func TestLyricsLoadingNotFoundAndFailure(t *testing.T) {
 	r.tt.Until("failure", r.tt.Shows("Couldn't load the lyrics", "Try again"))
 	before := r.lyr.count()
 	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(3, false)}, nil)
-	if err := r.tt.Click("Try again"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Try again")
 	r.tt.Until("lyrics after the retry", r.tt.Shows("Line 1 sung words"))
 	if r.lyr.count() <= before {
 		t.Error("Try again did not ask the service")
@@ -462,9 +449,7 @@ func TestClickingALineSeeksToItsBeginPlusTheOffset(t *testing.T) {
 	r.tt.Until("lyrics", r.tt.Shows("Line 3 sung words"))
 	lyricsync.Session().Nudge("1001", 1) // lyrics half a second later
 	r.advance(time.Millisecond)
-	if err := r.tt.Click("Line 3 sung words"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Line 3 sung words")
 	select {
 	case ms := <-r.seek.seeks:
 		if want := int64(1000+3*4000) + 500; ms != want {
@@ -508,9 +493,7 @@ func TestLyricsTimingNudgesPerSongAndResets(t *testing.T) {
 	r.tt.Until("tools", r.tt.Shows("Lyrics on time"))
 	click := func(s string) {
 		t.Helper()
-		if err := r.tt.Click(s); err != nil {
-			t.Fatal(err)
-		}
+		r.tt.MustClick(s)
 		r.tt.Drain()
 	}
 	click("Show lyrics 0.5 s later")
@@ -647,9 +630,7 @@ func TestOpeningRoomLyricsAndLeavingThem(t *testing.T) {
 	r.play(2000)
 	r.open("")
 	r.tt.Until("tools", r.tt.Shows("Full screen"))
-	if err := r.tt.Click("Full screen"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Full screen")
 	r.tt.Until("the room", r.tt.Shows("Lyrics, full screen", "Exit full screen", "Song Title"))
 	if r.p.ui.overlay != overlayRoom || !r.p.roomOpen() {
 		t.Errorf("overlay %v", r.p.ui.overlay)
@@ -658,9 +639,7 @@ func TestOpeningRoomLyricsAndLeavingThem(t *testing.T) {
 		t.Errorf("the room lacks the sheet or the timing: %q", r.tt.Texts())
 	}
 	// Leaving returns to Now Playing, whose Full screen button has the focus.
-	if err := r.tt.Click("Exit full screen"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Exit full screen")
 	r.tt.Until("Now Playing again", r.tt.Shows("Now playing", "Full screen"))
 	if r.p.ui.overlay != overlayNowPlaying || !r.p.ui.fromRoom {
 		t.Errorf("overlay %v fromRoom %v", r.p.ui.overlay, r.p.ui.fromRoom)
@@ -670,9 +649,7 @@ func TestOpeningRoomLyricsAndLeavingThem(t *testing.T) {
 		t.Error("focus did not return to Full screen")
 	}
 	// Close steps out to the page.
-	if err := r.tt.Click("Close now playing (Escape)"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Close now playing (Escape)")
 	if r.p.ui.overlay != overlayNone {
 		t.Errorf("overlay %v after Close", r.p.ui.overlay)
 	}
@@ -710,9 +687,7 @@ func TestPaneTabsSwitchAndKeepTheirPane(t *testing.T) {
 	r.play(2000)
 	r.open("")
 	r.tt.Until("tabs", r.tt.Shows("Up next"))
-	if err := r.tt.Click("Up next"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Up next")
 	r.settle()
 	if r.p.ui.pane != paneQueue {
 		t.Errorf("pane %v after clicking Up next", r.p.ui.pane)

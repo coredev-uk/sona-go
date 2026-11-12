@@ -105,7 +105,7 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 					}
 				}
 				if len(entries) > 0 {
-					out = append(out, kit.PaletteSection{Title: groupTitle(g), Entries: entries})
+					out = append(out, kit.PaletteSection{Title: module.GroupTitle(g), Entries: entries})
 				}
 			}
 			return out
@@ -122,7 +122,7 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 		if len(ranked) > 0 {
 			entries := make([]kit.PaletteEntry, len(ranked))
 			for i, s := range ranked {
-				entries[i] = commandEntry(s, groupTitle(s.Group))
+				entries[i] = commandEntry(s, module.GroupTitle(s.Group))
 			}
 			out = append(out, kit.PaletteSection{Title: i18n.T("Commands"), Entries: entries})
 		}

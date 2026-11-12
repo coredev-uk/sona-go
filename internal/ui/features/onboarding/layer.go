@@ -288,7 +288,7 @@ func bigMark(c *ui.Context) {
 // form's own Sign in beside it as the primary action.
 func (o *onboarding) foot(c *ui.Context, step string, signedIn bool) {
 	ui.Column(c.Key("foot")).FillWidth().Height(footHeight).Shrink(0).Children(func() {
-		ui.Box(c.Key("line")).Height(1).FillWidth().Background(theme.C("line"))
+		theme.Hairline(c.Key("line"))
 		ui.Row(c.Key("row")).FillWidth().Grow(1).Padding(0, 24).Gap(12).AlignItems(ui.Center).Children(func() {
 			if step != store.SetupWelcome {
 				back := kit.Button(c.Key("back"), i18n.T("Back"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-left"}).

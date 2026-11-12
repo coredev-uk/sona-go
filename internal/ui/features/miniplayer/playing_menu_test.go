@@ -28,8 +28,8 @@ func TestMiniPlayerTitleAndArtistOpenTheMenuOfTheirKind(t *testing.T) {
 			t.Fatal(err)
 		}
 		r.tt.Frame()
-		r.want(t, "Song action")
-		r.wantNot(t, "Station action")
+		r.tt.Want("Song action")
+		r.tt.Lacks("Station action")
 		r.tt.Key(0, ui.KeyEscape)
 		r.tt.Frame()
 	}
@@ -37,9 +37,7 @@ func TestMiniPlayerTitleAndArtistOpenTheMenuOfTheirKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Frame()
-	if err := r.tt.Click("Song action"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Song action")
 	r.tt.Frame()
 	r.tt.Frame()
 	if len(ran) != 1 || ran[0] != "t.song:i.1" {
@@ -51,8 +49,8 @@ func TestMiniPlayerTitleAndArtistOpenTheMenuOfTheirKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Frame()
-	r.want(t, "Station action")
-	r.wantNot(t, "Song action")
+	r.tt.Want("Station action")
+	r.tt.Lacks("Song action")
 }
 
 // The window is the handle that drags it: a primary press on the title opens
@@ -73,7 +71,7 @@ func TestMiniPlayerMenuKeyboardAndMainWindow(t *testing.T) {
 
 	_ = r.tt.Click("Song Title")
 	r.tt.Frame()
-	r.wantNot(t, "Queue action")
+	r.tt.Lacks("Queue action")
 
 	for range 6 { // a Tab stop inside the window
 		if r.tt.Focused("Open Sona") {
@@ -85,11 +83,9 @@ func TestMiniPlayerMenuKeyboardAndMainWindow(t *testing.T) {
 	r.tt.Key(ui.Shift, ui.KeyF10)
 	r.tt.Frame()
 	r.tt.Frame()
-	r.want(t, "Queue action", "Page action")
+	r.tt.Want("Queue action", "Page action")
 
-	if err := r.tt.Click("Queue action"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Queue action")
 	r.tt.Frame()
 	r.tt.Frame()
 	if got := r.desk.snapshot(); len(got) != 0 {
@@ -97,9 +93,7 @@ func TestMiniPlayerMenuKeyboardAndMainWindow(t *testing.T) {
 	}
 	_ = r.tt.RightClick("Song Title")
 	r.tt.Frame()
-	if err := r.tt.Click("Page action"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Page action")
 	r.tt.Frame()
 	r.tt.Frame()
 	if got := r.desk.wait(t); len(got) != 1 || got[0] != "show main" {

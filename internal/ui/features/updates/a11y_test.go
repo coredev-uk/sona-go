@@ -22,7 +22,7 @@ func TestA11yNoticeIsAnnouncedAndHasAReachableButton(t *testing.T) {
 	if ann := r.tt.Announcements(); len(ann) != 0 {
 		t.Errorf("announced with no update: %q", ann)
 	}
-	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, URL: "https://example.test/r"})
+	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, URL: "https://example.test/r"})
 	if ann := r.tt.Announcements(); !slices.Equal(ann, []string{"Sona 0.3.0 is available"}) {
 		t.Errorf("announcements %q, want the notice once", ann)
 	}
@@ -57,7 +57,7 @@ func TestA11yNoticeIsAnnouncedAndHasAReachableButton(t *testing.T) {
 	}
 
 	// What changes the sentence is read once, by the status.
-	r.emit(services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, Installing: true})
+	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, Installing: true})
 	if ann := r.tt.Announcements(); !slices.Equal(ann, []string{"Downloading Sona 0.3.0…"}) {
 		t.Errorf("a download starting announced %q, want it once", ann)
 	}

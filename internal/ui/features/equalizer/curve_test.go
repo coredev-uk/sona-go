@@ -41,24 +41,6 @@ func TestWithBandEditsTheUsersOwnCurve(t *testing.T) {
 	}
 }
 
-func TestPregainReservesHeadroomPlusThePreampTrim(t *testing.T) {
-	eq := config.Equalizer{Enabled: true, Preset: "bass", Preamp: -2}
-	if got := pregainOf(eq, gainsOf(eq, testPresets)); got != -8 {
-		t.Errorf("pregain %v, want -8", got)
-	}
-}
-
-func TestPregainIsZeroWhenOffOrOnlyCuts(t *testing.T) {
-	eq := config.Equalizer{Enabled: false, Preset: "bass", Preamp: -2}
-	if got := pregainOf(eq, gainsOf(eq, testPresets)); got != 0 {
-		t.Errorf("off: pregain %v, want 0", got)
-	}
-	eq.Enabled, eq.Preamp = true, 0
-	if got := pregainOf(eq, []float64{-3, -6}); got != 0 {
-		t.Errorf("cuts only: pregain %v, want 0", got)
-	}
-}
-
 func TestLabels(t *testing.T) {
 	uitest.New(t, uitest.Bare()) // English, whatever the machine says
 	var got []string

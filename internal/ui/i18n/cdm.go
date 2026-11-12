@@ -1,6 +1,8 @@
 package i18n
 
 import (
+	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	mygoi18n "github.com/egoist/mygo/i18n"
 )
 
@@ -8,6 +10,16 @@ import (
 // language: 0.42 is "42%" (v0.2.0's numberFormat({style: "percent"})).
 func FormatPercent(fraction float64) string {
 	return mygoi18n.FormatNumber(current.Load().format, fraction, mygoi18n.NumberOptions{Percent: true})
+}
+
+// CDMPercent is a running CDM download's progress as a percentage in the
+// shown language ("42%"), "" while its size is unknown.
+func CDMPercent(s services.CDMStatus) string {
+	f, ok := store.CDMProgress(s)
+	if !ok {
+		return ""
+	}
+	return FormatPercent(f)
 }
 
 // CDMProblem words why there is no Widevine CDM, or why its last update check

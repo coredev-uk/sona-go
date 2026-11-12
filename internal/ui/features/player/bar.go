@@ -87,17 +87,12 @@ func (p *player) cover(c *ui.Context, s services.PlaybackState) {
 			src = s.OnAir.Art.Small
 		}
 	}
-	if !p.nowPlayingSurface() {
-		// Nothing to open: the cover is a picture.
-		kit.Artwork(c, p.env.Art, src, 48, kit.ArtOpts{}).Shrink(0)
-		return
-	}
 	open := p.ui.overlay != overlayNone
 	name := i18n.T("Open now playing")
 	switch {
 	case cur == nil:
 		name = i18n.T("Nothing playing")
-	case p.videoSurface():
+	case p.videoPlaying():
 		name = i18n.T("Show video")
 	case open:
 		name = i18n.T("Close now playing")
@@ -111,7 +106,7 @@ func (p *player) cover(c *ui.Context, s services.PlaybackState) {
 	// The button takes the pointer from the row: it opens the menu itself.
 	p.playingRow(b, cur, &p.menus.bar)
 	if b.Clicked() && cur != nil {
-		if p.videoSurface() && p.env.Video != nil {
+		if p.videoPlaying() && p.env.Video != nil {
 			p.env.Video.OpenFrom(&p.coverBtn)
 		} else if open {
 			p.ui.closeOverlay()
@@ -222,7 +217,6 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 // a live station has no times.
 func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 	idle := s.Current == nil
-	playing := s.State == store.StatePlaying
 	loading := s.State == store.StateLoading
 	live := s.Current != nil && s.Current.Live
 	pos, dur := p.position(s, idle)
@@ -244,22 +238,16 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 			p.toggleShuffle()
 		}
 		if p.iconButton(c, "prev", "skip-back", i18n.T("Previous"), idle || (!s.Controls.Previous && unavailable(s, ctlPrevious) == ""), unavailable(s, ctlPrevious), nil) {
-			p.previous()
+			p.tr.Prev()
 		}
 
-		icon, name := "play", i18n.T("Play")
-		switch {
-		case loading:
-			icon = "loader-circle"
-		case playing:
-			icon, name = "pause", i18n.T("Pause")
-		}
+		icon, name := kit.PlayPauseIcon(s.State)
 		play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
 			Variant: kit.Play, Size: kit.SizeLG, Icon: icon, Filled: !loading, Spin: loading, Disabled: idle, A11yLabel: name, Keys: p.env.KeysOf("player.toggle"),
 		})
 		play.Size(playDisc, playDisc).Shrink(0)
 		if play.Clicked() {
-			p.toggle()
+			p.tr.Toggle()
 		}
 		if loading {
 			// The spinner is only seen: this is what a screen reader finds of
@@ -268,7 +256,7 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 		}
 
 		if p.iconButton(c, "next", "skip-forward", i18n.T("Next"), idle || (!s.Controls.Next && unavailable(s, ctlNext) == ""), unavailable(s, ctlNext), nil) {
-			p.next()
+			p.tr.Next()
 		}
 		repeat := unavailable(s, ctlRepeat)
 		on = s.Repeat != "off" && repeat == ""
@@ -291,8 +279,8 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 			label(c, total, "meta").Width(40).Shrink(0).TextColor(theme.C("ink-faint")).FontFeatures("tnum")
 		}
 	})
-	if s.State == store.StatePlaying && !live && !p.seek.active {
-		c.After(250 * time.Millisecond) // the position ticks (v0.2.0's useLivePosition)
+	if !live {
+		p.seek.Tick(c, s.State == store.StatePlaying)
 	}
 }
 
@@ -336,14 +324,7 @@ func (p *player) iconButton(c *ui.Context, key, icon, name string, disabled bool
 // station says is on air.
 func (p *player) live(c *ui.Context, s services.PlaybackState) {
 	ui.Row(c).Height(16).MinWidth(0).Shrink(1).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(0).Children(func() {
-			dot := theme.C("ink-faint")
-			if s.State == store.StatePlaying {
-				dot = theme.C("play")
-			}
-			ui.Box(c).Size(6, 6).Radius(3).Background(dot)
-			label(c, i18n.T("Live"), "meta").FontWeight(500).TextColor(theme.C("ink"))
-		})
+		kit.LiveMarker(c, s.State == store.StatePlaying).Shrink(0)
 		if on := s.OnAir; on != nil {
 			line := on.Title
 			if on.Artist != "" {
@@ -361,10 +342,7 @@ func (p *player) live(c *ui.Context, s services.PlaybackState) {
 // dragged, where the drag would land; 0 with nothing playing.
 func (p *player) position(s services.PlaybackState, idle bool) (pos, dur time.Duration) {
 	dur = time.Duration(s.DurationMs) * time.Millisecond
-	pos = p.env.Play.Position()
-	if p.seek.active {
-		pos = time.Duration(p.seek.secs * float64(time.Second))
-	}
+	pos = p.seek.Pos(p.env.Play.Position())
 	if idle {
 		pos = 0
 	}
@@ -380,7 +358,7 @@ const seekHit = 12
 // go (or a key moved it). A live station has none: its edge is a line.
 func (p *player) seekStrip(c *ui.Context, s services.PlaybackState) {
 	if s.Current != nil && s.Current.Live {
-		p.seek.holding = false
+		p.holding = false
 		ui.Box(c.Key("edge")).Absolute().Left(0).Right(0).Top(0).Height(1).Background(theme.C("line")).IgnoreInput(true)
 		return
 	}
@@ -394,27 +372,23 @@ func (p *player) seekStrip(c *ui.Context, s services.PlaybackState) {
 		sl.Disabled(true).Opacity(0.5)
 	}
 	told := pos // what assistive technology reads of the position
-	if can && sl.Focused() && !p.seek.active {
-		if !p.seek.holding {
-			p.seek.holding, p.seek.held = true, math.Floor(pos.Seconds())
+	if can && sl.Focused() && !p.seek.Active() {
+		if !p.holding {
+			p.holding, p.held = true, math.Floor(pos.Seconds())
 		}
-		told = time.Duration(p.seek.held * float64(time.Second))
-		sl.Range(0, max(dur.Seconds(), 1), p.seek.held)
+		told = time.Duration(p.held * float64(time.Second))
+		sl.Range(0, max(dur.Seconds(), 1), p.held)
 	} else {
-		p.seek.holding = false
+		p.holding = false
 	}
 	if can {
 		// v0.2.0's aria-valuetext, there only while the slider is on.
 		sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(told), "total", i18n.FormatDuration(dur)))
 	}
-	if sl.Changed() {
-		p.seek.active, p.seek.secs = true, v
+	if to, ok := p.seek.Update(sl, v); ok {
+		p.tr.SeekTo(to, p.now())
 	}
-	if kit.SliderCommitted(sl) && p.seek.active {
-		p.seek.active = false
-		p.seekTo(time.Duration(p.seek.secs * float64(time.Second)))
-	}
-	drawSeek(sl, v, 0, max(dur.Seconds(), 1), sl.Hovered() || sl.Focused() || p.seek.active)
+	drawSeek(sl, v, 0, max(dur.Seconds(), 1), sl.Hovered() || sl.Focused() || p.seek.Active())
 }
 
 // seekThumb is the seek thumb's diameter; the track is 3 DIP, 5 while the
@@ -467,13 +441,13 @@ func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 	group.Children(func() {
 		p.env.PlayerControls.BuildRange(c, 0, module.ControlsAfterQueue) // the other features' controls: private listening…
 		p.sleepButton(c)
-		if p.videoSurface() {
+		if p.videoPlaying() {
 			on := p.env.Video.IsOpen()
 			if p.iconButton(c, "video", "clapperboard", i18n.T("Show video"), idle, "", &on) {
 				p.env.Video.ToggleFrom(&p.videoBtn)
 			}
 		}
-		if p.lyricsSurface() {
+		if !p.videoPlaying() {
 			on := p.ui.overlay == overlayNowPlaying && shownPane(p.ui.pane, s.Current) == paneLyrics
 			if p.iconButton(c, "lyrics", "mic-vocal", i18n.T("Lyrics"), idle, "", &on) {
 				p.opened(&p.lyricsBtn, p.toggleLyrics)
@@ -487,58 +461,24 @@ func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 		if !p.volume() {
 			return
 		}
-		icon, name := "volume-2", i18n.T("Mute")
-		switch {
-		case s.Volume == 0:
-			icon, name = "volume-x", i18n.T("Unmute")
-		case s.Volume < 0.5:
-			icon = "volume-1"
-		}
+		icon, name := kit.VolumeIcon(s.Volume)
 		if p.iconButton(c, "mute", icon, name, false, "", nil) {
-			p.toggleMute()
+			p.tr.ToggleMute()
 		}
 		v := s.Volume * 100
-		sl := slider(c.Key("volume"), &v, 0, 100, theme.C("ink-muted"), false).Label(i18n.T("Volume"))
-		// v0.2.0's w-24 shrink-0: the share of spare room slider() asks for
-		// is the seek bar's, not the volume's.
-		sl.Grow(0).Shrink(0).Width(volumeWidth)
+		// v0.2.0's w-24 shrink-0.
+		sl := kit.Slider(c.Key("volume"), &v, 0, 100, kit.SliderOpts{A11yLabel: i18n.T("Volume"), Range: theme.C("ink-muted"), Width: volumeWidth})
 		// No description: its range is 0 to 100, so a screen reader already
 		// says the value and the percentage ("80, 80 percent"); "80%" again
 		// would be a third time.
 		if sl.Changed() {
-			p.setVolume(v / 100)
+			p.tr.SetVolume(v / 100)
 		}
 	})
 	if w := group.Bounds().W; w != p.rightW {
 		p.rightW = w
 		c.Invalidate()
 	}
-}
-
-// slider is a slider in the design's look: a 4px track at 40% of the
-// faint ink, the range in the given colour, a 12px ink thumb (shared/ui/
-// slider.tsx).
-func slider(c *ui.Context, v *float64, lo, hi float64, rangeColor ui.Color, disabled bool) ui.Element {
-	const thumb = 12
-	s := ui.SliderBase(c, v, lo, hi).Height(16).PaddingX(thumb / 2).Cursor(ui.CursorPointer)
-	if disabled {
-		s.Disabled(true).Opacity(0.5)
-	}
-	at := float32(0)
-	if hi > lo {
-		at = float32((*v - lo) / (hi - lo))
-	}
-	track, ink := theme.C("ink-faint").Alpha(0.4), theme.C("ink")
-	s.Draw(func(p *ui.Painter, r ui.Rect) {
-		x0, w := r.X+thumb/2, r.W-thumb
-		y := r.Y + (r.H-4)/2
-		p.Fill(ui.Rect{X: x0, Y: y, W: w, H: 4}, track, 2)
-		if fill := w * min(max(at, 0), 1); fill > 0 {
-			p.Fill(ui.Rect{X: x0, Y: y, W: fill, H: 4}, rangeColor, 2)
-		}
-		p.Fill(ui.Rect{X: x0 + w*min(max(at, 0), 1) - thumb/2, Y: r.Y + (r.H-thumb)/2, W: thumb, H: thumb}, ink, thumb/2)
-	})
-	return s.Grow(1)
 }
 
 // tag is a small bordered label (shared/components/Badges.tsx's Tag).

@@ -19,29 +19,6 @@ import (
 
 const liveReason = "Not available while listening to a live station"
 
-// stopLabels are the names of the Tab stops, in order.
-func stopLabels(stops []access.Stop) []string {
-	out := make([]string, len(stops))
-	for i, s := range stops {
-		out[i] = s.Node.Label
-	}
-	return out
-}
-
-// inOrder fails unless want is a subsequence of got.
-func inOrder(t *testing.T, got []string, want ...string) {
-	t.Helper()
-	at := 0
-	for _, g := range got {
-		if at < len(want) && g == want[at] {
-			at++
-		}
-	}
-	if at < len(want) {
-		t.Errorf("Tab reached %q, which lacks %q after %q", got, want[at], want[:at])
-	}
-}
-
 // audit is deliverable A in one call: no control hides inside a leaf, and
 // the Tab walk comes back (no trap) with every stop on the tree. It returns
 // the tree and the stops' names.
@@ -49,7 +26,7 @@ func audit(t *testing.T, tt *ui.Tester) (access.Tree, []string) {
 	t.Helper()
 	access.NoNestedControls(t, tt)
 	stops := access.TabWalk(t, tt, 60)
-	return access.Read(t, tt), stopLabels(stops)
+	return access.Read(t, tt), access.StopLabels(stops)
 }
 
 // tabTo presses Tab until the element named label has the focus.
@@ -64,15 +41,6 @@ func tabTo(t *testing.T, tt *ui.Tester, label string) access.Node {
 	}
 	t.Fatalf("Tab never reached %q", label)
 	return access.Node{}
-}
-
-func mustFind(t *testing.T, tr access.Tree, role ui.Role, label string) access.Node {
-	t.Helper()
-	n, ok := tr.Find(role, label)
-	if !ok {
-		t.Fatalf("no %v %q on the tree:\n%s", role, label, tr.Dump())
-	}
-	return n
 }
 
 func TestBarKeyboardWalkAndTree(t *testing.T) {
@@ -100,11 +68,11 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 					{ui.RoleToggleButton, "Repeat off"},
 					{ui.RoleSlider, "Seek"},
 				} {
-					if !mustFind(t, tr, n.role, n.label).Has(access.Disabled) {
+					if !tr.MustFind(t, n.role, n.label).Has(access.Disabled) {
 						t.Errorf("%q is not disabled with nothing playing", n.label)
 					}
 				}
-				if d := mustFind(t, tr, ui.RoleSlider, "Seek").Description; d != "" {
+				if d := tr.MustFind(t, ui.RoleSlider, "Seek").Description; d != "" {
 					t.Errorf("an idle Seek reads %q", d)
 				}
 			},
@@ -114,20 +82,20 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 			seed:  func(r *rig) { r.seed() },
 			order: playing,
 			check: func(t *testing.T, tr access.Tree) {
-				if g, ok := tr.Find(ui.RoleRegion, "Player"); !ok || !tr.Within(mustFind(t, tr, ui.RoleButton, "Pause"), ui.RoleRegion) {
+				if g, ok := tr.Find(ui.RoleRegion, "Player"); !ok || !tr.Within(tr.MustFind(t, ui.RoleButton, "Pause"), ui.RoleRegion) {
 					t.Errorf("the bar is not a region named Player: %v", g)
 				}
-				if got := mustFind(t, tr, ui.RoleSlider, "Seek").Description; got != "0:30 of 3:00" {
+				if got := tr.MustFind(t, ui.RoleSlider, "Seek").Description; got != "0:30 of 3:00" {
 					t.Errorf("Seek reads %q", got)
 				}
 				// 0 to 100: the number and the percentage say it; a description would
 				// make a screen reader say it a third time.
-				if v := mustFind(t, tr, ui.RoleSlider, "Volume"); v.Description != "" || v.Now != 80 || v.Max != 100 {
+				if v := tr.MustFind(t, ui.RoleSlider, "Volume"); v.Description != "" || v.Now != 80 || v.Max != 100 {
 					t.Errorf("Volume reads %v of %v and %q", v.Now, v.Max, v.Description)
 				}
 				// The name of a toggle is its state, and Checked is the state.
 				for _, l := range []string{"Shuffle off", "Repeat off", "Lyrics", "Queue"} {
-					if mustFind(t, tr, ui.RoleToggleButton, l).Has(access.Checked) {
+					if tr.MustFind(t, ui.RoleToggleButton, l).Has(access.Checked) {
 						t.Errorf("%q is checked", l)
 					}
 				}
@@ -151,7 +119,7 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 			order: []string{"Open now playing", "Shuffle on", "Previous", "Pause", "Next", "Repeat all", "Seek"},
 			check: func(t *testing.T, tr access.Tree) {
 				for _, l := range []string{"Shuffle on", "Repeat all", "Queue"} {
-					if !mustFind(t, tr, ui.RoleToggleButton, l).Has(access.Checked) {
+					if !tr.MustFind(t, ui.RoleToggleButton, l).Has(access.Checked) {
 						t.Errorf("%q is not checked", l)
 					}
 				}
@@ -165,7 +133,7 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 			},
 			order: []string{"Open now playing", "Sign in again to keep playing", "Shuffle off", "Previous", "Pause"},
 			check: func(t *testing.T, tr access.Tree) {
-				mustFind(t, tr, ui.RoleButton, "Sign in again to keep playing")
+				tr.MustFind(t, ui.RoleButton, "Sign in again to keep playing")
 			},
 		},
 		{
@@ -185,7 +153,7 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 				}{
 					{ui.RoleToggleButton, "Shuffle off"}, {ui.RoleButton, "Previous"}, {ui.RoleButton, "Next"}, {ui.RoleToggleButton, "Repeat off"},
 				} {
-					b := mustFind(t, tr, n.role, n.label)
+					b := tr.MustFind(t, n.role, n.label)
 					if !b.Has(access.Disabled) || !b.Has(access.Focusable) || b.Can(access.Press) || b.Description != liveReason {
 						t.Errorf("%q: disabled %v, focusable %v, description %q", n.label, b.Has(access.Disabled), b.Has(access.Focusable), b.Description)
 					}
@@ -200,7 +168,7 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 			seed:  func(r *rig) { r.seed(func(s *services.PlaybackState) { s.State = store.StateLoading }) },
 			order: []string{"Open now playing", "Shuffle off", "Previous", "Play", "Next"},
 			check: func(t *testing.T, tr access.Tree) {
-				mustFind(t, tr, ui.RoleStatus, "Loading")
+				tr.MustFind(t, ui.RoleStatus, "Loading")
 			},
 		},
 		{
@@ -210,7 +178,7 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 			},
 			order: []string{"Open now playing", "Shuffle off", "Previous", "Play", "Next"},
 			check: func(t *testing.T, tr access.Tree) {
-				st := mustFind(t, tr, ui.RoleStatus, "Couldn't play this song. Press play to try again.")
+				st := tr.MustFind(t, ui.RoleStatus, "Couldn't play this song. Press play to try again.")
 				if st.Description == "" {
 					t.Error("the failure's why (the tooltip) is not its description")
 				}
@@ -221,7 +189,7 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 			r := newRig(t, true)
 			tc.seed(r)
 			tr, got := audit(t, r.tt.Tester)
-			inOrder(t, got, tc.order...)
+			access.InOrder(t, got, tc.order...)
 			tc.check(t, tr)
 		})
 	}
@@ -231,7 +199,7 @@ func TestSignInAgainIsABarControlThatOpensTheAccountSurface(t *testing.T) {
 	r := newRig(t, true)
 	r.env.Surfaces = store.NewSurfaces()
 	r.seed(func(s *services.PlaybackState) { s.AuthRequired = true })
-	n := mustFind(t, access.Read(t, r.tt.Tester), ui.RoleButton, "Sign in again to keep playing")
+	n := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleButton, "Sign in again to keep playing")
 	if !n.Has(access.Focusable) || !n.Can(access.Press) {
 		t.Fatalf("the sign-in line is not a focusable, pressable button: %+v", n)
 	}
@@ -263,13 +231,13 @@ func TestUnavailableBarControlsKeepTheFocusExplainAndIgnoreThePress(t *testing.T
 			t.Errorf("%q lost the focus on a press", name)
 		}
 	}
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("pressing what a live station cannot do sent %v", got)
 	}
 	// A control that can be pressed still works from the same spot.
 	tabTo(t, r.tt.Tester, "Pause")
 	r.tt.Key(0, ui.KeyEnter)
-	if got := r.fake.wait(t, 1); !slices.Equal(got, []string{"toggle"}) {
+	if got := r.fake.Wait(t, 1); !slices.Equal(got, []string{"toggle"}) {
 		t.Errorf("Pause sent %v", got)
 	}
 }
@@ -387,7 +355,7 @@ func TestSleepTimerIsAMenuButtonThatKeepsTheFocusAcrossTheMenu(t *testing.T) {
 	r.tt.Frame()
 	r.tt.Frame()
 	tr := access.Read(t, r.tt.Tester)
-	if n := mustFind(t, tr, ui.RoleMenuButton, "Sleep timer"); !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
+	if n := tr.MustFind(t, ui.RoleMenuButton, "Sleep timer"); !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
 		t.Errorf("the open sleep menu does not show on its button, a menu button:\n%s", tr.Dump())
 	}
 	if _, ok := tr.Find(ui.RoleMenuItemRadio, "In 15 minutes"); !ok {
@@ -397,7 +365,7 @@ func TestSleepTimerIsAMenuButtonThatKeepsTheFocusAcrossTheMenu(t *testing.T) {
 	r.tt.Frame()
 	r.tt.Frame()
 	tr = access.Read(t, r.tt.Tester)
-	b = mustFind(t, tr, ui.RoleMenuButton, "Sleep timer")
+	b = tr.MustFind(t, ui.RoleMenuButton, "Sleep timer")
 	if b.Has(access.Expanded) {
 		t.Error("the sleep button still says it is expanded after Escape")
 	}
@@ -411,8 +379,8 @@ func TestSleepTimerIsAMenuButtonThatKeepsTheFocusAcrossTheMenu(t *testing.T) {
 // the list item named item.
 func inItem(t *testing.T, tr access.Tree, item string, role ui.Role, label string) access.Node {
 	t.Helper()
-	n := mustFind(t, tr, role, label)
-	li := mustFind(t, tr, ui.RoleListItem, item)
+	n := tr.MustFind(t, role, label)
+	li := tr.MustFind(t, ui.RoleListItem, item)
 	if !slices.ContainsFunc(tr.Ancestors(n), func(a access.Node) bool { return a.Index == li.Index }) {
 		t.Errorf("%q is not inside the list item %q:\n%s", label, item, tr.Dump())
 	}
@@ -452,19 +420,19 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 			seed:  func(r *queueRig) { r.seed(4, 0) },
 			order: []string{"Toggle queue", "Clear", "AutoPlay", "Close queue", "Song 1, Artist 1"},
 			check: func(t *testing.T, _ *queueRig, tr access.Tree, stops []string) {
-				if h := mustFind(t, tr, ui.RoleHeading, "Queue"); h.Level != 2 {
+				if h := tr.MustFind(t, ui.RoleHeading, "Queue"); h.Level != 2 {
 					t.Errorf("the panel's heading is level %d", h.Level)
 				}
-				panel := mustFind(t, tr, ui.RoleGroup, "Queue")
+				panel := tr.MustFind(t, ui.RoleGroup, "Queue")
 				// The playing song and what follows are lists of their own, each
 				// under a heading.
 				for _, g := range []string{"Now playing", "Next"} {
-					if h := mustFind(t, tr, ui.RoleHeading, g); h.Level != 3 {
+					if h := tr.MustFind(t, ui.RoleHeading, g); h.Level != 3 {
 						t.Errorf("%s's heading is level %d", g, h.Level)
 					}
 				}
-				list := mustFind(t, tr, ui.RoleList, "Next")
-				if n := tr.Children(mustFind(t, tr, ui.RoleList, "Now playing")); len(n) != 1 || n[0].Role != ui.RoleListItem {
+				list := tr.MustFind(t, ui.RoleList, "Next")
+				if n := tr.Children(tr.MustFind(t, ui.RoleList, "Now playing")); len(n) != 1 || n[0].Role != ui.RoleListItem {
 					t.Errorf("the playing song's list holds %v", n)
 				}
 				if !tr.Within(list, ui.RoleGroup) || list.Index < panel.Index {
@@ -476,11 +444,11 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 						t.Errorf("the list holds a %v", c)
 					}
 				}
-				now := mustFind(t, tr, ui.RoleListItem, "Song 1, Artist 1")
+				now := tr.MustFind(t, ui.RoleListItem, "Song 1, Artist 1")
 				if now.Current != ui.CurrentItem || now.Has(access.Selected) {
 					t.Errorf("the playing row is not the current item: %+v", now)
 				}
-				if other := mustFind(t, tr, ui.RoleListItem, "Up next: Song 2, Artist 2"); other.Current != ui.CurrentNone {
+				if other := tr.MustFind(t, ui.RoleListItem, "Up next: Song 2, Artist 2"); other.Current != ui.CurrentNone {
 					t.Errorf("a row that is not playing is the current item: %+v", other)
 				}
 				if _, ok := tr.Find(ui.RoleImage, "Now playing"); !ok {
@@ -492,7 +460,7 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 					}
 				}
 				rowActions(t, tr, stops, 2, 4)
-				if !strings.Contains(mustFind(t, tr, ui.RoleListItem, "Up next: Song 2, Artist 2").Description, "Alt+Up and Alt+Down") {
+				if !strings.Contains(tr.MustFind(t, ui.RoleListItem, "Up next: Song 2, Artist 2").Description, "Alt+Up and Alt+Down") {
 					t.Error("a row does not say its keys")
 				}
 			},
@@ -504,7 +472,7 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 			order:  []string{"Song 1, Artist 1"},
 			check: func(t *testing.T, _ *queueRig, tr access.Tree, stops []string) {
 				rowActions(t, tr, stops, 2, 4)
-				d := mustFind(t, tr, ui.RoleListItem, "Up next: Song 2, Artist 2").Description
+				d := tr.MustFind(t, ui.RoleListItem, "Up next: Song 2, Artist 2").Description
 				if !strings.Contains(d, "Escape closes now playing") {
 					t.Errorf("the row's help is %q", d)
 				}
@@ -515,19 +483,19 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 			seed:  func(r *queueRig) { r.seed(6, 0, autoPlayFrom(3)) },
 			order: []string{"Toggle queue", "Clear", "AutoPlay", "Close queue", "Song 1, Artist 1"},
 			check: func(t *testing.T, _ *queueRig, tr access.Tree, _ []string) {
-				if !mustFind(t, tr, ui.RoleToggleButton, "AutoPlay").Has(access.Checked) {
+				if !tr.MustFind(t, ui.RoleToggleButton, "AutoPlay").Has(access.Checked) {
 					t.Error("AutoPlay is on and its button is not checked")
 				}
-				if h := mustFind(t, tr, ui.RoleHeading, "AutoPlay"); h.Level != 3 {
+				if h := tr.MustFind(t, ui.RoleHeading, "AutoPlay"); h.Level != 3 {
 					t.Errorf("AutoPlay's heading is level %d", h.Level)
 				}
-				list := mustFind(t, tr, ui.RoleList, "AutoPlay")
+				list := tr.MustFind(t, ui.RoleList, "AutoPlay")
 				for _, c := range tr.Children(list) {
 					if c.Role != ui.RoleListItem {
 						t.Errorf("AutoPlay's list holds a %v", c)
 					}
 				}
-				mustFind(t, tr, ui.RoleList, "Next")
+				tr.MustFind(t, ui.RoleList, "Next")
 			},
 		},
 		{
@@ -545,7 +513,7 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 			r := newQueueRig(t, tc.inView)
 			tc.seed(r)
 			tr, stops := audit(t, r.tt.Tester)
-			inOrder(t, stops, tc.order...)
+			access.InOrder(t, stops, tc.order...)
 			tc.check(t, r, tr, stops)
 		})
 	}
@@ -556,7 +524,7 @@ type place struct{ pos, size int }
 
 func placeOf(t *testing.T, tr access.Tree, label string) place {
 	t.Helper()
-	n := mustFind(t, tr, ui.RoleListItem, label)
+	n := tr.MustFind(t, ui.RoleListItem, label)
 	return place{n.PosInSet, n.SetSize}
 }
 
@@ -634,13 +602,11 @@ func TestRowActionsAreTheSameOnTheTreeWhileTheRowIsHot(t *testing.T) {
 	access.NoNestedControls(t, r.tt.Tester)
 	// The pointer's press on the hot button still opens the menu, and the
 	// button says so.
-	if err := r.tt.Click("More for Song 3"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("More for Song 3")
 	r.tt.Frame()
 	r.tt.Frame()
 	tr := access.Read(t, r.tt.Tester)
-	if n := mustFind(t, tr, ui.RoleMenuButton, "More for Song 3"); !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
+	if n := tr.MustFind(t, ui.RoleMenuButton, "More for Song 3"); !n.Has(access.Expanded) || n.HasPopup != ui.PopupMenu {
 		t.Errorf("the open menu does not show on its button:\n%s", tr.Dump())
 	}
 	if len(tr.Labelled(ui.RoleMenuItem, "Play next")) == 0 {
@@ -676,14 +642,10 @@ func TestQueueEditsAreAnnouncedWithTheSongsNewPlace(t *testing.T) {
 	x, y := r.at(t, "Song 4, Artist 4")
 	r.tt.Move(x, y)
 	r.tt.Frame()
-	if err := r.tt.Click("More for Song 4"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("More for Song 4")
 	r.tt.Frame()
-	if err := r.tt.Click("Play next"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.fake.wait(t, 1); got[0] != "movenext 3" {
+	r.tt.MustClick("Play next")
+	if got := r.fake.Wait(t, 1); got[0] != "movenext 3" {
 		t.Fatalf("calls %v", got)
 	}
 	r.tt.Announcements()
@@ -702,11 +664,11 @@ func TestQueueEditsAreAnnouncedWithTheSongsNewPlace(t *testing.T) {
 	// A move that fails is forgotten: Go's refusal comes back to the main
 	// thread (Drain runs it), so a later snapshot that happens to put the
 	// song elsewhere is not announced as that move.
-	r.fake.fail = errors.New("boom")
+	r.fake.Fail = errors.New("boom")
 	r.focusRow(t, "Song 3, Artist 3")
 	r.tt.Announcements()
 	r.tt.Key(ui.Alt, ui.KeyDown)
-	r.fake.wait(t, 1)
+	r.fake.Wait(t, 1)
 	if r.p.queue.moved == nil {
 		t.Fatal("the move was not pending before Go answered")
 	}
@@ -745,7 +707,7 @@ func TestAutoPlayWhereItDoesNotApplyKeepsTheFocusAndSaysWhy(t *testing.T) {
 	}
 	r.tt.Key(0, ui.KeyEnter)
 	r.tt.Frame()
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("a refused AutoPlay sent %v", got)
 	}
 	if !r.tt.Focused("AutoPlay") {
@@ -761,7 +723,7 @@ func TestFocusedSeekHoldsTheValueAssistiveTechnologyReads(t *testing.T) {
 	r := newRig(t, true)
 	r.seed()
 	tabTo(t, r.tt.Tester, "Seek")
-	held := mustFind(t, access.Read(t, r.tt.Tester), ui.RoleSlider, "Seek")
+	held := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleSlider, "Seek")
 	if held.Now != 30 || held.Description != "0:30 of 3:00" {
 		t.Fatalf("Seek reads %v and %q on arrival", held.Now, held.Description)
 	}
@@ -769,7 +731,7 @@ func TestFocusedSeekHoldsTheValueAssistiveTechnologyReads(t *testing.T) {
 		r.h.Clock.Advance(4 * time.Second)
 		r.tt.Advance(4 * time.Second)
 	}
-	if got := mustFind(t, access.Read(t, r.tt.Tester), ui.RoleSlider, "Seek"); got.Now != 30 || got.Description != "0:30 of 3:00" {
+	if got := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleSlider, "Seek"); got.Now != 30 || got.Description != "0:30 of 3:00" {
 		t.Errorf("a focused Seek reads %v and %q while the song plays on", got.Now, got.Description)
 	}
 	if !r.tt.HasText("0:42") {
@@ -778,7 +740,7 @@ func TestFocusedSeekHoldsTheValueAssistiveTechnologyReads(t *testing.T) {
 	// Leaving it, Seek reads the position again.
 	r.tt.Key(0, ui.KeyTab)
 	r.tt.Advance(time.Second)
-	if got := mustFind(t, access.Read(t, r.tt.Tester), ui.RoleSlider, "Seek"); got.Now < 42 {
+	if got := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleSlider, "Seek"); got.Now < 42 {
 		t.Errorf("Seek still reads %v once the focus is gone", got.Now)
 	}
 }

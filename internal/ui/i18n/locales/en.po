@@ -1152,8 +1152,7 @@ msgstr "Copy an Apple Music link first."
 msgid "Copy diagnostics"
 msgstr "Copy diagnostics"
 
-#: internal/ui/features/onboarding/connections.go
-#: internal/ui/features/settings/scrobble.go
+#: internal/ui/kit/listenbrainz_hint.go
 msgid "Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with ListenBrainz and keeps it in your keyring."
 msgstr "Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with ListenBrainz and keeps it in your keyring."
 
@@ -1210,8 +1209,7 @@ msgstr "Couldn't change the cover"
 msgid "Couldn't change the pin"
 msgstr "Couldn't change the pin"
 
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't change the volume"
 msgstr "Couldn't change the volume"
 
@@ -1308,9 +1306,7 @@ msgstr "Couldn't get Widevine · Retry in Settings"
 msgid "Couldn't get a sign-in link"
 msgstr "Couldn't get a sign-in link"
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't go back"
 msgstr "Couldn't go back"
 
@@ -1552,9 +1548,7 @@ msgstr "Couldn't open the release"
 msgid "Couldn't pin “{name}”"
 msgstr "Couldn't pin “{name}”"
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't play or pause"
 msgstr "Couldn't play or pause"
 
@@ -1733,9 +1727,7 @@ msgstr "Couldn't search Apple Music"
 msgid "Couldn't search your library"
 msgstr "Couldn't search your library"
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't seek"
 msgstr "Couldn't seek"
 
@@ -1751,9 +1743,7 @@ msgstr "Couldn't set the sleep timer"
 msgid "Couldn't sign out"
 msgstr "Couldn't sign out"
 
-#: internal/ui/features/miniplayer/commands.go
-#: internal/ui/features/player/player.go
-#: internal/ui/features/video/video.go
+#: internal/ui/kit/transport.go
 msgid "Couldn't skip"
 msgstr "Couldn't skip"
 
@@ -2534,8 +2524,8 @@ msgstr "GStreamer"
 msgid "Gave back {size} to the disk"
 msgstr "Gave back {size} to the disk"
 
-#: internal/ui/features/commands/commands.go
 #: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "General"
 msgstr "General"
 
@@ -3092,9 +3082,8 @@ msgid "Listening"
 msgstr "Listening"
 
 #: internal/ui/features/artist/timeline.go
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
 #: internal/ui/features/player/nowplaying_view.go
+#: internal/ui/kit/playback_controls.go
 msgid "Live"
 msgstr "Live"
 
@@ -3442,8 +3431,7 @@ msgid "Musixmatch"
 msgstr "Musixmatch"
 
 #: internal/ui/app/menubar.go
-#: internal/ui/features/player/bar.go
-#: internal/ui/features/video/view.go
+#: internal/ui/kit/playback_controls.go
 msgid "Mute"
 msgstr "Mute"
 
@@ -3459,8 +3447,7 @@ msgstr "Name"
 msgid "Name and description"
 msgstr "Name and description"
 
-#: internal/ui/features/commands/commands.go
-#: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "Navigation"
 msgstr "Navigation"
 
@@ -4229,8 +4216,7 @@ msgctxt "keyboard key"
 msgid "Page Up"
 msgstr "Page Up"
 
-#: internal/ui/features/commands/commands.go
-#: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "Pages"
 msgstr "Pages"
 
@@ -4260,11 +4246,9 @@ msgstr "Paste your user token first."
 
 #: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
 #: internal/ui/features/radio/onair.go
-#: internal/ui/features/video/view.go
 #: internal/ui/kit/collections_items_stations.go
+#: internal/ui/kit/playback_controls.go
 msgid "Pause"
 msgstr "Pause"
 
@@ -4358,19 +4342,17 @@ msgstr "Platform"
 #: internal/ui/app/tray.go
 #: internal/ui/features/artist/head.go
 #: internal/ui/features/home/rows.go
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/bar.go
 #: internal/ui/features/player/queue_menu.go
 #: internal/ui/features/playlist/sidebar.go
 #: internal/ui/features/radio/onair.go
 #: internal/ui/features/radio/radio.go
 #: internal/ui/features/search/itemrow.go
 #: internal/ui/features/search/results.go
-#: internal/ui/features/video/view.go
 #: internal/ui/kit/button.go
 #: internal/ui/kit/collections_cover.go
 #: internal/ui/kit/collections_items_linklist.go
 #: internal/ui/kit/collections_items_stations.go
+#: internal/ui/kit/playback_controls.go
 msgid "Play"
 msgstr "Play"
 
@@ -4439,10 +4421,10 @@ msgstr "Play {playLabel}"
 msgid "Play {songName}"
 msgstr "Play {songName}"
 
-#: internal/ui/features/commands/commands.go
 #: internal/ui/features/onboarding/steps.go
 #: internal/ui/features/settings/diag_rows.go
 #: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
 msgid "Playback"
 msgstr "Playback"
 
@@ -7002,8 +6984,7 @@ msgstr "Unknown: counted as mains power"
 msgid "Unlock at iforgot.apple.com"
 msgstr "Unlock at iforgot.apple.com"
 
-#: internal/ui/features/player/bar.go
-#: internal/ui/features/video/view.go
+#: internal/ui/kit/playback_controls.go
 msgid "Unmute"
 msgstr "Unmute"
 
@@ -7132,9 +7113,8 @@ msgid "Videos"
 msgstr "Videos"
 
 #: internal/ui/app/menubar.go
-#: internal/ui/features/commands/commands.go
-#: internal/ui/features/settings/find.go
 #: internal/ui/features/updates/updates.go
+#: internal/ui/module/shortcut_groups.go
 msgid "View"
 msgstr "View"
 

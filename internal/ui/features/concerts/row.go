@@ -40,9 +40,10 @@ func rule(c *ui.Context, h float32) ui.Element {
 // the weekday over the day number and the month.
 func dateBlock(c *ui.Context, con services.Concert) ui.Element {
 	return ui.Column(c).Width(dateWidth).Shrink(0).Children(func() {
-		text(c, showWeekday(con), "meta", "ink-muted").FontFeatures("tnum").SingleLine()
-		text(c, showDate(con), "title", "ink").FontFeatures("tnum").SingleLine()
-		text(c, showMonthShort(con), "meta", "ink-muted").FontFeatures("tnum").SingleLine()
+		f := factsOf(con)
+		text(c, f.weekday, "meta", "ink-muted").FontFeatures("tnum").SingleLine()
+		text(c, f.date, "title", "ink").FontFeatures("tnum").SingleLine()
+		text(c, f.monthName, "meta", "ink-muted").FontFeatures("tnum").SingleLine()
 	})
 }
 
@@ -62,7 +63,7 @@ type rowOpts struct {
 	artist bool
 	// facts are the row's words, made once for the listing; nil makes them
 	// here.
-	facts *facts
+	facts *showFacts
 	// rov and row make the row's controls stops of the agenda's roving
 	// focus; nil rov leaves them as Tab stops.
 	rov *roving
@@ -75,18 +76,6 @@ type rowOpts struct {
 // wide is the agenda's row: the start leads, and the distance sits by the
 // venue. The others are a shelf's.
 func (o rowOpts) wide() bool { return !o.date && !o.artist }
-
-// facts are the words a row sets beside the line-up. The agenda makes them
-// once for each listing, not in every frame.
-type facts struct {
-	// clock is the start at the venue's clock, away how far it is ("" when
-	// unknown), place "Example Hall · London".
-	clock, away, place string
-}
-
-func factsOf(c services.Concert) facts {
-	return facts{clock: showTime(c), away: distanceLabel(c.DistanceKm), place: venueLine(c)}
-}
 
 // open opens a ticket seller's page in the browser; Go let through only
 // https links.

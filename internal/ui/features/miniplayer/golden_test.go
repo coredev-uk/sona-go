@@ -36,8 +36,8 @@ func TestMiniPlayerGolden(t *testing.T) {
 			t.Cleanup(func() { loader.Close(); loader.Wait() })
 			h.Env.Art = loader
 			m := newMini(h.Env)
-			svc, desk, lyr := newSvc(), newDesk(), &fakeLyrics{}
-			m.svc, m.desk, m.lyr, m.now = svc, desk, lyr, h.Clock.Now
+			desk, lyr := newDesk(), &fakeLyrics{}
+			m.tr.Svc, m.desk, m.lyr, m.now = uitest.NewTransport(), desk, lyr, h.Clock.Now
 			lyricsync.Session().Clear()
 			t.Cleanup(lyricsync.Session().Clear)
 			lyr.set(services.Lyrics{Timing: "Line", Lines: []services.LyricLine{

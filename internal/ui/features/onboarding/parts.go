@@ -89,10 +89,7 @@ func choiceCard(c *ui.Context, ch choice, chosen *string, disabled bool) {
 func switchRow(c *ui.Context, id, label, hint string, checked, disabled bool, onChange func(on bool), children func()) {
 	ui.Column(c.Key("row:"+id)).FillWidth().Padding(12, 0).Children(func() {
 		ui.Row(c.Key("head")).FillWidth().Gap(24).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
-			ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-				theme.Text(c, label, "ui").FontWeight(500).TextColor(theme.C("ink"))
-				theme.Text(c, hint, "sub").TextColor(theme.C("ink-muted"))
-			})
+			words(c, label, hint)
 			on := checked
 			sw := kit.Switch(c.Key("switch"), &on, kit.SwitchOpts{A11yLabel: label, Disabled: disabled}).Description(hint)
 			if sw.Changed() && on != checked {
@@ -105,6 +102,14 @@ func switchRow(c *ui.Context, id, label, hint string, checked, disabled bool, on
 	})
 }
 
+// words is a row's left side: its title and the line under it.
+func words(c *ui.Context, title, line string) {
+	ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+		theme.Text(c, title, "ui").FontWeight(500).TextColor(theme.C("ink"))
+		theme.Text(c, line, "sub").TextColor(theme.C("ink-muted"))
+	})
+}
+
 // list lays rows out as one list, divided by the structural line
 // (SwitchList, and the divide-y lists of the welcome and the last step).
 func list(c *ui.Context, id string, rows []func()) {
@@ -114,7 +119,7 @@ func list(c *ui.Context, id string, rows []func()) {
 	ui.Column(c.Key("list:" + id)).FillWidth().Children(func() {
 		for i, row := range rows {
 			if i > 0 {
-				ui.Box(c.Key(i)).Height(1).FillWidth().Background(theme.C("line"))
+				theme.Hairline(c.Key(i))
 			}
 			ui.Column(c.Key(-1 - i)).FillWidth().Children(row)
 		}

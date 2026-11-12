@@ -25,52 +25,30 @@ func audit(t *testing.T, tt *ui.Tester) (access.Tree, []string) {
 	return access.Read(t, tt), names
 }
 
-func inOrder(t *testing.T, got []string, want ...string) {
-	t.Helper()
-	at := 0
-	for _, g := range got {
-		if at < len(want) && g == want[at] {
-			at++
-		}
-	}
-	if at < len(want) {
-		t.Errorf("Tab reached %q, which lacks %q after %q", got, want[at], want[:at])
-	}
-}
-
-func mustFind(t *testing.T, tr access.Tree, role ui.Role, label string) access.Node {
-	t.Helper()
-	n, ok := tr.Find(role, label)
-	if !ok {
-		t.Fatalf("no %v %q on the tree:\n%s", role, label, tr.Dump())
-	}
-	return n
-}
-
 func TestViewKeyboardWalkAndTree(t *testing.T) {
 	r := viewRig(t)
 	r.open()
 	tr, stops := audit(t, r.tt.Tester)
 	// Reading order: the button strip, the seek bar, the caption, the transport.
-	inOrder(t, stops, "Full screen", "Close video", "Seek", "Sky Video", "Mia Rivers", "Previous", "Pause", "Next", "Mute", "Volume")
+	access.InOrder(t, stops, "Full screen", "Close video", "Seek", "Sky Video", "Mia Rivers", "Previous", "Pause", "Next", "Mute", "Volume")
 
-	view := mustFind(t, tr, ui.RoleGroup, "Music video")
+	view := tr.MustFind(t, ui.RoleGroup, "Music video")
 	if view.Description == "" {
 		t.Error("the view does not say its keys")
 	}
 	for _, l := range []string{"Sky Video", "Mia Rivers"} {
-		mustFind(t, tr, ui.RoleLink, l)
+		tr.MustFind(t, ui.RoleLink, l)
 	}
 	for _, l := range []string{"Full screen", "Close video", "Previous", "Pause", "Next", "Mute"} {
-		n := mustFind(t, tr, ui.RoleButton, l)
+		n := tr.MustFind(t, ui.RoleButton, l)
 		if !n.Can(access.Press) || n.Has(access.Disabled) {
 			t.Errorf("%q is not an enabled button: %+v", l, n)
 		}
 	}
-	if got := mustFind(t, tr, ui.RoleSlider, "Seek").Description; got != "0:30 of 3:20" {
+	if got := tr.MustFind(t, ui.RoleSlider, "Seek").Description; got != "0:30 of 3:20" {
 		t.Errorf("Seek reads %q", got)
 	}
-	if v := mustFind(t, tr, ui.RoleSlider, "Volume"); v.Description != "" || v.Now != 60 {
+	if v := tr.MustFind(t, ui.RoleSlider, "Volume"); v.Description != "" || v.Now != 60 {
 		t.Errorf("Volume reads %v and %q", v.Now, v.Description)
 	}
 	if _, ok := tr.Find(ui.RoleText, "2:50 left"); !ok {
@@ -97,11 +75,11 @@ func TestFadedControlsStayOnTheTreeAndFocusBringsThemBack(t *testing.T) {
 	// Unseen, they are still on the tree and can be pressed from there.
 	tr := access.Read(t, r.tt.Tester)
 	for _, l := range []string{"Pause", "Close video", "Full screen"} {
-		if n := mustFind(t, tr, ui.RoleButton, l); !n.Can(access.Press) {
+		if n := tr.MustFind(t, ui.RoleButton, l); !n.Can(access.Press) {
 			t.Errorf("%q cannot be pressed by assistive technology while faded", l)
 		}
 	}
-	mustFind(t, tr, ui.RoleSlider, "Seek")
+	tr.MustFind(t, ui.RoleSlider, "Seek")
 	// Tab never lands on an unseen control: the focus brings them back.
 	r.tt.SetFocused(true)
 	r.tt.Key(0, ui.KeyTab)
@@ -129,7 +107,7 @@ func TestViewTellsScreenReadersLoadingBufferingAndFailureOnce(t *testing.T) {
 		t.Fatalf("opened loading, announced %q", got)
 	}
 	tr := access.Read(t, r.tt.Tester)
-	mustFind(t, tr, ui.RoleStatus, "Loading the video…")
+	tr.MustFind(t, ui.RoleStatus, "Loading the video…")
 	r.tt.Frame()
 	r.tt.Frame()
 	if got := r.tt.Announcements(); len(got) != 0 {
@@ -151,7 +129,7 @@ func TestViewTellsScreenReadersLoadingBufferingAndFailureOnce(t *testing.T) {
 		t.Fatalf("a failure announced %q besides being an alert", got)
 	}
 	tr = access.Read(t, r.tt.Tester)
-	if alert := mustFind(t, tr, ui.RoleAlert, "Couldn't play this video"); len(tr.Children(alert)) != 2 {
+	if alert := tr.MustFind(t, ui.RoleAlert, "Couldn't play this video"); len(tr.Children(alert)) != 2 {
 		t.Errorf("the alert holds %v, want its title and its why", tr.Children(alert))
 	}
 }
@@ -164,11 +142,11 @@ func TestViewProblemOffersItsWaysOutToKeyboardAndScreenReader(t *testing.T) {
 	r.tt.Frame()
 	r.tt.Until("the problem", r.tt.Shows("Couldn't play this video", "Try again", "Watch in Apple Music"))
 	tr, stops := audit(t, r.tt.Tester)
-	inOrder(t, stops, "Close video", "Watch in Apple Music", "Try again", "Seek", "Play")
-	mustFind(t, tr, ui.RoleAlert, "Couldn't play this video")
+	access.InOrder(t, stops, "Close video", "Watch in Apple Music", "Try again", "Seek", "Play")
+	tr.MustFind(t, ui.RoleAlert, "Couldn't play this video")
 	// The ways out are beside the message, not in it: an alert reads its content out.
 	for _, l := range []string{"Watch in Apple Music", "Try again"} {
-		if n := mustFind(t, tr, ui.RoleButton, l); tr.Within(n, ui.RoleAlert) {
+		if n := tr.MustFind(t, ui.RoleButton, l); tr.Within(n, ui.RoleAlert) {
 			t.Errorf("%q is inside the alert:\n%s", l, tr.Dump())
 		}
 	}
@@ -196,7 +174,7 @@ func TestTitleIsAHeadingHoldingItsLink(t *testing.T) {
 	r := viewRig(t)
 	r.open()
 	tr := access.Read(t, r.tt.Tester)
-	link := mustFind(t, tr, ui.RoleLink, "Sky Video")
+	link := tr.MustFind(t, ui.RoleLink, "Sky Video")
 	var level int
 	for _, a := range tr.Ancestors(link) {
 		if a.Role == ui.RoleHeading {
@@ -209,10 +187,8 @@ func TestTitleIsAHeadingHoldingItsLink(t *testing.T) {
 	if !link.Can(access.Press) {
 		t.Errorf("the title's link cannot be pressed: %+v", link)
 	}
-	if err := r.tt.Click("Sky Video"); err != nil {
-		t.Fatal(err)
-	}
-	if r.nav.last() != "/music-video/mv.1" {
-		t.Errorf("the title opened %v", r.nav.pushed)
+	r.tt.MustClick("Sky Video")
+	if r.nav.Last() != "/music-video/mv.1" {
+		t.Errorf("the title opened %v", r.nav.Pushed)
 	}
 }

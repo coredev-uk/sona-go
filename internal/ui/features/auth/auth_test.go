@@ -126,11 +126,7 @@ func (r *rig) view(c *ui.Context) {
 
 // settle runs the frames a menu's choice needs to take effect.
 func (r *rig) settle() {
-	r.t.Helper()
-	for range 4 {
-		r.tt.Advance(60 * time.Millisecond)
-		r.tt.Drain()
-	}
+	r.tt.Pump(4, 60*time.Millisecond)
 }
 
 // openMenu opens the menu from the keyboard, as a user does: Tab to the
@@ -151,19 +147,8 @@ func (r *rig) openMenu() {
 // click clicks the element labeled s and lets what it did take effect.
 func (r *rig) click(s string) {
 	r.t.Helper()
-	if err := r.tt.Click(s); err != nil {
-		r.t.Fatal(err)
-	}
+	r.tt.MustClick(s)
 	r.settle()
-}
-
-func (r *rig) shows(texts ...string) {
-	r.t.Helper()
-	for _, s := range texts {
-		if !r.tt.HasText(s) {
-			r.t.Errorf("%q is not shown; texts %q", s, r.tt.Texts())
-		}
-	}
 }
 
 func (r *rig) hides(texts ...string) {
@@ -231,7 +216,7 @@ func TestStateLine(t *testing.T) {
 func TestSignedOutMenuOffersSignInAndOpensTheDialog(t *testing.T) {
 	r := newRig(t, signedOut)
 	r.openMenu()
-	r.shows("Apple Music", "Not signed in")
+	r.tt.Want("Apple Music", "Not signed in")
 	r.hides("Sign out", "Account settings", "Check now", "Try again")
 	if _, ok := r.tt.Find("Sign in"); !ok {
 		t.Fatalf("no Sign in row; texts %q", r.tt.Texts())
@@ -240,7 +225,7 @@ func TestSignedOutMenuOffersSignInAndOpensTheDialog(t *testing.T) {
 	if !r.h.Env.Surfaces.AccountOpen() {
 		t.Fatal("Sign in did not open the account dialog")
 	}
-	r.shows("Sign in to Apple Music")
+	r.tt.Want("Sign in to Apple Music")
 	if !r.tt.Focused("Apple Account") {
 		t.Errorf("the Apple Account field has no focus; texts %q", r.tt.Texts())
 	}
@@ -249,7 +234,7 @@ func TestSignedOutMenuOffersSignInAndOpensTheDialog(t *testing.T) {
 func TestNothingIsOfferedWhileRestoring(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "restoring"})
 	r.openMenu()
-	r.shows("Signing in…")
+	r.tt.Want("Signing in…")
 	r.hides("Sign in", "Account settings", "Sign out")
 }
 
@@ -258,7 +243,7 @@ func TestSignedInMenuShowsTheAccountAndItsNotes(t *testing.T) {
 	st.Restricted, st.Offline, st.Unencrypted = true, true, true
 	r := newRig(t, st)
 	r.openMenu()
-	r.shows(
+	r.tt.Want(
 		"Signed in · United Kingdom",
 		"Offline. Sona keeps using your saved sign-in.",
 		"Explicit content is restricted on this account; Sona hides it.",
@@ -272,7 +257,7 @@ func TestSignedInMenuShowsTheAccountAndItsNotes(t *testing.T) {
 func TestSignedOutUnencryptedTokenNote(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "signed_out", Unencrypted: true})
 	r.openMenu()
-	r.shows("Signing in now stores your token unencrypted")
+	r.tt.Want("Signing in now stores your token unencrypted")
 	r.hides("Your token is stored unencrypted", "Check now")
 	if _, ok := r.tt.Find("Try again"); !ok {
 		t.Error("no Try again row for the unencrypted fallback")
@@ -320,14 +305,14 @@ func TestSignedInMenuOpensTheAccountSettings(t *testing.T) {
 	if !r.h.Env.Surfaces.AccountOpen() {
 		t.Fatal("Account settings did not open the dialog")
 	}
-	r.shows("Signed in to Apple Music", "British English")
+	r.tt.Want("Signed in to Apple Music", "British English")
 }
 
 func TestSignOutAsksBeforeSigningOut(t *testing.T) {
 	r := newRig(t, signedIn)
 	r.openMenu()
 	r.click("Sign out")
-	r.shows("Sign out of Apple Music?")
+	r.tt.Want("Sign out of Apple Music?")
 	if n := r.api.count("SignOut"); n != 0 {
 		t.Fatalf("signed out %d times before the confirm", n)
 	}
@@ -352,7 +337,7 @@ func TestSignOutCancelDoesNotSignOut(t *testing.T) {
 func TestKeyringTroubleOffersTryAgain(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "signed_out", Keyring: "unavailable"})
 	r.openMenu()
-	r.shows("Sona couldn't read your sign-in from your keyring")
+	r.tt.Want("Sona couldn't read your sign-in from your keyring")
 	r.click("Try again")
 	r.tt.Until("RetryKeyring", func() bool { return r.api.count("RetryKeyring") == 1 })
 }
@@ -360,7 +345,7 @@ func TestKeyringTroubleOffersTryAgain(t *testing.T) {
 func TestPrivateListeningSwitchesAndStaysOpen(t *testing.T) {
 	r := newRig(t, signedIn)
 	r.openMenu()
-	r.shows("Plays stay out of your listening history, scrobbles and Discord.")
+	r.tt.Want("Plays stay out of your listening history, scrobbles and Discord.")
 	r.click("Private listening")
 	// The menu never closed: it is open right after the choice, not
 	// reopened once Go has answered.
@@ -389,14 +374,14 @@ func TestDevelopmentBuildsPrivateNote(t *testing.T) {
 	r := newRig(t, signedIn)
 	store.Set(r.h.Env.Queries, store.KeyPrivate, services.PrivateState{On: true, Source: "development"})
 	r.openMenu()
-	r.shows("Private listening is on for this development build. Turning it off lasts until Sona quits.")
+	r.tt.Want("Private listening is on for this development build. Turning it off lasts until Sona quits.")
 }
 
 func TestForcedPrivateListeningIgnoresClicksAndSaysWhy(t *testing.T) {
 	r := newRig(t, signedIn)
 	store.Set(r.h.Env.Queries, store.KeyPrivate, services.PrivateState{On: true, Source: "environment"})
 	r.openMenu()
-	r.shows("On because Sona was started with SONA_PRIVATE=1")
+	r.tt.Want("On because Sona was started with SONA_PRIVATE=1")
 	r.hides("Plays stay out of your listening history, scrobbles and Discord.")
 	if err := r.tt.Click("Private listening"); err != nil {
 		t.Fatal(err)
@@ -497,7 +482,7 @@ func TestAvatarTooltipSaysWhereTheAccountStands(t *testing.T) {
 	r.tt.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
 	r.tt.Advance(time.Second)
 	r.tt.Drain()
-	r.shows("Signed in · United Kingdom")
+	r.tt.Want("Signed in · United Kingdom")
 }
 
 func TestDialogFollowsSurfaces(t *testing.T) {
@@ -507,7 +492,7 @@ func TestDialogFollowsSurfaces(t *testing.T) {
 	}
 	r.h.Env.Surfaces.OpenAccount()
 	r.settle()
-	r.shows("Sign in to Apple Music")
+	r.tt.Want("Sign in to Apple Music")
 	if !r.tt.Focused("Apple Account") {
 		t.Errorf("the Apple Account field has no focus; texts %q", r.tt.Texts())
 	}
@@ -577,7 +562,7 @@ func TestDialogShowsTheReauthNotice(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "needs_reauth"})
 	r.h.Env.Surfaces.OpenAccount()
 	r.settle()
-	r.shows("Apple stopped accepting Sona's sign-in", "Sign in to Apple Music")
+	r.tt.Want("Apple stopped accepting Sona's sign-in", "Sign in to Apple Music")
 }
 
 func TestDialogStaysOpenAfterSigningIn(t *testing.T) {

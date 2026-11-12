@@ -199,9 +199,7 @@ func TestPageShowsHeaderPresetsAndFaders(t *testing.T) {
 func TestChoosingAPresetSavesItAndTurnsTheEqualiserOn(t *testing.T) {
 	r := newRig(t, true, nil)
 	r.tt.Until("the page", r.tt.Shows("Bass Boost"))
-	if err := r.tt.Click("Bass Boost"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Bass Boost")
 	eq := r.savedEq("the saved preset")
 	if !eq.Enabled || eq.Preset != "bass-boost" {
 		t.Errorf("saved %+v, want enabled with bass-boost", eq)
@@ -216,9 +214,7 @@ func TestChoosingAPresetSavesItAndTurnsTheEqualiserOn(t *testing.T) {
 func TestChoosingTheChosenPresetTurnsTheEqualiserOn(t *testing.T) {
 	r := newRig(t, true, nil)
 	r.tt.Until("the page", r.tt.Shows("Flat"))
-	if err := r.tt.Click("Flat"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Flat")
 	if eq := r.savedEq("the save"); !eq.Enabled || eq.Preset != "flat" {
 		t.Errorf("saved %+v, want enabled with flat", eq)
 	}
@@ -227,16 +223,12 @@ func TestChoosingTheChosenPresetTurnsTheEqualiserOn(t *testing.T) {
 func TestTheSwitchSavesEnabled(t *testing.T) {
 	r := newRig(t, true, nil)
 	r.tt.Until("the page", r.tt.Shows("Off · Sona plays the music as mastered"))
-	if err := r.tt.Click("Off"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Off")
 	if eq := r.savedEq("the save"); !eq.Enabled || eq.Preset != "flat" {
 		t.Errorf("saved %+v, want enabled with the same preset", eq)
 	}
 	r.tt.Until("on", r.tt.Shows("Flat · shapes everything Sona plays", "On"))
-	if err := r.tt.Click("On"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("On")
 	r.tt.Until("off", r.tt.Shows("Off · Sona plays the music as mastered"))
 	if eq, _ := r.fake.lastSaved(); eq.Enabled {
 		t.Errorf("saved %+v, want disabled", eq)
@@ -365,9 +357,7 @@ func TestALoadFailureShowsTheErrorAndRetryAsksBoth(t *testing.T) {
 	}
 	// Fixed: Retry refetches the settings (and the info) and the page appears.
 	r.fake.set(func(f *fake) { f.failGet, f.failInfo = nil, nil })
-	if err := r.tt.Click("Try again"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Try again")
 	r.tt.Until("the page", r.tt.Shows("Preset", "Flat", "Preamp"))
 	if r.tt.HasText("Couldn't load the equaliser") {
 		t.Error("the error stays")
@@ -396,9 +386,7 @@ func TestAFailedSaveToastsAndAsksForTheRealSettings(t *testing.T) {
 	r := newRig(t, true, nil)
 	r.tt.Until("the page", r.tt.Shows("Bass Boost"))
 	r.fake.set(func(f *fake) { f.failSave = errors.ErrUnsupported })
-	if err := r.tt.Click("Bass Boost"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Bass Boost")
 	r.tt.Until("the page back as Go has it", r.tt.Shows("Off · Sona plays the music as mastered"))
 	r.tt.Until("the toast", r.tt.Shows("Couldn't save the setting"))
 }
@@ -462,9 +450,7 @@ func TestOverRealServicesSavesIntoGoSettings(t *testing.T) {
 		router.View(c, func(rt *ui.Route) { e.page(c, rt) })
 	}, 900, 760)
 	tt.Until("the page", tt.Shows("Rock", "Off · Sona plays the music as mastered"))
-	if err := tt.Click("Rock"); err != nil {
-		t.Fatal(err)
-	}
+	tt.MustClick("Rock")
 	tt.Until("the saved setting", func() bool {
 		eq := h.Settings.Get().Audio.Equalizer
 		return eq.Enabled && eq.Preset == "rock"

@@ -87,6 +87,12 @@ const (
 	viewFailed
 )
 
+// widevine is Widevine's state now, and the download's status behind it.
+func (o *onboarding) widevine() (widevineState, *services.CDMStatus) {
+	status := o.cdm()
+	return widevineView(o.capsData(), status), status
+}
+
 // widevineView reads Widevine from the capabilities first, then the
 // download (steps.ts' widevineView). nil is "hasn't come yet".
 func widevineView(caps *services.Capabilities, status *services.CDMStatus) widevineState {

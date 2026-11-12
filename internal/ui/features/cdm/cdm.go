@@ -39,14 +39,9 @@ func New(env *module.Env) module.Module {
 // empty (a download that fails at once otherwise showed as idle).
 func (c *cdm) init() {
 	store.On(c.env.Bus, services.EventCDMStatus, c.apply)
-	if c.env.Core == nil {
-		return
+	if c.env.Core != nil {
+		store.Seed(c.env.Queries, c.env.Post, store.KeyCDM, services.Service[services.CDMService](c.env.Core).Status)
 	}
-	svc := services.Service[services.CDMService](c.env.Core)
-	go func() {
-		s := svc.Status()
-		c.env.Post(func() { store.SetIfEmpty(c.env.Queries, store.KeyCDM, s) })
-	}()
 }
 
 // apply replaces the mirror with Go's latest status. A new state, version or

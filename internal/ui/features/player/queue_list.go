@@ -347,13 +347,32 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 	if st.focusedWas != 0 && focusQi >= 0 {
 		pin2 = g.lineOf(focusQi)
 	}
-	built := func(i int) bool { return i >= wFirst && i <= wLast || i == pin1 || i == pin2 }
+	// The lines built, in order: the window and the pinned ones, so that
+	// nothing below walks the whole queue.
+	built := make([]int, 0, max(wLast-wFirst+1, 0)+2)
+	lo, hi := min(pin1, pin2), max(pin1, pin2) // -1 for none
+	if lo >= 0 && lo < wFirst {
+		built = append(built, lo)
+	}
+	if hi >= 0 && hi != lo && hi < wFirst {
+		built = append(built, hi)
+	}
+	for i := wFirst; i <= wLast; i++ {
+		built = append(built, i)
+	}
+	if lo > wLast {
+		built = append(built, lo)
+	}
+	if hi > wLast && hi != lo {
+		built = append(built, hi)
+	}
 
 	// The Tab stop must be built: while the focused row is out of the
 	// window the first built row holds it.
 	tabQi := -1
-	for i, l := range g.lines {
-		if l.kind != lineRow || !built(i) {
+	for _, i := range built {
+		l := g.lines[i]
+		if l.kind != lineRow {
 			continue
 		}
 		if l.qi == focusQi {
@@ -413,28 +432,31 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 			return
 		}
 		ui.Column(c.Key(key)).FillWidth().Role(ui.RoleList).Label(name).Children(func() {
-			gap := -1 // the first line of the spacer being built
-			flush := func(at int) {
-				if gap >= 0 {
-					end := g.total()
-					if at < len(g.lines) {
-						end = g.top(at)
-					}
-					ui.Box(c.Key("gap" + strconv.Itoa(at))).FillWidth().Height(end - g.top(gap)).Shrink(0)
-					gap = -1
+			// A spacer of the lines first..before not built, named for the
+			// line after it.
+			gap := func(first, before int) {
+				if first >= before {
+					return
 				}
+				end := g.total()
+				if before < len(g.lines) {
+					end = g.top(before)
+				}
+				ui.Box(c.Key("gap" + strconv.Itoa(before))).FillWidth().Height(end - g.top(first)).Shrink(0)
 			}
-			for i := from; i < to; i++ {
-				if !built(i) {
-					if gap < 0 {
-						gap = i
-					}
+			at := from // the next line not yet shown
+			for _, i := range built {
+				if i < from {
 					continue
 				}
-				flush(i)
+				if i >= to {
+					break
+				}
+				gap(at, i)
 				row(i)
+				at = i + 1
 			}
-			flush(to)
+			gap(at, to)
 		})
 	}
 

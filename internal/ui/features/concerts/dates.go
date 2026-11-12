@@ -160,7 +160,7 @@ func isLetters(s string) bool {
 type dayGroup struct {
 	day             string
 	shows           []services.Concert
-	facts           []facts
+	facts           []showFacts
 	row             int
 	weekday, number string
 	long            string
@@ -175,27 +175,83 @@ type monthGroup struct {
 	counted    string
 }
 
+// showFacts is what a row says of its show's time: worked out with the
+// locale's date and clock formats, so once per show and not on every frame.
+type showFacts struct {
+	day, month, dayLong      string
+	weekday, date, monthName string // the date block: "Wed", "14", "Apr"
+	meta                     string // the start and, where known, how far
+	clock, away, place       string // the start, how far ("" when unknown), "Example Hall · London"
+}
+
+type factsKey struct {
+	id       string
+	startsAt int64
+	zone     string
+	km       int
+	place    string
+}
+
+// factsCache holds the facts of the shows built so far, for the locale and
+// this computer's zone they were worked out in: another one empties it.
+var factsCache struct {
+	sync.Mutex
+	locale string
+	here   *time.Location
+	m      map[factsKey]showFacts
+}
+
+// factsMax is how many shows the cache holds before it starts over: a page
+// of the agenda and a few more.
+const factsMax = 1024
+
+// factsOf is c's showFacts.
+func factsOf(c services.Concert) showFacts {
+	k := factsKey{c.ID, c.StartsAt, c.Timezone, c.DistanceKm, venueLine(c)}
+	locale := i18n.Locales()[0]
+	factsCache.Lock()
+	defer factsCache.Unlock()
+	if factsCache.locale != locale || factsCache.here != here || len(factsCache.m) >= factsMax {
+		factsCache.locale, factsCache.here, factsCache.m = locale, here, map[factsKey]showFacts{}
+	}
+	if f, ok := factsCache.m[k]; ok {
+		return f
+	}
+	f := showFacts{
+		day: showDay(c), month: showMonth(c), dayLong: showDayLong(c),
+		weekday: showWeekday(c), date: showDate(c), monthName: showMonthShort(c),
+		clock: showTime(c), away: distanceLabel(c.DistanceKm), place: k.place,
+	}
+	f.meta = f.clock
+	if f.away != "" {
+		f.meta += " · " + f.away
+	}
+	factsCache.m[k] = f
+	return f
+}
+
 // groupShows groups the shows (already soonest first) by month, then by day.
 func groupShows(shows []services.Concert) []monthGroup {
 	var months []monthGroup
 	for i, c := range shows {
-		day := showDay(c)
+		f := factsOf(c)
+		day := f.day
 		key := day[:7]
 		if len(months) == 0 || months[len(months)-1].key != key {
 			if n := len(months); n > 0 {
 				months[n-1].counted = showCount(months[n-1].count)
 			}
-			months = append(months, monthGroup{key: key, title: showMonth(c)})
+			months = append(months, monthGroup{key: key, title: f.month})
 		}
 		m := &months[len(months)-1]
 		if len(m.days) == 0 || m.days[len(m.days)-1].day != day {
 			m.days = append(m.days, dayGroup{
-				day: day, row: i, weekday: showWeekday(c), number: showDate(c), long: showDayLong(c),
+				day: day, row: i, weekday: f.weekday, number: f.date, long: f.dayLong,
 			})
 		}
 		d := &m.days[len(m.days)-1]
 		d.shows = append(d.shows, c)
-		d.facts = append(d.facts, factsOf(c))
+		d.facts = append(d.facts, f)
 		m.count++
 	}
 	if n := len(months); n > 0 {

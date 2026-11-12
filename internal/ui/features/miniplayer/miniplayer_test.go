@@ -22,55 +22,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
 
-// fakeSvc records what the mini player asked of the playback service.
-type fakeSvc struct {
-	mu    sync.Mutex
-	calls []string
-	seeks []int64
-	fail  error
-	done  chan struct{}
-}
-
-func newSvc() *fakeSvc { return &fakeSvc{done: make(chan struct{}, 32)} }
-
-func (f *fakeSvc) record(name string) error {
-	f.mu.Lock()
-	f.calls = append(f.calls, name)
-	err := f.fail
-	f.mu.Unlock()
-	f.done <- struct{}{}
-	return err
-}
-
-func (f *fakeSvc) Toggle(context.Context) error { return f.record("toggle") }
-func (f *fakeSvc) Next(context.Context) error   { return f.record("next") }
-func (f *fakeSvc) Prev(context.Context) error   { return f.record("prev") }
-func (f *fakeSvc) Seek(_ context.Context, ms int64) error {
-	f.mu.Lock()
-	f.seeks = append(f.seeks, ms)
-	f.mu.Unlock()
-	return f.record("seek")
-}
-
-// wait blocks until n calls were made (they run on goroutines).
-func (f *fakeSvc) wait(t *testing.T, n int) []string {
-	t.Helper()
-	for range n {
-		select {
-		case <-f.done:
-		case <-time.After(5 * time.Second):
-			t.Fatalf("expected %d service calls, got %v", n, f.snapshot())
-		}
-	}
-	return f.snapshot()
-}
-
-func (f *fakeSvc) snapshot() []string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return slices.Clone(f.calls)
-}
-
 // fakeDesk records the window calls.
 type fakeDesk struct {
 	mu    sync.Mutex
@@ -129,7 +80,7 @@ func (f *fakeLyrics) set(l services.Lyrics) {
 type rig struct {
 	m    *mini
 	tt   *uitest.Session
-	svc  *fakeSvc
+	svc  *uitest.Transport
 	desk *fakeDesk
 	lyr  *fakeLyrics
 	h    *uitest.Harness
@@ -138,9 +89,9 @@ type rig struct {
 func newRig(t *testing.T) *rig {
 	t.Helper()
 	h := uitest.New(t, uitest.Bare())
-	r := &rig{h: h, svc: newSvc(), desk: newDesk(), lyr: &fakeLyrics{}}
+	r := &rig{h: h, svc: uitest.NewTransport(), desk: newDesk(), lyr: &fakeLyrics{}}
 	r.m = newMini(h.Env)
-	r.m.svc, r.m.desk, r.m.lyr, r.m.now = r.svc, r.desk, r.lyr, h.Clock.Now
+	r.m.tr.Svc, r.m.desk, r.m.lyr, r.m.now = r.svc, r.desk, r.lyr, h.Clock.Now
 	lyricsync.Session().Clear()
 	t.Cleanup(lyricsync.Session().Clear)
 	// The mini window is 420×132, frameless; the shell draws nothing else in it.
@@ -153,15 +104,9 @@ func newRig(t *testing.T) *rig {
 
 // show seeds the mirror with a song playing at ms into its 3 minutes.
 func (r *rig) show(ms int64, mutate ...func(*services.PlaybackState)) {
-	s := store.EmptyState()
-	s.State = store.StatePlaying
-	s.Current = &services.QueueItem{ID: "i.1", CatalogID: "1001", Name: "Song Title", Artist: "The Artist", Album: "The Album"}
-	s.DurationMs, s.PositionMs, s.At = 180_000, ms, r.h.Clock.Now().UnixMilli()
-	s.Controls = services.PlaybackControls{Previous: true, Next: true, Seek: true, Shuffle: true, Repeat: true}
-	for _, m := range mutate {
-		m(&s)
-	}
-	r.h.Env.Play.Seed(s, services.QueueState{Index: -1})
+	r.h.Play(ms, append([]func(*services.PlaybackState){func(s *services.PlaybackState) {
+		s.DurationMs, s.Current.ArtistID, s.Current.AlbumID = 180_000, "", ""
+	}}, mutate...)...)
 	r.tt.Frame()
 }
 
@@ -179,31 +124,13 @@ func (r *rig) advance(d time.Duration) {
 	r.tt.Frame()
 }
 
-func (r *rig) want(t *testing.T, texts ...string) {
-	t.Helper()
-	for _, w := range texts {
-		if !r.tt.HasText(w) {
-			t.Errorf("no %q in %q", w, r.tt.Texts())
-		}
-	}
-}
-
-func (r *rig) wantNot(t *testing.T, texts ...string) {
-	t.Helper()
-	for _, w := range texts {
-		if r.tt.HasText(w) {
-			t.Errorf("unexpected %q in %q", w, r.tt.Texts())
-		}
-	}
-}
-
 func TestTheMiniPlayerIsIdleWithNothingPlaying(t *testing.T) {
 	r := newRig(t)
-	r.want(t, "Sona mini player", "Not playing", "Choose music in the main window", "–:––", "Open Sona", "Close mini player")
+	r.tt.Want("Sona mini player", "Not playing", "Choose music in the main window", "–:––", "Open Sona", "Close mini player")
 	for _, b := range []string{"Play", "Previous", "Next"} {
 		_ = r.tt.Click(b)
 	}
-	if got := r.svc.snapshot(); len(got) != 0 {
+	if got := r.svc.Snapshot(); len(got) != 0 {
 		t.Errorf("an idle mini player sent %v", got)
 	}
 }
@@ -211,9 +138,9 @@ func TestTheMiniPlayerIsIdleWithNothingPlaying(t *testing.T) {
 func TestTheMiniPlayerShowsTheSongAndFollowsThePlaybackMirror(t *testing.T) {
 	r := newRig(t)
 	r.show(30_000)
-	r.want(t, "Song Title", "The Artist", "The Album", "Pause", "−2:30", "Seek")
+	r.tt.Want("Song Title", "The Artist", "The Album", "Pause", "−2:30", "Seek")
 	r.advance(10 * time.Second)
-	r.want(t, "−2:20")
+	r.tt.Want("−2:20")
 
 	// Go sends a new snapshot: paused, another song.
 	s := r.h.Env.Play.State()
@@ -222,8 +149,8 @@ func TestTheMiniPlayerShowsTheSongAndFollowsThePlaybackMirror(t *testing.T) {
 	r.h.Env.Bus.Emit(services.EventPlaybackState, s)
 	r.h.Main.Drain()
 	r.tt.Frame()
-	r.want(t, "Another", "Someone", "Other Album", "Play")
-	r.wantNot(t, "Song Title", "Pause")
+	r.tt.Want("Another", "Someone", "Other Album", "Play")
+	r.tt.Lacks("Song Title", "Pause")
 }
 
 func TestTheThirdLineSaysWhatNeedsTheUserOrWhatPlays(t *testing.T) {
@@ -261,10 +188,8 @@ func TestTransportButtonsCallThePlaybackService(t *testing.T) {
 		{"Next", "next"},
 		{"Previous", "prev"},
 	} {
-		if err := r.tt.Click(c.button); err != nil {
-			t.Fatalf("%s: %v", c.button, err)
-		}
-		got := r.svc.wait(t, 1)
+		r.tt.MustClick(c.button)
+		got := r.svc.Wait(t, 1)
 		if last := got[len(got)-1]; last != c.call {
 			t.Errorf("%s sent %q, want %q", c.button, last, c.call)
 		}
@@ -275,11 +200,9 @@ func TestTransportButtonsCallThePlaybackService(t *testing.T) {
 func TestPlayShowsLoadingAndOffersPlayWhenPaused(t *testing.T) {
 	r := newRig(t)
 	r.show(0, func(s *services.PlaybackState) { s.State = store.StatePaused })
-	r.want(t, "Play")
-	if err := r.tt.Click("Play"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.svc.wait(t, 1); got[0] != "toggle" {
+	r.tt.Want("Play")
+	r.tt.MustClick("Play")
+	if got := r.svc.Wait(t, 1); got[0] != "toggle" {
 		t.Errorf("sent %v", got)
 	}
 }
@@ -288,10 +211,10 @@ func TestEndOfQueueDisablesNextWithoutAReason(t *testing.T) {
 	r := newRig(t)
 	r.show(30_000, func(s *services.PlaybackState) { s.Controls.Next = false })
 	_ = r.tt.Click("Next")
-	if got := r.svc.snapshot(); len(got) != 0 {
+	if got := r.svc.Snapshot(); len(got) != 0 {
 		t.Errorf("Next at the end of the queue sent %v", got)
 	}
-	r.want(t, "Next")
+	r.tt.Want("Next")
 }
 
 func TestALiveStationKeepsPreviousAndNextOffSayingWhyAndPauseWorking(t *testing.T) {
@@ -306,15 +229,13 @@ func TestALiveStationKeepsPreviousAndNextOffSayingWhyAndPauseWorking(t *testing.
 		}
 		_ = r.tt.Click(name)
 	}
-	if got := r.svc.snapshot(); len(got) != 0 {
+	if got := r.svc.Snapshot(); len(got) != 0 {
 		t.Fatalf("a live station's Previous/Next sent %v", got)
 	}
-	r.want(t, "Live")
-	r.wantNot(t, "Seek")
-	if err := r.tt.Click("Pause"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.svc.wait(t, 1); got[0] != "toggle" {
+	r.tt.Want("Live")
+	r.tt.Lacks("Seek")
+	r.tt.MustClick("Pause")
+	if got := r.svc.Wait(t, 1); got[0] != "toggle" {
 		t.Errorf("sent %v", got)
 	}
 }
@@ -327,10 +248,8 @@ func TestSeekingCommitsWhereThePointerLetsGo(t *testing.T) {
 		t.Fatal("no seek slider")
 	}
 	r.tt.ClickAt(b.X+b.W*3/4, b.Y+b.H/2)
-	r.svc.wait(t, 1)
-	r.svc.mu.Lock()
-	seeks := slices.Clone(r.svc.seeks)
-	r.svc.mu.Unlock()
+	r.svc.Wait(t, 1)
+	seeks := r.svc.Seeks()
 	if len(seeks) != 1 || seeks[0] < 125_000 || seeks[0] > 145_000 {
 		t.Fatalf("a click three quarters along a 3:00 song sought %v ms", seeks)
 	}
@@ -353,26 +272,20 @@ func TestSeekingByKeyCommitsOnce(t *testing.T) {
 		t.Fatal("Tab never reached the seek slider")
 	}
 	r.tt.Key(0, ui.KeyRight)
-	r.svc.wait(t, 1)
-	r.svc.mu.Lock()
-	defer r.svc.mu.Unlock()
-	if len(r.svc.seeks) != 1 || r.svc.seeks[0] != 31_000 {
-		t.Errorf("an arrow sought %v, want one seek to 31000", r.svc.seeks)
+	r.svc.Wait(t, 1)
+	if seeks := r.svc.Seeks(); len(seeks) != 1 || seeks[0] != 31_000 {
+		t.Errorf("an arrow sought %v, want one seek to 31000", seeks)
 	}
 }
 
 func TestExpandAndCloseCallTheDesktopService(t *testing.T) {
 	r := newRig(t)
 	r.show(30_000)
-	if err := r.tt.Click("Open Sona"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Open Sona")
 	if got := r.desk.wait(t); got[len(got)-1] != "show main" {
 		t.Errorf("Open Sona called %v", got)
 	}
-	if err := r.tt.Click("Close mini player"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Close mini player")
 	if got := r.desk.wait(t); got[len(got)-1] != "close mini" {
 		t.Errorf("Close called %v", got)
 	}
@@ -411,24 +324,24 @@ func TestAFailedCommandIsSaidOnTheThirdLineForFourSecondsAndAnnouncedOnce(t *tes
 	r := newRig(t)
 	r.show(30_000)
 	r.tt.Announcements()
-	r.svc.fail = services.ErrNotReleased
+	r.svc.Fail = services.ErrNotReleased
 	_ = r.tt.Click("Pause")
-	r.svc.wait(t, 1)
+	r.svc.Wait(t, 1)
 	why := "Couldn't play or pause: " + i18n.ErrorText(services.CodeNotReleased)
 	r.tt.Until("the notice", r.tt.Shows(why))
-	r.wantNot(t, "The Album")
+	r.tt.Lacks("The Album")
 	got := r.tt.Announcements()
 	if !slices.Contains(got, why) || countOf(got, why) != 1 {
 		t.Errorf("announced %q, want %q once", got, why)
 	}
 	r.advance(3 * time.Second)
-	r.want(t, why)
+	r.tt.Want(why)
 	if again := r.tt.Announcements(); slices.Contains(again, why) {
 		t.Errorf("announced again: %q", again)
 	}
 	r.advance(1100 * time.Millisecond)
-	r.wantNot(t, why)
-	r.want(t, "The Album")
+	r.tt.Lacks(why)
+	r.tt.Want("The Album")
 }
 
 func countOf(l []string, s string) (n int) {
@@ -443,26 +356,26 @@ func countOf(l []string, s string) (n int) {
 func TestASignInFailureSaysToSignInInSona(t *testing.T) {
 	r := newRig(t)
 	r.show(30_000)
-	r.svc.fail = auth.ErrNotSignedIn
+	r.svc.Fail = auth.ErrNotSignedIn
 	_ = r.tt.Click("Next")
-	r.svc.wait(t, 1)
+	r.svc.Wait(t, 1)
 	r.tt.Until("the notice", r.tt.Shows("Couldn't skip: sign in to Apple Music in Sona"))
 }
 
 func TestARepeatedFailureStartsItsFourSecondsAgain(t *testing.T) {
 	r := newRig(t)
 	r.show(30_000)
-	r.svc.fail = errors.New("boom")
+	r.svc.Fail = errors.New("boom")
 	_ = r.tt.Click("Next")
-	r.svc.wait(t, 1)
+	r.svc.Wait(t, 1)
 	msg := "Couldn't skip: " + i18n.ErrorText("")
 	r.tt.Until("the notice", r.tt.Shows(msg))
 	r.advance(3 * time.Second)
 	_ = r.tt.Click("Next")
-	r.svc.wait(t, 1)
+	r.svc.Wait(t, 1)
 	r.tt.Until("a second notice", func() bool { return r.m.noticeID == 2 })
 	r.advance(3 * time.Second)
-	r.want(t, msg)
+	r.tt.Want(msg)
 }
 
 func TestTheMiniPlayerAnnouncesANewTrackPolitelyOnce(t *testing.T) {
@@ -519,22 +432,22 @@ func TestTheSungLineShowsTheLineBeingSungAndFallsBackBetweenLines(t *testing.T) 
 		lineAt("Third line after a break", 15_000, 17_000),
 	}})
 	r.show(0)
-	r.want(t, "The Album") // before the first line
+	r.tt.Want("The Album") // before the first line
 	r.advance(2 * time.Second)
 	r.tt.Until("the first line", r.tt.Shows("First line of the song"))
-	r.wantNot(t, "The Album")
+	r.tt.Lacks("The Album")
 
 	// The next line, on the timer that waits for it.
 	r.advance(3 * time.Second)
-	r.want(t, "Second line of the song")
-	r.wantNot(t, "First line of the song")
+	r.tt.Want("Second line of the song")
+	r.tt.Lacks("First line of the song")
 
 	// A break of three seconds or more rests the voice: the album is back.
 	r.advance(4 * time.Second)
-	r.want(t, "The Album")
-	r.wantNot(t, "Second line of the song")
+	r.tt.Want("The Album")
+	r.tt.Lacks("Second line of the song")
 	r.advance(6 * time.Second)
-	r.want(t, "Third line after a break")
+	r.tt.Want("Third line after a break")
 }
 
 func TestTheSungLineFollowsTheTimingOffset(t *testing.T) {
@@ -551,10 +464,10 @@ func TestTheSungLineFollowsTheTimingOffset(t *testing.T) {
 	lyricsync.Session().Nudge("1001", 1)
 	r.h.Main.Drain()
 	r.advance(600 * time.Millisecond)
-	r.want(t, "First line of the song")
+	r.tt.Want("First line of the song")
 	lyricsync.Session().Reset("1001")
 	r.advance(200 * time.Millisecond)
-	r.want(t, "Second line of the song")
+	r.tt.Want("Second line of the song")
 }
 
 func TestTheSungLineIsLeftToSyncedLyricsOfSongs(t *testing.T) {
@@ -581,7 +494,7 @@ func TestTheSungLineIsLeftToSyncedLyricsOfSongs(t *testing.T) {
 		r.show(1000, mutate...)
 		r.tt.Drain()
 		r.tt.Frame()
-		r.wantNot(t, "Sung words", "Plain words")
+		r.tt.Lacks("Sung words", "Plain words")
 		if t.Failed() {
 			t.Fatalf("%s showed lyrics", name)
 		}
@@ -663,9 +576,7 @@ func newBarRig(t *testing.T) *barRig {
 
 func TestTheBarsMiniPlayerButtonTogglesTheMiniPlayer(t *testing.T) {
 	b := newBarRig(t)
-	if err := b.tt.Click("Mini player"); err != nil {
-		t.Fatal(err)
-	}
+	b.tt.MustClick("Mini player")
 	if got := b.desk.wait(t); got[len(got)-1] != "toggle mini" {
 		t.Errorf("called %v", got)
 	}
@@ -701,18 +612,12 @@ func TestTheMiniPlayerPlaysPausesAndSkipsThroughTheCoordinator(t *testing.T) {
 		}
 		return false
 	}
-	if err := tt.Click("Pause"); err != nil {
-		t.Fatal(err)
-	}
+	tt.MustClick("Pause")
 	tt.Until("the engine paused and the mini player offering Play", func() bool { return hasCall("pause") && tt.HasText("Play") })
-	if err := tt.Click("Play"); err != nil {
-		t.Fatal(err)
-	}
+	tt.MustClick("Play")
 	tt.Until("the engine resumed", func() bool { return hasCall("resume") && tt.HasText("Pause") })
 	before := len(h.Engine.Played())
-	if err := tt.Click("Next"); err != nil {
-		t.Fatal(err)
-	}
+	tt.MustClick("Next")
 	tt.Until("the second song played", func() bool { return len(h.Engine.Played()) > before })
 }
 

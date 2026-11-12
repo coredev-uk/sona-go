@@ -50,24 +50,6 @@ func sectionTitle(section string) string {
 	return section
 }
 
-// groupTitle is the heading of a shortcut group in the palette, the help
-// sheet and Settings (shared/shortcuts/groups.ts).
-func groupTitle(g module.ShortcutGroup) string {
-	switch g {
-	case "playback":
-		return i18n.T("Playback")
-	case "view":
-		return i18n.T("View")
-	case "pages":
-		return i18n.T("Pages")
-	case "navigation":
-		return i18n.T("Navigation")
-	case "general":
-		return i18n.T("General")
-	}
-	return string(g)
-}
-
 // findContext is what decides whether a row is on its section at all.
 type findContext struct {
 	caps     *services.Capabilities // nil until loaded
@@ -255,7 +237,7 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 		if s.Label != nil {
 			label = s.Label()
 		}
-		e = append(e, settingEntry{ID: "shortcut-" + s.ID, Section: secShortcuts, Group: groupTitle(s.Group), Title: label})
+		e = append(e, settingEntry{ID: "shortcut-" + s.ID, Section: secShortcuts, Group: module.GroupTitle(s.Group), Title: label})
 	}
 	return e
 }

@@ -37,9 +37,7 @@ func TestA11yReminderActionNamesItsStateAndOutcomesAreAnnounced(t *testing.T) {
 			})
 			menus.Popup(c)
 		}, 400, 400)
-		if err := tt.Click("More for Out Soon"); err != nil {
-			t.Fatal(err)
-		}
+		tt.MustClick("More for Out Soon")
 		tt.Drain()
 		// The list loads off the main thread: the entry is named for its state
 		// and enabled once it has.

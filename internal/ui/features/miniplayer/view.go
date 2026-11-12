@@ -59,7 +59,7 @@ func (m *mini) content(c *ui.Context) {
 				m.third(c, s)
 				m.controls(c, s)
 			})
-			m.playingPopup(c, cur)
+			m.menus.PopupFor(c, cur != nil)
 		})
 		m.seekLine(c, s)
 	}).Fill().Background(theme.C("surface")).DragWindow().Role(ui.RoleGroup).Label(i18n.T("Sona mini player"))
@@ -191,7 +191,7 @@ func (m *mini) controls(c *ui.Context, s services.PlaybackState) {
 	loading := s.State == store.StateLoading
 	ui.Row(c.Key("controls")).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
 		if s.Current != nil && s.Current.Live {
-			m.live(c, playing)
+			kit.LiveMarker(c.Key("live"), playing).Shrink(0)
 		} else {
 			m.timeLeft(c, s, idle)
 		}
@@ -199,23 +199,17 @@ func (m *mini) controls(c *ui.Context, s services.PlaybackState) {
 		ui.Row(c.Key("transport")).Gap(4).AlignItems(ui.Center).Shrink(0).Children(func() {
 			prev := kit.ControlUnavailable(s, s.Controls.Previous)
 			if m.stepButton(c, "prev", "skip-back", i18n.T("Previous"), idle || (!s.Controls.Previous && prev == ""), prev) {
-				m.previousCmd()
+				m.tr.Prev()
 			}
 
-			icon, name := "play", i18n.T("Play")
-			switch {
-			case loading:
-				icon = "loader-circle"
-			case playing:
-				icon, name = "pause", i18n.T("Pause")
-			}
+			icon, name := kit.PlayPauseIcon(s.State)
 			if kit.Button(c.Key("play"), "", kit.ButtonOpts{Variant: kit.Play, Size: kit.SizeSM, Icon: icon, Spin: loading, Disabled: idle, A11yLabel: name}).Clicked() {
-				m.toggleCmd()
+				m.tr.Toggle()
 			}
 
 			next := kit.ControlUnavailable(s, s.Controls.Next)
 			if m.stepButton(c, "next", "skip-forward", i18n.T("Next"), idle || (!s.Controls.Next && next == ""), next) {
-				m.nextCmd()
+				m.tr.Next()
 			}
 		})
 	})
@@ -234,26 +228,11 @@ func (m *mini) stepButton(c *ui.Context, key, icon, name string, disabled bool, 
 	return btn.Clicked() && reason == ""
 }
 
-// live is a live station's marker in place of the seek bar.
-func (m *mini) live(c *ui.Context, playing bool) {
-	ui.Row(c.Key("live")).Gap(6).Shrink(0).AlignItems(ui.Center).Children(func() {
-		dot := theme.C("ink-faint")
-		if playing {
-			dot = theme.C("play")
-		}
-		ui.Box(c.Key("dot")).Size(6, 6).Radius(3).Background(dot).Shrink(0)
-		text(c.Key("word"), i18n.T("Live"), "meta").FontWeight(500).TextColor(theme.C("ink")).Shrink(0)
-	})
-}
-
 // position is where the song is: the dragged position while the user drags
 // the seek line, else the mirror's, kept inside the song.
 func (m *mini) position(s services.PlaybackState, idle bool) (pos, dur time.Duration) {
-	dur = msDur(s.DurationMs)
-	pos = m.env.Play.Position()
-	if m.seek.active {
-		pos = time.Duration(m.seek.secs * float64(time.Second))
-	}
+	dur = time.Duration(s.DurationMs) * time.Millisecond
+	pos = m.seek.Pos(m.env.Play.Position())
 	if idle {
 		pos = 0
 	}
@@ -294,12 +273,8 @@ func (m *mini) seekLine(c *ui.Context, s services.PlaybackState) {
 	} else {
 		sl.Disabled(true)
 	}
-	if sl.Changed() {
-		m.seek.active, m.seek.secs = true, v
-	}
-	if kit.SliderCommitted(sl) && m.seek.active {
-		m.seek.active = false
-		m.seekTo(time.Duration(m.seek.secs * float64(time.Second)))
+	if to, ok := m.seek.Update(sl, v); ok {
+		m.tr.SeekTo(to, m.now())
 	}
 	at := float32(0)
 	if !idle && dur > 0 {
@@ -337,9 +312,7 @@ func (m *mini) seekLine(c *ui.Context, s services.PlaybackState) {
 			p.Fill(k, ink, d/2)
 		}
 	})
-	if s.State == store.StatePlaying && !m.seek.active {
-		c.After(250 * time.Millisecond) // the position ticks (v0.2.0's useLivePosition)
-	}
+	m.seek.Tick(c, s.State == store.StatePlaying)
 }
 
 // text is a single line of text in one of the theme's type styles.
@@ -349,5 +322,3 @@ func text(c *ui.Context, s, style string) ui.Element {
 
 // quiet is text of the line under the song's size.
 func quiet(c *ui.Context, s string) ui.Element { return text(c, s, "sub").Tooltip(s) }
-
-func msDur(ms int64) time.Duration { return time.Duration(ms) * time.Millisecond }

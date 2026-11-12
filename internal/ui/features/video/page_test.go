@@ -109,9 +109,7 @@ func TestPageShowsASkeletonWhileLoadingThenTheVideo(t *testing.T) {
 func TestPlayStartsTheVideoAndOpensTheView(t *testing.T) {
 	p := newPageRig(t, false, 1132, 1253)
 	p.loaded()
-	if err := p.tt.Click("Play Sky Video"); err != nil {
-		t.Fatal(err)
-	}
+	p.tt.MustClick("Play Sky Video")
 	if len(p.queue.videos) != 1 || p.queue.videos[0][0].ID != "mv.1" {
 		t.Fatalf("played %v", p.queue.videos)
 	}
@@ -127,9 +125,7 @@ func TestPlayStartsTheVideoAndOpensTheView(t *testing.T) {
 func TestPlayTheSongPlaysThatSongFromItsID(t *testing.T) {
 	p := newPageRig(t, false, 1132, 1253)
 	p.loaded()
-	if err := p.tt.Click("Play the song"); err != nil {
-		t.Fatal(err)
-	}
+	p.tt.MustClick("Play the song")
 	if len(p.queue.songs) != 1 || p.queue.songs[0][0].ID != "s.1" || p.queue.from[0] != (services.PlayFrom{ID: "s.1"}) {
 		t.Errorf("played %v from %v", p.queue.songs, p.queue.from)
 	}
@@ -174,14 +170,10 @@ func TestWatchInAppleMusicOpensTheLinkAndToastsAFailure(t *testing.T) {
 	p := newPageRig(t, false, 1132, 1253)
 	p.cat.done = make(chan struct{}, 4)
 	p.loaded()
-	if err := p.tt.Click("Watch in Apple Music"); err != nil {
-		t.Fatal(err)
-	}
+	p.tt.MustClick("Watch in Apple Music")
 	p.cat.wait(t)
 	p.cat.set(func(f *fakeCat) { f.failed = services.ErrNotReleased })
-	if err := p.tt.Click("Watch in Apple Music"); err != nil {
-		t.Fatal(err)
-	}
+	p.tt.MustClick("Watch in Apple Music")
 	p.cat.wait(t)
 	p.tt.Until("the toast", p.tt.Shows("Couldn't open Apple Music"))
 	p.cat.mu.Lock()
@@ -223,9 +215,7 @@ func TestSongLineWithoutAlbumAndLinkedOnlyToAPortedPage(t *testing.T) {
 	if !p.tt.HasText("The song is ") && !p.tt.HasText("The song is") {
 		t.Fatalf("no song line: %q", p.tt.Texts())
 	}
-	if err := p.tt.Click("Sky"); err != nil {
-		t.Fatal(err)
-	}
+	p.tt.MustClick("Sky")
 	if got := p.router.Path(); got != "/song/s.1" {
 		t.Errorf("the song link went to %q", got)
 	}
@@ -234,11 +224,9 @@ func TestSongLineWithoutAlbumAndLinkedOnlyToAPortedPage(t *testing.T) {
 func TestSeeAllGoesToTheArtistsVideosOnlyWithAnArtist(t *testing.T) {
 	p := newPageRig(t, false, 1132, 1253)
 	p.loaded()
-	if err := p.tt.Click("See all"); err != nil {
-		t.Fatal(err)
-	}
-	if !p.nav.went("/artist/ar.1/view/music-videos") {
-		t.Errorf("pushed %v", p.nav.pushed)
+	p.tt.MustClick("See all")
+	if !p.nav.Went("/artist/ar.1/view/music-videos") {
+		t.Errorf("pushed %v", p.nav.Pushed)
 	}
 
 	q := newPageRig(t, false, 1132, 1253, func(f *fakeCat) { f.vid.Video.ArtistID = "" })
@@ -252,17 +240,13 @@ func TestTilesOpenTheirPageAndPlayWhereVideosPlay(t *testing.T) {
 	// Tall enough that the second shelf is on screen under the lead picture.
 	p := newPageRig(t, false, 1132, 1500)
 	p.loaded()
-	if err := p.tt.Click("Play Rain Video"); err != nil {
-		t.Fatal(err)
-	}
+	p.tt.MustClick("Play Rain Video")
 	if len(p.queue.videos) != 1 || p.queue.videos[0][0].ID != "mv.2" {
 		t.Errorf("a tile's play control played %v", p.queue.videos)
 	}
-	if err := p.tt.Click("Wind Video"); err != nil {
-		t.Fatal(err)
-	}
-	if p.nav.last() != "/music-video/mv.4" {
-		t.Errorf("a tile opened %v", p.nav.pushed)
+	p.tt.MustClick("Wind Video")
+	if p.nav.Last() != "/music-video/mv.4" {
+		t.Errorf("a tile opened %v", p.nav.Pushed)
 	}
 
 	q := newPageRig(t, false, 1132, 1253)
@@ -276,11 +260,9 @@ func TestTilesOpenTheirPageAndPlayWhereVideosPlay(t *testing.T) {
 func TestNotFoundPageGoesBackToSearch(t *testing.T) {
 	p := newPageRig(t, false, 1132, 1253, func(f *fakeCat) { f.err = library.ErrNotFound })
 	p.tt.Until("the error", p.tt.Shows("This music video isn't available", "Go to Search"))
-	if err := p.tt.Click("Go to Search"); err != nil {
-		t.Fatal(err)
-	}
-	if !p.nav.went("/search") {
-		t.Errorf("pushed %v", p.nav.pushed)
+	p.tt.MustClick("Go to Search")
+	if !p.nav.Went("/search") {
+		t.Errorf("pushed %v", p.nav.Pushed)
 	}
 	// With no search page ported the back link is not drawn.
 	q := newPageRig(t, false, 1132, 1253, func(f *fakeCat) { f.err = library.ErrNotFound })
@@ -295,9 +277,7 @@ func TestFailedLoadRetries(t *testing.T) {
 	p := newPageRig(t, false, 1132, 1253, func(f *fakeCat) { f.err = services.ErrNotReleased })
 	p.tt.Until("the error", p.tt.Shows("Couldn't load this music video", "Try again"))
 	p.cat.set(func(f *fakeCat) { f.err = nil })
-	if err := p.tt.Click("Try again"); err != nil {
-		t.Fatal(err)
-	}
+	p.tt.MustClick("Try again")
 	p.tt.Until("the page", p.tt.Shows("Sky Video"))
 }
 

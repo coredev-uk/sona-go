@@ -2,6 +2,7 @@ package player
 
 import (
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -19,7 +20,7 @@ func TestTheSungLyricLineIsTheCurrentItem(t *testing.T) {
 	r.tt.Until("lyrics", r.tt.Shows("Line 1 sung words"))
 	tr := access.Read(t, r.tt.Tester)
 	for i := range 6 {
-		label := "Line " + itoa(i) + " sung words"
+		label := "Line " + strconv.Itoa(i) + " sung words"
 		n, ok := tr.Find(ui.RoleButton, label)
 		if !ok {
 			t.Fatalf("no button %q", label)
@@ -51,9 +52,7 @@ func TestTheLyricsTimingOffsetIsAnnouncedWhenItChanges(t *testing.T) {
 	}
 	click := func(s string) {
 		t.Helper()
-		if err := r.tt.Click(s); err != nil {
-			t.Fatal(err)
-		}
+		r.tt.MustClick(s)
 		r.tt.Drain()
 	}
 	click("Show lyrics 0.5 s later")

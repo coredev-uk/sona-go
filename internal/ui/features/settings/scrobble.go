@@ -29,9 +29,6 @@ func providerName(p provider) string {
 	return "Last.fm"
 }
 
-// listenBrainzTokenPage is where a ListenBrainz user token is copied from.
-const listenBrainzTokenPage = "https://listenbrainz.org/settings/"
-
 // scrobbleUI is the state of the scrobbling rows that outlives a frame.
 type scrobbleUI struct {
 	lastfmBusy bool     // ConnectLastFM is in flight
@@ -196,40 +193,12 @@ func (s *settings) listenBrainzForm(c *ui.Context, f *tokenForm, connect func(),
 				cancel()
 			}
 		})
-		s.tokenHint(c)
+		kit.ListenBrainzTokenHint(c, s.env.OpenURL)
 		if f.err != "" {
-			s.alertLine(c.Key("err"), "circle-alert", f.err)
+			kit.AlertLine(c.Key("err"), f.err)
 		}
 	})
 	if form.Shortcut(0, ui.KeyEscape) {
 		cancel()
 	}
-}
-
-// tokenHint is "Copy it from your ListenBrainz settings ↗. Sona checks it …":
-// the translation marks the link as <0>text<1/></0>.
-func (s *settings) tokenHint(c *ui.Context) {
-	msg := i18n.T("Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with ListenBrainz and keeps it in your keyring.")
-	before, rest, _ := strings.Cut(msg, "<0>")
-	link, after, ok := strings.Cut(rest, "<1/></0>")
-	c = c.Key("hint")
-	if !ok {
-		theme.Text(c, msg, "meta").TextColor(theme.C("ink-muted"))
-		return
-	}
-	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Children(func() {
-		theme.Text(c.Key("a"), before, "meta").TextColor(theme.C("ink-muted"))
-		if kit.Button(c.Key("link"), link, kit.ButtonOpts{Variant: kit.Link, Size: kit.SizeXS, Icon: "external-link"}).Clicked() {
-			_ = s.env.OpenURL(listenBrainzTokenPage)
-		}
-		theme.Text(c.Key("b"), after, "meta").TextColor(theme.C("ink-muted"))
-	})
-}
-
-// alertLine is a sentence with a danger icon, an alert read as it appears.
-func (s *settings) alertLine(c *ui.Context, icon, msg string) {
-	ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Start).Role(ui.RoleAlert).Label(msg).Children(func() {
-		ui.Icon(c.Key("i"), theme.Icon(icon)).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
-		theme.Text(c, msg, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
-	})
 }

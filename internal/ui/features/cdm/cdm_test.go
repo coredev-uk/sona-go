@@ -9,7 +9,6 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
-	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
@@ -32,42 +31,30 @@ func newRig(t *testing.T, routes bool, opts ...uitest.Option) *rig {
 	return &rig{h, tt}
 }
 
-func (r *rig) emit(s services.CDMStatus) {
-	r.h.Bus.Emit(services.EventCDMStatus, s)
-	r.tt.Drain()
-}
-
-func (r *rig) has(t *testing.T, want string) {
-	t.Helper()
-	if !r.tt.HasText(want) {
-		t.Errorf("notice lacks %q: %q", want, r.tt.Texts())
-	}
-}
-
 func TestNoticeWordsEachState(t *testing.T) {
 	for _, routes := range []bool{true, false} { // a link, or plain text until Settings is ported
 		r := newRig(t, routes, uitest.Bare())
 		// Before Go has reported anything: waiting, with no percent.
-		r.has(t, "Waiting for Widevine to download")
+		r.tt.Want("Waiting for Widevine to download")
 		if r.tt.HasText("%") {
 			t.Errorf("a percent before any status: %q", r.tt.Texts())
 		}
-		r.emit(services.CDMStatus{State: "downloading", Received: 42, Total: 100})
-		r.has(t, "Waiting for Widevine to download")
-		r.has(t, "42%")
-		r.emit(services.CDMStatus{State: "downloading", Received: 42}) // size unknown
-		r.has(t, "Waiting for Widevine to download")
+		r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "downloading", Received: 42, Total: 100})
+		r.tt.Want("Waiting for Widevine to download")
+		r.tt.Want("42%")
+		r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "downloading", Received: 42}) // size unknown
+		r.tt.Want("Waiting for Widevine to download")
 		if r.tt.HasText("%") {
 			t.Errorf("a percent with no total: %q", r.tt.Texts())
 		}
-		r.emit(services.CDMStatus{State: "idle"})
-		r.has(t, "Waiting for Widevine to download")
-		r.emit(services.CDMStatus{State: "failed", Code: "network"})
-		r.has(t, "Couldn't get Widevine · Retry in Settings")
-		r.emit(services.CDMStatus{State: "failed", Code: "unsupported_platform"})
-		r.has(t, "Songs can't play on this computer")
-		r.emit(services.CDMStatus{State: "ready", Version: "4.10"})
-		r.has(t, "Widevine is ready. Press play to start.")
+		r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "idle"})
+		r.tt.Want("Waiting for Widevine to download")
+		r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "failed", Code: "network"})
+		r.tt.Want("Couldn't get Widevine · Retry in Settings")
+		r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "failed", Code: "unsupported_platform"})
+		r.tt.Want("Songs can't play on this computer")
+		r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "ready", Version: "4.10"})
+		r.tt.Want("Widevine is ready. Press play to start.")
 		if r.tt.HasText("Waiting") || r.tt.HasText("Couldn't") {
 			t.Errorf("a ready CDM still waits: %q", r.tt.Texts())
 		}
@@ -91,10 +78,10 @@ func onlyAStateVersionOrCodeChangeRefreshesDiagnostics(t *testing.T) {
 		r.tt.Until("the diagnostics to be fetched", func() bool { diag(); return fetches.Load() >= n })
 	}
 	waitFetches(1)
-	r.emit(services.CDMStatus{State: "downloading", Version: "1", Received: 1, Total: 100})
+	r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "downloading", Version: "1", Received: 1, Total: 100})
 	waitFetches(2) // the first status
 	for i := range 5 {
-		r.emit(services.CDMStatus{State: "downloading", Version: "1", Received: int64(10 + i), Total: 100})
+		r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "downloading", Version: "1", Received: int64(10 + i), Total: 100})
 	}
 	r.tt.Quiesce() // a refresh the steps started has run and posted by now
 	diag()
@@ -102,11 +89,11 @@ func onlyAStateVersionOrCodeChangeRefreshesDiagnostics(t *testing.T) {
 	if n := fetches.Load(); n != 2 {
 		t.Errorf("progress steps refreshed the diagnostics: %d fetches", n)
 	}
-	r.emit(services.CDMStatus{State: "ready", Version: "1"})
+	r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "ready", Version: "1"})
 	waitFetches(3)
-	r.emit(services.CDMStatus{State: "ready", Version: "2"})
+	r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "ready", Version: "2"})
 	waitFetches(4)
-	r.emit(services.CDMStatus{State: "ready", Version: "2", Code: "network"})
+	r.tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "ready", Version: "2", Code: "network"})
 	waitFetches(5)
 }
 
@@ -135,37 +122,29 @@ func snapshotFillsTheMirrorOnlyWhileEmpty(t *testing.T) {
 	})
 }
 
-// navigator records what the notice asked of the router.
-type navigator struct {
-	module.Navigator
-	pushed []string
-}
-
-func (n *navigator) Push(p string) { n.pushed = append(n.pushed, p) }
-
 func TestNoticeLinkOpensSettingsPlaybackThroughTheRouter(t *testing.T) {
 	h := uitest.New(t, uitest.Bare())
 	h.Env.HasRoute = func(p string) bool { return p == "/settings" }
-	nav := &navigator{}
+	nav := &uitest.Nav{}
 	h.Env.Nav = nav
 	New(h.Env).Init()
 	tt := h.Tester(t, func(c *ui.Context) {
 		ui.Row(c).Fill().Padding(8).Children(func() { h.Env.PlayerNotice.Build(c) })
 	}, 600, 100)
-	h.Bus.Emit(services.EventCDMStatus, services.CDMStatus{State: "failed", Code: "network"})
+	tt.Emit(services.EventCDMStatus, services.CDMStatus{State: "failed", Code: "network"})
+	tt.MustClick("Couldn't get Widevine · Retry in Settings")
 	tt.Drain()
-	if err := tt.Click("Couldn't get Widevine · Retry in Settings"); err != nil {
-		t.Fatal(err)
+	if len(nav.Pushed) != 1 || nav.Pushed[0] != "/settings?section=playback" {
+		t.Errorf("router got %v, want one push of /settings?section=playback", nav.Pushed)
 	}
-	tt.Drain()
-	if len(nav.pushed) != 1 || nav.pushed[0] != "/settings?section=playback" {
-		t.Errorf("router got %v, want one push of /settings?section=playback", nav.pushed)
+	if len(nav.Replaced) != 0 {
+		t.Errorf("router replaced %v, want no replace", nav.Replaced)
 	}
 	// Without the page the line is text: nothing to click through to.
 	h.Env.HasRoute = func(string) bool { return false }
 	tt.Drain()
 	_ = tt.Click("Couldn't get Widevine · Retry in Settings")
-	if len(nav.pushed) != 1 {
-		t.Errorf("plain text pushed %v", nav.pushed)
+	if len(nav.Pushed) != 1 {
+		t.Errorf("plain text pushed %v", nav.Pushed)
 	}
 }

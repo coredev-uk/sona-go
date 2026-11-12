@@ -56,13 +56,13 @@ func TestArtistConcertsShelfShowsThreeThenAll(t *testing.T) {
 	// The venue leads on an artist's own page, with the city under it; the
 	// name is left out, and so is a portrait and a link.
 	r.shows("London", "Watford", "Wed", "Apr")
-	r.lacks("Last Dome")
+	r.tt.Lacks("Last Dome")
 	r.lacksExactly("Example Band")
-	r.click("Show all 4")
+	r.tt.MustClick("Show all 4")
 	r.shows("Last Dome", "Show fewer")
-	r.click("Show fewer")
+	r.tt.MustClick("Show fewer")
 	r.tt.Until("three rows again", func() bool { return !r.tt.HasText("Last Dome") })
-	r.click("More concerts near London")
+	r.tt.MustClick("More concerts near London")
 	if got := r.router.Path(); got != "/concerts" {
 		t.Errorf("the link went to %q", got)
 	}
@@ -73,25 +73,25 @@ func TestArtistConcertsNamesTheLineupOnlyWhenOthersPlay(t *testing.T) {
 	with.lineup = "Example Band with Opener Duo"
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900001", true) }, with, artistShows[1])
 	r.shows("Upcoming concerts", "Example Hall", "Example Band with Opener Duo")
-	r.lacks("Show all")
+	r.tt.Lacks("Show all")
 	r.lacksExactly("Example Band")
 }
 
 func TestArtistConcertsDrawsNothingWithNoShowsOrOnFailure(t *testing.T) {
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900099", true) }, artistShows...)
 	answered(r, func() store.Result[services.ArtistConcerts] { return dataOf(r.h.Env).artist("900099") })
-	r.lacks("Upcoming concerts")
+	r.tt.Lacks("Upcoming concerts")
 
 	r = shelfRig(t, 1132, true, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900001", true) }, artistShows...)
 	answered(r, func() store.Result[services.ArtistConcerts] { return dataOf(r.h.Env).artist("900001") })
-	r.lacks("Upcoming concerts")
+	r.tt.Lacks("Upcoming concerts")
 }
 
 func TestConcertsShelfShowsTheNextSixInTwoColumns(t *testing.T) {
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ConcertsShelf(c, r.h.Env, true) }, bulk(8)...)
 	r.shows("Concerts in London", "See all", "Band 0", "Band 5", "Jan")
-	r.lacks("Band 6")
-	r.click("See all")
+	r.tt.Lacks("Band 6")
+	r.tt.MustClick("See all")
 	if got := r.router.Path(); got != "/concerts" {
 		t.Errorf("See all went to %q", got)
 	}
@@ -116,7 +116,7 @@ func TestConcertsShelfIsOneColumnWhenNarrow(t *testing.T) {
 func TestConcertsShelfSaysWhenNothingIsListedAndLeavesOutOnFailure(t *testing.T) {
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ConcertsShelf(c, r.h.Env, true) })
 	r.shows("Concerts in London", "No concerts", "No upcoming concerts. Please check back later.", "Set location")
-	r.click("Set location")
+	r.tt.MustClick("Set location")
 	if got := r.router.Path(); got != "/concerts" {
 		t.Errorf("the action went to %q", got)
 	}
@@ -125,5 +125,5 @@ func TestConcertsShelfSaysWhenNothingIsListedAndLeavesOutOnFailure(t *testing.T)
 	answered(r, func() store.Result[services.ConcertsPage] {
 		return dataOf(r.h.Env).concerts(requestOf(dayRange{}, false, "", pageSize))
 	})
-	r.lacks("Concerts", "Band 0")
+	r.tt.Lacks("Concerts", "Band 0")
 }
