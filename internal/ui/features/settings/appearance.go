@@ -65,7 +65,7 @@ func (s *settings) themeChoice(c *ui.Context, value string, disabled bool) ui.El
 			if r.Changed() {
 				changed = true
 			}
-			r.Children(func() { text(c, ch.label, "secondary").FontWeight(weight).TextColor(fg).SingleLine() })
+			r.Children(func() { theme.Text(c, ch.label, "secondary").FontWeight(weight).TextColor(fg).SingleLine() })
 		}
 	}).Row().Height(32).Padding(2).AlignItems(ui.Stretch).Radius(tk.Radius["md"]).
 		Border(1, theme.C("control-line")).Label(i18n.T("Theme"))

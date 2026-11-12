@@ -93,10 +93,10 @@ func (s *search) recentEntry(c *ui.Context, pg *pageView, e services.RecentSearc
 		body := func() {
 			art()
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Margin(0, 0, 0, 12).Children(func() {
-				text(c, label, "body").TextColor(theme.C("ink")).SingleLine()
+				theme.Text(c, label, "body").TextColor(theme.C("ink")).SingleLine()
 				if e.Kind != services.RecentTerm {
 					if meta := itemMeta(recentItem(e)); meta != "" {
-						text(c, meta, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+						theme.Text(c, meta, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 					}
 				}
 			})

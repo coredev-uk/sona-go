@@ -159,14 +159,14 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 		ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
 			if link != "" && !h.opens(link) {
 				// Its page is not served: the name is plain text.
-				text(c, it.Name, "page").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
+				theme.Text(c, it.Name, "page").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
 			} else {
 				opener := ui.ButtonBase(c.Key("open")).Justify(ui.Start).Radius(tk.Radius["sm"]).Label(it.Name)
 				if link != "" {
 					opener.Role(ui.RoleLink)
 				}
 				opener.Children(func() {
-					t := text(c, it.Name, "page").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
+					t := theme.Text(c, it.Name, "page").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
 					if opener.Hovered() {
 						t.Underline()
 					}
@@ -176,10 +176,10 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 				}
 			}
 			if it.Subtitle != "" {
-				text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
+				theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
 			}
 			if meta := catalogueLine(it); meta != "" {
-				text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)
+				theme.Text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)
 			}
 			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 				if ctx.Players.CanPlay(it) {

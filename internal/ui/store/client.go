@@ -243,11 +243,19 @@ func keepOf(o Options) time.Duration {
 	return defaultKeep
 }
 
+// peekLocked is key's entry, if there is one, without making it.
+func (cl *Client) peekLocked(key Key) *entry {
+	var buf [128]byte
+	return cl.entries[string(key.appendID(buf[:0]))]
+}
+
 func (cl *Client) entryLocked(key Key, now time.Time) *entry {
-	id := key.id()
-	if e := cl.entries[id]; e != nil {
+	var buf [128]byte
+	b := key.appendID(buf[:0])
+	if e := cl.entries[string(b)]; e != nil { // string(b) in a lookup does not allocate
 		return e
 	}
+	id := string(b)
 	ctx, stop := context.WithCancel(context.Background())
 	e := &entry{key: append(Key(nil), key...), id: id, ctx: ctx, stop: stop, keep: defaultKeep, usedAt: cl.active}
 	cl.entries[id] = e

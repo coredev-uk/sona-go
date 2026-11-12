@@ -1,12 +1,11 @@
 // Package kit is Sona's component kit (docs/ui-architecture.md, "The kit"):
-// MyGo widgets and elements in Sona's look, built from the theme's tokens.
-// PR 0.2 ships the two the foundation is checked with, Button and Artwork
-// (with the ArtLoader that feeds it); the phase 1 kit PRs add the rest.
+// MyGo widgets and elements in Sona's look, built from the theme's tokens:
+// controls, overlays, collections (track lists, cover grids, shelves), media,
+// the player bar's and the queue's pieces, and the ArtLoader that feeds the
+// artwork.
 package kit
 
 import (
-	"time"
-
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
@@ -153,10 +152,7 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 			e.DimDisabled(false)
 		}
 	}
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(e, "feedback")
 	if o.Pressed != nil {
 		e.Role(ui.RoleToggleButton).Checked(pressed)
 	}
@@ -181,10 +177,8 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 			if o.Variant == Play && o.Size == SizeLG {
 				size = playGlyph
 			}
-			ic := theme.Glyph(c, o.Icon, size, theme.GlyphOpts{Color: fg, Inherit: true, Filled: o.Filled, SVG: controlsIcon(o.Icon, o.Filled)})
-			if o.Spin && !theme.ReducedMotion() {
-				ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
-			}
+			ic := theme.Glyph(c, o.Icon, size, theme.GlyphOpts{Color: fg, Inherit: true, Filled: o.Filled})
+			theme.Spin(ic, o.Spin)
 			if o.Variant == Play && o.Icon == "play" {
 				ic.Margin(0, 0, 0, 1) // the triangle's weight sits left of its box
 			}
@@ -193,7 +187,7 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 			icon()
 		}
 		if !iconOnly {
-			t := controlsText(c, label, "label").FontSize(sz.font).SingleLine()
+			t := theme.Text(c, label, "label").FontSize(sz.font).SingleLine()
 			if o.Variant == Link && hovered {
 				t.Underline()
 			}
@@ -288,12 +282,9 @@ func PlayButton(c *ui.Context, label string, size float32) ui.Element {
 		bg = bg.Alpha(0.9)
 	}
 	e.Background(bg).TextColor(theme.C("on-play"))
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(e, "feedback")
 	e.Children(func() {
-		theme.Glyph(c, "play", max(size*0.45, 12), theme.GlyphOpts{Color: theme.C("on-play"), Inherit: true, Filled: true, SVG: controlsIcon("play", true)}).
+		theme.Glyph(c, "play", max(size*0.45, 12), theme.GlyphOpts{Color: theme.C("on-play"), Inherit: true, Filled: true}).
 			Margin(0, 0, 0, 1)
 	})
 	return e

@@ -52,18 +52,18 @@ func (s *search) profileBody(c *ui.Context, pane *kit.Pane, d services.ProfileDe
 		kit.PersonAvatar(c, s.env.Art, name, p.Art.Large, 128).Shrink(0)
 		ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-				text(c, name, "display").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1)
+				theme.Text(c, name, "display").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1)
 				if p.Verified {
 					ui.Icon(c, theme.Icon("badge-check")).FontSize(24).TextColor(theme.C("ink-muted")).Shrink(0).
 						Role(ui.RoleImage).Label(i18n.T("Verified"))
 				}
 			})
 			ui.Row(c).AlignItems(ui.Center).Gap(6).Margin(4, 0, 0, 0).Children(func() {
-				text(c, "@"+p.Handle, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+				theme.Text(c, "@"+p.Handle, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 				if p.Private {
-					text(c, "·", "secondary").TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
+					theme.Text(c, "·", "secondary").TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
 					ui.Icon(c, theme.Icon("lock")).FontSize(14).TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
-					text(c, i18n.T("Private profile"), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+					theme.Text(c, i18n.T("Private profile"), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 				}
 			})
 		})

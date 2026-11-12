@@ -84,7 +84,7 @@ func (h *home) homeLead(c *ui.Context, sec services.Section) {
 	root.Children(func() {
 		hidden := st.cols > 0 && len(rest) > st.cols*slateRows
 		ui.Row(c.Key("head")).MinHeight(28).Margin(0, 0, 16, 0).Gap(16).AlignItems(ui.Center).Children(func() {
-			text(c, title, "heading").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).Role(ui.RoleHeading).Level(2)
+			theme.Text(c, title, "heading").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).Role(ui.RoleHeading).Level(2)
 			if hidden || st.open {
 				label := i18n.T("Show all {count}", "count", len(sec.Items))
 				if st.open {
@@ -126,10 +126,7 @@ func toggleButton(c *ui.Context, label string, open bool) ui.Element {
 		bg, fg = theme.C("hover"), theme.C("ink")
 	}
 	b.Height(28).PaddingX(6).MarginEnd(-4).Gap(2).Radius(tk.Radius["md"]).Background(bg).TextColor(fg).Center()
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(b, "feedback")
 	b.Children(func() {
 		sub := tk.Type["sub"]
 		ui.Text(c, label).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine()
@@ -211,24 +208,24 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 		ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
 			if link != "" && !h.opens(link) {
 				// Its page is not served: the name is plain text.
-				text(c, it.Name, "display").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
+				theme.Text(c, it.Name, "display").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
 			} else {
 				opener = ui.ButtonBase(c.Key("open")).Justify(ui.Start).Radius(tk.Radius["sm"]).Label(it.Name)
 				if link != "" {
 					opener.Role(ui.RoleLink)
 				}
 				opener.Children(func() {
-					t := text(c, it.Name, "display").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
+					t := theme.Text(c, it.Name, "display").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
 					if opener.Hovered() {
 						t.Underline()
 					}
 				})
 			}
 			if it.Subtitle != "" {
-				text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
+				theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
 			}
 			if meta := catalogueLine(it); meta != "" {
-				text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)
+				theme.Text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)
 			}
 			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 				if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
@@ -267,7 +264,7 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 // the one action.
 func (h *home) signInLead(c *ui.Context) {
 	h.leadNotice(c, "", i18n.T("Recommendations need Apple Music"), func() {
-		text(c, i18n.T("Sign in to see picks, mixes and stations chosen for you."), "body").
+		theme.Text(c, i18n.T("Sign in to see picks, mixes and stations chosen for you."), "body").
 			TextColor(theme.C("ink-muted")).MaxWidth(60 * 9)
 		if kit.Button(c.Key("signin"), i18n.T("Sign in"), kit.ButtonOpts{Size: kit.SizeSM}).Margin(16, 0, 0, 0).Clicked() && h.env.Surfaces != nil {
 			h.env.Surfaces.OpenAccount()
@@ -279,7 +276,7 @@ func (h *home) signInLead(c *ui.Context) {
 // Sona fetches it when it reconnects.
 func (h *home) offlineLead(c *ui.Context) {
 	h.leadNotice(c, "wifi-off", i18n.T("No recommendations while offline"), func() {
-		text(c, i18n.T("Sona fetches them as soon as it reconnects."), "body").
+		theme.Text(c, i18n.T("Sona fetches them as soon as it reconnects."), "body").
 			TextColor(theme.C("ink-muted")).MaxWidth(60 * 9)
 	})
 }
@@ -292,7 +289,7 @@ func (h *home) leadNotice(c *ui.Context, icon, title string, body func()) {
 			if icon != "" {
 				theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: theme.C("ink-muted")})
 			}
-			text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+			theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 		})
 		body()
 	})

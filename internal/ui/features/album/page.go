@@ -281,12 +281,6 @@ func (a *album) errorBlock(c *ui.Context, l load) {
 	})
 }
 
-// typed is text in one of the theme's type styles.
-func typed(c *ui.Context, text, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, text).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // skeleton is the sleeve, head and rows at their real sizes while the album
 // loads.
 func (a *album) skeleton(c *ui.Context, lay layout) {

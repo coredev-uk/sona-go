@@ -44,14 +44,13 @@ type ItemsCtx struct {
 	Motion *MotionPolicy
 
 	// What is playing (the feature supplies it from store.Playback):
-	// Current reports whether a song is the one playing, CurrentStation the
-	// same for a station; Playing is whether it plays or is paused; OnAir
+	// Current is the queue's current item (nil: none), which marks a song or
+	// a station that is it; Playing is whether it plays or is paused; OnAir
 	// is what the playing station's stream names; Toggle pauses or resumes.
-	Current        func(services.Song) bool
-	CurrentStation func(services.Station) bool
-	Playing        bool
-	OnAir          *services.OnAir
-	Toggle         func()
+	Current *services.QueueItem
+	Playing bool
+	OnAir   *services.OnAir
+	Toggle  func()
 }
 
 func (x *ItemsCtx) nav(path string) {
@@ -133,7 +132,7 @@ func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 		tile.Play = &CoverPlay{Label: it.Name, Run: func() { ctx.Players.PlayItem(it) }, RunFrom: func(h *ui.Handle) { ctx.Players.PlayItemFrom(it, h) }}
 	}
 	if it.Album != nil {
-		tile.Badge = itemsReleaseBadge(*it.Album, ctx.Players.now())
+		tile.Badge = ReleaseBadge(*it.Album, ctx.Players.now())
 	}
 	if target, ok := ActionItemOf(it, ctx.Players); ok {
 		tile.Item = &target
@@ -177,10 +176,10 @@ func IsUpcoming(a services.Album, now time.Time) bool {
 	return a.Prerelease && (a.ReleaseAt == 0 || now.UnixMilli() < a.ReleaseAt)
 }
 
-// itemsReleaseBadge is the badge on an upcoming album's cover ("Out 19 Nov",
+// ReleaseBadge is the badge on an upcoming album's cover ("Out 19 Nov",
 // with the year when it is not this one's); "" for an album that is out or
 // has no full date (v0.2.0's releaseBadge).
-func itemsReleaseBadge(a services.Album, now time.Time) string {
+func ReleaseBadge(a services.Album, now time.Time) string {
 	if !IsUpcoming(a, now) || a.ReleaseAt == 0 {
 		return ""
 	}

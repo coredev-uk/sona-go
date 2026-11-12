@@ -152,10 +152,10 @@ func (l *library) historySection(c *ui.Context, pg *historyPage, g *historyGroup
 		pg.lists[g.day] = st
 	}
 	tk := theme.Current()
-	h, meta := tk.Type["heading"], tk.Type["meta"]
+	meta := tk.Type["meta"]
 	ui.Column(c.Key(g.day)).Role(ui.RoleGroup).Label(label).Margin(0, 0, 40, 0).Children(func() {
 		ui.Row(c).Wrap().AlignItems(ui.Baseline).Gap(8).Padding(0, 8).Margin(0, 0, 8, 0).Children(func() {
-			ui.Text(c, label).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
+			theme.StyleText(ui.Text(c, label), "heading").
 				TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 			ui.Text(c, historySubline(g)).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-faint"))
 		})

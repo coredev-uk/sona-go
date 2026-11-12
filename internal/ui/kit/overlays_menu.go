@@ -470,14 +470,14 @@ func (m *Menu) row(c *ui.Context, it *MenuItem, marks, hi, byKey bool, lv int) u
 		}
 		if it.Reason != "" {
 			ui.Column(c.Key("txt")).Grow(1).MinWidth(0).Children(func() {
-				overlaysText(c.Key("l"), it.Label, "body").SingleLine()
-				overlaysText(c.Key("r"), it.Reason, "meta").TextColor(theme.C("ink-faint")).FontWeight(400)
+				theme.Text(c.Key("l"), it.Label, "body").SingleLine()
+				theme.Text(c.Key("r"), it.Reason, "meta").TextColor(theme.C("ink-faint")).FontWeight(400)
 			})
 		} else {
-			overlaysText(c.Key("l"), it.Label, "body").SingleLine().Grow(1).MinWidth(0)
+			theme.Text(c.Key("l"), it.Label, "body").SingleLine().Grow(1).MinWidth(0)
 		}
 		if it.Hint != "" {
-			overlaysText(c.Key("h"), it.Hint, "meta").SingleLine().TextColor(theme.C("ink-faint")).MarginStart(16)
+			theme.Text(c.Key("h"), it.Hint, "meta").SingleLine().TextColor(theme.C("ink-faint")).MarginStart(16)
 		}
 		if it.Kind == MenuSub {
 			theme.Glyph(c.Key("sub"), "chevron-right", 16, theme.GlyphOpts{Color: theme.C("ink-muted")})
@@ -642,17 +642,11 @@ func overlaysTypedRune(mods ui.Modifiers, key ui.Key) (rune, bool) {
 	return 0, false
 }
 
-// overlaysText is a Text in one of the theme's type styles.
-func overlaysText(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // menuLabel builds a MenuLabel row by its Note.
 func menuLabel(c *ui.Context, it MenuItem) {
 	switch it.Note {
 	case LabelHeader:
-		overlaysText(c, it.Label, "label").TextColor(theme.C("ink")).Padding(6, 8).Shrink(0)
+		theme.Text(c, it.Label, "label").TextColor(theme.C("ink")).Padding(6, 8).Shrink(0)
 	case LabelNote:
 		ui.Row(c).AlignItems(ui.Start).Gap(6).Padding(2, 8).Shrink(0).Children(func() {
 			if it.Icon != "" {
@@ -662,9 +656,9 @@ func menuLabel(c *ui.Context, it MenuItem) {
 				}
 				theme.Glyph(c.Key("icon"), it.Icon, 14, theme.GlyphOpts{Color: fg}).Shrink(0).Margin(1, 0, 0, 0)
 			}
-			overlaysText(c.Key("text"), it.Label, "meta").TextColor(theme.C("ink-muted"))
+			theme.Text(c.Key("text"), it.Label, "meta").TextColor(theme.C("ink-muted"))
 		})
 	default:
-		overlaysText(c, it.Label, "meta").TextColor(theme.C("ink-faint")).Padding(6, 8).Shrink(0)
+		theme.Text(c, it.Label, "meta").TextColor(theme.C("ink-faint")).Padding(6, 8).Shrink(0)
 	}
 }

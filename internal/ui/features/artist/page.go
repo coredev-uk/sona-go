@@ -303,16 +303,11 @@ func (a *artist) tracks(c *ui.Context, st *tracksState, songs []services.Song, s
 		st.menus = kit.NewActionMenus(a.env.Actions, &st.Sel)
 	}
 	cur := a.env.Play.State()
-	var current func(*services.Song) bool
-	if cur.Current != nil {
-		id, cat := cur.Current.ID, cur.Current.CatalogID
-		current = func(s *services.Song) bool { return kit.SongIsCurrent(s, id, cat) }
-	}
 	o := kit.TrackListOpts{
 		Label:      label,
 		Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true},
 		OnPlay:     func(i int) { a.env.Queue.PlaySongs(songs, i, src) },
-		Current:    current,
+		Current:    cur.Current,
 		Playing:    cur.State == "playing",
 		Restricted: a.restricted(),
 		Art:        a.env.Art, Menus: st.menus, Motion: a.env.Motion, Pane: pane,
@@ -327,12 +322,10 @@ func (a *artist) tracks(c *ui.Context, st *tracksState, songs []services.Song, s
 // at the page-title size, then its shelves (docs/design.md, Artist).
 // It takes the focus for a jump (Read more) without being a Tab stop.
 func (a *artist) band(c *ui.Context, id, title string, content func()) ui.Element {
-	tk := theme.Current()
 	sec := ui.Column(c.Key(id)).Margin(56, 0, 0, 0).Role(ui.RoleGroup).Label(title).TabStop(false)
 	sec.Children(func() {
 		ui.Box(c.Key("line")).FillWidth().Height(1).Background(theme.C("line"))
-		t := tk.Type["page"]
-		ui.Text(c, title).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking).
+		theme.StyleText(ui.Text(c, title), "page").
 			TextColor(theme.C("ink")).Margin(24, 0, 20, 0).Role(ui.RoleHeading).Level(2)
 		ui.Column(c.Key("content")).Children(content)
 	})

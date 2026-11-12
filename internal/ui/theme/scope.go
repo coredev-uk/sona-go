@@ -32,10 +32,8 @@ func Scope(over map[string]ui.Color, children func()) {
 	children()
 }
 
-// scoped is the override of a token, if a scope has one.
-func scoped(name string) (ui.Color, bool) {
-	state.mu.Lock()
-	defer state.mu.Unlock()
+// scopedLocked is the override of a token, if a scope has one.
+func scopedLocked(name string) (ui.Color, bool) {
 	for i := len(scopes) - 1; i >= 0; i-- {
 		if c, ok := scopes[i][name]; ok {
 			return c, true

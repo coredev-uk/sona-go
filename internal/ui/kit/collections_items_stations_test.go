@@ -29,7 +29,9 @@ func stationApp(t *testing.T, stations []services.Station, current string, onAir
 		})
 	})
 	a.tweak = func(ctx *ItemsCtx) {
-		ctx.CurrentStation = func(s services.Station) bool { return current != "" && s.ID == current }
+		if current != "" {
+			ctx.Current = &services.QueueItem{ID: current}
+		}
 		ctx.Playing, ctx.OnAir = true, onAir
 	}
 	a.load(t, tt, 0)
@@ -129,7 +131,7 @@ func TestStationListMarksThePlayingStationPausesItFromItsNameAndShowsWhatIsOnAir
 func TestStationListPausedStationIsNamedPlayAndStillToggles(t *testing.T) {
 	a, tt, _ := stationApp(t, []services.Station{capital}, capital.ID, nil)
 	a.tweak = func(ctx *ItemsCtx) {
-		ctx.CurrentStation = func(s services.Station) bool { return s.ID == capital.ID }
+		ctx.Current = &services.QueueItem{ID: capital.ID}
 		ctx.Playing = false
 	}
 	tt.Frame()

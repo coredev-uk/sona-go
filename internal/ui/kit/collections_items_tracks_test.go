@@ -126,7 +126,7 @@ func TestTrackShelfUnplayableAndWithheldSongsAreDimmedAndDoNothing(t *testing.T)
 
 func TestTrackShelfTheCurrentSongShowsTheEqualiserInsteadOfThePlayButton(t *testing.T) {
 	_, tt := trackApp(t, trackItems(4), "", func(ctx *ItemsCtx) {
-		ctx.Current = func(s services.Song) bool { return s.ID == "2" }
+		ctx.Current = &services.QueueItem{ID: "2"}
 		ctx.Playing = true
 	})
 	if _, ok := tt.Find("Play Song 2"); ok {

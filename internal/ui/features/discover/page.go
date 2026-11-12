@@ -66,12 +66,6 @@ func (pg *pageView) body(c *ui.Context, key string, build func(pane *kit.Pane, g
 	}
 }
 
-// text is a Text in one of the theme's type styles.
-func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // bar is a flat --hover placeholder bar (the skeletons of v0.2.0's pages).
 func bar(c *ui.Context, w, h float32) ui.Element {
 	return ui.Box(c).Width(w).Height(h).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover")).Shrink(0).Role(ui.RoleNone)

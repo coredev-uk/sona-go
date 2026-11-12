@@ -101,7 +101,7 @@ func (o *onboarding) crossfadeLength(c *ui.Context, s config.Settings) {
 		seconds = o.fade
 	}
 	ui.Row(c.Key("fade")).FillWidth().Gap(12).AlignItems(ui.Center).Margin(8, 0, 0, 0).Children(func() {
-		text(c, i18n.T("Length"), "sub").TextColor(theme.C("ink-muted"))
+		theme.Text(c, i18n.T("Length"), "sub").TextColor(theme.C("ink-muted"))
 		sl := kit.Slider(c.Key("length"), &seconds, config.MinCrossfadeSeconds, config.MaxCrossfadeSeconds, kit.SliderOpts{
 			A11yLabel: i18n.T("Length"),
 			ValueText: i18n.T("{seconds, plural, one {# second} other {# seconds}}", "seconds", int(seconds)),
@@ -118,6 +118,6 @@ func (o *onboarding) crossfadeLength(c *ui.Context, s config.Settings) {
 				o.save(func(s *config.Settings) { s.Crossfade.Seconds = n })
 			}
 		}
-		text(c, i18n.T("{seconds} s", "seconds", int(seconds)), "meta").TextColor(theme.C("ink-muted")).Width(36)
+		theme.Text(c, i18n.T("{seconds} s", "seconds", int(seconds)), "meta").TextColor(theme.C("ink-muted")).Width(36)
 	})
 }

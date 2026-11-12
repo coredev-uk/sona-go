@@ -71,12 +71,8 @@ type GlyphOpts struct {
 	// with its face.
 	Inherit bool
 	// Filled draws the solid form: the symbol's .fill variant, and
-	// IconFilled (or SVG) for Lucide.
+	// IconFilled for Lucide.
 	Filled bool
-	// SVG is the Lucide drawing when it is neither Icon(name) nor
-	// IconFilled(name): kit's solid play and pause. It is also the symbol's
-	// fallback.
-	SVG *ui.SVG
 }
 
 // Glyph shows the icon name, size DIPs square: on macOS the SF Symbol
@@ -87,14 +83,11 @@ type GlyphOpts struct {
 //
 //	theme.Glyph(c, "search", 16, theme.GlyphOpts{Color: theme.C("ink-faint")})
 func Glyph(c *ui.Context, name string, size float32, o GlyphOpts) ui.Element {
-	svg := o.SVG
-	if svg == nil {
-		svg = Icon(name)
-		if o.Filled {
-			svg = IconFilled(name)
-		}
+	svg := Icon(name)
+	if o.Filled {
+		svg = IconFilled(name)
 	}
-	if sym, ok := SymbolName(name); ok && symbols {
+	if sym, ok := SymbolName(name); symbols && ok {
 		// The glyph keeps the Lucide icon's box; the symbol is drawn over
 		// symbolScale of it, centred, so that its ink is as large.
 		box := ui.Box(c).Size(size, size).Shrink(0)

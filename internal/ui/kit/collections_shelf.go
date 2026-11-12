@@ -29,10 +29,7 @@ func shelfControl(c *ui.Context, e ui.Element) ui.Element {
 		bg = theme.C("hover")
 	}
 	e.Height(28).PaddingX(6).MarginEnd(-4).Gap(2).Radius(tk.Radius["md"]).Background(bg).TextColor(fg).Center()
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(e, "feedback")
 	return e
 }
 
@@ -63,14 +60,13 @@ func ShelfToggle(c *ui.Context, label string, open bool) ui.Element {
 // stack 40 DIPs apart (the first has none above).
 func Shelf(c *ui.Context, o ShelfOpts, content func()) {
 	tk := theme.Current()
-	h := tk.Type["heading"]
 	sec := ui.Column(c.Key("kit.shelf." + o.Title)).Role(ui.RoleGroup).Label(o.Title)
 	if !o.First {
 		sec.Margin(40, 0, 0, 0)
 	}
 	sec.Children(func() {
 		ui.Row(c).MinHeight(28).Margin(0, 0, 12, 0).Gap(16).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, o.Title).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
+			theme.StyleText(ui.Text(c, o.Title), "heading").
 				TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).Role(ui.RoleHeading).Level(2)
 			ui.Row(c).Shrink(0).Gap(4).AlignItems(ui.Center).Children(func() {
 				if o.Actions != nil {

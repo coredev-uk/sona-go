@@ -1508,7 +1508,7 @@ func TestLabelledButtonHeights(t *testing.T) {
 
 func TestScrollAreaTakesTheKeyboard(t *testing.T) {
 	tt := controlsTester(t, 300, 200, func(c *ui.Context) {
-		ScrollArea(c).Size(240, 100).Label("List").Children(func() {
+		ui.Scroll(c).Focusable().Size(240, 100).Label("List").Children(func() {
 			for i := 0; i < 40; i++ {
 				ui.Text(c.Key(i), fmt.Sprintf("Row %d", i)).Height(24).Width(200)
 			}
@@ -1607,7 +1607,7 @@ func TestSearchFieldIsThirtyTwoHighAndClearIsNamedClearSearch(t *testing.T) {
 func TestSolidPlayGlyphHasNoStroke(t *testing.T) {
 	tt := controlsTester(t, 120, 120, func(c *ui.Context) {
 		ui.Column(c).Fill().Background(theme.C("ground")).Padding(20).Children(func() {
-			ui.Icon(c, controlsIcon("play", true)).FontSize(48).TextColor(theme.C("ink"))
+			ui.Icon(c, theme.IconFilled("play")).FontSize(48).TextColor(theme.C("ink"))
 		})
 	})
 	img := tt.Image()

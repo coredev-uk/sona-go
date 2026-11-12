@@ -64,10 +64,7 @@ func controlsFieldFace(e ui.Element, focused, invalid, disabled bool) {
 		}
 		e.Shadow(0, 0, 0, 2, ring)
 	}
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(e, "feedback")
 	controlsDisabled(e, disabled)
 }
 

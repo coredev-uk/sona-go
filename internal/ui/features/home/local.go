@@ -114,7 +114,7 @@ func (h *home) songsList(c *ui.Context, songs []services.Song, ctx kit.ItemsCtx)
 		Label:   i18n.T("Recently played songs"),
 		Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
 		OnPlay:  func(i int) { ctx.Players.PlaySongList(songs, i, recentlyPlayed) },
-		Current: func(s *services.Song) bool { return ctx.Current != nil && ctx.Current(*s) },
+		Current: ctx.Current,
 		Playing: ctx.Playing, Restricted: ctx.Restricted,
 		Art: h.env.Art, Menus: st.menus, Motion: h.env.Motion,
 	}

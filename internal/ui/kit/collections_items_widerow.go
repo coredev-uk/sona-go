@@ -115,9 +115,9 @@ func itemsWidestShape(items []services.Item) float32 {
 // the arrows.
 func (st *WideRowState) header(c *ui.Context, label string, at, pages int) {
 	tk := theme.Current()
-	h, meta := tk.Type["heading"], tk.Type["meta"]
+	meta := tk.Type["meta"]
 	ui.Row(c.Key("head")).MinHeight(28).Margin(0, 0, 12, 0).Gap(16).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, label).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
+		theme.StyleText(ui.Text(c, label), "heading").
 			TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).Role(ui.RoleHeading).Level(2)
 		if pages <= 1 {
 			return
@@ -197,9 +197,8 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 			}
 			fr.Children(func() { itemsBanner(c, ctx.Art, v, rk, src, width, fh, cover, tk.Radius["sm"]) })
 
-			label := tk.Type["label"]
 			ui.Row(c.Key("title")).Height(20).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
-				name := ui.Text(c, it.Name).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
+				name := theme.StyleText(ui.Text(c, it.Name), "label").
 					TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
 				if card.Hovered() {
 					name.Underline()

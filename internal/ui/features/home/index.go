@@ -54,7 +54,7 @@ func (h *home) indexState(id string) *indexLine {
 func (h *home) shelfIndex(c *ui.Context, sections []services.Section, ctx kit.ItemsCtx) {
 	title := i18n.T("More for you")
 	ui.Column(c.Key("index")).Margin(48, 0, 0, 0).Role(ui.RoleGroup).Label(title).Children(func() {
-		text(c, title, "heading").TextColor(theme.C("ink")).SingleLine().Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, title, "heading").TextColor(theme.C("ink")).SingleLine().Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(2)
 		ui.Column(c.Key("list")).Role(ui.RoleList).Children(func() {
 			for i := range sections {
 				h.indexLine(c, sections[i], ctx)
@@ -80,10 +80,7 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 			bg = theme.C("hover")
 		}
 		btn.Background(bg)
-		if !theme.ReducedMotion() {
-			m := tk.Motion["press"]
-			btn.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-		}
+		theme.Fade(btn, "press")
 		btn.Children(func() {
 			ic := theme.Glyph(c, "chevron-right", indexChevron, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
 			turn := float32(0)
@@ -98,9 +95,9 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 			inner := width - 2*indexPad
 			col := min(max(indexColShare*inner, indexColMin), indexColMax)
 			ui.Column(c.Key("title")).Width(col).Shrink(0).MinWidth(0).Children(func() {
-				text(c, s.Title, "heading").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
+				theme.Text(c, s.Title, "heading").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
 				if summary != "" {
-					text(c, summary, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().TextAlign(ui.Start)
+					theme.Text(c, summary, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().TextAlign(ui.Start)
 				}
 			})
 			// Open, the shelf's own covers are right below: no strip.
@@ -170,10 +167,7 @@ func seeAll(c *ui.Context, open func()) ui.Element {
 		bg, fg = theme.C("hover"), theme.C("ink")
 	}
 	b.Height(28).PaddingX(6).Gap(2).Radius(tk.Radius["md"]).Background(bg).TextColor(fg).Center()
-	if !theme.ReducedMotion() {
-		m := tk.Motion["press"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(b, "press")
 	b.Children(func() {
 		sub := tk.Type["sub"]
 		ui.Text(c, i18n.T("See all")).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine()

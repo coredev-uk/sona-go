@@ -23,16 +23,11 @@ type catalogAPI interface {
 	SongPage(ctx context.Context, id string) (services.CatalogSong, error)
 }
 
-// lyricsAPI is what the lyrics block asks of LyricsService.
-type lyricsAPI interface {
-	Lyrics(ctx context.Context, songID string) (services.Lyrics, error)
-}
-
 // song is the feature's state.
 type song struct {
 	env     *module.Env
 	catalog catalogAPI
-	lyrics  lyricsAPI
+	lyrics  store.LyricsSource
 	menus   *kit.ActionMenus
 
 	page pageState
@@ -54,7 +49,7 @@ func New(env *module.Env) module.Module {
 	}
 }
 
-func newSong(env *module.Env, catalog catalogAPI, lyrics lyricsAPI) *song {
+func newSong(env *module.Env, catalog catalogAPI, lyrics store.LyricsSource) *song {
 	s := &song{env: env, catalog: catalog, lyrics: lyrics}
 	if env.Actions != nil {
 		s.menus = kit.NewActionMenus(env.Actions, nil)

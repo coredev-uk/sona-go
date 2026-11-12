@@ -106,9 +106,9 @@ func (s *settings) content(c *ui.Context, section string, narrow bool) {
 	title := sectionTitle(section)
 	ui.Column(c.Key("content:" + section)).FillWidth().Role(ui.RoleGroup).Label(title).Children(func() {
 		if narrow {
-			text(c, title, "page").Size(0, 0).Opacity(0).Role(ui.RoleHeading).Level(2) // sr-only
+			theme.Text(c, title, "page").Size(0, 0).Opacity(0).Role(ui.RoleHeading).Level(2) // sr-only
 		} else {
-			text(c, title, "page").TextColor(theme.C("ink")).Margin(0, 0, 24, 0).Role(ui.RoleHeading).Level(2)
+			theme.Text(c, title, "page").TextColor(theme.C("ink")).Margin(0, 0, 24, 0).Role(ui.RoleHeading).Level(2)
 		}
 		switch section {
 		case secGeneral:
@@ -178,9 +178,9 @@ func (s *settings) sectionList(c *ui.Context, section string, narrow bool) {
 			}
 			b.Children(func() {
 				ui.Column(c.Key(id)).Shrink(1).MinWidth(0).Children(func() {
-					text(c, title, "label").TextColor(fg)
+					theme.Text(c, title, "label").TextColor(fg)
 					if sum != "" && !narrow {
-						text(c, sum, "meta").TextColor(theme.C("ink-muted")).MaxLines(2)
+						theme.Text(c, sum, "meta").TextColor(theme.C("ink-muted")).MaxLines(2)
 					}
 				})
 			})

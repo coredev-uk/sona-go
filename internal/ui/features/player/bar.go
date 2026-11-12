@@ -484,7 +484,5 @@ func tag(c *ui.Context, s, tip string) {
 
 // label is a single line of text in one of the theme's type styles.
 func label(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
-		LetterSpacing(t.Tracking).SingleLine().MinWidth(0).Shrink(1)
+	return theme.Text(c, s, style).SingleLine().MinWidth(0).Shrink(1)
 }

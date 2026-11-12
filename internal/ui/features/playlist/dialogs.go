@@ -176,19 +176,13 @@ func (p *playlists) dialogHost(c *ui.Context) {
 	}
 }
 
-// dialogText is a Text in one of the theme's type styles.
-func dialogText(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // dialogHeader is a dialog's title (16 semibold) and the muted line under
 // it (v0.2.0's gap-1 DialogHeader with text-heading and text-sub); oneLine
 // keeps a long description (a playlist's name) to one line.
 func dialogHeader(c *ui.Context, title, description string, oneLine bool) {
 	ui.Column(c.Key("header")).Gap(4).FillWidth().MinWidth(0).Children(func() {
-		dialogText(c.Key("title"), title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-		d := dialogText(c.Key("description"), description, "secondary").TextColor(theme.C("ink-muted"))
+		theme.Text(c.Key("title"), title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+		d := theme.Text(c.Key("description"), description, "secondary").TextColor(theme.C("ink-muted"))
 		if oneLine {
 			d.SingleLine()
 		}
@@ -201,7 +195,7 @@ func dialogField(c *ui.Context, key, label string, control func() ui.Element) {
 	ui.Column(c.Key(key)).Gap(6).FillWidth().Children(func() {
 		l := ui.Row(c.Key("label"))
 		l.Children(func() {
-			dialogText(c, label, "label").TextColor(theme.C("ink"))
+			theme.Text(c, label, "label").TextColor(theme.C("ink"))
 		})
 		if field := control(); l.Clicked() {
 			field.Focus()
@@ -261,9 +255,9 @@ func (p *playlists) optionRow(c *ui.Context, i int, o option) {
 			kit.Artwork(c.Key("art"), p.env.Art, o.art, 32, kit.ArtOpts{Edge: true}).Shrink(0)
 		}
 		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
-			dialogText(c.Key("title"), o.title, "body").TextColor(theme.C("ink")).SingleLine()
+			theme.Text(c.Key("title"), o.title, "body").TextColor(theme.C("ink")).SingleLine()
 			if o.meta != "" {
-				dialogText(c.Key("meta"), o.meta, "meta").TextColor(theme.C("ink-faint")).SingleLine()
+				theme.Text(c.Key("meta"), o.meta, "meta").TextColor(theme.C("ink-faint")).SingleLine()
 			}
 		})
 		if o.current {
@@ -287,7 +281,7 @@ func groupHeading(c *ui.Context, key, text string, folder bool) {
 		if folder {
 			ui.Icon(c.Key("icon"), theme.Icon("folder-closed")).FontSize(12).TextColor(theme.C("ink-faint"))
 		}
-		dialogText(c.Key("text"), text, "meta").TextColor(theme.C("ink-faint")).Role(ui.RoleHeading).Level(3)
+		theme.Text(c.Key("text"), text, "meta").TextColor(theme.C("ink-faint")).Role(ui.RoleHeading).Level(3)
 	})
 }
 
@@ -386,7 +380,7 @@ func (p *playlists) addDialog(c *ui.Context) {
 					// it says; the note turning up is announced here, as a
 					// status is not read when it first appears. The focus
 					// stays in the field.
-					note := dialogText(c.Key("empty"), msg, "secondary").TextColor(theme.C("ink-muted")).Padding(16, 8, 0, 8).Role(ui.RoleStatus)
+					note := theme.Text(c.Key("empty"), msg, "secondary").TextColor(theme.C("ink-muted")).Padding(16, 8, 0, 8).Role(ui.RoleStatus)
 					kit.AnnounceMounted(c, note, msg)
 				}
 			})
@@ -433,8 +427,8 @@ func (p *playlists) playlistDialog(c *ui.Context) {
 		ui.Row(c.Key("public")).FillWidth().AlignItems(ui.Center).Gap(16).Children(func() {
 			text := ui.Column(c.Key("text")).Grow(1).MinWidth(0)
 			text.Children(func() {
-				dialogText(c.Key("title"), i18n.T("Show on my profile"), "label").TextColor(theme.C("ink"))
-				dialogText(c.Key("hint"), i18n.T("People who follow you can find and play it."), "meta").TextColor(theme.C("ink-faint"))
+				theme.Text(c.Key("title"), i18n.T("Show on my profile"), "label").TextColor(theme.C("ink"))
+				theme.Text(c.Key("hint"), i18n.T("People who follow you can find and play it."), "meta").TextColor(theme.C("ink-faint"))
 			})
 			if text.Clicked() {
 				d.public = !d.public
@@ -630,7 +624,7 @@ func (p *playlists) moveDialog(c *ui.Context) {
 					})
 				}
 				if len(folders) == 0 && settled {
-					dialogText(c.Key("empty"), i18n.T("You have no folders yet. Create one from the sidebar’s Playlists menu."), "secondary").
+					theme.Text(c.Key("empty"), i18n.T("You have no folders yet. Create one from the sidebar’s Playlists menu."), "secondary").
 						TextColor(theme.C("ink-muted")).Padding(12, 8, 0, 8)
 				}
 			})
