@@ -143,15 +143,6 @@ func readPO(name string) (*po.File, error) {
 	return po.Parse(b)
 }
 
-// Locales lists the tags of the translated catalogues built in (English,
-// the source, is not one of them).
-func Locales() []string {
-	catMu.Lock()
-	defer catMu.Unlock()
-	loadIndexLocked()
-	return slices.Clone(tags)
-}
-
 // load reads tag's catalogue once: the translations of current English
 // messages, without fuzzy ones or ones whose verbs differ from the source.
 func load(tag string) *Printer {
@@ -181,18 +172,14 @@ func language(tag string) string {
 	return l
 }
 
-// MatchLocale picks the catalogue for the first preferred tag that has one,
-// as the UI does (MatchLocale in internal/ui/i18n/locale.go):
-// the tag itself, its bare language, or another region of its language.
-// An English tag ends the search: English answers it. "" when none.
-func MatchLocale(preferred, available []string) string {
+// Match returns the first of available that fits a preferred tag: the tag
+// itself, its bare language, or another region of its language ("pt-BR" →
+// "pt-PT"), ignoring case. Blank preferences are skipped.
+func Match(preferred, available []string) (string, bool) {
 	for _, want := range preferred {
 		want = strings.ToLower(strings.TrimSpace(want))
 		if want == "" {
 			continue
-		}
-		if language(want) == SourceLocale {
-			return ""
 		}
 		i := slices.IndexFunc(available, func(a string) bool { return strings.ToLower(a) == want })
 		if i < 0 {
@@ -202,10 +189,20 @@ func MatchLocale(preferred, available []string) string {
 			i = slices.IndexFunc(available, func(a string) bool { return language(a) == language(want) })
 		}
 		if i >= 0 {
-			return available[i]
+			return available[i], true
 		}
 	}
-	return ""
+	return "", false
+}
+
+// MatchLocale picks the catalogue for the first preferred tag that has one
+// (Match). An English tag ends the search: English answers it. "" when none.
+func MatchLocale(preferred, available []string) string {
+	if i := slices.IndexFunc(preferred, func(t string) bool { return language(strings.TrimSpace(t)) == SourceLocale }); i >= 0 {
+		preferred = preferred[:i]
+	}
+	tag, _ := Match(preferred, available)
+	return tag
 }
 
 // For returns the Printer for the first preferred tag with a catalogue,

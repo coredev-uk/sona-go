@@ -54,10 +54,6 @@ func (p Paths) Ensure() error {
 // SettingsFile is the JSON settings file.
 func (p Paths) SettingsFile() string { return filepath.Join(p.Config, "settings.json") }
 
-// CredentialsFile is the 0600 credentials fallback used when the system
-// keyring is unavailable.
-func (p Paths) CredentialsFile() string { return filepath.Join(p.Config, "credentials.json") }
-
 // DatabaseFile is the SQLite media cache and app state database.
 func (p Paths) DatabaseFile() string { return filepath.Join(p.Data, "sona.db") }
 

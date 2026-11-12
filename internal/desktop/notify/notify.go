@@ -239,9 +239,9 @@ func (n *Notifier) owner() string {
 
 // escapeMarkup escapes the characters the specification's body markup
 // (a small XML subset) gives meaning to.
-func escapeMarkup(s string) string {
-	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(s)
-}
+func escapeMarkup(s string) string { return markupEscaper.Replace(s) }
+
+var markupEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 
 // fileURI turns a local path into the file:// URI the image-path hint takes.
 func fileURI(path string) string {

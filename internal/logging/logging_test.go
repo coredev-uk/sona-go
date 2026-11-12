@@ -70,6 +70,32 @@ func TestRedactLeavesOrdinaryTextAlone(t *testing.T) {
 	}
 }
 
+// mayHoldSecret may only say false for text the regexps leave alone.
+func TestMayHoldSecretIsConservative(t *testing.T) {
+	for _, s := range []string{
+		"", "starting", "playback ready", "bearer", "BEARER x", "Bearer abc",
+		"token expired", "album 1440857781 has 10 tracks", "eyJ", "-", "a=b", "k: v",
+		strings.Repeat("x", 99), strings.Repeat("A", 100), "BeArEr  abcdefgh12345",
+	} {
+		if !mayHoldSecret(s) && scrub(s) != s {
+			t.Errorf("mayHoldSecret(%q) = false, but scrub changes it to %q", s, scrub(s))
+		}
+	}
+	for _, s := range []string{
+		"starting", "playback ready", "album 1440857781 has 10 tracks", "queue changed",
+		strings.Repeat("word ", 19),
+	} {
+		if mayHoldSecret(s) {
+			t.Errorf("mayHoldSecret(%q) = true, want the regexps skipped", s)
+		}
+	}
+	for _, s := range []string{fakeJWT, fakeMUT, "Bearer abcdefgh12345", "bEaReR abcdefgh12345"} {
+		if !mayHoldSecret(s) {
+			t.Errorf("mayHoldSecret(%q) = false for a secret", s)
+		}
+	}
+}
+
 type creds struct {
 	Storefront string
 	Token      string

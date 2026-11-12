@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 const (
@@ -205,7 +207,7 @@ func (c *Cache) scan() error {
 			e.used, e.touched = info.ModTime(), info.ModTime()
 		}
 		for _, f := range files {
-			if strings.HasPrefix(f.Name(), ".tmp-") || legacyName(f.Name()) {
+			if fsutil.IsTemp(f.Name()) || legacyName(f.Name()) {
 				_ = os.Remove(filepath.Join(kdir, f.Name()))
 				continue
 			}
@@ -524,20 +526,8 @@ func (c *Cache) store(key, tmpl, name string, data []byte) (string, error) {
 
 func (c *Cache) writeFile(key, name string, data []byte) error {
 	dir := filepath.Join(c.dir, key)
-	f, err := os.CreateTemp(dir, ".tmp-*")
-	if err != nil {
-		return fmt.Errorf("artwork: %w", err)
-	}
-	_, werr := f.Write(data)
-	if cerr := f.Close(); werr == nil {
-		werr = cerr
-	}
-	if werr == nil {
-		werr = os.Rename(f.Name(), filepath.Join(dir, name))
-	}
-	if werr != nil {
-		_ = os.Remove(f.Name())
-		return fmt.Errorf("artwork: write %s: %w", name, werr)
+	if err := fsutil.WriteFileAtomic(filepath.Join(dir, name), data, 0o600); err != nil {
+		return fmt.Errorf("artwork: write %s: %w", name, err)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()

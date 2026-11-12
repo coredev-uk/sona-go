@@ -38,7 +38,7 @@ func TestDistance(t *testing.T) {
 
 func TestListIsUsable(t *testing.T) {
 	seen := map[string]bool{}
-	for _, c := range All() {
+	for _, c := range load().all {
 		if seen[c.ID] {
 			t.Errorf("duplicate ID %s", c.ID)
 		}

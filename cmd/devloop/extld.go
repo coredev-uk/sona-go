@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // A Go program with cgo (SQLite, the playback host's C++ shim) is linked by
@@ -117,8 +119,5 @@ func storeProbe(key string, r probeResult) {
 		return
 	}
 	data, _ := json.Marshal(r)
-	tmp := path + ".tmp"
-	if os.WriteFile(tmp, data, 0o644) == nil {
-		_ = os.Rename(tmp, path)
-	}
+	_ = fsutil.WriteFileAtomic(path, data, 0o644)
 }

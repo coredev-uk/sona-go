@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 func lyricsIDs(l Lyrics) []string {
@@ -58,7 +60,7 @@ func TestLyricsNormalized(t *testing.T) {
 func TestLyricsSettingsFromOlderFile(t *testing.T) {
 	// A settings file from before lyrics settings existed gets the defaults.
 	path := filepath.Join(t.TempDir(), "settings.json")
-	if err := writeFileAtomic(path, []byte(`{"theme":"dark"}`), 0o600); err != nil {
+	if err := fsutil.WriteFileAtomic(path, []byte(`{"theme":"dark"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	s, err := LoadSettings(path)

@@ -27,6 +27,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/appleid"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
 	"github.com/coredev-uk/sona-go/internal/auth/mut"
+	"github.com/coredev-uk/sona-go/internal/dotenv"
 )
 
 func main() {
@@ -74,7 +75,7 @@ func run(native, open bool, save string, timeout time.Duration) error {
 	fmt.Printf("signed in: storefront=%s (%s) %s\n", sf.ID, sf.Attributes.Name, res)
 
 	if save != "" {
-		if err := writeEnv(save, "MUSIC_USER_TOKEN", res.MusicUserToken); err != nil {
+		if err := dotenv.Set(save, "MUSIC_USER_TOKEN", res.MusicUserToken); err != nil {
 			return err
 		}
 		fmt.Println("saved to", save)
@@ -174,23 +175,4 @@ func nativeSignIn(ctx context.Context, devToken string) (appleid.Result, error) 
 		}
 	}
 	return sess.MusicUserToken(ctx)
-}
-
-// writeEnv sets key in an env file, preserving other lines, with mode 0600.
-func writeEnv(path, key, value string) error {
-	var lines []string
-	if b, err := os.ReadFile(path); err == nil {
-		for _, l := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
-			if k, _, ok := strings.Cut(l, "="); ok && strings.TrimSpace(k) == key {
-				continue
-			}
-			if l != "" {
-				lines = append(lines, l)
-			}
-		}
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	lines = append(lines, key+"="+value)
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }

@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/coredev-uk/sona-go/internal/protowire"
 )
 
 // Trust is what a CRX3 package must prove, as Chromium's component
@@ -250,46 +252,10 @@ func parseSignedData(b []byte) ([]byte, error) {
 // message (the only kind CRX3 headers use; the varint and fixed-size
 // fields of a newer header are skipped).
 func walkProto(b []byte, fn func(field int, v []byte) error) error {
-	for len(b) > 0 {
-		tag, n := binary.Uvarint(b)
-		if n <= 0 {
-			return errors.New("malformed protobuf tag")
+	return protowire.Walk(b, func(num, wire, _ uint64, data []byte) error {
+		if wire != protowire.Bytes {
+			return nil
 		}
-		b = b[n:]
-		field, wire := tag>>3, tag&7
-		if field == 0 || field > 1<<29 {
-			return errors.New("malformed protobuf field")
-		}
-		switch wire {
-		case 0: // varint
-			_, n := binary.Uvarint(b)
-			if n <= 0 {
-				return errors.New("malformed protobuf varint")
-			}
-			b = b[n:]
-		case 1: // 64-bit
-			if len(b) < 8 {
-				return errors.New("truncated protobuf")
-			}
-			b = b[8:]
-		case 5: // 32-bit
-			if len(b) < 4 {
-				return errors.New("truncated protobuf")
-			}
-			b = b[4:]
-		case 2:
-			l, n := binary.Uvarint(b)
-			if n <= 0 || l > uint64(len(b)-n) {
-				return errors.New("truncated protobuf")
-			}
-			v := b[n : n+int(l)]
-			b = b[n+int(l):]
-			if err := fn(int(field), v); err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("protobuf wire type %d", wire)
-		}
-	}
-	return nil
+		return fn(int(num), data)
+	})
 }

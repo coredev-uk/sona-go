@@ -199,7 +199,7 @@ func (a *Adapter) Update(s mpris.Snapshot) {
 	if a.state == Playing {
 		expected += now.Sub(a.at)
 	}
-	if state == a.state && absDur(pos-expected) <= driftTolerance {
+	if state == a.state && (pos-expected).Abs() <= driftTolerance {
 		return
 	}
 	a.be.SetPlayback(state, pos)
@@ -257,11 +257,4 @@ func commandsOf(s mpris.Snapshot) Command {
 // artPath is the file behind a file:// artwork URL.
 func artPath(u string) string {
 	return strings.TrimPrefix(u, "file://")
-}
-
-func absDur(d time.Duration) time.Duration {
-	if d < 0 {
-		return -d
-	}
-	return d
 }

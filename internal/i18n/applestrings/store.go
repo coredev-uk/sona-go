@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/diag"
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // RefreshInterval is how often, at most, the store asks Apple whether its
@@ -553,20 +554,8 @@ func (s *Store) save(name string, v any) error {
 	if err := os.MkdirAll(s.dir, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(s.dir, name+".*")
-	if err != nil {
-		return err
-	}
-	_, werr := tmp.Write(b)
-	if cerr := tmp.Close(); werr == nil {
-		werr = cerr
-	}
-	if werr == nil {
-		werr = os.Rename(tmp.Name(), filepath.Join(s.dir, name))
-	}
-	if werr != nil {
-		_ = os.Remove(tmp.Name())
-		return fmt.Errorf("%s: %w", name, werr)
+	if err := fsutil.WriteFileAtomic(filepath.Join(s.dir, name), b, 0o600); err != nil {
+		return fmt.Errorf("%s: %w", name, err)
 	}
 	return nil
 }

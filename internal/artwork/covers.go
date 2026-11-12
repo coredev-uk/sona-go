@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // coverPrefix starts a template for a cover the user chose from a file:
@@ -88,20 +90,8 @@ func (c *Cache) SaveCover(r io.Reader) (string, error) {
 	if _, err := os.Stat(path); err == nil {
 		return tmpl, nil
 	}
-	f, err := os.CreateTemp(c.covers, ".tmp-*")
-	if err != nil {
-		return "", fmt.Errorf("artwork: %w", err)
-	}
-	_, werr := f.Write(jpg)
-	if cerr := f.Close(); werr == nil {
-		werr = cerr
-	}
-	if werr == nil {
-		werr = os.Rename(f.Name(), path)
-	}
-	if werr != nil {
-		_ = os.Remove(f.Name())
-		return "", fmt.Errorf("artwork: store cover: %w", werr)
+	if err := fsutil.WriteFileAtomic(path, jpg, 0o600); err != nil {
+		return "", fmt.Errorf("artwork: store cover: %w", err)
 	}
 	return tmpl, nil
 }
@@ -278,7 +268,7 @@ func (c *Cache) RemoveCovers(keep []string) (int, error) {
 	for _, de := range des {
 		name, ok := strings.CutSuffix(de.Name(), ".jpg")
 		if !ok || !validKey(name) || kept[coverPrefix+name] {
-			if strings.HasPrefix(de.Name(), ".tmp-") {
+			if fsutil.IsTemp(de.Name()) {
 				_ = os.Remove(filepath.Join(c.covers, de.Name()))
 			}
 			continue

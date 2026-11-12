@@ -145,7 +145,7 @@ func prune(v any) any {
 // dropKey reports whether a JSON key names a secret or personal data:
 // credentials, account identity, and what the user was looking at.
 func dropKey(key string) bool {
-	k := strings.ToLower(strings.NewReplacer("-", "", "_", "").Replace(key))
+	k := logging.NormalizeKey(key)
 	switch k {
 	case "mut", "authorization", "cookie", "password", "secret", "username", "email",
 		"appleid", "account", "dsid", "lastroute":

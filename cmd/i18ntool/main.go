@@ -32,7 +32,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"sort"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/i18n/applestrings"
@@ -136,13 +135,4 @@ func (r repo) loadMappings(sona *sonaCatalogue) ([]applestrings.Mapping, error) 
 		return nil, fmt.Errorf("%s: %w", mappingPath, err)
 	}
 	return ms, nil
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }

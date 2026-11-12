@@ -72,14 +72,6 @@ func relaunchArgs(started []string) []string {
 	return keep
 }
 
-// selfUpdater is the updater where Sona updates itself, else nil.
-func selfUpdater() *mygoUpdater {
-	if update.Target(runtime.GOOS, runtime.GOARCH) == "" {
-		return nil
-	}
-	return &mygoUpdater{}
-}
-
 // rollBackFailedUpdate runs first thing at start. A version that an update
 // installed gets update.MaxStarts starts to reach its first paint (which
 // clears update-pending, services.UpdatesService); after that this start
@@ -112,11 +104,11 @@ func rollBackFailedUpdate(paths config.Paths, current string, log *slog.Logger) 
 	return true
 }
 
-// selfUpdaterDep is selfUpdater as the interface (a nil *mygoUpdater would
-// not be a nil services.SelfUpdater).
-func selfUpdaterDep() services.SelfUpdater {
-	if u := selfUpdater(); u != nil {
-		return u
+// selfUpdater is the updater where Sona updates itself, else a nil
+// interface (a nil *mygoUpdater would not be a nil services.SelfUpdater).
+func selfUpdater() services.SelfUpdater {
+	if update.Target(runtime.GOOS, runtime.GOARCH) == "" {
+		return nil
 	}
-	return nil
+	return &mygoUpdater{}
 }

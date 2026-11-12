@@ -90,7 +90,7 @@ func (*platform) TitleBar() windowchrome.Platform {
 	case "darwin":
 		return windowchrome.Platform{Native: windowchrome.NativeInset, Automatic: config.TitleBarDesktop, Layout: windowchrome.MacLayout}
 	case "windows":
-		return windowchrome.Platform{Native: windowchrome.NativeFrame, Automatic: config.TitleBarSona, Layout: windowchrome.WindowsLayout}
+		return windowchrome.Platform{Native: windowchrome.NativeFrame, Automatic: config.TitleBarSona, Layout: windowchrome.DefaultLayout}
 	}
 	return windowchrome.Platform{Native: windowchrome.NativeFrame, Automatic: config.TitleBarDesktop}
 }
@@ -110,19 +110,12 @@ func (p *platform) Serve(activate func(app.Activation, bool), commands cli.Serve
 	if p.instance == nil {
 		return
 	}
-	p.instance.HandleCommands(commands)
-	go func() {
-		for a := range p.instance.Activations() {
-			activate(a, true)
-		}
-	}()
+	servePrimary(p.instance, activate, commands)
 }
 
 // Close releases the socket and the lock.
 func (p *platform) Close() {
 	if p.instance != nil {
-		if err := p.instance.Close(); err != nil {
-			p.log.Warn("single instance: close", "err", err)
-		}
+		closePrimary(p.instance, p.log)
 	}
 }

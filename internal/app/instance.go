@@ -162,10 +162,7 @@ func Acquire(ctx context.Context, conn *dbus.Conn, act Activation, log *slog.Log
 }
 
 func forward(ctx context.Context, conn *dbus.Conn, act Activation) error {
-	args := act.Args
-	if args == nil {
-		args = []string{}
-	}
+	args := nonNil(act.Args)
 	platform := map[string]dbus.Variant{}
 	if act.ActivationToken != "" {
 		platform[keyActivationToken] = dbus.MakeVariant(act.ActivationToken)

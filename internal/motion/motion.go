@@ -30,6 +30,8 @@ import (
 	"time"
 
 	"golang.org/x/sync/singleflight"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 const (
@@ -260,7 +262,7 @@ func (c *Cache) Stats() Stats {
 	var s Stats
 	if entries, err := os.ReadDir(c.dir); err == nil {
 		for _, e := range entries {
-			if !strings.HasSuffix(e.Name(), ".mp4") || strings.HasPrefix(e.Name(), tempPrefix) {
+			if !strings.HasSuffix(e.Name(), ".mp4") || fsutil.IsTemp(e.Name()) {
 				continue
 			}
 			if info, err := e.Info(); err == nil {
@@ -342,19 +344,7 @@ func (c *Cache) fetch(ctx context.Context, master string, size int, codec, path 
 	if err != nil {
 		return rendition, fmt.Errorf("video %s: %w", files[len(files)-1].Path, err)
 	}
-	tmp, err := os.CreateTemp(c.dir, tempPrefix+"*")
-	if err != nil {
-		return rendition, err
-	}
-	_, err = tmp.Write(flat)
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil {
-		err = os.Rename(tmp.Name(), path)
-	}
-	if err != nil {
-		_ = os.Remove(tmp.Name())
+	if err := fsutil.WriteFileAtomic(path, flat, 0o600); err != nil {
 		return rendition, fmt.Errorf("video: %w", err)
 	}
 	c.evict(path)
@@ -367,9 +357,6 @@ func codecName(codec string) string {
 	}
 	return "H.264"
 }
-
-// tempPrefix names downloads in progress.
-const tempPrefix = ".download-"
 
 // get fetches u (an allowed Apple URL) whole, up to limit bytes.
 func (c *Cache) get(ctx context.Context, u *url.URL, limit int64) ([]byte, error) {
@@ -433,7 +420,7 @@ func (c *Cache) evict(keep string) {
 		}
 		path := filepath.Join(c.dir, e.Name())
 		switch {
-		case strings.HasPrefix(e.Name(), tempPrefix):
+		case fsutil.IsTemp(e.Name()):
 			if time.Since(info.ModTime()) > fetchTimeout {
 				_ = os.Remove(path)
 			}

@@ -4,8 +4,6 @@
 // Activity Monitor and in `top`, and a report of "400 MB" needs to say which.
 package procmem
 
-import "errors"
-
 // Usage is a process's memory in bytes.
 type Usage struct {
 	// Resident is the pages in RAM (RSS): it counts every shared library
@@ -18,6 +16,3 @@ type Usage struct {
 	// pages split among the processes that map them).
 	Footprint uint64 `json:"footprint"`
 }
-
-// ErrUnsupported is returned where the platform has no reader.
-var ErrUnsupported = errors.ErrUnsupported

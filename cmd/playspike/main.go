@@ -31,7 +31,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -43,6 +42,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth/devtoken"
+	"github.com/coredev-uk/sona-go/internal/dotenv"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdm"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
@@ -376,32 +376,13 @@ func resolve(ctx context.Context, api *applemusic.Client, sf, id, term string) (
 	return songs[0], nil
 }
 
-func readEnv(path, key string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		}
-		return "", err
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		k, v, ok := strings.Cut(strings.TrimSpace(sc.Text()), "=")
-		if ok && strings.TrimSpace(k) == key {
-			return strings.Trim(strings.TrimSpace(v), `"'`), nil
-		}
-	}
-	return "", sc.Err()
-}
-
 // signIn builds an Apple Music client from MUSIC_USER_TOKEN (env or
 // envFile) and validates it, returning the storefront.
 func signIn(ctx context.Context, envFile string) (*applemusic.Client, applemusic.Resource[applemusic.StorefrontAttributes], error) {
 	var none applemusic.Resource[applemusic.StorefrontAttributes]
 	mut := os.Getenv("MUSIC_USER_TOKEN")
 	if mut == "" {
-		v, err := readEnv(envFile, "MUSIC_USER_TOKEN")
+		v, err := dotenv.Read(envFile, "MUSIC_USER_TOKEN")
 		if err != nil {
 			return nil, none, err
 		}
