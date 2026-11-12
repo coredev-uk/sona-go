@@ -91,6 +91,12 @@ func TestA11yThemeGalleryIsOneRadioGroup(t *testing.T) {
 	r.saved("graphite saved", func(s config.Settings) bool { return s.ThemeID == "graphite" })
 	r.tt.Key(0, ui.KeyRight)
 	r.saved("paper saved", func(s config.Settings) bool { return s.ThemeID == "paper" })
+	// The next key goes to the card the view shows checked: wait for the
+	// view, not only the store, or a loaded machine sends it too early.
+	r.tt.Until("paper checked", func() bool {
+		n, _ := access.Read(t, r.tt.Tester).Find(ui.RoleRadio, "Paper")
+		return n.Has(access.Checked)
+	})
 	r.tt.Key(0, ui.KeyLeft)
 	r.saved("graphite again", func(s config.Settings) bool { return s.ThemeID == "graphite" })
 	tr = access.Read(t, r.tt.Tester)

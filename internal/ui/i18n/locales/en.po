@@ -3388,6 +3388,10 @@ msgstr "More links"
 msgid "More playlists from this curator"
 msgstr "More playlists from this curator"
 
+#: internal/ui/features/onboarding/appearance.go
+msgid "More themes, including OLED and community palettes, are in Settings → Appearance."
+msgstr "More themes, including OLED and community palettes, are in Settings → Appearance."
+
 #: internal/ui/features/album/sections.go
 msgid "More to hear"
 msgstr "More to hear"

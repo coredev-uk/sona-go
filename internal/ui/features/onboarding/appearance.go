@@ -67,6 +67,8 @@ func (o *onboarding) themePicker(c *ui.Context, loaded bool, saved string) {
 		}, !loaded, func(next string) {
 			o.save(func(s *config.Settings) { s.Theme = next })
 		})
+		theme.Text(c, i18n.T("More themes, including OLED and community palettes, are in Settings → Appearance."), "meta").
+			TextColor(theme.C("ink-muted"))
 	})
 }
 
