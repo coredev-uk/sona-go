@@ -17,7 +17,6 @@ import (
 type listState struct {
 	pager  pager
 	tracks kit.TrackListState
-	ranks  rankState
 	grid   kit.ItemGridState
 	// songs are the songs of the items loaded, rebuilt when more arrive.
 	songs      []services.Song
@@ -181,9 +180,8 @@ func (d *discover) playButtons(c *ui.Context, title string, songs []services.Son
 // listOpts are what a list of items needs of the page that shows it.
 type listOpts struct {
 	title string
-	// songs: the items are songs, listed as a track table, or, with ranked, as
-	// a ranked list (a chart), whose album column shows when wide.
-	songs, ranked, wide bool
+	// songs: the items are songs, listed as a track table.
+	songs bool
 	// placeholders are the loading tiles a grid shows while more remain, and
 	// near how close to the loaded end the list asks for the next page.
 	placeholders, near int
@@ -219,23 +217,6 @@ func (d *discover) itemList(c *ui.Context, st *listState, pane *kit.Pane, pages 
 	// The ranges are in rows of songs; the pages ask in items.
 	songRange := func(_, end int) { onRange(0, end+pages.count-len(songs)) }
 	to := d.pageOpener
-	if o.ranked {
-		d.rankList(c, &st.ranks, rankOpts{
-			label: o.title, album: o.wide, count: count, onRange: songRange,
-			songs: func(i int) *services.Song {
-				if i < len(songs) {
-					return &songs[i]
-				}
-				return nil
-			},
-			onPlay: func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: o.title}) },
-			menus:  o.menus, art: ctx.Art, motion: ctx.Motion,
-			current: currentSong(ctx), playing: ctx.Playing, restricted: ctx.Restricted,
-			openArtist: to("/artist/"), openAlbum: to("/album/"),
-		})
-		o.menus.Popup(c)
-		return
-	}
 	kit.TrackList(c, &st.tracks, count, func(i int) *services.Song {
 		if i < len(songs) {
 			return &songs[i]

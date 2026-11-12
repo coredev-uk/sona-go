@@ -198,6 +198,7 @@ func (d *discover) issueView(c *ui.Context) {
 						if i > 0 && (s.Kind != services.SectionLinks || s.Title != "") {
 							w.Margin(40, 0, 0, 0)
 						}
+						d.anchorOf(w, b.anchor+"-"+strconv.Itoa(i), s.Title)
 						w.Children(func() {
 							kit.EditorialSections(c, &st.ed, []services.Section{s}, ctx, kit.EditorialOpts{First: true})
 						})
@@ -226,31 +227,61 @@ func bandHeading(c *ui.Context, title string) ui.Element {
 	return text(c, title, "title").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 }
 
-// contents is the page's contents: one row of jump buttons, a button for each
-// band with the number of its titled shelves, wrapping when the width runs
-// out. It saves scrolling (and tabbing) through a page of twenty-odd shelves
-// to reach one near the end.
+// contents is the page's contents: side by side, wrapping when the width runs
+// out, a column for each band, its button (with the number of its titled
+// shelves) over a button for each of its shelves, each a jump to that place. It
+// saves scrolling (and tabbing) through a page of twenty-odd shelves to reach
+// one near the end.
 func (d *discover) contents(c *ui.Context, bands []issueBand) {
 	label := i18n.T("On this page")
-	ui.Row(c.Key("contents")).FillWidth().Margin(0, 0, 48, 0).Wrap().Gap(8).AlignItems(ui.Center).Role(ui.RoleGroup).Label(label).Children(func() {
-		text(c, label, "secondary").TextColor(theme.C("ink-muted")).Margin(0, 8, 0, 0).Role(ui.RoleHeading).Level(2)
-		for _, b := range bands {
-			shelves := 0
-			for _, s := range b.sections {
-				if s.Title != "" {
-					shelves++
+	ui.Column(c.Key("contents")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleGroup).Label(label).Children(func() {
+		text(c, label, "heading").TextColor(theme.C("ink")).Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
+		ui.Row(c.Key("columns")).FillWidth().Wrap().Gap(24).AlignItems(ui.Start).Children(func() {
+			for _, b := range bands {
+				var titled []int
+				for i, s := range b.sections {
+					if s.Title != "" {
+						titled = append(titled, i)
+					}
 				}
+				ui.Column(c.Key(b.anchor)).Width(contentsColumn).Shrink(0).Gap(2).Children(func() {
+					d.jumpButton(c, b.anchor, b.title, len(titled))
+					ui.Column(c.Key("shelves")).Role(ui.RoleList).Label(b.title).Margin(4, 0, 0, 0).Children(func() {
+						for _, i := range titled {
+							ui.Row(c.Key(i)).MinWidth(0).Role(ui.RoleListItem).Label(b.sections[i].Title).Children(func() {
+								d.shelfButton(c, b.anchor+"-"+strconv.Itoa(i), b.sections[i].Title)
+							})
+						}
+					})
+				})
 			}
-			d.jumpButton(c, b.anchor, b.title, shelves)
-		}
+		})
 	})
 }
 
-// jumpButton is a button of the contents: the band's name and its number of
+// shelfButton is a shelf of the contents: a button that jumps to the shelf at
+// 13 muted, underlined while hovered.
+func (d *discover) shelfButton(c *ui.Context, id, title string) ui.Element {
+	tk := theme.Current()
+	b := ui.ButtonBase(c.Key(id)).Label(title).Radius(tk.Radius["sm"]).AlignSelf(ui.Start).MinWidth(0).PaddingX(12).Height(24).AlignItems(ui.Center)
+	hover := b.Hovered()
+	b.Children(func() {
+		t := text(c, title, "secondary").TextColor(theme.C("ink-muted")).SingleLine().MinWidth(0)
+		if hover {
+			t.Underline().TextColor(theme.C("ink"))
+		}
+	})
+	if b.Clicked() {
+		d.jump(id)
+	}
+	return b
+}
+
+// jumpButton is a band's button of the contents: its name and its number of
 // shelves, jumping to the band's place.
 func (d *discover) jumpButton(c *ui.Context, id, title string, shelves int) ui.Element {
 	tk := theme.Current()
-	b := ui.ButtonBase(c.Key(id)).Label(title).Height(tk.Metric["control"]).PaddingX(12).Gap(8).AlignItems(ui.Center).Radius(tk.Radius["md"])
+	b := ui.ButtonBase(c.Key(id)).Label(title).Height(tk.Metric["control"]).PaddingX(12).Gap(8).AlignItems(ui.Center).Radius(tk.Radius["md"]).AlignSelf(ui.Start)
 	if shelves > 0 {
 		b.Description(i18n.T("{0, plural, one {# shelf} other {# shelves}}", "0", shelves))
 	}
@@ -282,11 +313,18 @@ func (d *discover) newSkeleton(c *ui.Context) {
 	st := &d.newPg
 	tk := theme.Current()
 	d.frontSkeleton(c, &st.frontSkel)
-	ui.Row(c.Key("contents-skeleton")).FillWidth().Margin(0, 0, 48, 0).Gap(8).AlignItems(ui.Center).Role(ui.RoleNone).Children(func() {
-		bar(c, 88, 14).Margin(0, 8, 0, 0)
-		for i, w := range []float32{136, 96, 88, 104} {
-			ui.Box(c.Key(i)).Size(w, tk.Metric["control"]).Radius(tk.Radius["md"]).Background(theme.C("hover"))
-		}
+	ui.Column(c.Key("contents-skeleton")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleNone).Children(func() {
+		ui.Row(c).Height(22).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(c, 112, 16) })
+		ui.Row(c).FillWidth().Gap(24).AlignItems(ui.Start).Children(func() {
+			for i := range 3 {
+				ui.Column(c.Key(i)).Width(contentsColumn).Shrink(0).Gap(6).Children(func() {
+					ui.Box(c).Size(136, tk.Metric["control"]).Radius(tk.Radius["md"]).Background(theme.C("hover"))
+					for range 2 {
+						ui.Row(c).Height(24).PaddingX(12).AlignItems(ui.Center).Children(func() { bar(c, 112, 12) })
+					}
+				})
+			}
+		})
 	})
 	ui.Column(c.Key("band-skeleton")).FillWidth().Role(ui.RoleNone).Children(func() {
 		ui.Box(c).FillWidth().Height(1).Background(theme.C("line"))

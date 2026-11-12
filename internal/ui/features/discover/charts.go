@@ -17,12 +17,12 @@ const topSongs = 10
 
 // chartsPage is the state of the Charts overview.
 type chartsPage struct {
-	pg    pageView
-	menus *kit.ActionMenus
-	skel  measure
-	shelf map[string]*kit.CoverShelfState
-	ranks rankState
-	songs []services.Song
+	pg     pageView
+	menus  *kit.ActionMenus
+	skel   measure
+	shelf  map[string]*kit.CoverShelfState
+	tracks kit.TrackListState
+	songs  []services.Song
 }
 
 // chartPage is the state of one chart in full.
@@ -79,7 +79,7 @@ func (d *discover) chartsPage(c *ui.Context, r *ui.Route) {
 		case q.Err != nil:
 			d.pageError(c, i18n.T("Couldn't load the charts"), q.Err, q.Fetching, d.retry(keyCharts(genre)))
 		default:
-			d.chartsSkeleton(c, &st.skel, st.pg.width >= rankAlbumAt)
+			d.chartsSkeleton(c, &st.skel)
 		}
 	})
 }
@@ -137,13 +137,14 @@ func (d *discover) topSongs(c *ui.Context, ch services.Chart, more string, ctx k
 			seeAllLink(c, "see-all", func() { d.env.Nav.Push(more) })
 		})
 		shown := songs[:min(len(songs), topSongs)]
-		d.rankList(c, &st.ranks, rankOpts{
-			label: title, album: st.pg.width >= rankAlbumAt, count: len(shown),
-			songs:  func(i int) *services.Song { return &shown[i] },
-			onPlay: func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) },
-			menus:  st.menus, art: ctx.Art, motion: ctx.Motion,
-			current: currentSong(ctx), playing: ctx.Playing, restricted: ctx.Restricted,
-			openArtist: d.pageOpener("/artist/"), openAlbum: d.pageOpener("/album/"),
+		kit.TrackList(c, &st.tracks, len(shown), func(i int) *services.Song { return &shown[i] }, kit.TrackListOpts{
+			Label:   title,
+			Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
+			OnPlay:  func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) },
+			Menus:   st.menus, Art: ctx.Art, Motion: ctx.Motion,
+			Current: currentSong(ctx), Playing: ctx.Playing, Restricted: ctx.Restricted,
+			OpenArtist: d.pageOpener("/artist/"), OpenAlbum: d.pageOpener("/album/"),
+			NoPopup: true,
 		})
 	})
 }
@@ -157,16 +158,18 @@ func (d *discover) pageOpener(prefix string) func(id string) {
 	return func(id string) { d.env.Nav.Push(prefix + id) }
 }
 
-// chartsSkeleton is the charts overview while it loads: the top songs' heading
-// and ranked rows, then a shelf of tiles, as flat bars at their real sizes.
-func (d *discover) chartsSkeleton(c *ui.Context, m *measure, album bool) {
-	ui.Column(c.Key("top-songs-skeleton")).FillWidth().Margin(8, 0, 40, 0).Role(ui.RoleNone).Children(func() {
+// chartsSkeleton is the charts overview while it loads: the top songs'
+// heading and rows, then a shelf of tiles, as flat bars at their real sizes.
+func (d *discover) chartsSkeleton(c *ui.Context, m *measure) {
+	tk := theme.Current()
+	ui.Column(c.Key("top-songs-skeleton")).FillWidth().Margin(8, 0, 40, 0).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		ui.Row(c).Height(32).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(c, 112, 16) })
-		ui.Column(c.Key("rows")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-			for i := range 6 {
-				rankPlaceholder(c, i, album)
-			}
-		})
+		for i := range 6 {
+			ui.Row(c.Key(i)).FillWidth().Height(kit.TrackRowHeight).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
+				ui.Box(c).Size(tk.Metric["track-art"], tk.Metric["track-art"]).Shrink(0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
+				ui.Box(c).WidthPercent(30).Height(14).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
+			})
+		}
 	})
 	d.shelvesSkeleton(c, m, false)
 }
@@ -187,7 +190,7 @@ func (d *discover) chartPage(c *ui.Context, r *ui.Route) {
 		default:
 			d.masthead(c, "", "", true, nil)
 			if key == services.ChartSongs {
-				d.chartsSkeleton(c, &st.skel, st.pg.width >= rankAlbumAt)
+				d.chartsSkeleton(c, &st.skel)
 			} else {
 				d.shelvesSkeleton(c, &st.skel, false)
 			}
@@ -240,5 +243,5 @@ func (d *discover) chartContent(c *ui.Context, r *ui.Route, pane *kit.Pane, key,
 	if key == services.ChartMusicVideos {
 		minTile = 240
 	}
-	d.itemList(c, &st.list, pane, &pages, list, ctx, listOpts{title: title, songs: songs, ranked: true, wide: st.pg.width >= rankAlbumAt, placeholders: 6, near: 12, min: minTile, menus: st.menus})
+	d.itemList(c, &st.list, pane, &pages, list, ctx, listOpts{title: title, songs: songs, placeholders: 6, near: 12, min: minTile, menus: st.menus})
 }

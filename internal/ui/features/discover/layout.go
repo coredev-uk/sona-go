@@ -42,9 +42,11 @@ const (
 	// marginAt is the page width (the scroll pane's) from which a band's
 	// heading stands in a margin column beside its shelves, marginWidth wide
 	// with marginGap to the shelves; narrower, it stands above them.
-	marginAt    = 1100
-	marginWidth = 200
-	marginGap   = 32
+	// contentsColumn is a band's column in the contents.
+	contentsColumn = 216
+	marginAt       = 1100
+	marginWidth    = 200
+	marginGap      = 32
 	// rotateEvery is how long the lead stays before the next featured card
 	// replaces it.
 	rotateEvery = 7 * time.Second

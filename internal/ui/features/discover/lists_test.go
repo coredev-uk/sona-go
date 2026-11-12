@@ -315,16 +315,9 @@ func TestChartsTopSongsPlayAndShuffleTheFirstPageWithTheChartTitleAsSource(t *te
 	}
 }
 
-func TestChartsRankedRowsLeadWithTheRankAndAreOneTabStopTheArrowsMove(t *testing.T) {
+func TestChartsTopSongsRowsAreOneTabStopTheArrowsMoveAndEnterPlaysFromTheRow(t *testing.T) {
 	r, _ := newCharts(t, "/charts", chartsFixture())
 	r.tt.Until("the charts", r.tt.Shows("Top songs", "Song 9"))
-	for _, rank := range []string{"1", "2", "10"} {
-		if !r.tt.HasText(rank) {
-			t.Errorf("no rank %q: %q", rank, r.tt.Texts())
-		}
-	}
-	// Tab reaches the first row (the others are not stops), the arrows move
-	// the stop, and Enter plays from the row it is on with the chart as the queue.
 	focus := func() string {
 		if f := access.Read(t, r.tt.Tester).Focus; f != nil {
 			return f.Label
@@ -336,7 +329,7 @@ func TestChartsRankedRowsLeadWithTheRankAndAreOneTabStopTheArrowsMove(t *testing
 		r.tt.Drain()
 	}
 	if focus() != "Song 0" {
-		t.Fatalf("Tab did not reach the first ranked row: on %q", focus())
+		t.Fatalf("Tab did not reach the first row: on %q", focus())
 	}
 	r.tt.Key(0, ui.KeyDown)
 	r.tt.Drain()
