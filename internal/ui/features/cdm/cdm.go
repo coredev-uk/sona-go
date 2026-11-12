@@ -12,6 +12,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
@@ -68,10 +69,14 @@ func (c *cdm) notice(ctx *ui.Context) {
 	st := r.Data
 	switch {
 	case r.HasData && st.State == "ready":
-		line(ctx, i18n.T("Widevine is ready. Press play to start."))
+		ui.Row(ctx).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
+			ui.Icon(ctx, theme.Icon("check")).FontSize(14).TextColor(theme.C("ink")).Shrink(0)
+			line(ctx, i18n.T("Widevine is ready. Press play to start."))
+		})
 	case r.HasData && st.State == "failed":
 		ui.Row(ctx).Gap(6).AlignItems(ui.Center).MinWidth(0).Tooltip(i18n.CDMProblem(st.Code)).Children(func() {
-			ui.Icon(ctx, theme.Icon("circle-alert")).FontSize(14).TextColor(theme.C("danger"))
+			// A danger dot: the colour is not the only carrier, the words say it.
+			ui.Box(ctx.Key("cdm-dot")).Size(6, 6).Shrink(0).Radius(3).Background(theme.C("danger"))
 			text := i18n.T("Couldn't get Widevine · Retry in Settings")
 			if st.Code == "unsupported_platform" {
 				text = i18n.T("Songs can't play on this computer")
@@ -79,13 +84,30 @@ func (c *cdm) notice(ctx *ui.Context) {
 			c.link(ctx, text, i18n.CDMProblem(st.Code))
 		})
 	default:
-		text := i18n.T("Waiting for Widevine to download")
-		if r.HasData && st.State == "downloading" {
-			if f, ok := store.CDMProgress(st); ok {
-				text = i18n.T("Waiting for Widevine to download · {percent}", "percent", i18n.FormatPercent(f))
+		downloading := r.HasData && st.State == "downloading"
+		ui.Row(ctx).Gap(8).AlignItems(ui.Center).MinWidth(0).Children(func() {
+			c.link(ctx, i18n.T("Waiting for Widevine to download"), "")
+			if !downloading {
+				return
 			}
-		}
-		c.link(ctx, text, "")
+			// The meter is 48x3 beside the percent: a glance says it is
+			// moving. Unknown size: the empty track and no figure.
+			f, ok := store.CDMProgress(st)
+			value := -1.0
+			if ok {
+				value = f
+			}
+			label := i18n.T("Widevine download")
+			if st.Updating {
+				label = i18n.T("Widevine update")
+			}
+			kit.ProgressBar(ctx.Key("cdm-meter"), value, kit.ProgressOpts{A11yLabel: label, Width: 48, Height: 3})
+			if ok {
+				t := theme.Current().Type["sub"]
+				ui.Text(ctx, i18n.FormatPercent(f)).FontSize(t.Size).FixedLineHeight(t.LineHeight).
+					TextColor(theme.C("ink-muted")).SingleLine().Shrink(0).Role(ui.RoleNone)
+			}
+		})
 	}
 }
 
