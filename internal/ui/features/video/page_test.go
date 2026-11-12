@@ -249,7 +249,8 @@ func TestSeeAllGoesToTheArtistsVideosOnlyWithAnArtist(t *testing.T) {
 }
 
 func TestTilesOpenTheirPageAndPlayWhereVideosPlay(t *testing.T) {
-	p := newPageRig(t, false, 1132, 1253)
+	// Tall enough that the second shelf is on screen under the lead picture.
+	p := newPageRig(t, false, 1132, 1500)
 	p.loaded()
 	if err := p.tt.Click("Play Rain Video"); err != nil {
 		t.Fatal(err)

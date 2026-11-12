@@ -733,22 +733,26 @@ func TestClosingLeavesAFullScreenTheViewEnteredButNotTheUsers(t *testing.T) {
 func TestSpaceOnAFocusedButtonIsTheButtons(t *testing.T) {
 	r := viewRig(t)
 	r.open()
-	// Tab from the region to the first control, the title's link: Space is
-	// not the play and pause toggle there (a link takes Enter alone; Space
-	// scrolls, as on the web).
-	r.tt.Key(0, ui.KeyTab)
+	// Tab from the region down the view in reading order (Full screen, Close
+	// video, Seek) to the title's link in the caption: Space is not the play
+	// and pause toggle there (a link takes Enter alone; Space scrolls, as on
+	// the web).
+	for range 4 {
+		r.tt.Key(0, ui.KeyTab)
+	}
+	if !r.tt.Focused("Sky Video") {
+		t.Fatal("the fourth Tab is not on the title's link")
+	}
 	r.tt.Key(0, ui.KeySpace)
 	if got := r.svc.snapshot(); slices.Contains(got, "toggle") {
 		t.Errorf("Space on a focused link toggled playback: %v", got)
 	}
 	r = viewRig(t)
 	r.open()
-	// On a focused button Space is the button's: Full screen, here.
-	r.tt.Key(0, ui.KeyTab) // the title
-	r.tt.Key(0, ui.KeyTab) // the artist
+	// On a focused button Space is the button's: Full screen, the first stop.
 	r.tt.Key(0, ui.KeyTab)
 	if !r.tt.Focused("Full screen") {
-		t.Fatal("the third Tab is not on Full screen")
+		t.Fatal("the first Tab is not on Full screen")
 	}
 	r.tt.Key(0, ui.KeySpace)
 	if !r.win.full {

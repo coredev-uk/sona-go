@@ -51,7 +51,8 @@ func TestViewKeyboardWalkAndTree(t *testing.T) {
 	r := viewRig(t)
 	r.open()
 	tr, stops := audit(t, r.tt.Tester)
-	inOrder(t, stops, "Sky Video", "Mia Rivers", "Full screen", "Close video", "Seek", "Previous", "Pause", "Next", "Mute", "Volume")
+	// Reading order: the button strip, the seek bar, the caption, the transport.
+	inOrder(t, stops, "Full screen", "Close video", "Seek", "Sky Video", "Mia Rivers", "Previous", "Pause", "Next", "Mute", "Volume")
 
 	view := mustFind(t, tr, ui.RoleGroup, "Music video")
 	if view.Description == "" {

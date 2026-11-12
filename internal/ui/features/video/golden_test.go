@@ -13,7 +13,7 @@ func TestGoldenPage(t *testing.T) {
 		dark bool
 	}{{"light", false}, {"dark", true}} {
 		t.Run(mode.name, func(t *testing.T) {
-			p := newPageRig(t, mode.dark, 1132, 1253)
+			p := newPageRig(t, mode.dark, 1132, 1500)
 			p.loaded()
 			p.tt.Settle()
 			uitest.Golden(t, p.tt.Image(), "video-page-"+mode.name)
@@ -26,6 +26,28 @@ func TestGoldenPageNarrow(t *testing.T) {
 	p.loaded()
 	p.tt.Settle()
 	uitest.Golden(t, p.tt.Image(), "video-page-940-light")
+}
+
+// 707 is the page's narrowest real width (a 940 window less the sidebar): the
+// actions stack under the title block.
+func TestGoldenPageNarrowest(t *testing.T) {
+	p := newPageRig(t, false, 707, 900)
+	p.loaded()
+	p.tt.Settle()
+	uitest.Golden(t, p.tt.Image(), "video-page-707-light")
+}
+
+// TestGoldenViewNarrow is the view at the window's minimum, 940×600.
+func TestGoldenViewNarrow(t *testing.T) {
+	r := newRig(t, false, viewMount, 940, 600)
+	r.play(store.StatePaused)
+	r.env.Video.Open()
+	r.tt.Frame()
+	r.tt.Advance(fadeIn)
+	r.surface.Show(320, 180, 0, gradient(320, 180))
+	r.tt.Until("the picture", r.v.feed.HasPicture)
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "video-view-940-light")
 }
 
 func TestGoldenView(t *testing.T) {

@@ -166,9 +166,10 @@ type problem struct {
 }
 
 // screen is the view's content for the playing music video: its picture,
-// letterboxed on black at the picture's shape, between the title strip and the
-// transport. The controls fade while the video plays and nothing moves, and
-// come back with the pointer, any key, a pause, or focus.
+// letterboxed on black at the picture's shape, between the button strip and
+// the foot (caption, seek bar, transport). The controls fade while the video
+// plays and nothing moves, and come back with the pointer, any key, a pause,
+// or focus.
 func (v *video) screen(c *ui.Context, s services.PlaybackState, fresh bool) {
 	st := &v.view
 	cur := s.Current
@@ -266,9 +267,9 @@ func (v *video) screen(c *ui.Context, s services.PlaybackState, fresh bool) {
 	focusVisible := false
 	st.own = false
 	root.Children(func() {
-		v.header(c, cur, pr, status, &focusVisible)
+		v.header(c, &focusVisible)
 		v.stage(c, cur, pr)
-		v.footer(c, s, caps, playing, loading, &focusVisible)
+		v.footer(c, s, cur, pr, status, caps, playing, loading, &focusVisible)
 	})
 	if focusVisible != st.focused {
 		st.focused = focusVisible
@@ -377,15 +378,10 @@ func (v *video) owns(e ui.Element) ui.Element {
 	return e
 }
 
-// header is the strip over the picture: the title and the artist, which link
-// to their pages and close the view, the "SD" mark, the status, and the Full
-// screen and Close buttons.
-func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, status string, focusVisible *bool) {
+// header is the strip over the picture's ground: only the Full screen and
+// Close buttons, at the right. The title is the caption in the foot.
+func (v *video) header(c *ui.Context, focusVisible *bool) {
 	st := &v.view
-	id := cur.CatalogID
-	if id == "" {
-		id = cur.ID
-	}
 	// Over a hidden title bar (zero in full screen) the picture's top strip
 	// is the window's: the buttons it has stay clear of the window's, and the
 	// strip drags the window.
@@ -394,62 +390,12 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 	if c.Direction() == ui.RightToLeft {
 		lead, trail = trail, lead
 	}
-	head := ui.Row(c.Key("header")).Height(64).Shrink(0).PaddingStart(max(32, lead+8)).PaddingEnd(max(32, trail+8)).
-		Gap(16).AlignItems(ui.Center).Opacity(st.alpha)
+	head := ui.Row(c.Key("header")).Height(max(48, bar.Height)).Shrink(0).PaddingStart(max(32, lead+8)).PaddingEnd(max(32, trail+8)).
+		Gap(4).AlignItems(ui.Center).Justify(ui.End).Opacity(st.alpha)
 	if bar.Height > 0 {
 		head.DragWindow()
 	}
 	head.Children(func() {
-		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
-			ui.Row(c).Gap(8).AlignItems(ui.Center).MinWidth(0).Children(func() {
-				h := theme.Current().Type["heading"]
-				if path := "/music-video/" + id; v.hasRoute(path) {
-					// The heading holds the link (MyGo v0.8.1 allows it), so
-					// the title is on the headings list and still opens.
-					ui.Row(c.Key("title-h")).Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1).Children(func() {
-						l := ui.Link(c.Key("title"), "", "").Shrink(1).MinWidth(0)
-						l.Children(func() {
-							ui.Text(c, cur.Name).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
-								TextColor(theme.C("ink")).SingleLine()
-						})
-						control(l, focusVisible)
-						if l.Clicked() {
-							v.env.Video.Close()
-							v.env.Nav.Push(path)
-						}
-					})
-				} else {
-					text(c, cur.Name, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
-				}
-				if pr == nil {
-					kit.SDMark(c)
-				}
-				// A status reads its text when that changes; the frame the
-				// view opens in, which builds it with its first text, says it.
-				row := ui.Row(c.Key("status")).Shrink(0).AlignItems(ui.Center).Role(ui.RoleStatus)
-				kit.AnnounceMounted(c, row, status)
-				row.Children(func() {
-					if status == "" {
-						return
-					}
-					ui.Row(c.Key(status)).Gap(6).AlignItems(ui.Center).Children(func() {
-						ui.Spinner(c).Size(14, 14).Role(ui.RoleNone) // the status names it
-						text(c, status, "meta").TextColor(theme.C("ink-muted"))
-					})
-				})
-			})
-			if path := "/artist/" + cur.ArtistID; cur.ArtistID != "" && v.hasRoute(path) {
-				l := ui.Link(c.Key("artist"), "", "").MinWidth(0)
-				l.Children(func() { text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")) })
-				control(l, focusVisible)
-				if l.Clicked() {
-					v.env.Video.Close()
-					v.env.Nav.Push(path)
-				}
-			} else {
-				text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted"))
-			}
-		})
 		icon, name := "maximize", i18n.T("Full screen")
 		full := v.env.Video.Fullscreen()
 		if full {
@@ -466,6 +412,69 @@ func (v *video) header(c *ui.Context, cur *services.QueueItem, pr *problem, stat
 	})
 }
 
+// caption is the title block at the foot's lower left, on the stage's ground
+// and never over the picture: the title with the "SD" mark, then the artist
+// and the status. The title and the artist link to their pages and close the
+// view.
+func (v *video) caption(c *ui.Context, cur *services.QueueItem, pr *problem, status string, focusVisible *bool) {
+	id := cur.CatalogID
+	if id == "" {
+		id = cur.ID
+	}
+	ui.Column(c.Key("caption")).Grow(1).Basis(0).MinWidth(0).Children(func() {
+		ui.Row(c).Gap(8).AlignItems(ui.Center).MinWidth(0).Children(func() {
+			h := theme.Current().Type["heading"]
+			if path := "/music-video/" + id; v.hasRoute(path) {
+				// The heading holds the link (MyGo v0.8.1 allows it), so
+				// the title is on the headings list and still opens.
+				ui.Row(c.Key("title-h")).Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1).Children(func() {
+					l := ui.Link(c.Key("title"), "", "").Shrink(1).MinWidth(0)
+					l.Children(func() {
+						ui.Text(c, cur.Name).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
+							TextColor(theme.C("ink")).SingleLine()
+					})
+					control(l, focusVisible)
+					if l.Clicked() {
+						v.env.Video.Close()
+						v.env.Nav.Push(path)
+					}
+				})
+			} else {
+				text(c, cur.Name, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
+			}
+			if pr == nil {
+				kit.SDMark(c).Shrink(0)
+			}
+		})
+		ui.Row(c).Gap(12).AlignItems(ui.Center).MinWidth(0).Children(func() {
+			if path := "/artist/" + cur.ArtistID; cur.ArtistID != "" && v.hasRoute(path) {
+				l := ui.Link(c.Key("artist"), "", "").Shrink(1).MinWidth(0)
+				l.Children(func() { text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")) })
+				control(l, focusVisible)
+				if l.Clicked() {
+					v.env.Video.Close()
+					v.env.Nav.Push(path)
+				}
+			} else {
+				text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")).Shrink(1)
+			}
+			// A status reads its text when that changes; the frame the
+			// view opens in, which builds it with its first text, says it.
+			row := ui.Row(c.Key("status")).Shrink(0).AlignItems(ui.Center).Role(ui.RoleStatus)
+			kit.AnnounceMounted(c, row, status)
+			row.Children(func() {
+				if status == "" {
+					return
+				}
+				ui.Row(c.Key(status)).Gap(6).AlignItems(ui.Center).Children(func() {
+					ui.Spinner(c).Size(14, 14).Role(ui.RoleNone) // the status names it
+					text(c, status, "meta").TextColor(theme.C("ink-muted"))
+				})
+			})
+		})
+	})
+}
+
 // fitPicture is the largest box of the picture's shape that fits box: the
 // picture is letterboxed, never cropped or stretched. Empty before either is
 // measured.
@@ -477,7 +486,7 @@ func fitPicture(pw, ph, bw, bh float32) (w, h float32) {
 	return float32(int(pw * scale)), float32(int(ph * scale))
 }
 
-// stage is the area between the strip and the transport: the picture at its
+// stage is the area between the button strip and the foot: the picture at its
 // own shape on black (16:9 before the first picture, with the video's cover
 // as a poster until it comes), or the problem in its place. The picture box
 // stays built under a problem, so the feed keeps running for a retry.
@@ -560,14 +569,17 @@ func (v *video) watchInAppleMusic(c *ui.Context, id string) {
 	}
 }
 
-// footer is the transport: the seek bar, then previous, play or pause and
-// next in the middle and the volume at the right.
-func (v *video) footer(c *ui.Context, s services.PlaybackState, caps services.PlaybackCapabilities, playing, loading bool, focusVisible *bool) {
+// footer is the foot: the seek bar across the full width, then one row on the
+// stage's ground: the caption (title, artist, status) at the left, previous,
+// play or pause and next in the exact middle, the volume at the right. The
+// two outer cells share the leftover width, so the transport stays centred
+// whatever the title's length.
+func (v *video) footer(c *ui.Context, s services.PlaybackState, cur *services.QueueItem, pr *problem, status string, caps services.PlaybackCapabilities, playing, loading bool, focusVisible *bool) {
 	st := &v.view
-	ui.Column(c.Key("footer")).Shrink(0).Padding(12, 32, 24).Opacity(st.alpha).Children(func() {
+	ui.Column(c.Key("footer")).Shrink(0).Padding(8, 32, 20).Opacity(st.alpha).Children(func() {
 		v.seekBar(c, s, playing, focusVisible)
-		ui.Row(c).FillWidth().Margin(8, 0, 0, 0).Gap(16).AlignItems(ui.Center).Children(func() {
-			ui.Box(c).Grow(1).Basis(0).Height(1)
+		ui.Row(c).FillWidth().Margin(8, 0, 0, 0).Gap(24).AlignItems(ui.Center).Children(func() {
+			v.caption(c, cur, pr, status, focusVisible)
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				if control(kit.IconButton(c.Key("prev"), "skip-back", i18n.T("Previous"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Filled: true, Disabled: !s.Controls.Previous}), focusVisible).Clicked() {
 					v.previous()
@@ -611,7 +623,7 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 		pos = 0
 	}
 	ui.Row(c.Key("seek")).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
-		text(c, i18n.FormatDuration(pos), "meta").Width(48).TextAlign(ui.End).Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum")
+		text(c, i18n.FormatDuration(pos), "meta").Width(48).Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 		secs := pos.Seconds()
 		at, total := i18n.FormatDuration(pos), i18n.FormatDuration(dur)
 		sl := kit.Slider(c.Key("seek-slider"), &secs, 0, max(dur.Seconds(), 1), kit.SliderOpts{
@@ -630,7 +642,7 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 			v.seekTo(time.Duration(st.seek.secs*float64(time.Second)), c.Now())
 		}
 		left := i18n.FormatDuration(max(dur-pos, 0))
-		text(c, "−"+left, "meta").Width(48).Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum").
+		text(c, "−"+left, "meta").Width(48).TextAlign(ui.End).Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum").
 			Label(i18n.T("{left} left", "left", left))
 	})
 	if playing && !st.seek.active {
