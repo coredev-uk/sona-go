@@ -14,17 +14,21 @@ import (
 // Geometry of the index lines (v0.2.0's ShelfIndex), in DIPs.
 const (
 	// thumb is a thumbnail's edge, thumbGap the gap between thumbnails.
-	thumb    = 44
-	thumbGap = 8
+	thumb    = 32
+	thumbGap = 6
 	// indexH is a line's height; indexPad its side padding; indexChevron
 	// the chevron's width.
-	indexH       = 64
+	indexH       = 52
 	indexPad     = 8
 	indexChevron = 16
 	indexGap     = 12
 	// The title column is 28% of the line, between these.
 	indexColShare            = 0.28
 	indexColMin, indexColMax = 160, 280
+	// indexHolds is the column of what a shelf holds, from indexWide DIPs of
+	// line; narrower, it sits under the title.
+	indexHolds = 176
+	indexWide  = 640
 )
 
 // indexLine is the state of one index line: whether it is open, its width
@@ -52,9 +56,7 @@ func (h *home) indexState(id string) *indexLine {
 // line opens its shelf in place. Twelve shelves take one screen instead of
 // four, and their full-size covers load only when asked for.
 func (h *home) shelfIndex(c *ui.Context, sections []services.Section, ctx kit.ItemsCtx) {
-	title := i18n.T("More for you")
-	ui.Column(c.Key("index")).Margin(48, 0, 0, 0).Role(ui.RoleGroup).Label(title).Children(func() {
-		text(c, title, "heading").TextColor(theme.C("ink")).SingleLine().Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(2)
+	ruledShelf(c, ruledOpts{Title: i18n.T("More for you")}, func() {
 		ui.Column(c.Key("list")).Role(ui.RoleList).Children(func() {
 			for i := range sections {
 				h.indexLine(c, sections[i], ctx)
@@ -96,19 +98,29 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 				ic.Rotate(ic.Animate("turn", turn, tk.Motion["press"].Duration))
 			}
 			inner := width - 2*indexPad
+			// A ledger line: the title, what it holds in a column of its
+			// own and the covers at the far end; narrow, what it holds sits
+			// under the title.
+			holdsBeside := inner >= indexWide
 			col := min(max(indexColShare*inner, indexColMin), indexColMax)
 			ui.Column(c.Key("title")).Width(col).Shrink(0).MinWidth(0).Children(func() {
 				text(c, s.Title, "heading").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
-				if summary != "" {
+				if summary != "" && !holdsBeside {
 					text(c, summary, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().TextAlign(ui.Start)
 				}
 			})
+			taken := indexChevron + col + 2*indexGap
+			if holdsBeside {
+				text(c, summary, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().
+					Width(indexHolds).Shrink(0).TextAlign(ui.Start)
+				taken += indexHolds + indexGap
+			}
 			// Open, the shelf's own covers are right below: no strip.
-			ui.Row(c.Key("strip")).Grow(1).MinWidth(0).Gap(thumbGap).ClipX().Role(ui.RoleNone).Children(func() {
+			ui.Row(c.Key("strip")).Grow(1).MinWidth(0).Gap(thumbGap).Justify(ui.End).ClipX().Role(ui.RoleNone).Children(func() {
 				if ln.open || width <= 0 {
 					return
 				}
-				strip := inner - indexChevron - col - 2*indexGap
+				strip := inner - taken
 				for i := range min(len(s.Items), max(0, int((strip+thumbGap)/(thumb+thumbGap)))) {
 					it := &s.Items[i]
 					art := it.Art.Small
@@ -127,6 +139,7 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 		if ln.open {
 			btn.Controls(h.indexPanel(c, ln, s, ctx))
 		}
+		ui.Box(c.Key("rule")).FillWidth().Height(1).Background(hairline())
 	})
 }
 

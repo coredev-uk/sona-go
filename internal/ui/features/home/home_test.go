@@ -488,3 +488,13 @@ func indexPage() services.HomePage {
 		FetchedAt: full.FetchedAt,
 	}
 }
+
+func TestLeadIsOneOfTheRunningOrderAndTheOthersFollowByRank(t *testing.T) {
+	r := newRig(t, "/", 1132, 1253, withHome(samplePage()))
+	r.until("the page", "Lead Album", "Pick 2")
+	// The lead is 01, Apple's next picks 02 to 09; the rest wait behind Show all.
+	requireTexts(t, r, "01", "02", "03", "09")
+	requireNoTexts(t, r, "10", "11")
+	r.click("Show all 12")
+	r.tt.Until("every pick", r.tt.Shows("12", "Pick 12"))
+}

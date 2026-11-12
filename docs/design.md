@@ -141,35 +141,41 @@ It is the recommended setting on software rendering.
 
 ## Home
 
-Home ("For you") answers one question first: what shall I play now. It sets Apple's personal shelves (`internal/ui/features/home/plan.go`) instead of stacking them as Apple sends them, and never copies Apple's own Home.
+Home ("For you") answers one question first: what shall I play now. It is set like the A-side of a record: the lead pick is 01, Apple's other picks are the running order, and the shelves under it are ruled sections. It sets Apple's personal shelves (`internal/ui/features/home/plan.go`) instead of stacking them as Apple sends them, and never copies Apple's own Home.
 
 ```
 ┌───────────────────────────────────────────────────────────┐
-│ For you                                        ⟳ Refresh  │  wash of the lead's cover,
-│ Picked for you 3 min. ago                                 │  full bleed like a
-│ Top Picks for You                                         │  collection header
-│ [cover 232]  Your Station        │ [40] Apple Music Live   [40] 1                │
-│              Station · Made for… │      New Release · …         More from …      │
-│              (▶) (⋯)             │ [40] …                  [40] …                │
+│ For you  Picked for you 3 min. ago              ⟳ Refresh │  one line; wash of the lead's
+│ Top Picks for You ───────────────────────── Show all 12 ⌄ │  cover, full bleed
+│ [ cover 280 ]     02 [40] Apple Music Live    New Release │
+│                   ──────────────────────────────────────  │  the running order:
+│                   03 [40] …                   …           │  one list, hairlines
+│ 01 Your Station   04 [40] …                   …           │
+│    Station · …    …                                       │
+│    (▶) (⋯)        09 [40] …                   …           │
 ├───────────────────────────────────────────────────────────┤
-│ Recently Played                                  See all ›│  rows, 2 deep
-│ [40] Your Station   [40] Zara Larsson   [40] …   [40] …    │
-│ World of Oasis                               Show all 10  │  cover tiles
-│ …                                                         │
-│ More for you                                              │  the index
-│ › Country           [44][44][44][44][44][44][44][44]…     │
-│   3 playlists · 9 albums                                  │
+│ Recently Played ───────────────────────────── See all ›   │
+│ [112] [112] [112] [112] [112] [112] [112] [112]            │  strip of covers
+│ Name   Name …                                             │
+│ Made for You ──────────────────────────────── See all ›   │
+│ [160] …                                                   │
+│ More for you ─────────────────────────────────────────    │
+│ ›  Country        3 playlists · 9 albums     [32][32][32] │  the ledger
+│ ──────────────────────────────────────────────────────    │
 └───────────────────────────────────────────────────────────┘
 ```
 
-- **The lead**: the first "feature" shelf (Top Picks). Its first pick is set like a collection header in miniature: the cover (232px; 168px when the page is under 900px wide), the name at 32/700, the artist or curator at 16/500, then the catalogue line (`Station · Made for You`: what it is, then Apple's reason) and the amber play disc with the item's menu. Every other pick sits beside it as a row (two columns of four; under it when narrow), so the first screen holds all of Top Picks. The page header and the lead sit on the lead cover's pre-blurred backdrop, ground scrim, full bleed; reduce effects leaves the plain ground.
-- **Rows** (`internal/ui/features/home/rows.go`): 56px rows with 40px art, the title at 14/500 and Apple's reason with the artist or curator at 13 muted, in as many columns as fit from 264px (248 beside the lead). Recently Played and every shelf of stations only (Stations for You, moods, favourite artists) are rows two deep: you go back to them or play them at once, so a name and a play control matter more than a large cover. On a backdrop the hover is ink at 6%, not the opaque `--hover`.
-- **Cover shelves**: the first three plain shelves Apple ranks highest keep their cover tiles (160px; feature shelves 176px). Features, heroes and track shelves always stay in full.
-- **The index** ("More for you"): every later plain shelf (genres, "more like", fans also like) is one 64px line: a chevron, the title at 16/600, what it holds at 12 muted ("3 playlists · 9 albums"), and a strip of its covers at 44px. The line is a disclosure button; open, the shelf's cover tiles appear under it and the strip goes. Twelve shelves take one screen instead of four, and their full-size covers load only when asked for.
-- **A lone hero** (Apple's untitled featured card): its 1060:608 banner at 40% of the row beside its name at 24/650, the catalogue line and the play disc, never a half-width card with an empty half.
+- **The page's head** is one line of the lead band: "For you" at 24/650, when Home was picked (13 muted, on the title's baseline) and the ghost Refresh at the far end. Under it the first section's ruled head.
+- **Ruled heads**: every section of Home (`rule.go`) is its heading at 16/600, a 1px hairline (ink at 14%, so it reads on the ground and on a cover's wash) that runs to the right edge, and the section's controls on the line's end: "See all" to the section's own page, or "Show all N" / "Show fewer" in place. Sections sit 48px apart, so the page keeps a rhythm of rule, content, space.
+- **The lead**: the first "feature" shelf (Top Picks). Its first pick is 01: the cover at 280px as the left column (a 144px cover beside the name when the page is under 900px wide), then "01" at 24/650 in faint ink hanging beside the name at 24/650, the artist or curator at 16/500, the catalogue line (`Station · Made for You`: what it is, then Apple's reason) and the amber play disc with the item's menu. The other picks are the running order beside it (under it when narrow): one column of 56px rows, each with its rank in tabular faint figures (02, 03 …: Apple's order, so the number is information), the 40px art, the name at 14/500 and Apple's reason, side by side in two equal columns from 480px of row, under the name below it. A hairline closes every row. Eight rows show; "Show all 12" in the head opens the rest. The page header and the lead sit on the lead cover's pre-blurred backdrop, ground scrim, full bleed; reduce effects leaves the plain ground.
+- **Rows** (`internal/ui/features/home/rows.go`): 56px rows with 40px art, the title at 14/500 and Apple's reason with the artist or curator at 13 muted. Every shelf of stations only (Stations for You, moods, favourite artists) is rows two deep, in as many columns as fit from 264px: you play them at once, so a name and a play control matter more than a large cover. The art sits on the page's left edge; the hover plate reaches 8px past it. On a backdrop the hover is ink at 6%, not the opaque `--hover`.
+- **Recently Played** is a strip: one row of covers as wide as their columns fit (112px up to about 130, the name at 14/500 and the line under it at 13 muted), so a whole evening's listening reads at once. It is the same list as the rows (one Tab stop; arrows, Home and End move; Enter opens; Space plays; Shift+F10 or the Menu key opens the menu): hover or focus shows a play disc on the cover and the more button at its corner. "Show all N" opens further rows of covers in place.
+- **Cover shelves**: the first three plain shelves Apple ranks highest keep their cover tiles (160px; feature shelves 176px) under a ruled head. Features, heroes and track shelves always stay in full.
+- **The index** ("More for you"): every later plain shelf (genres, "more like", fans also like) is one 52px line of a ledger: a chevron, the title at 16/600, what it holds at 13 muted in a column of its own ("3 playlists · 9 albums"; under the title below 640px of line), and a strip of its covers at 32px at the far end, a hairline between lines. The line is a disclosure button; open, the shelf's cover tiles appear under it and the strip goes. Twelve shelves take one screen instead of four, and their full-size covers load only when asked for.
+- **A lone hero** (Apple's untitled featured card): the name at 24/650, the catalogue line and the play disc on the text edge, its 1060:608 banner at 45% of the row at the right end, centred against it; never a half-width card with an empty half.
 - **Captions** every item of a shelf shares are dropped; said once in the heading, they are noise.
-- **States**: signed out, the lead's place holds one dashed block (Recommendations need Apple Music, one sentence, an ink Sign in), then the library's shelves. Offline with no copy of Home, it says there are no recommendations while offline and that Sona fetches them when it reconnects: no Retry, and no Refresh in the header while offline. Apple's Recently Played failing falls back to "Played on this computer", with its own empty line. Loading draws the lead's shape: the cover, the name's lines and eight rows.
-- **Keyboard**: the lead's title, play and menu are Tab stops; each row list is one Tab stop (the arrow keys, Home and End move; Enter opens, Space plays, Shift+F10 or the Menu key opens the row's menu; the row focused last is where Tab returns). Index lines are disclosure buttons that tell assistive technology whether they are expanded.
+- **States**: signed out, the lead's place holds one ledger band (a rule above and below, "Recommendations need Apple Music" at 24/650 with one sentence under it, an ink Sign in at the far end), then the library's shelves. Offline with no copy of Home, the same band says there are no recommendations while offline and that Sona fetches them when it reconnects: no Retry, and no Refresh in the header while offline. Apple's Recently Played failing falls back to "Played on this computer", with its own empty line. Loading draws the final layout: the head, the 01 cover with the name's lines and the play circle, and the running order's eight ranked rows.
+- **Keyboard**: the lead's title, play and menu are Tab stops; each row list (the running order, station rows, the Recently Played strip) is one Tab stop (the arrow keys, Home and End move; Enter opens, Space plays, Shift+F10 or the Menu key opens the row's menu; the row focused last is where Tab returns). Index lines are disclosure buttons that tell assistive technology whether they are expanded.
 
 ## Shell
 
