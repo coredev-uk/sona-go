@@ -171,8 +171,8 @@ func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.
 func TestA11yFrontTabWalkGoesLeadThenListThenThePagerThenOnToTheContents(t *testing.T) {
 	r := frontRig(t)
 	stops := walk(t, r)
-	inOrder(t, stops, "List 1", "Play List 1", "List 1", "Play List 1", "List 2", "Play List 2",
-		"Play featured rotation", "Previous in Featured", "Next in Featured")
+	inOrder(t, stops, "List 1", "Play List 1", "Play featured rotation", "Previous in Featured", "Next in Featured",
+		"List 1", "Play List 1", "List 2", "Play List 2")
 	// The more buttons are not stops: Shift+F10 on a card does the same.
 	if slices.Contains(stops, "More for List 1") {
 		t.Error("a more button is a Tab stop")
@@ -197,7 +197,7 @@ func TestA11yFrontRotationAndPagerAreNamedByTheirStateAndSayWhatTheUserDid(t *te
 		t.Errorf("pausing said %q", got)
 	}
 	r.click("Next in Featured")
-	if got := r.tt.Announcements(); !slices.Equal(got, []string{"2 of 3"}) {
+	if got := r.tt.Announcements(); !slices.Equal(got, []string{"2 of 4"}) {
 		t.Errorf("turning the page said %q", got)
 	}
 }
@@ -245,23 +245,11 @@ func TestA11yDiscoverReadsAsHeadingsGroupsAndListsOfItems(t *testing.T) {
 			t.Errorf("no group %q", label)
 		}
 	}
-	// The contents: a button per band, and a list of items, each named by its shelf, per band.
-	contents, ok := tr.Find(ui.RoleList, "Songs and albums")
-	if !ok {
-		t.Fatal("no list of the shelves of Songs and albums")
-	}
-	var names []string
-	for _, it := range listItems(t, tr, contents) {
-		names = append(names, it.Label)
-		if strings.Contains(it.Label, "·") {
-			t.Errorf("the separator is read in %q", it.Label)
-		}
-	}
-	if want := []string{"Best New Songs", "New This Week"}; !slices.Equal(names, want) {
-		t.Errorf("the shelves of Songs and albums are %q, want %q", names, want)
-	}
-	if _, ok := tr.Find(ui.RoleButton, "Songs and albums"); !ok {
+	// The contents: a button per band, each described by its number of shelves.
+	if b, ok := tr.Find(ui.RoleButton, "Songs and albums"); !ok {
 		t.Error("no button jumping to the band")
+	} else if b.Description != "2 shelves" {
+		t.Errorf("the band's button is described %q, want its two shelves", b.Description)
 	}
 	// The songs shelf is a list of rows with play buttons; the albums a table of tiles.
 	if _, ok := tr.Find(ui.RoleList, "Best New Songs"); !ok {
@@ -279,12 +267,11 @@ func TestA11yDiscoverReadsAsHeadingsGroupsAndListsOfItems(t *testing.T) {
 
 	inOrder(t, walk(t, r),
 		"Pause featured rotation",
-		"Songs and albums", "Best New Songs", "New This Week", "Radio", "Listen to Live Radio Now", "Browse", "New for October",
-		"See all", "Sessions")
+		"Songs and albums", "Radio", "Browse", "See all", "Sessions", "Apple Music 1", "Browse by Genre")
 }
 
-func TestA11yContentsJumpMovesTheFocusToANamedShelfOrBand(t *testing.T) {
-	for _, name := range []string{"New This Week", "Radio"} {
+func TestA11yContentsJumpMovesTheFocusToANamedBand(t *testing.T) {
+	for _, name := range []string{"Browse", "Radio"} {
 		t.Run(name, func(t *testing.T) {
 			r := newRig(t, "/new", withApple(&fakeApple{t: t}), wideWindow(), withSize(1132, 1253))
 			r.tt.Until("the page", r.tt.Shows("On this page", "Best New Songs", "New This Week"))

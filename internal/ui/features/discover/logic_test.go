@@ -228,42 +228,35 @@ func TestRouteURLsCarryOnlyWhatIsSet(t *testing.T) {
 	}
 }
 
-// FrontPage.tsx's layoutFor: beside the lead from 880, two thirds of the
-// width, as many rows as fit its height.
+// The front page's layout: the lead takes the column's width to leadMax in the
+// hero shape, and the strip under it shows four cards a page, in a row of four
+// or two rows of two.
 func TestFrontLayoutAtTheWidthsOfTheReferencePage(t *testing.T) {
-	const gap = 24
-	l := layoutFor(1200, gap)
-	if !l.split || l.lead != 784 || l.perPage != 6 || l.columns != 1 || l.perColumn != 6 {
+	l := layoutFor(1200)
+	if l.lead != leadMax || l.perPage != 4 || l.columns != 4 || l.rows != 1 {
 		t.Errorf("at 1200: %+v", l)
 	}
-	// 1060:608 at 784 wide is 450 high.
-	if h := l.artHeight(); h < 449.5 || h > 450 {
-		t.Errorf("lead art height %v, want 450", h)
+	// 1060:608 at 1080 wide is 620 high.
+	if h := l.artHeight(); h < 619 || h > 620 {
+		t.Errorf("lead art height %v, want 620", h)
 	}
-	if want := (l.artHeight() + leadCaption - pagerHeight) / 6; l.rowHeight != want {
-		t.Errorf("row height %v, want the rows to fill the lead's height: %v", l.rowHeight, want)
+	// The strip reaches 8 past the lead's edges on each side.
+	if got := float32(l.columns)*l.card + float32(l.columns-1)*stripGap; got > l.lead+16 || got < l.lead+16-float32(l.columns) {
+		t.Errorf("the strip is %v wide, want the lead's width and 16", got)
 	}
 	for _, tc := range []struct {
-		width   float32
-		split   bool
-		columns int
+		width, lead     float32
+		columns, rows   int
 	}{
-		{880, true, 1},
-		{879, false, 2},
-		{560, false, 2},
-		{559, false, 1},
+		{1056, 1056, 4, 1},
+		{880, 880, 4, 1},
+		{879, 879, 2, 2},
+		{648, 648, 2, 2},
 	} {
-		l := layoutFor(tc.width, gap)
-		if l.split != tc.split || l.columns != tc.columns {
+		l := layoutFor(tc.width)
+		if l.lead != tc.lead || l.columns != tc.columns || l.rows != tc.rows || l.perPage != 4 || l.rowHeight != listRow {
 			t.Errorf("at %v: %+v", tc.width, l)
 		}
-		if !l.split && (l.lead != tc.width || l.perColumn != 3 || l.perPage != 3*tc.columns || l.rowHeight != listRow) {
-			t.Errorf("stacked at %v: %+v", tc.width, l)
-		}
-	}
-	// The least beside the lead is three rows.
-	if l := layoutFor(880, gap); l.perPage < 3 {
-		t.Errorf("a list beside the lead has %d rows, want at least 3", l.perPage)
 	}
 }
 

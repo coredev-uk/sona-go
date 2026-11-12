@@ -17,6 +17,7 @@ import (
 type listState struct {
 	pager  pager
 	tracks kit.TrackListState
+	ranks  rankState
 	grid   kit.ItemGridState
 	// songs are the songs of the items loaded, rebuilt when more arrive.
 	songs      []services.Song
@@ -97,7 +98,7 @@ func (d *discover) roomPage(c *ui.Context, r *ui.Route) {
 		case q.Err != nil:
 			d.pageError(c, i18n.T("Couldn't load this list"), q.Err, q.Fetching, d.retry(keyRoom(id, sort)))
 		default:
-			kit.PageHeader(c, "", "", nil)
+			d.masthead(c, "", "", true, nil)
 			d.shelvesSkeleton(c, &st.skel, false)
 		}
 	})
@@ -132,12 +133,12 @@ func (d *discover) roomContent(c *ui.Context, r *ui.Route, st *roomPage, pane *k
 		list = st.list.songList(id+"|"+sort, &pages)
 	}
 	if songs {
-		kit.PageHeader(c, room.Title, "", func() {
+		d.masthead(c, room.Title, "", false, func() {
 			d.playButtons(c, room.Title, list)
 			order()
 		})
 	} else {
-		kit.PageHeader(c, room.Title, "", order)
+		d.masthead(c, room.Title, "", false, order)
 	}
 	d.itemList(c, &st.list, pane, &pages, list, ctx, listOpts{title: room.Title, songs: songs, placeholders: 12, near: 24, min: 160, menus: st.menus})
 }
@@ -180,8 +181,9 @@ func (d *discover) playButtons(c *ui.Context, title string, songs []services.Son
 // listOpts are what a list of items needs of the page that shows it.
 type listOpts struct {
 	title string
-	// songs: the items are songs, listed as a track table.
-	songs bool
+	// songs: the items are songs, listed as a track table, or, with ranked, as
+	// a ranked list (a chart), whose album column shows when wide.
+	songs, ranked, wide bool
 	// placeholders are the loading tiles a grid shows while more remain, and
 	// near how close to the loaded end the list asks for the next page.
 	placeholders, near int
@@ -216,11 +218,23 @@ func (d *discover) itemList(c *ui.Context, st *listState, pane *kit.Pane, pages 
 	}
 	// The ranges are in rows of songs; the pages ask in items.
 	songRange := func(_, end int) { onRange(0, end+pages.count-len(songs)) }
-	to := func(prefix string) func(id string) {
-		if d.env.HasRoute == nil || !d.env.HasRoute(prefix+"x") {
-			return nil
-		}
-		return func(id string) { d.env.Nav.Push(prefix + id) }
+	to := d.pageOpener
+	if o.ranked {
+		d.rankList(c, &st.ranks, rankOpts{
+			label: o.title, album: o.wide, count: count, onRange: songRange,
+			songs: func(i int) *services.Song {
+				if i < len(songs) {
+					return &songs[i]
+				}
+				return nil
+			},
+			onPlay: func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: o.title}) },
+			menus:  o.menus, art: ctx.Art, motion: ctx.Motion,
+			current: currentSong(ctx), playing: ctx.Playing, restricted: ctx.Restricted,
+			openArtist: to("/artist/"), openAlbum: to("/album/"),
+		})
+		o.menus.Popup(c)
+		return
 	}
 	kit.TrackList(c, &st.tracks, count, func(i int) *services.Song {
 		if i < len(songs) {

@@ -21,7 +21,7 @@ type chartsPage struct {
 	menus  *kit.ActionMenus
 	skel   measure
 	shelf  map[string]*kit.CoverShelfState
-	tracks kit.TrackListState
+	ranks  rankState
 	songs  []services.Song
 }
 
@@ -72,14 +72,14 @@ func (d *discover) chartsPage(c *ui.Context, r *ui.Route) {
 				}
 			}
 		}
-		kit.PageHeader(c, i18n.T("Charts"), sub, actions)
+		d.masthead(c, i18n.T("Charts"), sub, !q.HasData && q.Err == nil, actions)
 		switch {
 		case q.HasData:
 			d.chartList(c, q.Data)
 		case q.Err != nil:
 			d.pageError(c, i18n.T("Couldn't load the charts"), q.Err, q.Fetching, d.retry(keyCharts(genre)))
 		default:
-			d.shelvesSkeleton(c, &st.skel, false)
+			d.chartsSkeleton(c, &st.skel, st.pg.width >= rankAlbumAt)
 		}
 	})
 }
@@ -89,6 +89,7 @@ func (d *discover) chartsPage(c *ui.Context, r *ui.Route) {
 func (d *discover) chartList(c *ui.Context, page services.ChartsPage) {
 	st := &d.charts
 	ctx := d.env.ItemsCtx(st.menus)
+	ctx.NoPopup = true // the page draws the menus' popup once, after the charts
 	if st.shelf == nil {
 		st.shelf = map[string]*kit.CoverShelfState{}
 	}
@@ -110,6 +111,7 @@ func (d *discover) chartList(c *ui.Context, page services.ChartsPage) {
 		}
 		kit.ItemShelf(c, sh, chartTitle(ch), ch.Items, ctx, kit.ItemShelfOpts{First: i == 0, More: more, Min: minTile})
 	}
+	st.menus.Popup(c)
 }
 
 // topSongs is the top songs, ranked, with Play for the whole chart's first
@@ -135,21 +137,38 @@ func (d *discover) topSongs(c *ui.Context, ch services.Chart, more string, ctx k
 			seeAllLink(c, "see-all", func() { d.env.Nav.Push(more) })
 		})
 		shown := songs[:min(len(songs), topSongs)]
-		to := func(prefix string) func(id string) {
-			if d.env.HasRoute == nil || !d.env.HasRoute(prefix+"x") {
-				return nil
-			}
-			return func(id string) { d.env.Nav.Push(prefix + id) }
-		}
-		kit.TrackList(c, &st.tracks, len(shown), func(i int) *services.Song { return &shown[i] }, kit.TrackListOpts{
-			Label:   title,
-			Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
-			OnPlay:  func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) },
-			Menus:   st.menus, Art: ctx.Art, Motion: ctx.Motion,
-			Current: currentSong(ctx), Playing: ctx.Playing, Restricted: ctx.Restricted,
-			OpenArtist: to("/artist/"), OpenAlbum: to("/album/"),
+		d.rankList(c, &st.ranks, rankOpts{
+			label: title, album: st.pg.width >= rankAlbumAt, count: len(shown),
+			songs:  func(i int) *services.Song { return &shown[i] },
+			onPlay: func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) },
+			menus:  st.menus, art: ctx.Art, motion: ctx.Motion,
+			current: currentSong(ctx), playing: ctx.Playing, restricted: ctx.Restricted,
+			openArtist: d.pageOpener("/artist/"), openAlbum: d.pageOpener("/album/"),
 		})
 	})
+}
+
+// pageOpener opens the page of an item under prefix ("/artist/"), nil where
+// that page is not ported.
+func (d *discover) pageOpener(prefix string) func(id string) {
+	if d.env.HasRoute == nil || !d.env.HasRoute(prefix+"x") {
+		return nil
+	}
+	return func(id string) { d.env.Nav.Push(prefix + id) }
+}
+
+// chartsSkeleton is the charts overview while it loads: the top songs' heading
+// and ranked rows, then a shelf of tiles, as flat bars at their real sizes.
+func (d *discover) chartsSkeleton(c *ui.Context, m *measure, album bool) {
+	ui.Column(c.Key("top-songs-skeleton")).FillWidth().Margin(8, 0, 40, 0).Role(ui.RoleNone).Children(func() {
+		ui.Row(c).Height(32).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(c, 112, 16) })
+		ui.Column(c.Key("rows")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
+			for i := range 6 {
+				rankPlaceholder(c, i, album)
+			}
+		})
+	})
+	d.shelvesSkeleton(c, m, false)
 }
 
 // chartPage is one chart in full, in pages of 50 as it scrolls.
@@ -166,7 +185,12 @@ func (d *discover) chartPage(c *ui.Context, r *ui.Route) {
 		case q.Err != nil:
 			d.pageError(c, i18n.T("Couldn't load this chart"), q.Err, q.Fetching, d.retry(keyCharts(genre)))
 		default:
-			d.shelvesSkeleton(c, &st.skel, false)
+			d.masthead(c, "", "", true, nil)
+			if key == services.ChartSongs {
+				d.chartsSkeleton(c, &st.skel, st.pg.width >= rankAlbumAt)
+			} else {
+				d.shelvesSkeleton(c, &st.skel, false)
+			}
 		}
 	})
 }
@@ -181,7 +205,7 @@ func (d *discover) chartContent(c *ui.Context, r *ui.Route, pane *kit.Pane, key,
 	})
 	if i < 0 {
 		r.Title(i18n.T("Charts"))
-		kit.PageHeader(c, i18n.T("Charts"), "", genres)
+		d.masthead(c, i18n.T("Charts"), "", false, genres)
 		kit.EmptyState(c, i18n.T("No chart here"), i18n.T("Apple Music has no such chart for this genre."),
 			kit.EmptyOpts{Action: &kit.EmptyAction{Label: i18n.T("All charts"), Run: func() { d.env.Nav.Push(pathCharts) }}})
 		return
@@ -205,16 +229,16 @@ func (d *discover) chartContent(c *ui.Context, r *ui.Route, pane *kit.Pane, key,
 	var list []services.Song
 	if songs {
 		list = st.list.songList(listKey, &pages)
-		kit.PageHeader(c, title, sub, func() {
+		d.masthead(c, title, sub, false, func() {
 			d.playButtons(c, title, list)
 			genres()
 		})
 	} else {
-		kit.PageHeader(c, title, sub, genres)
+		d.masthead(c, title, sub, false, genres)
 	}
 	minTile := float32(160)
 	if key == services.ChartMusicVideos {
 		minTile = 240
 	}
-	d.itemList(c, &st.list, pane, &pages, list, ctx, listOpts{title: title, songs: songs, placeholders: 6, near: 12, min: minTile, menus: st.menus})
+	d.itemList(c, &st.list, pane, &pages, list, ctx, listOpts{title: title, songs: songs, ranked: true, wide: st.pg.width >= rankAlbumAt, placeholders: 6, near: 12, min: minTile, menus: st.menus})
 }

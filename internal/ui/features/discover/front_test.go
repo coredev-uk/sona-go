@@ -86,24 +86,19 @@ func (r *rig) away() {
 	r.tt.Drain()
 }
 
-// rowCentre is the centre of the nth list row (0-based) on the page showing.
-// The section and the list are both labelled "Featured" (as v0.2.0's are),
-// so the list is found by a row of it: a card other than the lead, whose
-// title only a row shows, in the page the lead is on.
+// rowCentre is the centre of the nth card (0-based) of the strip's page the
+// lead is on. The section and the strip are both labelled "Featured" (as
+// v0.2.0's are); a card other than the lead is found by its title, which only
+// its strip card shows.
 func (r *rig) rowCentre(n int) (float32, float32) {
-	lay := layoutFor(r.d.front.width.w, 24)
-	base := r.lead() / lay.perPage * lay.perPage
-	for k := base; k < base+lay.perPage; k++ {
-		if k == r.lead() {
-			continue
-		}
-		for _, name := range []string{"Card %d", "List %d"} { // the names these tests give their cards
-			if row, ok := r.tt.Find(fmt.Sprintf(name, k+1)); ok {
-				return row.X + row.W/2, row.Y + (float32(n-(k-base))+0.5)*lay.rowHeight
-			}
+	lay := layoutFor(r.d.front.width.w)
+	k := r.lead()/lay.perPage*lay.perPage + n
+	for _, name := range []string{"Card %d", "List %d"} { // the names these tests give their cards
+		if row, ok := r.tt.Find(fmt.Sprintf(name, k+1)); ok {
+			return row.X + row.W/2, row.Y + row.H/2
 		}
 	}
-	r.t.Fatal("no list of featured cards")
+	r.t.Fatalf("no strip card %d: %q", n, r.tt.Texts())
 	return 0, 0
 }
 
@@ -118,20 +113,20 @@ func (r *rig) heroCentre() (float32, float32) {
 func TestFrontLeadsWithTheFirstCardAtTheLeadsWidthAndListsThemAPageAtATime(t *testing.T) {
 	src := newCoverSource()
 	r := newFrontWith(t, 16, src)
-	for _, w := range []string{"Featured", "Card 1", "Card 6", "1 of 3", "Previous in Featured", "Next in Featured"} {
+	for _, w := range []string{"Featured", "Card 1", "Card 4", "1 of 4", "Previous in Featured", "Next in Featured"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("the front page lacks %q: %q", w, r.tt.Texts())
 		}
 	}
-	// The sixth card is the last beside the lead.
-	for _, w := range []string{"Card 7", "Card 16"} {
+	// The fourth card is the last in the strip's first page.
+	for _, w := range []string{"Card 5", "Card 16"} {
 		if r.tt.HasText(w) {
 			t.Errorf("the first page lists %q", w)
 		}
 	}
-	// Two thirds of 1200 less the gap, at Apple's 1060:608 hero shape.
-	if got := src.requested(bannerOf(1)); !slices.Contains(got, [2]int{784, 450}) {
-		t.Errorf("the lead's art was asked for at %v, want 784×450", got)
+	// The column's widest (leadMax) of 1200, at Apple's 1060:608 hero shape.
+	if got := src.requested(bannerOf(1)); !slices.Contains(got, [2]int{1080, 619}) {
+		t.Errorf("the lead's art was asked for at %v, want 1080×619", got)
 	}
 	if r.d.front.at != 0 {
 		t.Errorf("the lead is %d, want the first card", r.d.front.at)
@@ -216,38 +211,38 @@ func TestFrontCrossFadesTheOldLeadOutAndKeepsItInertOnlyUntilTheFadeEnds(t *test
 func TestFrontMakesAChosenRowTheLeadAndGivesItAWholeInterval(t *testing.T) {
 	r := newFront(t, 8)
 	r.tick(rotateEvery - time.Second)
-	x, y := r.rowCentre(4)
+	x, y := r.rowCentre(3)
 	r.tt.ClickAt(x, y)
 	r.tt.Drain()
-	if r.lead() != 4 {
-		t.Fatalf("lead %d after choosing Card 5", r.lead())
+	if r.lead() != 3 {
+		t.Fatalf("lead %d after choosing Card 4", r.lead())
 	}
 	// The pointer and the focus are on the hero: it holds. Away from it, a
 	// whole interval counts from there.
 	r.away()
 	r.tick(rotateEvery - time.Millisecond)
-	if r.lead() != 4 {
+	if r.lead() != 3 {
 		t.Fatalf("lead %d before the interval ended", r.lead())
 	}
 	r.tick(time.Millisecond)
-	if r.lead() != 5 {
-		t.Errorf("lead %d after the interval, want 5", r.lead())
+	if r.lead() != 4 {
+		t.Errorf("lead %d after the interval, want 4", r.lead())
 	}
 }
 
 func TestFrontFetchesTheNextCardsPictureWhileTheLeadIsRead(t *testing.T) {
 	src := newCoverSource()
 	r := newFrontWith(t, 8, src)
-	if got := src.requested(bannerOf(2)); !slices.Contains(got, [2]int{784, 450}) {
+	if got := src.requested(bannerOf(2)); !slices.Contains(got, [2]int{1080, 619}) {
 		t.Fatalf("the next card's art was not asked for at the lead's size: %v", got)
 	}
-	if got := src.requested(bannerOf(3)); slices.Contains(got, [2]int{784, 450}) {
+	if got := src.requested(bannerOf(3)); slices.Contains(got, [2]int{1080, 619}) {
 		t.Errorf("the card after next was fetched at the lead's size: %v", got)
 	}
 	r.tick(rotateEvery)
 	r.tt.Drain()
 	r.tt.Drain()
-	if got := src.requested(bannerOf(3)); !slices.Contains(got, [2]int{784, 450}) {
+	if got := src.requested(bannerOf(3)); !slices.Contains(got, [2]int{1080, 619}) {
 		t.Errorf("the next lead's art was not fetched when the lead changed: %v", got)
 	}
 }
@@ -508,14 +503,14 @@ func TestFrontPagerWrapsRoundSoItNeverDisablesTheFocusedButton(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Drain()
-	if !r.tt.HasText("3 of 3") || !r.tt.HasText("Card 13") || !r.tt.HasText("Card 16") || r.tt.HasText("Card 12") {
+	if !r.tt.HasText("4 of 4") || !r.tt.HasText("Card 13") || !r.tt.HasText("Card 16") || r.tt.HasText("Card 12") {
 		t.Fatalf("Previous from the first page did not wrap to the last: %q", r.tt.Texts())
 	}
 	if err := r.tt.Click("Next in Featured"); err != nil {
 		t.Fatal(err)
 	}
 	r.tt.Drain()
-	if !r.tt.HasText("1 of 3") {
+	if !r.tt.HasText("1 of 4") {
 		t.Errorf("Next from the last page did not wrap to the first: %q", r.tt.Texts())
 	}
 }
@@ -798,11 +793,11 @@ func (r *rig) thumbRect(name string) (x0, y0, x1, y1 int) {
 // shape across the slot. The loader is asked for exactly the box that shows.
 func TestFrontThumbnailsShowTheirPictureWholeAtItsOwnShape(t *testing.T) {
 	src := newCoverSource()
-	cards := heroCards(5)
+	cards := heroCards(6)
 	cards[1].Name, cards[1].Art = "Square", services.Art{Medium: artOf(102, 400, 400), Large: artOf(102, 1000, 1000)}
 	cards[2].Name, cards[2].Art = "Station", services.Art{Medium: artOf(103, 400, 100), Large: artOf(103, 1000, 250)}
 	cards[3].Name = "Banner only" // no cover: its row falls back to the banner
-	cards[4].Name, cards[4].Art = "Poster", services.Art{Medium: artOf(105, 300, 400), Large: artOf(105, 750, 1000)}
+	cards[5].Name, cards[5].Art = "Poster", services.Art{Medium: artOf(105, 300, 400), Large: artOf(105, 750, 1000)}
 	api := &fakeAPI{}
 	r := newRig(t, "/new", withAPI(api), wideWindow())
 	loader := kit.NewArtLoaderFrom(src, r.h.Main.Post)
@@ -810,24 +805,16 @@ func TestFrontThumbnailsShowTheirPictureWholeAtItsOwnShape(t *testing.T) {
 	r.env.Art = loader
 	r.tt.Art = append(r.tt.Art, loader)
 	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
-	r.tt.Until("the front page", r.tt.Shows("Featured", "Square", "Station", "Banner only", "Poster"))
+	r.tt.Until("the front page", r.tt.Shows("Featured", "Square", "Station", "Banner only"))
 	r.d.front.paused = true
 	r.tt.Until("the thumbnails", func() bool {
 		return len(src.requested(artOf(102, 400, 400))) > 0 && len(src.requested(artOf(103, 400, 100))) > 0 &&
-			len(src.requested(bannerOf(4))) > 0 && len(src.requested(artOf(105, 300, 400))) > 0
+			len(src.requested(bannerOf(4))) > 0
 	})
 	r.settle()
-
-	for _, tc := range []struct {
-		name, src string
-		ask       [2]int // what the loader is asked for: the box
-		w, h      int    // what the picture covers of the 64×64 slot
-	}{
-		{"Square", artOf(102, 400, 400), [2]int{64, 64}, 64, 64},
-		{"Station", artOf(103, 400, 100), [2]int{64, 37}, 64, 37},
-		{"Banner only", bannerOf(4), [2]int{64, 37}, 64, 37},
-		{"Poster", artOf(105, 300, 400), [2]int{48, 64}, 48, 64},
-	} {
+	// The strip is four cards a page: the poster is on the second, which the
+	// lead's moving to its fifth card turns to.
+	check := func(tc thumbCase) {
 		if got := src.requested(tc.src); !slices.Contains(got, tc.ask) {
 			t.Errorf("%s: the thumbnail was asked for at %v, want %d×%d", tc.name, got, tc.ask[0], tc.ask[1])
 		}
@@ -840,6 +827,26 @@ func TestFrontThumbnailsShowTheirPictureWholeAtItsOwnShape(t *testing.T) {
 			t.Errorf("%s: the picture sits %d, %d, %d, %d from the slot's edges, want it centred", tc.name, l, tp, r, b)
 		}
 	}
+
+	for _, tc := range []thumbCase{
+		{"Square", artOf(102, 400, 400), [2]int{64, 64}, 64, 64},
+		{"Station", artOf(103, 400, 100), [2]int{64, 37}, 64, 37},
+		{"Banner only", bannerOf(4), [2]int{64, 37}, 64, 37},
+	} {
+		check(tc)
+	}
+	r.d.front.at = 4
+	r.tt.Until("the poster", func() bool { return len(src.requested(artOf(105, 300, 400))) > 0 })
+	r.settle()
+	check(thumbCase{"Poster", artOf(105, 300, 400), [2]int{48, 64}, 48, 64})
+}
+
+// thumbCase is a strip thumbnail: the card's name, its picture, what the
+// loader is asked for (the box) and what the picture covers of the 64×64 slot.
+type thumbCase struct {
+	name, src string
+	ask       [2]int
+	w, h      int
 }
 
 func abs(n int) int {

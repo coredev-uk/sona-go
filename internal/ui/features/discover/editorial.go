@@ -61,7 +61,7 @@ func (d *discover) editorialPage(c *ui.Context, r *ui.Route, kind string) {
 			}
 			d.pageError(c, title, q.Err, q.Fetching, d.retry(keyPage(kind, id)))
 		default:
-			bar(c, 288, 36).Margin(0, 0, 24, 0)
+			d.masthead(c, "", "", true, nil)
 			d.shelvesSkeleton(c, &st.skel, false)
 		}
 	})
@@ -94,7 +94,7 @@ func (d *discover) editorialHeader(c *ui.Context, p services.EditorialPage) {
 	if p.Stale {
 		subline = meta
 	}
-	kit.PageHeader(c, p.Title, subline, nil)
+	d.masthead(c, p.Title, subline, false, nil)
 	if p.Notes != "" {
 		body := theme.Current().Type["ui"]
 		ui.Text(c, p.Notes).FontSize(body.Size).FixedLineHeight(body.LineHeight).TextColor(theme.C("ink-muted")).

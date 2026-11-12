@@ -7,20 +7,28 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
-// The front page's geometry (v0.2.0's FrontPage.tsx), in DIPs.
+// The front page's geometry, in DIPs.
 const (
 	// heroRatio is the hero card's shape on music.apple.com: its
 	// "flowcaseLockup" requests the 4:1 subscriptionHero art cropped to
 	// 1060×608 ("sr").
 	heroRatio = 1060.0 / 608
-	// leadCaption is the lead's caption under its art: an 8 gap, a 22 title
+	// leadMax is the widest the front page's column gets: the lead keeps the
+	// hero shape, so its height follows its width and a full 1600 would be a
+	// screen tall.
+	leadMax = 1080
+	// leadCaption is the lead's caption under its art: a 12 gap, a 30 title
 	// line and an 18 line.
-	leadCaption = 48
-	// pagerHeight is the list's pager row: an 8 gap and a 28 row.
-	pagerHeight = 36
-	// listRow is a list row's height under the lead, and the least beside it.
-	listRow = 72
-	// listThumb is the list thumbnail's slot: the item's square cover fills
+	leadCaption = 60
+	// moreReserve is the room the caption keeps at its end, beside the
+	// pager's, for the card's menu button.
+	moreReserve = 28
+	// listRow is a strip card's height; stripGap the space between cards.
+	listRow  = 72
+	stripGap = 8
+	// stripPerPage is how many featured cards the strip shows at a time.
+	stripPerPage = 4
+	// listThumb is the strip thumbnail's slot: the item's square cover fills
 	// it. A picture that is not square keeps its shape inside it (thumbBox).
 	listThumb = 64
 	// thumbSquare is how far a picture's shape may be from square (as a
@@ -28,9 +36,15 @@ const (
 	// request to the box it is given, so a nearly square one loses nothing
 	// that matters.
 	thumbSquare = 1.15
-	// splitAt is the narrowest content width that sets the list beside the
-	// lead.
-	splitAt = 880
+	// stripWide is the narrowest front column that sets the strip's four
+	// cards in one row (two rows of two below it).
+	stripWide = 880
+	// marginAt is the page width (the scroll pane's) from which a band's
+	// heading stands in a margin column beside its shelves, marginWidth wide
+	// with marginGap to the shelves; narrower, it stands above them.
+	marginAt    = 1100
+	marginWidth = 200
+	marginGap   = 32
 	// rotateEvery is how long the lead stays before the next featured card
 	// replaces it.
 	rotateEvery = 7 * time.Second
@@ -43,32 +57,28 @@ const (
 
 // frontLayout is how the front page sets out at a width.
 type frontLayout struct {
-	// split: the list sits beside the lead (else under it).
-	split bool
-	// lead is the lead's width, which its art is requested at.
+	// lead is the lead's width, which its art is requested at; the caption and
+	// the strip are as wide.
 	lead float32
-	// perPage is the list rows per page, perColumn per column, columns the
-	// columns of the list.
-	perPage, perColumn, columns int
-	rowHeight                   float32
+	// columns and rows are the strip's cards in a row and the rows of a page
+	// (perPage = columns × rows); card is a card's width.
+	columns, rows, perPage int
+	card                   float32
+	rowHeight              float32
 }
 
-// layoutFor is the layout at a content width. Beside the lead (two thirds of
-// the width), the list takes as many rows as fit the lead's height, stretched
-// so its pager ends level with the lead's caption. Under the lead it runs in
-// two columns of three (one under 560).
-func layoutFor(width, gapX float32) frontLayout {
-	if width >= splitAt {
-		lead := float32(math.Round(float64((width - gapX) * 2 / 3)))
-		room := lead/heroRatio + leadCaption - pagerHeight
-		perPage := max(3, int(math.Floor(float64(room/listRow))))
-		return frontLayout{split: true, lead: lead, perPage: perPage, perColumn: perPage, columns: 1, rowHeight: room / float32(perPage)}
+// layoutFor is the layout at a content width. The lead takes the width, to
+// leadMax, in Apple's hero shape; the strip of featured cards under it shows
+// four a page: in one row of four, or two rows of two in a narrow window.
+func layoutFor(width float32) frontLayout {
+	lead := float32(math.Floor(float64(min(width, leadMax))))
+	columns, rows := stripPerPage, 1
+	if lead < stripWide {
+		columns, rows = 2, 2
 	}
-	columns := 1
-	if width >= 560 {
-		columns = 2
-	}
-	return frontLayout{lead: width, perPage: 3 * columns, perColumn: 3, columns: columns, rowHeight: listRow}
+	// The strip reaches 8 past the lead's edges on each side (frontPage).
+	card := float32(math.Floor(float64((lead + 16 - float32(columns-1)*stripGap) / float32(columns))))
+	return frontLayout{lead: lead, columns: columns, rows: rows, perPage: columns * rows, card: card, rowHeight: listRow}
 }
 
 // artHeight is the lead art's height at its width.

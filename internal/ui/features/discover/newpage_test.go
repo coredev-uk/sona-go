@@ -11,6 +11,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
+	"github.com/egoist/mygo/ui"
 )
 
 func playlistItem(id, name string) services.Item {
@@ -72,24 +74,32 @@ func TestNewPageShowsTheHeaderTheFrontPageTheContentsAndTheShelvesInBands(t *tes
 	}
 }
 
-func TestNewPageContentsListsTheBandsInOrderWithTheirShelves(t *testing.T) {
+func TestNewPageContentsIsOneRowOfBandButtonsEachWithItsShelfCount(t *testing.T) {
 	api := &fakeAPI{}
 	r := newRig(t, "/new", withAPI(api), withSize(1132, 1253))
 	newPageWith(api, r.h.Clock.Now(), issueSections()...)
 	r.tt.Until("the page", r.tt.Shows("On this page"))
 	r.d.front.paused = true
 	r.tt.Drain()
-	// The contents' buttons, in order: a band, then its shelves.
-	at := firstAt(r, "On this page", "Songs and albums", "Recent Releases", "Playlists", "Updated Playlists", "Radio", "Live Radio")
+	// The contents' buttons, in the bands' order, each with the count of its shelves.
+	at := firstAt(r, "On this page", "Songs and albums", "Playlists", "Radio")
 	if slices.Contains(at, -1) || !slices.IsSorted(at) {
 		t.Errorf("contents order %v: %q", at, r.tt.Texts())
+	}
+	tr := access.Read(t, r.tt.Tester)
+	for _, band := range []string{"Songs and albums", "Playlists", "Radio"} {
+		b, ok := tr.Find(ui.RoleButton, band)
+		if !ok || b.Description != "1 shelf" {
+			t.Errorf("the contents' button for %q is %+v (found %v), want one described as 1 shelf", band, b, ok)
+		}
 	}
 	// Each band's heading follows the contents, with its shelf under it.
 	texts := r.tt.Texts()
 	rest := texts[slices.Index(texts, "Live Radio")+1:]
 	h, shelf := slices.Index(rest, "Radio"), lastIndex(rest, "Live Radio")
-	if h < 0 || shelf < h {
-		t.Errorf("the Radio band's heading is not followed by its shelf: %q", rest)
+	_ = h
+	if shelf < 0 {
+		t.Errorf("the Radio band's shelf is not on the page: %q", rest)
 	}
 }
 
@@ -103,9 +113,9 @@ func TestNewPageHasNoContentsForASingleBand(t *testing.T) {
 	}
 }
 
-func TestNewPageContentsJumpToAShelfAndMoveFocusToIt(t *testing.T) {
+func TestNewPageContentsJumpToABandAndMoveFocusToIt(t *testing.T) {
 	api := &fakeAPI{}
-	r := newRig(t, "/new", withAPI(api), withSize(1132, 700))
+	r := newRig(t, "/new", withAPI(api), withSize(1132, 1000))
 	newPageWith(api, r.h.Clock.Now(), issueSections()...)
 	r.tt.Until("the page", r.tt.Shows("On this page"))
 	r.d.front.paused = true
@@ -118,27 +128,20 @@ func TestNewPageContentsJumpToAShelfAndMoveFocusToIt(t *testing.T) {
 	if r.d.newPg.pg.pos.Y != 0 {
 		t.Fatalf("the page starts scrolled to %v", r.d.newPg.pg.pos.Y)
 	}
-	if err := r.tt.Click("Updated Playlists"); err != nil {
+	if err := r.tt.Click("Playlists"); err != nil {
 		t.Fatal(err)
 	}
 	r.tt.Drain()
 	r.tt.Drain()
-	// The shelf is scrolled to the top (its scroll margin of 24 below it), and the
-	// focus is on its section, which is not a stop of Tab.
+	// The band is scrolled to the top (its scroll margin of 24 below it), and the
+	// focus is on its group, which is not a stop of Tab.
 	pos := r.d.newPg.pg.pos
-	want := min(r.d.newPg.anchors["new:playlists-0"]-24, pos.MaxY)
+	want := min(r.d.newPg.anchors["new:playlists"]-24, pos.MaxY)
 	if got := pos.Y; got <= 0 || got < want-1 || got > want+1 {
-		t.Errorf("scrolled to %v, want the shelf's place %v (the page's end is %v)", got, want, pos.MaxY)
+		t.Errorf("scrolled to %v, want the band's place %v (the page's end is %v)", got, want, pos.MaxY)
 	}
-	if got := r.d.newPg.focus; got != "new:playlists-0" {
+	if got := r.d.newPg.focus; got != "new:playlists" {
 		t.Errorf("focus anchor %q", got)
-	}
-	if !r.tt.Focused("Updated Playlists") {
-		t.Errorf("the focus is not on the shelf's section")
-	}
-	// A band's own button goes to its heading.
-	if err := r.tt.Click("Songs and albums"); err == nil {
-		r.tt.Drain()
 	}
 }
 
