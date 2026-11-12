@@ -47,3 +47,28 @@ func TestHairlineIsOnePixelOfLine(t *testing.T) {
 		t.Errorf("row 5 is %v, want the ground %v", got, ground)
 	}
 }
+
+func TestSolidOnlyFilledLeavesIconsWithoutASolidFormOutlined(t *testing.T) {
+	if HasSolid("skip-back") || !HasSolid("play") || !HasSolid("star") || !HasSolid("moon") {
+		t.Fatal("HasSolid: skip-back has no solid form; play, star and moon do")
+	}
+	shoot := func(name string, o GlyphOpts) []byte {
+		tt := ui.NewTester(func(c *ui.Context) {
+			Apply(c)
+			o.Color = C("ink")
+			ui.Column(c).Fill().Background(C("ground")).Padding(8).Children(func() { Glyph(c, name, 32, o) })
+		}, 60, 60)
+		tt.Frame()
+		return tt.Image().Pix
+	}
+	outline := shoot("skip-back", GlyphOpts{})
+	if !bytes.Equal(outline, shoot("skip-back", GlyphOpts{Filled: true, SolidOnly: true})) {
+		t.Error("Filled with SolidOnly drew an icon with no solid form filled")
+	}
+	if bytes.Equal(outline, shoot("skip-back", GlyphOpts{Filled: true})) {
+		t.Error("Filled alone should fill any icon")
+	}
+	if bytes.Equal(shoot("play", GlyphOpts{}), shoot("play", GlyphOpts{Filled: true, SolidOnly: true})) {
+		t.Error("Filled with SolidOnly left the play icon outlined")
+	}
+}

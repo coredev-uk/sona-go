@@ -177,7 +177,7 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 			if o.Variant == Play && o.Size == SizeLG {
 				size = playGlyph
 			}
-			ic := theme.Glyph(c, o.Icon, size, theme.GlyphOpts{Color: fg, Inherit: true, Filled: o.Filled})
+			ic := theme.Glyph(c, o.Icon, size, theme.GlyphOpts{Color: fg, Inherit: true, Filled: o.Filled, SolidOnly: true})
 			theme.Spin(ic, o.Spin)
 			if o.Variant == Play && o.Icon == "play" {
 				ic.Margin(0, 0, 0, 1) // the triangle's weight sits left of its box
