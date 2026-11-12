@@ -21,77 +21,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
-// fakeSvc records what the view asked of PlaybackService.
-type fakeSvc struct {
-	mu    sync.Mutex
-	calls []string
-	seeks []int64
-	vols  []float64
-	fail  error
-	done  chan struct{}
-}
-
-func newFakeSvc() *fakeSvc { return &fakeSvc{done: make(chan struct{}, 32)} }
-
-func (f *fakeSvc) record(name string) error {
-	f.mu.Lock()
-	f.calls = append(f.calls, name)
-	err := f.fail
-	f.mu.Unlock()
-	f.done <- struct{}{}
-	return err
-}
-
-func (f *fakeSvc) Toggle(context.Context) error { return f.record("toggle") }
-func (f *fakeSvc) Next(context.Context) error   { return f.record("next") }
-func (f *fakeSvc) Prev(context.Context) error   { return f.record("prev") }
-func (f *fakeSvc) Seek(_ context.Context, ms int64) error {
-	f.mu.Lock()
-	f.seeks = append(f.seeks, ms)
-	f.mu.Unlock()
-	return f.record("seek")
-}
-
-func (f *fakeSvc) SetVolume(_ context.Context, v float64) error {
-	f.mu.Lock()
-	f.vols = append(f.vols, v)
-	f.mu.Unlock()
-	return f.record("volume")
-}
-
-func (f *fakeSvc) PlayItems(context.Context, []services.TrackRef, int, services.PlayFrom) error {
-	return f.record("play items")
-}
-
-// wait blocks until n calls have been recorded (they run on goroutines).
-func (f *fakeSvc) wait(t *testing.T, n int) []string {
-	t.Helper()
-	for range n {
-		select {
-		case <-f.done:
-		case <-time.After(5 * time.Second):
-			t.Fatalf("expected %d service calls, got %v", n, f.snapshot())
-		}
-	}
-	return f.snapshot()
-}
-
-func (f *fakeSvc) snapshot() []string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return slices.Clone(f.calls)
-}
-
-// quiet reports that nothing was called (after the frames that would have).
-func (f *fakeSvc) quiet(t *testing.T, what string) {
-	t.Helper()
-	select {
-	case <-f.done:
-		t.Errorf("%s: the service was called: %v", what, f.snapshot())
-	case <-time.After(30 * time.Millisecond):
-	}
-}
-
 // fakeCat answers CatalogService.
 type fakeCat struct {
 	mu     sync.Mutex
@@ -151,18 +80,6 @@ func (q *fakeQueue) PlaySongs(s []services.Song, _ int, from services.PlayFrom) 
 	q.from = append(q.from, from)
 }
 
-// fakeNav records the pages pushed.
-type fakeNav struct{ pushed []string }
-
-func (n *fakeNav) Push(p string)      { n.pushed = append(n.pushed, p) }
-func (n *fakeNav) Replace(p string)   { n.pushed = append(n.pushed, p) }
-func (n *fakeNav) Back()              {}
-func (n *fakeNav) Forward()           {}
-func (n *fakeNav) Path() string       { return "/" }
-func (n *fakeNav) Location() string   { return "/" }
-func (n *fakeNav) last() string       { return n.pushed[len(n.pushed)-1] }
-func (n *fakeNav) went(p string) bool { return slices.Contains(n.pushed, p) }
-
 // fakeWindow is the window the view goes full screen in.
 type fakeWindow struct{ full bool }
 
@@ -171,10 +88,10 @@ type rig struct {
 	h       *uitest.Harness
 	env     *module.Env
 	v       *video
-	svc     *fakeSvc
+	svc     *uitest.Transport
 	cat     *fakeCat
 	queue   *fakeQueue
-	nav     *fakeNav
+	nav     *uitest.Nav
 	win     *fakeWindow
 	surface *pvideo.Surface
 	caps    services.PlaybackCapabilities
@@ -203,7 +120,7 @@ func newRig(t *testing.T, dark bool, mount func(r *rig) func(c *ui.Context), w, 
 func newRigWith(t *testing.T, opts []uitest.Option, mount func(r *rig) func(c *ui.Context), w, h int) *rig {
 	t.Helper()
 	hn := uitest.New(t, opts...)
-	r := &rig{t: t, h: hn, env: hn.Env, svc: newFakeSvc(), cat: &fakeCat{}, queue: &fakeQueue{}, nav: &fakeNav{}, win: &fakeWindow{}, surface: pvideo.NewSurface()}
+	r := &rig{t: t, h: hn, env: hn.Env, svc: uitest.NewTransport(), cat: &fakeCat{}, queue: &fakeQueue{}, nav: &uitest.Nav{}, win: &fakeWindow{}, surface: pvideo.NewSurface()}
 	r.caps = services.PlaybackCapabilities{Available: true, Video: true, Volume: true}
 	r.env.Actions = kit.NewActionRegistry()
 	r.env.Actions.Register(kit.ActionDef{
@@ -544,17 +461,15 @@ func TestViewKeysCallTheService(t *testing.T) {
 	r.tt.Key(0, ui.KeySpace)
 	r.tt.Key(0, ui.KeyK)
 	r.tt.Key(ui.Shift, ui.KeyK)
-	if got := r.svc.wait(t, 3); !slices.Equal(got, []string{"toggle", "toggle", "toggle"}) {
+	if got := r.svc.Wait(t, 3); !slices.Equal(got, []string{"toggle", "toggle", "toggle"}) {
 		t.Errorf("Space, K, Shift+K: %v", got)
 	}
 
 	r.tt.Key(0, ui.KeyRight)
-	r.svc.wait(t, 1)
+	r.svc.Wait(t, 1)
 	r.tt.Key(0, ui.KeyLeft)
-	r.svc.wait(t, 1)
-	r.svc.mu.Lock()
-	seeks := slices.Clone(r.svc.seeks)
-	r.svc.mu.Unlock()
+	r.svc.Wait(t, 1)
+	seeks := r.svc.Seeks()
 	if !slices.Equal(seeks, []int64{35_000, 30_000}) {
 		t.Errorf("Right then Left seek to %v, want 35000 then 30000 (the mirror shows each at once)", seeks)
 	}
@@ -562,29 +477,25 @@ func TestViewKeysCallTheService(t *testing.T) {
 	// Shift+arrows are the player's, not the view's; a key with Ctrl or Alt
 	// held is no key of the view.
 	r.tt.Key(ui.Shift, ui.KeyRight)
-	r.svc.quiet(t, "Shift+Right")
+	r.svc.Quiet(t, "Shift+Right")
 	r.tt.Key(ui.Cmd, ui.KeyK)
 	r.tt.Key(ui.Alt, ui.KeyLeft)
 	r.tt.Key(ui.Cmd, ui.KeyF)
-	r.svc.quiet(t, "keys with a modifier held")
+	r.svc.Quiet(t, "keys with a modifier held")
 	if r.win.full {
 		t.Error("Ctrl+F went full screen")
 	}
 
 	// M mutes where the platform sets the volume.
 	r.tt.Key(0, ui.KeyM)
-	r.svc.wait(t, 1)
-	r.svc.mu.Lock()
-	vols := slices.Clone(r.svc.vols)
-	r.svc.mu.Unlock()
+	r.svc.Wait(t, 1)
+	vols := r.svc.Volumes()
 	if !slices.Equal(vols, []float64{0}) {
 		t.Errorf("M set the volume to %v", vols)
 	}
 	r.tt.Key(0, ui.KeyM) // and returns to the volume before
-	r.svc.wait(t, 1)
-	r.svc.mu.Lock()
-	vols = slices.Clone(r.svc.vols)
-	r.svc.mu.Unlock()
+	r.svc.Wait(t, 1)
+	vols = r.svc.Volumes()
 	if len(vols) != 2 || vols[1] != 0.6 {
 		t.Errorf("M again set %v, want back to 0.6", vols)
 	}
@@ -595,7 +506,7 @@ func TestMIsIgnoredWithoutAVolumeCapability(t *testing.T) {
 	r.caps.Volume = false
 	r.open()
 	r.tt.Key(0, ui.KeyM)
-	r.svc.quiet(t, "M without volume")
+	r.svc.Quiet(t, "M without volume")
 	if r.tt.HasText("Mute") {
 		t.Error("a mute button without a volume")
 	}
@@ -608,17 +519,29 @@ func TestViewButtonsCallTheService(t *testing.T) {
 	r := viewRig(t)
 	r.open()
 	for _, c := range []struct{ label, call string }{{"Pause", "toggle"}, {"Previous", "prev"}, {"Next", "next"}} {
-		if err := r.tt.Click(c.label); err != nil {
-			t.Fatalf("%s: %v", c.label, err)
-		}
-		if got := r.svc.wait(t, 1); got[len(got)-1] != c.call {
+		r.tt.MustClick(c.label)
+		if got := r.svc.Wait(t, 1); got[len(got)-1] != c.call {
 			t.Errorf("%s called %v, want %s", c.label, got, c.call)
 		}
 	}
-	if err := r.tt.Click("Mute"); err != nil {
-		t.Fatal(err)
+	r.tt.MustClick("Mute")
+	r.svc.Wait(t, 1)
+}
+
+// The bar's mute and the view's unmute share one remembered volume: unmuting
+// in the view returns to the volume before the bar muted, not to a default.
+func TestUnmuteInTheViewReturnsToTheVolumeTheBarMuted(t *testing.T) {
+	r := viewRig(t)
+	r.open()
+	// What the bar's mute does: remember the volume, show zero.
+	r.env.Play.SetUnmuted(r.env.Play.State().Volume)
+	r.env.Play.Patch(func(s *services.PlaybackState) { s.Volume = 0 })
+	r.tt.Frame()
+	r.tt.Key(0, ui.KeyM)
+	r.svc.Wait(t, 1)
+	if got := r.svc.Volumes(); len(got) != 1 || got[0] != 0.6 {
+		t.Errorf("unmute set the volume to %v, want 0.6 (the one before the mute)", got)
 	}
-	r.svc.wait(t, 1)
 }
 
 func TestTransportButtonsFollowTheControls(t *testing.T) {
@@ -629,7 +552,7 @@ func TestTransportButtonsFollowTheControls(t *testing.T) {
 	r.tt.Until("the view", r.tt.Shows("Sky Video"))
 	_ = r.tt.Click("Previous")
 	_ = r.tt.Click("Next")
-	r.svc.quiet(t, "disabled previous and next")
+	r.svc.Quiet(t, "disabled previous and next")
 	// The play disc says what it will do.
 	r.play(store.StatePaused, func(s *services.PlaybackState) { s.Controls = services.PlaybackControls{} })
 	if !r.tt.HasText("Play") {
@@ -650,10 +573,8 @@ func TestSeekBarShowsTimesAndSeeksWhenReleased(t *testing.T) {
 		t.Fatal("no Seek slider")
 	}
 	r.tt.ClickAt(box.X+box.W/2, box.Y+box.H/2)
-	r.svc.wait(t, 1)
-	r.svc.mu.Lock()
-	seeks := slices.Clone(r.svc.seeks)
-	r.svc.mu.Unlock()
+	r.svc.Wait(t, 1)
+	seeks := r.svc.Seeks()
 	if len(seeks) != 1 || seeks[0] < 90_000 || seeks[0] > 110_000 {
 		t.Errorf("a click in the middle of 3:20 sought to %v ms, want about 100000", seeks)
 	}
@@ -667,15 +588,15 @@ func TestSeekSliderIsDisabledWithoutADuration(t *testing.T) {
 	r.tt.Until("the view", r.tt.Shows("Sky Video"))
 	box, _ := r.tt.Find("Seek")
 	r.tt.ClickAt(box.X+box.W/2, box.Y+box.H/2)
-	r.svc.quiet(t, "a seek with no duration")
+	r.svc.Quiet(t, "a seek with no duration")
 }
 
 func TestFailuresAreToastsTitledByTheCommand(t *testing.T) {
 	r := viewRig(t)
 	r.open()
-	r.svc.fail = services.ErrNotReleased
+	r.svc.Fail = services.ErrNotReleased
 	r.tt.Key(0, ui.KeySpace)
-	r.svc.wait(t, 1)
+	r.svc.Wait(t, 1)
 	r.tt.Until("the toast", r.tt.Shows("Couldn't play or pause"))
 }
 
@@ -696,9 +617,7 @@ func TestEscapeLeavesFullScreenThenClosesAndFKeyAndButtonToggle(t *testing.T) {
 	if r.win.full || !r.env.Video.IsOpen() {
 		t.Fatalf("Escape in full screen: full %v open %v", r.win.full, r.env.Video.IsOpen())
 	}
-	if err := r.tt.Click("Full screen"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Full screen")
 	if !r.win.full {
 		t.Fatal("the Full screen button did not go full screen")
 	}
@@ -719,9 +638,7 @@ func TestClosingLeavesAFullScreenTheViewEnteredButNotTheUsers(t *testing.T) {
 	r := viewRig(t)
 	r.win.full = true // the user pressed F11 before
 	r.open()
-	if err := r.tt.Click("Close video"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Close video")
 	if r.env.Video.IsOpen() {
 		t.Fatal("Close video did not close")
 	}
@@ -738,7 +655,7 @@ func TestSpaceOnAFocusedButtonIsTheButtons(t *testing.T) {
 	// scrolls, as on the web).
 	r.tt.Key(0, ui.KeyTab)
 	r.tt.Key(0, ui.KeySpace)
-	if got := r.svc.snapshot(); slices.Contains(got, "toggle") {
+	if got := r.svc.Snapshot(); slices.Contains(got, "toggle") {
 		t.Errorf("Space on a focused link toggled playback: %v", got)
 	}
 	r = viewRig(t)
@@ -754,7 +671,7 @@ func TestSpaceOnAFocusedButtonIsTheButtons(t *testing.T) {
 	if !r.win.full {
 		t.Error("Space on the Full screen button did not press it")
 	}
-	if got := r.svc.snapshot(); slices.Contains(got, "toggle") {
+	if got := r.svc.Snapshot(); slices.Contains(got, "toggle") {
 		t.Errorf("Space on a focused button toggled playback: %v", got)
 	}
 }
@@ -784,18 +701,14 @@ func TestTabStaysInsideTheView(t *testing.T) {
 func TestTitleAndArtistLinkAndCloseTheView(t *testing.T) {
 	r := viewRig(t)
 	r.open()
-	if err := r.tt.Click("Sky Video"); err != nil {
-		t.Fatal(err)
-	}
-	if r.nav.last() != "/music-video/mv.1" || r.env.Video.IsOpen() {
-		t.Errorf("title: pushed %v, open %v", r.nav.pushed, r.env.Video.IsOpen())
+	r.tt.MustClick("Sky Video")
+	if r.nav.Last() != "/music-video/mv.1" || r.env.Video.IsOpen() {
+		t.Errorf("title: pushed %v, open %v", r.nav.Pushed, r.env.Video.IsOpen())
 	}
 	r.open()
-	if err := r.tt.Click("Mia Rivers"); err != nil {
-		t.Fatal(err)
-	}
-	if r.nav.last() != "/artist/ar.1" || r.env.Video.IsOpen() {
-		t.Errorf("artist: pushed %v, open %v", r.nav.pushed, r.env.Video.IsOpen())
+	r.tt.MustClick("Mia Rivers")
+	if r.nav.Last() != "/artist/ar.1" || r.env.Video.IsOpen() {
+		t.Errorf("artist: pushed %v, open %v", r.nav.Pushed, r.env.Video.IsOpen())
 	}
 	// An artist with no page of ours is plain text.
 	r.env.HasRoute = func(string) bool { return false }
@@ -803,9 +716,9 @@ func TestTitleAndArtistLinkAndCloseTheView(t *testing.T) {
 	if r.tt.HasText("Sky Video") {
 		t.Log("title shown as text")
 	}
-	n := len(r.nav.pushed)
+	n := len(r.nav.Pushed)
 	_ = r.tt.Click("Mia Rivers")
-	if len(r.nav.pushed) != n {
+	if len(r.nav.Pushed) != n {
 		t.Error("an unported artist page was linked")
 	}
 }
@@ -945,9 +858,7 @@ func TestProblemWhenVideosDoNotPlayHere(t *testing.T) {
 	// Watch in Apple Music once the page (with its link) loaded.
 	r.tt.Until("the button", r.tt.Shows("Watch in Apple Music"))
 	r.cat.done = make(chan struct{}, 4)
-	if err := r.tt.Click("Watch in Apple Music"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Watch in Apple Music")
 	r.cat.wait(t)
 	r.cat.mu.Lock()
 	defer r.cat.mu.Unlock()
@@ -978,10 +889,8 @@ func TestPlaybackErrorOffersTryAgainExceptWhereAppleSaysNo(t *testing.T) {
 	r.env.Video.Open()
 	r.tt.Frame()
 	r.tt.Until("the problem", r.tt.Shows("Couldn't play this video", "Try again"))
-	if err := r.tt.Click("Try again"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.svc.wait(t, 1); got[0] != "toggle" {
+	r.tt.MustClick("Try again")
+	if got := r.svc.Wait(t, 1); got[0] != "toggle" {
 		t.Errorf("Try again called %v", got)
 	}
 	for _, code := range []services.ErrorCode{services.CodeVideoHDOnly, services.CodeVideoLicence} {
@@ -1112,13 +1021,11 @@ func TestSeekDragThatLeavesTheSliderSeeksOnceOnRelease(t *testing.T) {
 	for i := range 10 {
 		r.tt.Move(box.X+box.W*(0.2+0.05*float32(i)), y+80) // well off the slider, button still down
 	}
-	r.svc.quiet(t, "a drag off the slider")
+	r.svc.Quiet(t, "a drag off the slider")
 	r.tt.Release(box.X+box.W*0.7, y+80)
-	r.svc.wait(t, 1)
-	r.svc.quiet(t, "after the release")
-	r.svc.mu.Lock()
-	n := len(r.svc.seeks)
-	r.svc.mu.Unlock()
+	r.svc.Wait(t, 1)
+	r.svc.Quiet(t, "after the release")
+	n := len(r.svc.Seeks())
 	if n != 1 {
 		t.Errorf("a drag made %d seeks, want one on release", n)
 	}

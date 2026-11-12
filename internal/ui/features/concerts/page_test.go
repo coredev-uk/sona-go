@@ -48,7 +48,7 @@ func TestPageListsTheAgendaByMonthAndDay(t *testing.T) {
 func TestPageLinksTheLineupToTheArtistOnlyWhenThePageExists(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, exampleBand)
 	r.shows("Example Band with Opener Duo")
-	r.click("Example Band with Opener Duo")
+	r.tt.MustClick("Example Band with Opener Duo")
 	if got := r.router.Path(); got != "/artist/900001" {
 		t.Errorf("the line-up went to %q", got)
 	}
@@ -65,8 +65,8 @@ func TestPageLinksTheLineupToTheArtistOnlyWhenThePageExists(t *testing.T) {
 func TestDatesPresetGoesToTheURLAndToApple(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 1000, exampleBand, sampleSinger, anotherAct)
 	r.shows("April 2027")
-	r.click("Dates")
-	r.click("This week")
+	r.tt.MustClick("Dates")
+	r.tt.MustClick("This week")
 	if got := r.router.Location(); got != "/concerts?when=week" {
 		t.Errorf("location %q", got)
 	}
@@ -78,8 +78,8 @@ func TestDatesPresetGoesToTheURLAndToApple(t *testing.T) {
 	r.shows("No concerts", "Clear filters")
 
 	// Any date clears it.
-	r.click("Dates")
-	r.click("Any date")
+	r.tt.MustClick("Dates")
+	r.tt.MustClick("Any date")
 	if got := r.router.Location(); got != "/concerts" {
 		t.Errorf("location %q", got)
 	}
@@ -89,8 +89,8 @@ func TestDatesPresetGoesToTheURLAndToApple(t *testing.T) {
 func TestChoosingDatesTakesTwoDaysInOrder(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 1000, exampleBand, sampleSinger, anotherAct)
 	r.shows("April 2027")
-	r.click("Dates")
-	r.click("Choose dates…")
+	r.tt.MustClick("Dates")
+	r.tt.MustClick("Choose dates…")
 	if got := r.router.Location(); got != "/concerts?when=dates" {
 		t.Errorf("location %q", got)
 	}
@@ -135,11 +135,11 @@ func TestChoosingDatesTakesTwoDaysInOrder(t *testing.T) {
 	}
 	r.tt.Until("the April listing", func() bool { return r.amp.last().Get("filter[date]") == "2027-04-01..2027-04-30" })
 	r.tt.Until("only April", func() bool { return !r.tt.HasText("Another Act") && r.tt.HasText("Sample Singer") })
-	r.lacks("Choose both dates")
+	r.tt.Lacks("Choose both dates")
 
 	// A preset forgets the typed days.
-	r.click("Dates")
-	r.click("Next 30 days")
+	r.tt.MustClick("Dates")
+	r.tt.MustClick("Next 30 days")
 	if got := r.router.Location(); got != "/concerts?when=month" {
 		t.Errorf("location %q", got)
 	}
@@ -151,8 +151,8 @@ func TestChoosingDatesTakesTwoDaysInOrder(t *testing.T) {
 func TestGenreFilterNarrowsTheListing(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 1000, exampleBand, sampleSinger, anotherAct)
 	r.shows("April 2027", "Genres", "All genres")
-	r.click("Genres")
-	r.click("Alternative")
+	r.tt.MustClick("Genres")
+	r.tt.MustClick("Alternative")
 	if got := r.router.Location(); got != "/concerts?genre=20" {
 		t.Errorf("location %q", got)
 	}
@@ -162,8 +162,8 @@ func TestGenreFilterNarrowsTheListing(t *testing.T) {
 	if got := r.amp.last().Get("filter[genre]"); got != "20" {
 		t.Errorf("asked for genre %q", got)
 	}
-	r.click("Genres")
-	r.click("All genres")
+	r.tt.MustClick("Genres")
+	r.tt.MustClick("All genres")
 	if got := r.router.Location(); got != "/concerts" {
 		t.Errorf("location %q", got)
 	}
@@ -172,41 +172,41 @@ func TestGenreFilterNarrowsTheListing(t *testing.T) {
 func TestYourArtistsSwitchShowsOnlyTheirShows(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 1000, exampleBand, sampleSinger, anotherAct)
 	r.shows("Your artists (2)", "Example Band with Opener Duo")
-	r.click("Your artists (2)")
+	r.tt.MustClick("Your artists (2)")
 	if got := r.router.Location(); got != "/concerts?yours=true" {
 		t.Errorf("location %q", got)
 	}
 	r.tt.Until("only followed artists", func() bool {
 		return !r.tt.HasText("Example Band with Opener Duo") && r.tt.HasText("Sample Singer") && r.tt.HasText("Another Act")
 	})
-	r.click("Your artists (2)")
+	r.tt.MustClick("Your artists (2)")
 	r.tt.Until("everyone again", r.tt.Shows("Example Band with Opener Duo"))
 }
 
 func TestShowMoreConcertsAsksForAnotherHundred(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 9000, bulk(120)...)
 	r.shows("Band 0", "Show more concerts")
-	r.lacks("Band 110")
-	r.click("Show more concerts")
+	r.tt.Lacks("Band 110")
+	r.tt.MustClick("Show more concerts")
 	r.tt.Until("120 concerts", r.tt.Shows("Band 119"))
 	if got := r.amp.last().Get("limit[popular-concerts]"); got != "200" {
 		t.Errorf("asked for %s concerts, want 200", got)
 	}
 	// 120 of 200: nothing more.
-	r.lacks("Show more concerts")
+	r.tt.Lacks("Show more concerts")
 }
 
 func TestPageSaysWhenNothingIsListed(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800)
 	r.shows("No concerts", "No upcoming concerts. Please check back later. A larger city nearby may have some.", "Set location")
-	r.click("Set location")
+	r.tt.MustClick("Set location")
 	r.shows("Search cities")
 }
 
 func TestPageSaysWhenNothingMatchesTheFilters(t *testing.T) {
 	r := newRig(t, "/concerts?genre=20", 1132, 800, anotherAct)
 	r.shows("No concerts", "Apple Music lists nothing near London for these filters. Widen the dates or choose another genre.")
-	r.click("Clear filters")
+	r.tt.MustClick("Clear filters")
 	if got := r.router.Location(); got != "/concerts" {
 		t.Errorf("location %q", got)
 	}
@@ -220,9 +220,9 @@ func TestPageShowsTheErrorAndRetries(t *testing.T) {
 	r := newRigAmp(t, amp, "/concerts", 1132, 800, nil, nil)
 	r.shows("Couldn't load the concerts", "Try again")
 	r.amp.fail.Store(false)
-	r.click("Try again")
+	r.tt.MustClick("Try again")
 	r.shows("Example Band with Opener Duo")
-	r.lacks("Couldn't load the concerts")
+	r.tt.Lacks("Couldn't load the concerts")
 }
 
 func TestPageShowsTheFrameWhileLoadingAndKeepsTheListWhileAFilterLoads(t *testing.T) {
@@ -235,14 +235,14 @@ func TestPageShowsTheFrameWhileLoadingAndKeepsTheListWhileAFilterLoads(t *testin
 	// Nothing yet: the agenda's frame, named for assistive technology; the
 	// header already has its title and the location button.
 	r.shows("Concerts", "Loading", "Set location")
-	r.lacks("April 2027")
+	r.tt.Lacks("April 2027")
 	release()
 	r.shows("April 2027", "Genres")
 
 	// A new filter keeps the list on screen until its listing arrives.
 	release = amp.hold()
-	r.click("Genres")
-	r.click("Alternative")
+	r.tt.MustClick("Genres")
+	r.tt.MustClick("Alternative")
 	r.tt.Drain()
 	r.tt.Drain()
 	for _, w := range []string{"Sample Singer", "Another Act", "April 2027"} {
@@ -264,9 +264,9 @@ func TestShowMoreSaysLoadingWhileItFetches(t *testing.T) {
 	r := newRigOver(t, hn, amp, "/concerts", 1132, 9000, nil)
 	r.shows("Band 0", "Show more concerts")
 	release := amp.hold()
-	r.click("Show more concerts")
+	r.tt.MustClick("Show more concerts")
 	r.shows("Loading…", "Band 0") // the list stays, the button waits
-	r.lacks("Show more concerts")
+	r.tt.Lacks("Show more concerts")
 	release()
 	r.tt.Until("every concert", r.tt.Shows("Band 119"))
 }
@@ -287,7 +287,7 @@ func TestSublineSaysWhenTheCopyIsOld(t *testing.T) {
 	hn.Network.ServeHandler(ampHost, amp)
 	r := newRigOver(t, hn, amp, "/concerts", 1132, 800, func(a concertsAPI) concertsAPI { return staleAPI{a} })
 	r.shows("Couldn't reach Apple Music · showing the copy from 3 hr. ago")
-	r.lacks("Updated")
+	r.tt.Lacks("Updated")
 }
 
 func TestModuleDeclaresItsRouteAndNavigation(t *testing.T) {
@@ -314,14 +314,14 @@ func TestModuleDeclaresItsRouteAndNavigation(t *testing.T) {
 func TestCalendarChoosesADayWithinTheFieldsRange(t *testing.T) {
 	r := newRig(t, "/concerts?when=dates&from=2027-04-10", 1132, 1000, exampleBand, sampleSinger, anotherAct)
 	r.shows("Choose both dates", "Choose the To day")
-	r.click("Choose the To day")
+	r.tt.MustClick("Choose the To day")
 	// It opens on From's day, the first To takes.
 	r.tt.Settle()
 	if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleButton, "April 10, 2027"); !ok {
 		t.Fatalf("the calendar did not open on From's day:\n%s", access.Read(t, r.tt.Tester).Dump())
 	}
 	// A day before From is not taken: the field is invalid, the calendar stays.
-	r.click("April 5, 2027")
+	r.tt.MustClick("April 5, 2027")
 	if got := r.router.Location(); got != "/concerts?when=dates&from=2027-04-10" {
 		t.Errorf("a To before From was applied: %q", got)
 	}
@@ -331,7 +331,7 @@ func TestCalendarChoosesADayWithinTheFieldsRange(t *testing.T) {
 	if tr := access.Read(t, r.tt.Tester); !func() bool { n, _ := tr.Find(ui.RoleTextField, "To"); return n.Has(access.Invalid) }() {
 		t.Error("the To field does not show the day outside its range as invalid")
 	}
-	r.click("April 20, 2027")
+	r.tt.MustClick("April 20, 2027")
 	if got := r.router.Location(); got != "/concerts?from=2027-04-10&to=2027-04-20&when=dates" {
 		t.Errorf("location %q", got)
 	}

@@ -20,9 +20,6 @@ const (
 	nameListenBrainz = "ListenBrainz"
 )
 
-// listenBrainzTokenPage is where a ListenBrainz user token is copied from.
-const listenBrainzTokenPage = "https://listenbrainz.org/settings/"
-
 // tokenForm is the ListenBrainz form's state: the text, a check in flight
 // and what the last attempt said.
 type tokenForm struct {
@@ -179,10 +176,7 @@ func (o *onboarding) connectionsStep(c *ui.Context) {
 func serviceRow(c *ui.Context, id, name, line string, action, children func()) {
 	ui.Column(c.Key("service:"+id)).FillWidth().Padding(12, 0).Gap(12).Children(func() {
 		ui.Row(c.Key("head")).FillWidth().Gap(24).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
-			ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-				theme.Text(c, name, "ui").FontWeight(500).TextColor(theme.C("ink"))
-				theme.Text(c, line, "sub").TextColor(theme.C("ink-muted"))
-			})
+			words(c, name, line)
 			ui.Row(c.Key("action")).Shrink(0).AlignItems(ui.Center).Children(action)
 		})
 		children()
@@ -294,34 +288,12 @@ func (o *onboarding) listenBrainzForm(c *ui.Context) {
 				o.closeListenBrainz()
 			}
 		})
-		o.tokenHint(c)
+		kit.ListenBrainzTokenHint(c, o.env.OpenURL)
 		if f.err != "" {
-			ui.Row(c.Key("err")).FillWidth().Gap(8).AlignItems(ui.Start).Role(ui.RoleAlert).Label(f.err).Children(func() {
-				statusIcon(c, "circle-alert", "danger").Margin(2, 0, 0, 0)
-				theme.Text(c, f.err, "sub").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
-			})
+			kit.AlertLine(c.Key("err"), f.err)
 		}
 	})
 	if form.Shortcut(0, ui.KeyEscape) {
 		o.closeListenBrainz()
 	}
-}
-
-// tokenHint is "Copy it from your ListenBrainz settings ↗. Sona checks it …":
-// the translation marks the link as <0>text<1/></0>.
-func (o *onboarding) tokenHint(c *ui.Context) {
-	msg := i18n.T("Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with ListenBrainz and keeps it in your keyring.")
-	before, rest, _ := strings.Cut(msg, "<0>")
-	link, after, ok := strings.Cut(rest, "<1/></0>")
-	if !ok {
-		theme.Text(c.Key("hint"), msg, "meta").TextColor(theme.C("ink-muted"))
-		return
-	}
-	ui.Row(c.Key("hint")).FillWidth().Wrap().AlignItems(ui.Center).Children(func() {
-		theme.Text(c.Key("a"), before, "meta").TextColor(theme.C("ink-muted"))
-		if kit.Button(c.Key("link"), link, kit.ButtonOpts{Variant: kit.Link, Size: kit.SizeXS, Icon: "external-link"}).Clicked() {
-			_ = o.env.OpenURL(listenBrainzTokenPage)
-		}
-		theme.Text(c.Key("b"), after, "meta").TextColor(theme.C("ink-muted"))
-	})
 }

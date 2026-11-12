@@ -3,7 +3,6 @@ package player
 import (
 	"context"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -131,7 +130,7 @@ func (p *player) sleepItems(sleep *services.SleepTimer, until string) []kit.Menu
 	var note string
 	switch sleep.Mode {
 	case "after":
-		note = strings.NewReplacer("<0>", "", "</0>", "").Replace(i18n.T("Pauses at <0>{until}</0>, fading out over the last 10 seconds.", "until", until))
+		note = i18n.StripTags(i18n.T("Pauses at <0>{until}</0>, fading out over the last 10 seconds.", "until", until))
 	case "track":
 		note = i18n.T("Pauses when this song ends, fading out over the last 10 seconds.")
 	default:

@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
@@ -42,8 +43,8 @@ func TestBarSongOpensTheSongMenuOnRightClick(t *testing.T) {
 		}
 		r.tt.Key(0, ui.KeyEscape)
 		r.tt.Frame()
-		if len(nav.pushed) != 0 {
-			t.Fatalf("right-click on the %s link followed it: %q", from, nav.pushed)
+		if len(nav.Pushed) != 0 {
+			t.Fatalf("right-click on the %s link followed it: %q", from, nav.Pushed)
 		}
 	}
 	b, _ := r.tt.Find("Song Title")
@@ -54,12 +55,10 @@ func TestBarSongOpensTheSongMenuOnRightClick(t *testing.T) {
 			t.Fatalf("the menu lacks %q: %q", w, r.tt.Texts())
 		}
 	}
-	if err := r.tt.Click("Go to album"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Go to album")
 	r.tt.Frame()
-	if len(nav.pushed) != 1 || nav.pushed[0] != "/album/al.9" {
-		t.Errorf("pushed %q", nav.pushed)
+	if len(nav.Pushed) != 1 || nav.Pushed[0] != "/album/al.9" {
+		t.Errorf("pushed %q", nav.Pushed)
 	}
 
 	// The cover too, and a queue action reaches the transport.
@@ -69,7 +68,7 @@ func TestBarSongOpensTheSongMenuOnRightClick(t *testing.T) {
 	if err := r.tt.Click("Play next"); err != nil {
 		t.Fatalf("no Play next in the cover's menu: %v (%q)", err, r.tt.Texts())
 	}
-	if got := r.fake.wait(t, 1); got[0] != "playnext" {
+	if got := r.fake.Wait(t, 1); got[0] != "playnext" {
 		t.Errorf("calls %v", got)
 	}
 }
@@ -150,17 +149,13 @@ func TestNowPlayingCoverTitleAndMoreOpenTheSongMenu(t *testing.T) {
 	if got := tr.Labelled(ui.RoleMenuButton, "More for Song Title"); len(got) != 1 {
 		t.Fatalf("no menu button \"More for Song Title\":\n%s", tr.Dump())
 	}
-	if err := r.tt.Click("More for Song Title"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("More for Song Title")
 	r.tt.Frame()
 	r.tt.Frame()
 	if !r.tt.HasText("Play next") {
 		t.Fatalf("the More button opened nothing: %q", r.tt.Texts())
 	}
-	if err := r.tt.Click("Play next"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Play next")
 	r.tt.Frame()
 	if r.tt.HasText("Go to album") {
 		t.Error("the menu stayed open after a choice")
@@ -172,7 +167,7 @@ func TestNowPlayingCoverTitleAndMoreOpenTheSongMenu(t *testing.T) {
 func TestNowPlayingMenuNavigationClosesTheView(t *testing.T) {
 	r := newNPRig(t)
 	npActions(r)
-	nav := &navRecorder{}
+	nav := &uitest.Nav{}
 	r.h.Env.Nav = nav
 	r.h.Env.HasRoute = func(string) bool { return true }
 	r.h.Env.Actions.SetNavigator(nav.Push)
@@ -189,16 +184,14 @@ func TestNowPlayingMenuNavigationClosesTheView(t *testing.T) {
 	if !r.tt.HasText("Go to album") {
 		t.Fatalf("right-click on the artist link opened no menu: %q", r.tt.Texts())
 	}
-	if len(nav.pushed) != 0 {
-		t.Fatalf("right-click followed the link: %q", nav.pushed)
+	if len(nav.Pushed) != 0 {
+		t.Fatalf("right-click followed the link: %q", nav.Pushed)
 	}
-	if err := r.tt.Click("Go to album"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Go to album")
 	r.tt.Frame()
 	r.tt.Frame()
-	if len(nav.pushed) != 1 || nav.pushed[0] != "/album/al1" {
-		t.Errorf("pushed %q", nav.pushed)
+	if len(nav.Pushed) != 1 || nav.Pushed[0] != "/album/al1" {
+		t.Errorf("pushed %q", nav.Pushed)
 	}
 	if r.p.ui.overlay != overlayNone {
 		t.Error("Now Playing stayed open over the page the action opened")

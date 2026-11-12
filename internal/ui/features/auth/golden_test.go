@@ -20,7 +20,7 @@ func goldenDialog(t *testing.T, name string, opts ...uitest.Option) {
 	// The dialog's 200 ms entrance, then a frame at rest.
 	r.tt.Advance(500 * time.Millisecond)
 	r.tt.Frame()
-	r.shows("Sign in to Apple Music")
+	r.tt.Want("Sign in to Apple Music")
 	uitest.Golden(t, r.tt.Image(), name)
 }
 

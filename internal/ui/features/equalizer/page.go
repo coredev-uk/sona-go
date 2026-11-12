@@ -1,6 +1,7 @@
 package equalizer
 
 import (
+	"cmp"
 	"math"
 	"slices"
 	"time"
@@ -64,7 +65,7 @@ func (e *equalizer) content(c *ui.Context) {
 		return
 	}
 	settings, info := e.settings(), e.info()
-	if err := firstErr(settings.Err, info.Err); err != nil {
+	if err := cmp.Or(settings.Err, info.Err); err != nil {
 		kit.PageHeader(c, i18n.T("Equaliser"), "", nil)
 		kit.ErrorBlock(c, i18n.T("Couldn't load the equaliser"), err, kit.ErrorBlockOpts{
 			OnRetry:  e.refetch,
@@ -130,15 +131,6 @@ func (e *equalizer) content(c *ui.Context) {
 		e.presets(c, s, eq, in, stacked)
 		e.bands(c, s, eq, in, gains, room)
 	})
-}
-
-func firstErr(errs ...error) error {
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // text is a single line of text in one of the theme's type styles.
@@ -331,7 +323,7 @@ func (g *graphCache) of(freqs, gains []float64, rng float64) []float32 {
 	if g.y != nil && g.rng == rng && slices.Equal(g.freqs, freqs) && slices.Equal(g.gains, gains) {
 		return g.y
 	}
-	db := response(freqs, gains, 0, graphFreqs)
+	db := response(freqs, gains, graphFreqs)
 	y := make([]float32, len(db))
 	for i, d := range db {
 		y[i] = float32(max(-rng, min(rng, d)) / rng)

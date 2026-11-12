@@ -83,9 +83,9 @@ func (f biquad) magnitudeDb(freq float64) float64 {
 }
 
 // response is the response in dB at each frequency in at for band gains
-// gains (centred on freqs), including pregainDb. A band at 0 dB adds no
+// gains (centred on freqs). A band at 0 dB adds no
 // filter.
-func response(freqs, gains []float64, pregainDb float64, at []float64) []float64 {
+func response(freqs, gains []float64, at []float64) []float64 {
 	n := len(freqs)
 	var filters []biquad
 	for i, f := range freqs {
@@ -103,7 +103,7 @@ func response(freqs, gains []float64, pregainDb float64, at []float64) []float64
 	}
 	out := make([]float64, len(at))
 	for k, f := range at {
-		db := pregainDb
+		db := 0.0
 		for _, bq := range filters {
 			db += bq.magnitudeDb(f)
 		}

@@ -94,7 +94,7 @@ func (d *data) setLocation(id string, done func(ok bool)) {
 		loc, err := d.api.SetLocation(id)
 		d.env.Post(func() {
 			if err != nil {
-				kit.ToastErrorf(i18n.T("Couldn't save your city"), i18n.ErrorText(services.CodeOf(err)))
+				kit.ToastFailure(i18n.T("Couldn't save your city"), err)
 			} else {
 				store.Set(d.env.Queries, keyLocation, loc)
 				d.env.Queries.Invalidate(keyConcerts)

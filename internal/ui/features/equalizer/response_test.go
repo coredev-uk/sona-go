@@ -21,14 +21,14 @@ func near(t *testing.T, what string, got, want, tol float64) {
 	}
 }
 
-func TestResponseIsFlatAtThePregainWhenEveryBandIsZero(t *testing.T) {
-	for _, db := range response(testFreqs, make([]float64, len(testFreqs)), -3, logFrequencies(40)) {
-		near(t, "response", db, -3, 1e-9)
+func TestResponseIsFlatWhenEveryBandIsZero(t *testing.T) {
+	for _, db := range response(testFreqs, make([]float64, len(testFreqs)), logFrequencies(40)) {
+		near(t, "response", db, 0, 1e-9)
 	}
 }
 
 func TestResponsePeaksAtAMidBandsCentreAndFadesAway(t *testing.T) {
-	r := response(testFreqs, only(5, 6), 0, []float64{947, 1894, 15000})
+	r := response(testFreqs, only(5, 6), []float64{947, 1894, 15000})
 	atCentre, oneOctaveUp, farAway := r[0], r[1], r[2]
 	near(t, "at the centre", atCentre, 6, 0.05)
 	if oneOctaveUp <= 0 || oneOctaveUp >= atCentre {
@@ -40,14 +40,14 @@ func TestResponsePeaksAtAMidBandsCentreAndFadesAway(t *testing.T) {
 }
 
 func TestResponseShelvesTheLowestBandBelowAndTheHighestAbove(t *testing.T) {
-	low := response(testFreqs, only(0, -9), 0, []float64{20, 5000})
+	low := response(testFreqs, only(0, -9), []float64{20, 5000})
 	if low[0] >= -6 {
 		t.Errorf("low shelf at 20 Hz = %v, want below -6", low[0])
 	}
 	if math.Abs(low[1]) >= 0.1 {
 		t.Errorf("low shelf at 5 kHz = %v, want within 0.1 of 0", low[1])
 	}
-	high := response(testFreqs, only(9, 9), 0, []float64{20_000, 100})
+	high := response(testFreqs, only(9, 9), []float64{20_000, 100})
 	if high[0] <= 6 {
 		t.Errorf("high shelf at 20 kHz = %v, want above 6", high[0])
 	}

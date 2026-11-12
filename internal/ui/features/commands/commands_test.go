@@ -109,14 +109,6 @@ func (r *rig) focusOpener() {
 	}
 }
 
-// click presses the element named label.
-func (r *rig) click(label string) {
-	r.t.Helper()
-	if err := r.tt.Click(label); err != nil {
-		r.t.Fatalf("click %q: %v", label, err)
-	}
-}
-
 func (r *rig) settle() { r.tt.Advance(400 * time.Millisecond) }
 
 func TestCtrlKOpensThePaletteWithEveryAvailableCommandByGroup(t *testing.T) {
@@ -238,7 +230,7 @@ func TestPaletteFindsLibraryItemsAfterAPauseAndOpensThem(t *testing.T) {
 	if !r.tt.HasText("Search Apple Music for “zebra”") {
 		t.Error("the Apple Music entry is missing under the library's")
 	}
-	r.click("Zebra Crossing")
+	r.tt.MustClick("Zebra Crossing")
 	r.settle()
 	if got := r.router.Path(); !strings.HasPrefix(got, "/album/") {
 		t.Errorf("picking the album went to %q", got)
@@ -251,7 +243,7 @@ func TestPalettePlaysASongPickedFromTheLibrary(t *testing.T) {
 	r.tt.Type("quartz")
 	r.tt.Advance(libraryDelay + 10*time.Millisecond)
 	r.tt.Until("the song", r.tt.Shows("Quartz Lantern", "Song · Mia"))
-	r.click("Quartz Lantern")
+	r.tt.MustClick("Quartz Lantern")
 	r.settle()
 	r.tt.Until("the song queued through env.Queue", func() bool {
 		r.h.Main.Drain()
@@ -279,7 +271,7 @@ func TestPaletteAppleMusicEntrySearches(t *testing.T) {
 	r := newRig(t)
 	r.tt.Key(ui.Ctrl, ui.KeyK)
 	r.tt.Type("kind of blue")
-	r.click("Search Apple Music for “kind of blue”")
+	r.tt.MustClick("Search Apple Music for “kind of blue”")
 	r.settle()
 	if got := r.router.Location(); got != "/search?q=kind+of+blue" {
 		t.Errorf("the search went to %q", got)
@@ -289,7 +281,7 @@ func TestPaletteAppleMusicEntrySearches(t *testing.T) {
 func TestPaletteMouseMoveMakesAnOptionActiveAndClickPicksIt(t *testing.T) {
 	r := newRig(t)
 	r.tt.Key(ui.Ctrl, ui.KeyK)
-	r.click("Play or pause")
+	r.tt.MustClick("Play or pause")
 	r.settle()
 	if !slices.Equal(r.ran, []string{"toggle"}) {
 		t.Errorf("ran %v", r.ran)
@@ -364,7 +356,7 @@ func TestHelpsOwnChordClosesItAndSettingsLinkOpensSettings(t *testing.T) {
 		t.Fatal("? did not close the open help")
 	}
 	r.tt.Key(ui.Shift, ui.KeySlash)
-	r.click("Settings")
+	r.tt.MustClick("Settings")
 	r.settle()
 	if r.m.help.open {
 		t.Error("the Settings link left the help open")
@@ -381,7 +373,7 @@ func TestHelpShowsSettingsAsPlainTextWithoutThatPage(t *testing.T) {
 	if !r.tt.HasText("Settings") {
 		t.Fatal("the line about Settings is gone")
 	}
-	r.click("Settings")
+	r.tt.MustClick("Settings")
 	if got := r.router.Location(); got != "/library/albums" {
 		t.Errorf("plain text navigated to %q", got)
 	}

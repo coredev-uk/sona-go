@@ -9,24 +9,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
-func stopLabels(stops []access.Stop) []string {
-	out := make([]string, len(stops))
-	for i, s := range stops {
-		out[i] = s.Node.Label
-	}
-	return out
-}
-
-func inOrder(got, want []string) bool {
-	i := 0
-	for _, g := range got {
-		if i < len(want) && g == want[i] {
-			i++
-		}
-	}
-	return i == len(want)
-}
-
 // The page's controls are on the tree with names, the faders say their dB
 // as their value text, the switch is the one control for On/Off (its word is
 // not a second, invisible Tab stop) and Tab walks switch, presets, preamp,
@@ -63,11 +45,9 @@ func TestA11yEqualiserTreeAndTabWalk(t *testing.T) {
 		}
 	}
 
-	stops := stopLabels(access.TabWalk(t, tt, 60))
+	stops := access.StopLabels(access.TabWalk(t, tt, 60))
 	want := []string{"Off", "Flat", "Preamp", "29 Hz", "119 Hz", "947 Hz", "15k Hz"}
-	if !inOrder(stops, want) {
-		t.Errorf("Tab walk %q, want in order %q", stops, want)
-	}
+	access.InOrder(t, stops, want...)
 	if len(stops) != 1+1+11 {
 		t.Errorf("Tab stops %q: want the switch, the chosen preset and the 11 faders", stops)
 	}

@@ -1,6 +1,8 @@
 package player
 
 import (
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -198,32 +200,24 @@ func (p *player) paneTabs(c *ui.Context, panes []paneKind, shown paneKind) {
 				col = theme.C("ink")
 			}
 			tab.Children(func() {
-				ui.Text(c.Key("t"+itoa(i)), paneName(k)).FontSize(16).FixedLineHeight(22).FontWeight(600).TextColor(col)
+				ui.Text(c.Key("t"+strconv.Itoa(i)), paneName(k)).FontSize(16).FixedLineHeight(22).FontWeight(600).TextColor(col)
 				if i == sel {
 					ui.Box(c.Key("rule")).Absolute().Left(6).Right(6).Bottom(2).Height(2).Radius(1).Background(theme.C("ink"))
 				}
 			})
 		}
 	})
-	if sel != indexOfPane(panes, shown) {
+	at := max(slices.Index(panes, shown), 0)
+	if sel != at {
 		p.ui.setPane(panes[sel])
 	}
 	// A pane changed from outside moves the focus to its tab when one of the
 	// tabs had it, so that the arrows go on from where the view now is.
 	if np := &p.np; np.paneSeen && np.lastPane != shown && np.tabHad {
-		np.tabs[indexOfPane(panes, shown)].Focus(c)
+		np.tabs[at].Focus(c)
 	}
 	p.np.lastPane, p.np.paneSeen = shown, true
 	p.np.tabHad = p.np.tabs[0].Focused(c) || p.np.tabs[1].Focused(c)
-}
-
-func indexOfPane(panes []paneKind, k paneKind) int {
-	for i, v := range panes {
-		if v == k {
-			return i
-		}
-	}
-	return 0
 }
 
 // nowPlayingArt is the playing song's cover, moving when its album has motion
@@ -352,7 +346,7 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 				}
 			})
 		}
-		p.playingPopup(c, cur, &p.menus.np)
+		p.menus.np.PopupFor(c, cur != nil)
 	})
 	p.playingRow(copy, cur, &p.menus.np)
 }
@@ -474,7 +468,7 @@ func (p *player) lyricsBody(c *ui.Context, songID string) {
 	case !r.HasData && r.Err == nil:
 		ui.Column(c.Key("loading")).FillWidth().Gap(20).Padding(60, 12, 0).Role(ui.RoleStatus).Label(i18n.T("Loading lyrics")).Children(func() {
 			for i, w := range []float32{72, 56, 64, 40, 60} {
-				ui.Box(c.Key("bar" + itoa(i))).FillWidth().Children(func() {
+				ui.Box(c.Key("bar" + strconv.Itoa(i))).FillWidth().Children(func() {
 					kit.Skeleton(c, 0, 24).WidthPercent(w)
 				})
 			}

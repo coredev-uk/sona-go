@@ -29,7 +29,7 @@ func (m *mini) menusFor() *kit.ActionMenus {
 // cover, the title and artist), the item's action menu on a right-click: the
 // one the player bar and a song row open. Only the secondary press is taken
 // (Element.RightClicked would make el interactive, and a press on it would no
-// longer drag the window). Draw it with playingPopup. Nothing playing, or no
+// longer drag the window). Draw it with PopupFor. Nothing playing, or no
 // action registry: nothing.
 func (m *mini) playingRow(el ui.Element, cur *services.QueueItem) {
 	menus := m.menusFor()
@@ -58,16 +58,5 @@ func (m *mini) playingKeys(root ui.Element, cur *services.QueueItem) {
 	if root.Shortcut(ui.Shift, ui.KeyF10) || root.Shortcut(0, ui.KeyContextMenu) {
 		b := root.Bounds()
 		menus.OpenAt(t, b.X+pad, b.Y+pad+coverSize, true)
-	}
-}
-
-// playingPopup draws the menu playingRow opened, once a frame.
-func (m *mini) playingPopup(c *ui.Context, cur *services.QueueItem) {
-	switch {
-	case m.menus == nil:
-	case cur == nil:
-		m.menus.Close()
-	default:
-		m.menus.Popup(c)
 	}
 }

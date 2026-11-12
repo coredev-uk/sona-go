@@ -3,7 +3,6 @@ package radio
 import (
 	"context"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -226,9 +225,7 @@ func (r *radio) toggle() {
 
 // stripTags drops the <0> markers of a message's rich text: a span that
 // only carries a font feature here.
-func stripTags(s string) string { return tagMarkers.Replace(s) }
-
-var tagMarkers = strings.NewReplacer("<0>", "", "</0>", "")
+func stripTags(s string) string { return i18n.StripTags(s) }
 
 // onAirSkeleton is the board's frame while the live stations load: rows at
 // their real height and art size.

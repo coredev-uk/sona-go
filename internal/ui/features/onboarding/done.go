@@ -19,8 +19,7 @@ func (o *onboarding) goToStep(step string) { o.env.Surfaces.SetSetupStep(step) }
 // once per arrival); Done closes it (DoneStep.tsx).
 func (o *onboarding) doneStep(c *ui.Context) {
 	signedIn := account.HasAccount(o.authState())
-	status := o.cdm()
-	view := widevineView(o.capsData(), status)
+	view, status := o.widevine()
 	widevine := widevineShort(view, status)
 	pending := view == viewWaiting || view == viewDownloading
 	failed := view == viewFailed
@@ -68,10 +67,7 @@ func (o *onboarding) doneStep(c *ui.Context) {
 // back to its step.
 func (o *onboarding) leftRow(c *ui.Context, id, title, step, action, what string) {
 	ui.Row(c.Key("left:"+id)).FillWidth().Gap(24).Padding(12, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
-		ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-			theme.Text(c, title, "ui").FontWeight(500).TextColor(theme.C("ink"))
-			theme.Text(c, what, "sub").TextColor(theme.C("ink-muted"))
-		})
+		words(c, title, what)
 		if kit.Button(c.Key("go"), action, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM}).Clicked() {
 			o.goToStep(step)
 		}

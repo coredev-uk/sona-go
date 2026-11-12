@@ -15,8 +15,7 @@ import (
 // stands (the download is already running), so nothing about playback is a
 // surprise later (WelcomeStep.tsx).
 func (o *onboarding) welcomeStep(c *ui.Context) {
-	status := o.cdm()
-	view := widevineView(o.capsData(), status)
+	view, status := o.widevine()
 	signedIn := account.HasAccount(o.authState())
 	ui.Column(c.Key("welcome")).FillWidth().Gap(20).Children(func() {
 		o.languageRow(c)
@@ -44,10 +43,7 @@ func (o *onboarding) welcomeStep(c *ui.Context) {
 // stands now, with a check once it is done.
 func need(c *ui.Context, name, state string, done bool, what string) {
 	ui.Row(c.Key("need:"+name)).FillWidth().Gap(24).Padding(10, 0).AlignItems(ui.Start).Justify(ui.SpaceBetween).Children(func() {
-		ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-			theme.Text(c, name, "ui").FontWeight(500).TextColor(theme.C("ink"))
-			theme.Text(c, what, "sub").TextColor(theme.C("ink-muted"))
-		})
+		words(c, name, what)
 		if state == "" {
 			return
 		}

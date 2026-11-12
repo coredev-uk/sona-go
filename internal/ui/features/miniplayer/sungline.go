@@ -9,27 +9,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// sungState is what the sung line derives from a song's lyrics, once per
-// lyrics (the query hands out a copy of the DTO each frame, so the lines'
-// backing array says whether they are the same lyrics).
-type sungState struct {
-	first *services.LyricLine
-	n     int
-	spans []lyricsync.Span
-}
-
-// spansOf are the lines' spans, worked out again only for other lyrics.
-func (s *sungState) spansOf(l *services.Lyrics) []lyricsync.Span {
-	var first *services.LyricLine
-	if len(l.Lines) > 0 {
-		first = &l.Lines[0]
-	}
-	if s.first != first || s.n != len(l.Lines) || s.spans == nil {
-		s.first, s.n, s.spans = first, len(l.Lines), lyricsync.LineSpans(l.Lines)
-	}
-	return s.spans
-}
-
 // sungLine is the line being sung for the third line (v0.2.0's SungLine): up
 // to two lines of text marked with the lyrics glyph, its words lit whole in
 // amber as they are sung (no fill: a glance needs no frames). Between lines,
@@ -76,7 +55,7 @@ func (m *mini) lineSung(c *ui.Context, cur *services.QueueItem, playing bool) (*
 		return nil, "", 0
 	}
 	l := &r.Data
-	spans := m.sung.spansOf(l)
+	spans := m.spans.Of(l.Lines)
 	posMs := m.env.Play.Position().Milliseconds()
 	off := lyricsync.Session().Get(songID)
 	clock := lyricsync.LyricsClock(posMs, off)
@@ -99,7 +78,7 @@ func (m *mini) lineSung(c *ui.Context, cur *services.QueueItem, playing bool) (*
 		next = min(next, wordNext)
 	}
 	if playing && next != lyricsync.Never {
-		c.After(msDur(max(next, 0) + 1))
+		c.After(lyricsync.Dur(max(next, 0) + 1))
 	}
 	return out, l.Language, lit
 }

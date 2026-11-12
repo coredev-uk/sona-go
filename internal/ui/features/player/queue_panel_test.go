@@ -22,13 +22,13 @@ type queueRig struct {
 	tt   *uitest.Session
 	fake *fakeTransport
 	h    *uitest.Harness
-	nav  *navRecorder
+	nav  *uitest.Nav
 }
 
 func newQueueRig(t *testing.T, inView bool) *queueRig {
 	t.Helper()
 	h := uitest.New(t, uitest.Bare())
-	r := &queueRig{fake: newFake(), h: h, nav: &navRecorder{}}
+	r := &queueRig{fake: newFake(), h: h, nav: &uitest.Nav{}}
 	h.Env.Nav = r.nav
 	queueOver(h.Env, r.fake)
 	r.p = newPlayer(h.Env, r.fake, func() bool { return true })
@@ -169,9 +169,7 @@ func TestAsideBuildsOnlyWhileTheQueueIsOpenAndNothingCoversThePage(t *testing.T)
 	}
 	r.p.ui.overlay = overlayNone
 	r.tt.Frame()
-	if err := r.tt.Click("Close queue"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Close queue")
 	r.tt.Frame()
 	if r.p.ui.queueOpen || r.has("Close queue") {
 		t.Error("Close queue left the queue open")
@@ -214,8 +212,8 @@ func TestEmptyQueueSaysHowToStartOne(t *testing.T) {
 	x, y := r.source(t)
 	b, _ := r.tt.Find("The queue is empty")
 	r.dragTo(x, y, b.X+20, b.Y+5)
-	r.fake.wait(t, 1)
-	if got := r.fake.snapshot(); !slices.Equal(got, []string{"append"}) {
+	r.fake.Wait(t, 1)
+	if got := r.fake.Snapshot(); !slices.Equal(got, []string{"append"}) {
 		t.Errorf("calls %v", got)
 	}
 }
@@ -229,7 +227,8 @@ func TestSummaryStrings(t *testing.T) {
 		for _, m := range mutate {
 			m(&s, &q)
 		}
-		return summaryOf(s, q)
+		parts, start := partsOf(s, q)
+		return summaryFor(parts, start, q)
 	}
 	live := func(s *services.PlaybackState, q *services.QueueState) { q.Items[0].Live = true }
 	for name, tc := range map[string]struct {
@@ -266,20 +265,18 @@ func TestStationPartHasItsHeadingAndTheStationLinksWhereTheRouteExists(t *testin
 			t.Errorf("lacks %q: %q", w, r.tt.Texts())
 		}
 	}
-	if err := r.tt.Click("Chill"); err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(r.nav.pushed, []string{"/station/st.1"}) {
-		t.Errorf("the station link pushed %v", r.nav.pushed)
+	r.tt.MustClick("Chill")
+	if !slices.Equal(r.nav.Pushed, []string{"/station/st.1"}) {
+		t.Errorf("the station link pushed %v", r.nav.Pushed)
 	}
 
 	// Without the page the name is plain text.
 	r.h.Env.HasRoute = func(string) bool { return false }
-	r.nav.pushed = nil
+	r.nav.Pushed = nil
 	r.tt.Frame()
 	_ = r.tt.Click("Chill")
-	if len(r.nav.pushed) != 0 {
-		t.Errorf("a link to a page that does not exist pushed %v", r.nav.pushed)
+	if len(r.nav.Pushed) != 0 {
+		t.Errorf("a link to a page that does not exist pushed %v", r.nav.Pushed)
 	}
 }
 
@@ -304,7 +301,7 @@ func TestRowsDoubleClickPlayAndKeysAct(t *testing.T) {
 	x, y := r.at(t, "Up next: Song 2, Artist 2")
 	r.tt.ClickAt(x, y)
 	r.tt.ClickAt(x, y)
-	if got := r.fake.wait(t, 1); got[len(got)-1] != "jump 1" {
+	if got := r.fake.Wait(t, 1); got[len(got)-1] != "jump 1" {
 		t.Fatalf("a double click called %v", got)
 	}
 
@@ -318,7 +315,7 @@ func TestRowsDoubleClickPlayAndKeysAct(t *testing.T) {
 	// Each key's call runs on its own goroutine, so they reach the fake in
 	// any order.
 	want := []string{"jump 2", "move 2 1", "move 2 3", "remove 2"}
-	got := slices.Clone(r.fake.wait(t, len(want)))
+	got := slices.Clone(r.fake.Wait(t, len(want)))
 	slices.Sort(got)
 	if !slices.Equal(got, want) {
 		t.Errorf("keys called %v, want %v (in any order)", got, want)
@@ -331,13 +328,13 @@ func TestMoveKeysStayInTheUsersPart(t *testing.T) {
 	r.focusRow(t, "Song 3, Artist 3")
 	r.tt.Key(ui.Alt, ui.KeyDown) // into AutoPlay's part: refused
 	r.tt.Frame()
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("a move past the user's part called %v", got)
 	}
 	r.focusRow(t, "Song 4, Artist 4")
 	r.tt.Key(ui.Alt, ui.KeyUp) // AutoPlay's songs keep their place
 	r.tt.Frame()
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("an AutoPlay song moved: %v", got)
 	}
 }
@@ -387,7 +384,7 @@ func TestAMoveIsAnnouncedWhenItLandsAndKeepsFocus(t *testing.T) {
 	r.seed(5, 0)
 	r.focusRow(t, "Song 3, Artist 3")
 	r.tt.Key(ui.Alt, ui.KeyDown)
-	r.fake.wait(t, 1)
+	r.fake.Wait(t, 1)
 	if len(r.tt.Announcements()) != 0 {
 		t.Error("announced before it landed")
 	}
@@ -411,13 +408,9 @@ func TestAMoveIsAnnouncedWhenItLandsAndKeepsFocus(t *testing.T) {
 func TestClearAndAutoPlayCallTheService(t *testing.T) {
 	r := newQueueRig(t, false)
 	r.seed(4, 0)
-	if err := r.tt.Click("Clear"); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.tt.Click("AutoPlay"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.fake.wait(t, 2); !slices.Equal(got, []string{"clear", "autoplay on"}) {
+	r.tt.MustClick("Clear")
+	r.tt.MustClick("AutoPlay")
+	if got := r.fake.Wait(t, 2); !slices.Equal(got, []string{"clear", "autoplay on"}) {
 		t.Fatalf("calls %v", got)
 	}
 	// The mirror shows it at once.
@@ -426,7 +419,7 @@ func TestClearAndAutoPlayCallTheService(t *testing.T) {
 	}
 	r.tt.Frame()
 	_ = r.tt.Click("AutoPlay")
-	if got := r.fake.wait(t, 1); got[len(got)-1] != "autoplay off" {
+	if got := r.fake.Wait(t, 1); got[len(got)-1] != "autoplay off" {
 		t.Errorf("calls %v", got)
 	}
 }
@@ -439,7 +432,7 @@ func TestAutoPlayDoesNothingWhereItDoesNotApply(t *testing.T) {
 	})
 	_ = r.tt.Click("AutoPlay")
 	r.tt.Frame()
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("AutoPlay on a live station called %v", got)
 	}
 	if r.h.Env.Play.State().AutoPlay {
@@ -458,10 +451,8 @@ func TestRowMenuOffersWhatChangesTheOrder(t *testing.T) {
 			t.Fatalf("the menu lacks %q: %q", w, r.tt.Texts())
 		}
 	}
-	if err := r.tt.Click("Move to end"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.fake.wait(t, 1); got[0] != "movetoend 3" {
+	r.tt.MustClick("Move to end")
+	if got := r.fake.Wait(t, 1); got[0] != "movetoend 3" {
 		t.Errorf("calls %v", got)
 	}
 
@@ -472,10 +463,8 @@ func TestRowMenuOffersWhatChangesTheOrder(t *testing.T) {
 	if r.tt.HasText("Play next") || !r.tt.HasText("Move to end") {
 		t.Errorf("menu of the next song: %q", r.tt.Texts())
 	}
-	if err := r.tt.Click("Remove"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.fake.wait(t, 1); got[len(got)-1] != "remove 1" {
+	r.tt.MustClick("Remove")
+	if got := r.fake.Wait(t, 1); got[len(got)-1] != "remove 1" {
 		t.Errorf("calls %v", got)
 	}
 }
@@ -489,24 +478,20 @@ func TestRowMenuPlayAndPlayNextAndTheMoreButton(t *testing.T) {
 	if !r.has("Remove Song 4 from the queue") {
 		t.Fatalf("no row buttons while hot: %q", r.tt.Texts())
 	}
-	if err := r.tt.Click("More for Song 4"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("More for Song 4")
 	r.tt.Frame()
 	if err := r.tt.Click("Play next"); err != nil {
 		t.Fatalf("%v: %q", err, r.tt.Texts())
 	}
-	if got := r.fake.wait(t, 1); got[0] != "movenext 3" {
+	if got := r.fake.Wait(t, 1); got[0] != "movenext 3" {
 		t.Errorf("calls %v", got)
 	}
 	r.tt.Frame()
 	x, y = r.at(t, "Song 5, Artist 5")
 	r.tt.RightClickAt(x, y)
 	r.tt.Frame()
-	if err := r.tt.Click("Play"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.fake.wait(t, 1); got[len(got)-1] != "jump 4" {
+	r.tt.MustClick("Play")
+	if got := r.fake.Wait(t, 1); got[len(got)-1] != "jump 4" {
 		t.Errorf("calls %v", got)
 	}
 	// The row's remove button.
@@ -514,10 +499,8 @@ func TestRowMenuPlayAndPlayNextAndTheMoreButton(t *testing.T) {
 	x, y = r.at(t, "Song 6, Artist 6")
 	r.tt.Move(x, y)
 	r.tt.Frame()
-	if err := r.tt.Click("Remove Song 6 from the queue"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.fake.wait(t, 1); got[len(got)-1] != "remove 5" {
+	r.tt.MustClick("Remove Song 6 from the queue")
+	if got := r.fake.Wait(t, 1); got[len(got)-1] != "remove 5" {
 		t.Errorf("calls %v", got)
 	}
 }
@@ -544,7 +527,7 @@ func TestDraggingARowReordersTheQueue(t *testing.T) {
 	}
 	// The lower half of Song 4: the gap after it, so Song 2 lands at 3.
 	r.dragTo(fx, fy, fx, b.Y+b.H-8)
-	if got := r.fake.wait(t, 1); got[0] != "move 1 3" {
+	if got := r.fake.Wait(t, 1); got[0] != "move 1 3" {
 		t.Errorf("calls %v", got)
 	}
 
@@ -555,7 +538,7 @@ func TestDraggingARowReordersTheQueue(t *testing.T) {
 	b, _ = r.tt.Find("Song 3, Artist 3")
 	r.dragTo(fx, fy, fx, b.Y+b.H-8)
 	r.tt.Frame()
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("a drop on its own gap called %v", got)
 	}
 }
@@ -568,7 +551,7 @@ func TestAutoPlayRowsDoNotDrag(t *testing.T) {
 	t2, _ := r.tt.Find("Up next: Song 2, Artist 2")
 	r.dragTo(fx, fy, fx, t2.Y+4)
 	r.tt.Frame()
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("an AutoPlay row dragged: %v", got)
 	}
 }
@@ -580,7 +563,7 @@ func TestDroppingASongFromAPageQueuesItInTheGap(t *testing.T) {
 	b, _ := r.tt.Find("Song 3, Artist 3")
 	// The upper half of Song 3: before it, slot 2.
 	r.dragTo(sx, sy, b.X+60, b.Y+6)
-	if got := r.fake.wait(t, 1); got[0] != "insert 2" {
+	if got := r.fake.Wait(t, 1); got[0] != "insert 2" {
 		t.Errorf("calls %v", got)
 	}
 	if len(r.fake.refs) != 1 || r.fake.refs[0].ID != "i.99" {
@@ -599,7 +582,7 @@ func TestADropOnALiveStationsQueueIsRefused(t *testing.T) {
 	b, _ := r.tt.Find("Song 2, Artist 2")
 	r.dragTo(sx, sy, b.X+60, b.Y+6)
 	r.tt.Frame()
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("a live station's queue took a drop: %v", got)
 	}
 }
@@ -652,19 +635,14 @@ func TestOnlyTheRowsShowingAreBuilt(t *testing.T) {
 	}
 }
 
-// fakeAuth is the account.
-type fakeAuth struct{ restricted bool }
-
-func (f fakeAuth) Status() services.AuthStatus { return services.AuthStatus{Restricted: f.restricted} }
-
 func TestExplicitSongsAreWithheldOnARestrictedAccount(t *testing.T) {
 	r := newQueueRig(t, false)
-	r.p.followAccount(fakeAuth{restricted: true})
+	store.Set(r.p.env.Queries, store.KeyAuth, services.AuthStatus{Restricted: true})
 	r.seed(4, 0, func(s *services.PlaybackState, q *services.QueueState) { q.Items[2].Explicit = true })
 	r.tt.Until("the explicit song withheld", func() bool { return r.has("Song 3, Artist 3, skipped: explicit") })
 
 	r = newQueueRig(t, false)
-	r.p.followAccount(fakeAuth{restricted: false})
+	store.Set(r.p.env.Queries, store.KeyAuth, services.AuthStatus{Restricted: false})
 	r.seed(4, 0, func(s *services.PlaybackState, q *services.QueueState) { q.Items[2].Explicit = true })
 	r.tt.Frame()
 	if r.has("Song 3, Artist 3, skipped: explicit") {
@@ -681,11 +659,9 @@ func TestMusicVideosAreMarkedAndLinkWhereThePageExists(t *testing.T) {
 	if !r.has("Up next: Song 2, Artist 2, music video") || !r.has("Music video") {
 		t.Fatalf("a music video is not marked: %q", r.tt.Texts())
 	}
-	if err := r.tt.Click("Song 2"); err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(r.nav.pushed, []string{"/music-video/mv.1"}) {
-		t.Errorf("the title pushed %v", r.nav.pushed)
+	r.tt.MustClick("Song 2")
+	if !slices.Equal(r.nav.Pushed, []string{"/music-video/mv.1"}) {
+		t.Errorf("the title pushed %v", r.nav.Pushed)
 	}
 }
 
@@ -711,7 +687,7 @@ func TestInViewListUsesTheViewsTexts(t *testing.T) {
 	fx, fy := r.at(t, "Up next: Song 2, Artist 2")
 	b, _ := r.tt.Find("Song 4, Artist 4")
 	r.dragTo(fx, fy, fx, b.Y+b.H-8)
-	if got := r.fake.wait(t, 1); got[0] != "move 1 3" {
+	if got := r.fake.Wait(t, 1); got[0] != "move 1 3" {
 		t.Errorf("calls %v", got)
 	}
 }
@@ -752,9 +728,7 @@ func TestCloseQueueReturnsTheFocusToTheToggle(t *testing.T) {
 	r := newQueueRig(t, false)
 	r.seed(4, 0)
 	r.focusRow(t, "Up next: Song 2, Artist 2")
-	if err := r.tt.Click("Close queue"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Close queue")
 	r.tt.Frame()
 	r.tt.Frame()
 	if r.p.ui.queueOpen {

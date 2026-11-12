@@ -1,13 +1,14 @@
-package equalizer
+package store
 
 import "sync"
 
-// latest sends values through send one at a time, off the caller's thread:
+// Latest sends values through send one at a time, off the caller's thread:
 // values that arrive while one is being sent collapse into the newest,
 // which always goes out last (v0.2.0's queries.ts `preview`). Errors are
 // send's to ignore.
-type latest[T any] struct {
-	send func(T)
+type Latest[T any] struct {
+	// Send sends one value; called on its own goroutine, never twice at once.
+	Send func(T)
 
 	mu      sync.Mutex
 	pending *T
@@ -15,7 +16,7 @@ type latest[T any] struct {
 }
 
 // Put queues v and starts the sender if none is running. Any goroutine.
-func (l *latest[T]) Put(v T) {
+func (l *Latest[T]) Put(v T) {
 	l.mu.Lock()
 	l.pending = &v
 	if l.sending {
@@ -27,7 +28,7 @@ func (l *latest[T]) Put(v T) {
 	go l.run()
 }
 
-func (l *latest[T]) run() {
+func (l *Latest[T]) run() {
 	for {
 		l.mu.Lock()
 		next := l.pending
@@ -38,6 +39,6 @@ func (l *latest[T]) run() {
 			return
 		}
 		l.mu.Unlock()
-		l.send(*next)
+		l.Send(*next)
 	}
 }

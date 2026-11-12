@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -22,113 +21,63 @@ import (
 
 // fakeTransport records what the bar asked of PlaybackService.
 type fakeTransport struct {
-	mu    sync.Mutex
-	calls []string
-	seeks []int64
-	refs  []services.TrackRef
-	fail  error
-	done  chan struct{}
+	*uitest.Transport
+	refs []services.TrackRef
 }
 
-func newFake() *fakeTransport { return &fakeTransport{done: make(chan struct{}, 16)} }
+func newFake() *fakeTransport { return &fakeTransport{Transport: uitest.NewTransport()} }
 
-func (f *fakeTransport) record(name string) error {
-	f.mu.Lock()
-	f.calls = append(f.calls, name)
-	err := f.fail
-	f.mu.Unlock()
-	f.done <- struct{}{}
-	return err
-}
-
-func (f *fakeTransport) Toggle(context.Context) error { return f.record("toggle") }
-func (f *fakeTransport) Next(context.Context) error   { return f.record("next") }
-func (f *fakeTransport) Prev(context.Context) error   { return f.record("prev") }
-func (f *fakeTransport) Seek(_ context.Context, ms int64) error {
-	f.mu.Lock()
-	f.seeks = append(f.seeks, ms)
-	f.mu.Unlock()
-	return f.record("seek")
-}
-func (f *fakeTransport) SetVolume(context.Context, float64) error { return f.record("volume") }
 func (f *fakeTransport) SetShuffle(on bool) {
 	if on {
-		_ = f.record("shuffle on")
+		_ = f.Record("shuffle on")
 	} else {
-		_ = f.record("shuffle off")
+		_ = f.Record("shuffle off")
 	}
 }
-func (f *fakeTransport) SetRepeat(mode string) error { return f.record("repeat " + mode) }
+func (f *fakeTransport) SetRepeat(mode string) error { return f.Record("repeat " + mode) }
 func (f *fakeTransport) SetAutoPlay(on bool) error {
 	if on {
-		return f.record("autoplay on")
+		return f.Record("autoplay on")
 	}
-	return f.record("autoplay off")
+	return f.Record("autoplay off")
 }
 
 func (f *fakeTransport) SetSleep(mode string, minutes int) error {
-	return f.record(fmt.Sprintf("sleep %s %d", mode, minutes))
+	return f.Record(fmt.Sprintf("sleep %s %d", mode, minutes))
 }
 
-func (f *fakeTransport) Jump(_ context.Context, i int) error { return f.record(fmt.Sprint("jump ", i)) }
+func (f *fakeTransport) Jump(_ context.Context, i int) error { return f.Record(fmt.Sprint("jump ", i)) }
 
 func (f *fakeTransport) Remove(_ context.Context, i int) error {
-	return f.record(fmt.Sprint("remove ", i))
+	return f.Record(fmt.Sprint("remove ", i))
 }
 
-func (f *fakeTransport) Move(from, to int) error { return f.record(fmt.Sprint("move ", from, " ", to)) }
-func (f *fakeTransport) MoveNext(i int) error    { return f.record(fmt.Sprint("movenext ", i)) }
-func (f *fakeTransport) MoveToEnd(i int) error   { return f.record(fmt.Sprint("movetoend ", i)) }
-func (f *fakeTransport) Clear()                  { _ = f.record("clear") }
+func (f *fakeTransport) Move(from, to int) error { return f.Record(fmt.Sprint("move ", from, " ", to)) }
+func (f *fakeTransport) MoveNext(i int) error    { return f.Record(fmt.Sprint("movenext ", i)) }
+func (f *fakeTransport) MoveToEnd(i int) error   { return f.Record(fmt.Sprint("movetoend ", i)) }
+func (f *fakeTransport) Clear()                  { _ = f.Record("clear") }
 func (f *fakeTransport) PlayItems(_ context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error {
-	f.mu.Lock()
-	f.refs = append(f.refs, refs...)
-	f.mu.Unlock()
-	return f.record(fmt.Sprintf("playitems %d %d %s:%s", len(refs), start, from.Kind, from.ID))
+	f.Locked(func() { f.refs = append(f.refs, refs...) })
+	return f.Record(fmt.Sprintf("playitems %d %d %s:%s", len(refs), start, from.Kind, from.ID))
 }
 
 func (f *fakeTransport) PlayNext(_ context.Context, refs []services.TrackRef) error {
-	f.mu.Lock()
-	f.refs = append(f.refs, refs...)
-	f.mu.Unlock()
-	return f.record("playnext")
+	f.Locked(func() { f.refs = append(f.refs, refs...) })
+	return f.Record("playnext")
 }
 
 func (f *fakeTransport) Append(_ context.Context, refs []services.TrackRef) error {
-	f.mu.Lock()
-	f.refs = append(f.refs, refs...)
-	f.mu.Unlock()
-	return f.record("append")
+	f.Locked(func() { f.refs = append(f.refs, refs...) })
+	return f.Record("append")
 }
 
 func (f *fakeTransport) Insert(_ context.Context, at int, refs []services.TrackRef) error {
-	f.mu.Lock()
-	f.refs = append(f.refs, refs...)
-	f.mu.Unlock()
-	return f.record(fmt.Sprint("insert ", at))
+	f.Locked(func() { f.refs = append(f.refs, refs...) })
+	return f.Record(fmt.Sprint("insert ", at))
 }
 
 func (f *fakeTransport) UndoReplace(context.Context) (bool, error) {
-	return true, f.record("undoreplace")
-}
-
-// wait blocks until n calls have been recorded (they run on goroutines).
-func (f *fakeTransport) wait(t *testing.T, n int) []string {
-	t.Helper()
-	for range n {
-		select {
-		case <-f.done:
-		case <-time.After(5 * time.Second):
-			t.Fatalf("expected %d service calls, got %v", n, f.snapshot())
-		}
-	}
-	return f.snapshot()
-}
-
-func (f *fakeTransport) snapshot() []string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return slices.Clone(f.calls)
+	return true, f.Record("undoreplace")
 }
 
 type rig struct {
@@ -181,15 +130,10 @@ func newRigSized(t *testing.T, volume bool, width int, extra func(*ui.Context)) 
 
 // seed shows a playing song 30 s into a 3 min one.
 func (r *rig) seed(mutate ...func(*services.PlaybackState)) {
-	s := store.EmptyState()
-	s.State = store.StatePlaying
-	s.Current = &services.QueueItem{ID: "i.1", Name: "Song Title", Artist: "The Artist", Album: "The Album"}
-	s.DurationMs, s.PositionMs, s.At = 180_000, 30_000, r.h.Clock.Now().UnixMilli()
-	s.Controls = services.PlaybackControls{Previous: true, Next: true, Seek: true, Shuffle: true, Repeat: true}
-	for _, m := range mutate {
-		m(&s)
-	}
-	r.env.Play.Seed(s, services.QueueState{Index: -1})
+	r.h.Play(30_000, append([]func(*services.PlaybackState){func(s *services.PlaybackState) {
+		s.DurationMs = 180_000
+		s.Current.CatalogID, s.Current.ArtistID, s.Current.AlbumID = "", "", ""
+	}}, mutate...)...)
 	r.tt.Frame()
 }
 
@@ -203,7 +147,7 @@ func TestBarIsIdleWithNothingPlaying(t *testing.T) {
 	// Nothing to play or skip.
 	_ = r.tt.Click("Play")
 	_ = r.tt.Click("Next")
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("an idle bar sent %v", got)
 	}
 }
@@ -256,7 +200,7 @@ func TestTransportButtonsCallThePlaybackService(t *testing.T) {
 		if err := r.tt.Click(c.button); err != nil {
 			t.Fatalf("%s: %v", c.button, err)
 		}
-		got := r.fake.wait(t, 1)
+		got := r.fake.Wait(t, 1)
 		if last := got[len(got)-1]; last != c.call {
 			t.Errorf("%s sent %q, want %q", c.button, last, c.call)
 		}
@@ -269,7 +213,7 @@ func TestEndOfQueueAndLiveStationsDisableControls(t *testing.T) {
 	r := newRig(t, true)
 	r.seed(func(s *services.PlaybackState) { s.Controls.Next = false })
 	_ = r.tt.Click("Next")
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("Next at the end of the queue sent %v", got)
 	}
 
@@ -293,10 +237,8 @@ func TestSeekingCommitsWhereThePointerLetsGo(t *testing.T) {
 	r.seed()
 	b, _ := r.tt.Find("Seek")
 	r.tt.ClickAt(b.X+b.W*3/4, b.Y+b.H/2)
-	r.fake.wait(t, 1)
-	r.fake.mu.Lock()
-	seeks := slices.Clone(r.fake.seeks)
-	r.fake.mu.Unlock()
+	r.fake.Wait(t, 1)
+	seeks := r.fake.Seeks()
 	if len(seeks) != 1 || seeks[0] < 125_000 || seeks[0] > 145_000 {
 		t.Fatalf("a click three quarters along a 3:00 song sought %v ms", seeks)
 	}
@@ -313,7 +255,7 @@ func TestVolume(t *testing.T) {
 		t.Fatalf("no mute button: %q", r.tt.Texts())
 	}
 	_ = r.tt.Click("Mute")
-	r.fake.wait(t, 1)
+	r.fake.Wait(t, 1)
 	if v := r.env.Play.State().Volume; v != 0 {
 		t.Errorf("muting left the volume at %v", v)
 	}
@@ -322,7 +264,7 @@ func TestVolume(t *testing.T) {
 		t.Errorf("after muting the button should offer Unmute: %q", r.tt.Texts())
 	}
 	_ = r.tt.Click("Unmute")
-	r.fake.wait(t, 1)
+	r.fake.Wait(t, 1)
 	if v := r.env.Play.State().Volume; v != 0.6 {
 		t.Errorf("unmuting returned to %v, want 0.6", v)
 	}
@@ -376,9 +318,9 @@ func TestVolumeSliderKeepsItsWidthInsideTheWindow(t *testing.T) {
 func TestACommandThatFailsToastsItsCodeWorded(t *testing.T) {
 	r := newRig(t, true)
 	r.seed()
-	r.fake.fail = services.ErrNotReleased
+	r.fake.Fail = services.ErrNotReleased
 	_ = r.tt.Click("Pause")
-	r.fake.wait(t, 1)
+	r.fake.Wait(t, 1)
 	// The failure comes back through the Poster after the call returns.
 	r.tt.Until("the failure's toast", r.tt.Shows("Couldn't play or pause", i18n.ErrorText(services.CodeNotReleased)))
 	if services.CodeOf(errors.New("boom")) == services.CodeNotReleased {
@@ -422,14 +364,12 @@ func TestShortcutsKeepV020IDsAndKeys(t *testing.T) {
 	got["player.seek-forward"].Run()
 	got["player.volume-down"].Run()
 	got["player.repeat"].Run()
-	calls := r.fake.wait(t, 5)
+	calls := r.fake.Wait(t, 5)
 	slices.Sort(calls)
 	if !slices.Equal(calls, []string{"next", "repeat all", "seek", "toggle", "volume"}) {
 		t.Errorf("shortcuts sent %v", calls)
 	}
-	r.fake.mu.Lock()
-	seek := r.fake.seeks[0]
-	r.fake.mu.Unlock()
+	seek := r.fake.Seeks()[0]
 	if seek < 39_000 || seek > 41_000 {
 		t.Errorf("Skip ahead 10 seconds from 0:30 sought %d ms", seek)
 	}
@@ -474,15 +414,15 @@ func TestOtherModulesBuildIntoTheBarsRightGroupAndNoticeLine(t *testing.T) {
 func TestMuteSharesTheMirrorsUnmutedVolumeWithEveryOtherSurface(t *testing.T) {
 	r := newRig(t, true)
 	r.seed(func(s *services.PlaybackState) { s.Volume = 0.4 })
-	r.p.toggleMute()
-	r.fake.wait(t, 1)
+	r.p.tr.ToggleMute()
+	r.fake.Wait(t, 1)
 	if got := r.env.Play.Unmuted(); got != 0.4 {
 		t.Errorf("muting left %v to return to, want 0.4", got)
 	}
 	// Another surface (the video view) changed it meanwhile: unmuting returns there.
 	r.env.Play.SetUnmuted(0.9)
-	r.p.toggleMute()
-	r.fake.wait(t, 1)
+	r.p.tr.ToggleMute()
+	r.fake.Wait(t, 1)
 	if v := r.env.Play.State().Volume; v != 0.9 {
 		t.Errorf("unmuting returned to %v, want 0.9", v)
 	}
@@ -504,15 +444,15 @@ func TestSeekCommitsOnceOnReleaseEvenWhenTheDragLeavesTheSlider(t *testing.T) {
 		r.tt.Move(x+30+float32(i)*20, y-float32(i)*40)
 		r.tt.Frame()
 	}
-	if got := r.fake.snapshot(); len(got) != 0 {
+	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Fatalf("seeks while the pointer is still held: %v", got)
 	}
 	r.tt.Release(x+130, y-200)
 	r.tt.Frame()
 	r.tt.Frame()
-	got := r.fake.wait(t, 1)
+	got := r.fake.Wait(t, 1)
 	r.tt.Frame()
-	if len(r.fake.seeks) != 1 || len(got) != 1 {
-		t.Errorf("seeks %v calls %v, want one seek", r.fake.seeks, got)
+	if len(r.fake.Seeks()) != 1 || len(got) != 1 {
+		t.Errorf("seeks %v calls %v, want one seek", r.fake.Seeks(), got)
 	}
 }

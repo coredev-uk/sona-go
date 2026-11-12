@@ -44,7 +44,7 @@ func (s *settings) scrobbling(c *ui.Context, cfg config.Settings) {
 			s.lastFMRow(c, st, cfg.Scrobbling.LastFM, status.LastFM, res.HasData)
 			s.listenBrainzRow(c, st, cfg.Scrobbling.ListenBrainz, status.ListenBrainz, res.HasData)
 			if res.Err != nil {
-				s.alertLine(c.Key("status-error"), "circle-alert",
+				kit.AlertLine(c.Key("status-error"),
 					i18n.T("Couldn't read the scrobbler connections: {statusError}", "statusError", i18n.ErrorMessage(res.Err)))
 			}
 			if status.Unencrypted && (status.LastFM.Connected || status.ListenBrainz.Connected) {

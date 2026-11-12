@@ -17,8 +17,7 @@ import (
 // (no consent step). Without playback on this platform it says so; where the
 // engine needs no CDM it says nothing (WidevineStatus.tsx).
 func (o *onboarding) widevineBlock(c *ui.Context) {
-	status := o.cdm()
-	view := widevineView(o.capsData(), status)
+	view, status := o.widevine()
 	if view == viewNotNeeded {
 		return
 	}
@@ -117,7 +116,7 @@ func (o *onboarding) widevineBlock(c *ui.Context) {
 // beside it decoration.
 func (o *onboarding) downloadBar(c *ui.Context, s services.CDMStatus) {
 	fraction, known := store.CDMProgress(s)
-	percent := cdmPercent(s)
+	percent := i18n.CDMPercent(s)
 	received, total := i18n.FormatBytes(s.Received), i18n.FormatBytes(s.Total)
 	value, valueText, figures := -1.0, "", i18n.T("Starting…")
 	if known {

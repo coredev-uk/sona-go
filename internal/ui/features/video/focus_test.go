@@ -35,9 +35,7 @@ func openFromButton(t *testing.T) *rig {
 	t.Helper()
 	r := newRig(t, false, openerMount, 1132, 800)
 	r.play("playing")
-	if err := r.tt.Click("Show video"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Show video")
 	r.tt.Frame()
 	r.tt.Until("the view", r.tt.Shows("Sky Video", "Mia Rivers"))
 	r.tt.Advance(fadeIn)
@@ -68,9 +66,7 @@ func TestEscapeClosesTheViewBackOnTheButtonThatOpenedIt(t *testing.T) {
 
 func TestCloseButtonReturnsTheFocusToTheOpener(t *testing.T) {
 	r := openFromButton(t)
-	if err := r.tt.Click("Close video"); err != nil {
-		t.Fatal(err)
-	}
+	r.tt.MustClick("Close video")
 	r.settled()
 	if r.env.Video.IsOpen() {
 		t.Fatal("Close video left the view open")

@@ -25,16 +25,16 @@ func (r *rig) opened(url string) func() bool {
 func TestOneSellerOpensInTheBrowser(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, exampleBand, sampleSinger, anotherAct)
 	r.shows(bandTickets)
-	r.click(bandTickets)
+	r.tt.MustClick(bandTickets)
 	r.tt.Until("the seller's page opened", r.opened("https://tickets.example.com/e/1"))
 }
 
 func TestSeveralSellersAreAMenu(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, exampleBand, sampleSinger, anotherAct)
 	r.shows(singerTickets)
-	r.click(singerTickets)
+	r.tt.MustClick(singerTickets)
 	r.shows("First Seller", "Second Seller")
-	r.click("Second Seller")
+	r.tt.MustClick("Second Seller")
 	r.tt.Until("the chosen seller's page opened", r.opened("https://second.example.com/2"))
 	if slices.Contains(r.openedURLs(), "https://first.example.com/1") {
 		t.Error("the other seller was opened too")
@@ -47,7 +47,7 @@ func TestSeveralSellersAreAMenu(t *testing.T) {
 func TestSellerRowsSayTheyOpenInTheBrowser(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, exampleBand, sampleSinger, anotherAct)
 	r.shows(singerTickets)
-	r.click(singerTickets)
+	r.tt.MustClick(singerTickets)
 	r.shows("First Seller", "Second Seller")
 	tr := access.Read(t, r.tt.Tester)
 	for _, vendor := range []string{"First Seller", "Second Seller"} {
@@ -61,8 +61,8 @@ func TestSellerRowsSayTheyOpenInTheBrowser(t *testing.T) {
 func TestSeveralSellersMenuOpensFromTheKeyboard(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, exampleBand, sampleSinger, anotherAct)
 	r.shows(singerTickets)
-	r.click(bandTickets)    // focus lands on the first row's tickets
-	r.tt.Key(0, ui.KeyDown) // ↓ moves down the agenda...
+	r.tt.MustClick(bandTickets) // focus lands on the first row's tickets
+	r.tt.Key(0, ui.KeyDown)     // ↓ moves down the agenda...
 	r.tt.Drain()
 	r.tt.Drain()
 	if !r.tt.Focused(singerTickets) {
@@ -79,7 +79,7 @@ func TestSeveralSellersMenuOpensFromTheKeyboard(t *testing.T) {
 func TestNoSellerNoTicketControl(t *testing.T) {
 	r := newRig(t, "/concerts", 1132, 800, anotherAct)
 	r.shows("Another Act")
-	r.lacks("Get tickets")
+	r.tt.Lacks("Get tickets")
 	if len(r.openedURLs()) != 0 {
 		t.Errorf("opened %q", r.openedURLs())
 	}
@@ -99,7 +99,7 @@ func TestAgendaIsOneTabStopWithArrowsAlongAndDown(t *testing.T) {
 			t.Errorf("%s: focus is not on %q; texts %q", what, label, r.tt.Texts())
 		}
 	}
-	r.click(bandTickets) // row 0, tickets
+	r.tt.MustClick(bandTickets) // row 0, tickets
 	at("clicked", bandTickets)
 	press(0, ui.KeyLeft)
 	at("left to the line-up", "Example Band with Opener Duo")

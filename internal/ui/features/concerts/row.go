@@ -22,10 +22,11 @@ func text(c *ui.Context, s, style, ink string) ui.Element {
 // number (and the month, off a day heading).
 func dateBlock(c *ui.Context, con services.Concert, month bool) ui.Element {
 	return ui.Column(c).Width(56).Shrink(0).Children(func() {
-		text(c, showWeekday(con), "meta", "ink-muted").FontFeatures("tnum").SingleLine()
-		text(c, showDate(con), "title", "ink").FontFeatures("tnum").SingleLine()
+		f := factsOf(con)
+		text(c, f.weekday, "meta", "ink-muted").FontFeatures("tnum").SingleLine()
+		text(c, f.date, "title", "ink").FontFeatures("tnum").SingleLine()
 		if month {
-			text(c, showMonthShort(con), "meta", "ink-muted").FontFeatures("tnum").SingleLine()
+			text(c, f.monthName, "meta", "ink-muted").FontFeatures("tnum").SingleLine()
 		}
 	})
 }
@@ -138,10 +139,7 @@ func concertRow(c *ui.Context, env *module.Env, con services.Concert, o rowOpts)
 	if len(con.Artists) > 0 {
 		lead = &con.Artists[0]
 	}
-	meta := showTime(con)
-	if d := distanceLabel(con.DistanceKm); d != "" {
-		meta += " · " + d
-	}
+	meta := factsOf(con).meta
 	title, place, others := con.Lineup, venueLine(con), ""
 	if o.artist {
 		title, place = con.Lineup, ""
