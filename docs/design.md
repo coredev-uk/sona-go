@@ -215,27 +215,33 @@ The sidebar header and the top bar are the window's title bar. Who draws it come
 
 ### First-run setup
 
-The setup is a modal over the live app, not a page of its own: the sidebar, top bar and player bar stay drawn behind the dialog scrim (taking no input), so the first thing anyone sees is the app they are setting up, and each Appearance choice shows at once on the window behind. The card is as tall as its step, so there is no empty column to fill.
+The setup is a modal over the live app, not a page of its own: the sidebar, top bar and player bar stay drawn behind the dialog scrim (taking no input), so the first thing anyone sees is the app they are setting up, and each Appearance choice shows at once on the window behind. The card is as tall as its step, but never shorter than its step rail, so there is no empty column to fill.
 
 ```
 ┌────────┬─────────────────────────────────────────────────┐
 │ sidebar│ top bar          (scrim over all of it)         │
-│        │      ┌──────────────────────────────────┐       │
-│        │      │ ● Set up Sona  3 of 7  Skip setup│       │
-│        │      │ ▬▬ ▬▬ ▬▬ ── ── ── ──             │  strip: one Tab stop
-│        │      │ Playback                         │  title + one line
-│        │      │ What plays your music…           │
-│        │      │ [cards] / rows                   │  scrolls inside when short
-│        │      ├──────────────────────────────────┤
-│        │      │ ‹ Back                  Continue │  64px foot
-│        │      └──────────────────────────────────┘       │
+│        │   ┌───────────────────────────────────────┐     │
+│        │   │ ● Set up Sona  3 of 7      Skip setup │     │  head, 56px
+│        │   ├─────────────┬─────────────────────────┤     │
+│        │   │ ✓ Welcome   │ Playback                │     │  rail: one Tab stop
+│        │   │ ✓ Apple Mu… │ What plays your music…  │     │
+│        │   │▌3 Playback  │ [cards] / rows          │     │  step scrolls inside
+│        │   │  4 Connect… │                         │     │  when short
+│        │   │  5 Appear…  │                         │     │
+│        │   │  6 Desktop  │                         │     │
+│        │   │  7 Done     │                         │     │
+│        │   ├─────────────┴─────────────────────────┤     │
+│        │   │ ‹ Back                       Continue │     │  64px foot
+│        │   └───────────────────────────────────────┘     │
 ├────────┴─────────────────────────────────────────────────┤
 │ player bar                                               │
 └──────────────────────────────────────────────────────────┘
 ```
 
-- The card is 640px wide (less 24px a side on a narrow window), `--raised` with the float shadow and, in dark, a 1px white/10 border. The dialog scrim is black/50 in light and black/70 in dark, where a lighter one left the card barely apart from the app behind; no blur. Its top edge is fixed at 10% of the window's height (at least 24px), so the strip and the foot don't move from step to step; it grows downwards to 24px above the window's foot, and past that its body scrolls while the head and foot stay.
-- The head names the setup and the place in it ("3 of 7"); the strip under it has one segment per step, filled up to the current one, with each step's name under its segment (the current one in `--ink` and medium weight, the rest muted), so where you are and what comes next read without hovering. The strip is one Tab stop: ←/→ and Home/End move between steps, Enter goes there.
+- The card is 800px wide (less 24px a side on a narrow window) and holds two panes under a head that spans it: the step rail at the leading side (192px, on `--surface`, a tone step against the `--raised` card and no line) and the step beside it (28px padding, scrolling on its own). `--raised` with the float shadow and, in dark, a 1px white/10 border. The dialog scrim is black/50 in light and black/70 in dark, where a lighter one left the card barely apart from the app behind; no blur. Its top edge is fixed at 10% of the window's height (at least 24px), so the head, the rail and the foot don't move from step to step; it grows downwards to 24px above the window's foot, and past that the step scrolls while the head, the rail and the foot stay.
+- Below 744px of window (a card under 720px) or when the rail would not fit between head and foot, the card is the narrow one, 640px wide: the head grows a strip under it, one segment per step filled up to the current one with each name under its segment, and the rail is gone. The strip is the same list with the same keys.
+- The head names the setup and the place in it ("3 of 7"), with Skip setup at its trailing end. The rail lists the seven steps down the card, one 36px row each: its number (tabular figures), or a check once the step is behind (muted ink, not green and not amber: a step passed may have been skipped), and its name. The current step is `--ink` in semibold with a 3px ink bar at the row's leading edge; the rest are muted and take `--hover` under the pointer. The rail is one Tab stop: ↑/↓ and ←/→ move between steps, Home and End go to the ends, Enter goes there. It is a list named "Setup steps" of one button per step; the current step's button is the current step.
+- The welcome step is the first picture: the Sona mark at 56px (the amber label with two grooves and the spindle hole, the same mark as the head's, enlarged) beside "Welcome to Sona" at the 32/36 display size and one sentence, then what the setup covers and what whole songs need (Apple Music and Widevine, each with where it stands). The language row joins them once there is another language to choose.
 - Each step is a title, one line, and its own parts, not Settings' rows: choice cards for a choice between a few (audio quality, theme, what closing the window does), short switch rows for on/off, a compact Widevine status, and a row per connection. They save through the same queries as Settings, so a choice made here reads the same there.
 - Theme is the one picture: three windows in miniature drawn from each palette's tokens (System is both, halved), as choice cards.
 - Where the platform can't do something (no tray, no autostart, no notifications) Desktop says so in one line at its foot instead of leaving the reader to look for a missing row.

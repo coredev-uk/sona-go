@@ -1,17 +1,96 @@
 package onboarding
 
 import (
+	"strconv"
+
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
+// The rail's metrics: 36px items 2px apart, 16px above and below.
+const (
+	railWidth = 192
+	railPad   = 16
+	railItem  = 36
+	railGap   = 2
+)
+
+// railHeight is the rail's height: what a card needs under its head to hold it.
+func railHeight() float32 {
+	n := float32(len(setupSteps))
+	return 2*railPad + n*railItem + (n-1)*railGap
+}
+
 // stripHeight is the strip's height: a segment's 4 above, 4 for its bar, 6
 // gap, the name's 16 line and 2 under.
 const stripHeight = 32
 
-// stepStrip is where the setup is, as a strip of one segment per step,
+// stepRail is where the setup is on the wide card: one row per step down the
+// card's leading side on the surface tone, each with its number, or a check
+// once the step is behind, and its name; the current step has an ink bar and
+// the heavier weight. It is the strip's keyboard contract turned to a column:
+// one Tab stop, ↑/↓ (and ←/→) moving between the rows, Home and End to the
+// ends, Enter or Space going to the step, and the same named list of one
+// button per step, the current one the current step.
+func (o *onboarding) stepRail(c *ui.Context, step string) {
+	at := stepIndex(step)
+	ui.Column(c.Key("rail")).Width(railWidth).Shrink(0).Padding(railPad, 8).Gap(railGap).Background(theme.C("surface")).
+		FocusGroup(ui.Horizontal|ui.Vertical).Role(ui.RoleList).Label(i18n.T("Setup steps")).Children(func() {
+		for i, s := range setupSteps {
+			clicked := false
+			ui.Column(c.Key("item:" + s)).FillWidth().Role(ui.RoleListItem).Children(func() {
+				clicked = o.railButton(c, s, i, at, step).Clicked()
+			})
+			if clicked {
+				o.goToStep(s)
+			}
+		}
+	})
+}
+
+// railButton is one row of the rail, the button to the step s (the i-th; at is
+// the current step's index).
+func (o *onboarding) railButton(c *ui.Context, s string, i, at int, step string) ui.Element {
+	name := stepName(s)
+	b := ui.ButtonBase(c.Key("step:"+s)).Row().FillWidth().Height(railItem).Padding(0, 12, 0, 16).Gap(10).
+		Justify(ui.Start).AlignItems(ui.Center).Radius(theme.Current().Radius["md"]).Cursor(ui.CursorPointer).Label(name)
+	current := s == step
+	if current {
+		b.Current(ui.CurrentStep)
+	}
+	hover := b.Hovered()
+	if hover && !current {
+		b.Background(theme.C("hover"))
+	}
+	fg, weight := theme.C("ink-muted"), 400
+	switch {
+	case current:
+		fg, weight = theme.C("ink"), 600
+	case hover:
+		fg = theme.C("ink")
+	}
+	return b.Children(func() {
+		if current {
+			ui.Box(c.Key("bar")).Absolute().Left(0).Top(10).Size(3, railItem-20).Radius(2).Background(theme.C("ink"))
+		}
+		ui.Row(c.Key("marker")).Size(16, 16).Shrink(0).Center().Children(func() {
+			if i < at {
+				ui.Icon(c.Key("done"), theme.Icon("check")).FontSize(14).TextColor(theme.C("ink-muted"))
+				return
+			}
+			num := theme.C("ink-faint")
+			if current {
+				num = theme.C("ink")
+			}
+			text(c.Key("number"), strconv.Itoa(i+1), "meta").FontWeight(weight).TextColor(num).FontFeatures("tnum")
+		})
+		text(c.Key("name"), name, "ui").FontWeight(weight).TextColor(fg).SingleLine().MinWidth(0)
+	})
+}
+
+// stepStrip is where the setup is on the narrow card, as a strip of one segment per step,
 // filled up to the current one, each named under it; every segment is a
 // button to its step (back, or ahead: each step can be skipped). One Tab
 // stop, with ←/→ (swapped right to left), Home and End moving the focus
