@@ -24,7 +24,7 @@ func TestLocationDialogListsSuggestedCities(t *testing.T) {
 	r.click("Set location")
 	r.shows("Location",
 		"Concerts are listed near the city you choose. Sona keeps your choice on this computer and tells Apple Music only the area it covers.",
-		"Search cities", "London", ", United Kingdom", "Manchester")
+		"Search cities", "London", "United Kingdom", "Manchester")
 	// The storefront's own city is the chosen one; none is a custom city yet.
 	r.lacks("Use my storefront’s main city")
 	if !r.tt.Focused("Search cities") {

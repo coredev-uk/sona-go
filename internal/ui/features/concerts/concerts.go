@@ -38,6 +38,11 @@ type concerts struct {
 		prev     *services.ConcertsPage
 		from, to dateField
 		rov      roving
+		// view is the listing grouped for drawing, kept while it is still
+		// the listing; jump is the day of the strip chosen, for the frame
+		// that scrolls the agenda to it.
+		view agendaView
+		jump string
 		// heard is the listing last read out (filters and whether it was
 		// the first): the first listing is the page opening, which
 		// announces itself, so it is only noted.

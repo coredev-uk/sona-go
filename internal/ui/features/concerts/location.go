@@ -163,12 +163,12 @@ func (l *locationDialog) place(c *ui.Context, d *data, p services.ConcertPlace, 
 		l.cur = i
 	}
 	row.Children(func() {
-		ui.Row(c).Grow(1).MinWidth(0).Children(func() {
-			text(c, p.Name, "body", "ink").SingleLine().Shrink(0)
-			text(c, ", "+country, "body", "ink-muted").SingleLine().Shrink(1).MinWidth(0)
-		})
+		text(c, p.Name, "label", "ink").SingleLine().Grow(1).MinWidth(0)
+		text(c, country, "secondary", "ink-muted").SingleLine().Shrink(1).MinWidth(0)
+		// The mark's place is kept on every row, so the countries share one edge.
+		slot := ui.Box(c.Key("mark")).Size(16, 16).Shrink(0).Role(ui.RoleNone)
 		if p.Selected {
-			ui.Icon(c, theme.Icon("check")).FontSize(16).Shrink(0)
+			slot.Children(func() { ui.Icon(c, theme.Icon("check")).FontSize(16) })
 		}
 	})
 	if row.Clicked() {

@@ -152,35 +152,114 @@ func isLetters(s string) bool {
 	return true
 }
 
-// dayGroup is a group of shows on one day.
+// dayGroup is a group of shows on one day. row is the agenda row of its
+// first show (rows are numbered through the whole list), which a day of the
+// strip jumps to. The words are made with the group, once for each listing:
+// the weekday and number of the day's stub, the day's name for assistive
+// technology, and each show's facts.
 type dayGroup struct {
-	day   string
-	shows []services.Concert
+	day             string
+	shows           []services.Concert
+	facts           []facts
+	row             int
+	weekday, number string
+	long            string
 }
 
-// monthGroup is a month of shows, by the venue's calendar.
+// monthGroup is a month of shows, by the venue's calendar. count is how many
+// of them the list holds, written as "2 shows" in counted.
 type monthGroup struct {
 	key, title string
 	days       []dayGroup
+	count      int
+	counted    string
 }
 
 // groupShows groups the shows (already soonest first) by month, then by day.
 func groupShows(shows []services.Concert) []monthGroup {
 	var months []monthGroup
-	for _, c := range shows {
+	for i, c := range shows {
 		day := showDay(c)
 		key := day[:7]
 		if len(months) == 0 || months[len(months)-1].key != key {
+			if n := len(months); n > 0 {
+				months[n-1].counted = showCount(months[n-1].count)
+			}
 			months = append(months, monthGroup{key: key, title: showMonth(c)})
 		}
 		m := &months[len(months)-1]
 		if len(m.days) == 0 || m.days[len(m.days)-1].day != day {
-			m.days = append(m.days, dayGroup{day: day})
+			m.days = append(m.days, dayGroup{
+				day: day, row: i, weekday: showWeekday(c), number: showDate(c), long: showDayLong(c),
+			})
 		}
 		d := &m.days[len(m.days)-1]
 		d.shows = append(d.shows, c)
+		d.facts = append(d.facts, factsOf(c))
+		m.count++
+	}
+	if n := len(months); n > 0 {
+		months[n-1].counted = showCount(months[n-1].count)
 	}
 	return months
+}
+
+// The coming-days strip: this many days from the first day it covers, and
+// at least this many (a shorter range, as a weekend, is already short).
+const (
+	stripDays = 14
+	stripMin  = 7
+)
+
+// stripDay is a day of the strip: its weekday and number as the user's
+// calendar reads them, and how many shows the list has on it (and where the
+// first one is: its agenda row).
+type stripDay struct {
+	day     string // "2027-04-14"
+	weekday string // "Wed"
+	num     string // "14"
+	label   string // "Wed, Apr 14, 2 shows"; "" for a day without shows
+	count   int
+	row     int
+}
+
+// showCount is "2 shows".
+func showCount(n int) string {
+	return i18n.T("{count, plural, one {# show} other {# shows}}", "count", n)
+}
+
+// comingDays is the strip over the days from first (a calendar day, at its
+// midnight), stripDays of them at most, to last at the latest ("" for no
+// end): each with the shows the month groups hold on it. It is nil when none
+// of the days has a show, or when the range is too short to be a strip.
+func comingDays(first time.Time, last string, months []monthGroup) []stripDay {
+	type hit struct{ count, row int }
+	hits := map[string]hit{}
+	for _, m := range months {
+		for _, d := range m.days {
+			hits[d.day] = hit{len(d.shows), d.row}
+		}
+	}
+	var days []stripDay
+	busy := false
+	for i := range stripDays {
+		t := first.AddDate(0, 0, i)
+		day := isoDay(t)
+		if last != "" && day > last {
+			break
+		}
+		h := hits[day]
+		d := stripDay{day: day, weekday: formatSkeleton(t, "E"), num: formatSkeleton(t, "d"), count: h.count, row: h.row}
+		if h.count > 0 {
+			busy = true
+			d.label = formatSkeleton(t, "MMMEd") + ", " + showCount(h.count)
+		}
+		days = append(days, d)
+	}
+	if !busy || len(days) < stripMin {
+		return nil
+	}
+	return days
 }
 
 // mileRegions are the regions whose roads, and so whose "how far", are in miles.

@@ -115,7 +115,7 @@ func ConcertsShelf(c *ui.Context, env *module.Env, first bool) {
 	kit.Shelf(c, opts, func() {
 		switch {
 		case !q.HasData:
-			skeleton(c, 3)
+			shelfSkeleton(c, 3)
 		case len(q.Data.Concerts) == 0:
 			empty := kit.EmptyOpts{}
 			if linkToConcerts(env) {

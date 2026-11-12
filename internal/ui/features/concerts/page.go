@@ -95,9 +95,13 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 	onlyYours := p.yours && yoursAvailable
 	var shown []services.Concert
 	if page != nil {
-		for _, con := range page.Concerts {
-			if !onlyYours || con.YourArtist {
-				shown = append(shown, con)
+		shown = page.Concerts
+		if onlyYours {
+			shown = nil
+			for _, con := range page.Concerts {
+				if con.YourArtist {
+					shown = append(shown, con)
+				}
 			}
 		}
 	}
@@ -121,14 +125,20 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 					Retrying: q.Fetching,
 				})
 			case page == nil:
-				skeleton(c, 5)
+				skeleton(c)
 			case len(shown) == 0:
 				s.nothing(c, page.Location.Name, filtered)
 			default:
 				if placeholder {
 					busy(c) // the last filters' list stays meanwhile
 				}
-				s.agenda(c, shown, placeholder)
+				v := s.viewOf(shown, filterKey, onlyYours, page.FetchedAt, stripFrom(now, rng, hasRange), stripTo(rng, hasRange))
+				top := float32(8)
+				if len(v.strip) > 0 {
+					s.strip(c, v.strip)
+					top = 32
+				}
+				s.agenda(c, v, placeholder, page.More && !onlyYours, top)
 				if page.More && !onlyYours {
 					busy := q.Fetching || placeholder
 					ui.Row(c.Key("more")).FillWidth().Justify(ui.Center).Margin(32, 0, 0, 0).Children(func() {
@@ -178,8 +188,8 @@ func busy(c *ui.Context) {
 	ui.Box(c.Key("busy")).Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Loading"))
 }
 
-// header is PageHeader: the title, what the list is about, and the location
-// button.
+// header is the title with the location button beside it, and under them
+// what the list is about: where it is near, and how old it is.
 func (s *concerts) header(c *ui.Context, page *services.ConcertsPage, loc *services.ConcertLocation) {
 	subline := ""
 	if loc != nil {
@@ -196,16 +206,22 @@ func (s *concerts) header(c *ui.Context, page *services.ConcertsPage, loc *servi
 			}
 		}
 	}
-	kit.PageHeader(c, i18n.T("Concerts"), subline, func() {
-		label := i18n.T("Location")
-		if loc != nil {
-			label = loc.Name
-			if loc.IsDefault {
-				label = i18n.T("Set location")
+	ui.Column(c.Key("header")).Margin(0, 0, 24, 0).Shrink(0).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(16).Children(func() {
+			text(c, i18n.T("Concerts"), "display", "ink").SingleLine().MinWidth(0).Shrink(1).Role(ui.RoleHeading).Level(1)
+			label := i18n.T("Location")
+			if loc != nil {
+				label = loc.Name
+				if loc.IsDefault {
+					label = i18n.T("Set location")
+				}
 			}
-		}
-		if kit.Button(c.Key("location"), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "map-pin"}).HasPopup(ui.PopupDialog).Clicked() {
-			s.where.Show()
+			if kit.Button(c.Key("location"), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "map-pin"}).HasPopup(ui.PopupDialog).Clicked() {
+				s.where.Show()
+			}
+		})
+		if subline != "" {
+			text(c, subline, "secondary", "ink-muted").Margin(4, 0, 0, 0)
 		}
 	})
 }
@@ -216,7 +232,7 @@ func (s *concerts) set(p params) { s.env.Nav.Replace(p.location()) }
 // filters is the group labelled "Filter concerts": the Dates select with
 // From and To fields, the Genres select, and the Your artists switch.
 func (s *concerts) filters(c *ui.Context, p params, page *services.ConcertsPage, yoursAvailable bool, now time.Time) {
-	ui.Row(c.Key("filters")).Wrap().GapX(12).GapY(8).AlignItems(ui.Center).Margin(0, 0, 24, 0).FillWidth().
+	ui.Row(c.Key("filters")).Wrap().GapX(12).GapY(8).AlignItems(ui.Center).Margin(0, 0, 16, 0).FillWidth().
 		Role(ui.RoleGroup).Label(i18n.T("Filter concerts")).Children(func() {
 		when := p.when
 		if when == "" {
@@ -377,41 +393,4 @@ func (s *concerts) nothing(c *ui.Context, city string, filtered bool) {
 	kit.EmptyState(c, i18n.T("No concerts"),
 		i18n.T("No upcoming concerts. Please check back later.")+" "+i18n.T("A larger city nearby may have some."),
 		kit.EmptyOpts{Action: &kit.EmptyAction{Label: i18n.T("Set location"), Run: s.where.Show}})
-}
-
-// agenda is the shows by month, then by the venue's day: a date column and
-// that day's rows. The whole list is one Tab stop (roving.go). loading is
-// whether the shows are the last filters' while the next ones load: the list
-// is Busy.
-func (s *concerts) agenda(c *ui.Context, shows []services.Concert, loading bool) {
-	groups := groupShows(shows)
-	rov := &s.page.rov
-	rov.begin()
-	var menus []menuShow
-	list := ui.Column(c.Key("agenda")).FocusGroup(ui.Horizontal | ui.Vertical).Busy(loading)
-	list.Children(func() {
-		for i, m := range groups {
-			sec := ui.Column(c.Key(m.key)).Role(ui.RoleGroup).Label(m.title)
-			if i > 0 {
-				sec.Margin(40, 0, 0, 0)
-			}
-			sec.Children(func() {
-				text(c, m.title, "heading", "ink").Role(ui.RoleHeading).Level(2).Margin(0, 0, 8, 0)
-				for _, day := range m.days {
-					ui.Row(c.Key(day.day)).FillWidth().Gap(16).Padding(4, 0).AlignItems(ui.Start).Children(func() {
-						dateBlock(c.Key("date"), day.shows[0], false).Padding(12, 8, 0, 8)
-						ui.Column(c.Key("rows")).Grow(1).MinWidth(0).Role(ui.RoleList).Label(showDayLong(day.shows[0])).Children(func() {
-							for _, con := range day.shows {
-								concertRow(c, s.env, con, rowOpts{rov: rov, row: rov.row(), menus: &menus})
-							}
-						})
-					})
-				}
-			})
-		}
-	})
-	rov.end(c, list)
-	for _, show := range menus {
-		show(c)
-	}
 }

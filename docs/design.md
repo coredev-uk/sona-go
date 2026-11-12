@@ -545,30 +545,34 @@ More to Explore (16/600)
 
 ### Concerts
 
-Concerts (`/concerts`) answers one question: what is on near me, and when. A gig is a date, a place and a ticket, so the page is an agenda set by the venue's own calendar, not a grid of covers, and it is the one list in the app that is read down by date.
+Concerts (`/concerts`) answers one question: what is on near me, and when. A gig is a date, a place and a ticket, so the page is set like a sheet of tickets: each day is a stub (its weekday over a big number), with that day's shows beside it. It is read down by date, set by the venue's own calendar, never a grid of covers.
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│ Concerts                                  (⌖ Set location)│
-│ Near London, the main city of your… · Updated 5 min ago   │
-│ [Any date ▾] [All genres ▾] ◯ Your artists (3)            │
-│                                                          │
-│ November 2026                                  16/600    │
-│ Tue   (●) Stevie Wonder                  Get tickets ▾   │
-│  3        The O2 · London                                │
-│           18:30 · 6 mi away                              │
-│ Thu   (●) Skepta                         Get tickets ↗   │
-│  5        The Cause · London                             │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Concerts (⌖ Set location)                        32/700      │
+│ Near London, the main city of your… · Updated 5 min ago      │
+│ [Any date ▾] [All genres ▾] ◯ Your artists (3)               │
+│ Fri  Sat  Sun  Mon  Tue  Wed  Thu  Fri  …  14 days           │
+│  9   10   11   12   13  [14]  15   16                        │
+│                         ••                                   │
+│ April 2027 · 3 shows                                24/650   │
+│ Wed │ 6:00 PM (●) Example Band with Opener   [Get tickets ↗] │
+│ 14  │           Example Hall · London  6 mi away              │
+│     │ 8:30 PM (●) Sample Singer              [Get tickets ▾] │
+│ Wed │ 8:00 PM (●) Late Show                  [Get tickets ↗] │
+│ 21  │                                                        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-- **The agenda.** Months under a 16/600 heading, then days: the date column (weekday at 12 muted over the day number at 24/650, tabular) once per day, with that day's shows as rows to its right. The day, month and clock are read in the venue's own time zone, in the interface's language; a show whose clock is not this computer's carries its zone's name ("8:00 pm EDT"), so a gig in another country is never read as local. Shows are Apple's, soonest first; there is no popularity ordering to explain.
-- **A row** is 72px with the headliner's portrait (56px, round like every artist), the line-up at 14/500 (a link to the artist), the venue and city at 13 muted, and the start and the straight-line distance from the chosen city at 12 faint (`18:30 · 6 mi away`, miles where the locale uses them). A show by an artist the user follows says so in that line. Its one action is **Get tickets**, a ghost button: Apple lists the sellers, and one seller opens its https page in the browser (a trailing arrow), several are a menu of them (a chevron); a show with none shows no button. `--hover` fill at radius 6, as track rows.
-- **Where.** The header's outline button names the chosen city ("Manchester"), or says "Set location" while the page is on the default, and the line under the title says what the default is (the storefront's main city). It opens one small dialog: a search field and Sona's own list of cities (the storefront's first, then well-known ones), with a sentence saying the choice stays on this computer and Apple Music is told only the area. ↓ moves from the field into the list, Enter takes the first match, Escape closes and returns focus to the button; "Use my storefront's main city" undoes a choice.
+- **Header.** The title at 32/700 with the location button beside it (an outline button: the control sits with what it sets, not at the far edge), and under them one line at 13 muted saying where the list is near and how old it is. Filters follow in one row.
+- **The coming days.** Under the filters, the next 14 days (from today, or from the first day of a date range that starts later, to its last day) as one row of day cells: the weekday at 12 over the day number at 16/600, tabular, the cells sharing the width at 72 at most. A day with shows is a button (a `--hover` fill on hover, the number in ink at weight 600) named "Wed, Apr 14, 2 shows", with one to three 4px ink dots under it for how many (not amber); a day without is `--ink-faint` at weight 400 and takes no click. A button scrolls the agenda so that the day is at the top and focuses the day's first control. The cells are one Tab stop with the arrows moving along them. The strip is left out when no day of it has a show or when the range is under a week (a weekend), and it counts only the shows the filters leave.
+- **The agenda.** Months under a 24/650 heading with their count in 13 muted (`April 2027 · 2 shows`; the last month's count is left out while Apple has more shows than the list asked for, as it may be short), then days. A day is a stub: the weekday at 12 muted over the day number at 32/700, tabular, in a 64px column, a 1px `--line` rule the height of the day, and that day's shows as rows to its right, so the rule's length says how busy the day is. Days are 8px apart, months 48px. The day, month and clock are read in the venue's own time zone, in the interface's language; a show whose clock is not this computer's carries its zone's name ("8:00 pm EDT"), so a gig in another country is never read as local. Shows are Apple's, soonest first; there is no popularity ordering to explain.
+- **A row** is 72px and reads left to right as a timetable: the start at the venue's clock at 14/500 (the first edge of every row), the headliner's portrait (56px, round like every artist), the line-up at 16/600 (a link to the artist) over the venue and city at 13 muted with the straight-line distance from the chosen city at 12 faint beside it (`6 mi away`, miles where the locale uses them), and the one action at the row's end. A show by an artist the user follows says so on a third line. **Get tickets** is an outline button (the same `--control-line` as the filters): Apple lists the sellers, and one seller opens its https page in the browser (a trailing arrow), several are a menu of them (a chevron); a show with none shows no button. The row's `--hover` fill is at radius 6, as track rows.
+- **Where.** The header's outline button names the chosen city ("Manchester"), or says "Set location" while the page is on the default, and the line under the title says what the default is (the storefront's main city). It opens one small dialog: a search field and Sona's own list of cities (the storefront's first, then well-known ones), each a row with the city at 14/500 at the left and its country at 13 muted at the right, a check in a slot kept on every row for the chosen one, with a sentence saying the choice stays on this computer and Apple Music is told only the area. ↓ moves from the field into the list, Enter takes the first match, Escape closes and returns focus to the button; "Use my storefront's main city" undoes a choice.
 - **Filters** are one row of 32px controls: dates (any date, this week, this weekend, next 30 days, or two date fields), genre, and a switch "Your artists (n)" that appears only when the signed-in account has shows in this area. They live in the address (`when`, `from`, `to`, `genre`, `yours`), so Back returns to them. A change keeps the list on screen until the new one arrives.
-- **Long lists.** Asked 100 at a time (Apple has no paging, so "Show more concerts" asks for 100 more, up to 500). The agenda is one Tab stop: ↑/↓ move between rows, ←/→ between a row's link and its tickets, Home/End jump, Tab leaves.
-- **States.** Loading draws rows at their height; no concerts near the city (some countries have none) says so with Apple's "No concerts" and "Set location"; filters that match nothing say that with "Clear filters"; a failed load is the usual error block with Retry, and a stale copy says when it is from.
-- **Elsewhere.** An artist's page carries "Upcoming concerts" between its lead and its discography: three rows with the date column first (the artist's portrait and name are left out, the venue leads), the ones near the chosen city first, "Show all n", and a link to the agenda. It is left out when the artist has none. Home carries "Concerts in {city}" where Apple puts its concerts shelf: six rows in two columns and "See all". Apple's own concerts links open this page.
+- **Long lists.** Asked 100 at a time (Apple has no paging, so "Show more concerts" asks for 100 more, up to 500). The agenda is one Tab stop: ↑/↓ move between rows, ←/→ between a row's link and its tickets, Home/End jump, Tab leaves. What the page builds from a listing (the groups, the strip, each row's words) is made once per listing, not per frame.
+- **States.** Loading draws the agenda's own frame: a month heading and three stubs with their rules and rows at their height (the strip waits for the data, as it depends on it); no concerts near the city (some countries have none) says so with Apple's "No concerts" and "Set location"; filters that match nothing say that with "Clear filters"; a failed load is the usual error block with Retry, and a stale copy says when it is from.
+- **Elsewhere.** An artist's page carries "Upcoming concerts" between its lead and its discography: three rows with a compact date column and a 1px rule first (weekday, day number at 24/650, month; the artist's portrait and name are left out, the venue leads), the ones near the chosen city first, "Show all n", and a link to the agenda. It is left out when the artist has none. Home carries "Concerts in {city}" where Apple puts its concerts shelf: six such rows in two columns, with portraits and ghost ticket buttons, and "See all". Their start and distance sit under the venue, as the columns are too narrow for the agenda's timetable. Apple's own concerts links open this page.
 - No amber: nothing here is playing.
 
 ## Video view
