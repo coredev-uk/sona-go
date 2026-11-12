@@ -160,7 +160,7 @@ func followUntilQuit(t *testing.T, client cli.Transport, srv *fakeServer, quit f
 func TestBusCommands(t *testing.T) {
 	addr := dbustest.Start(t)
 	ctx := context.Background()
-	client := NewBusClient(dbustest.Conn(t, addr))
+	client := &BusClient{conn: dbustest.Conn(t, addr)}
 
 	if _, err := client.Call(ctx, cli.Request{Command: "status"}); !errors.Is(err, cli.ErrNotRunning) {
 		t.Fatalf("no instance: err = %v, want ErrNotRunning", err)
@@ -203,7 +203,7 @@ func TestBusCommandsIncompatible(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := NewBusClient(dbustest.Conn(t, addr)).Call(ctx, cli.Request{Command: "status"})
+	_, err := (&BusClient{conn: dbustest.Conn(t, addr)}).Call(ctx, cli.Request{Command: "status"})
 	var cerr *cli.Error
 	if !errors.As(err, &cerr) || cerr.Code != cli.CodeIncompatible {
 		t.Errorf("err = %v, want incompatible", err)

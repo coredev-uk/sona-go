@@ -81,14 +81,6 @@ SELECT * FROM tracks WHERE catalog_id = ? ORDER BY library_id IS NULL, id LIMIT 
 -- name: GetCatalogAlbum :one
 SELECT * FROM albums WHERE catalog_id = ? AND library_id IS NULL;
 
--- name: GetCatalogArtist :one
-SELECT * FROM artists WHERE catalog_id = ? AND library_id IS NULL;
-
--- name: CatalogAlbumTracks :many
-SELECT * FROM tracks
-WHERE album_catalog_id = ? AND library_id IS NULL
-ORDER BY disc_number, track_number;
-
 -- name: GetCache :one
 SELECT * FROM catalog_cache WHERE key = ?;
 

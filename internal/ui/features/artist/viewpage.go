@@ -211,8 +211,7 @@ func (a *artist) viewHeader(c *ui.Context, id, name, title string) {
 	}
 	ui.Row(c.Key("header")).FillWidth().AlignItems(ui.End).Margin(0, 0, 24, 0).Shrink(0).Children(func() {
 		ui.Column(c).MinWidth(0).Shrink(1).Children(func() {
-			t := tk.Type["title"]
-			ui.Text(c, title).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking).
+			theme.StyleText(ui.Text(c, title), "title").
 				TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 			s := tk.Type["secondary"]
 			if a.has(artistPath(id)) {
@@ -279,10 +278,7 @@ func (a *artist) viewBody(c *ui.Context, vs *viewState, id, view, name, title st
 			Restricted: a.restricted(),
 			Art:        a.env.Art, Menus: vs.tracks.menus, Motion: a.env.Motion, Pane: pane, OnRange: onRange,
 		}
-		if cur.Current != nil {
-			cid, cat := cur.Current.ID, cur.Current.CatalogID
-			o.Current = func(s *services.Song) bool { return kit.SongIsCurrent(s, cid, cat) }
-		}
+		o.Current = cur.Current
 		if a.has(albumPath("_")) {
 			o.OpenAlbum = func(id string) { a.env.Nav.Push(albumPath(id)) }
 		}

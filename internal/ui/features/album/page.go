@@ -71,12 +71,12 @@ type pageState struct {
 	tracks  kit.TrackListState
 	shelves [6]kit.CoverShelfState
 	// The list as the last frame built it, for the disc index.
-	list     listView
-	sleeveH  float32 // the wide layout's sleeve, as last laid out
+	list    listView
+	sleeveH float32 // the wide layout's sleeve, as last laid out
 	// gl and gr are the page's left and right gutters (the right one holds
 	// the scrollbar): the pane has no padding of its own, so the sleeve can
 	// run to its edges and each part sets its own.
-	gl, gr float32
+	gl, gr   float32
 	paneRect func() ui.Rect
 	// pal is the cover's colours, built once per cover, theme and layout.
 	pal palCache
@@ -281,12 +281,6 @@ func (a *album) errorBlock(c *ui.Context, l load) {
 		Back:     kit.EmptyAction{Label: i18n.T("Go to Albums"), Run: func() { a.push("/library/albums") }},
 		SignIn:   a.signIn,
 	})
-}
-
-// typed is text in one of the theme's type styles.
-func typed(c *ui.Context, text, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, text).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
 }
 
 // skeleton is the sleeve, head and rows at their real sizes while the album

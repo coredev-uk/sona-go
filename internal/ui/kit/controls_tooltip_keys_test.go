@@ -39,7 +39,7 @@ func TestButtonTipShowsItsKeysAsKeycaps(t *testing.T) {
 
 func TestTooltipKeysWithNoChordsIsAPlainTooltip(t *testing.T) {
 	tt := controlsTester(t, 300, 120, func(c *ui.Context) {
-		TooltipKeys(c, ui.Box(c).Size(30, 30).Focusable().Label("Thing"), "Does a thing", nil)
+		controlsTooltipKeys(c, ui.Box(c).Size(30, 30).Focusable().Label("Thing"), "Does a thing", true, nil)
 	})
 	r := controlsFind(t, tt, "Thing")
 	tt.Move(r.X+r.W/2, r.Y+r.H/2)

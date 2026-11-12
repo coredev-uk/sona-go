@@ -107,11 +107,11 @@ func (s *settings) content(c *ui.Context, section string, narrow bool) {
 	title := sectionTitle(section)
 	ui.Column(c.Key("content:" + section)).FillWidth().Role(ui.RoleGroup).Label(title).Children(func() {
 		if narrow {
-			text(c, title, "page").Size(0, 0).Opacity(0).Role(ui.RoleHeading).Level(2) // sr-only
+			theme.Text(c, title, "page").Size(0, 0).Opacity(0).Role(ui.RoleHeading).Level(2) // sr-only
 		} else {
 			// The document's masthead: the section's name over one ink rule;
 			// the groups' margins and the rows' hairlines hang from it.
-			text(c, title, "title").TextColor(theme.C("ink")).Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
+			theme.Text(c, title, "title").TextColor(theme.C("ink")).Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
 			ui.Box(c.Key("masthead")).FillWidth().Height(1).Shrink(0).Background(theme.C("ink")).Margin(0, 0, 16, 0)
 		}
 		switch section {
@@ -196,9 +196,9 @@ func (s *settings) sectionList(c *ui.Context, section string, narrow bool) {
 				ui.Row(c.Key("in:" + id)).Shrink(1).MinWidth(0).Gap(10).AlignItems(ui.Start).Children(func() {
 					ui.Icon(c.Key("icon:"+id), theme.Icon(sectionIcon[id])).FontSize(16).TextColor(fg).Shrink(0).Margin(2, 0, 0, 0)
 					ui.Column(c.Key(id)).Shrink(1).MinWidth(0).Children(func() {
-						text(c, title, "label").TextColor(fg)
+						theme.Text(c, title, "label").TextColor(fg)
 						if sum != "" && !narrow {
-							text(c, sum, "meta").TextColor(theme.C("ink-muted")).MaxLines(2)
+							theme.Text(c, sum, "meta").TextColor(theme.C("ink-muted")).MaxLines(2)
 						}
 					})
 				})

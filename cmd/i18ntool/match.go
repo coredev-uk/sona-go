@@ -1,6 +1,7 @@
 package main
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"unicode"
@@ -35,7 +36,7 @@ type appleIndex struct {
 func indexBundle(b applestrings.Bundle) *appleIndex {
 	ix := &appleIndex{bundle: b}
 	bases := map[string]bool{}
-	for _, k := range sortedKeys(b) {
+	for _, k := range slices.Sorted(maps.Keys(b)) {
 		if base, _, ok := applestrings.SplitPluralKey(k); ok {
 			if _, other := b[base+".other"]; other && !bases[base] {
 				bases[base] = true

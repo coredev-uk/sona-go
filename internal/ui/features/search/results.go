@@ -50,7 +50,7 @@ func (s *search) queryHeader(c *ui.Context, q, scope string) {
 		title = "“" + q + "”"
 	}
 	ui.Row(c.Key("header")).FillWidth().AlignItems(ui.Baseline).Justify(ui.SpaceBetween).Gap(24).Margin(0, 0, 32, 0).Shrink(0).Children(func() {
-		text(c, title, "display").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1)
+		theme.Text(c, title, "display").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1)
 		s.scopeSwitch(c, q, scope)
 	})
 }
@@ -111,8 +111,8 @@ func (s *search) jumpButton(c *ui.Context, pv *pageView, e railEntry, current, r
 		if current {
 			w = 600
 		}
-		text(c, e.title, "label").FontWeight(w).TextColor(fg).SingleLine().Grow(1).MinWidth(0).Role(ui.RoleNone)
-		text(c, strconv.Itoa(e.count), "secondary").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().Shrink(0).Role(ui.RoleNone)
+		theme.Text(c, e.title, "label").FontWeight(w).TextColor(fg).SingleLine().Grow(1).MinWidth(0).Role(ui.RoleNone)
+		theme.Text(c, strconv.Itoa(e.count), "secondary").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().Shrink(0).Role(ui.RoleNone)
 	})
 	if b.Clicked() {
 		pv.jump(e.id)
@@ -216,16 +216,16 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 			kit.Artwork(c, s.env.Art, it.Art.Small, bestArt, kit.ArtOpts{Round: kit.ItemRound(it), Edge: true})
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Margin(0, 0, 0, 16).Gap(2).Children(func() {
 				if kind := kindLabel(it); kind != "" {
-					text(c, kind, "body").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
+					theme.Text(c, kind, "body").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
 				}
 				ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-					text(c, it.Name, "title").TextColor(theme.C("ink")).MaxLines(2).Shrink(1).MinWidth(0)
+					theme.Text(c, it.Name, "title").TextColor(theme.C("ink")).MaxLines(2).Shrink(1).MinWidth(0)
 					if it.Explicit {
 						kit.ExplicitMark(c).Shrink(0)
 					}
 				})
 				if it.Subtitle != "" {
-					text(c, it.Subtitle, "body").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
+					theme.Text(c, it.Subtitle, "body").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
 				}
 			})
 		}
@@ -371,8 +371,8 @@ func (s *search) resultsSkeleton(c *ui.Context) {
 // one action.
 func (s *search) noResults(c *ui.Context, title, body string, action *kit.EmptyAction) {
 	ui.Column(c.Key("none")).FillWidth().AlignItems(ui.Start).Gap(8).Margin(16, 0, 0, 0).Children(func() {
-		text(c, title, "title").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-		text(c, body, "body").TextColor(theme.C("ink-muted")).MaxWidth(480)
+		theme.Text(c, title, "title").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, body, "body").TextColor(theme.C("ink-muted")).MaxWidth(480)
 		if action != nil && action.Run != nil {
 			if kit.Button(c.Key("action"), action.Label, kit.ButtonOpts{Size: kit.SizeSM}).Margin(16, 0, 0, 0).Clicked() {
 				action.Run()

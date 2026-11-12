@@ -184,9 +184,9 @@ func (h *home) homeBody(c *ui.Context) {
 func (h *home) pageHead(c *ui.Context, subline string, actions func()) {
 	ui.Row(c.Key("page-head")).FillWidth().MinHeight(32).AlignItems(ui.Center).Gap(24).Margin(0, 0, 28, 0).Shrink(0).Children(func() {
 		ui.Row(c.Key("words")).Grow(1).Basis(0).MinWidth(0).AlignItems(ui.Baseline).Gap(14).Children(func() {
-			text(c, i18n.T("For you"), "page").TextColor(theme.C("ink")).SingleLine().Shrink(0).Role(ui.RoleHeading).Level(1)
+			theme.Text(c, i18n.T("For you"), "page").TextColor(theme.C("ink")).SingleLine().Shrink(0).Role(ui.RoleHeading).Level(1)
 			if subline != "" {
-				text(c, subline, "sub").TextColor(theme.C("ink-muted")).SingleLine().Shrink(1).MinWidth(0)
+				theme.Text(c, subline, "sub").TextColor(theme.C("ink-muted")).SingleLine().Shrink(1).MinWidth(0)
 			}
 		})
 		if actions != nil {
@@ -242,16 +242,11 @@ func (h *home) refreshButton(c *ui.Context) {
 	if h.refreshing {
 		b.Disabled(true) // MyGo paints a disabled element at 50%
 	}
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(b, "feedback")
 	b.Children(func() {
 		ic := ui.Icon(c.Key("icon"), theme.Icon("rotate-cw")).FontSize(16)
-		if h.refreshing && !theme.ReducedMotion() {
-			ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
-		}
-		text(c, label, "label").SingleLine()
+		theme.Spin(ic, h.refreshing)
+		theme.Text(c, label, "label").SingleLine()
 	})
 	if b.Clicked() && !h.refreshing {
 		h.refresh()

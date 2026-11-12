@@ -26,7 +26,7 @@ const envLogLevel = "SONA_CDMHOST_LOG"
 
 // envCDMDir passes the directory of the CDM library the parent will load
 // to the child, so its filesystem view keeps it reachable and read-only
-// (sandbox_fs.go) wherever it lies.
+// (sandbox_fs_linux.go) wherever it lies.
 const envCDMDir = "SONA_CDMHOST_CDM_DIR"
 
 // envCDMOnly starts a child that loads the CDM and nothing else (the

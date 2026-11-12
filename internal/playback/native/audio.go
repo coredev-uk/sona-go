@@ -42,17 +42,23 @@ func (e *Engine) OutputDevices() ([]playback.OutputDevice, error) {
 	return out, nil
 }
 
-// SetEqualizer sets the equaliser of this and every later host; a running
-// host applies it to the playing audio at once.
-func (e *Engine) SetEqualizer(ctx context.Context, eq equalizer.Curve) error {
+// withHost runs set under the engine's lock, then call on the running
+// host, if there is one.
+func (e *Engine) withHost(set func(), call func(host) error) error {
 	e.mu.Lock()
-	e.eq = eq
+	set()
 	h := e.h
 	e.mu.Unlock()
 	if h == nil {
 		return nil
 	}
-	return h.SetEqualizer(ctx, eq)
+	return call(h)
+}
+
+// SetEqualizer sets the equaliser of this and every later host; a running
+// host applies it to the playing audio at once.
+func (e *Engine) SetEqualizer(ctx context.Context, eq equalizer.Curve) error {
+	return e.withHost(func() { e.eq = eq }, func(h host) error { return h.SetEqualizer(ctx, eq) })
 }
 
 // SetOutputDevice plays to device (a PipeWire node.name or a Core Audio
@@ -60,26 +66,12 @@ func (e *Engine) SetEqualizer(ctx context.Context, eq equalizer.Curve) error {
 // device that is gone, until it is back. A running host moves the playing
 // audio without interrupting it.
 func (e *Engine) SetOutputDevice(ctx context.Context, device string) error {
-	e.mu.Lock()
-	e.device = device
-	h := e.h
-	e.mu.Unlock()
-	if h == nil {
-		return nil
-	}
-	return h.SetOutputDevice(ctx, device)
+	return e.withHost(func() { e.device = device }, func(h host) error { return h.SetOutputDevice(ctx, device) })
 }
 
 // SetSoundCheck turns Sound Check on or off: each item plays with the gain
 // that brings its measured loudness to soundcheck.Target. A running host
 // applies it to the playing item at once.
 func (e *Engine) SetSoundCheck(ctx context.Context, on bool) error {
-	e.mu.Lock()
-	e.soundCheck = on
-	h := e.h
-	e.mu.Unlock()
-	if h == nil {
-		return nil
-	}
-	return h.SetTrackGain(ctx, on)
+	return e.withHost(func() { e.soundCheck = on }, func(h host) error { return h.SetTrackGain(ctx, on) })
 }

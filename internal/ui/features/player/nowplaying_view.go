@@ -327,15 +327,13 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 	if broadcast && s.OnAir != nil {
 		heading, byline = s.OnAir.Title, s.OnAir.Artist
 	}
-	tk := theme.Current().Type
 	copy := ui.Column(c.Key("song-copy")).FillWidth().MinWidth(0)
 	copy.Children(func() {
-		style := tk["page"]
+		style := "page"
 		if large {
-			style = tk["display"]
+			style = "display"
 		}
-		ui.Text(c.Key("title"), heading).FontSize(style.Size).FixedLineHeight(style.LineHeight).FontWeight(int(style.Weight)).
-			LetterSpacing(style.Tracking).TextColor(theme.C("ink")).MaxLines(3).Role(ui.RoleHeading).Level(2)
+		theme.StyleText(ui.Text(c.Key("title"), heading), style).TextColor(theme.C("ink")).MaxLines(3).Role(ui.RoleHeading).Level(2)
 		if cur.Live {
 			if broadcast && byline != "" {
 				lineText(c.Key("byline"), byline, 16, 22, 500, theme.C("ink-muted")).Margin(8, 0, 0, 0).SingleLine()

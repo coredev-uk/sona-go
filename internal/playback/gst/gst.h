@@ -98,7 +98,6 @@ struct sona_tail* sona_gst_tail(sona_gst* p);
 // or 0 with err set.
 uint64_t sona_gst_out_rebuild(sona_gst* p, const char* props, int state, char* err, size_t errlen);
 int sona_gst_set_state(sona_gst* p, int state);  // output; returns GstStateChangeReturn
-int sona_gst_get_state(sona_gst* p, int64_t timeout_ns, int* state, int* pending);
 int sona_gst_position(sona_gst* p, int64_t* pos_ns);  // output stream time
 uint64_t sona_gst_out_queued_ns(sona_gst* p);
 // sona_gst_out_flush drops everything the output holds and makes epoch

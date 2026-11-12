@@ -113,7 +113,7 @@ func Parse(data []byte) (*Document, error) {
 	return d, nil
 }
 
-// LoadFile reads a tokens.json from path (dev builds; PR 0.3's watcher).
+// LoadFile reads a tokens.json from path (dev builds watch it).
 func LoadFile(path string) (*Document, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

@@ -87,6 +87,3 @@ func Headroom(gains [Bands]float64) float64 {
 	}
 	return -peak
 }
-
-// IsFlat reports whether gains leave the signal untouched.
-func IsFlat(gains [Bands]float64) bool { return gains == [Bands]float64{} }

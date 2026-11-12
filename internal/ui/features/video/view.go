@@ -356,9 +356,7 @@ func (v *video) keys(c *ui.Context, root ui.Element, volume bool) {
 
 // text is a single line in one of the theme's type styles.
 func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
-		LetterSpacing(t.Tracking).SingleLine().MinWidth(0)
+	return theme.Text(c, s, style).SingleLine().MinWidth(0)
 }
 
 // control notes a control's keyboard focus for the idle rule and returns it.
@@ -423,14 +421,13 @@ func (v *video) caption(c *ui.Context, cur *services.QueueItem, pr *problem, sta
 	}
 	ui.Column(c.Key("caption")).Grow(1).Basis(0).MinWidth(0).Children(func() {
 		ui.Row(c).Gap(8).AlignItems(ui.Center).MinWidth(0).Children(func() {
-			h := theme.Current().Type["heading"]
 			if path := "/music-video/" + id; v.hasRoute(path) {
 				// The heading holds the link (MyGo v0.8.1 allows it), so
 				// the title is on the headings list and still opens.
 				ui.Row(c.Key("title-h")).Shrink(1).MinWidth(0).Role(ui.RoleHeading).Level(1).Children(func() {
 					l := ui.Link(c.Key("title"), "", "").Shrink(1).MinWidth(0)
 					l.Children(func() {
-						ui.Text(c, cur.Name).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
+						theme.StyleText(ui.Text(c, cur.Name), "heading").
 							TextColor(theme.C("ink")).SingleLine()
 					})
 					control(l, focusVisible)
@@ -541,8 +538,7 @@ func (v *video) problemBox(c *ui.Context, cur *services.QueueItem, pr *problem) 
 			// The message is the alert, read as it appears; the ways out
 			// under it are not.
 			ui.Column(c.Key("alert")).Role(ui.RoleAlert).Label(pr.title).Children(func() {
-				t := theme.Current().Type["label"]
-				ui.Text(c, pr.title).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).TextColor(theme.C("ink"))
+				theme.StyleText(ui.Text(c, pr.title), "label").TextColor(theme.C("ink"))
 				ui.Text(c, pr.detail).TextColor(theme.C("ink-muted")).FontSize(theme.Current().Type["sub"].Size).Margin(2, 0, 0, 0)
 			})
 			ui.Row(c).Margin(12, 0, 0, 0).Wrap().Gap(8).AlignItems(ui.Center).Children(func() {

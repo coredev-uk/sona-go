@@ -139,9 +139,9 @@ func (s *settings) lyricsSources(c *ui.Context, ly config.Lyrics) {
 				item := ui.Row(k.Key("item")).FillWidth().Padding(rowPadY, 0).AlignItems(ui.Center).Gap(24)
 				item.Children(func() {
 					ui.Column(k.Key("text")).Grow(1).Shrink(1).MinWidth(0).MaxWidth(rowTextWidth).Children(func() {
-						text(k, about.name, "label").TextColor(theme.C("ink"))
+						theme.Text(k, about.name, "label").TextColor(theme.C("ink"))
 						if about.about != "" {
-							text(k, about.about, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+							theme.Text(k, about.about, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 						}
 					})
 					ui.Row(k.Key("controls")).Shrink(0).AlignItems(ui.Center).Gap(4).Children(func() {

@@ -43,12 +43,6 @@ const (
 	notSetWidth = 48
 )
 
-// typeText is text in one of the theme's type styles.
-func typeText(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // helpGroup is one group of the sheet with the shortcuts that show in it
 // and the width of its key column.
 type helpGroup struct {
@@ -90,7 +84,7 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 		closeOwn() // the sheet's own chord closes it again, which only the dialog sees
 		var field ui.Element
 		ui.Row(c.Key("help:head")).FillWidth().Padding(18, 56, 16, 24).Gap(16).AlignItems(ui.Center).Children(func() {
-			typeText(c.Key("title"), i18n.T("Keyboard shortcuts"), "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2).Grow(1).MinWidth(0)
+			theme.Text(c.Key("title"), i18n.T("Keyboard shortcuts"), "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2).Grow(1).MinWidth(0)
 			ui.Row(c.Key("help:filter")).Width(268).MinWidth(150).Shrink(1).Children(func() {
 				field = kit.SearchField(c.Key("filter"), &h.query, kit.SearchFieldOpts{Placeholder: i18n.T("Filter shortcuts")})
 			})
@@ -125,9 +119,9 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 		ui.Row(c.Key("help:foot")).Height(40).FillWidth().Padding(0, 24).Gap(16).AlignItems(ui.Center).Children(func() {
 			ui.Row(c.Key("about")).Grow(1).MinWidth(0).Children(func() { h.about(c, env) })
 			hint := func(key, label string, chord string) {
-				ui.Row(c.Key("hint:"+key)).Gap(6).AlignItems(ui.Center).Shrink(0).Children(func() {
+				ui.Row(c.Key("hint:" + key)).Gap(6).AlignItems(ui.Center).Shrink(0).Children(func() {
 					kit.Keycaps(c, chord)
-					typeText(c.Key("l"), label, "meta").TextColor(theme.C("ink-faint")).SingleLine()
+					theme.Text(c.Key("l"), label, "meta").TextColor(theme.C("ink-faint")).SingleLine()
 				})
 			}
 			hint("list", i18n.T("Browse"), "ArrowDown")
@@ -161,7 +155,7 @@ func (h *helpSheet) about(c *ui.Context, env *module.Env) {
 	}
 	before = strings.TrimSpace(before)
 	ui.Row(c.Key("about:line")).AlignItems(ui.Center).Gap(gap).Children(func() {
-		typeText(c.Key("a"), before, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
+		theme.Text(c.Key("a"), before, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
 		ui.Row(c.Key("link")).AlignItems(ui.Center).Children(func() { h.link(c, env, name, after) })
 	})
 }
@@ -172,16 +166,16 @@ func (h *helpSheet) link(c *ui.Context, env *module.Env, name, after string) {
 	if env.HasRoute != nil && env.HasRoute("/settings") {
 		link := ui.ButtonBase(c.Key("settings")).Role(ui.RoleLink).Label(name).Cursor(ui.CursorPointer)
 		link.Children(func() {
-			typeText(c, name, "secondary").TextColor(theme.C("ink")).Underline().SingleLine().Shrink(0)
+			theme.Text(c, name, "secondary").TextColor(theme.C("ink")).Underline().SingleLine().Shrink(0)
 		})
 		if link.Clicked() {
 			h.open = false
 			env.Nav.Push("/settings?section=shortcuts")
 		}
 	} else {
-		typeText(c.Key("s"), name, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
+		theme.Text(c.Key("s"), name, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
 	}
-	typeText(c.Key("b"), after, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
+	theme.Text(c.Key("b"), after, "secondary").TextColor(theme.C("ink-muted")).SingleLine().Shrink(0)
 }
 
 // filter is the groups with the shortcuts the query leaves, in the order of
@@ -287,8 +281,8 @@ func (h *helpSheet) announce(c *ui.Context, shown []helpGroup) {
 // none is the list when the filter leaves nothing.
 func (h *helpSheet) none(c *ui.Context) {
 	ui.Column(c.Key("help:none")).FillWidth().Padding(56, 0).Gap(4).AlignItems(ui.Center).Children(func() {
-		typeText(c.Key("t"), i18n.T("No shortcuts match “{term}”", "term", strings.TrimSpace(h.query)), "label").TextColor(theme.C("ink")).Role(ui.RoleStatus)
-		typeText(c.Key("d"), i18n.T("Try part of a command's name, or a key."), "secondary").TextColor(theme.C("ink-muted"))
+		theme.Text(c.Key("t"), i18n.T("No shortcuts match “{term}”", "term", strings.TrimSpace(h.query)), "label").TextColor(theme.C("ink")).Role(ui.RoleStatus)
+		theme.Text(c.Key("d"), i18n.T("Try part of a command's name, or a key."), "secondary").TextColor(theme.C("ink-muted"))
 	})
 }
 
@@ -327,16 +321,16 @@ func (h *helpSheet) groups(c *ui.Context, sections []helpGroup, width float32) {
 // shortcut, its label and its caps (or "Not set") in the group's key column.
 func (h *helpSheet) section(c *ui.Context, g helpGroup) {
 	ui.Column(c.Key("g:"+string(g.group))).FillWidth().Padding(0, 0, 24).Role(ui.RoleGroup).Label(groupTitle(g.group)).Children(func() {
-		typeText(c.Key("h"), groupTitle(g.group), "body").FontWeight(600).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Padding(0, 0, 6)
+		theme.Text(c.Key("h"), groupTitle(g.group), "body").FontWeight(600).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3).Padding(0, 0, 6)
 		ui.Box(c.Key("rule")).Height(1).FillWidth().Background(theme.C("line"))
 		for _, s := range g.list {
 			ui.Row(c.Key("s:"+s.ID)).MinHeight(helpRowHeight).FillWidth().Padding(2, 0).Gap(16).AlignItems(ui.Center).Role(ui.RoleListItem).Label(s.Label()).Children(func() {
-				typeText(c.Key("l"), s.Label(), "body").TextColor(theme.C("ink")).Grow(1).MinWidth(0)
+				theme.Text(c.Key("l"), s.Label(), "body").TextColor(theme.C("ink")).Grow(1).MinWidth(0)
 				ui.Row(c.Key("keys")).Width(g.keysW).MinWidth(g.keysW).Shrink(0).AlignItems(ui.Center).Children(func() {
 					if len(s.Keys) > 0 {
 						kit.Keycaps(c.Key("k"), s.Keys...)
 					} else {
-						typeText(c.Key("n"), i18n.T("Not set"), "meta").TextColor(theme.C("ink-faint")).SingleLine()
+						theme.Text(c.Key("n"), i18n.T("Not set"), "meta").TextColor(theme.C("ink-faint")).SingleLine()
 					}
 				})
 			})

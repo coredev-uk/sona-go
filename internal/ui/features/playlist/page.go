@@ -46,7 +46,7 @@ type page struct {
 	shownCache viewCache
 	// startsCache is the "starts at" labels of the tracks.
 	startsCache startsCache
-	announced  string
+	announced   string
 }
 
 // addedCache is addedByRows' last answer and what it came from.
@@ -369,7 +369,7 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 	v := pg.view(d.Tracks)
 	songs := v.songs
 	if len(songs) == 0 {
-		dialogText(c, i18n.T("No song in this playlist matches “{query}”.", "query", pg.query), "sub").
+		theme.Text(c, i18n.T("No song in this playlist matches “{query}”.", "query", pg.query), "sub").
 			TextColor(theme.C("ink-muted")).Padding(16, 8)
 		return
 	}
@@ -407,8 +407,7 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 	}
 	if p.env.Play != nil {
 		if st := p.env.Play.State(); st.Current != nil {
-			cur := st.Current
-			o.Current = func(s *services.Song) bool { return kit.SongIsCurrent(s, cur.ID, cur.CatalogID) }
+			o.Current = st.Current
 			o.Playing = st.State == "playing"
 		}
 	}
@@ -444,7 +443,7 @@ func (p *playlists) songFinder(c *ui.Context, tracks []services.Song) {
 		})
 		found := len(pg.view(tracks).songs)
 		if pg.filtering() {
-			dialogText(c, i18n.T("{found} of {total, plural, one {# song} other {# songs}}",
+			theme.Text(c, i18n.T("{found} of {total, plural, one {# song} other {# songs}}",
 				"found", i18n.FormatNumber(float64(found)), "total", len(tracks)), "sub").
 				TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
 		}

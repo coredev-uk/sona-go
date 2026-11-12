@@ -76,15 +76,14 @@ func Badge(c *ui.Context, label string, o BadgeOpts) ui.Element {
 		}
 	}
 	e.Height(20).PaddingX(8).Gap(4).Radius(controlsRadius("full")).Background(bg).TextColor(fg).Border(1, border).Justify(ui.Center)
-	if !theme.ReducedMotion() && o.Interactive {
-		m := theme.Current().Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
+	if o.Interactive {
+		theme.Fade(e, "feedback")
 	}
 	e.Children(func() {
 		if o.Icon != "" {
 			theme.Glyph(c, o.Icon, 12, theme.GlyphOpts{Color: fg, Inherit: true})
 		}
-		t := controlsText(c, label, "meta").FontWeight(500).SingleLine()
+		t := theme.Text(c, label, "meta").FontWeight(500).SingleLine()
 		if o.Variant == BadgeLink && hovered {
 			t.Underline()
 		}

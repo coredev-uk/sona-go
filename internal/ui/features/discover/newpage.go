@@ -224,7 +224,7 @@ func (d *discover) issueView(c *ui.Context) {
 // bandHeading is a band's name, at the page-title size (the rule above it is
 // what sets it apart from the page's h1).
 func bandHeading(c *ui.Context, title string) ui.Element {
-	return text(c, title, "title").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+	return theme.Text(c, title, "title").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 }
 
 // contents is the page's contents: side by side, wrapping when the width runs
@@ -235,7 +235,7 @@ func bandHeading(c *ui.Context, title string) ui.Element {
 func (d *discover) contents(c *ui.Context, bands []issueBand) {
 	label := i18n.T("On this page")
 	ui.Column(c.Key("contents")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleGroup).Label(label).Children(func() {
-		text(c, label, "heading").TextColor(theme.C("ink")).Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, label, "heading").TextColor(theme.C("ink")).Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
 		ui.Row(c.Key("columns")).FillWidth().Wrap().Gap(24).AlignItems(ui.Start).Children(func() {
 			for _, b := range bands {
 				var titled []int
@@ -266,7 +266,7 @@ func (d *discover) shelfButton(c *ui.Context, id, title string) ui.Element {
 	b := ui.ButtonBase(c.Key(id)).Label(title).Radius(tk.Radius["sm"]).AlignSelf(ui.Start).MinWidth(0).PaddingX(12).Height(24).AlignItems(ui.Center)
 	hover := b.Hovered()
 	b.Children(func() {
-		t := text(c, title, "secondary").TextColor(theme.C("ink-muted")).SingleLine().MinWidth(0)
+		t := theme.Text(c, title, "secondary").TextColor(theme.C("ink-muted")).SingleLine().MinWidth(0)
 		if hover {
 			t.Underline().TextColor(theme.C("ink"))
 		}
@@ -290,14 +290,11 @@ func (d *discover) jumpButton(c *ui.Context, id, title string, shelves int) ui.E
 		bg = theme.C("active")
 	}
 	b.Background(bg)
-	if !theme.ReducedMotion() {
-		m := tk.Motion["press"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(b, "press")
 	b.Children(func() {
-		text(c, title, "label").TextColor(theme.C("ink")).SingleLine()
+		theme.Text(c, title, "label").TextColor(theme.C("ink")).SingleLine()
 		if shelves > 0 {
-			text(c, strconv.Itoa(shelves), "secondary").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
+			theme.Text(c, strconv.Itoa(shelves), "secondary").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
 		}
 	})
 	if b.Clicked() {

@@ -78,11 +78,6 @@ func VideoRef(v services.MusicVideo) services.TrackRef {
 	return services.TrackRef{ID: v.ID, Source: v.Source, Kind: services.TrackKindVideo}
 }
 
-// fail shows a failed command: what it was, then Go's words for the code.
-func fail(what string, err error) {
-	ToastErrorf(what, i18n.ErrorText(services.CodeOf(err)))
-}
-
 func nothingPlayable() {
 	ToastErrorf(i18n.T("Nothing here can be played"), i18n.T("None of these songs is available to stream."))
 }
@@ -141,7 +136,7 @@ func (c *QueueCommands) Replace(failTitle string, start func(ctx context.Context
 						title, text := o.failure(err)
 						ToastErrorf(title, text)
 					} else {
-						fail(failTitle, err)
+						ToastFailure(failTitle, err)
 					}
 					finish(false)
 					return
@@ -193,7 +188,7 @@ func (c *QueueCommands) offerUndo(added int) {
 		OnAction: func() {
 			go func() {
 				if _, err := c.d.Svc.UndoReplace(context.Background()); err != nil {
-					fail(i18n.T("Couldn't bring back your queue"), err)
+					ToastFailure(i18n.T("Couldn't bring back your queue"), err)
 				}
 			}()
 		},
@@ -307,7 +302,7 @@ func (c *QueueCommands) QueueItems(items []Item, where QueuePlace) {
 			err = c.d.Svc.Insert(ctx, where.slot, refs)
 		}
 		if err != nil {
-			fail(i18n.T("Couldn't add to the queue"), err)
+			ToastFailure(i18n.T("Couldn't add to the queue"), err)
 			return
 		}
 		what := DescribeItems(items)

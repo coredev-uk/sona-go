@@ -23,7 +23,7 @@ type collTrackApp struct {
 	played  []int
 	sorted  []string
 	artists []string
-	current string
+	current *services.QueueItem
 	target  func(c *ui.Context)
 	header  float32
 }
@@ -55,7 +55,6 @@ func newCollTrackApp(t *testing.T, n int, w, h int, setup ...func(*collTrackApp)
 		Columns:    TrackColumns{Artwork: true, Artist: true, Album: true},
 		OnPlay:     func(i int) { a.played = append(a.played, i) },
 		Sort:       &TrackSortState{Key: SortTitle, OnSort: func(k string) { a.sorted = append(a.sorted, k) }},
-		Current:    func(s *services.Song) bool { return SongIsCurrent(s, a.current, "") },
 		OpenArtist: func(id string) { a.artists = append(a.artists, id) },
 	}
 	for _, f := range setup {
@@ -67,6 +66,7 @@ func newCollTrackApp(t *testing.T, n int, w, h int, setup ...func(*collTrackApp)
 func (a *collTrackApp) view(c *ui.Context) {
 	theme.Apply(c)
 	a.opts.Art = a.art
+	a.opts.Current = a.current
 	ui.Row(c).Fill().Children(func() {
 		sc := ui.Scroll(c).TrackScroll(&a.pos).Grow(1).Basis(0).MinWidth(0).FillHeight().Padding(0, 44, 0, 32)
 		sc.Children(func() {
@@ -184,7 +184,7 @@ func TestTrackListKeysMoveTheFocusAndSelect(t *testing.T) {
 
 func TestTrackListCurrentSongTakesTheNumberAndDisabledRowsDoNothing(t *testing.T) {
 	a, tt := newCollTrackApp(t, 6, 1000, 500)
-	a.current = "s1"
+	a.current = &services.QueueItem{ID: "s1"}
 	a.songs[2].Playable = false
 	a.songs[3].Explicit = true
 	a.opts.Restricted = true
@@ -221,7 +221,7 @@ func TestTrackListCurrentRowSaysNowPlayingOrPaused(t *testing.T) {
 		not     string
 	}{{true, "Now playing", "Paused"}, {false, "Paused", "Now playing"}} {
 		a, tt := newCollTrackApp(t, 4, 1000, 400)
-		a.current = "s1"
+		a.current = &services.QueueItem{ID: "s1"}
 		a.opts.Playing = c.playing
 		tt.Frame()
 		if _, ok := tt.Find(c.want); !ok {

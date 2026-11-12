@@ -92,25 +92,18 @@ func TrackShelf(c *ui.Context, st *TrackShelfState, items []services.Item, ctx I
 // artist and the song's menu. play starts the queue from it.
 func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCtx, col, rowAt int) {
 	tk := theme.Current()
-	current := ctx.Current != nil && ctx.Current(song)
+	current := SongIsCurrent(&song, ctx.Current)
 	withheld := ctx.Restricted && song.Explicit
 	disabled := !song.Playable || withheld
 
 	row := ui.Row(c.Key(strconv.Itoa(i) + ":" + song.ID)).Height(trackRowH).MinWidth(0).Gap(12).PaddingX(8).
 		Radius(tk.Radius["md"]).Focusable().Role(ui.RoleListItem).Label(song.Name).ColumnStart(col + 1).RowStart(rowAt + 1)
-	hot := row.Hovered() || row.FocusWithin()
-	if hot {
-		row.Background(theme.C("hover"))
-	}
+	hot := HoverRow(row)
 	if disabled {
 		row.Opacity(0.5)
 	}
 	if withheld {
 		row.Tooltip(i18n.T("Explicit content is restricted on this account"))
-	}
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		row.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
 	}
 	// Only the row itself takes the keys: the cover's play button and the
 	// artist link are not tab stops.
@@ -141,13 +134,13 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 		})
 
 		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
-			label, sub := tk.Type["label"], tk.Type["sub"]
+			sub := tk.Type["sub"]
 			ink := theme.C("ink")
 			if current {
 				ink = theme.C("play-ink")
 			}
 			ui.Row(c.Key("name")).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
-				ui.Text(c, song.Name).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
+				theme.StyleText(ui.Text(c, song.Name), "label").
 					TextColor(ink).SingleLine().Shrink(1).MinWidth(0)
 				if song.Explicit {
 					ExplicitMark(c.Key("explicit"))

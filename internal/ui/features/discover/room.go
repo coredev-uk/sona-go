@@ -228,7 +228,7 @@ func (d *discover) itemList(c *ui.Context, st *listState, pane *kit.Pane, pages 
 		OnPlay:  func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: o.title}) },
 		OnRange: songRange,
 		Pane:    pane, Menus: o.menus, Art: ctx.Art, Motion: ctx.Motion,
-		Current: currentSong(ctx), Playing: ctx.Playing, Restricted: ctx.Restricted,
+		Current: ctx.Current, Playing: ctx.Playing, Restricted: ctx.Restricted,
 		OpenArtist: to("/artist/"), OpenAlbum: to("/album/"),
 	})
 }
@@ -244,19 +244,10 @@ func seeAllLink(c *ui.Context, key string, open func()) {
 	}
 	b.Background(bg).TextColor(fg)
 	b.Children(func() {
-		text(c, i18n.T("See all"), "sub").SingleLine()
+		theme.Text(c, i18n.T("See all"), "sub").SingleLine()
 		theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: fg, Inherit: true})
 	})
 	if b.Clicked() {
 		open()
 	}
-}
-
-// currentSong is the track lists' "is this the song playing" from the
-// context's.
-func currentSong(ctx kit.ItemsCtx) func(*services.Song) bool {
-	if ctx.Current == nil {
-		return nil
-	}
-	return func(s *services.Song) bool { return s != nil && ctx.Current(*s) }
 }

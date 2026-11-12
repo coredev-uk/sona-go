@@ -185,14 +185,14 @@ func (s *settings) diagHeader(c *ui.Context, q store.Result[services.Diagnostics
 			ui.Column(c.Key("text")).Shrink(1).MinWidth(0).Role(ui.RoleStatus).Children(func() {
 				switch {
 				case q.Fetching:
-					text(c, i18n.T("Checking the playback host, database and keyring…"), "heading").TextColor(theme.C("ink"))
+					theme.Text(c, i18n.T("Checking the playback host, database and keyring…"), "heading").TextColor(theme.C("ink"))
 				case q.HasData && problems > 0:
-					text(c, i18n.T("{problems, plural, one {# problem found} other {# problems found}}", "problems", problems), "heading").TextColor(theme.C("ink"))
+					theme.Text(c, i18n.T("{problems, plural, one {# problem found} other {# problems found}}", "problems", problems), "heading").TextColor(theme.C("ink"))
 				case q.HasData:
-					text(c, i18n.T("Everything Sona needs is working"), "heading").TextColor(theme.C("ink"))
+					theme.Text(c, i18n.T("Everything Sona needs is working"), "heading").TextColor(theme.C("ink"))
 				}
 				if q.HasData && !q.Fetching && warnings > 0 {
-					text(c, i18n.T("{warnings, plural, one {# warning to look at below} other {# warnings to look at below}}", "warnings", warnings), "secondary").TextColor(theme.C("ink-muted"))
+					theme.Text(c, i18n.T("{warnings, plural, one {# warning to look at below} other {# warnings to look at below}}", "warnings", warnings), "secondary").TextColor(theme.C("ink-muted"))
 				}
 			})
 		})
@@ -265,23 +265,23 @@ func (s *settings) diagGroup(c *ui.Context, g diagGroup) {
 	}
 	ui.Column(c).FillWidth().Role(ui.RoleGroup).Label(g.title).Children(func() {
 		s.marginal(c, 10, func() {
-			text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
+			theme.Text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
 		}, func() {
 			for i, r := range g.rows {
 				k := c.Key("row" + strconv.Itoa(i))
 				ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 				ui.Row(k).FillWidth().Gap(24).Padding(10, 0).AlignItems(ui.Start).Children(func() {
-					text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(labelWidth).Shrink(0)
+					theme.Text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(labelWidth).Shrink(0)
 					ui.Column(k.Key("v")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 						ui.Row(k.Key("val")).Gap(8).AlignItems(ui.Start).Children(func() {
 							statusIcon(k.Key("s"), r.status)
-							t := text(k, r.value, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+							t := theme.Text(k, r.value, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
 							if r.status == statusError {
 								t.FontWeight(500)
 							}
 						})
 						if r.detail != "" {
-							text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576)
+							theme.Text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576)
 						}
 					})
 				})

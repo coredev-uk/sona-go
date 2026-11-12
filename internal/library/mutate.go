@@ -61,11 +61,7 @@ func (l *Library) SetFavorite(ctx context.Context, it Rated, on bool) error {
 	if err != nil {
 		return err
 	}
-	value := 0
-	if on {
-		value = applemusic.RatingFavorite
-	}
-	return l.MirrorRating(ctx, it, value)
+	return l.MirrorRating(ctx, it, ratingValue(on, applemusic.RatingFavorite))
 }
 
 // SetSuggestLess sets (on) or clears an item's Suggest Less rating on Apple
@@ -88,11 +84,15 @@ func (l *Library) SetSuggestLess(ctx context.Context, it Rated, on bool) error {
 	if err != nil {
 		return err
 	}
-	value := 0
+	return l.MirrorRating(ctx, it, ratingValue(on, applemusic.RatingSuggestLess))
+}
+
+// ratingValue is the rating v when on, else 0 (no rating).
+func ratingValue(on bool, v int) int {
 	if on {
-		value = applemusic.RatingSuggestLess
+		return v
 	}
-	return l.MirrorRating(ctx, it, value)
+	return 0
 }
 
 // MirrorRating stores value (0 clears) as the local rating of every ID of

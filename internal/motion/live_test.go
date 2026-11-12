@@ -2,10 +2,8 @@ package motion
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -39,12 +37,11 @@ func TestLiveRendition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	u := strings.Replace(c.URL(master), "/720.mp4", "/480.mp4", 1)
-	w := get(c, u, nil)
-	if w.Code != http.StatusOK {
-		t.Fatalf("GET %s: %d %s", u, w.Code, w.Body.String())
+	b, err := fetch(c, c.URL(master), 480, "")
+	if err != nil {
+		t.Fatal(err)
 	}
-	f := readFlat(t, w.Body.Bytes())
+	f := readFlat(t, b)
 	if !slices.Equal(f.top, []string{"ftyp", "moov", "mdat"}) || f.mvex {
 		t.Fatalf("boxes %v (mvex %v), want ftyp moov mdat", f.top, f.mvex)
 	}

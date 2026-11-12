@@ -26,7 +26,7 @@ const timelineMax = 18
 // timelineYear is one year of the career line.
 type timelineYear struct {
 	// label is the year, "" for releases with no date.
-	label string
+	label  string
 	albums []*services.Album
 	// lines are the kind (and the badge of an upcoming one) under each title.
 	lines []string
@@ -146,7 +146,7 @@ func (a *artist) timeline(c *ui.Context, pg *pageState, shelves []services.Artis
 			if label == "" {
 				label = i18n.T("Undated")
 			}
-			ui.Row(c.Key("year:"+y.label)).FillWidth().AlignItems(ui.Stretch).Role(ui.RoleGroup).Label(label).Children(func() {
+			ui.Row(c.Key("year:" + y.label)).FillWidth().AlignItems(ui.Stretch).Role(ui.RoleGroup).Label(label).Children(func() {
 				ui.Column(c.Key("gutter")).Width(yearW).Shrink(0).Children(func() {
 					ui.Text(c, label).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).
 						FontFeatures("tnum").TextColor(theme.C("ink-faint")).SingleLine().Margin(15, 0, 0, 0)

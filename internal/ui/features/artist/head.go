@@ -124,8 +124,7 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 	e := kit.Backdrop(c.Key("head"), a.env.Art, kit.BackdropOpts{Src: p.header.Backdrop, Color: colour, Tone: kit.ToneGround}, func() {
 		ui.Row(c.Key("row")).FillWidth().AlignItems(ui.Start).Gap(32).Children(func() {
 			ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				d := tk.Type["display"]
-				ui.Text(c, art.Name).FontSize(d.Size).FixedLineHeight(d.LineHeight).FontWeight(int(d.Weight)).LetterSpacing(d.Tracking).
+				theme.StyleText(ui.Text(c, art.Name), "display").
 					TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(1)
 				ui.Text(c, p.line).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).
 					TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)

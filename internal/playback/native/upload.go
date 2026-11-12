@@ -14,7 +14,6 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/diag"
-	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/gst"
 	"github.com/coredev-uk/sona-go/internal/playback/soundcheck"
 )
@@ -133,17 +132,10 @@ const soundCheckHead = 1 << 20
 // download fetches u, resuming with a Range request after transient
 // failures.
 func (e *Engine) download(ctx context.Context, u *upload) {
-	var err error
-	for attempt := 0; ; attempt++ {
-		if err = e.downloadOnce(ctx, u); err == nil || attempt >= len(e.retry) || !retryable(err) || ctx.Err() != nil {
-			break
-		}
-		e.log.Debug("retrying file download", "err", err, "in", e.retry[attempt])
-		select {
-		case <-time.After(e.retry[attempt]):
-		case <-ctx.Done():
-		}
-	}
+	err := e.retrying(ctx, func() error { return e.downloadOnce(ctx, u) }, func(err error, delay time.Duration) time.Duration {
+		e.log.Debug("retrying file download", "err", err, "in", delay)
+		return delay
+	})
 	u.mu.Lock()
 	if err != nil {
 		u.err = err
@@ -246,31 +238,36 @@ func (e *Engine) load(ctx context.Context, h host, tok uint64, m *media, pos tim
 	return e.loadVideo(ctx, h, tok, m, pos)
 }
 
+// feedChunks feeds b to the host as fileChunk-sized pieces from file
+// offset off, and returns the offset reached (short of the end on error).
+func feedChunks(ctx context.Context, h host, tok uint64, off int64, b []byte) (int64, error) {
+	for len(b) > 0 {
+		n := min(len(b), fileChunk)
+		if err := h.FeedFile(ctx, tok, off, b[:n]); err != nil {
+			return off, err
+		}
+		off += int64(n)
+		b = b[n:]
+	}
+	return off, nil
+}
+
 // feedFile streams the file m to the host as it downloads, for the file
 // loaded as track tok. Seeks keep it running.
 func (e *Engine) feedFile(ctx context.Context, it *item, tok uint64, h host, m *media) {
-	failed := func(err error) {
-		if ctx.Err() == nil && !errors.Is(err, cdmhost.ErrStale) && !errors.Is(err, cdmhost.ErrExited) {
-			_ = e.fail(it, err)
-		}
-	}
-	for off := 0; ; {
-		data, done, err := m.file.wait(ctx, off)
+	for off := int64(0); ; {
+		data, done, err := m.file.wait(ctx, int(off))
 		if err != nil {
-			failed(fmt.Errorf("native: file %s: %w", m.id, err))
+			e.feedFailed(ctx, it, fmt.Errorf("native: file %s: %w", m.id, err))
 			return
 		}
-		for off < len(data) {
-			end := min(off+fileChunk, len(data))
-			if err := h.FeedFile(ctx, tok, int64(off), data[off:end]); err != nil {
-				failed(err)
-				return
-			}
-			off = end
+		if off, err = feedChunks(ctx, h, tok, off, data[off:]); err != nil {
+			e.feedFailed(ctx, it, err)
+			return
 		}
 		if done {
 			if err := h.EndOfFile(ctx, tok); err != nil {
-				failed(err)
+				e.feedFailed(ctx, it, err)
 			}
 			return
 		}

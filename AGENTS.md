@@ -49,6 +49,7 @@
 - Never extract keys or use reimplemented CDMs (`openwv`, extracted device keys).
 - Do not try to make Widevine work inside the UI process: the CDM lives only in the host child.
 - Go's MPRIS (`org.mpris.MediaPlayer2.sona`) is the only Sona player on D-Bus.
+- A file Sona replaces in place (settings, credentials fallback, caches, queues, pointers) is written with `fsutil.WriteFileAtomic` (synced temp file, rename, directory sync), never by hand-rolled temp-and-rename code.
 - OS-specific code goes behind the platform seams (`platform_<os>.go`, `services.Platform`, build-tag conventions: CONTRIBUTING.md "Platforms"). Where a platform lacks a feature it reports it (`errors.ErrUnsupported`, `PlatformService.Capabilities`) and the UI hides or explains the control; never a stub that pretends to work.
 
 ## Linux Performance Rules

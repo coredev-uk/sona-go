@@ -2,5 +2,7 @@
 
 package procmem
 
-// Of is not available here.
-func Of(int) (Usage, error) { return Usage{}, ErrUnsupported }
+import "errors"
+
+// Of is not available here: it fails with errors.ErrUnsupported.
+func Of(int) (Usage, error) { return Usage{}, errors.ErrUnsupported }

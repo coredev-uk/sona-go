@@ -69,7 +69,7 @@ func ledgerStrip(c *ui.Context, cells []ledgerCell) {
 	ui.Row(c.Key("ledger")).Grow(1).MinWidth(0).Wrap().AlignItems(ui.Center).Gap(12).Children(func() {
 		for i, cell := range cells {
 			if i > 0 {
-				ui.Box(c.Key("rule-"+strconv.Itoa(i))).Width(1).Height(14).Shrink(0).Background(theme.C("control-line")).Role(ui.RoleNone)
+				ui.Box(c.Key("rule-" + strconv.Itoa(i))).Width(1).Height(14).Shrink(0).Background(theme.C("control-line")).Role(ui.RoleNone)
 			}
 			col := theme.C("ink-muted")
 			if cell.lead {
@@ -176,7 +176,7 @@ func (p *playlists) pageSkeleton(c *ui.Context) {
 			}
 		})
 		for i := range 8 {
-			ui.Row(c.Key("skel-"+strconv.Itoa(i))).FillWidth().Height(kit.TrackRowHeight).PaddingX(8).Gap(16).AlignItems(ui.Center).Children(func() {
+			ui.Row(c.Key("skel-" + strconv.Itoa(i))).FillWidth().Height(kit.TrackRowHeight).PaddingX(8).Gap(16).AlignItems(ui.Center).Children(func() {
 				bar(20, 12)
 				ui.Box(c).Height(14).WidthPercent(float32(30 + (i*17)%30)).Radius(r).Background(hover)
 			})
@@ -188,7 +188,7 @@ func (p *playlists) pageSkeleton(c *ui.Context) {
 // with the page's left edge.
 func emptyBlock(c *ui.Context, title, text string) {
 	ui.Column(c.Key("empty")).FillWidth().Gap(4).Padding(12, 0, 8, 0).Children(func() {
-		dialogText(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-		dialogText(c, text, "body").TextColor(theme.C("ink-muted")).MaxWidth(480)
+		theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, text, "body").TextColor(theme.C("ink-muted")).MaxWidth(480)
 	})
 }

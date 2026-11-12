@@ -337,9 +337,7 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong, first bool)
 	var full store.Result[services.Lyrics]
 	if pg.full {
 		// The query keeps a failure until Try again (NoRetry).
-		full = store.UseLyricsFrom(s.env.Queries, id, func(ctx context.Context) (services.Lyrics, error) {
-			return s.lyrics.Lyrics(ctx, id)
-		})
+		full = store.UseLyrics(s.env.Queries, s.lyrics, id)
 		pg.failed = full.Err != nil && !full.HasData
 		pg.retrying = pg.retrying && full.Fetching
 	}

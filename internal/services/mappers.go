@@ -27,8 +27,8 @@ const colorsTimeout = 1500 * time.Millisecond
 // (bare template → square Art), centreSquare (Apple artwork → Art of its
 // centre square), header (template → backdrop + colours),
 // motionOf (editorialVideo → motion cover URL),
-// libSong/libSongs/libAlbum/libAlbums/libArtist/libPlaylist (library rows),
-// amSong/amSongs/amAlbum/amAlbums/amArtist/amArtists/amPlaylist/amPlaylists
+// libSong/libAlbum/libArtist/libPlaylist (library rows),
+// amSong/amAlbum/amArtist/amPlaylist/amMusicVideo/amStation
 // (Apple resources, catalog or library-typed). now (Deps.Now; time.Now
 // when nil) decides what is still unreleased (release.go).
 type mapper struct {
@@ -81,11 +81,16 @@ func (m mapper) sized(template string, w, h int) Art {
 	if template == "" || m.art == nil {
 		return Art{}
 	}
-	at := func(long int) string {
-		l := max(w, h)
-		return m.art.URL(template, (w*long+l/2)/l, (h*long+l/2)/l)
+	u := m.art.URLs(template, w, h, [3]int{artSmall, artMedium, artLarge})
+	return Art{Small: u[0], Medium: u[1], Large: u[2]}
+}
+
+// smallOf is artOf(template).Small without building the other two URLs.
+func (m mapper) smallOf(template string) string {
+	if template == "" || m.art == nil {
+		return ""
 	}
-	return Art{Small: at(artSmall), Medium: at(artMedium), Large: at(artLarge)}
+	return m.art.URL(template, artSmall, artSmall)
 }
 
 // header computes a detail page's backdrop and colours.
@@ -128,11 +133,14 @@ func parseMs(s string) int64 {
 	return 0
 }
 
-func firstOf(s []string) string {
-	if len(s) == 0 {
-		return ""
+// mapSlice maps in through f. The result is never nil, so it encodes as an
+// empty list.
+func mapSlice[T, U any](in []T, f func(T) U) []U {
+	out := make([]U, len(in))
+	for i, v := range in {
+		out[i] = f(v)
 	}
-	return s[0]
+	return out
 }
 
 // Library models.
@@ -155,31 +163,24 @@ func (m mapper) libSong(s library.Song) Song {
 		Genre:       s.Genre,
 		Explicit:    s.Explicit,
 		HasLyrics:   s.HasLyrics,
-		// Uploads play from their library ID; songs not out yet don't. Apple
-		// dates only the songs of a pre-added album already out, and gives
-		// the rest no playParams: such a song goes by its album.
-		Playable: (s.CatalogID != "" || s.LibraryID != "") && !upcoming(s.ReleaseDate, false, m.clock()) &&
-			!m.libSongWaitsForItsAlbum(s),
-		Art: m.artOf(s.ArtworkTemplate),
+		// Uploads play from their library ID; songs not out yet don't.
+		Playable: (s.CatalogID != "" || s.LibraryID != "") && !songUnreleased(s, m.clock()),
+		Art:      m.artOf(s.ArtworkTemplate),
 	}
 }
 
-// libSongWaitsForItsAlbum reports whether s, a song with no playParams or
-// no date of its own, belongs to a library album that is not out yet.
-func (m mapper) libSongWaitsForItsAlbum(s library.Song) bool {
-	if !s.NoPlayParams && s.ReleaseDate != "" {
-		return false
+// playSong maps a play recorded on this computer: a catalog song, or the
+// library song it was when it is in the library.
+func (m mapper) playSong(p *library.Play) Song {
+	song := Song{
+		ID: p.CatalogID, Source: SourceCatalog, CatalogID: p.CatalogID, LibraryID: p.LibraryID,
+		Name: p.Name, Artist: p.Artist, Album: p.Album, DurationMs: p.Duration.Milliseconds(),
+		Playable: p.CatalogID != "" || p.LibraryID != "", Art: m.artOf(p.ArtworkTemplate),
 	}
-	_, up := libraryRelease(s.Album.Date, s.Album.CatalogDate, s.Album.Prerelease, m.clock())
-	return up
-}
-
-func (m mapper) libSongs(in []library.Song) []Song {
-	out := make([]Song, len(in))
-	for i, s := range in {
-		out[i] = m.libSong(s)
+	if p.LibraryID != "" {
+		song.ID, song.Source = p.LibraryID, SourceLibrary
 	}
-	return out
+	return song
 }
 
 func (m mapper) libAlbum(a library.Album) Album {
@@ -202,14 +203,6 @@ func (m mapper) libAlbum(a library.Album) Album {
 	var up bool
 	out.ReleaseDate, up = libraryRelease(a.ReleaseDate, a.CatalogReleaseDate, a.Prerelease, m.clock())
 	out.ReleaseAt, out.Prerelease = releaseAt(out.ReleaseDate), up
-	return out
-}
-
-func (m mapper) libAlbums(in []library.Album) []Album {
-	out := make([]Album, len(in))
-	for i, a := range in {
-		out[i] = m.libAlbum(a)
-	}
 	return out
 }
 
@@ -278,7 +271,7 @@ func (m mapper) amSong(s applemusic.Song) Song {
 		TrackNumber: a.TrackNumber,
 		DiscNumber:  a.DiscNumber,
 		ReleaseDate: a.ReleaseDate,
-		Genre:       firstOf(a.GenreNames),
+		Genre:       cmp.Or(a.GenreNames...),
 		Explicit:    a.ContentRating == "explicit",
 		HasLyrics:   a.HasLyrics,
 		Composer:    a.ComposerName,
@@ -300,14 +293,6 @@ func (m mapper) amSong(s applemusic.Song) Song {
 	return out
 }
 
-func (m mapper) amSongs(in []applemusic.Song) []Song {
-	out := make([]Song, 0, len(in))
-	for _, s := range in {
-		out = append(out, m.amSong(s))
-	}
-	return out
-}
-
 func (m mapper) amAlbum(a applemusic.Album) Album {
 	at := a.Attributes
 	out := Album{
@@ -317,7 +302,7 @@ func (m mapper) amAlbum(a applemusic.Album) Album {
 		Name:        at.Name,
 		Artist:      at.ArtistName,
 		ReleaseDate: at.ReleaseDate,
-		Genre:       firstOf(at.GenreNames),
+		Genre:       cmp.Or(at.GenreNames...),
 		TrackCount:  at.TrackCount,
 		Explicit:    at.ContentRating == "explicit",
 		Single:      at.IsSingle,
@@ -336,21 +321,13 @@ func (m mapper) amAlbum(a applemusic.Album) Album {
 	return out
 }
 
-func (m mapper) amAlbums(in []applemusic.Album) []Album {
-	out := make([]Album, 0, len(in))
-	for _, a := range in {
-		out = append(out, m.amAlbum(a))
-	}
-	return out
-}
-
 func (m mapper) amArtist(a applemusic.Artist) Artist {
 	out := Artist{
 		ID:        a.ID,
 		Source:    SourceCatalog,
 		CatalogID: a.CatalogID(),
 		Name:      a.Attributes.Name,
-		Genre:     firstOf(a.Attributes.GenreNames),
+		Genre:     cmp.Or(a.Attributes.GenreNames...),
 		Art:       m.artwork(a.Attributes.Artwork),
 		Motion:    m.motionOf(a.Attributes.EditorialVideo),
 	}
@@ -399,22 +376,6 @@ func totalMs(songs []Song) int64 {
 	return t
 }
 
-func (m mapper) amArtists(in []applemusic.Artist) []Artist {
-	out := make([]Artist, 0, len(in))
-	for _, a := range in {
-		out = append(out, m.amArtist(a))
-	}
-	return out
-}
-
-func (m mapper) amPlaylists(in []applemusic.Playlist) []Playlist {
-	out := make([]Playlist, 0, len(in))
-	for _, p := range in {
-		out = append(out, m.amPlaylist(p))
-	}
-	return out
-}
-
 func (m mapper) amMusicVideo(v applemusic.MusicVideo) MusicVideo {
 	a := v.Attributes
 	out := MusicVideo{
@@ -426,7 +387,7 @@ func (m mapper) amMusicVideo(v applemusic.MusicVideo) MusicVideo {
 		Album:       a.AlbumName,
 		DurationMs:  a.DurationInMillis,
 		ReleaseDate: a.ReleaseDate,
-		Genre:       firstOf(a.GenreNames),
+		Genre:       cmp.Or(a.GenreNames...),
 		Explicit:    a.ContentRating == "explicit",
 		Has4K:       a.Has4K,
 		HasHDR:      a.HasHDR,
@@ -438,14 +399,6 @@ func (m mapper) amMusicVideo(v applemusic.MusicVideo) MusicVideo {
 	}
 	if d := v.Relationships.Artists.Data; len(d) > 0 && !isLibraryType(d[0].Type) {
 		out.ArtistID = d[0].ID
-	}
-	return out
-}
-
-func (m mapper) amMusicVideos(in []applemusic.MusicVideo) []MusicVideo {
-	out := make([]MusicVideo, 0, len(in))
-	for _, v := range in {
-		out = append(out, m.amMusicVideo(v))
 	}
 	return out
 }
@@ -480,13 +433,5 @@ func (m mapper) amStation(s applemusic.Station) Station {
 	}
 	out.Playable, out.Unavailable = stationPlayability(s)
 	out.HasPage = stationHasPage(out.Kind, -1)
-	return out
-}
-
-func (m mapper) amStations(in []applemusic.Station) []Station {
-	out := make([]Station, 0, len(in))
-	for _, s := range in {
-		out = append(out, m.amStation(s))
-	}
 	return out
 }

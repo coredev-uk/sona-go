@@ -136,7 +136,7 @@ func (pg *radioPage) rail(c *ui.Context, o railOpts, content func()) {
 			o.head()
 			return
 		}
-		text(c, o.title, o.style).TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, o.title, o.style).TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(2)
 		if o.more == nil {
 			return
 		}
@@ -148,7 +148,7 @@ func (pg *radioPage) rail(c *ui.Context, o railOpts, content func()) {
 			see.Background(theme.C("hover"))
 		}
 		see.Children(func() {
-			text(c, i18n.T("See all"), "sub").TextColor(ink).SingleLine()
+			theme.Text(c, i18n.T("See all"), "sub").TextColor(ink).SingleLine()
 			theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: ink, Inherit: true})
 		})
 		if see.Clicked() {

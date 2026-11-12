@@ -170,7 +170,7 @@ func (l *library) letterRail(c *ui.Context, j letterJumps, ready bool, jump func
 		for slot := range railSlots {
 			letter := string(railSlotRuns[slot])
 			if !ready || j[slot] < 0 {
-				styled(c.Key(slot), letter, "meta").FontWeight(600).TextColor(theme.C("control-line")).
+				theme.Text(c.Key(slot), letter, "meta").FontWeight(600).TextColor(theme.C("control-line")).
 					Height(railLetterH).Role(ui.RoleNone)
 				continue
 			}
@@ -186,7 +186,7 @@ func (l *library) letterRail(c *ui.Context, j letterJumps, ready bool, jump func
 				fg = theme.C("ink")
 			}
 			b.Children(func() {
-				styled(c, letter, "meta").FontWeight(600).TextColor(fg).Role(ui.RoleNone)
+				theme.Text(c, letter, "meta").FontWeight(600).TextColor(fg).Role(ui.RoleNone)
 			})
 			if b.Clicked() {
 				jump(slot)

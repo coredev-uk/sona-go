@@ -97,9 +97,6 @@ func DialBus() (*BusClient, error) {
 	return &BusClient{conn: conn, own: true}, nil
 }
 
-// NewBusClient sends commands over conn, which stays the caller's.
-func NewBusClient(conn *dbus.Conn) *BusClient { return &BusClient{conn: conn} }
-
 // Close closes the connection DialBus opened.
 func (c *BusClient) Close() error {
 	if c.own {
@@ -203,3 +200,19 @@ func (c *BusClient) Follow(ctx context.Context, each func(cli.Status) error) err
 		}
 	}
 }
+
+// Primary is the single-instance guard a running Sona holds: Instance
+// (D-Bus, Linux) and SocketInstance (local socket, macOS and Windows).
+type Primary interface {
+	// Activations delivers launches forwarded by later instances.
+	Activations() <-chan Activation
+	// HandleCommands runs the commands later instances send.
+	HandleCommands(cli.Server)
+	// Close releases the guard.
+	Close() error
+}
+
+var (
+	_ Primary = (*Instance)(nil)
+	_ Primary = (*SocketInstance)(nil)
+)

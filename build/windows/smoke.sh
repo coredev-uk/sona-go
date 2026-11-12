@@ -23,9 +23,11 @@
 # SONA_PRIVATE=1.
 set -euo pipefail
 export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*" # Git Bash must not rewrite /S and /D=
+smoke_name="smoke(windows)"
+# shellcheck source=../lib/smoke.sh
+. "$(dirname "$0")/../lib/smoke.sh"
 out=$(cd "${1:?usage: smoke.sh OUTDIR}" && pwd)
-version=${VERSION:-$(cat "$(dirname "$0")/../../VERSION")}
-fail() { echo "smoke(windows): FAIL: $*" >&2; exit 1; }
+version=$(version)
 
 # The package stands alone: no GStreamer on PATH (a CI runner has the one
 # the build linked), none of its variables, and the shim only where the
@@ -93,8 +95,7 @@ exe=$dir/sona.exe
 check_layout "$dir" "the zip"
 zipfiles=$(cd "$dir" && find . -type f | sort) # before anything runs from it
 echo "smoke(windows): the zip has $(find "$dir" -type f | wc -l) files, $(du -sm "$dir" | cut -f1) MB; plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
-got=$("$exe" --version) || fail "sona.exe --version failed"
-[[ $got == "sona $version" ]] || fail "sona.exe --version printed '$got', want 'sona $version'"
+check_version "$version" "$exe"
 
 # Starts, paints, and the CDM host child (this executable again) readies the
 # audio stack: it loads the bundled GStreamer and scans the bundled plugins,
@@ -105,29 +106,16 @@ log=$profile/Local/Sona/State/sona.log
 # parent logs where.
 "$exe" >"$work/sona.out" 2>&1 &
 pid=$!
-for _ in $(seq 1 60); do
-  grep -q '"startup: first paint"' "$log" 2>/dev/null && break
-  kill -0 "$pid" 2>/dev/null || break
-  sleep 1
-done
-painted=0
-grep -q '"startup: first paint"' "$log" 2>/dev/null && painted=1
-if [[ $painted != 1 ]]; then
-  kill "$pid" 2>/dev/null || true
+if ! wait_for_log "$log" '"startup: first paint"' 60 "$pid"; then
+  stop_app "$pid"
   cat "$work/sona.out" "$log" 2>/dev/null || true
   fail "sona.exe never painted"
 fi
 echo "smoke(windows): the zip's sona.exe reached first paint"
-ready=0
-for _ in $(seq 1 120); do
-  grep -q 'playback: audio stack ready' "$log" 2>/dev/null && { ready=1; break; }
-  grep -q 'playback: audio stack not prepared' "$log" 2>/dev/null && break
-  kill -0 "$pid" 2>/dev/null || break
-  sleep 1
-done
-kill "$pid" 2>/dev/null || true
-wait "$pid" 2>/dev/null || true
-if [[ $ready != 1 ]]; then
+# The wait ends at once when the host says it could not prepare the stack.
+wait_for_log "$log" 'playback: audio stack (ready|not prepared)' 120 "$pid" || true
+stop_app "$pid"
+if ! grep -q 'playback: audio stack ready' "$log" 2>/dev/null; then
   cat "$work/sona.out" "$log" 2>/dev/null || true
   fail "the audio stack was not readied from the bundled GStreamer"
 fi
@@ -190,7 +178,7 @@ check_layout "$dest" "the installation"
 if [[ $(cd "$dest" && find . -type f ! -name uninstall.exe | sort) != "$zipfiles" ]]; then
   fail "the installation and the zip hold different files"
 fi
-[[ $("$dest/sona.exe" --version) == "sona $version" ]] || fail "installed sona.exe prints the wrong version"
+check_version "$version" "$dest/sona.exe"
 for scheme in music itms; do
   reg query "HKCU\\Software\\Classes\\$scheme\\shell\\open\\command" >/dev/null || fail "no $scheme: URL handler"
 done

@@ -83,7 +83,7 @@ func (r *radio) ruler(c *ui.Context, g guide, title string) {
 	ink := theme.C("ink")
 	ui.Row(c.Key("ruler")).FillWidth().Height(rulerH).Gap(whoGap).Children(func() {
 		ui.Row(c.Key("title")).Width(whoW).Shrink(0).Padding(0, 0, 4, boardBleed).AlignItems(ui.End).Children(func() {
-			text(c, title, "page").TextColor(ink).SingleLine().Role(ui.RoleHeading).Level(2)
+			theme.Text(c, title, "page").TextColor(ink).SingleLine().Role(ui.RoleHeading).Level(2)
 		})
 		scale := ui.Box(c.Key("scale")).Grow(1).MinWidth(0).Height(rulerH)
 		if g.trackW <= 0 {
@@ -112,10 +112,10 @@ func (r *radio) ruler(c *ui.Context, g guide, title string) {
 				if t.hour {
 					col = muted
 				}
-				text(c.Key(t.ms), clockAt(t.ms), "meta").TextColor(col).FontFeatures("tnum").SingleLine().
+				theme.Text(c.Key(t.ms), clockAt(t.ms), "meta").TextColor(col).FontFeatures("tnum").SingleLine().
 					Absolute().Left(x - 40).Width(80).Top(flagH + 4).TextAlign(ui.Center)
 			}
-			text(c.Key("flag"), clockAt(g.now), "meta").FontWeight(600).FontFeatures("tnum").SingleLine().
+			theme.Text(c.Key("flag"), clockAt(g.now), "meta").FontWeight(600).FontFeatures("tnum").SingleLine().
 				TextColor(theme.C("ground")).Background(ink).Radius(theme.Current().Radius["sm"]).Padding(1, 6).
 				Absolute().Left(g.nowX - 1).Top(0)
 		})
@@ -130,7 +130,7 @@ func (r *radio) ruler(c *ui.Context, g guide, title string) {
 // stop of its own.
 func (r *radio) lane(c *ui.Context, s services.Station, detail *services.StationDetail, g guide, ctx kit.ItemsCtx, menus *kit.ActionMenus) {
 	tk := theme.Current()
-	tuned := ctx.CurrentStation != nil && ctx.CurrentStation(s)
+	tuned := ctx.Current != nil && ctx.Current.ID == s.ID
 	playing := tuned && ctx.Playing
 	// A live station with no schedule has nothing to open: it plays. The
 	// station's own page decides (its schedule), over the list's guess.
@@ -170,13 +170,13 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 		if hot && whole {
 			row.Background(theme.C("hover"))
 		}
-		feedback(row)
+		theme.Fade(row, "feedback")
 
 		who := ui.Row(c.Key("who")).Width(whoW).Shrink(0).Padding(8, 8, 8, boardBleed).Gap(12).AlignItems(ui.Center).Radius(tk.Radius["md"])
 		if hot && !whole {
 			who.Background(theme.C("hover"))
 		}
-		feedback(who)
+		theme.Fade(who, "feedback")
 		who.Children(func() {
 			kit.Artwork(c.Key("art"), r.env.Art, s.Art.Medium, rowArt, kit.ArtOpts{Edge: true}).IgnoreInput(true)
 			nameInk := theme.C("ink")
@@ -184,7 +184,7 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 				nameInk = theme.C("play-ink")
 			}
 			ui.Column(c.Key("name")).Grow(1).MinWidth(0).IgnoreInput(true).Children(func() {
-				text(c, s.Name, "label").TextColor(nameInk).MaxLines(2).TextAlign(ui.Start)
+				theme.Text(c, s.Name, "label").TextColor(nameInk).MaxLines(2).TextAlign(ui.Start)
 			})
 			// The spacer keeps the name clear of the control.
 			ui.Box(c.Key("control-room")).Width(rowControl).Height(rowControl).Shrink(0)
@@ -280,14 +280,6 @@ func hourLines(g guide) func(*ui.Painter, ui.Rect) {
 	}
 }
 
-// feedback eases an element's colours at the feedback motion's pace.
-func feedback(e ui.Element) {
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
-}
-
 // cell draws one box of a lane at its place on the track. link, when not nil,
 // makes it a link (named for its programme and slot) that is not a Tab stop:
 // the station column's link is the one keyboard users reach.
@@ -320,13 +312,13 @@ func (r *radio) cell(c *ui.Context, cl cell, link func()) {
 		}
 		titleStyle, titleInk = "sub", theme.C("ink-muted")
 	}
-	feedback(el)
+	theme.Fade(el, "feedback")
 	muted := theme.C("ink-muted")
 	el.Children(func() {
 		if cl.from != "" {
 			ui.Row(c.Key("from")).Absolute().Left(8).Top(0).Bottom(0).Gap(2).AlignItems(ui.Center).TextColor(muted).IgnoreInput(true).Children(func() {
 				theme.Glyph(c, "chevron-left", 12, theme.GlyphOpts{Color: muted, Inherit: true})
-				text(c, cl.from, "meta").FontFeatures("tnum").SingleLine()
+				theme.Text(c, cl.from, "meta").FontFeatures("tnum").SingleLine()
 			})
 		}
 		if cl.text.w >= 72 && (cl.title != "" || cl.off) {
@@ -336,23 +328,23 @@ func (r *radio) cell(c *ui.Context, cl cell, link func()) {
 				case cl.off:
 					ui.Row(c.Key("off")).Gap(6).AlignItems(ui.Center).MinWidth(0).TextColor(muted).Children(func() {
 						ui.Icon(c, theme.Icon("circle-slash")).FontSize(14).Shrink(0)
-						text(c, cl.title, "meta").MaxLines(2).Shrink(1).MinWidth(0)
+						theme.Text(c, cl.title, "meta").MaxLines(2).Shrink(1).MinWidth(0)
 					})
 				default:
-					title := text(c, cl.title, titleStyle).TextColor(titleInk).SingleLine()
+					title := theme.Text(c, cl.title, titleStyle).TextColor(titleInk).SingleLine()
 					if weight > 0 {
 						title.FontWeight(weight)
 					}
 					if cl.sub != "" || cl.left != "" {
 						ui.Row(c.Key("sub")).Gap(4).MinWidth(0).TextColor(muted).Children(func() {
 							if cl.left != "" {
-								text(c, cl.left, "meta").FontFeatures("tnum").SingleLine().Shrink(0)
+								theme.Text(c, cl.left, "meta").FontFeatures("tnum").SingleLine().Shrink(0)
 								if cl.sub != "" {
-									text(c, "·", "meta").Role(ui.RoleNone).Shrink(0)
+									theme.Text(c, "·", "meta").Role(ui.RoleNone).Shrink(0)
 								}
 							}
 							if cl.sub != "" {
-								text(c, cl.sub, "meta").FontFeatures("tnum").SingleLine().Shrink(1).MinWidth(0)
+								theme.Text(c, cl.sub, "meta").FontFeatures("tnum").SingleLine().Shrink(1).MinWidth(0)
 							}
 						})
 					}

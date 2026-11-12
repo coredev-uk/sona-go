@@ -153,7 +153,9 @@ func TestLayoutPutsTheSlipBesideFrom1040TheLeadBesideFrom800AndShrinksThePortrai
 
 func TestTimelineGroupsReleasesByYearNewestFirstOnceEach(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	al := func(id, name, date string) services.Album { return services.Album{ID: id, Name: name, ReleaseDate: date} }
+	al := func(id, name, date string) services.Album {
+		return services.Album{ID: id, Name: name, ReleaseDate: date}
+	}
 	shelves := []services.ArtistShelf{
 		{View: services.ViewFullAlbums, Albums: []services.Album{al("a", "A", "2007-10-10"), al("b", "B", "2001-01-01")}},
 		{View: services.ViewSingles, More: true, Albums: []services.Album{al("s", "S - Single", "2007-02-01"), al("a", "A", "2007-10-10"), al("e", "E - EP", "")}},

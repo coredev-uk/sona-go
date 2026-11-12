@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"go/ast"
@@ -156,11 +155,9 @@ var uiTextField = regexp.MustCompile(`(Error|Err|Reason|Detail|Note|Message|Last
 // englishAllowed are plain string fields of that kind which may carry text,
 // with the reason.
 var englishAllowed = map[string]string{
-	"CallError.Message":           "Go's error text beside the code, for the frontend's logs only",
 	"DiagBundle.Text":             "the bug-report bundle, copied for the maintainers",
-	"MotionReport.Last":           "the web view's text for the bug-report bundle",
+	"MotionReport.Last":           "the native UI's text for the bug-report bundle",
 	"AppleTranslations.Messages":  "Apple's own strings",
-	"CallError.AppleMessage":      "Apple's own, localised sign-in message for a code Sona doesn't map",
 	"AuthStatus.LastAppleMessage": "Apple's own, localised sign-in message for a code Sona doesn't map",
 }
 
@@ -197,7 +194,6 @@ func TestNoGoTextReachesTheUI(t *testing.T) {
 			}
 		}
 	}
-	roots = append(roots, reflect.TypeFor[CallError]())
 	roots = append(roots, eventPayloads(t)...)
 
 	str := reflect.TypeFor[string]()
@@ -223,7 +219,7 @@ func TestNoGoTextReachesTheUI(t *testing.T) {
 				key := ty.Name() + "." + f.Name
 				if f.Type == str && uiTextField.MatchString(f.Name) {
 					if _, ok := englishAllowed[key]; !ok {
-						t.Errorf("%s.%s is a plain string: send a code type the frontend words", ty.PkgPath(), key)
+						t.Errorf("%s.%s is a plain string: send a code type the UI words", ty.PkgPath(), key)
 					}
 				}
 				walk(f.Type)
@@ -316,10 +312,6 @@ func TestAppleMessage(t *testing.T) {
 		if got := AppleMessage(err); got != "" {
 			t.Errorf("%s: %q, want none", name, got)
 		}
-	}
-	var ce CallError
-	if err := json.Unmarshal(MarshalError(unmapped), &ce); err != nil || ce.Code != CodeUnknown || ce.AppleMessage != french {
-		t.Errorf("MarshalError = %+v, %v", ce, err)
 	}
 	st := (&AuthService{}).status(auth.Status{State: auth.StateSignedOut, LastError: "x", LastCause: unmapped})
 	if st.LastErrorCode != CodeUnknown || st.LastAppleMessage != french {

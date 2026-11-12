@@ -70,7 +70,7 @@ func (p *playlists) suggestionsShelf(c *ui.Context, id, playlist string) {
 func (p *playlists) suggestionSkeleton(c *ui.Context, i int) {
 	hover := theme.C("hover")
 	r := theme.Current().Radius["sm"]
-	ui.Row(c.Key("loading-"+strconv.Itoa(i))).FillWidth().Height(suggestionRow).AlignItems(ui.Center).Gap(suggestionGap).
+	ui.Row(c.Key("loading-" + strconv.Itoa(i))).FillWidth().Height(suggestionRow).AlignItems(ui.Center).Gap(suggestionGap).
 		PaddingX(suggestionPadX).Role(ui.RoleNone).Children(func() {
 		ui.Box(c).Width(suggestionNumW).Shrink(0).Role(ui.RoleNone)
 		ui.Box(c).Size(suggestionArt, suggestionArt).Shrink(0).Radius(r).Background(hover)

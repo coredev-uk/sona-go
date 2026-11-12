@@ -195,20 +195,6 @@ func leadArt(it services.Item) (src string, contain bool) {
 	return src, true
 }
 
-// fade shows or hides e over the theme's feedback duration, at once while
-// motion is reduced.
-func fade(e ui.Element, show bool) {
-	to := float32(0)
-	if show {
-		to = 1
-	}
-	if theme.ReducedMotion() {
-		e.Opacity(to)
-		return
-	}
-	e.Opacity(e.Animate("fade", to, theme.Current().Motion["press"].Duration))
-}
-
 // opener is what opening a card does: go to its page when that route exists,
 // or, for an item with no page, what that item does (a station plays, a web
 // page opens in the browser). nil: the card leads nowhere (its page is not
@@ -279,11 +265,11 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			})
 			ui.Row(c.Key("caption")).Width(lay.lead).Margin(12, 0, 0, 0).Children(func() {
 				ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
-					t := text(c, name, "title").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
+					t := theme.Text(c, name, "title").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
 					if wrap.Hovered() && open != nil {
 						t.Underline()
 					}
-					text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Height(18).TextAlign(ui.Start)
+					theme.Text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Height(18).TextAlign(ui.Start)
 				})
 				room := pager
 				if hasMenu {
@@ -294,7 +280,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 		})
 		if ctx.Players.CanPlay(it) {
 			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48).Absolute().Left(16).Top(artH - 16 - 48)
-			fade(play, hot || play.Focused())
+			kit.Fade(play, hot || play.Focused())
 			opener := d.front.openers.For("lead:" + leadKey(it, 0))
 			play.Bind(opener)
 			if play.Clicked() {
@@ -383,7 +369,7 @@ func (d *discover) pager(c *ui.Context, pg pageState, top float32) {
 		if pg.pages <= 1 {
 			return
 		}
-		text(c, i18n.T("{current} of {pages}", "current", pg.page+1, "pages", pg.pages), "meta").
+		theme.Text(c, i18n.T("{current} of {pages}", "current", pg.page+1, "pages", pg.pages), "meta").
 			TextColor(theme.C("ink-muted")).FontFeatures("tnum").Margin(0, 4, 0, 0)
 		turn := func(by int) {
 			to := (pg.page + by + pg.pages) % pg.pages
@@ -434,10 +420,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 		case hovered:
 			row.Background(theme.C("hover"))
 		}
-		if !theme.ReducedMotion() {
-			m := tk.Motion["press"]
-			row.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-		}
+		theme.Fade(row, "press")
 		row.Children(func() {
 			src := it.Art.Medium
 			if src == "" {
@@ -459,11 +442,10 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 				})
 			})
 			ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				label := tk.Type["label"]
-				ui.Text(c, name).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
+				theme.StyleText(ui.Text(c, name), "label").
 					TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
 				if sub != "" {
-					text(c, sub, "secondary").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+					theme.Text(c, sub, "secondary").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
 				}
 			})
 			if hasMenu {
@@ -473,7 +455,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 		if ctx.Players.CanPlay(it) {
 			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 32).Absolute().
 				Left(8 + (listThumb-32)/2).Top((lay.rowHeight - 32) / 2)
-			fade(play, hot || play.Focused())
+			kit.Fade(play, hot || play.Focused())
 			opener := d.front.openers.For("row:" + leadKey(it, index))
 			play.Bind(opener)
 			if play.Clicked() {

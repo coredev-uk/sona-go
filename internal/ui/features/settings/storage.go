@@ -99,12 +99,12 @@ func (s *settings) storage(c *ui.Context) {
 					}).Margin(6, 0, 0, 0)
 				})
 				s.figure(c, "catalog", i18n.T("Catalogue cache"), i18n.FormatBytes(u.CatalogBytes), "", func() {
-					text(c, i18n.T("{catalogEntries, plural, one {# page} other {# pages}}", "catalogEntries", u.CatalogEntries), "meta").
+					theme.Text(c, i18n.T("{catalogEntries, plural, one {# page} other {# pages}}", "catalogEntries", u.CatalogEntries), "meta").
 						TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 				})
 				s.figure(c, "db", i18n.T("Library database"), i18n.FormatBytes(u.DatabaseBytes), "", func() {
 					if u.DatabaseFreeBytes > 0 {
-						text(c, i18n.T("{databaseFree} of it free space", "databaseFree", i18n.FormatBytes(u.DatabaseFreeBytes)), "meta").
+						theme.Text(c, i18n.T("{databaseFree} of it free space", "databaseFree", i18n.FormatBytes(u.DatabaseFreeBytes)), "meta").
 							TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 					}
 				})
@@ -130,11 +130,11 @@ func (s *settings) storage(c *ui.Context) {
 func (s *settings) figure(c *ui.Context, id, label, value, of string, under func()) {
 	k := c.Key("fig:" + id)
 	ui.Column(k).Grow(1).Basis(0).MinWidth(0).Gap(4).Children(func() {
-		text(k, label, "meta").TextColor(theme.C("ink-muted"))
+		theme.Text(k, label, "meta").TextColor(theme.C("ink-muted"))
 		ui.Row(k.Key("v")).AlignItems(ui.End).Gap(4).Children(func() {
-			text(k, value, "title").TextColor(theme.C("ink")).FontFeatures("tnum")
+			theme.Text(k, value, "title").TextColor(theme.C("ink")).FontFeatures("tnum")
 			if of != "" {
-				text(k, of, "secondary").TextColor(theme.C("ink-muted")).FontFeatures("tnum")
+				theme.Text(k, of, "secondary").TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 			}
 		})
 		under()

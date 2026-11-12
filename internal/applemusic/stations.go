@@ -283,24 +283,5 @@ func (c *Client) AcquireRadioLicense(ctx context.Context, r RadioLicenseRequest)
 		"key-system": WidevineKeySystem,
 		"event":      radioLicenseEvent,
 	}
-	if r.SlotToken != "" {
-		body["stkn"] = r.SlotToken
-	}
-	h := c.playHeader()
-	h.Set(headerAppleRenewal, "true")
-	var resp licenseResponse
-	if err := c.Do(ctx, Request{Method: http.MethodPost, URL: r.URL, Body: body, Header: h}, &resp); err != nil {
-		return License{}, fmt.Errorf("radio licence: %w", err)
-	}
-	if resp.ErrorCode != 0 {
-		resp.Status = resp.ErrorCode
-	}
-	if resp.Status != 0 {
-		return License{}, &LicenseError{Status: resp.Status, Message: resp.Message}
-	}
-	data, err := base64.StdEncoding.DecodeString(resp.License)
-	if err != nil || len(data) == 0 {
-		return License{}, fmt.Errorf("radio licence: bad licence payload (%d chars): %v", len(resp.License), err)
-	}
-	return License{Data: data, SlotToken: resp.SlotToken}, nil
+	return c.postLicense(ctx, r.URL, body, r.SlotToken, "radio licence")
 }

@@ -344,9 +344,7 @@ func (m *mini) seekLine(c *ui.Context, s services.PlaybackState) {
 
 // text is a single line of text in one of the theme's type styles.
 func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
-		LetterSpacing(t.Tracking).SingleLine().MinWidth(0).Shrink(1)
+	return theme.Text(c, s, style).SingleLine().MinWidth(0).Shrink(1)
 }
 
 // quiet is text of the line under the song's size.

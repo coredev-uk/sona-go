@@ -516,13 +516,6 @@ func (a *App) post(fn func()) {
 	}
 }
 
-// Window is the main window (nil before New opened it).
-func (a *App) Window() *mygo.Window {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.win
-}
-
 // Close releases what the UI holds; call it after MyGo's Run returns.
 func (a *App) Close() {
 	a.env.Motion.Close()
@@ -539,8 +532,7 @@ func (a *App) followSettings() {
 		return
 	}
 	apply := func(s config.Settings) {
-		theme.SetMode(themeMode(s.Theme))
-		theme.SetReduceEffects(s.ReduceEffects)
+		kit.ApplyAppearance(s)
 		a.keys.rebind(s.Shortcuts)
 		a.motionOn = s.MotionArtwork.Enabled
 		a.resume = s.Desktop.ResumeLastRoute
@@ -560,15 +552,4 @@ func (a *App) followSettings() {
 		a.locale.apply()
 	})
 	a.initLocale()
-}
-
-// themeMode maps config.Settings.Theme to the theme's mode.
-func themeMode(s string) theme.Mode {
-	switch s {
-	case config.ThemeLight:
-		return theme.ModeLight
-	case config.ThemeDark:
-		return theme.ModeDark
-	}
-	return theme.ModeSystem
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // DefaultMaxQueue is how many listens a provider's queue keeps while the
@@ -109,22 +111,5 @@ func (q *queue) save() error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(dir, ".scrobble-queue-*.json")
-	if err != nil {
-		return err
-	}
-	tmp := f.Name()
-	defer func() { _ = os.Remove(tmp) }() // no-op after the rename
-	if err := f.Chmod(0o600); err != nil {
-		_ = f.Close()
-		return err
-	}
-	if _, err := f.Write(b); err != nil {
-		_ = f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp, q.path)
+	return fsutil.WriteFileAtomic(q.path, b, 0o600)
 }

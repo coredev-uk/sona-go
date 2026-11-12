@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/power"
 )
 
@@ -105,8 +106,9 @@ func (s *MotionService) Status() MotionStatus {
 	return out
 }
 
-// Report keeps the web view's side of motion artwork for the next
-// bug-report bundle.
+// Report keeps the native UI's side of motion artwork for the next
+// bug-report bundle (under the key "webView", which bug reports have
+// always carried).
 func (s *MotionService) Report(r MotionReport) {
 	s.mu.Lock()
 	s.report = &r
@@ -130,7 +132,7 @@ func (s *MotionService) bundle() any {
 // reads the album page through the catalog cache, so an album whose page
 // was opened costs nothing.
 func (s *MotionService) Album(ctx context.Context, id string) (string, error) {
-	if strings.HasPrefix(id, "l.") {
+	if applemusic.IsLibraryAlbumID(id) {
 		a, _, err := s.e.Library.Album(ctx, id)
 		if err != nil {
 			return "", err

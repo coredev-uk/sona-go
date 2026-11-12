@@ -115,10 +115,7 @@ func (f *feature) avatar(c *ui.Context, signedIn, attention, open bool) ui.Eleme
 	}
 	btn := ui.ButtonBase(c.Key("auth:avatar")).Label(i18n.T("Account")).HasPopup(ui.PopupMenu).Expanded(open).
 		Size(avatarSize, avatarSize).Radius(tk.Radius["full"]).Background(bg).TextColor(fg).Center()
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		btn.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(btn, "feedback")
 	btn.Children(func() {
 		ui.Icon(c.Key("auth:avatar-icon"), theme.Icon("user")).FontSize(16).TextColor(fg)
 		if attention {

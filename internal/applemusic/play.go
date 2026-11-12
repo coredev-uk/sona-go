@@ -130,7 +130,7 @@ func (c *Client) webPlayback(ctx context.Context, id string, body any) (webPlayb
 // unencrypted asset, which is returned with Flavor "". Missing assets wrap
 // ErrNotPlayable.
 func (c *Client) WebPlayback(ctx context.Context, id string, q Quality) (PlaybackInfo, error) {
-	library := strings.HasPrefix(id, "i.")
+	library := IsLibrarySongID(id)
 	var body any = map[string]string{"salableAdamId": id}
 	if library {
 		body = map[string]any{"universalLibraryId": id, "isLibrary": true}
@@ -278,15 +278,22 @@ func (c *Client) AcquireLicense(ctx context.Context, r LicenseRequest) (License,
 		"isLibrary":      r.IsLibrary,
 		"user-initiated": !r.Renewal,
 	}
-	if r.SlotToken != "" {
-		body["stkn"] = r.SlotToken
+	return c.postLicense(ctx, url, body, r.SlotToken, "licence "+r.AdamID)
+}
+
+// postLicense sends a licence request body (plus the slot token, when
+// there is one) to url and decodes the licence. label names the exchange
+// in errors.
+func (c *Client) postLicense(ctx context.Context, url string, body map[string]any, slotToken, label string) (License, error) {
+	if slotToken != "" {
+		body["stkn"] = slotToken
 	}
 	h := c.playHeader()
 	// MusicKit sends this on every Widevine licence request, initial or not.
 	h.Set(headerAppleRenewal, "true")
 	var resp licenseResponse
 	if err := c.Do(ctx, Request{Method: http.MethodPost, URL: url, Body: body, Header: h}, &resp); err != nil {
-		return License{}, fmt.Errorf("licence %s: %w", r.AdamID, err)
+		return License{}, fmt.Errorf("%s: %w", label, err)
 	}
 	if resp.ErrorCode != 0 {
 		resp.Status = resp.ErrorCode
@@ -296,7 +303,7 @@ func (c *Client) AcquireLicense(ctx context.Context, r LicenseRequest) (License,
 	}
 	data, err := base64.StdEncoding.DecodeString(resp.License)
 	if err != nil || len(data) == 0 {
-		return License{}, fmt.Errorf("licence %s: bad licence payload (%d chars): %v", r.AdamID, len(resp.License), err)
+		return License{}, fmt.Errorf("%s: bad licence payload (%d chars): %v", label, len(resp.License), err)
 	}
 	return License{Data: data, SlotToken: resp.SlotToken}, nil
 }

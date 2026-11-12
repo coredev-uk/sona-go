@@ -157,9 +157,7 @@ func firstErr(errs ...error) error {
 
 // text is a single line of text in one of the theme's type styles.
 func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
-		LetterSpacing(t.Tracking).MinWidth(0)
+	return theme.Text(c, s, style).MinWidth(0)
 }
 
 // presets is the preset chips: the user's own curve first, then the built-in

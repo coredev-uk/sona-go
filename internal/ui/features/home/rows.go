@@ -311,9 +311,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 					// A disc at the middle of the cover.
 					play.Left(tilePad+(tileArt-tileDisc)/2).Top(tilePad+(tileArt-tileDisc)/2).Size(tileDisc, tileDisc).Radius(tk.Radius["full"])
 				}
-				fade(play, hover)
+				kit.Fade(play, hover)
 				play.Children(func() {
-					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true, SVG: playGlyph()}).Margin(0, 0, 0, 1)
+					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
 				})
 				if play.Clicked() {
 					ctx.Players.PlayItem(it)
@@ -330,7 +330,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 	}, func(w, src ui.Element) {
 		hot := w.Hovered() || src.FocusWithin()
 		if o.Number > 0 {
-			text(c, fmt.Sprintf("%02d", o.Number+i), "sub").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().
+			theme.Text(c, fmt.Sprintf("%02d", o.Number+i), "sub").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().
 				Width(rowNum - rowGap).Shrink(0).TextAlign(ui.Start)
 		}
 		artSize := float32(rowArt)
@@ -347,9 +347,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				if o.Tile {
 					mark.Left((artSize-tileDisc)/2).Top((artSize-tileDisc)/2).Size(tileDisc, tileDisc).Radius(tk.Radius["full"])
 				}
-				fade(mark, hot)
+				kit.Fade(mark, hot)
 				mark.Children(func() {
-					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true, SVG: playGlyph()}).Margin(0, 0, 0, 1)
+					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
 				})
 			}
 		})
@@ -376,7 +376,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 			})
 			if subtitle != "" {
-				sub := text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+				sub := theme.Text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
 				if inline {
 					sub.Grow(1).Basis(0).MinWidth(0)
 				}

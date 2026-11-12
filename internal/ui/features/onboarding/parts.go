@@ -10,19 +10,12 @@ import (
 
 // The parts the steps are made of (parts.tsx).
 
-// text is a Text in one of the theme's type styles: "ui" (body), "sub"
-// (secondary), "meta", "page" (title), "label"…
-func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // stepGroup is a part of a step: a heading one level under the step's
 // title (h3; the dialog's title is the h2), then its controls. The group is
 // named by the heading, so assistive technology reads it as a region.
 func stepGroup(c *ui.Context, id, title string, build func()) {
 	ui.Column(c.Key("group:" + id)).FillWidth().Gap(8).Role(ui.RoleGroup).Label(title).Children(func() {
-		text(c, title, "ui").FontWeight(600).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
+		theme.Text(c, title, "ui").FontWeight(600).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
 		build()
 	})
 }
@@ -82,8 +75,8 @@ func choiceCard(c *ui.Context, ch choice, chosen *string, disabled bool) {
 					}
 				})
 				ui.Column(c.Key("words")).Shrink(1).MinWidth(0).Children(func() {
-					text(c, ch.label, "ui").FontWeight(500).TextColor(theme.C("ink"))
-					text(c, ch.hint, "sub").TextColor(theme.C("ink-muted"))
+					theme.Text(c, ch.label, "ui").FontWeight(500).TextColor(theme.C("ink"))
+					theme.Text(c, ch.hint, "sub").TextColor(theme.C("ink-muted"))
 				})
 			})
 		})
@@ -97,8 +90,8 @@ func switchRow(c *ui.Context, id, label, hint string, checked, disabled bool, on
 	ui.Column(c.Key("row:"+id)).FillWidth().Padding(12, 0).Children(func() {
 		ui.Row(c.Key("head")).FillWidth().Gap(24).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 			ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-				text(c, label, "ui").FontWeight(500).TextColor(theme.C("ink"))
-				text(c, hint, "sub").TextColor(theme.C("ink-muted"))
+				theme.Text(c, label, "ui").FontWeight(500).TextColor(theme.C("ink"))
+				theme.Text(c, hint, "sub").TextColor(theme.C("ink-muted"))
 			})
 			on := checked
 			sw := kit.Switch(c.Key("switch"), &on, kit.SwitchOpts{A11yLabel: label, Disabled: disabled}).Description(hint)

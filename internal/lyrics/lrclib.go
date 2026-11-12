@@ -78,7 +78,7 @@ func (p *LRCLIB) Fetch(ctx context.Context, req Request) (Lyrics, error) {
 			cs[i] = r.candidate()
 		}
 		// Prefer synced entries among the matches.
-		i := bestWith(req.Track, cs, func(i int) bool { return found[i].SyncedLyrics != "" })
+		i := best(req.Track, cs, func(i int) bool { return found[i].SyncedLyrics != "" })
 		if i < 0 {
 			return Lyrics{}, ErrNotFound
 		}
@@ -104,24 +104,6 @@ func lrclibLyrics(rec lrclibRecord, songEnd time.Duration) (Lyrics, error) {
 		return Lyrics{}, ErrNotFound
 	}
 	return out, nil
-}
-
-// bestWith is best, preferring candidates for which preferred is true.
-func bestWith(t Track, cs []candidate, preferred func(int) bool) int {
-	idx, top := -1, -1
-	for i, c := range cs {
-		s := score(t, c)
-		if s < 0 {
-			continue
-		}
-		if preferred(i) {
-			s += 1000
-		}
-		if s > top {
-			idx, top = i, s
-		}
-	}
-	return idx
 }
 
 // formatSeconds is d in whole seconds, rounded.

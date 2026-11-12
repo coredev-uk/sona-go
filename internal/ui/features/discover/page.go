@@ -74,7 +74,7 @@ func (d *discover) masthead(c *ui.Context, title, line string, holding bool, act
 	tk := theme.Current()
 	ui.Row(c.Key("masthead")).FillWidth().Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(24).Margin(0, 0, 28, 0).Shrink(0).Children(func() {
 		ui.Row(c.Key("name")).MinWidth(0).Shrink(1).Wrap().AlignItems(ui.Baseline).Children(func() {
-			h := text(c, title, "display").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+			h := theme.Text(c, title, "display").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 			if title == "" {
 				h.Role(ui.RoleNone) // a page still loading has no title to read
 			}
@@ -82,19 +82,13 @@ func (d *discover) masthead(c *ui.Context, title, line string, holding bool, act
 			case holding:
 				ui.Row(c).Height(tk.Type["secondary"].LineHeight).Margin(0, 0, 0, 16).AlignItems(ui.Center).Children(func() { bar(c, 112, 12) })
 			case line != "":
-				text(c, line, "secondary").TextColor(theme.C("ink-muted")).Margin(0, 0, 0, 16)
+				theme.Text(c, line, "secondary").TextColor(theme.C("ink-muted")).Margin(0, 0, 0, 16)
 			}
 		})
 		if actions != nil {
 			ui.Row(c.Key("actions")).Shrink(0).Gap(8).AlignItems(ui.Center).Children(actions)
 		}
 	})
-}
-
-// text is a Text in one of the theme's type styles.
-func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
 }
 
 // bar is a flat --hover placeholder bar (the skeletons of v0.2.0's pages).

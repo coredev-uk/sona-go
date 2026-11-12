@@ -8,6 +8,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 // FileStore is a Store keeping the queue as JSON in one file
@@ -40,19 +42,7 @@ func (f FileStore) SaveQueue(_ context.Context, s Saved) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("coordinator: save queue: %w", err)
 	}
-	tmp, err := os.CreateTemp(dir, ".queue-*")
-	if err != nil {
-		return fmt.Errorf("coordinator: save queue: %w", err)
-	}
-	_, err = tmp.Write(b)
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil {
-		err = os.Rename(tmp.Name(), f.Path)
-	}
-	if err != nil {
-		_ = os.Remove(tmp.Name())
+	if err := fsutil.WriteFileAtomic(f.Path, b, 0o600); err != nil {
 		return fmt.Errorf("coordinator: save queue: %w", err)
 	}
 	return nil

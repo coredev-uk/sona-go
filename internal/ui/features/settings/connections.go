@@ -36,7 +36,7 @@ func (s *settings) scrobbling(c *ui.Context, cfg config.Settings) {
 		i18n.T("A song counts once you've played half of it or four minutes. Radio and songs of 30 seconds or less aren't sent. Songs you play offline are sent when you're back online."),
 		func() {
 			if privateOn {
-				text(c, i18n.T("Nothing is scrobbled while private listening is on."), "secondary").TextColor(theme.C("ink")).
+				theme.Text(c, i18n.T("Nothing is scrobbled while private listening is on."), "secondary").TextColor(theme.C("ink")).
 					MaxWidth(rowTextWidth + 40)
 			}
 			s.lastFMRow(c, st, cfg.Scrobbling.LastFM, status.LastFM, res.HasData)
@@ -212,8 +212,8 @@ func (s *settings) unencryptedNote(c *ui.Context) {
 		Background(theme.C("raised")).Border(1, theme.C("control-line")).Role(ui.RoleAlert).Label(msg).Children(func() {
 		ui.Icon(c.Key("i"), theme.Icon("shield-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
 		ui.Column(c.Key("t")).Shrink(1).MinWidth(0).Children(func() {
-			text(c, i18n.T("Your scrobbler sign-ins are stored unencrypted"), "label").TextColor(theme.C("ink"))
-			text(c, kit.KeyringWords(s.caps().Data.OS).ScrobblerInFile, "secondary").
+			theme.Text(c, i18n.T("Your scrobbler sign-ins are stored unencrypted"), "label").TextColor(theme.C("ink"))
+			theme.Text(c, kit.KeyringWords(s.caps().Data.OS).ScrobblerInFile, "secondary").
 				TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 		})
 	})

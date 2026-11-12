@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
@@ -102,6 +103,12 @@ func ToastErrorf(title, description string) string {
 	return ShowToast(ToastSpec{Title: title, Description: description, Kind: ToastError})
 }
 
+// ToastFailure shows a failed command as an error toast: what it was, then
+// the words for the error's code (never Go's own text).
+func ToastFailure(what string, err error) string {
+	return ToastErrorf(what, i18n.ErrorText(services.CodeOf(err)))
+}
+
 // CloseToast closes a toast by ID ("" closes every toast).
 func CloseToast(id string) {
 	toasts.mu.Lock()
@@ -177,15 +184,15 @@ func Toaster(c *ui.Context) {
 			part.Root.Children(func() {
 				toastIcon(c, ToastKind(t.Type))
 				ui.Column(c.Key("txt")).Grow(1).MinWidth(0).Gap(2).Children(func() {
-					overlaysText(c.Key("title"), t.Title, "secondary").FontWeight(500).TextColor(theme.C("popover-foreground"))
+					theme.Text(c.Key("title"), t.Title, "secondary").FontWeight(500).TextColor(theme.C("popover-foreground"))
 					if t.Description != "" {
-						overlaysText(c.Key("desc"), t.Description, "secondary").TextColor(theme.C("muted-foreground"))
+						theme.Text(c.Key("desc"), t.Description, "secondary").TextColor(theme.C("muted-foreground"))
 					}
 				})
 				if t.Action != "" {
 					part.ActionButton().Label(t.Action).Padding(0, 8).Height(24).Radius(tk.Radius["md"]).Background(theme.C("primary")).
 						TextColor(theme.C("primary-foreground")).Center().Children(func() {
-						overlaysText(c.Key("act"), t.Action, "meta").FontWeight(500)
+						theme.Text(c.Key("act"), t.Action, "meta").FontWeight(500)
 					})
 				}
 			})
@@ -213,7 +220,5 @@ func toastIcon(c *ui.Context, k ToastKind) {
 		return
 	}
 	ic := ui.Icon(c.Key("icon"), theme.Icon(name)).FontSize(16).Margin(2, 0, 0, 0).Shrink(0)
-	if k == ToastLoading && !theme.ReducedMotion() {
-		ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
-	}
+	theme.Spin(ic, k == ToastLoading)
 }

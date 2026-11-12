@@ -181,8 +181,8 @@ func (o *onboarding) headRow(c *ui.Context, step string) {
 	ui.Row(c.Key("mark")).Size(20, 20).Shrink(0).Radius(10).Background(theme.C("amber")).Center().Children(func() {
 		ui.Box(c.Key("hole")).Size(4, 4).Radius(2).Background(theme.C("surface"))
 	})
-	text(c, i18n.T("Set up Sona"), "ui").FontWeight(600).TextColor(theme.C("ink"))
-	text(c, i18n.T("{position} of {total}", "position", stepIndex(step)+1, "total", len(setupSteps)), "meta").
+	theme.Text(c, i18n.T("Set up Sona"), "ui").FontWeight(600).TextColor(theme.C("ink"))
+	theme.Text(c, i18n.T("{position} of {total}", "position", stepIndex(step)+1, "total", len(setupSteps)), "meta").
 		TextColor(theme.C("ink-faint")).FontFeatures("tnum")
 	ui.Box(c.Key("spacer")).Grow(1)
 	if step != store.SetupDone {
@@ -212,7 +212,7 @@ func (o *onboarding) body(c *ui.Context, step, title, line string, maxHeight flo
 
 // stepPane is the scrolling step; beside the rail it takes the rest of the row.
 func (o *onboarding) stepPane(c *ui.Context, step, title, line string, maxHeight float32, rail bool) {
-	pane := ui.Scroll(c.Key("body:"+step)).Shrink(1).MinHeight(0).MaxHeight(maxHeight)
+	pane := ui.Scroll(c.Key("body:" + step)).Shrink(1).MinHeight(0).MaxHeight(maxHeight)
 	if rail {
 		pane.Grow(1).Basis(0).MinWidth(0).Padding(20, 28, 28, 28)
 	} else {
@@ -252,7 +252,7 @@ func (o *onboarding) stepHead(c *ui.Context, step, title, line string) {
 	heading := func(style string) {
 		focus := ui.Column(c.Key("title-focus")).FillWidth().Role(ui.RoleGroup).Label(title).TabStop(false).FocusRing(false)
 		focus.Children(func() {
-			text(c.Key("title"), title, style).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+			theme.Text(c.Key("title"), title, style).TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
 		})
 		kit.FocusWhenShown(c, focus, &o.titleFocus)
 	}
@@ -261,13 +261,13 @@ func (o *onboarding) stepHead(c *ui.Context, step, title, line string) {
 			bigMark(c)
 			ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Gap(2).Children(func() {
 				heading("display")
-				text(c.Key("line"), line, "ui").TextColor(theme.C("ink-muted"))
+				theme.Text(c.Key("line"), line, "ui").TextColor(theme.C("ink-muted"))
 			})
 		})
 		return
 	}
 	heading("page")
-	text(c.Key("line"), line, "ui").TextColor(theme.C("ink-muted")).MaxWidth(480).Margin(6, 0, 0, 0)
+	theme.Text(c.Key("line"), line, "ui").TextColor(theme.C("ink-muted")).MaxWidth(480).Margin(6, 0, 0, 0)
 }
 
 // bigMark is the Sona mark at the welcome's size: the label's amber disc,

@@ -108,7 +108,7 @@ func (f *feature) lead(c *ui.Context, stacked bool) {
 			leadText(c.Key("heading"), i18n.T("Your Apple Music, on your desktop"), "title", "ink").Role(ui.RoleHeading).Level(2)
 			ui.Column(c.Key("lines")).FillWidth().Gap(12).Children(func() {
 				for _, l := range leadLines() {
-					ui.Row(c.Key("line:"+l.icon)).FillWidth().AlignItems(ui.Start).Gap(12).Children(func() {
+					ui.Row(c.Key("line:" + l.icon)).FillWidth().AlignItems(ui.Start).Gap(12).Children(func() {
 						theme.Glyph(c.Key("icon"), l.icon, 16, theme.GlyphOpts{Color: theme.C("ink-muted")}).Margin(2, 0, 0, 0)
 						leadText(c.Key("text"), l.text, "body", "ink").Grow(1).MinWidth(0)
 					})

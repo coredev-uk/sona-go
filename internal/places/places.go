@@ -73,9 +73,6 @@ var load = sync.OnceValue(func() *index {
 	return ix
 })
 
-// All returns every city, grouped by country, a country's main city first.
-func All() []City { return slices.Clone(load().all) }
-
 // ByID returns the city with the given ID.
 func ByID(id string) (City, bool) {
 	ix := load()
@@ -162,12 +159,12 @@ func Search(query, storefront string, limit int) []City {
 // match reports whether every query word starts a word of c, and how well:
 // lower is better (0: the name itself starts with the first word).
 func match(c City, query []string) (int, bool) {
-	name := fold(c.Name)
+	// words starts with the name's own words (see load).
 	country := countryWords[c.Country]
 	score := 3
 	for i, q := range query {
 		switch {
-		case i == 0 && len(name) > 0 && strings.HasPrefix(name[0], q):
+		case i == 0 && len(c.words) > 0 && strings.HasPrefix(c.words[0], q):
 			score = 0
 		case slices.ContainsFunc(c.words, func(w string) bool { return strings.HasPrefix(w, q) }):
 			score = min(score, 1)

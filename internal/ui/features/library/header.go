@@ -30,16 +30,16 @@ func (l *library) pageHead(c *ui.Context, o headOpts) {
 		ui.Row(c.Key("line")).FillWidth().Wrap().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(16).Children(func() {
 			ui.Column(c.Key("who")).MinWidth(0).Shrink(1).Children(func() {
 				ui.Row(c.Key("title")).AlignItems(ui.Baseline).Gap(12).MinWidth(0).Children(func() {
-					head := styled(c, o.title, "page").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+					head := theme.Text(c, o.title, "page").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 					if o.title == "" {
 						head.Role(ui.RoleNone) // a page still loading has no title to read
 					}
 					if o.count != "" {
-						styled(c, o.count, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
+						theme.Text(c, o.count, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
 					}
 				})
 				if o.note != "" {
-					styled(c, o.note, "meta").TextColor(theme.C("ink-faint")).Margin(4, 0, 0, 0)
+					theme.Text(c, o.note, "meta").TextColor(theme.C("ink-faint")).Margin(4, 0, 0, 0)
 				}
 			})
 			if o.actions != nil {

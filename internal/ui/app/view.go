@@ -115,7 +115,7 @@ func (a *App) painted() {
 func (a *App) mainColumn(c *ui.Context) {
 	ui.Column(c).Grow(1).Basis(0).MinWidth(0).FillHeight().Children(func() {
 		a.topBar(c)
-		ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
+		theme.Hairline(c)
 		a.statusBanner(c)
 		overlayOpen := a.overlayOpen()
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
@@ -220,7 +220,7 @@ func (a *App) sidebarView(c *ui.Context) {
 		ui.Scroll(c).Grow(1).Basis(0).MinHeight(0).Children(func() {
 			ui.Column(c).Padding(0, 0, 16).Children(func() {
 				if len(a.nav[module.NavLibrary]) > 0 {
-					text(c, i18n.T("Library"), "meta").TextColor(theme.C("ink-faint")).Padding(24, 10, 6)
+					theme.Text(c, i18n.T("Library"), "meta").TextColor(theme.C("ink-faint")).Padding(24, 10, 6)
 					ui.Column(c).Gap(2).Children(func() {
 						for _, n := range a.nav[module.NavLibrary] {
 							a.navLink(c, n)
@@ -272,7 +272,7 @@ func (a *App) brand(c *ui.Context) {
 		ui.Row(c).Size(20, 20).Radius(10).Background(theme.C("amber")).Center().Children(func() {
 			ui.Box(c).Size(4, 4).Radius(2).Background(theme.C("surface"))
 		})
-		text(c, i18n.T("Sona"), "heading").FontWeight(700).LetterSpacing(-0.4).TextColor(theme.C("ink"))
+		theme.Text(c, i18n.T("Sona"), "heading").FontWeight(700).LetterSpacing(-0.4).TextColor(theme.C("ink"))
 	})
 }
 
@@ -300,7 +300,7 @@ func (a *App) navLink(c *ui.Context, n module.NavItem) {
 		if n.Icon != "" {
 			theme.Glyph(c, n.Icon, theme.Current().Metric["nav-icon"], theme.GlyphOpts{Color: fg})
 		}
-		t := text(c, label, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
+		t := theme.Text(c, label, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
 		if on {
 			t.FontWeight(500)
 		}
@@ -314,10 +314,4 @@ func navActive(path string, n module.NavItem) bool {
 		return true
 	}
 	return !n.Exact && n.To != "/" && strings.HasPrefix(path, strings.TrimSuffix(n.To, "/")+"/")
-}
-
-// text is a Text in one of the theme's type styles ("body", "meta"…).
-func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
 }

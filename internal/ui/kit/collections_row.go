@@ -2,6 +2,8 @@ package kit
 
 import (
 	"github.com/egoist/mygo/ui"
+
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // CoverRowOpts are the options of CoverRow.
@@ -75,4 +77,16 @@ func CoverRow(c *ui.Context, st *CoverState, items []CoverItem, o CoverRowOpts) 
 			o.Menus.Popup(c)
 		}
 	})
+}
+
+// HoverRow gives a list row the hover background while the pointer or the
+// keyboard focus is on it or inside it, fading the change in, and reports
+// whether it is (a row shows its actions then).
+func HoverRow(row ui.Element) bool {
+	hot := row.Hovered() || row.FocusWithin()
+	if hot {
+		row.Background(theme.C("hover"))
+	}
+	theme.Fade(row, "feedback")
+	return hot
 }

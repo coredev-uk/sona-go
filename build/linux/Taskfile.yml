@@ -4,18 +4,19 @@ tasks:
   build:
     summary: Builds the application for Linux (MyGo on GTK3)
     cmds:
-      # Silent: LDFLAGS may carry the Last.fm API secret.
-      - cmd: go build {{.BUILD_FLAGS}} -ldflags="{{.LDFLAGS}}" -o {{.OUTPUT}} ./cmd/sona
+      # Silent: the flags carry the Last.fm API secret. build/ldflags.sh reads
+      # it (and the key and the Discord application ID) from SONA_LASTFM_KEY /
+      # SONA_LASTFM_SECRET / SONA_DISCORD_CLIENT_ID when set (CI: repo
+      # secrets), so no logged command line ever holds it. -X main.version
+      # carries VERSION into the binary (`sona --version`, Diagnostics, the
+      # log).
+      - cmd: go build {{.BUILD_FLAGS}} -ldflags="$(VERSION={{.VERSION}} bash {{.ROOT_DIR}}/build/ldflags.sh --goos linux)" -o {{.OUTPUT}} ./cmd/sona
         silent: true
       - echo "built {{.OUTPUT}} ({{.VERSION}})"
     vars:
+      # -trimpath keeps -ldflags (and the credentials in them) out of the
+      # binary's build info.
       BUILD_FLAGS: '-tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false'
-      # -X main.version carries VERSION into the binary (`sona --version`,
-      # Diagnostics, the log). Builds also compile in the Last.fm API key and
-      # secret and the Discord application ID from SONA_LASTFM_KEY /
-      # SONA_LASTFM_SECRET / SONA_DISCORD_CLIENT_ID when set (CI: repo
-      # secrets); -trimpath keeps -ldflags out of the binary's build info.
-      LDFLAGS: '-w -s -X main.version={{.VERSION}} -X github.com/egoist/mygo.production=1{{if .SONA_LASTFM_KEY}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey={{.SONA_LASTFM_KEY}}{{end}}{{if .SONA_LASTFM_SECRET}} -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret={{.SONA_LASTFM_SECRET}}{{end}}{{if .SONA_DISCORD_CLIENT_ID}} -X github.com/coredev-uk/sona-go/internal/discord.clientID={{.SONA_DISCORD_CLIENT_ID}}{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:

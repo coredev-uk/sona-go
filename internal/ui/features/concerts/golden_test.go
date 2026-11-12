@@ -44,7 +44,9 @@ func TestConcertsPageGoldenDark(t *testing.T) { concertsGolden(t, "concerts-dark
 
 // The narrowest the page gets beside the sidebar: the strip's cells and the
 // rows' columns narrow, the line-up and the venue give way first.
-func TestConcertsPageGoldenNarrow(t *testing.T) { concertsGolden(t, "concerts-narrow-light", false, 708, 900) }
+func TestConcertsPageGoldenNarrow(t *testing.T) {
+	concertsGolden(t, "concerts-narrow-light", false, 708, 900)
+}
 
 // The location dialog over the page, light.
 func TestLocationDialogGolden(t *testing.T) {

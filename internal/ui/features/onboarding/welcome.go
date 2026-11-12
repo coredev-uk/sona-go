@@ -19,7 +19,7 @@ func (o *onboarding) welcomeStep(c *ui.Context) {
 	view := widevineView(o.capsData(), status)
 	signedIn := account.HasAccount(o.authState())
 	ui.Column(c.Key("welcome")).FillWidth().Gap(24).Children(func() {
-		text(c, i18n.T("A few short steps sign you in and set how it plays, looks and starts. Each can be skipped and changed later in Settings."), "ui").
+		theme.Text(c, i18n.T("A few short steps sign you in and set how it plays, looks and starts. Each can be skipped and changed later in Settings."), "ui").
 			TextColor(theme.C("ink")).MaxWidth(480)
 		o.languageRow(c)
 		stepGroup(c, "needs", i18n.T("What whole songs need"), func() {
@@ -47,8 +47,8 @@ func (o *onboarding) welcomeStep(c *ui.Context) {
 func need(c *ui.Context, name, state string, done bool, what string) {
 	ui.Row(c.Key("need:"+name)).FillWidth().Gap(24).Padding(10, 0).AlignItems(ui.Start).Justify(ui.SpaceBetween).Children(func() {
 		ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-			text(c, name, "ui").FontWeight(500).TextColor(theme.C("ink"))
-			text(c, what, "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c, name, "ui").FontWeight(500).TextColor(theme.C("ink"))
+			theme.Text(c, what, "sub").TextColor(theme.C("ink-muted"))
 		})
 		if state == "" {
 			return
@@ -57,7 +57,7 @@ func need(c *ui.Context, name, state string, done bool, what string) {
 			if done {
 				statusIcon(c, "circle-check", "positive").FontSize(14)
 			}
-			text(c, state, "sub").TextColor(theme.C("ink"))
+			theme.Text(c, state, "sub").TextColor(theme.C("ink"))
 		})
 	})
 }
@@ -88,8 +88,8 @@ func (o *onboarding) languageRow(c *ui.Context) {
 	chosen := value
 	ui.Row(c.Key("language")).FillWidth().Gap(24).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 		ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-			text(c, i18n.T("Language"), "ui").FontWeight(500).TextColor(theme.C("ink"))
-			text(c, i18n.T("Automatic follows your Apple Music account and your system."), "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c, i18n.T("Language"), "ui").FontWeight(500).TextColor(theme.C("ink"))
+			theme.Text(c, i18n.T("Automatic follows your Apple Music account and your system."), "sub").TextColor(theme.C("ink-muted"))
 		})
 		kit.Select(c.Key("select"), &chosen, items, kit.SelectOpts{A11yLabel: i18n.T("Language"), Disabled: !s.HasData})
 	})

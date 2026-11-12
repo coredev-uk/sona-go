@@ -97,15 +97,6 @@ func TestPlaybackSeedAndPatch(t *testing.T) {
 	}
 }
 
-func TestLyricsSongID(t *testing.T) {
-	if LyricsSongID(nil) != "" || LyricsSongID(&services.QueueItem{CatalogID: "1", Video: true}) != "" {
-		t.Error("nothing playing and music videos have no lyrics")
-	}
-	if LyricsSongID(&services.QueueItem{CatalogID: "1"}) != "1" {
-		t.Error("a song's lyrics go with its catalogue ID")
-	}
-}
-
 func TestUnmutedStartsAtV020sDefaultAndRemembersTheLastNonZeroVolume(t *testing.T) {
 	p := NewPlayback(NewBus(nil), nil)
 	if got := p.Unmuted(); got != 0.8 {

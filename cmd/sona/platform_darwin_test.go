@@ -177,7 +177,7 @@ func TestInhibitorHoldsOneAssertionAtATime(t *testing.T) {
 	var reasons []string
 	held := 0
 	i := newMacInhibitor(func() string { return "Playing music" })
-	i.keepAwake = func(reason string) func() {
+	i.take = func(reason string) func() {
 		reasons = append(reasons, reason)
 		held++
 		return func() { held-- }
@@ -245,7 +245,7 @@ func TestKeeperHoldsOneAppNapAssertionAtATime(t *testing.T) {
 
 func TestInhibitorWithAnEndedContextHoldsNothing(t *testing.T) {
 	i := newMacInhibitor(func() string { return "" })
-	i.keepAwake = func(string) func() { t.Error("took the assertion"); return func() {} }
+	i.take = func(string) func() { t.Error("took the assertion"); return func() {} }
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if err := i.Acquire(ctx); !errors.Is(err, context.Canceled) {

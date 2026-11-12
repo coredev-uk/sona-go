@@ -42,7 +42,7 @@ func TestPrivateSetSavesTheSetting(t *testing.T) {
 	if !st.Get().Private.Enabled {
 		t.Error("setting not saved")
 	}
-	// The frontend hears the new state and the settings it must not
+	// The UI hears the new state and the settings it must not
 	// overwrite with a stale copy.
 	if !slices.Contains(rec.events, EventPrivateChanged) || !slices.Contains(rec.events, EventSettingsChanged) {
 		t.Errorf("events %v", rec.events)

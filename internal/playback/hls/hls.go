@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/protowire"
 )
 
 // ByteRange is a sub-range of a resource. Length 0 means the whole resource.
@@ -109,16 +111,26 @@ func (p *Playlist) SegmentAt(t time.Duration) int {
 	return lo
 }
 
+// playlistScanner scans data line by line once its first line has shown it
+// is an HLS playlist (#EXTM3U, after an optional byte order mark).
+func playlistScanner(data []byte) (*bufio.Scanner, error) {
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
+	if !sc.Scan() || strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff")) != "#EXTM3U" {
+		return nil, errors.New("hls: missing #EXTM3U")
+	}
+	return sc, nil
+}
+
 // Parse parses a media playlist. Segment byte ranges without an offset
 // continue where the previous segment of the same URI ended; the first such
 // segment continues after an EXT-X-MAP range of the same URI. When several
 // EXT-X-KEYs (one per KEYFORMAT) apply, a segment's Key is the Widevine
 // one, else the one set last.
 func Parse(data []byte) (*Playlist, error) {
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
-	if !sc.Scan() || strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff")) != "#EXTM3U" {
-		return nil, errors.New("hls: missing #EXTM3U")
+	sc, err := playlistScanner(data)
+	if err != nil {
+		return nil, err
 	}
 	p := &Playlist{}
 	var (
@@ -342,33 +354,15 @@ func psshKeyID(b []byte) []byte {
 	if size := int(binary.BigEndian.Uint32(b[off:])); size < len(data) {
 		data = data[:size]
 	}
-	for len(data) > 0 {
-		tag, n := binary.Uvarint(data)
-		if n <= 0 {
-			return nil
+	var id []byte
+	_ = protowire.Walk(data, func(num, wire, _ uint64, v []byte) error {
+		if num == 2 && wire == protowire.Bytes && len(v) == 16 {
+			id = v
+			return protowire.ErrStop
 		}
-		data = data[n:]
-		switch tag & 7 {
-		case 0:
-			if _, n = binary.Uvarint(data); n <= 0 {
-				return nil
-			}
-			data = data[n:]
-		case 2:
-			l, n := binary.Uvarint(data)
-			if n <= 0 || uint64(len(data)-n) < l {
-				return nil
-			}
-			v := data[n : n+int(l)]
-			if tag>>3 == 2 && len(v) == 16 {
-				return v
-			}
-			data = data[n+int(l):]
-		default:
-			return nil
-		}
-	}
-	return nil
+		return nil
+	})
+	return id
 }
 
 // Variant is one EXT-X-STREAM-INF of a master playlist.
@@ -414,10 +408,9 @@ func IsMaster(data []byte) bool { return bytes.Contains(data, []byte("#EXT-X-STR
 
 // ParseMaster parses a master playlist's variants in order.
 func ParseMaster(data []byte) ([]Variant, error) {
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
-	if !sc.Scan() || strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff")) != "#EXTM3U" {
-		return nil, errors.New("hls: missing #EXTM3U")
+	sc, err := playlistScanner(data)
+	if err != nil {
+		return nil, err
 	}
 	var (
 		out     []Variant

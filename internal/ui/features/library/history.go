@@ -179,10 +179,10 @@ func (l *library) historySection(c *ui.Context, pg *historyPage, g *historyGroup
 	songs := g.songs
 	counts, elsewhere := historyCounts(g)
 	l.timelineDay(c, g.day, label, func() {
-		styled(c, label, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-		styled(c, counts, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").Margin(2, 0, 0, 0)
+		theme.Text(c, label, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, counts, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").Margin(2, 0, 0, 0)
 		if elsewhere != "" {
-			styled(c, elsewhere, "meta").TextColor(theme.C("ink-faint")).FontFeatures("tnum")
+			theme.Text(c, elsewhere, "meta").TextColor(theme.C("ink-faint")).FontFeatures("tnum")
 		}
 	}, func() {
 		opts := kit.TrackListOpts{

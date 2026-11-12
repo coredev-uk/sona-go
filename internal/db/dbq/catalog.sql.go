@@ -10,58 +10,6 @@ import (
 	"database/sql"
 )
 
-const catalogAlbumTracks = `-- name: CatalogAlbumTracks :many
-SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at, no_play_params FROM tracks
-WHERE album_catalog_id = ? AND library_id IS NULL
-ORDER BY disc_number, track_number
-`
-
-func (q *Queries) CatalogAlbumTracks(ctx context.Context, albumCatalogID sql.NullString) ([]Track, error) {
-	rows, err := q.db.QueryContext(ctx, catalogAlbumTracks, albumCatalogID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Track{}
-	for rows.Next() {
-		var i Track
-		if err := rows.Scan(
-			&i.ID,
-			&i.LibraryID,
-			&i.CatalogID,
-			&i.Name,
-			&i.ArtistName,
-			&i.AlbumName,
-			&i.AlbumLibraryID,
-			&i.AlbumCatalogID,
-			&i.ArtistLibraryID,
-			&i.ArtistCatalogID,
-			&i.ArtworkTemplate,
-			&i.DurationMs,
-			&i.TrackNumber,
-			&i.DiscNumber,
-			&i.ReleaseDate,
-			&i.Genre,
-			&i.ContentRating,
-			&i.HasLyrics,
-			&i.Isrc,
-			&i.Composer,
-			&i.UpdatedAt,
-			&i.NoPlayParams,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const catalogCacheSize = `-- name: CatalogCacheSize :one
 SELECT count(*) AS entries, CAST(coalesce(sum(length(body)), 0) AS INTEGER) AS bytes FROM catalog_cache
 `
@@ -158,25 +106,6 @@ func (q *Queries) GetCatalogAlbum(ctx context.Context, catalogID sql.NullString)
 		&i.UpdatedAt,
 		&i.IsPrerelease,
 		&i.CatalogReleaseDate,
-	)
-	return i, err
-}
-
-const getCatalogArtist = `-- name: GetCatalogArtist :one
-SELECT id, library_id, catalog_id, name, artwork_template, url, updated_at FROM artists WHERE catalog_id = ? AND library_id IS NULL
-`
-
-func (q *Queries) GetCatalogArtist(ctx context.Context, catalogID sql.NullString) (Artist, error) {
-	row := q.db.QueryRowContext(ctx, getCatalogArtist, catalogID)
-	var i Artist
-	err := row.Scan(
-		&i.ID,
-		&i.LibraryID,
-		&i.CatalogID,
-		&i.Name,
-		&i.ArtworkTemplate,
-		&i.Url,
-		&i.UpdatedAt,
 	)
 	return i, err
 }

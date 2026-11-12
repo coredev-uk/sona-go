@@ -145,12 +145,6 @@ func (p *playlists) sidebarSection(c *ui.Context) {
 	}
 }
 
-// sideText is a Text in one of the theme's type styles.
-func sideText(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // sideHeading is a section's heading (12 at weight 600 in the muted ink,
 // then how many it holds in the faint one; 22 above and 4 below, 20 high)
 // with an action at its end.
@@ -167,10 +161,10 @@ func sideHeading(c *ui.Context, title string, count int, action func()) {
 // headingTitle is a section's name, a heading of its own, and the count
 // beside it.
 func headingTitle(c *ui.Context, title string, count int, fg ui.Color) {
-	sideText(c, title, "meta").TextColor(fg).FontWeight(600).SingleLine().Shrink(1).MinWidth(0).
+	theme.Text(c, title, "meta").TextColor(fg).FontWeight(600).SingleLine().Shrink(1).MinWidth(0).
 		Role(ui.RoleHeading).Level(2)
 	if count > 0 {
-		sideText(c, strconv.Itoa(count), "meta").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().Shrink(0)
+		theme.Text(c, strconv.Itoa(count), "meta").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().Shrink(0)
 	}
 }
 
@@ -211,7 +205,7 @@ func rowFace(row ui.Element, hot, active, over bool) ui.Color {
 // rowContent is a row's picture (20, round for a person) and name.
 func (p *playlists) rowContent(c *ui.Context, art string, round bool, name string, fg ui.Color, bold bool) {
 	kit.Artwork(c, p.env.Art, art, rowArt, kit.ArtOpts{Round: round})
-	t := sideText(c, name, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
+	t := theme.Text(c, name, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
 	if bold {
 		t.FontWeight(500)
 	}
@@ -314,7 +308,7 @@ func (p *playlists) dropZone(c *ui.Context, key, icon, label string, over bool, 
 	}
 	z.Children(func() {
 		theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: fg})
-		sideText(c, label, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
+		theme.Text(c, label, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
 	})
 }
 
@@ -504,7 +498,7 @@ func (p *playlists) ownSection(c *ui.Context, nodes []*treeNode, pending, anyEdi
 			if anyEditable {
 				msg = i18n.T("All your playlists are pinned above.")
 			}
-			sideText(c, msg, "meta").TextColor(theme.C("ink-faint")).Padding(0, 10)
+			theme.Text(c, msg, "meta").TextColor(theme.C("ink-faint")).Padding(0, 10)
 		}
 	})
 }
@@ -602,7 +596,7 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 				ui.Row(c).Size(20, 20).Shrink(0).Center().Children(func() {
 					theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: fg})
 				})
-				sideText(c, f.Name, "body").TextColor(fg).FontWeight(500).SingleLine().Shrink(1).MinWidth(0)
+				theme.Text(c, f.Name, "body").TextColor(fg).FontWeight(500).SingleLine().Shrink(1).MinWidth(0)
 				chevron := "chevron-right"
 				if open {
 					chevron = "chevron-down"
@@ -631,7 +625,7 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 		if n.Hidden > 0 {
 			msg = i18n.T("{hidden, plural, one {Its playlist is listed in another section} other {Its # playlists are listed in other sections}}", "hidden", n.Hidden)
 		}
-		sideText(c, msg, "meta").TextColor(theme.C("ink-faint")).Padding(6, 10, 6, 36+pad)
+		theme.Text(c, msg, "meta").TextColor(theme.C("ink-faint")).Padding(6, 10, 6, 36+pad)
 	})
 }
 

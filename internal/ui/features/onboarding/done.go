@@ -58,8 +58,8 @@ func (o *onboarding) doneStep(c *ui.Context) {
 	well(c.Key("ready")).Row().Gap(12).AlignItems(ui.Start).Children(func() {
 		statusIcon(c, "circle-check", "positive").Margin(2, 0, 0, 0)
 		ui.Column(c.Key("words")).Children(func() {
-			text(c, line, "ui").FontWeight(500).TextColor(theme.C("ink"))
-			text(c, i18n.T("Your library syncs in the background."), "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c, line, "ui").FontWeight(500).TextColor(theme.C("ink"))
+			theme.Text(c, i18n.T("Your library syncs in the background."), "sub").TextColor(theme.C("ink-muted"))
 		})
 	})
 }
@@ -69,8 +69,8 @@ func (o *onboarding) doneStep(c *ui.Context) {
 func (o *onboarding) leftRow(c *ui.Context, id, title, step, action, what string) {
 	ui.Row(c.Key("left:"+id)).FillWidth().Gap(24).Padding(12, 0).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 		ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-			text(c, title, "ui").FontWeight(500).TextColor(theme.C("ink"))
-			text(c, what, "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c, title, "ui").FontWeight(500).TextColor(theme.C("ink"))
+			theme.Text(c, what, "sub").TextColor(theme.C("ink-muted"))
 		})
 		if kit.Button(c.Key("go"), action, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM}).Clicked() {
 			o.goToStep(step)

@@ -195,9 +195,6 @@ SELECT * FROM tracks WHERE library_id = ?;
 -- name: GetAlbumByLibraryID :one
 SELECT * FROM albums WHERE library_id = ?;
 
--- name: GetArtistByLibraryID :one
-SELECT * FROM artists WHERE library_id = ?;
-
 -- name: GetPlaylistByLibraryID :one
 SELECT * FROM playlists WHERE library_id = ?;
 

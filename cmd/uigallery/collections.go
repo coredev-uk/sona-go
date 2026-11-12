@@ -132,7 +132,7 @@ func collectionsTracks(c *ui.Context, g *gallery) {
 				k.sortKey = key
 			}},
 			OnPlay:  func(i int) { k.current = i },
-			Current: func(s *services.Song) bool { return s.ID == "s"+strconv.Itoa(k.current) },
+			Current: &services.QueueItem{ID: "s" + strconv.Itoa(k.current)},
 			Playing: true,
 			Art:     g.art,
 			Pane:    &kit.Pane{Pos: &k.trackPos, Bounds: func() ui.Rect { return sc.Bounds() }},

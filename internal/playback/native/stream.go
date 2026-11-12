@@ -206,11 +206,9 @@ func (e *Engine) renewStream(ctx context.Context, m *media, sid string, challeng
 // one on the track timeline, so discontinuities and the jump to a live
 // edge stay gapless; new init segments and keys are applied on the way.
 func (e *Engine) feedStream(ctx context.Context, it *item, tok uint64, h host, gen int, m *media, pos time.Duration) {
-	err := e.runStream(ctx, tok, h, gen, m, pos)
-	if err == nil || ctx.Err() != nil || errors.Is(err, cdmhost.ErrStale) || errors.Is(err, cdmhost.ErrExited) {
-		return
+	if err := e.runStream(ctx, tok, h, gen, m, pos); err != nil {
+		e.feedFailed(ctx, it, err)
 	}
-	e.fail(it, err)
 }
 
 func (e *Engine) runStream(ctx context.Context, tok uint64, h host, gen int, m *media, pos time.Duration) error {

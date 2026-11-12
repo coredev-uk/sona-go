@@ -143,11 +143,19 @@ func score(t Track, c candidate) int {
 }
 
 // best returns the index of the best-scoring candidate, -1 when none
-// matches.
-func best(t Track, cs []candidate) int {
+// matches. A candidate for which preferred (nil: none) is true outranks
+// every other one.
+func best(t Track, cs []candidate, preferred func(int) bool) int {
 	idx, top := -1, -1
 	for i, c := range cs {
-		if s := score(t, c); s > top {
+		s := score(t, c)
+		if s < 0 {
+			continue
+		}
+		if preferred != nil && preferred(i) {
+			s += 1000
+		}
+		if s > top {
 			idx, top = i, s
 		}
 	}

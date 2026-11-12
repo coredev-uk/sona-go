@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 )
@@ -505,11 +506,7 @@ func (r *Reporter) save() error {
 	if err := os.MkdirAll(filepath.Dir(r.path), 0o700); err != nil {
 		return err
 	}
-	tmp := r.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, r.path)
+	return fsutil.WriteFileAtomic(r.path, b, 0o600)
 }
 
 // load queues events saved by a previous Close and removes the file.

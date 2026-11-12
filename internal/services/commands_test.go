@@ -333,7 +333,7 @@ func TestCommandsLike(t *testing.T) {
 			t.Errorf("like %s sent %v, want %v", tc.arg, sent, want)
 		}
 	}
-	// The frontend heard each change, as the library ref it shows.
+	// The UI heard each change, as the library ref it shows.
 	ce.rec.mu.Lock()
 	defer ce.rec.mu.Unlock()
 	var states []ItemState

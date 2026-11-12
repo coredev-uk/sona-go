@@ -2,6 +2,7 @@ package applemusic
 
 import (
 	"context"
+	"maps"
 	"net/url"
 	"strconv"
 
@@ -142,15 +143,22 @@ func fetchSequential[T any](ctx context.Context, c *Client, path string, q url.V
 // FollowNext appends the remaining pages of a relationship (from rel.Next)
 // to rel.Data, 100 items per request, and clears rel.Next.
 func FollowNext[T any](ctx context.Context, c *Client, rel *Relationship[T]) error {
+	return followNext(ctx, c, rel, "", nil)
+}
+
+// followNext is FollowNext for any host: base is put before rel.Next's path
+// ("" for the client's own) and extra is sent with each page.
+func followNext[T any](ctx context.Context, c *Client, rel *Relationship[T], base string, extra url.Values) error {
 	for rel.Next != "" {
 		u, err := url.Parse(rel.Next)
 		if err != nil {
 			return err
 		}
 		q := u.Query()
+		maps.Copy(q, extra)
 		q.Set("limit", strconv.Itoa(defaultPageSize))
 		var p Relationship[T]
-		if err := c.Get(ctx, u.Path, q, &p); err != nil {
+		if err := c.Get(ctx, base+u.Path, q, &p); err != nil {
 			return err
 		}
 		rel.Data = append(rel.Data, p.Data...)
@@ -165,9 +173,7 @@ func FollowNext[T any](ctx context.Context, c *Client, rel *Relationship[T]) err
 
 func withPage(q url.Values, limit, offset int) url.Values {
 	out := make(url.Values, len(q)+2)
-	for k, v := range q {
-		out[k] = v
-	}
+	maps.Copy(out, q)
 	out.Set("limit", strconv.Itoa(limit))
 	if offset > 0 {
 		out.Set("offset", strconv.Itoa(offset))

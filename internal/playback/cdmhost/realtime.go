@@ -14,7 +14,7 @@ import (
 // cannot ask for realtime priority itself: its sandbox has no D-Bus, so
 // it reports the threads (threadReport) once its output plays, and the
 // parent asks RTKit or the Realtime portal on its behalf
-// (realtime_<os>.go). Failure is not fatal: the audio then plays at
+// (realtime_linux.go and realtime_other.go). Failure is not fatal: the audio then plays at
 // normal priority and may skip under heavy CPU load.
 type Realtime struct {
 	// State is one of playback.Realtime*, or "" while no audio thread has
@@ -70,7 +70,7 @@ type rtBroker interface {
 	close()
 }
 
-// rtEnv is what a realtime request needs from the OS (realtime_<os>.go);
+// rtEnv is what a realtime request needs from the OS (realtime_linux.go and realtime_other.go);
 // tests replace it.
 type rtEnv struct {
 	// dial returns the first broker that answers, or why none did.

@@ -63,14 +63,11 @@ type Layout struct {
 	End   []string
 }
 
-// WindowsLayout is Windows' caption buttons.
-func WindowsLayout() Layout { return Layout{End: []string{Minimize, Maximize, Close}} }
-
 // MacLayout is the order of macOS's traffic lights at the window's start.
 func MacLayout() Layout { return Layout{Start: []string{Close, Minimize, Maximize}} }
 
-// DefaultLayout is used when a Linux desktop's own layout can't be read:
-// GTK's own default ("menu:minimize,maximize,close").
+// DefaultLayout is Windows' caption buttons, and what a Linux desktop uses
+// when its own layout can't be read: GTK's own default ("menu:minimize,maximize,close").
 func DefaultLayout() Layout { return Layout{End: []string{Minimize, Maximize, Close}} }
 
 // Platform is how title bars work for Sona on this OS and desktop. It is

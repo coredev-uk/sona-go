@@ -43,9 +43,14 @@ var (
 // build flags that carry compiled-in credentials (-ldflags values, linker
 // -X assignments).
 func Redact(s string) string {
-	if s == "" {
+	if !mayHoldSecret(s) {
 		return s
 	}
+	return scrub(s)
+}
+
+// scrub is Redact's regexps.
+func scrub(s string) string {
 	s = ldflagsRe.ReplaceAllString(s, `${1}"`+Redacted+`"`)
 	s = linkerXRe.ReplaceAllString(s, "${1}${2}"+Redacted)
 	s = kvRe.ReplaceAllString(s, "${1}${2}"+Redacted)
@@ -60,13 +65,38 @@ func Redact(s string) string {
 	return s
 }
 
+// mayHoldSecret is a cheap test before the regexps, which run on every log
+// message and string attribute: false means none of them can match. A match
+// needs one of: 100 characters (longB64Re); a ':' or '=' (kvRe); a '-'
+// (ldflagsRe, linkerXRe); "eyJ" (jwtRe); "bearer" in any case (bearerRe).
+func mayHoldSecret(s string) bool {
+	if len(s) >= 100 || strings.ContainsAny(s, ":=-") || strings.Contains(s, "eyJ") {
+		return true
+	}
+	for i := 0; i+len("bearer") <= len(s); i++ {
+		if s[i]|0x20 == 'b' && strings.EqualFold(s[i:i+len("bearer")], "bearer") {
+			return true
+		}
+	}
+	return false
+}
+
+// keyNormalizer drops the separators NormalizeKey ignores.
+var keyNormalizer = strings.NewReplacer("-", "", "_", "")
+
+// NormalizeKey lower-cases key and removes '-' and '_', the form the
+// secret-key checks compare ("Set-Cookie" and "set_cookie" are "setcookie").
+func NormalizeKey(key string) string {
+	return strings.ToLower(keyNormalizer.Replace(key))
+}
+
 // sensitiveKey reports whether an attribute key names a secret. Matching
 // ignores case, '-' and '_' and accepts any key ending in "token".
 // "ldflags" is a Build Info setting: the linker flags inject Sona's
 // Last.fm and Discord credentials (-X), and nothing else in them is worth
 // a log line (the version is logged at startup).
 func sensitiveKey(key string) bool {
-	k := strings.ToLower(strings.NewReplacer("-", "", "_", "").Replace(key))
+	k := NormalizeKey(key)
 	switch k {
 	case "mut", "authorization", "auth", "cookie", "setcookie", "password", "secret", "ldflags":
 		return true

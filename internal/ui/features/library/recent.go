@@ -191,8 +191,8 @@ func (l *library) recentPage(c *ui.Context, r *ui.Route) {
 			last := gi == len(pg.groups)-1
 			ui.Column(c.Key(g.bucket)).FillWidth().Role(ui.RoleGroup).Label(label).Children(func() {
 				ui.Row(c.Key("heading")).FillWidth().AlignItems(ui.Center).Gap(12).Margin(0, 0, 16, 0).Children(func() {
-					styled(c, label, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-					styled(c, i18n.FormatNumber(float64(g.count)), "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").Role(ui.RoleNone)
+					theme.Text(c, label, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+					theme.Text(c, i18n.FormatNumber(float64(g.count)), "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").Role(ui.RoleNone)
 					ui.Box(c.Key("rule")).Grow(1).Height(1).Background(theme.C("line"))
 				})
 				start := g.start

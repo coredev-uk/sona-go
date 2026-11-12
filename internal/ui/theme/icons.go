@@ -130,13 +130,3 @@ func Icon(name string) *ui.SVG {
 	icons.parsed[canon] = s
 	return s
 }
-
-// IconNames lists the canonical names of every embedded icon.
-func IconNames() []string {
-	icons.once.Do(loadIconIndex)
-	out := make([]string, 0, len(icons.names))
-	for n := range icons.names {
-		out = append(out, n)
-	}
-	return out
-}

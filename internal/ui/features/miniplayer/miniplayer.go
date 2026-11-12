@@ -22,6 +22,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // controlOrder is the Mini player button's place among the player bar's
@@ -46,17 +47,12 @@ type desktop interface {
 	ToggleMiniPlayer()
 }
 
-// lyricsSource is what the sung line asks of the lyrics service.
-type lyricsSource interface {
-	Lyrics(ctx context.Context, songID string) (services.Lyrics, error)
-}
-
 // mini is the feature's state.
 type mini struct {
 	env  *module.Env
 	svc  transport
 	desk desktop
-	lyr  lyricsSource
+	lyr  store.LyricsSource
 	now  func() time.Time
 	sung sungState
 

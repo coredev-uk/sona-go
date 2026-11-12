@@ -150,12 +150,3 @@ func LivePosition(s services.PlaybackState, now time.Time) time.Duration {
 	}
 	return time.Duration(pos) * time.Millisecond
 }
-
-// LyricsSongID is the catalogue song whose lyrics go with item: "" when
-// there are none to look up (nothing playing, live radio, a music video).
-func LyricsSongID(item *services.QueueItem) string {
-	if item == nil || item.Video {
-		return ""
-	}
-	return item.CatalogID
-}

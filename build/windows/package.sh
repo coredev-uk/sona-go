@@ -24,9 +24,10 @@
 # does both first; its GSTREAMER_ROOT, PKG_CONFIG_PATH and SONA_CDM_SHIM are
 # used when set, else this script does it itself.
 #
-# Environment: VERSION (default: the VERSION file); UPDATE_FEED, UPDATE_KEY
-# (linked in for self-updates; unset = updates off); SONA_LASTFM_KEY,
-# SONA_LASTFM_SECRET, SONA_DISCORD_CLIENT_ID as build/linux;
+# Environment: VERSION (default: the VERSION file); UPDATE_FEED, UPDATE_KEY,
+# SONA_LASTFM_KEY, SONA_LASTFM_SECRET, SONA_DISCORD_CLIENT_ID (linked in as
+# build/ldflags.sh says: in CI, with internal/update/update.pub committed, the
+# update feed of the latest release is linked without them);
 # SONA_SMOKE_TOOLS=1 also builds OUTDIR/smoke-tools/playspike.exe for smoke.sh.
 set -euo pipefail
 
@@ -81,12 +82,7 @@ command -v objdump >/dev/null || die "no objdump (MinGW-w64's binutils, with gcc
 PKG_CONFIG_PATH=$PKG_CONFIG_PATH "$PKG_CONFIG" --exists gstreamer-1.0 gstreamer-app-1.0 || die "pkg-config does not find GStreamer in $PKG_CONFIG_PATH"
 
 # 2. sona.exe, linked against GStreamer's import libraries.
-ldflags="-w -s -H windowsgui -X main.version=$version -X github.com/egoist/mygo.production=1"
-[[ -n ${UPDATE_FEED:-} ]] && ldflags+=" -X github.com/egoist/mygo.packageUpdateFeed=$UPDATE_FEED"
-[[ -n ${UPDATE_KEY:-} ]] && ldflags+=" -X github.com/egoist/mygo.packageUpdateKey=$UPDATE_KEY"
-[[ -n ${SONA_LASTFM_KEY:-} ]] && ldflags+=" -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmKey=$SONA_LASTFM_KEY"
-[[ -n ${SONA_LASTFM_SECRET:-} ]] && ldflags+=" -X github.com/coredev-uk/sona-go/internal/scrobble.lastfmSecret=$SONA_LASTFM_SECRET"
-[[ -n ${SONA_DISCORD_CLIENT_ID:-} ]] && ldflags+=" -X github.com/coredev-uk/sona-go/internal/discord.clientID=$SONA_DISCORD_CLIENT_ID"
+ldflags=$(VERSION=$version bash "$repo/build/ldflags.sh" --goos windows --update windows-amd64)
 gocmd() { # go ARGS...: for Windows, with GStreamer
   (
     cd "$repo"

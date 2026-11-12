@@ -223,10 +223,6 @@ func (s *search) openLink(prefix string) func(id string) {
 func (s *search) songList(c *ui.Context, st *kit.TrackListState, menus **kit.ActionMenus, pane *kit.Pane,
 	ctx kit.ItemsCtx, songs []services.Song, pending int, album bool, label string, onPlay func(i int),
 ) {
-	var current func(*services.Song) bool
-	if ctx.Current != nil {
-		current = func(s *services.Song) bool { return s != nil && ctx.Current(*s) }
-	}
 	at := func(i int) *services.Song {
 		if i < len(songs) {
 			return &songs[i]
@@ -237,7 +233,7 @@ func (s *search) songList(c *ui.Context, st *kit.TrackListState, menus **kit.Act
 		Label:      label,
 		Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: album},
 		OnPlay:     onPlay,
-		Current:    current,
+		Current:    ctx.Current,
 		Playing:    ctx.Playing,
 		Restricted: ctx.Restricted,
 		Art:        s.env.Art,

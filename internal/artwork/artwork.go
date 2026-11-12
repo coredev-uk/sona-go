@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
 const (
@@ -61,7 +63,7 @@ type Options struct {
 	HTTP     *http.Client
 	Logger   *slog.Logger // nil discards
 	MaxBytes int64        // disk cap; 0 means 512 MiB
-	Prefix   string       // URL path the Handler is mounted at; "" means "/art/"
+	Prefix   string       // path prefix of the URLs URL returns; "" means "/art/"
 	// CoverDir holds the covers the user chose from files (SaveCover); it
 	// is user data, not cache, so it sits outside Dir. "" stores none.
 	CoverDir string
@@ -102,11 +104,12 @@ type Cache struct {
 	workSem  chan struct{} // bounds decode/resize/encode
 	flight   flights
 
-	mu        sync.Mutex
-	templates map[string]string // key → template, registered by URL and Get
-	keys      map[string]*entry // on-disk index
-	total     int64
-	colors    map[string][]Color
+	mu         sync.Mutex
+	templates  map[string]string // key → template, registered by URL and Get
+	registered map[string]string // raw template → key, so a repeated template is parsed once
+	keys       map[string]*entry // on-disk index
+	total      int64
+	colors     map[string][]Color
 }
 
 // entry indexes one key directory.
@@ -144,19 +147,20 @@ func New(opts Options) (*Cache, error) {
 		return nil
 	}
 	c := &Cache{
-		dir:       opts.Dir,
-		http:      &client,
-		ua:        cmp.Or(opts.UserAgent, DefaultUserAgent),
-		log:       opts.Logger,
-		max:       opts.MaxBytes,
-		prefix:    opts.Prefix,
-		covers:    opts.CoverDir,
-		backdrop:  opts.Backdrop,
-		fetchSem:  make(chan struct{}, cmp.Or(max(opts.Fetches, 0), defaultFetches)),
-		workSem:   make(chan struct{}, runtime.GOMAXPROCS(0)),
-		templates: map[string]string{},
-		keys:      map[string]*entry{},
-		colors:    map[string][]Color{},
+		dir:        opts.Dir,
+		http:       &client,
+		ua:         cmp.Or(opts.UserAgent, DefaultUserAgent),
+		log:        opts.Logger,
+		max:        opts.MaxBytes,
+		prefix:     opts.Prefix,
+		covers:     opts.CoverDir,
+		backdrop:   opts.Backdrop,
+		fetchSem:   make(chan struct{}, cmp.Or(max(opts.Fetches, 0), defaultFetches)),
+		workSem:    make(chan struct{}, runtime.GOMAXPROCS(0)),
+		templates:  map[string]string{},
+		registered: map[string]string{},
+		keys:       map[string]*entry{},
+		colors:     map[string][]Color{},
 	}
 	if c.log == nil {
 		c.log = slog.New(slog.DiscardHandler)
@@ -203,7 +207,7 @@ func (c *Cache) scan() error {
 			e.used, e.touched = info.ModTime(), info.ModTime()
 		}
 		for _, f := range files {
-			if strings.HasPrefix(f.Name(), ".tmp-") || legacyName(f.Name()) {
+			if isTemp(f.Name()) || legacyName(f.Name()) {
 				_ = os.Remove(filepath.Join(kdir, f.Name()))
 				continue
 			}
@@ -289,14 +293,30 @@ func (c *Cache) Remove(refs []string) (int64, error) {
 // URL returns the Go-served path of template's variant for a w×h box
 // ("/art/<key>/<w>x<h>.jpg"), or "" when template is empty or not an Apple
 // artwork URL. The box keeps its aspect ratio with its long edge clamped to
-// [MinSize, MaxSize]. Nothing is fetched until the URL is requested from
-// Handler.
+// [MinSize, MaxSize]. Nothing is fetched until the path is read with Get or
+// LocalPath.
 func (c *Cache) URL(template string, w, h int) string {
 	key, err := c.register(template)
 	if err != nil {
 		return ""
 	}
 	return c.prefix + key + "/" + clampDims(w, h).String() + ".jpg"
+}
+
+// URLs is URL for the w:h shape at each of three long edges. It registers
+// template once, so it costs far less than three URL calls. Every URL is
+// "" for an invalid template.
+func (c *Cache) URLs(template string, w, h int, longs [3]int) (out [3]string) {
+	key, err := c.register(template)
+	if err != nil {
+		return out
+	}
+	shape := dims{max(w, 1), max(h, 1)}
+	for i, long := range longs {
+		d := shape.scaled(long)
+		out[i] = c.prefix + key + "/" + clampDims(d.w, d.h).String() + ".jpg"
+	}
+	return out
 }
 
 // BackdropURL returns the Go-served path of template's backdrop
@@ -307,6 +327,23 @@ func (c *Cache) BackdropURL(template string) string {
 		return ""
 	}
 	return c.prefix + key + "/backdrop.jpg"
+}
+
+// Template is the Apple artwork template behind a Go-served path
+// ("/art/<key>/<w>x<h>.jpg", as URL and BackdropURL return, a query or
+// fragment ignored), for a caller that wants the image: it passes the
+// template to Get at the exact size it needs. ok is false for a path that
+// is not one this cache handed out.
+func (c *Cache) Template(urlPath string) (template string, ok bool) {
+	p, _, _ := strings.Cut(urlPath, "?")
+	p, _, _ = strings.Cut(p, "#")
+	rest, found := strings.CutPrefix(p, c.prefix)
+	key, _, slash := strings.Cut(rest, "/")
+	if !found || !slash || !validKey(key) {
+		return "", false
+	}
+	template = c.lookup(key)
+	return template, template != ""
 }
 
 // Get returns template's variant for a w×h box (clamped as in URL) as JPEG
@@ -371,14 +408,23 @@ func (c *Cache) Clear() error {
 	return errors.Join(errs...)
 }
 
-// register validates template and remembers it under its key.
+// register validates template and remembers it under its key. A template
+// seen before (an album's tracks share one) skips parsing and hashing.
 func (c *Cache) register(template string) (string, error) {
+	c.mu.Lock()
+	key, ok := c.registered[template]
+	if ok && c.templates[key] != "" {
+		c.mu.Unlock()
+		return key, nil
+	}
+	c.mu.Unlock()
 	tmpl, key, err := parseTemplate(template)
 	if err != nil {
 		return "", err
 	}
 	c.mu.Lock()
 	c.templates[key] = tmpl
+	c.registered[template] = key
 	c.mu.Unlock()
 	return key, nil
 }
@@ -478,22 +524,16 @@ func (c *Cache) store(key, tmpl, name string, data []byte) (string, error) {
 	return filepath.Join(dir, name), nil
 }
 
+// isTemp reports whether name is a temporary file of a write in progress or
+// interrupted: fsutil's, or the ".tmp-" ones of builds before it.
+func isTemp(name string) bool {
+	return fsutil.IsTemp(name) || strings.HasPrefix(name, ".tmp-")
+}
+
 func (c *Cache) writeFile(key, name string, data []byte) error {
 	dir := filepath.Join(c.dir, key)
-	f, err := os.CreateTemp(dir, ".tmp-*")
-	if err != nil {
-		return fmt.Errorf("artwork: %w", err)
-	}
-	_, werr := f.Write(data)
-	if cerr := f.Close(); werr == nil {
-		werr = cerr
-	}
-	if werr == nil {
-		werr = os.Rename(f.Name(), filepath.Join(dir, name))
-	}
-	if werr != nil {
-		_ = os.Remove(f.Name())
-		return fmt.Errorf("artwork: write %s: %w", name, werr)
+	if err := fsutil.WriteFileAtomic(filepath.Join(dir, name), data, 0o600); err != nil {
+		return fmt.Errorf("artwork: write %s: %w", name, err)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()

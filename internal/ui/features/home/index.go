@@ -82,10 +82,7 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 			bg = theme.C("hover")
 		}
 		btn.Background(bg)
-		if !theme.ReducedMotion() {
-			m := tk.Motion["press"]
-			btn.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-		}
+		theme.Fade(btn, "press")
 		btn.Children(func() {
 			ic := theme.Glyph(c, "chevron-right", indexChevron, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
 			turn := float32(0)
@@ -104,14 +101,14 @@ func (h *home) indexLine(c *ui.Context, s services.Section, ctx kit.ItemsCtx) {
 			holdsBeside := inner >= indexWide
 			col := min(max(indexColShare*inner, indexColMin), indexColMax)
 			ui.Column(c.Key("title")).Width(col).Shrink(0).MinWidth(0).Children(func() {
-				text(c, s.Title, "heading").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
+				theme.Text(c, s.Title, "heading").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
 				if summary != "" && !holdsBeside {
-					text(c, summary, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().TextAlign(ui.Start)
+					theme.Text(c, summary, "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().TextAlign(ui.Start)
 				}
 			})
 			taken := indexChevron + col + 2*indexGap
 			if holdsBeside {
-				text(c, summary, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().
+				theme.Text(c, summary, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine().
 					Width(indexHolds).Shrink(0).TextAlign(ui.Start)
 				taken += indexHolds + indexGap
 			}
@@ -183,10 +180,7 @@ func seeAll(c *ui.Context, open func()) ui.Element {
 		bg, fg = theme.C("hover"), theme.C("ink")
 	}
 	b.Height(28).PaddingX(6).Gap(2).Radius(tk.Radius["md"]).Background(bg).TextColor(fg).Center()
-	if !theme.ReducedMotion() {
-		m := tk.Motion["press"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(b, "press")
 	b.Children(func() {
 		sub := tk.Type["sub"]
 		ui.Text(c, i18n.T("See all")).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine()

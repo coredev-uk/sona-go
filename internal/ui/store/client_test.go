@@ -516,6 +516,23 @@ func TestKeyPrefixSemantics(t *testing.T) {
 	if (Key{"a", 1}).id() == (Key{"a", "1"}).id() {
 		t.Error("1 and \"1\" are one key")
 	}
+	// The fast path's types stay apart from each other and from their
+	// named and unnamed kin, and a string's quotes cannot forge another key.
+	type name string
+	keys := []Key{
+		{1}, {int64(1)}, {uint64(1)}, {"1"}, {name("1")}, {true}, {"true"},
+		{"a", "b"}, {"a\x00string:\"b\""}, {`a" "b`}, {opts{"a", false}}, {[]string{"a"}},
+	}
+	seen := map[string]Key{}
+	for _, k := range keys {
+		if o, dup := seen[k.id()]; dup {
+			t.Errorf("%#v and %#v are one key", o, k)
+		}
+		seen[k.id()] = k
+		if k.id() != (Key)(append(Key(nil), k...)).id() {
+			t.Errorf("%#v: the id is not stable", k)
+		}
+	}
 }
 
 func TestNoRetryKeepsTheErrorUntilInvalidateOrRemount(t *testing.T) {

@@ -208,9 +208,9 @@ func (r *radio) identity(c *ui.Context, d services.StationDetail, split bool) {
 			ui.Row(c.Key("byline")).Margin(8, 0, 0, 0).MinWidth(0).TextColor(theme.C("ink")).FontSize(tk.Type["heading"].Size).
 				FontWeight(500).Children(byline)
 		}
-		text(c, stationLine(s), "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+		theme.Text(c, stationLine(s), "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 		if s.Notes != "" {
-			text(c, s.Notes, "sub").TextColor(theme.C("ink-muted")).MaxLines(5).Margin(12, 0, 0, 0)
+			theme.Text(c, s.Notes, "sub").TextColor(theme.C("ink-muted")).MaxLines(5).Margin(12, 0, 0, 0)
 		}
 		ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(20, 0, 0, 0).Children(func() {
 			// Playing takes the listed songs; the page then lists the ones
@@ -244,8 +244,8 @@ func (r *radio) unplayable(c *ui.Context, s services.Station) {
 		Radius(tk.Radius["lg"]).Border(1, theme.C("control-line")).BorderStyle(ui.BorderDashed).Role(ui.RoleGroup).Label(i18n.T("Sona can't play this station")).Children(func() {
 		ui.Icon(c, theme.Icon("circle-slash")).FontSize(16).TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0).Shrink(0)
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			text(c, i18n.T("Sona can't play this station"), "label").TextColor(theme.C("ink"))
-			text(c, kit.StationUnavailableText(s.Unavailable), "sub").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+			theme.Text(c, i18n.T("Sona can't play this station"), "label").TextColor(theme.C("ink"))
+			theme.Text(c, kit.StationUnavailableText(s.Unavailable), "sub").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 		})
 	})
 }
@@ -261,7 +261,7 @@ func (r *radio) section(c *ui.Context, key, title string, ruled bool, body func(
 		if ruled {
 			ui.Box(c.Key("rule")).Absolute().Top(0).Left(0).Right(0).Height(1).Background(theme.C("line"))
 		}
-		text(c, title, "heading").TextColor(theme.C("ink")).Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, title, "heading").TextColor(theme.C("ink")).Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
 		body()
 	})
 }
@@ -275,11 +275,11 @@ func (r *radio) broadcaster(c *ui.Context, s services.Station, ruled bool) {
 	r.section(c, "on-air", i18n.T("On air"), ruled, func() {
 		switch {
 		case tuned && st.OnAir != nil:
-			text(c, kit.OnAirLine(*st.OnAir), "ui").TextColor(theme.C("ink"))
+			theme.Text(c, kit.OnAirLine(*st.OnAir), "ui").TextColor(theme.C("ink"))
 		case tuned:
-			text(c, i18n.T("This station isn't naming what it is playing."), "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c, i18n.T("This station isn't naming what it is playing."), "sub").TextColor(theme.C("ink-muted"))
 		default:
-			text(c, i18n.T("Play the station to see what is on air."), "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c, i18n.T("Play the station to see what is on air."), "sub").TextColor(theme.C("ink-muted"))
 		}
 		if tuned && st.Broadcaster != nil {
 			info := st.Broadcaster
@@ -290,10 +290,10 @@ func (r *radio) broadcaster(c *ui.Context, s services.Station, ruled bool) {
 				}
 			}
 			if len(parts) > 0 {
-				text(c, strings.Join(parts, " · "), "sub").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+				theme.Text(c, strings.Join(parts, " · "), "sub").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 			}
 			if info.Description != "" {
-				text(c, info.Description, "sub").TextColor(theme.C("ink-muted")).Margin(8, 0, 0, 0)
+				theme.Text(c, info.Description, "sub").TextColor(theme.C("ink-muted")).Margin(8, 0, 0, 0)
 			}
 		}
 	})
@@ -315,16 +315,16 @@ func (r *radio) upcoming(c *ui.Context, songs []services.Song, ruled bool) {
 						if song.AlbumID != "" {
 							r.songLink(c, song.Name, "/album/"+url.PathEscape(song.AlbumID)+"?song="+url.QueryEscape(song.ID), "ui", ink)
 						} else {
-							text(c, song.Name, "ui").TextColor(ink).SingleLine()
+							theme.Text(c, song.Name, "ui").TextColor(ink).SingleLine()
 						}
 						if song.ArtistID != "" {
 							r.songLink(c, song.Artist, "/artist/"+url.PathEscape(song.ArtistID), "sub", muted)
 						} else {
-							text(c, song.Artist, "sub").TextColor(muted).SingleLine()
+							theme.Text(c, song.Artist, "sub").TextColor(muted).SingleLine()
 						}
 					})
-					text(c, song.Album, "sub").TextColor(theme.C("ink-muted")).Grow(0.8).Basis(0).MinWidth(0).SingleLine().TextAlign(ui.Start)
-					text(c, i18n.FormatDuration(time.Duration(song.DurationMs)*time.Millisecond), "meta").TextColor(theme.C("ink-muted")).Shrink(0)
+					theme.Text(c, song.Album, "sub").TextColor(theme.C("ink-muted")).Grow(0.8).Basis(0).MinWidth(0).SingleLine().TextAlign(ui.Start)
+					theme.Text(c, i18n.FormatDuration(time.Duration(song.DurationMs)*time.Millisecond), "meta").TextColor(theme.C("ink-muted")).Shrink(0)
 				})
 			}
 		})
@@ -373,10 +373,10 @@ func (r *radio) slot(c *ui.Context, s services.Station, p programme, now int64, 
 	row := ui.Row(c.Key(p.event.ID + "@" + time.UnixMilli(p.startMs).String())).FillWidth().AlignItems(ui.Start).Role(ui.RoleListItem)
 	row.Children(func() {
 		ui.Column(c.Key("when")).Width(whenW).Shrink(0).Padding(slotPad-1, 0, 0, 0).Children(func() {
-			at := text(c, startLabel(p.event, now), "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
+			at := theme.Text(c, startLabel(p.event, now), "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
 			if cur {
 				at.TextColor(theme.C("ink")).FontWeight(600)
-				text(c, i18n.T("On air"), "meta").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+				theme.Text(c, i18n.T("On air"), "meta").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 			}
 		})
 		r.rail(c, p, now, tuned, cur, first, last)
@@ -402,13 +402,13 @@ func (r *radio) slot(c *ui.Context, s services.Station, p programme, now int64, 
 				if cur && tuned {
 					ink = theme.C("play-ink")
 				}
-				text(c, p.event.Title, "label").TextColor(ink)
+				theme.Text(c, p.event.Title, "label").TextColor(ink)
 				if p.event.Description != "" {
-					text(c, p.event.Description, "sub").TextColor(theme.C("ink-muted")).MaxLines(2).MaxWidth(textMax).Margin(2, 0, 0, 0)
+					theme.Text(c, p.event.Description, "sub").TextColor(theme.C("ink-muted")).MaxLines(2).MaxWidth(textMax).Margin(2, 0, 0, 0)
 				}
 				if cur && counts {
 					left := i18n.FormatRunningTime(time.Duration(max(60_000, p.endMs-now)) * time.Millisecond)
-					text(c, i18n.T("{left} left", "left", left), "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").Margin(6, 0, 0, 0)
+					theme.Text(c, i18n.T("{left} left", "left", left), "meta").TextColor(theme.C("ink-muted")).FontFeatures("tnum").Margin(6, 0, 0, 0)
 				}
 			})
 		})
@@ -474,7 +474,7 @@ func (r *radio) songLink(c *ui.Context, label, path, style string, ink ui.Color)
 		}
 		return
 	}
-	text(c, label, style).TextColor(ink).SingleLine()
+	theme.Text(c, label, style).TextColor(ink).SingleLine()
 }
 
 // seedLine is what a track station was made from, as the header's byline:

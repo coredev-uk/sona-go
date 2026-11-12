@@ -88,9 +88,6 @@ func TestCodeOf(t *testing.T) {
 			t.Errorf("CodeOf(%v) = %q, want %q", tc.err, got, tc.want)
 		}
 	}
-	if b := string(MarshalError(fmt.Errorf("x: %w", appleid.ErrLocked))); !strings.Contains(b, `"code":"locked"`) {
-		t.Errorf("MarshalError = %s", b)
-	}
 }
 
 func TestGateHoldsRequestsUntilOpen(t *testing.T) {
@@ -305,7 +302,7 @@ func TestActivationEvents(t *testing.T) {
 	focused := 0
 	o := &opener{emit: rec, focus: func() { focused++ }, log: discard()}
 
-	// Launch arguments arrive before the frontend listens: held.
+	// Launch arguments arrive before the UI listens: held.
 	o.activate(app.Activation{Args: []string{"--verbose", "https://music.apple.com/gb/album/x/1440857781?i=1440857795", "https://example.com/"}}, false)
 	if len(rec.events) != 0 || focused != 0 {
 		t.Fatalf("emitted before first paint: %v (focused %d)", rec.events, focused)

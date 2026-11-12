@@ -23,12 +23,7 @@ const (
 
 // text is a line of text in a type style and ink colour.
 func text(c *ui.Context, s, style, ink string) ui.Element {
-	t := theme.Current().Type[style]
-	e := ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).TextColor(theme.C(ink))
-	if t.Tracking != 0 {
-		e.LetterSpacing(t.Tracking)
-	}
-	return e
+	return theme.Text(c, s, style).TextColor(theme.C(ink))
 }
 
 // rule is the 1px line of a stub, the day's date on one side and its shows
@@ -117,10 +112,7 @@ func ticketButton(c *ui.Context, label, a11y, icon string, outlined bool) ui.Ele
 	if outlined {
 		e.Border(1, theme.C("control-line"))
 	}
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(e, "feedback")
 	e.Children(func() {
 		text(c, label, "label", "ink").SingleLine()
 		theme.Glyph(c, icon, 14, theme.GlyphOpts{Color: theme.C("ink"), Inherit: true})

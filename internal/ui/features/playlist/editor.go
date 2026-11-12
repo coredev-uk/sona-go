@@ -26,7 +26,7 @@ const (
 	editorNumberW = 32
 	editorTimeW   = 56
 	// editorStartW is the "starts at" column, in front of the duration.
-	editorStartW = 64
+	editorStartW  = 64
 	editorRemoveW = 32
 )
 

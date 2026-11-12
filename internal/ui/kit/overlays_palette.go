@@ -128,7 +128,7 @@ func Keycaps(c *ui.Context, chords ...string) {
 				for j, part := range ChordParts(chord) {
 					ui.Row(c.Key("cap:"+string(rune('0'+j)))).Height(20).MinWidth(20).PaddingX(4).Center().Role(ui.RoleNone).
 						Radius(theme.Current().Radius["sm"]).Border(1, theme.C("control-line")).Children(func() {
-						overlaysText(c, part, "meta").FontWeight(500).TextColor(theme.C("ink-muted")).FontFeatures("tnum").Role(ui.RoleNone)
+						theme.Text(c, part, "meta").FontWeight(500).TextColor(theme.C("ink-muted")).FontFeatures("tnum").Role(ui.RoleNone)
 					})
 				}
 			})
@@ -290,7 +290,7 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 			pick(flat[at])
 		}
 	})
-	ui.Box(c.Key("palette:sep")).Height(1).FillWidth().Background(theme.C("line"))
+	theme.Hairline(c.Key("palette:sep"))
 
 	// The results.
 	maxH := min(windowH*0.56, 440)
@@ -307,7 +307,7 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 	list.Children(func() {
 		for _, s := range sections {
 			ui.Column(c.Key("palette:g:" + s.Title)).Role(ui.RoleGroup).Label(s.Title).FillWidth().Children(func() {
-				overlaysText(c.Key("h"), s.Title, "meta").TextColor(theme.C("ink-faint")).Padding(10, 10, 4).Role(ui.RoleHeading)
+				theme.Text(c.Key("h"), s.Title, "meta").TextColor(theme.C("ink-faint")).Padding(10, 10, 4).Role(ui.RoleHeading)
 				for _, e := range s.Entries {
 					row := p.option(c, e, e.Key == p.active)
 					if row.Hovered() {
@@ -336,12 +336,12 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 	}
 
 	// The hints.
-	ui.Box(c.Key("palette:sep2")).Height(1).FillWidth().Background(theme.C("line"))
+	theme.Hairline(c.Key("palette:sep2"))
 	ui.Row(c.Key("palette:hints")).Height(36).FillWidth().Padding(0, 16).Gap(16).AlignItems(ui.Center).Children(func() {
 		hint := func(key string, label string, chords ...string) {
 			ui.Row(c.Key("hint:" + key)).Gap(6).AlignItems(ui.Center).Children(func() {
 				Keycaps(c, chords...)
-				overlaysText(c.Key("l"), label, "meta").TextColor(theme.C("ink-faint"))
+				theme.Text(c.Key("l"), label, "meta").TextColor(theme.C("ink-faint"))
 			})
 		}
 		hint("move", i18n.T("Move"), "ArrowUp", "ArrowDown")
@@ -375,11 +375,11 @@ func (p *Palette) option(c *ui.Context, e PaletteEntry, active bool) ui.Element 
 		}
 		if e.Detail != "" {
 			ui.Column(c.Key("txt")).Grow(1).MinWidth(0).Children(func() {
-				overlaysText(c.Key("l"), e.Label, "body").TextColor(theme.C("ink")).SingleLine()
-				overlaysText(c.Key("d"), e.Detail, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+				theme.Text(c.Key("l"), e.Label, "body").TextColor(theme.C("ink")).SingleLine()
+				theme.Text(c.Key("d"), e.Detail, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			})
 		} else {
-			overlaysText(c.Key("l"), e.Label, "body").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0)
+			theme.Text(c.Key("l"), e.Label, "body").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0)
 		}
 		if len(e.Keys) > 0 {
 			Keycaps(c.Key("keys"), e.Keys[:min(len(e.Keys), 2)]...)

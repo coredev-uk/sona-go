@@ -156,7 +156,7 @@ func (s *concerts) agenda(c *ui.Context, v *agendaView, loading, more bool, top 
 	rov := &s.page.rov
 	rov.begin()
 	var menus []menuShow
-	list := ui.Column(c.Key("agenda")).FocusGroup(ui.Horizontal | ui.Vertical).Busy(loading).Margin(top, 0, 0, 0)
+	list := ui.Column(c.Key("agenda")).FocusGroup(ui.Horizontal|ui.Vertical).Busy(loading).Margin(top, 0, 0, 0)
 	list.Children(func() {
 		for i, m := range v.months {
 			sec := ui.Column(c.Key(m.key)).Role(ui.RoleGroup).Label(m.title)

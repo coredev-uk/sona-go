@@ -178,10 +178,10 @@ func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account
 	tk := theme.Current()
 	release := m.upcoming || m.justOut
 	ui.Column(c.Key("head-body")).MinWidth(0).Children(func() {
-		typed(c, m.album.Name, "display").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
+		theme.Text(c, m.album.Name, "display").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
 		ui.Row(c.Key("byline")).Margin(6, 0, 0, 0).MinWidth(0).TextColor(theme.C("ink")).
 			FontSize(tk.Type["heading"].Size).FontWeight(500).Children(func() { a.byline(c, m, k) })
-		typed(c, m.meta, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+		theme.Text(c, m.meta, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 		// An album not out yet leads with its release and the actions that
 		// answer it; Apple's badges and note follow.
 		note := func(top float32) {
@@ -191,7 +191,7 @@ func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account
 				})
 			}
 			if m.lede != "" {
-				typed(c, m.lede, "sub").TextColor(theme.C("ink-muted")).MaxWidth(500).Margin(12, 0, 0, 0)
+				theme.Text(c, m.lede, "sub").TextColor(theme.C("ink-muted")).MaxWidth(500).Margin(12, 0, 0, 0)
 			}
 		}
 		actions := func(top float32) {
@@ -277,8 +277,8 @@ func (a *album) releaseStatus(c *ui.Context, m *model, now time.Time, account bo
 			parts = append(parts, i18n.T("Reminder set"))
 		}
 	}
-	typed(c, lead, "title").TextColor(theme.C("ink"))
-	typed(c, strings.Join(parts, " · "), "sub").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+	theme.Text(c, lead, "title").TextColor(theme.C("ink"))
+	theme.Text(c, strings.Join(parts, " · "), "sub").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 }
 
 // libraryShare is "3 of 13 songs in your library · Show complete album".
@@ -346,15 +346,13 @@ func (a *album) songs(c *ui.Context, m *model, highlight string, now time.Time, 
 		Restricted: restricted,
 		// An album not out yet has no lengths to give: no row of dashes.
 		BlankDuration: m.upcoming || m.justOut,
-		Current: func(s *services.Song) bool {
-			return cur.Current != nil && kit.SongIsCurrent(s, cur.Current.ID, cur.Current.CatalogID)
-		},
-		Playing: playing,
-		Art:     a.env.Art,
-		Menus:   a.trackMenus,
-		Motion:  a.env.Motion,
-		Pane:    &kit.Pane{Pos: &a.pos, Bounds: a.paneRect},
-		OnPlay:  func(i int) { a.env.Queue.PlaySongs(list, i, services.PlayFrom{Kind: "album", ID: m.album.ID}) },
+		Current:       cur.Current,
+		Playing:       playing,
+		Art:           a.env.Art,
+		Menus:         a.trackMenus,
+		Motion:        a.env.Motion,
+		Pane:          &kit.Pane{Pos: &a.pos, Bounds: a.paneRect},
+		OnPlay:        func(i int) { a.env.Queue.PlaySongs(list, i, services.PlayFrom{Kind: "album", ID: m.album.ID}) },
 	}
 	// The heading before a song: its group's on an album not out yet, else
 	// (or after it) a classical album's work.
@@ -420,8 +418,8 @@ func (a *album) discIndex(c *ui.Context, m *model) {
 				btn.Background(bg)
 				btn.Children(func() {
 					ui.Row(c).MinWidth(0).AlignItems(ui.Center).Children(func() {
-						typed(c, name, "sub").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Shrink(0)
-						typed(c, "\u00a0· "+count, "sub").TextColor(theme.C("ink-muted")).SingleLine().Shrink(1).MinWidth(0)
+						theme.Text(c, name, "sub").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Shrink(0)
+						theme.Text(c, "\u00a0· "+count, "sub").TextColor(theme.C("ink-muted")).SingleLine().Shrink(1).MinWidth(0)
 					})
 				})
 				if btn.Clicked() && a.list.at != nil {
@@ -441,14 +439,14 @@ func (a *album) finePrint(c *ui.Context, m *model) {
 			ui.Column(c.Key("facts")).Gap(8).FillWidth().Children(func() {
 				for _, f := range m.facts {
 					ui.Column(c.Key(f.label)).FillWidth().Children(func() {
-						typed(c, f.label, "meta").TextColor(theme.C("ink-muted"))
-						typed(c, f.value, "meta").TextColor(theme.C("ink"))
+						theme.Text(c, f.label, "meta").TextColor(theme.C("ink-muted"))
+						theme.Text(c, f.value, "meta").TextColor(theme.C("ink"))
 					})
 				}
 			})
 		}
 		if m.rights != "" {
-			e := typed(c, m.rights, "meta").TextColor(theme.C("ink-muted"))
+			e := theme.Text(c, m.rights, "meta").TextColor(theme.C("ink-muted"))
 			if len(m.facts) > 0 {
 				e.Margin(12, 0, 0, 0)
 			}
