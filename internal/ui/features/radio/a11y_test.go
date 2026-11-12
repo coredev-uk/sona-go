@@ -142,6 +142,21 @@ func TestA11yRadioPageHasNoControlInsideAnotherAndItsListsHoldOnlyItems(t *testi
 	}
 }
 
+func TestA11yAProgrammesBoxIsALinkNamedForItsSlotThatIsNoTabStop(t *testing.T) {
+	rg := radioWithSchedule(t)
+	t0 := base()
+	name := "The Zane Lowe Show, " + clockAt(t0.UnixMilli()) + "–" + clockAt(t0.Add(time.Hour).UnixMilli())
+	l, ok := access.Read(t, rg.tt.Tester).Find(ui.RoleLink, name)
+	if !ok || !l.Has(access.Focusable) {
+		t.Fatalf("no link %q", name)
+	}
+	// The station's own link is the one stop: the boxes are reached by the
+	// pointer and by screen readers' link lists.
+	if slices.Contains(walk(t, rg), name) {
+		t.Errorf("a programme's box is a Tab stop")
+	}
+}
+
 func TestA11yRadioTabWalkGoesBoardThenBroadcastersThenBandsWithoutATrap(t *testing.T) {
 	rg := radioWithSchedule(t)
 	stops := walk(t, rg)

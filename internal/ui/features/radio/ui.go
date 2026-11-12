@@ -1,7 +1,6 @@
 package radio
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -19,6 +18,7 @@ const (
 	bandPad      = 24  // pt-6: from that line to the band's heading
 	headingGap   = 20  // mb-5: under a band's heading
 	textMax      = 72 * 9
+	railMin      = 880 // content width from which a band hangs its heading in a rail
 )
 
 // text is a text in a token's type style (Type["sub"]…).
@@ -99,23 +99,4 @@ func (k *refresh) read(c *ui.Context, wall func() time.Time) int64 {
 	}
 	c.After(refreshEvery - frameTime.Sub(k.at))
 	return k.now
-}
-
-// progressTrack is a programme's progress bar: a 2 DIP track (--active) with
-// a fill of value (0..1) in fill, a progress indicator for assistive
-// technology named label and reading valueText (the percentage when empty).
-func progressTrack(c *ui.Context, key, label, valueText string, value float64, fill ui.Color) ui.Element {
-	e := ui.Box(c.Key(key)).Height(2).Shrink(0).Radius(theme.Current().Radius["full"]).Background(theme.C("active")).Clip().
-		Role(ui.RoleProgress).Label(label)
-	pct := float64(int(value*100 + 0.5))
-	e.Range(0, 100, pct)
-	if valueText == "" {
-		valueText = strconv.Itoa(int(pct)) + "%"
-	}
-	e.Value(valueText)
-	return e.Draw(func(p *ui.Painter, r ui.Rect) {
-		if w := r.W * float32(value); w > 0 {
-			p.Fill(ui.Rect{X: r.X, Y: r.Y, W: w, H: r.H}, fill, r.H/2)
-		}
-	})
 }

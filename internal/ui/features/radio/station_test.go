@@ -309,8 +309,8 @@ func TestStationPageSchedulesTheProgrammesThatHaveNotEnded(t *testing.T) {
 	if rg.tt.HasText("Ended") || rg.tt.HasText("Already over.") {
 		t.Errorf("a programme that ended shows: %q", rg.tt.Texts())
 	}
-	slot := clockAt(t0.UnixMilli()) + "–" + clockAt(t0.Add(time.Hour).UnixMilli())
-	for _, want := range []string{slot, "New music with Zane.", "Matt plays the best of the week."} {
+	// Each programme's start is at its rail; the one on air says how long is left.
+	for _, want := range []string{clockAt(t0.UnixMilli()), clockAt(t0.Add(time.Hour).UnixMilli()), "45 min left", "New music with Zane.", "Matt plays the best of the week."} {
 		if !rg.tt.HasText(want) {
 			t.Errorf("the schedule lacks %q: %q", want, rg.tt.Texts())
 		}
