@@ -8,6 +8,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // nowPlayingState is Now Playing's and the full-screen lyrics' own state (the
@@ -19,7 +20,7 @@ type nowPlayingState struct {
 	prefs     lyricsPrefs
 	prefsInit bool
 	// lyrics and motion stand in for the services (a test's); nil: the core's.
-	lyrics lyricsSource
+	lyrics store.LyricsSource
 	motion motionSource
 
 	// sheet is the lyrics pane's sheet and room the full-screen one; each

@@ -42,14 +42,10 @@ func TooltipDescribed(c *ui.Context, anchor ui.Element, text, description string
 	return anchor
 }
 
-// TooltipKeys is Tooltip with the keys the control answers to after the text,
-// as keycaps (v0.2.0's ChordKeys in a tooltip): only the first of chords is
-// drawn, and assistive technology reads it as part of the description. No
+// controlsTooltipKeys is Tooltip with the keys the control answers to after the
+// text, as keycaps (v0.2.0's ChordKeys in a tooltip): only the first of chords
+// is drawn, and assistive technology reads it as part of the description. No
 // chords (a shortcut the user unbound) is a plain Tooltip.
-func TooltipKeys(c *ui.Context, anchor ui.Element, text string, chords []string) ui.Element {
-	return controlsTooltipKeys(c, anchor, text, true, chords)
-}
-
 func controlsTooltipKeys(c *ui.Context, anchor ui.Element, text string, describe bool, chords []string) ui.Element {
 	if text == "" {
 		return anchor
@@ -90,16 +86,16 @@ func controlsTooltipKeys(c *ui.Context, anchor ui.Element, text string, describe
 		})
 		tip.Children(func() {
 			if chord == "" {
-				controlsText(c, text, "meta").TextAlign(ui.Center)
+				theme.Text(c, text, "meta").TextAlign(ui.Center)
 				return
 			}
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				controlsText(c, text, "meta").TextAlign(ui.Center)
+				theme.Text(c, text, "meta").TextAlign(ui.Center)
 				ui.Row(c.Key("keys")).Gap(2).AlignItems(ui.Center).Role(ui.RoleNone).Children(func() {
 					for j, part := range ChordParts(chord) {
 						ui.Row(c.Key("cap:"+string(rune('0'+j)))).Height(20).MinWidth(20).PaddingX(4).Center().Role(ui.RoleNone).
 							Radius(tk.Radius["sm"]).Border(1, theme.C("ink-faint")).Children(func() {
-							controlsText(c, part, "meta").FontWeight(500).FontFeatures("tnum").Role(ui.RoleNone)
+							theme.Text(c, part, "meta").FontWeight(500).FontFeatures("tnum").Role(ui.RoleNone)
 						})
 					}
 				})

@@ -87,7 +87,7 @@ func (s *settings) findPanel(c *ui.Context, narrow bool, list func()) {
 		}
 		var field ui.Element
 		head.Children(func() {
-			text(c, i18n.T("Settings"), "page").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
+			theme.Text(c, i18n.T("Settings"), "page").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
 			w := float32(0)
 			if narrow {
 				w = 288
@@ -115,7 +115,7 @@ func (s *settings) findPanel(c *ui.Context, narrow bool, list func()) {
 		case trim(q) == "":
 			list()
 		case len(shown) == 0:
-			text(c, status, "secondary").TextColor(theme.C("ink-muted")).Padding(6, 12)
+			theme.Text(c, status, "secondary").TextColor(theme.C("ink-muted")).Padding(6, 12)
 		default:
 			s.results(c, shown, pick)
 		}
@@ -163,8 +163,8 @@ func (s *settings) results(c *ui.Context, shown []settingEntry, pick func(settin
 			}
 			b.Children(func() {
 				ui.Column(c.Key("c:" + e.ID)).Shrink(1).MinWidth(0).Children(func() {
-					text(c, e.Title, "body").TextColor(theme.C("ink"))
-					text(c, where, "meta").TextColor(theme.C("ink-muted"))
+					theme.Text(c, e.Title, "body").TextColor(theme.C("ink"))
+					theme.Text(c, where, "meta").TextColor(theme.C("ink-muted"))
 				})
 			})
 		}

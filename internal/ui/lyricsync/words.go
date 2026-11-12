@@ -2,61 +2,6 @@ package lyricsync
 
 import "github.com/coredev-uk/sona-go/internal/services"
 
-// WordProgress is how far the voice is through w at t: 0 before it begins,
-// 1 once it ends, linear in between. A word with no length is sung the
-// moment it begins.
-func WordProgress(w Span, t int64) float64 {
-	if t < w.BeginMs {
-		return 0
-	}
-	if t >= w.EndMs {
-		return 1
-	}
-	return float64(t-w.BeginMs) / float64(w.EndMs-w.BeginMs)
-}
-
-// Sung is what a word shows.
-type Sung int
-
-const (
-	// NotSung: not sung yet.
-	NotSung Sung = iota
-	// Singing: being sung (part of it filled).
-	Singing
-	// Done: sung.
-	Done
-)
-
-// WordState is a word's state at t.
-type WordState struct {
-	Sung Sung
-	P    float64
-}
-
-// HeldMs: words sung at least this long are held notes, which fill as the
-// voice holds them in v0.2.0 (shorter ones lit whole, where a fill would be
-// a blur of frames nobody could follow in a web view). The native sweep
-// draws on the GPU every frame and fills every word (kit.SweepText); this
-// stays for the policy the tests pin and for reduced motion.
-const HeldMs = 600
-
-// FillStepMs is the interval at which v0.2.0 redrew a held note's fill.
-const FillStepMs = 80
-
-// StateOf is a word's state at t. A held note (HeldMs) is part-sung while
-// the voice holds it; any other word, and every word without smooth
-// (reduced motion), is lit whole from its begin.
-func StateOf(w Span, t int64, smooth bool) WordState {
-	p := WordProgress(w, t)
-	if t < w.BeginMs {
-		return WordState{NotSung, 0}
-	}
-	if p >= 1 || !smooth || w.EndMs-w.BeginMs < HeldMs {
-		return WordState{Done, 1}
-	}
-	return WordState{Singing, p}
-}
-
 // LineSpan is the time a line is sung: from its begin (or an earlier first
 // word) to its end or its last word's end, whichever is later. Background
 // vocals often run on past the line's own end, under the next line.

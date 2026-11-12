@@ -100,8 +100,7 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 				kit.Artwork(c, a.env.Art, art.Art.Large, lay.portrait, kit.ArtOpts{Edge: true, Round: true})
 			}
 			ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
-				d := tk.Type["display"]
-				ui.Text(c, art.Name).FontSize(d.Size).FixedLineHeight(d.LineHeight).FontWeight(int(d.Weight)).LetterSpacing(d.Tracking).
+				theme.StyleText(ui.Text(c, art.Name), "display").
 					TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(1)
 				ui.Text(c, p.line).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).
 					TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)

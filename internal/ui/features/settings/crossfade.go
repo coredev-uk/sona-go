@@ -53,7 +53,7 @@ func (s *settings) crossfadeRows(c *ui.Context, st config.Settings, caps service
 				Step:      1,
 				Range:     theme.C("ink-muted"),
 			})
-			text(c, i18n.T("{seconds} s", "seconds", int(v)), "meta").TextColor(theme.C("ink-muted")).Width(36).
+			theme.Text(c, i18n.T("{seconds} s", "seconds", int(v)), "meta").TextColor(theme.C("ink-muted")).Width(36).
 				TextAlign(ui.End)
 		})
 		if sl.Changed() {

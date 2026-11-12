@@ -21,12 +21,6 @@ const (
 	textMax      = 72 * 9
 )
 
-// text is a text in a token's type style (Type["sub"]…).
-func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // frame is a page's scroll container: the offset, and the size of the last
 // frame, which the next one starts from.
 type frame struct {

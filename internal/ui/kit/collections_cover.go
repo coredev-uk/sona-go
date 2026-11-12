@@ -2,11 +2,9 @@ package kit
 
 import (
 	"strconv"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
-	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
@@ -157,14 +155,10 @@ type CoverState struct {
 	rows coverRows
 
 	// Geometry of the last frame.
-	width float32
-	cols  int
-	rowH  float32
-	top   float32 // the grid's offset in its pane's content
-	// drawTop is that offset as the last paint saw it: the position and the
-	// scroll offset of one frame, never of two. drawn: there was a paint.
-	drawTop float32
-	drawn   bool
+	width       float32
+	cols        int
+	rowH        float32
+	virtualRows // the grid's offset in its pane's content
 	// menus is the item menu over this list's own selection, made by
 	// menusOver for lists that share one page's ActionMenus.
 	menus *ActionMenus
@@ -382,7 +376,7 @@ func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, ar
 		case it.PlaysOnOpen && !withheld:
 			mark := ui.Row(c.Key("mark")).Absolute().Left(8).Bottom(8).Size(36, 36).Center().
 				Radius(tk.Radius["full"]).Background(theme.C("play")).IgnoreInput(true)
-			collectionsFade(mark, hot)
+			Fade(mark, hot)
 			mark.Children(func() {
 				theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("on-play")})
 			})
@@ -400,9 +394,8 @@ func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, ar
 // explicit mark and the item's more button.
 func (st *CoverState) titleRow(c *ui.Context, o *CoverOpts, it *CoverItem, hovered, hot, withheld, ring bool) {
 	tk := theme.Current()
-	label := tk.Type["label"]
 	ui.Row(c.Key("title")).Height(20).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
-		t := ui.Text(c, it.Title).FontSize(label.Size).FixedLineHeight(label.LineHeight).FontWeight(int(label.Weight)).
+		t := theme.StyleText(ui.Text(c, it.Title), "label").
 			TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0)
 		if !it.Explicit {
 			t.Grow(1)
@@ -439,7 +432,7 @@ func (st *CoverState) playControl(c *ui.Context, it *CoverItem, artH float32, ho
 	}
 	const size = 36
 	play := PlayButton(c.Key("play"), i18n.T("Play {playLabel}", "playLabel", it.Play.Label), size).Absolute().Left(8).Top(artH - 8 - size)
-	collectionsFade(play, hot || play.Focused())
+	Fade(play, hot || play.Focused())
 	opener := st.openers.For(it.Key)
 	play.Bind(opener)
 	if play.Clicked() {
@@ -464,9 +457,9 @@ func (st *CoverState) loadingTile(c *ui.Context, i int, size float32, video bool
 	})
 }
 
-// collectionsFade shows or hides e over the theme's feedback duration (100
-// ms in v0.2.0), at once while motion is reduced.
-func collectionsFade(e ui.Element, show bool) {
+// Fade shows or hides e over the theme's press duration, at once while motion
+// is reduced: the play button and the playing mark over a cover.
+func Fade(e ui.Element, show bool) {
 	to := float32(0)
 	if show {
 		to = 1
@@ -475,7 +468,7 @@ func collectionsFade(e ui.Element, show bool) {
 		e.Opacity(to)
 		return
 	}
-	e.Opacity(e.Animate("kit.fade", to, theme.Current().Motion["press"].Duration))
+	e.Opacity(e.Animate("fade", to, theme.Current().Motion["press"].Duration))
 }
 
 // collectionsMenu opens an item's menu on a right-click, or on Shift+F10 or
@@ -495,8 +488,3 @@ func collectionsMenu(sel *Selection, menus *ActionMenus, s ui.Element, t ActionT
 		menus.OpenAt(t, b.X+16, b.Y+b.H, true)
 	}
 }
-
-// ReleaseBadge is the badge on an upcoming album's cover ("Out 19 Nov", with
-// the year when it is not this one's); "" for an album that is out or has no
-// full date (v0.2.0's releaseBadge).
-func ReleaseBadge(a services.Album, now time.Time) string { return itemsReleaseBadge(a, now) }

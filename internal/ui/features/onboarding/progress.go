@@ -65,6 +65,6 @@ func (o *onboarding) stepButton(c *ui.Context, s string, i, at int, step string)
 	}
 	return b.Children(func() {
 		ui.Box(c.Key("bar")).Height(4).FillWidth().Shrink(0).Radius(2).Background(bar)
-		text(c.Key("name"), name, "meta").FontWeight(weight).TextColor(fg).SingleLine().MinWidth(0)
+		theme.Text(c.Key("name"), name, "meta").FontWeight(weight).TextColor(fg).SingleLine().MinWidth(0)
 	})
 }

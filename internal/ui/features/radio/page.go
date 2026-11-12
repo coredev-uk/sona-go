@@ -167,7 +167,7 @@ func (r *radio) liveNow(c *ui.Context, live store.Result[[]services.Station], se
 	pg := &r.radioPg
 	title := i18n.T("Live now")
 	ui.Column(c.Key("live-now")).Role(ui.RoleGroup).Label(title).Children(func() {
-		text(c, title, "page").TextColor(theme.C("ink")).Margin(0, 0, headingGap, 0).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, title, "page").TextColor(theme.C("ink")).Margin(0, 0, headingGap, 0).Role(ui.RoleHeading).Level(2)
 		switch {
 		case pending(live):
 			r.onAirSkeleton(c, &pg.loadingBoard)
@@ -196,7 +196,7 @@ func (r *radio) band(c *ui.Context, b band, lead bool, yours func(), ctx kit.Ite
 	ui.Column(c.Key("band-"+string(b.id))).Margin(bandGap, 0, 0, 0).Padding(bandPad, 0, 0, 0).
 		Role(ui.RoleGroup).Label(title).Children(func() {
 		ui.Box(c.Key("rule")).Absolute().Top(0).Left(0).Right(0).Height(1).Background(theme.C("line"))
-		text(c, title, "page").TextColor(theme.C("ink")).Margin(0, 0, headingGap, 0).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, title, "page").TextColor(theme.C("ink")).Margin(0, 0, headingGap, 0).Role(ui.RoleHeading).Level(2)
 		if lead {
 			ui.Column(c.Key("lead")).Children(yours)
 		}

@@ -138,7 +138,7 @@ func LibraryButton(c *ui.Context, o LibraryOpts) LibraryAction {
 	case o.Playlist:
 		ui.Row(c).Height(32).PaddingX(8).Gap(6).AlignItems(ui.Center).Shrink(0).Children(func() {
 			ui.Icon(c, theme.Icon("check")).FontSize(16).TextColor(theme.C("ink-muted"))
-			controlsText(c, i18n.T("In library"), "body").TextColor(theme.C("ink-muted")).SingleLine()
+			theme.Text(c, i18n.T("In library"), "body").TextColor(theme.C("ink-muted")).SingleLine()
 		})
 	default:
 		label, a11y := i18n.T("In library"), i18n.T("In library. Delete “{name}” from your library", "name", o.Name)

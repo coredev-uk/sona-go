@@ -101,7 +101,7 @@ func (s *settings) titleBarRow(c *ui.Context, cfg config.Settings, caps services
 	if style != wc.Style {
 		// The window keeps the title bar it was created with until Sona restarts.
 		o.Notes = func() {
-			text(c, i18n.T("Applies the next time Sona starts."), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
+			theme.Text(c, i18n.T("Applies the next time Sona starts."), "secondary").TextColor(theme.C("ink")).Margin(2, 0, 0, 0)
 		}
 	}
 	items := []kit.SelectItem{

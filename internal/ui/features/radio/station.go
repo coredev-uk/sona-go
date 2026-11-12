@@ -151,15 +151,15 @@ func (r *radio) unplayable(c *ui.Context, s services.Station) {
 		Radius(tk.Radius["lg"]).Border(1, theme.C("control-line")).BorderStyle(ui.BorderDashed).Role(ui.RoleGroup).Label(i18n.T("Sona can't play this station")).Children(func() {
 		ui.Icon(c, theme.Icon("circle-slash")).FontSize(16).TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0).Shrink(0)
 		ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-			text(c, i18n.T("Sona can't play this station"), "label").TextColor(theme.C("ink"))
-			text(c, kit.StationUnavailableText(s.Unavailable), "sub").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+			theme.Text(c, i18n.T("Sona can't play this station"), "label").TextColor(theme.C("ink"))
+			theme.Text(c, kit.StationUnavailableText(s.Unavailable), "sub").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 		})
 	})
 }
 
 // heading is a section's heading on the page: 16/22, 8 above its content.
 func heading(c *ui.Context, s string) {
-	text(c, s, "heading").TextColor(theme.C("ink")).Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(2)
+	theme.Text(c, s, "heading").TextColor(theme.C("ink")).Margin(0, 0, 8, 0).Role(ui.RoleHeading).Level(2)
 }
 
 // broadcaster is a local broadcaster's "On air": it has no schedule, so the
@@ -173,11 +173,11 @@ func (r *radio) broadcaster(c *ui.Context, s services.Station) {
 		heading(c, title)
 		switch {
 		case tuned && st.OnAir != nil:
-			text(c, kit.OnAirLine(*st.OnAir), "ui").TextColor(theme.C("ink"))
+			theme.Text(c, kit.OnAirLine(*st.OnAir), "ui").TextColor(theme.C("ink"))
 		case tuned:
-			text(c, i18n.T("This station isn't naming what it is playing."), "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c, i18n.T("This station isn't naming what it is playing."), "sub").TextColor(theme.C("ink-muted"))
 		default:
-			text(c, i18n.T("Play the station to see what is on air."), "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c, i18n.T("Play the station to see what is on air."), "sub").TextColor(theme.C("ink-muted"))
 		}
 		if tuned && st.Broadcaster != nil {
 			info := st.Broadcaster
@@ -188,10 +188,10 @@ func (r *radio) broadcaster(c *ui.Context, s services.Station) {
 				}
 			}
 			if len(parts) > 0 {
-				text(c, strings.Join(parts, " · "), "sub").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+				theme.Text(c, strings.Join(parts, " · "), "sub").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 			}
 			if info.Description != "" {
-				text(c, info.Description, "sub").TextColor(theme.C("ink-muted")).Margin(8, 0, 0, 0)
+				theme.Text(c, info.Description, "sub").TextColor(theme.C("ink-muted")).Margin(8, 0, 0, 0)
 			}
 		}
 	})
@@ -217,16 +217,16 @@ func (r *radio) upcoming(c *ui.Context, songs []services.Song) {
 						if song.AlbumID != "" {
 							r.songLink(c, song.Name, "/album/"+url.PathEscape(song.AlbumID)+"?song="+url.QueryEscape(song.ID), "ui", ink)
 						} else {
-							text(c, song.Name, "ui").TextColor(ink).SingleLine()
+							theme.Text(c, song.Name, "ui").TextColor(ink).SingleLine()
 						}
 						if song.ArtistID != "" {
 							r.songLink(c, song.Artist, "/artist/"+url.PathEscape(song.ArtistID), "sub", muted)
 						} else {
-							text(c, song.Artist, "sub").TextColor(muted).SingleLine()
+							theme.Text(c, song.Artist, "sub").TextColor(muted).SingleLine()
 						}
 					})
-					text(c, song.Album, "sub").TextColor(theme.C("ink-muted")).Grow(0.8).Basis(0).MinWidth(0).SingleLine()
-					text(c, i18n.FormatDuration(time.Duration(song.DurationMs)*time.Millisecond), "meta").TextColor(theme.C("ink-muted")).Shrink(0)
+					theme.Text(c, song.Album, "sub").TextColor(theme.C("ink-muted")).Grow(0.8).Basis(0).MinWidth(0).SingleLine()
+					theme.Text(c, i18n.FormatDuration(time.Duration(song.DurationMs)*time.Millisecond), "meta").TextColor(theme.C("ink-muted")).Shrink(0)
 				})
 			}
 		})
@@ -244,7 +244,7 @@ func (r *radio) songLink(c *ui.Context, label, path, style string, ink ui.Color)
 		}
 		return
 	}
-	text(c, label, style).TextColor(ink).SingleLine()
+	theme.Text(c, label, style).TextColor(ink).SingleLine()
 }
 
 // schedule is the live schedule as a timetable: time on the left, the
@@ -275,12 +275,12 @@ func (r *radio) schedule(c *ui.Context, stationID string, events []services.Stat
 						ui.Box(c.Key("rule")).Absolute().Top(0).Left(0).Right(0).Height(1).Background(theme.C("line"))
 					}
 					ui.Column(c.Key("when")).Width(112).Shrink(0).Padding(2, 0, 0, 0).Children(func() {
-						label := text(c, slotLabel(spanOf(e), now), "meta").TextColor(theme.C("ink-muted"))
+						label := theme.Text(c, slotLabel(spanOf(e), now), "meta").TextColor(theme.C("ink-muted"))
 						if isOn {
 							label.TextColor(theme.C("ink")).FontWeight(500)
 						}
 						if isOn {
-							text(c, i18n.T("On air"), "meta").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+							theme.Text(c, i18n.T("On air"), "meta").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 						}
 					})
 					kit.Artwork(c.Key("art"), r.env.Art, e.Art.Small, 48, kit.ArtOpts{Edge: true})
@@ -289,9 +289,9 @@ func (r *radio) schedule(c *ui.Context, stationID string, events []services.Stat
 						if isOn && tuned {
 							ink = theme.C("play-ink")
 						}
-						text(c, e.Title, "label").TextColor(ink)
+						theme.Text(c, e.Title, "label").TextColor(ink)
 						if e.Description != "" {
-							text(c, e.Description, "sub").TextColor(theme.C("ink-muted")).MaxLines(2).MaxWidth(textMax).Margin(2, 0, 0, 0)
+							theme.Text(c, e.Description, "sub").TextColor(theme.C("ink-muted")).MaxLines(2).MaxWidth(textMax).Margin(2, 0, 0, 0)
 						}
 						if isOn {
 							fill := theme.C("ink-muted")

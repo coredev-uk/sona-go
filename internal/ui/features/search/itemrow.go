@@ -9,12 +9,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// text is a line of text in one of the theme's type styles.
-func text(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // rowOpts shape one ItemRow.
 type rowOpts struct {
 	// key is unique within the page.
@@ -65,13 +59,13 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			kit.Artwork(c, s.env.Art, it.Art.Small, size, kit.ArtOpts{Round: kit.ItemRound(it), Edge: true})
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Margin(0, 0, 0, 12).Children(func() {
 				ui.Row(c).AlignItems(ui.Center).Gap(6).Children(func() {
-					text(c, it.Name, "body").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0)
+					theme.Text(c, it.Name, "body").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0)
 					if it.Explicit {
 						kit.ExplicitMark(c).Shrink(0)
 					}
 				})
 				if meta := itemMeta(it); meta != "" {
-					text(c, meta, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+					theme.Text(c, meta, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 				}
 			})
 		}

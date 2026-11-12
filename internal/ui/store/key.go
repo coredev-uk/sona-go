@@ -3,7 +3,7 @@ package store
 import (
 	"fmt"
 	"reflect"
-	"strings"
+	"strconv"
 )
 
 // Key names a query: ("library", "albums", opts). It mirrors the TanStack
@@ -46,12 +46,37 @@ func safeEqual(a, b any) (eq bool) {
 }
 
 // id is the key as a map key: the elements' types and values.
-func (k Key) id() string {
-	var b strings.Builder
+func (k Key) id() string { return string(k.appendID(nil)) }
+
+// appendID appends id to dst. The common element types (strings, ints and
+// bools, nearly every key) are written without fmt, in the form fmt's
+// "%T:%#v" gives (an unsigned integer in decimal, not hex, which no other
+// path produces); Use runs it every frame, so a caller with a stack buffer
+// looks an entry up without allocating.
+func (k Key) appendID(dst []byte) []byte {
 	for _, e := range k {
-		fmt.Fprintf(&b, "%T:%#v\x00", e, e)
+		switch v := e.(type) {
+		case string:
+			dst = append(dst, "string:"...)
+			dst = strconv.AppendQuote(dst, v)
+		case int:
+			dst = append(dst, "int:"...)
+			dst = strconv.AppendInt(dst, int64(v), 10)
+		case int64:
+			dst = append(dst, "int64:"...)
+			dst = strconv.AppendInt(dst, v, 10)
+		case uint64:
+			dst = append(dst, "uint64:"...)
+			dst = strconv.AppendUint(dst, v, 10)
+		case bool:
+			dst = append(dst, "bool:"...)
+			dst = strconv.AppendBool(dst, v)
+		default:
+			dst = fmt.Appendf(dst, "%T:%#v", e, e)
+		}
+		dst = append(dst, 0)
 	}
-	return b.String()
+	return dst
 }
 
 func (k Key) String() string { return fmt.Sprint([]any(k)) }

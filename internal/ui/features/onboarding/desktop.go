@@ -103,7 +103,7 @@ func (o *onboarding) desktopStep(c *ui.Context) {
 			if !cp.Tray {
 				lines = append(lines, i18n.T("Closing the window quits Sona: playing on in the background needs a system tray, which Sona can't use here yet."))
 			}
-			text(c.Key("missing"), strings.Join(lines, " "), "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c.Key("missing"), strings.Join(lines, " "), "sub").TextColor(theme.C("ink-muted"))
 		}
 	})
 }

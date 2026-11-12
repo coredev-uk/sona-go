@@ -268,19 +268,19 @@ func TestReleaseBadge(t *testing.T) {
 		return services.Album{Prerelease: pre, ReleaseAt: at.UnixMilli()}
 	}
 	same := time.Date(2026, 11, 19, 0, 0, 0, 0, time.Local)
-	if got := itemsReleaseBadge(out(same, true), now); got != "Out Nov 19" {
+	if got := ReleaseBadge(out(same, true), now); got != "Out Nov 19" {
 		t.Errorf("this year: %q", got)
 	}
-	if got := itemsReleaseBadge(out(time.Date(2027, 1, 8, 0, 0, 0, 0, time.Local), true), now); got != "Out Jan 8, 2027" {
+	if got := ReleaseBadge(out(time.Date(2027, 1, 8, 0, 0, 0, 0, time.Local), true), now); got != "Out Jan 8, 2027" {
 		t.Errorf("another year: %q", got)
 	}
-	if got := itemsReleaseBadge(out(same, false), now); got != "" {
+	if got := ReleaseBadge(out(same, false), now); got != "" {
 		t.Errorf("not prerelease: %q", got)
 	}
-	if got := itemsReleaseBadge(out(now.Add(-time.Hour), true), now); got != "" {
+	if got := ReleaseBadge(out(now.Add(-time.Hour), true), now); got != "" {
 		t.Errorf("out once the release time has passed: %q", got)
 	}
-	if got := itemsReleaseBadge(services.Album{Prerelease: true}, now); got != "" {
+	if got := ReleaseBadge(services.Album{Prerelease: true}, now); got != "" {
 		t.Errorf("no full date: %q", got)
 	}
 	if !IsUpcoming(services.Album{Prerelease: true}, now) {

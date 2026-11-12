@@ -155,10 +155,7 @@ func (p *private) pill(c *ui.Context) {
 		e.Opacity(0.4)
 	}
 	e.AccessDisabled(forced)
-	if !theme.ReducedMotion() {
-		m := theme.Current().Motion["feedback"]
-		e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(e, "feedback")
 	e.Children(func() {
 		ui.Icon(c, theme.Icon("hat-glasses")).FontSize(16)
 		if word != "" {

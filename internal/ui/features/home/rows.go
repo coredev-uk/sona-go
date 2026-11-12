@@ -248,9 +248,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			if playable && !direct {
 				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
 					Background(theme.C("ground").Alpha(rowMarkA)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
-				fade(play, hover)
+				kit.Fade(play, hover)
 				play.Children(func() {
-					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true, SVG: playGlyph()}).Margin(0, 0, 0, 1)
+					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
 				})
 				if play.Clicked() {
 					ctx.Players.PlayItem(it)
@@ -270,9 +270,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				// the name's button, not a second control.
 				mark := ui.Row(c.Key("mark")).Absolute().Left(0).Top(0).Size(rowArt, rowArt).Center().Radius(radius).
 					Background(theme.C("ground").Alpha(rowMarkA)).IgnoreInput(true)
-				fade(mark, hot)
+				kit.Fade(mark, hot)
 				mark.Children(func() {
-					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true, SVG: playGlyph()}).Margin(0, 0, 0, 1)
+					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
 				})
 			}
 		})
@@ -289,7 +289,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 			})
 			if subtitle != "" {
-				text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+				theme.Text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
 			}
 		})
 		if menu {

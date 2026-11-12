@@ -1,8 +1,6 @@
 package miniplayer
 
 import (
-	"context"
-
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -30,13 +28,6 @@ func (s *sungState) spansOf(l *services.Lyrics) []lyricsync.Span {
 		s.first, s.n, s.spans = first, len(l.Lines), lyricsync.LineSpans(l.Lines)
 	}
 	return s.spans
-}
-
-func (m *mini) lyricsSvc() lyricsSource {
-	if m.lyr != nil {
-		return m.lyr
-	}
-	return services.Service[services.LyricsService](m.env.Core)
 }
 
 // sungLine is the line being sung for the third line (v0.2.0's SungLine): up
@@ -80,10 +71,7 @@ func (m *mini) lineSung(c *ui.Context, cur *services.QueueItem, playing bool) (*
 	if songID == "" {
 		return nil, "", 0
 	}
-	svc := m.lyricsSvc()
-	r := store.UseLyricsFrom(m.env.Queries, songID, func(ctx context.Context) (services.Lyrics, error) {
-		return svc.Lyrics(ctx, songID)
-	})
+	r := store.UseLyrics(m.env.Queries, store.LyricsOf(m.lyr, m.env.Core), songID)
 	if !r.HasData || !lyricsync.IsSynced(&r.Data) || len(r.Data.Lines) == 0 {
 		return nil, "", 0
 	}

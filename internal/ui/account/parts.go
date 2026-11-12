@@ -8,9 +8,7 @@ import (
 
 // text is a Text in one of the theme's type styles and colour tokens.
 func text(c *ui.Context, s, style, color string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).
-		LetterSpacing(t.Tracking).TextColor(theme.C(color))
+	return theme.Text(c, s, style).TextColor(theme.C(color))
 }
 
 // flowTitle is the sign-in flow's titles: h3, under the account dialog's (or
@@ -21,7 +19,7 @@ func flowTitle(c *ui.Context, s string) ui.Element {
 
 // hairline is a 1px --line rule across its parent (divide-line).
 func hairline(c *ui.Context) ui.Element {
-	return ui.Box(c).Height(1).FillWidth().Shrink(0).Role(ui.RoleNone).Background(theme.C("line"))
+	return theme.Hairline(c).Shrink(0).Role(ui.RoleNone)
 }
 
 // noticeOpts shapes a notice.

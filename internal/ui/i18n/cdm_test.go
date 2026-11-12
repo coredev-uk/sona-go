@@ -17,9 +17,6 @@ func TestEveryCDMFailureCodeHasItsOwnWords(t *testing.T) {
 	}
 	seen := map[string]string{}
 	for _, code := range cdmCodes {
-		if !HasCDMProblem(code) {
-			t.Errorf("%s: HasCDMProblem is false", code)
-		}
 		s := CDMProblem(code)
 		if s == general || s == "" {
 			t.Errorf("%s has no wording of its own: %q", code, s)
@@ -31,9 +28,6 @@ func TestEveryCDMFailureCodeHasItsOwnWords(t *testing.T) {
 		if !strings.HasSuffix(s, ".") {
 			t.Errorf("%s: %q is not a sentence", code, s)
 		}
-	}
-	if HasCDMProblem("a_new_code") || HasCDMProblem("") {
-		t.Error("an unknown code has wording")
 	}
 }
 

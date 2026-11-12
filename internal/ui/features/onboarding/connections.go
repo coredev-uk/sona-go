@@ -3,7 +3,6 @@ package onboarding
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -169,7 +168,7 @@ func (o *onboarding) connectionsStep(c *ui.Context) {
 		}
 		list(c, "connections", rows)
 		if privateOn {
-			text(c.Key("private"), i18n.T("Nothing is scrobbled or shown on Discord while private listening is on."), "sub").
+			theme.Text(c.Key("private"), i18n.T("Nothing is scrobbled or shown on Discord while private listening is on."), "sub").
 				TextColor(theme.C("ink"))
 		}
 	})
@@ -181,8 +180,8 @@ func serviceRow(c *ui.Context, id, name, line string, action, children func()) {
 	ui.Column(c.Key("service:"+id)).FillWidth().Padding(12, 0).Gap(12).Children(func() {
 		ui.Row(c.Key("head")).FillWidth().Gap(24).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
 			ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-				text(c, name, "ui").FontWeight(500).TextColor(theme.C("ink"))
-				text(c, line, "sub").TextColor(theme.C("ink-muted"))
+				theme.Text(c, name, "ui").FontWeight(500).TextColor(theme.C("ink"))
+				theme.Text(c, line, "sub").TextColor(theme.C("ink-muted"))
 			})
 			ui.Row(c.Key("action")).Shrink(0).AlignItems(ui.Center).Children(action)
 		})
@@ -194,7 +193,7 @@ func serviceRow(c *ui.Context, id, name, line string, action, children func()) {
 func connected(c *ui.Context) {
 	ui.Row(c.Key("connected")).Gap(6).AlignItems(ui.Center).Children(func() {
 		statusIcon(c, "circle-check", "positive").FontSize(14)
-		text(c, i18n.T("Connected"), "sub").TextColor(theme.C("ink"))
+		theme.Text(c, i18n.T("Connected"), "sub").TextColor(theme.C("ink"))
 	})
 }
 
@@ -230,10 +229,8 @@ func (o *onboarding) lastFMWaiting(c *ui.Context) {
 	ui.Row(c.Key("waiting")).FillWidth().Gap(12).Padding(12, 16).AlignItems(ui.Center).Radius(theme.Current().Radius["md"]).
 		Background(theme.C("hover")).Role(ui.RoleStatus).Label(msg).Children(func() {
 		ic := statusIcon(c, "loader-circle", "ink-muted")
-		if !theme.ReducedMotion() {
-			ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
-		}
-		text(c, msg, "sub").TextColor(theme.C("ink")).Grow(1).Shrink(1).MinWidth(0)
+		theme.Spin(ic, true)
+		theme.Text(c, msg, "sub").TextColor(theme.C("ink")).Grow(1).Shrink(1).MinWidth(0)
 		if kit.Button(c.Key("cancel"), i18n.T("Cancel"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}).Clicked() {
 			api := o.scrobbler
 			go api.CancelConnect()
@@ -280,7 +277,7 @@ func (o *onboarding) listenBrainzForm(c *ui.Context) {
 	f := &o.lbForm
 	form := ui.Column(c.Key("lb-form")).FillWidth().Gap(8)
 	form.Children(func() {
-		text(c, i18n.T("User token"), "sub").FontWeight(500).TextColor(theme.C("ink"))
+		theme.Text(c, i18n.T("User token"), "sub").FontWeight(500).TextColor(theme.C("ink"))
 		ui.Row(c.Key("fields")).FillWidth().Gap(8).Children(func() {
 			in := kit.Input(c.Key("token"), &f.token, kit.InputOpts{A11yLabel: i18n.T("User token"), Password: true, Invalid: f.err != "", Error: f.err})
 			in.Grow(1).Shrink(1).MinWidth(0).Height(32).AutoFocus()
@@ -301,7 +298,7 @@ func (o *onboarding) listenBrainzForm(c *ui.Context) {
 		if f.err != "" {
 			ui.Row(c.Key("err")).FillWidth().Gap(8).AlignItems(ui.Start).Role(ui.RoleAlert).Label(f.err).Children(func() {
 				statusIcon(c, "circle-alert", "danger").Margin(2, 0, 0, 0)
-				text(c, f.err, "sub").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+				theme.Text(c, f.err, "sub").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
 			})
 		}
 	})
@@ -317,14 +314,14 @@ func (o *onboarding) tokenHint(c *ui.Context) {
 	before, rest, _ := strings.Cut(msg, "<0>")
 	link, after, ok := strings.Cut(rest, "<1/></0>")
 	if !ok {
-		text(c.Key("hint"), msg, "meta").TextColor(theme.C("ink-muted"))
+		theme.Text(c.Key("hint"), msg, "meta").TextColor(theme.C("ink-muted"))
 		return
 	}
 	ui.Row(c.Key("hint")).FillWidth().Wrap().AlignItems(ui.Center).Children(func() {
-		text(c.Key("a"), before, "meta").TextColor(theme.C("ink-muted"))
+		theme.Text(c.Key("a"), before, "meta").TextColor(theme.C("ink-muted"))
 		if kit.Button(c.Key("link"), link, kit.ButtonOpts{Variant: kit.Link, Size: kit.SizeXS, Icon: "external-link"}).Clicked() {
 			_ = o.env.OpenURL(listenBrainzTokenPage)
 		}
-		text(c.Key("b"), after, "meta").TextColor(theme.C("ink-muted"))
+		theme.Text(c.Key("b"), after, "meta").TextColor(theme.C("ink-muted"))
 	})
 }

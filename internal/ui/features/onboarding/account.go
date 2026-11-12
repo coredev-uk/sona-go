@@ -26,8 +26,8 @@ func (o *onboarding) accountStep(c *ui.Context) {
 	well(c.Key("signed-in")).Row().Gap(12).AlignItems(ui.Start).Children(func() {
 		statusIcon(c, "circle-check", "positive").Margin(2, 0, 0, 0)
 		ui.Column(c.Key("words")).Children(func() {
-			text(c, line, "ui").FontWeight(500).TextColor(theme.C("ink"))
-			text(c, i18n.T("Your library syncs in the background while you carry on."), "sub").TextColor(theme.C("ink-muted"))
+			theme.Text(c, line, "ui").FontWeight(500).TextColor(theme.C("ink"))
+			theme.Text(c, i18n.T("Your library syncs in the background while you carry on."), "sub").TextColor(theme.C("ink-muted"))
 		})
 	})
 }

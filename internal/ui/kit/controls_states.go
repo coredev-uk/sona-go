@@ -40,8 +40,8 @@ type EmptyOpts struct {
 func EmptyState(c *ui.Context, title, text string, o EmptyOpts) ui.Element {
 	e := ui.Column(c).AlignItems(ui.Start).Gap(4).FillWidth()
 	body := func() {
-		controlsText(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-		controlsText(c, text, "body").TextColor(theme.C("ink-muted")).MaxWidth(480)
+		theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+		theme.Text(c, text, "body").TextColor(theme.C("ink-muted")).MaxWidth(480)
 		if o.Action != nil && o.Action.Run != nil {
 			if Button(c.Key("action"), o.Action.Label, ButtonOpts{Variant: Outline, Size: SizeSM}).Margin(16, 0, 0, 0).Clicked() {
 				o.Action.Run()
@@ -109,9 +109,9 @@ func ErrorBlock(c *ui.Context, title string, err error, o ErrorBlockOpts) ui.Ele
 	e.Children(func() {
 		ui.Icon(c, theme.Icon("circle-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
 		ui.Column(c).Grow(1).MinWidth(0).Role(ui.RoleAlert).Label(title).Children(func() {
-			controlsText(c, title, "label").TextColor(theme.C("ink"))
+			theme.Text(c, title, "label").TextColor(theme.C("ink"))
 			if detail != "" {
-				controlsText(c, detail, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+				theme.Text(c, detail, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 			}
 		})
 		if o.OnRetry != nil {
@@ -268,12 +268,12 @@ func pageHeader(c *ui.Context, title, subline string, keepSubline bool, actions 
 	e := ui.Row(c).FillWidth().AlignItems(ui.End).Justify(ui.SpaceBetween).Gap(24).Margin(0, 0, 24, 0).Shrink(0)
 	e.Children(func() {
 		ui.Column(c).MinWidth(0).Shrink(1).Children(func() {
-			head := controlsText(c, title, "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+			head := theme.Text(c, title, "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 			if title == "" {
 				head.Role(ui.RoleNone) // a page still loading has no title to read
 			}
 			if subline != "" {
-				controlsText(c, subline, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+				theme.Text(c, subline, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 			} else if keepSubline {
 				ui.Box(c).Height(4 + theme.Current().Type["secondary"].LineHeight).Shrink(0)
 			}
@@ -359,8 +359,7 @@ func CollectionHeader(c *ui.Context, o CollectionHeaderOpts) ui.Element {
 				Artwork(c, o.Loader, o.Art, art, ao)
 			}
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
-				d := tk.Type["display"]
-				ui.Text(c, o.Title).FontSize(d.Size).FixedLineHeight(d.LineHeight).FontWeight(int(d.Weight)).LetterSpacing(d.Tracking).
+				theme.StyleText(ui.Text(c, o.Title), "display").
 					TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(1)
 				if o.Byline != nil {
 					ui.Row(c.Key("byline")).Margin(6, 0, 0, 0).MinWidth(0).TextColor(theme.C("ink")).FontSize(tk.Type["heading"].Size).
@@ -370,13 +369,13 @@ func CollectionHeader(c *ui.Context, o CollectionHeaderOpts) ui.Element {
 				case o.MetaNote != "":
 					collectionMeta(c, o.Meta, o.MetaNote, o.MetaDetail)
 				case o.Meta != "":
-					controlsText(c, o.Meta, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+					theme.Text(c, o.Meta, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 				}
 				if o.Badges != nil {
 					ui.Row(c.Key("badges")).Margin(8, 0, 0, 0).Children(o.Badges)
 				}
 				if o.Description != "" {
-					controlsText(c, o.Description, "secondary").TextColor(theme.C("ink-muted")).MaxLines(2).MaxWidth(540).Margin(12, 0, 0, 0)
+					theme.Text(c, o.Description, "secondary").TextColor(theme.C("ink-muted")).MaxLines(2).MaxWidth(540).Margin(12, 0, 0, 0)
 				}
 				if o.Status != nil {
 					ui.Row(c.Key("status")).Margin(16, 0, 0, 0).Children(o.Status)
@@ -403,12 +402,12 @@ func collectionMeta(c *ui.Context, meta, note, detail string) {
 	ui.Row(c.Key("meta")).Wrap().AlignItems(ui.Center).Margin(4, 0, 0, 0).MinWidth(0).Children(func() {
 		muted := theme.C("ink-muted")
 		if meta != "" {
-			controlsText(c, meta, "meta").TextColor(muted).Shrink(1).MinWidth(0)
+			theme.Text(c, meta, "meta").TextColor(muted).Shrink(1).MinWidth(0)
 			// A space either side, as the line's other dots (a Text trims its
 			// own spaces at the ends): the note's padding is the one after it.
-			controlsText(c, "·", "meta").TextColor(muted).Margin(0, 1, 0, 3).Role(ui.RoleNone)
+			theme.Text(c, "·", "meta").TextColor(muted).Margin(0, 1, 0, 3).Role(ui.RoleNone)
 		}
-		e := controlsText(c.Key("note"), note, "meta").TextColor(muted).SingleLine().Shrink(0).
+		e := theme.Text(c.Key("note"), note, "meta").TextColor(muted).SingleLine().Shrink(0).
 			PaddingX(2).Radius(controlsRadius("sm")).TabStop(true)
 		if detail != "" {
 			Tooltip(c, e, detail)
@@ -446,7 +445,7 @@ func Notes(c *ui.Context, text string, lines int) ui.Element {
 				if !*open && left <= 0 {
 					break
 				}
-				t := controlsText(c.Key(i), p, "body").TextColor(theme.C("ink"))
+				t := theme.Text(c.Key(i), p, "body").TextColor(theme.C("ink"))
 				if i > 0 {
 					t.Margin(12, 0, 0, 0)
 				}
@@ -463,7 +462,7 @@ func Notes(c *ui.Context, text string, lines int) ui.Element {
 			}
 			toggle := ui.ButtonBase(c.Key("toggle")).AlignSelf(ui.Start).Margin(6, 0, 0, 0).Height(20).Radius(controlsRadius("sm")).Expanded(*open).Controls(body).Label(label)
 			toggle.Children(func() {
-				t := controlsText(c, label, "secondary").FontWeight(500).TextColor(theme.C("ink-muted")).SingleLine()
+				t := theme.Text(c, label, "secondary").FontWeight(500).TextColor(theme.C("ink-muted")).SingleLine()
 				if toggle.Hovered() {
 					t.TextColor(theme.C("ink")).Underline()
 				}

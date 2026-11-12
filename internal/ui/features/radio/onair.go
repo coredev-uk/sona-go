@@ -84,7 +84,7 @@ func (r *radio) onAirBoard(c *ui.Context, b *board, stations []services.Station,
 // (the play button, the equaliser, the menu) lies over it.
 func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.StationDetail, now int64, ctx kit.ItemsCtx, menus *kit.ActionMenus) {
 	tk := theme.Current()
-	tuned := ctx.CurrentStation != nil && ctx.CurrentStation(s)
+	tuned := ctx.Current != nil && ctx.Current.ID == s.ID
 	// A live station with no schedule has nothing to open: it plays. The
 	// station's own page decides (its schedule), over the list's guess.
 	page := s.HasPage
@@ -111,10 +111,7 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 	if hot {
 		row.Background(theme.C("hover"))
 	}
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		row.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(row, "feedback")
 	row.Children(func() {
 		hit := ui.ButtonBase(c.Key("hit")).Absolute().Top(0).Left(0).Right(0).Bottom(0).Radius(tk.Radius["md"])
 		if page {
@@ -138,8 +135,8 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 			if tuned {
 				nameInk = theme.C("play-ink")
 			}
-			text(c, s.Name, "label").TextColor(nameInk).SingleLine().TextAlign(ui.Start)
-			text(c, what, "sub").TextColor(ink).SingleLine().TextAlign(ui.Start)
+			theme.Text(c, s.Name, "label").TextColor(nameInk).SingleLine().TextAlign(ui.Start)
+			theme.Text(c, what, "sub").TextColor(ink).SingleLine().TextAlign(ui.Start)
 			if !s.Playable {
 				ui.Row(c.Key("off")).Margin(8, 0, 0, 0).Gap(6).AlignItems(ui.Center).MinWidth(0).TextColor(theme.C("ink-muted")).Children(func() {
 					ui.Icon(c, theme.Icon("circle-slash")).FontSize(14).Shrink(0)
@@ -147,7 +144,7 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 					if msg == "" {
 						msg = i18n.T("Sona can't play this station")
 					}
-					text(c, msg, "meta").SingleLine().Shrink(1).MinWidth(0)
+					theme.Text(c, msg, "meta").SingleLine().Shrink(1).MinWidth(0)
 				})
 				return
 			}
@@ -158,10 +155,10 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 					fill = theme.C("play")
 				}
 				ui.Row(c.Key("progress")).Margin(8, 0, 0, 0).Gap(12).AlignItems(ui.Center).TextColor(theme.C("ink-muted")).Children(func() {
-					text(c, slotLabel(run, now), "meta").Shrink(0).SingleLine()
+					theme.Text(c, slotLabel(run, now), "meta").Shrink(0).SingleLine()
 					progressTrack(c, "bar", i18n.T("Time through this programme"), i18n.T("{left} left", "left", left),
 						progressOf(run, now), fill).Grow(1).MinWidth(32)
-					text(c, i18n.T("{left} left", "left", left), "meta").Shrink(0).SingleLine()
+					theme.Text(c, i18n.T("{left} left", "left", left), "meta").Shrink(0).SingleLine()
 				})
 			}
 			if hasNext {
@@ -175,7 +172,7 @@ func (r *radio) onAirRow(c *ui.Context, s services.Station, detail *services.Sta
 				if hasRun {
 					gap = 2
 				}
-				text(c, stripTags(line), "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(gap, 0, 0, 0)
+				theme.Text(c, stripTags(line), "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(gap, 0, 0, 0)
 			}
 		})
 

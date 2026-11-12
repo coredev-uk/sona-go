@@ -385,12 +385,6 @@ func (v *artistsView) key(k ui.Key, mods ui.Modifiers, field bool, atEnd func() 
 	return true
 }
 
-// artistsText is a text of the theme's type scale.
-func artistsText(c *ui.Context, s, style string) ui.Element {
-	t := theme.Current().Type[style]
-	return ui.Text(c, s).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking)
-}
-
 // list is ArtistList: a title, the filter, then the artists A to Z under
 // their letters, virtualised in its own scroll box.
 func (v *artistsView) list(c *ui.Context, loading bool) {
@@ -405,10 +399,10 @@ func (v *artistsView) list(c *ui.Context, loading bool) {
 	col.Children(func() {
 		var in ui.Element
 		ui.Column(c.Key("head")).Padding(28, 24, 12).Shrink(0).Children(func() {
-			artistsText(c, i18n.T("Artists"), "page").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+			theme.Text(c, i18n.T("Artists"), "page").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 			ui.Row(c.Key("count")).MinHeight(18).Margin(4, 0, 0, 0).Children(func() {
 				if line := v.countLine(); line != "" {
-					artistsText(c, line, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum")
+					theme.Text(c, line, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum")
 				}
 			})
 			ui.Column(c.Key("filter")).Margin(16, 0, 0, 0).Role(ui.RoleSearch).Label(i18n.T("Find artists")).Children(func() {
@@ -447,7 +441,7 @@ func (v *artistsView) list(c *ui.Context, loading bool) {
 		case loading:
 			v.skeleton(c)
 		case len(pg.matches) == 0:
-			artistsText(c, i18n.T("No artist matches “{query}”.", "query", pg.query), "sub").
+			theme.Text(c, i18n.T("No artist matches “{query}”.", "query", pg.query), "sub").
 				TextColor(theme.C("ink-muted")).Padding(16, 24)
 		default:
 			active, hasActive = v.rowsView(c, tk)
@@ -619,7 +613,7 @@ func (v *artistsView) rowsView(c *ui.Context, tk *theme.Tokens) (active ui.Eleme
 func (v *artistsView) letterRow(c *ui.Context, letter string) {
 	ui.Row(c.Key("letter:"+letter)).Height(letterRowHeight).FillWidth().Padding(0, 12, 4).AlignItems(ui.End).Shrink(0).
 		Role(ui.RoleNone).Children(func() {
-		artistsText(c, letter, "meta").FontWeight(600).TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
+		theme.Text(c, letter, "meta").FontWeight(600).TextColor(theme.C("ink-muted")).Role(ui.RoleNone)
 	})
 }
 
@@ -642,9 +636,9 @@ func (v *artistsView) artistRow(c *ui.Context, a services.ArtistEntry, position 
 	el.Children(func() {
 		kit.PersonAvatar(c, v.l.env.Art, a.Name, a.Art, 32).Shrink(0)
 		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
-			artistsText(c, a.Name, "ui").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Role(ui.RoleNone)
+			theme.Text(c, a.Name, "ui").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Role(ui.RoleNone)
 			if line != "" {
-				artistsText(c, line, "meta").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
+				theme.Text(c, line, "meta").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
 			}
 		})
 	})
@@ -698,12 +692,12 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 			ui.Row(c.Key("header")).FillWidth().Gap(24).AlignItems(ui.End).Children(func() {
 				kit.PersonAvatar(c, l.env.Art, e.Name, e.Art, 96).Shrink(0)
 				ui.Column(c.Key("who")).Grow(1).MinWidth(0).Padding(0, 0, 2).Children(func() {
-					artistsText(c, e.Name, "display").TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(nameLevel)
+					theme.Text(c, e.Name, "display").TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(nameLevel)
 					line := i18n.T("Artist")
 					if held := libraryLine(e.Albums, e.Songs); held != "" {
 						line += " · " + held
 					}
-					artistsText(c, line, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
+					theme.Text(c, line, "meta").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 					ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(16, 0, 0, 0).Children(func() {
 						play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: e.Name, Shuffle: true, Disabled: e.Songs == 0})
 						if play {
@@ -820,7 +814,7 @@ func (v *artistsView) section(c *ui.Context, key, title, label string, albums []
 	l := v.l
 	tile := l.albumTile()
 	ui.Column(c.Key(key)).FillWidth().Role(ui.RoleGroup).Label(title).Children(func() {
-		artistsText(c, title, "heading").TextColor(theme.C("ink")).Margin(0, 0, 16, 0).Role(ui.RoleHeading).Level(group)
+		theme.Text(c, title, "heading").TextColor(theme.C("ink")).Margin(0, 0, 16, 0).Role(ui.RoleHeading).Level(group)
 		kit.CoverGrid(c, st, len(albums), func(i int) *kit.CoverItem {
 			t := artistsReleaseTile(tile(&albums[i]), albums[i])
 			return &t
@@ -844,7 +838,7 @@ func (v *artistsView) tilesSkeleton(c *ui.Context) {
 func (v *artistsView) songsOnly(c *ui.Context, e services.ArtistEntry, group int, sc ui.Element) {
 	pg, l := v.pg, v.l
 	if e.Songs == 0 {
-		artistsText(c, i18n.T("Add music by {name} to collect it here.", "name", e.Name), "ui").
+		theme.Text(c, i18n.T("Add music by {name} to collect it here.", "name", e.Name), "ui").
 			TextColor(theme.C("ink-muted")).MaxWidth(480)
 		return
 	}
@@ -863,12 +857,11 @@ func (v *artistsView) songsOnly(c *ui.Context, e services.ArtistEntry, group int
 		return
 	}
 	songs := res.Data.Songs
-	curID, curCatalog, playing := "", "", false
+	var cur *services.QueueItem
+	playing := false
 	if l.env.Play != nil {
 		s := l.env.Play.State()
-		if s.Current != nil {
-			curID, curCatalog = s.Current.ID, s.Current.CatalogID
-		}
+		cur = s.Current
 		playing = s.State == store.StatePlaying
 	}
 	from := artistsFrom(e.ID)
@@ -877,7 +870,7 @@ func (v *artistsView) songsOnly(c *ui.Context, e services.ArtistEntry, group int
 		Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true},
 		OnPlay:     func(i int) { l.env.Queue.PlaySongs(songs, i, from) },
 		Pane:       &kit.Pane{Pos: &pg.detailPos, Bounds: sc.Bounds},
-		Current:    func(s *services.Song) bool { return kit.SongIsCurrent(s, curID, curCatalog) },
+		Current:    cur,
 		Playing:    playing,
 		Restricted: l.restricted(),
 		Art:        l.env.Art,
@@ -888,7 +881,7 @@ func (v *artistsView) songsOnly(c *ui.Context, e services.ArtistEntry, group int
 		opts.OpenAlbum = func(id string) { l.env.Nav.Push("/album/" + id) }
 	}
 	ui.Column(c.Key("songs")).FillWidth().Role(ui.RoleGroup).Label(i18n.T("Songs in your library")).Children(func() {
-		artistsText(c, i18n.T("Songs in your library"), "heading").TextColor(theme.C("ink")).Margin(0, 0, 16, 0).
+		theme.Text(c, i18n.T("Songs in your library"), "heading").TextColor(theme.C("ink")).Margin(0, 0, 16, 0).
 			Role(ui.RoleHeading).Level(group)
 		kit.TrackList(c, &pg.songs, len(songs), func(i int) *services.Song { return &songs[i] }, opts)
 	})

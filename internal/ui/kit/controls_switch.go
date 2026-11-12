@@ -274,7 +274,7 @@ func Tabs(c *ui.Context, selected *int, labels []string, o TabsOpts) ui.Element 
 				fg = theme.C("foreground")
 			}
 			tab.TextColor(fg)
-			tab.Children(func() { controlsText(c, label, "label").SingleLine() })
+			tab.Children(func() { theme.Text(c, label, "label").SingleLine() })
 			if on && o.Line {
 				tab.DrawOver(func(p *ui.Painter, r ui.Rect) {
 					if o.Vertical {

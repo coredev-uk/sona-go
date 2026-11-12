@@ -140,21 +140,21 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 // results for “q”", with the term linking back to the search.
 func (s *search) groupHeader(c *ui.Context, group, q string) {
 	ui.Column(c.Key("header")).FillWidth().Margin(0, 0, 24, 0).Children(func() {
-		text(c, groupTitle(group), "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+		theme.Text(c, groupTitle(group), "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 		msg := i18n.T("Apple Music results for <0>“{q}”</0>", "q", q)
 		before, rest, _ := strings.Cut(msg, "<0>")
 		link, after, _ := strings.Cut(rest, "</0>")
 		ui.Row(c.Key("subline")).AlignItems(ui.Center).Margin(4, 0, 0, 0).Children(func() {
-			text(c, before, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+			theme.Text(c, before, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			l := ui.ButtonBase(c.Key("q")).Role(ui.RoleLink).Radius(2)
 			l.Children(func() {
-				text(c, link, "secondary").TextColor(theme.C("ink")).SingleLine().Underline()
+				theme.Text(c, link, "secondary").TextColor(theme.C("ink")).SingleLine().Underline()
 			})
 			if l.Clicked() {
 				s.env.Nav.Push(searchLocation(q, scopeCatalog))
 			}
 			if after != "" {
-				text(c, after, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
+				theme.Text(c, after, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			}
 		})
 	})

@@ -130,13 +130,13 @@ func (s *settings) updateStatusRow(c *ui.Context, st services.UpdateStatus) {
 					if us.failure != "" {
 						line = i18n.T("Couldn't check: {failure}", "failure", us.failure)
 					}
-					t := text(c, line, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+					t := theme.Text(c, line, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
 					if st.Available {
 						t.FontWeight(500)
 					}
 				})
 				if v.detail != "" && us.failure == "" {
-					text(c, v.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0).MaxWidth(448)
+					theme.Text(c, v.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0).MaxWidth(448)
 				}
 			})
 			if st.Installing && st.Total > 0 {

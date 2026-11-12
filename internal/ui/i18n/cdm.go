@@ -43,16 +43,6 @@ func CDMProblem(code string) string {
 	return T("Widevine couldn't be downloaded. Try again later.")
 }
 
-// HasCDMProblem reports whether code has its own wording.
-func HasCDMProblem(code string) bool {
-	switch code {
-	case "network", "unsupported_platform", "manifest_invalid", "untrusted_url", "too_large",
-		"hash_mismatch", "signature_invalid", "archive_invalid", "load_failed", "load_check_incomplete", "disk":
-		return true
-	}
-	return false
-}
-
 // CDMFailedState is the short state of a CDM that failed (CDMStatus.State
 // "failed"): its install, when the download arrived and only loading it failed
 // or could not be finished; otherwise the download.

@@ -226,16 +226,11 @@ func (h *home) refreshButton(c *ui.Context) {
 	if h.refreshing {
 		b.Disabled(true) // MyGo paints a disabled element at 50%
 	}
-	if !theme.ReducedMotion() {
-		m := tk.Motion["feedback"]
-		b.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-	}
+	theme.Fade(b, "feedback")
 	b.Children(func() {
 		ic := ui.Icon(c.Key("icon"), theme.Icon("rotate-cw")).FontSize(16)
-		if h.refreshing && !theme.ReducedMotion() {
-			ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
-		}
-		text(c, label, "label").SingleLine()
+		theme.Spin(ic, h.refreshing)
+		theme.Text(c, label, "label").SingleLine()
 	})
 	if b.Clicked() && !h.refreshing {
 		h.refresh()

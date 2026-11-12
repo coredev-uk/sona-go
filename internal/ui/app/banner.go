@@ -1,8 +1,6 @@
 package app
 
 import (
-	"time"
-
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/account"
@@ -80,13 +78,11 @@ func (a *App) statusBanner(c *ui.Context) {
 	ui.Row(c.Key("status-banner")).Height(36).FillWidth().Shrink(0).Padding(0, 32).Gap(10).AlignItems(ui.Center).
 		Background(theme.C("hover")).Role(ui.RoleStatus).Children(func() {
 		ic := ui.Icon(c.Key("icon"), theme.Icon(icon)).FontSize(16).TextColor(theme.C(color)).Shrink(0)
-		if spin && !theme.ReducedMotion() {
-			ic.Rotate(ic.Loop("spin", time.Second, ui.Linear) * 360)
-		}
-		text(c, msg, "sub").TextColor(theme.C("ink")).Grow(1).Shrink(1).MinWidth(0).MaxLines(1)
+		theme.Spin(ic, spin)
+		theme.Text(c, msg, "sub").TextColor(theme.C("ink")).Grow(1).Shrink(1).MinWidth(0).MaxLines(1)
 		if action != nil {
 			action()
 		}
 	})
-	ui.Box(c).Height(1).FillWidth().Background(theme.C("line"))
+	theme.Hairline(c)
 }

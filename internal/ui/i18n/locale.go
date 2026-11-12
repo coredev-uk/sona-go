@@ -73,49 +73,6 @@ func TranslationCandidates(preferred []string) []string {
 	return out
 }
 
-// TranslatedShare is the share of Sona's messages a locale translates:
-// Apple's layer's coverage (counted by Go against the same catalogue) plus
-// the community catalogue's messages Apple's layer lacks. apple and
-// community are the layers by message ID (applestrings.MessageID), source
-// the IDs of all Sona's messages.
-func TranslatedShare(appleCoverage float64, apple, community map[string]string, source []string) float64 {
-	if len(source) == 0 {
-		return 0
-	}
-	extra := 0
-	if community != nil {
-		for _, id := range source {
-			_, inCommunity := community[id]
-			_, inApple := apple[id]
-			if inCommunity && !inApple {
-				extra++
-			}
-		}
-	}
-	return appleCoverage + float64(extra)/float64(len(source))
-}
-
-// Translation is a locale and the share of Sona's messages its layers
-// translate.
-type Translation struct {
-	Locale string
-	Share  float64
-}
-
-// ChooseTranslation is the translation to show: the first preferred locale
-// (TranslationCandidates) whose layers translate something and reach
-// minShare (SelectableShare when Sona chooses; 0 for the language the user
-// chose in Settings, which shows however complete it is). ok is false for
-// English. load returns a tag's translation, or false when it has none.
-func ChooseTranslation(preferred []string, load func(tag string) (Translation, bool), minShare float64) (Translation, bool) {
-	for _, tag := range TranslationCandidates(preferred) {
-		if t, ok := load(tag); ok && t.Share > 0 && t.Share >= minShare {
-			return t, true
-		}
-	}
-	return Translation{}, false
-}
-
 // FormatLocales are the locales numbers and dates are written for while
 // locale's catalogue is shown: the system's and then the account's tags of
 // the same language, so an English UI on an en-GB system keeps 24-hour

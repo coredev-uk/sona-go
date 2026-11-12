@@ -114,12 +114,11 @@ func (l *library) songTable(c *ui.Context, g *songList, pane *kit.Pane, list *li
 	if list.Pending() {
 		count, at = skeletonRows, func(int) *services.Song { return nil }
 	}
-	curID, curCatalog, playing := "", "", false
+	var cur *services.QueueItem
+	playing := false
 	if l.env.Play != nil {
 		s := l.env.Play.State()
-		if s.Current != nil {
-			curID, curCatalog = s.Current.ID, s.Current.CatalogID
-		}
+		cur = s.Current
 		playing = s.State == store.StatePlaying
 	}
 	opts := kit.TrackListOpts{
@@ -129,7 +128,7 @@ func (l *library) songTable(c *ui.Context, g *songList, pane *kit.Pane, list *li
 		Sort:       o.sort,
 		OnRange:    g.onRange(c),
 		Pane:       pane,
-		Current:    func(s *services.Song) bool { return kit.SongIsCurrent(s, curID, curCatalog) },
+		Current:    cur,
 		Playing:    playing,
 		Restricted: l.restricted(),
 		Art:        l.env.Art,

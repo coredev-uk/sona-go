@@ -125,10 +125,8 @@ func (d *discover) topSongs(c *ui.Context, ch services.Chart, more string, ctx k
 	}
 	songs := st.songs
 	ui.Column(c.Key("top-songs")).FillWidth().Margin(8, 0, 40, 0).Role(ui.RoleGroup).Label(title).Children(func() {
-		tk := theme.Current()
 		ui.Row(c.Key("heading")).FillWidth().MinHeight(32).Margin(0, 0, 12, 0).Wrap().Gap(16).AlignItems(ui.Center).Children(func() {
-			h := tk.Type["heading"]
-			ui.Text(c, title).FontSize(h.Size).FixedLineHeight(h.LineHeight).FontWeight(int(h.Weight)).TextColor(theme.C("ink")).
+			theme.StyleText(ui.Text(c, title), "heading").TextColor(theme.C("ink")).
 				SingleLine().Role(ui.RoleHeading).Level(2)
 			ui.Row(c.Key("play")).Gap(8).AlignItems(ui.Center).Children(func() { d.playButtons(c, title, songs) })
 			ui.Box(c.Key("fill")).Grow(1)
@@ -146,7 +144,7 @@ func (d *discover) topSongs(c *ui.Context, ch services.Chart, more string, ctx k
 			Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
 			OnPlay:  func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) },
 			Menus:   st.menus, Art: ctx.Art, Motion: ctx.Motion,
-			Current: currentSong(ctx), Playing: ctx.Playing, Restricted: ctx.Restricted,
+			Current: ctx.Current, Playing: ctx.Playing, Restricted: ctx.Restricted,
 			OpenArtist: to("/artist/"), OpenAlbum: to("/album/"),
 		})
 	})
