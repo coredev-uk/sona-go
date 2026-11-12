@@ -36,23 +36,23 @@ type indexLine struct {
 	menus *kit.ActionMenus
 	cap   captioned
 
-	// holds is what the line's section holds, kept for the items and locale
-	// it was formatted for.
-	holds       string
-	holdsFirst  *services.Item
-	holdsN      int
-	holdsLocale string
+	// holds is what the line's section holds, kept for the items and i18n
+	// revision it was formatted for.
+	holds      string
+	holdsFirst *services.Item
+	holdsN     int
+	holdsRev   uint64
 }
 
 // summary is what the section holds, formatted again only when its items or
-// the locale change.
+// the translations change.
 func (ln *indexLine) summary(items []services.Item) string {
 	var first *services.Item
 	if len(items) > 0 {
 		first = &items[0]
 	}
-	if loc := i18n.Locale(); ln.holdsFirst != first || ln.holdsN != len(items) || ln.holdsLocale != loc {
-		ln.holds, ln.holdsFirst, ln.holdsN, ln.holdsLocale = holds(items), first, len(items), loc
+	if rev := i18n.Revision(); ln.holdsFirst != first || ln.holdsN != len(items) || ln.holdsRev != rev {
+		ln.holds, ln.holdsFirst, ln.holdsN, ln.holdsRev = holds(items), first, len(items), rev
 	}
 	return ln.holds
 }

@@ -288,7 +288,8 @@ func (f folder) fold(s string) string {
 // frame, and the entries change only with the language or the shortcuts.
 type findIndex struct {
 	locale    string
-	shortcuts int // how many shortcuts the index was made with
+	revision  uint64 // i18n.Revision when it was made: its words are those translations
+	shortcuts int    // how many shortcuts the index was made with
 	entries   []settingEntry
 	// hay is each entry's title, group, section and keywords folded; title
 	// its title alone.
@@ -304,7 +305,7 @@ type findIndex struct {
 
 func newFindIndex(entries []settingEntry, locale string, shortcuts int) *findIndex {
 	x := &findIndex{
-		locale: locale, shortcuts: shortcuts, entries: entries, folder: newFolder(locale),
+		locale: locale, revision: i18n.Revision(), shortcuts: shortcuts, entries: entries, folder: newFolder(locale),
 		hay: make([]string, len(entries)), title: make([]string, len(entries)),
 	}
 	for i, e := range entries {

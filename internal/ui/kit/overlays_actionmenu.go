@@ -339,9 +339,9 @@ func (a *ActionMenus) Row(row ui.Element, t ActionTarget) {
 }
 
 // HasMenu says whether the item has a more menu: a kind with actions, or one
-// the bulk actions take. False for nil menus.
+// the bulk actions take. False for nil menus or no registry.
 func (a *ActionMenus) HasMenu(it Item) bool {
-	return a != nil && a.reg.Has(it.Kind) || len(a.reg.BulkFor([]Item{it})) > 0
+	return a != nil && a.reg != nil && (a.reg.Has(it.Kind) || len(a.reg.BulkFor([]Item{it})) > 0)
 }
 
 // OpenFor opens an item's menu on a right-click on src (at the pointer), or on

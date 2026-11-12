@@ -32,10 +32,10 @@ const (
 	focusField = -2
 )
 
-// findIndex is the setting index of the language and shortcuts, made again
+// findIndex is the setting index of the language, translations and shortcuts, made again
 // only when either changes.
 func (f *findState) findIndex(shortcuts []module.BoundShortcut, locale string) *findIndex {
-	if x := f.index; x == nil || x.locale != locale || x.shortcuts != len(shortcuts) {
+	if x := f.index; x == nil || x.locale != locale || x.revision != i18n.Revision() || x.shortcuts != len(shortcuts) {
 		f.index = newFindIndex(settingIndex(shortcuts), locale, len(shortcuts))
 	}
 	return f.index

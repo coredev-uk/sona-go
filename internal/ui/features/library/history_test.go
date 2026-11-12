@@ -325,3 +325,25 @@ func TestHistoryArtistAndAlbumLinkWhenThosePagesExist(t *testing.T) {
 		t.Errorf("album link went to %q", got)
 	}
 }
+
+// The day lists mark the song the queue is on: its row shows the equaliser
+// in place of the play button.
+func TestHistoryMarksTheCurrentSong(t *testing.T) {
+	r, _, _ := historyRig(t, fixed(twoDays()))
+	r.tt.Until("the days", r.tt.Shows("Today", "Alpha", "Beta"))
+	if _, ok := r.tt.Find("Play Beta"); !ok {
+		t.Fatal("no Play Beta button before anything plays")
+	}
+	st := r.h.Env.Play.State()
+	st.State = store.StatePlaying
+	st.Current = &services.QueueItem{ID: "2", CatalogID: "2", Name: "Beta"}
+	r.h.Env.Bus.Emit(services.EventPlaybackState, st)
+	r.h.Main.Drain()
+	r.tt.Frame()
+	if _, ok := r.tt.Find("Play Beta"); ok {
+		t.Error("Beta's row still offers Play while it is the current song")
+	}
+	if _, ok := r.tt.Find("Play Alpha"); !ok {
+		t.Error("Alpha's row lost its Play button")
+	}
+}

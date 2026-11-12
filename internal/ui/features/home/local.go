@@ -136,7 +136,7 @@ func (h *home) recentlyAdded(c *ui.Context, ctx kit.ItemsCtx) {
 	title := i18n.T("Recently added")
 	if res.Err != nil {
 		kit.Shelf(c, kit.ShelfOpts{Title: title}, func() {
-			kit.QueryError(c, q, i18n.T("Couldn't read your albums"), res, keyAdded)
+			kit.QueryFailed(c, q, i18n.T("Couldn't read your albums"), res.Err, keyAdded)
 		})
 		return
 	}

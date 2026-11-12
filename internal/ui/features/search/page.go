@@ -19,6 +19,16 @@ const libraryPerKind = 25
 // categories while they load.
 const browseSkeleton = 12
 
+// skeletonRows is how many placeholders each row of a grid of cols columns
+// holds to show total of them: full rows, then what is left.
+func skeletonRows(total, cols int) []int {
+	rows := make([]int, 0, (total+cols-1)/cols)
+	for ; total > 0; total -= cols {
+		rows = append(rows, min(cols, total))
+	}
+	return rows
+}
+
 // pages is the state of the feature's pages.
 type pages struct {
 	search  searchView
@@ -207,9 +217,15 @@ func (s *search) browseShelf(c *ui.Context, pane *kit.Pane, first bool) {
 		case res.Err != nil && !res.HasData:
 			kit.QueryError(c, s.env.Queries, i18n.T("Couldn't load the categories"), res, keyBrowse)
 		case !res.HasData:
-			ui.Column(c.Key("browse-loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-				kit.ItemGrid(c, &v.browse, browseSkeleton, func(int) *services.Item { return nil }, s.env.ItemsCtx(nil),
-					kit.ItemGridOpts{Label: title, Pane: pane})
+			cols, tile := kit.CoverColumns(v.Inner(), 160)
+			ui.Column(c.Key("browse-loading")).FillWidth().Gap(24).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
+				for r, n := range skeletonRows(browseSkeleton, cols) {
+					ui.Row(c.Key(r)).Gap(24).Children(func() {
+						for i := range n {
+							kit.Skeleton(c.Key(i), tile, tile)
+						}
+					})
+				}
 			})
 		default:
 			items := res.Data
@@ -352,7 +368,7 @@ func (s *search) libraryResults(c *ui.Context, pane *kit.Pane, q string) {
 		v.prevLib, v.hasLib = res.Data, true
 	}
 	if res.Err != nil && !res.HasData {
-		kit.QueryError(c, s.env.Queries, i18n.T("Couldn't search your library"), res, store.LibrarySearch(q, libraryPerKind))
+		kit.QueryFailed(c, s.env.Queries, i18n.T("Couldn't search your library"), res.Err, store.LibrarySearch(q, libraryPerKind))
 		return
 	}
 	r, ok := res.Data, res.HasData

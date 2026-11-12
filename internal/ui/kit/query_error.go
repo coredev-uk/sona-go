@@ -15,6 +15,12 @@ func QueryError[T any](c *ui.Context, q *store.Client, title string, res store.R
 	})
 }
 
+// QueryFailed is QueryError for a block that never says "Retrying…": Try
+// again invalidates keys and the block stays as it is while the fetch runs.
+func QueryFailed(c *ui.Context, q *store.Client, title string, err error, keys ...store.Key) ui.Element {
+	return ErrorBlock(c, title, err, ErrorBlockOpts{OnRetry: func() { q.Invalidate(keys...) }})
+}
+
 // DetailQueryError is DetailError of a failed query: Try again invalidates
 // keys while res fetches; back is the "not found" link.
 func DetailQueryError[T any](c *ui.Context, noun DetailNoun, q *store.Client, res store.Result[T], back EmptyAction, signIn func(), keys ...store.Key) ui.Element {

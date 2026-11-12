@@ -6,6 +6,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
@@ -178,6 +179,15 @@ func TestFindIndexIsMadeOncePerLanguageAndShortcuts(t *testing.T) {
 	x = f.findIndex(fakeShortcuts(), "en")
 	if f.findIndex(nil, "en") == x {
 		t.Error("another number of shortcuts kept the index")
+	}
+
+	// A translation set arriving under the same language makes it again: the
+	// index holds the words of the translations it was made with.
+	x = f.findIndex(fakeShortcuts(), "en")
+	i18n.SetApple(services.AppleTranslations{Locale: "fr-FR"})
+	t.Cleanup(func() { i18n.SetApple(services.AppleTranslations{}) })
+	if f.findIndex(fakeShortcuts(), "en") == x {
+		t.Error("a new translation set kept the index")
 	}
 
 	on := findContext{caps: &services.Capabilities{OS: "linux"}}

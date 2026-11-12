@@ -81,7 +81,7 @@ func (s *settings) shortcutsSection(c *ui.Context) {
 	cfg := s.cfg()
 	if !cfg.HasData {
 		if cfg.Err != nil {
-			kit.QueryError(c.Key("err"), s.env.Queries, i18n.T("Couldn't read Sona's settings"), cfg, store.KeySettings)
+			kit.QueryFailed(c.Key("err"), s.env.Queries, i18n.T("Couldn't read Sona's settings"), cfg.Err, store.KeySettings)
 			return
 		}
 		s.loading(c, 8)

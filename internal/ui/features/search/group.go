@@ -112,7 +112,7 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 		}
 		if failedRes.Err != nil {
 			ui.Box(c).Height(24)
-			kit.QueryError(c, s.env.Queries, i18n.T("Couldn't load more"), failedRes, keyGroup(q, group, failedAt))
+			kit.QueryFailed(c, s.env.Queries, i18n.T("Couldn't load more"), failedRes.Err, keyGroup(q, group, failedAt))
 		}
 
 		// The end of the list: when it comes within a screen of the view,
