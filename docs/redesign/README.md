@@ -69,5 +69,7 @@ Every page package has its redesign commit on `feat/ui-redesign-pass`. No page w
 - **Integration commits:**
   - 39944597 regenerates the string catalogues and the shell's goldens.
   - 40c63855 gives full-window goldens more time to settle under load.
-  - a7028a13 merges origin/main, whose four refactors moved past the branch's base. Every redesigned page now uses upstream's shared builders (`theme.Text`, `theme.StyleText`, `theme.Fade`, `kit.Fade`, `ctx.Current`). The after captures are from that commit.
+  - a7028a13 merges origin/main, whose refactors had moved past the branch's base (#266–#269): every redesigned page uses upstream's shared builders (`theme.Text`, `theme.StyleText`, `theme.Fade`, `kit.Fade`, `ctx.Current`).
+  - b5e6cd59 merges #270: the pages take the shared page frame, `Env.TrackOpts`, `Env.Routed`, the query-error helpers and `kit.Bar`. The album gatefold, the library's letter-rail pages and the search rail keep scroll frames of their own, because the shared frame's even gutters would undo them.
+  - The after captures and the final probe are from b5e6cd59.
 - **Scroll performance:** the Albums scroll stays within its budget (`probe.md`).
