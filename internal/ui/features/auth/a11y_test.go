@@ -134,8 +134,8 @@ func TestDialogKeyboardWalk(t *testing.T) {
 	if _, ok := tr.Find(ui.RoleDialog, "Account"); !ok {
 		t.Fatalf("no dialog named Account:\n%s", tr.Dump())
 	}
-	if h, ok := tr.Find(ui.RoleHeading, "Account"); !ok || h.Level != 2 {
-		t.Errorf("the dialog title: %+v", h)
+	if h, ok := tr.Find(ui.RoleHeading, "Your Apple Music, on your desktop"); !ok || h.Level != 2 {
+		t.Errorf("the dialog's heading: %+v", h)
 	}
 	if h, ok := tr.Find(ui.RoleHeading, "Sign in to Apple Music"); !ok || h.Level != 3 {
 		t.Errorf("the form title: %+v", h)
@@ -201,5 +201,40 @@ func TestMenuEscapeReturnsFocusToTheAvatar(t *testing.T) {
 	}
 	if n, _ := tr.Find(ui.RoleButton, "Account"); n.Has(access.Expanded) {
 		t.Error("the avatar still says the menu is open")
+	}
+}
+
+// TestDialogHasATitleSignedInAndStacksWhenNarrow: signed in the account's
+// panel gives the view the heading the form brings itself, and in a window
+// too narrow for two panels the lead sits above the account, whose controls
+// are still in the dialog's Tab walk.
+func TestDialogHasATitleSignedInAndStacksWhenNarrow(t *testing.T) {
+	r := newRig(t, signedIn)
+	r.h.Env.Surfaces.OpenAccount()
+	r.settle()
+	tr := access.Read(t, r.tt.Tester)
+	if h, ok := tr.Find(ui.RoleHeading, "Account"); !ok || h.Level != 3 {
+		t.Errorf("the signed-in view's title: %+v (found %v)", h, ok)
+	}
+	r.tt.Key(0, ui.KeyEscape)
+	r.settle()
+
+	n := newRig(t, signedOut)
+	n.tt.SetSize(600, 700)
+	n.h.Env.Surfaces.OpenAccount()
+	n.settle()
+	lead, ok := n.tt.Find("Your Apple Music, on your desktop")
+	form, ok2 := n.tt.Find("Sign in to Apple Music")
+	if !ok || !ok2 || form.Y <= lead.Y+lead.H {
+		t.Errorf("the lead is at %v (found %v), the form at %v (found %v): want the form under the lead", lead, ok, form, ok2)
+	}
+	var names []string
+	for _, s := range access.TabWalk(t, n.tt.Tester, 20) {
+		names = append(names, s.Node.Label)
+	}
+	for _, want := range []string{"Apple Account", "Password", "Close"} {
+		if !slices.Contains(names, want) {
+			t.Errorf("the stacked dialog's Tab walk %q lacks %q", names, want)
+		}
 	}
 }

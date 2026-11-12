@@ -108,6 +108,11 @@ func (f *feature) avatar(c *ui.Context, signedIn, attention, open bool) ui.Eleme
 	if signedIn {
 		bg, fg = theme.C("active"), theme.C("ink")
 	}
+	if open {
+		// The avatar the menu hangs from reads as held: the active tone and
+		// the ink glyph, signed in or not.
+		bg, fg = theme.C("active"), theme.C("ink")
+	}
 	btn := ui.ButtonBase(c.Key("auth:avatar")).Label(i18n.T("Account")).HasPopup(ui.PopupMenu).Expanded(open).
 		Size(avatarSize, avatarSize).Radius(tk.Radius["full"]).Background(bg).TextColor(fg).Center()
 	if !theme.ReducedMotion() {
@@ -124,35 +129,56 @@ func (f *feature) avatar(c *ui.Context, signedIn, attention, open bool) ui.Eleme
 	return btn
 }
 
-// menuItems are the rows of the menu: the header (Apple Music, where the
-// account stands and what is worth knowing), the account's actions, private
-// listening and Sign out.
+// stateGlyph is the glyph that leads the menu's state line: the avatar's
+// state in a drawn form, so the line reads at a glance before its words do.
+// destructive colours it --danger, for an account that needs the user.
+func stateGlyph(s services.AuthStatus) (icon string, destructive bool) {
+	switch {
+	case account.HasAccount(s.State):
+		if s.Keyring == "waiting" || s.State == "validating" {
+			return "clock", false
+		}
+		return "circle-check", false
+	case s.State == "restoring" || s.State == "signing_in":
+		return "clock", false
+	case account.NeedsAttention(s):
+		return "circle-alert", true
+	}
+	return "circle-user", false
+}
+
+// menuItems are the rows of the menu: the header (Apple Music, then each
+// fact about the account on a line of its own behind a glyph: where it
+// stands, offline, restricted, an unencrypted token), the account's actions,
+// private listening and Sign out.
 func (f *feature) menuItems(s services.AuthStatus, known bool, line string, priv store.Result[services.PrivateState]) []kit.MenuItem {
 	signedIn := account.HasAccount(s.State)
 	var items []kit.MenuItem
-	note := func(text string) {
-		items = append(items, kit.MenuItem{Kind: kit.MenuLabel, Note: kit.LabelNote, Label: text})
+	// note is one fact under the header, each led by its glyph so the block
+	// reads as a list of what is true of the account.
+	note := func(icon, text string, destructive bool) {
+		items = append(items, kit.MenuItem{Kind: kit.MenuLabel, Note: kit.LabelNote, Label: text, Icon: icon, Destructive: destructive})
 	}
 	sep := func() { items = append(items, kit.MenuItem{Kind: kit.MenuSeparator}) }
 
 	items = append(items, kit.MenuItem{Kind: kit.MenuLabel, Note: kit.LabelHeader, Label: i18n.T("Apple Music")})
 	if line != "" {
-		note(line)
+		icon, bad := stateGlyph(s)
+		note(icon, line, bad)
 	}
 	if signedIn && s.Offline {
 		// translators: In the account menu while Apple can't be reached
-		note(i18n.T("Offline. Sona keeps using your saved sign-in."))
+		note("wifi-off", i18n.T("Offline. Sona keeps using your saved sign-in."), false)
 	}
 	if signedIn && s.Restricted {
-		note(i18n.T("Explicit content is restricted on this account; Sona hides it."))
+		note("lock", i18n.T("Explicit content is restricted on this account; Sona hides it."), false)
 	}
 	if s.Unencrypted {
 		text := i18n.T("Signing in now stores your token unencrypted")
 		if signedIn {
 			text = i18n.T("Your token is stored unencrypted")
 		}
-		// The shield-alert of v0.2.0's Note, in the danger colour.
-		items = append(items, kit.MenuItem{Kind: kit.MenuLabel, Note: kit.LabelNote, Label: text, Icon: "shield-alert", Destructive: true})
+		note("shield-alert", text, true)
 	}
 	sep()
 
