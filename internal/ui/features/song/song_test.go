@@ -250,7 +250,7 @@ func airbag() services.CatalogSong {
 	return services.CatalogSong{
 		Song: services.Song{
 			ID: "1440", Source: services.SourceCatalog, CatalogID: "1440", Name: "Airbag", Artist: "Radiohead",
-			Album: "OK Computer", AlbumID: "al1", ArtistID: "a1", DurationMs: 284000, ReleaseDate: "1997-05-21",
+			Album: "OK Computer", AlbumID: "al1", ArtistID: "a1", DurationMs: 284000, ReleaseDate: "1997-05-21", TrackNumber: 1,
 			Genre: "Alternative", Explicit: true, Playable: true, Traits: services.Traits{Lossless: true}, Art: art("airbag"),
 		},
 		Header:  services.Header{Colors: []string{"#336699"}},
@@ -285,7 +285,7 @@ func bare() services.CatalogSong {
 	p := airbag()
 	p.LyricsExcerpt, p.Credits, p.Videos, p.MoreByArtist = "", nil, nil, nil
 	p.Composer, p.ISRC, p.Album = "", "", nil
-	p.Song.ReleaseDate = ""
+	p.Song.ReleaseDate, p.Song.TrackNumber = "", 0
 	return p
 }
 
@@ -416,8 +416,7 @@ func TestSongPageShowsTheHeader(t *testing.T) {
 	r := newRig(t, 1132, 1000, airbag())
 	r.open()
 	for _, want := range []string{
-		"Airbag", "Radiohead", "OK Computer", "Song · 1997 · 4:44 · Alternative", "Play Airbag",
-		"Lyrics", "Credits", "Released May 21, 1997", "Composed by Thom Yorke & Jonny Greenwood", "ISRC GBAYE9700001",
+		"Airbag", "Radiohead", "OK Computer", "Play Airbag", "Details", "Lyrics", "Credits",
 	} {
 		if !r.tt.HasText(want) {
 			t.Errorf("%q is not on the page; texts %q", want, r.tt.Texts())
@@ -578,12 +577,21 @@ func TestLyricsExcerptThenFullLyrics(t *testing.T) {
 // 2 × 128k pixels or more on helper goroutines it shares between windows,
 // which a bubble must not meet (sync.WaitGroup would be used from both
 // sides), so it stays below that.
-const bubbleW, bubbleH = 500, 520
+const bubbleW, bubbleH = 400, 650
+
+// lyricsOnly is airbag with one fact and no credits, so the lyrics sit near
+// the top of a window as small as a bubble's.
+func lyricsOnly() services.CatalogSong {
+	p := airbag()
+	p.Credits, p.Composer, p.ISRC = nil, "", ""
+	p.Song.Genre, p.Song.ReleaseDate, p.Song.TrackNumber = "", "", 0
+	return p
+}
 
 func TestLyricsShowLoadingThenFail(t *testing.T) { synctest.Test(t, lyricsShowLoadingThenFail) }
 
 func lyricsShowLoadingThenFail(t *testing.T) {
-	r := newRig(t, bubbleW, bubbleH, airbag())
+	r := newRig(t, bubbleW, bubbleH, lyricsOnly())
 	r.lyrics.fail(errors.New("down"))
 	release := r.lyrics.hold()
 	r.open()
@@ -650,7 +658,9 @@ func TestOpeningTheLyricsAgainAfterAFailureAsksAgain(t *testing.T) {
 }
 
 func TestLyricsWithNoSongwritersEndWithoutTheLine(t *testing.T) {
-	r := newRig(t, 1132, 1000, airbag())
+	p := airbag()
+	p.Composer = "" // the ledger's own Written by row
+	r := newRig(t, 1132, 1000, p)
 	r.lyrics.l.Songwriters = nil
 	r.open()
 	r.click("View full lyrics")
@@ -674,42 +684,62 @@ func TestCreditsGroupsAndPeople(t *testing.T) {
 	}
 }
 
-func TestLyricsAndCreditsSitSideBySideFrom1100(t *testing.T) {
-	wide := newRig(t, 967, 1200, airbag())
+func TestLiningUpWideAndNarrow(t *testing.T) {
+	// From 860 of content the cover, title and actions are a column beside
+	// the body, which reads facts, credits, lyrics from the top down.
+	wide := newRig(t, 899, 1400, airbag())
 	wide.open()
-	wide.tt.Until("both shelves", wide.tt.Shows("Lyrics", "Credits"))
-	a, _ := wide.tt.Find("Lyrics")
-	b, _ := wide.tt.Find("Credits")
-	if a.Y != b.Y || !(a.X < b.X) {
-		t.Errorf("at a 1200 window the shelves are %v and %v: want one row", a, b)
+	wide.tt.Until("the body", wide.tt.Shows("Details", "Credits", "Lyrics"))
+	title, _ := wide.tt.Find("Airbag")
+	facts, _ := wide.tt.Find("Details")
+	credits, _ := wide.tt.Find("Credits")
+	lyrics, _ := wide.tt.Find("Lyrics")
+	if !(title.X < facts.X) || !(facts.Y < credits.Y && credits.Y < lyrics.Y) || facts.X != credits.X || credits.X != lyrics.X {
+		t.Errorf("wide: title %v, details %v, credits %v, lyrics %v: want the title beside one column of the three", title, facts, credits, lyrics)
 	}
-	// The window's width (the page column plus the sidebar), not the column's, decides (a CSS viewport query).
-	narrow := newRig(t, 767, 1200, airbag())
+	// Narrower the header band comes first and the body follows under it.
+	narrow := newRig(t, 707, 1400, airbag())
 	narrow.open()
-	narrow.tt.Until("both shelves", narrow.tt.Shows("Lyrics", "Credits"))
-	a, _ = narrow.tt.Find("Lyrics")
-	b, _ = narrow.tt.Find("Credits")
-	if !(a.Y < b.Y) || a.X != b.X {
-		t.Errorf("at a 1000 window the shelves are %v and %v: want one above the other", a, b)
+	narrow.tt.Until("the body", narrow.tt.Shows("Details", "Credits", "Lyrics"))
+	title, _ = narrow.tt.Find("Airbag")
+	facts, _ = narrow.tt.Find("Details")
+	credits, _ = narrow.tt.Find("Credits")
+	if !(title.Y < facts.Y) || facts.X != credits.X || !(facts.Y < credits.Y) {
+		t.Errorf("narrow: title %v, details %v, credits %v: want the band, then the body", title, facts, credits)
 	}
 }
 
-func TestCreditsHaveTwoColumnsFrom720(t *testing.T) {
-	wide := newRig(t, 567, 1400, airbag())
+func TestLedgerNamesAndValues(t *testing.T) {
+	r := newRig(t, 1132, 1000, airbag())
+	r.open()
+	r.tt.Until("the ledger", r.tt.Shows("Released", "May 21, 1997", "Duration", "4:44", "Genre", "Alternative",
+		"Track", "1", "Written by", "Thom Yorke & Jonny Greenwood", "ISRC", "GBAYE9700001"))
+	a, _ := r.tt.Find("Released")
+	b, _ := r.tt.Find("May 21, 1997")
+	if a.Y != b.Y || !(a.X < b.X) {
+		t.Errorf("name %v and value %v: want one row, name first", a, b)
+	}
+}
+
+func TestCreditsGridHasMorePeopleToARowWhenThereIsRoom(t *testing.T) {
+	// Two people to a row in a narrow body, three in a wide one.
+	narrow := newRig(t, 707, 1400, airbag())
+	narrow.open()
+	narrow.tt.Until("people", narrow.tt.Shows("Radiohead", "Nigel Godrich", "Third Person"))
+	a, _ := narrow.tt.Find("Performer, Vocals")
+	b, _ := narrow.tt.Find("Producer")
+	c, _ := narrow.tt.Find("Guitar")
+	if a.Y != b.Y || !(a.X < b.X) || !(a.Y < c.Y) {
+		t.Errorf("at 707 the first three people are at %v, %v and %v: want two to a row", a, b, c)
+	}
+	wide := newRig(t, 1132, 1400, airbag())
 	wide.open()
 	wide.tt.Until("people", wide.tt.Shows("Radiohead", "Nigel Godrich", "Third Person"))
-	a, _ := wide.tt.Find("Performer, Vocals")
-	b, _ := wide.tt.Find("Producer")
-	if a.Y != b.Y || !(a.X < b.X) {
-		t.Errorf("at 800 the first two people are at %v and %v: want one row", a, b)
-	}
-	narrow := newRig(t, 467, 1600, airbag())
-	narrow.open()
-	narrow.tt.Until("people", narrow.tt.Shows("Nigel Godrich"))
-	a, _ = narrow.tt.Find("Performer, Vocals")
-	b, _ = narrow.tt.Find("Producer")
-	if !(a.Y < b.Y) {
-		t.Errorf("at 700 the first two people are at %v and %v: want a column", a, b)
+	a, _ = wide.tt.Find("Performer, Vocals")
+	b, _ = wide.tt.Find("Producer")
+	c, _ = wide.tt.Find("Guitar")
+	if a.Y != b.Y || b.Y != c.Y || !(a.X < b.X && b.X < c.X) {
+		t.Errorf("at 1132 the first three people are at %v, %v and %v: want one row", a, b, c)
 	}
 }
 
@@ -734,10 +764,10 @@ func TestNeitherLyricsNorCreditsSaysSo(t *testing.T) {
 	r := newRig(t, 1132, 1000, bare())
 	r.open()
 	r.tt.Until("the note", r.tt.Shows("Apple Music has no credits or lyrics for this song."))
-	// And with no date, composer or ISRC no footer lines.
+	// And with no date, composer or ISRC no ledger rows.
 	for _, w := range r.tt.Texts() {
-		if strings.HasPrefix(w, "Released") || strings.HasPrefix(w, "Composed") || strings.HasPrefix(w, "ISRC") {
-			t.Errorf("footer line %q with nothing to say", w)
+		if w == "Released" || w == "Written by" || w == "ISRC" || w == "Track" {
+			t.Errorf("ledger row %q with nothing to say", w)
 		}
 	}
 }
@@ -931,6 +961,16 @@ func TestGoldenSongPage(t *testing.T) {
 			uitest.Golden(t, r.tt.Image(), tc.name)
 		})
 	}
+}
+
+// The skeleton is the page's own frame: the same column, the same facts and
+// credits rows, so nothing moves when the song arrives.
+func TestGoldenSongLoading(t *testing.T) {
+	r := newRigWith(t, 899, 700, func(r *rig) { r.catalog.gate = make(chan struct{}) }, airbag())
+	t.Cleanup(func() { close(r.catalog.gate) })
+	r.tt.Drain()
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "song-loading-light")
 }
 
 // A signed-out account is told so, and the button opens the account dialog.
