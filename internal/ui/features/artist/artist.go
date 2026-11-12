@@ -22,9 +22,13 @@ const (
 )
 
 const (
-	// wideFrom is the content width from which the header and the lead have
-	// a second column.
-	wideFrom = 900
+	// wideFrom is the content width from which the lead has a second
+	// column (top songs beside the essential albums) and About sets the
+	// facts beside the biography.
+	wideFrom = 800
+	// slipFrom is the content width from which the latest release stands in
+	// a column of its own between the text and the portrait.
+	slipFrom = 1040
 	// narrowUnder is the content width under which the portrait drops to its
 	// small size.
 	narrowUnder = 720
@@ -32,29 +36,40 @@ const (
 	// between columns.
 	columnMin = 260
 	columnGap = 32
+	// leadSide is the essential albums panel beside the top songs.
+	leadSide = 340
+	// timelineTwoFrom is the content width from which a year with several
+	// releases sets them in two columns.
+	timelineTwoFrom = 840
 )
 
 // layout is how the page lays out at a content width.
 type layout struct {
-	// wide: the latest release beside the header's text, essential albums
-	// beside top songs.
+	// wide: essential albums beside the top songs, the facts beside the
+	// biography.
 	wide bool
-	// portrait is the artist's round picture.
+	// slipBeside: the latest release stands as the header's second column
+	// (a stacked cover and its lines); otherwise it is a row under the
+	// text.
+	slipBeside bool
+	// portrait is the artist's round picture, at the header's trailing
+	// edge.
 	portrait float32
-	// slip is the latest release's cover: in the header's second column, or
-	// a row under the actions.
+	// slip is the latest release's cover.
 	slip float32
 }
 
 // layoutFor is how the page lays out at a content width (0 before the first
 // layout: the full-size portrait, so nothing jumps).
 func layoutFor(width float32) layout {
-	l := layout{wide: width >= wideFrom, portrait: 200, slip: 56}
-	if width > 0 && width < narrowUnder {
-		l.portrait = 136
-	}
-	if l.wide {
-		l.slip = 112
+	l := layout{wide: width >= wideFrom, slipBeside: width >= slipFrom, portrait: 200, slip: 88}
+	switch {
+	case l.slipBeside:
+		l.slip = 152
+	case width > 0 && width < narrowUnder:
+		l.portrait, l.slip = 112, 64
+	case width > 0:
+		l.portrait = 176
 	}
 	return l
 }

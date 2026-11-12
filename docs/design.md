@@ -370,37 +370,39 @@ Other versions · Music videos · More to hear · More by · Featured in playlis
 
 ### Artist page
 
-An artist page is the label's file on the act: who they are, what to play first, then the back catalogue set out by format, then the company they keep. It answers "who is this" on the first screen and never repeats a release to fill space.
+An artist page is the act's press kit: the sheet that says who they are and what is newest, what to play first, the career laid out year by year, then the company they keep. It answers "who is this" on the first screen and never repeats a release to fill space.
 
 ```
 ┌ header (backdrop wash) ──────────────────────────────────────────────┐
-│ ( portrait )  Radiohead (32/36)                       ┌──────┐ Title  │
-│               Artist · Alternative · Abingdon, …      │ 112  │ Latest release · 13 Aug 2025
-│               the biography's first paragraph, 2 lines└──────┘ Album · 12 songs
-│               Read more                                               │
-│               (▶) Shuffle  ☆  Suggest less  ⋯                         │
+│ Radiohead (32/36)                      ┌───────┐              ╭────╮  │
+│ Artist · Alternative · Abingdon, …     │ 152   │              │ 200│  │
+│ the biography's first paragraph, 2 lines│ cover │              │    │  │
+│ Read more                              │ (▶)   │              ╰────╯  │
+│ (▶) Shuffle  ☆  Suggest less  ⋯        └───────┘                      │
+│                                        Title · Latest release · date  │
 └──────────────────────────────────────────────────────────────────────┘
-Top songs (6 rows)                          See all │ Essential albums (300px)
-#  Title                       Album            ◷   │ ▭ In Rainbows · 2007
-…                                                   │ …
-──────────────────────────────────────────────────────────────────────
-Discography (24/30)
-Albums: one row of cover tiles                              See all
-Singles and EPs  See all │ Live albums        │ Compilations
-▭ Daydreaming            │ ▭ Hail to the …    │ ▭ KID A MNESIA
-  2016 · Single          │   2025             │   2021
+Top songs (6 numbered rows)             See all │ ┌ Essential albums ──┐
+#  Title                    Album          ◷    │ │ ▭ In Rainbows 2007 │
+…                                               │ └────────────────────┘
+Discography (24/30) ──────────────────────────────────────────────────
+2021 ● ▭ KID A MNESIA · Compilation
+     │
+2016 ● ▭ Daydreaming · Single      ▭ Hail to the … · Live
+     │
+2004 ● ▭ Com Lag: 2+2=5 · EP
+     Singles and EPs featuring Radiohead ›
 Music videos: one row of 16:9 tiles
-──────────────────────────────────────────────────────────────────────
-Related: Appears on (a list) · Playlists featuring · Similar artists
-──────────────────────────────────────────────────────────────────────
-About Radiohead: the whole biography (32rem) │ From · Born or formed · Genres
+Related ──────────────────────────────────────────────────────────────
+Appears on (a list) · Playlists featuring · Similar artists
+About Radiohead ──────────────────────────────────────────────────────
+From · Born or formed · Genres (200px) │ the whole biography (32rem)
 ```
 
-- **The header** is the artist's file: the round portrait (200px, 136px under 720px of content), the name, the catalogue line in its usual form with the kind first (`Artist · Alternative · Abingdon, Oxfordshire, England`; `Artist · 1 release` when the page holds every release of a small act), the biography's first paragraph at 13 muted, clamped to two lines at a 32rem measure, and "Read more", which scrolls to About and moves focus there. From 900px of content the latest release stands in a 300px second column as a slip: its 112px cover, the title, `Latest release · 13 Aug 2025` and `Album · 12 songs` in meta type, Apple's " - Single" / " - EP" suffix moved into that line. Narrower, the slip sits under the portrait and text with a 56px cover. An act whose one release is the latest has no slip: the discography holds it.
-- **The lead**: top songs (six rows; the rest behind See all) with the essential albums beside them in a 300px column, as a release list. Under 900px the essential albums follow the songs in two columns.
-- **Release lists**: the back catalogue's form for singles, live albums, compilations, essential albums and Appears on. Rows of 52px: a 40px cover, the title at 14/500 and a 13 muted line (`2016 · Single`, or the artist and year for Appears on), a `--hover` fill at radius 6 that reaches 8px past the covers so they line up with the heading. Each list shows five releases (essential albums six) and See all for the rest. They sit side by side in up to three columns of at least 260px, 32px apart, the same columns in every band so the lists line up. Rows open, select, drag and open their menu (right-click, Shift+F10, the Menu key) like cover tiles; ↑ and ↓ move between them.
-- **Bands**, as on Discover: Discography (albums as one row of cover tiles, the release lists, music videos), Related (Appears on, playlists featuring the artist, similar artists) and About (the whole biography at a 32rem measure, the facts beside it). Empty shelves and bands are left out.
-- **Loading** holds a major act's final frame: the header's portrait, name, line, two biography lines, Read more, actions and slip, then top songs and the essential albums as loading rows of the real lists. For such an act nothing moves when the data lands, but the scrollbar arriving with it narrows the column by its width. A small act with no biography or slip has a shorter header, so under 900px of content its songs move up when they load.
+- **The header** is the act's press sheet, one row on the wash: the text column at the leading edge, the latest release in a second column, the round portrait (people stay round) at the trailing edge (200px; 176px under 1040px of content; 112px under 720px). The text column holds the name at 32/36, the catalogue line in its usual form with the kind first (`Artist · Alternative · Abingdon, Oxfordshire, England`; `Artist · 1 release` when the page holds every release of a small act), the biography's first paragraph at 13 muted, clamped to two lines at a 32rem measure, "Read more" (which scrolls to About and moves focus there), and the actions on one row. From 1040px of content the latest release is a 152px column: the cover with the amber Play disc over its corner, the title at 16/600, `Latest release · 13 Aug 2025` and `Album · 12 songs` in meta type, Apple's " - Single" / " - EP" suffix moved into that line. Narrower it is a row under the text, after a hairline: an 88px cover (64px under 720px), the lines and the Play disc at the end. The disc plays the album through the item players and is left out where the album cannot play (not out yet). Title and cover open the album. An act with one release has no slip (it is in the discography).
+- **The lead**: top songs (six rows, numbered in Apple's popularity order; the rest behind See all) with the essential albums beside them from 800px of content, set in a 340px `surface` panel at radius 8 as a release list. Under 800px the panel follows the songs, its albums in two columns.
+- **Release lists**: the form of essential albums and Appears on. Rows of 52px: a 40px cover, the title at 14/500 and a 13 muted line (the year, or the artist and year for Appears on), a `--hover` fill at radius 6 that reaches 8px past the covers so they line up with the heading. Rows open, select, drag and open their menu (right-click, Shift+F10, the Menu key) like cover tiles; ↑ and ↓ move between them.
+- **Bands**: each is its heading at 24/30 with a hairline running on to the column's edge. Discography is a career line: the releases the page holds (albums, singles and EPs, live albums, compilations), once each, newest first, the newest 18, grouped by year. The year (16/600 tabular, faint) is a 64px left gutter (52px under 720px), a dot and a 1px rail link the years, and the year's releases are release rows to the right (two columns from 840px of content when a year has four or more), each saying its kind (`Album`, `Single`, `EP`, `Live`, `Compilation`, or `Out 19 Nov` for an upcoming one). Under the career line, a ghost link names each shelf's view the timeline does not show whole (`Singles and EPs featuring Radiohead ›`), so every full view stays one click away; music videos follow as a row of 16:9 tiles. Related holds Appears on (a release list), playlists featuring the artist and similar artists. About is a spec column (From, Born or formed, Genre at 200px) ahead of the whole biography at a 32rem measure; narrower the facts run in a row above the text. Empty shelves and bands are left out.
+- **Loading** holds a major act's final frame: the name, line, two biography lines, Read more, actions, slip and the portrait at the trailing edge, then top songs and the essential albums panel as loading rows of the real lists. For such an act nothing moves when the data lands, but the scrollbar arriving with it narrows the column by its width. A small act with no biography or slip has a shorter header, so under 800px of content its songs move up when they load.
 - A library artist keeps its library shelves (albums, singles and EPs, songs in your library) between the header and the lead; its catalogue line counts the library (`Artist · Alternative · 3 albums, 20 songs in your library`).
 
 ### Library Artists

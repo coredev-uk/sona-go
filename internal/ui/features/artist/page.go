@@ -2,6 +2,7 @@ package artist
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -323,17 +324,20 @@ func (a *artist) tracks(c *ui.Context, st *tracksState, songs []services.Song, s
 	kit.TrackList(c, &st.TrackListState, min(shown, len(songs)), func(i int) *services.Song { return &songs[i] }, o)
 }
 
-// band is a band of the page: a 1 DIP line across the column and its heading
-// at the page-title size, then its shelves (docs/design.md, Artist).
-// It takes the focus for a jump (Read more) without being a Tab stop.
+// band is a band of the page: its heading at the page-title size with a
+// hairline running on to the column's edge, then its shelves
+// (docs/design.md, Artist). It takes the focus for a jump (Read more)
+// without being a Tab stop.
 func (a *artist) band(c *ui.Context, id, title string, content func()) ui.Element {
 	tk := theme.Current()
 	sec := ui.Column(c.Key(id)).Margin(56, 0, 0, 0).Role(ui.RoleGroup).Label(title).TabStop(false)
 	sec.Children(func() {
-		ui.Box(c.Key("line")).FillWidth().Height(1).Background(theme.C("line"))
-		t := tk.Type["page"]
-		ui.Text(c, title).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking).
-			TextColor(theme.C("ink")).Margin(24, 0, 20, 0).Role(ui.RoleHeading).Level(2)
+		ui.Row(c.Key("head")).FillWidth().AlignItems(ui.Center).Gap(20).Margin(0, 0, 20, 0).Children(func() {
+			t := tk.Type["page"]
+			ui.Text(c, title).FontSize(t.Size).FixedLineHeight(t.LineHeight).FontWeight(int(t.Weight)).LetterSpacing(t.Tracking).
+				TextColor(theme.C("ink")).SingleLine().Shrink(0).Role(ui.RoleHeading).Level(2)
+			ui.Box(c.Key("rule")).Grow(1).Height(1).Background(theme.C("line"))
+		})
 		ui.Column(c.Key("content")).Children(content)
 	})
 	return sec
@@ -365,7 +369,7 @@ func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.Catalo
 	}
 	essentialShelf := func(first bool) {
 		title, _ := viewTitle(services.ViewFeaturedAlbums, art.Name)
-		so := kit.ShelfOpts{Title: title, First: first}
+		so := kit.ShelfOpts{Title: title, First: true}
 		if ess.More || len(ess.Albums) > essentialRows {
 			so.More = a.seeAll(art.ID, services.ViewFeaturedAlbums)
 		}
@@ -373,15 +377,22 @@ func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.Catalo
 		if !wide && top {
 			cols = 2
 		}
-		kit.Shelf(c, so, func() {
-			a.releaseList(c, pg.list("essential"), albumPtrs(essAlbums), releaseOpts{label: title, columns: cols})
+		// The essentials are a panel set into the lead, the sheet's sidebar.
+		panel := ui.Column(c.Key("panel")).Padding(16, 16, 12, 16).Radius(theme.Current().Radius["lg"]).Background(theme.C("surface"))
+		if !first {
+			panel.Margin(40, 0, 0, 0)
+		}
+		panel.Children(func() {
+			kit.Shelf(c, so, func() {
+				a.releaseList(c, pg.list("essential"), albumPtrs(essAlbums), releaseOpts{label: title, columns: cols})
+			})
 		})
 	}
 	switch {
 	case top && essential && wide:
 		ui.Row(c.Key("lead")).FillWidth().Gap(40).AlignItems(ui.Start).Children(func() {
-			ui.Column(c.Key("top")).Grow(1).Basis(0).MinWidth(0).Children(topShelf)
-			ui.Column(c.Key("essential")).Width(300).Shrink(0).Children(func() { essentialShelf(true) })
+			ui.Column(c.Key("top")).Grow(1).Basis(0).MinWidth(0).Padding(16, 0, 0, 0).Children(topShelf)
+			ui.Column(c.Key("essential")).Width(leadSide).Shrink(0).Children(func() { essentialShelf(true) })
 		})
 	case top || essential:
 		ui.Column(c.Key("lead")).FillWidth().Children(func() {
@@ -412,16 +423,9 @@ func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.Catalo
 
 	if len(albums) > 0 || len(catalogue) > 0 || hasVideos {
 		a.band(c, "artist-discography", i18n.T("Discography"), func() {
-			first := true
-			for _, sh := range albums {
-				a.viewShelf(c, pg, sh, art, first)
-				first = false
-			}
-			if a.catalogueLists(c, pg, catalogue, art, cols, false, first) {
-				first = false
-			}
+			shown := a.timeline(c, pg, slices.Concat(albums, catalogue), art, pg.width)
 			if hasVideos {
-				a.viewShelf(c, pg, videos, art, first)
+				a.viewShelf(c, pg, videos, art, !shown)
 			}
 		})
 	}
@@ -573,15 +577,22 @@ func (a *artist) about(c *ui.Context, pg *pageState, page *services.CatalogArtis
 				}
 			})
 		}
+		// The facts are the sheet's spec column, ahead of the text.
 		dl := func() {
 			if len(facts) == 0 {
 				return
 			}
-			ui.Column(c.Key("facts")).Gap(12).Grow(1).Basis(0).MinWidth(180).Children(func() {
+			var col ui.Element
+			if wide {
+				col = ui.Column(c.Key("facts")).Gap(14).Width(200).Shrink(0)
+			} else {
+				col = ui.Row(c.Key("facts")).Wrap().Gap(32)
+			}
+			col.Children(func() {
 				for _, f := range facts {
-					ui.Column(c.Key(f.term)).Children(func() {
+					ui.Column(c.Key(f.term)).MaxWidth(240).Children(func() {
 						ui.Text(c, f.term).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).TextColor(theme.C("ink-muted"))
-						ui.Text(c, f.value).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).TextColor(theme.C("ink"))
+						ui.Text(c, f.value).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).FontWeight(500).TextColor(theme.C("ink"))
 					})
 				}
 			})
@@ -593,8 +604,8 @@ func (a *artist) about(c *ui.Context, pg *pageState, page *services.CatalogArtis
 			layout = ui.Column(c.Key("about")).FillWidth().Gap(24)
 		}
 		layout.Children(func() {
-			bio()
 			dl()
+			bio()
 		})
 	})
 	// Where the band is in the scrolled content, as the last layout put it.

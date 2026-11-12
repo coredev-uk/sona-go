@@ -64,7 +64,7 @@ func TestA11yCatalogueArtist(t *testing.T) {
 		"Hail to the Thief (Live Recordings 2003-2009)",
 		"See all", "Song 1",
 		"OK Computer", "Kid A",
-		"In Rainbows", "See all", "Daydreaming", "Com Lag: 2+2=5", "KID A MNESIA",
+		"KID A MNESIA", "Daydreaming", "In Rainbows", "Com Lag: 2+2=5", "Singles and EPs featuring Radiohead",
 		"Creep (Very 2021 Rmx)", "Radiohead Essentials", "Thom Yorke",
 	)
 	for _, band := range []string{"Discography", "Related", "About Radiohead"} {
@@ -75,7 +75,7 @@ func TestA11yCatalogueArtist(t *testing.T) {
 	if h, ok := tr.Find(ui.RoleHeading, "Radiohead"); !ok || h.Level != 1 {
 		t.Errorf("the name is not the h1: %+v", h)
 	}
-	for _, h2 := range []string{"Top songs", "Essential albums by Radiohead", "Discography", "Related", "Albums by Radiohead", "About Radiohead"} {
+	for _, h2 := range []string{"Top songs", "Essential albums by Radiohead", "Discography", "Related", "About Radiohead"} {
 		if h, ok := tr.Find(ui.RoleHeading, h2); !ok || h.Level != 2 {
 			t.Errorf("no h2 %q: %+v", h2, h)
 		}

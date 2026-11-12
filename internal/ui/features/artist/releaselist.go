@@ -2,6 +2,7 @@ package artist
 
 import (
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +45,10 @@ type releaseOpts struct {
 	// byArtist: the line says whose release it is, then the year, rather
 	// than the year and whether it was a single or an EP.
 	byArtist bool
+	// lines, when set, are the lines under the titles, one per album (the
+	// discography's timeline says the kind: its year is the gutter's). The
+	// year still rides in a row's description.
+	lines []string
 }
 
 func albumPath(id string) string { return "/album/" + url.PathEscape(id) }
@@ -149,6 +154,11 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 	}
 	title, kind := releaseTitle(al.Name)
 	line := releaseLine(*al, kind, o.byArtist, now)
+	spoken := line
+	if o.lines != nil {
+		line = o.lines[i]
+		spoken = strings.Join(slices.DeleteFunc([]string{i18n.YearOf(al.ReleaseDate), line}, func(s string) bool { return s == "" }), " · ")
+	}
 	withheld := restricted && al.Explicit
 	selected := st.sel.Selected(al.ID)
 	path := albumPath(al.ID)
@@ -205,7 +215,7 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 				// What the lines under the title say rides in the
 				// description: the source is one piece for assistive
 				// technology.
-				if desc := releaseDescription(line, al.Explicit); desc != "" {
+				if desc := releaseDescription(spoken, al.Explicit); desc != "" {
 					s.Description(desc)
 				}
 				if opens {
