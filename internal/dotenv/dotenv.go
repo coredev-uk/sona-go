@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/coredev-uk/sona-go/internal/fsutil"
@@ -37,6 +38,11 @@ func Read(path, key string) (string, error) {
 // Set writes key=value to the env file at path (mode 0600), replacing the
 // key's earlier lines and keeping the others.
 func Set(path, key, value string) error {
+	// A symlinked .env (worktrees link the main checkout's) is written
+	// through, not replaced by a regular file.
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		path = real
+	}
 	var lines []string
 	if b, err := os.ReadFile(path); err == nil {
 		for _, l := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {

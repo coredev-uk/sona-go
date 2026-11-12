@@ -268,6 +268,9 @@ func TestRemoveCoversKeepsWhatIsReferenced(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".leftover.jpg.123.tmp"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, ".tmp-123"), []byte("x"), 0o600); err != nil { // an older build's
+		t.Fatal(err)
+	}
 	n, err := c.RemoveCovers([]string{a, d})
 	if err != nil || n != 1 {
 		t.Fatalf("RemoveCovers = %d, %v; want 1", n, err)

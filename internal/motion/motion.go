@@ -262,7 +262,7 @@ func (c *Cache) Stats() Stats {
 	var s Stats
 	if entries, err := os.ReadDir(c.dir); err == nil {
 		for _, e := range entries {
-			if !strings.HasSuffix(e.Name(), ".mp4") || fsutil.IsTemp(e.Name()) {
+			if !strings.HasSuffix(e.Name(), ".mp4") || isTemp(e.Name()) {
 				continue
 			}
 			if info, err := e.Info(); err == nil {
@@ -358,6 +358,12 @@ func codecName(codec string) string {
 	return "H.264"
 }
 
+// isTemp reports whether name is a temporary file of a write in progress or
+// interrupted: fsutil's, or the ".download-" ones of builds before it.
+func isTemp(name string) bool {
+	return fsutil.IsTemp(name) || strings.HasPrefix(name, ".download-")
+}
+
 // get fetches u (an allowed Apple URL) whole, up to limit bytes.
 func (c *Cache) get(ctx context.Context, u *url.URL, limit int64) ([]byte, error) {
 	var b bytes.Buffer
@@ -420,7 +426,7 @@ func (c *Cache) evict(keep string) {
 		}
 		path := filepath.Join(c.dir, e.Name())
 		switch {
-		case fsutil.IsTemp(e.Name()):
+		case isTemp(e.Name()):
 			if time.Since(info.ModTime()) > fetchTimeout {
 				_ = os.Remove(path)
 			}

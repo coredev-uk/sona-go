@@ -158,7 +158,7 @@ jobs:
               echo "::notice::main's head $head is already tagged: nothing new since the last nightly or release"
             fi
           elif [ -n "$PRERELEASE" ]; then
-            if ! printf '%s' "$PRERELEASE" | grep -Eq '^[a-z]+\.[0-9]+$'; then
+            if ! printf '%s' "$PRERELEASE" | grep -Eq '^[a-z]+\.(0|[1-9][0-9]*)$'; then
               echo "::error::prerelease must look like rc.1, got '$PRERELEASE'"
               exit 1
             fi

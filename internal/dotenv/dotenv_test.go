@@ -30,3 +30,24 @@ func TestReadAndSet(t *testing.T) {
 		t.Errorf("file = %q, want %q", b, want)
 	}
 }
+
+func TestSetWritesThroughASymlink(t *testing.T) {
+	dir := t.TempDir()
+	real := filepath.Join(dir, "main.env")
+	link := filepath.Join(dir, ".env")
+	if err := os.WriteFile(real, []byte("A=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip("no symlinks:", err)
+	}
+	if err := Set(link, "B", "2"); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Lstat(link); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("the symlink was replaced: %v, %v", fi, err)
+	}
+	if b, _ := os.ReadFile(real); string(b) != "A=1\nB=2\n" {
+		t.Errorf("target = %q", b)
+	}
+}

@@ -653,9 +653,9 @@ jobs:
   # dispatch; the same tests run on Linux on every push. Five jobs a push took
   # every slot, and two merges in a row, or a merge while another repository
   # built on macOS, queued for half an hour.
-  # A push, the nightly and a dispatch do not wait for `changes`; a pull request
-  # runs it only when the change reaches the code (a documentation-only one
-  # skips it). It saves Go's caches on main and on dispatch, and restores them
+  # A push, the nightly and a dispatch wait a few seconds for `changes` but do not
+  # depend on its result; a pull request runs the job only when the change
+  # reaches the code (a documentation-only one skips it). It saves Go's caches on main and on dispatch, and restores them
   # in a pull request.
   macos-build:
     name: macOS build, vet, core and playback tests

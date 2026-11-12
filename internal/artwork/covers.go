@@ -268,7 +268,7 @@ func (c *Cache) RemoveCovers(keep []string) (int, error) {
 	for _, de := range des {
 		name, ok := strings.CutSuffix(de.Name(), ".jpg")
 		if !ok || !validKey(name) || kept[coverPrefix+name] {
-			if fsutil.IsTemp(de.Name()) {
+			if isTemp(de.Name()) {
 				_ = os.Remove(filepath.Join(c.covers, de.Name()))
 			}
 			continue

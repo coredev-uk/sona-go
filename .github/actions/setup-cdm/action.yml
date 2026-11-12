@@ -23,7 +23,7 @@ runs:
         case "$KEY" in
           version) echo "key=$(go run ./cmd/cdmfetch -version)" ;;
           week) echo "key=$(date +%G-%V)" ;;
-          *) echo "::error::setup-cdm: key must be version or week, not $KEY"; exit 1 ;;
+          *) echo "::error::setup-cdm: key must be version or week, not $KEY" >&2; exit 1 ;;
         esac >>"$GITHUB_OUTPUT"
 
     - name: Cache the Widevine CDM

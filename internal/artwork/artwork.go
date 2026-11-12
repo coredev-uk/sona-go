@@ -207,7 +207,7 @@ func (c *Cache) scan() error {
 			e.used, e.touched = info.ModTime(), info.ModTime()
 		}
 		for _, f := range files {
-			if fsutil.IsTemp(f.Name()) || legacyName(f.Name()) {
+			if isTemp(f.Name()) || legacyName(f.Name()) {
 				_ = os.Remove(filepath.Join(kdir, f.Name()))
 				continue
 			}
@@ -522,6 +522,12 @@ func (c *Cache) store(key, tmpl, name string, data []byte) (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, name), nil
+}
+
+// isTemp reports whether name is a temporary file of a write in progress or
+// interrupted: fsutil's, or the ".tmp-" ones of builds before it.
+func isTemp(name string) bool {
+	return fsutil.IsTemp(name) || strings.HasPrefix(name, ".tmp-")
 }
 
 func (c *Cache) writeFile(key, name string, data []byte) error {
