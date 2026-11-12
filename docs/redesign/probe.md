@@ -42,3 +42,20 @@ So the comparison that counts alternates the two builds (`bin/sona-probe-base` f
 - **Against the budget:** the redesign's medians are 17.1 ms p95 and 17.8 ms worst, both under the budget of 17.96 ms and 19.6 ms.
 - **Against the interleaved base:** they are also no worse than the base build's 17.2 ms and 18.2 ms.
 - **CPU work per frame:** the median is 1.30 ms for both builds.
+
+## Final commit (after merging origin/main)
+
+The same interleaved comparison was run on a7028a13 against the b259a43 build, on a quieter machine:
+
+| Pair | Base p95 | Base worst | Redesign p95 | Redesign worst |
+| --- | --- | --- | --- | --- |
+| 1 | 17.1 ms | 20.1 ms | 17.0 ms | 21.7 ms |
+| 2 | 17.1 ms | 17.8 ms | 16.9 ms | 17.6 ms |
+| 3 | 16.9 ms | 17.5 ms | 16.9 ms | 17.7 ms |
+| 4 | 16.9 ms | 17.5 ms | 16.9 ms | 17.7 ms |
+| 5 | 16.9 ms | 17.5 ms | 16.9 ms | 17.6 ms |
+| **Median** | **16.9 ms** | **17.5 ms** | **16.9 ms** | **17.7 ms** |
+
+- **Against the budget:** the redesign's medians are 16.9 ms p95 and 17.7 ms worst, inside the budget of 17.96 ms and 19.6 ms.
+- **Against the interleaved base:** p95 is the same as the base build's. Worst is 1% higher, which is within the run-to-run spread.
+- **CPU work per frame:** the median p50 is 1.20 ms for both builds.

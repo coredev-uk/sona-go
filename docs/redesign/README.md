@@ -66,5 +66,8 @@ Every page package has its redesign commit on `feat/ui-redesign-pass`. No page w
 
 - **Live captures:** the Widevine notice, the update notice and the reminder entry have no live trigger in a signed-out preview run, so their captures come from `ui.Tester` in the same `headless` session. The before captures were drawn by the same tests on b259a43.
 - **Video view:** it needs the Widevine CDM to play, so it is shown by the package's goldens (`internal/ui/features/video/testdata/golden/video-view-*`), not by a live capture.
-- **Integration commits:** 39944597 regenerates the string catalogues and the shell's goldens, and 40c63855 gives full-window goldens more time to settle under load.
+- **Integration commits:**
+  - 39944597 regenerates the string catalogues and the shell's goldens.
+  - 40c63855 gives full-window goldens more time to settle under load.
+  - a7028a13 merges origin/main, whose four refactors moved past the branch's base. Every redesigned page now uses upstream's shared builders (`theme.Text`, `theme.StyleText`, `theme.Fade`, `kit.Fade`, `ctx.Current`). The after captures are from that commit.
 - **Scroll performance:** the Albums scroll stays within its budget (`probe.md`).
