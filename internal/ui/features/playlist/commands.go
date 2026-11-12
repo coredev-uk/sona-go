@@ -54,11 +54,6 @@ func libraryIDOf(it kit.Item) string {
 	return ""
 }
 
-// fail shows what failed and why (the product's words for Go's code).
-func (p *playlists) fail(what string, err error) {
-	kit.ToastErrorf(what, failText(err))
-}
-
 // run calls fn off the main thread and tells the user when it fails; done
 // (nil: none) gets the outcome on the main thread.
 func (p *playlists) run(what string, fn func(ctx context.Context) error, done func(ok bool)) {
@@ -66,7 +61,7 @@ func (p *playlists) run(what string, fn func(ctx context.Context) error, done fu
 		err := fn(context.Background())
 		p.env.Post(func() {
 			if err != nil {
-				p.fail(what, err)
+				kit.ToastFailure(what, err)
 			}
 			if done != nil {
 				done(err == nil)
@@ -92,7 +87,7 @@ func (p *playlists) addToPlaylistNow(playlistID, name string, items []services.P
 		detail, err := p.api.Add(context.Background(), playlistID, items)
 		p.env.Post(func() {
 			if err != nil {
-				kit.ToastErrorf(i18n.T("Couldn't add to “{name}”", "name", name), failText(err))
+				kit.ToastFailure(i18n.T("Couldn't add to “{name}”", "name", name), err)
 				return
 			}
 			store.Set(p.env.Queries, keyDetail(detail.Playlist.ID), detail)
@@ -162,7 +157,7 @@ func (p *playlists) pin(id, name string, done func(ok bool)) {
 		err := p.api.Pin(context.Background(), id)
 		p.env.Post(func() {
 			if err != nil {
-				kit.ToastErrorf(i18n.T("Couldn't pin “{name}”", "name", name), failText(err))
+				kit.ToastFailure(i18n.T("Couldn't pin “{name}”", "name", name), err)
 			} else {
 				kit.ShowToast(kit.ToastSpec{Title: i18n.T("Pinned “{name}”", "name", name)})
 			}
@@ -185,7 +180,7 @@ func (p *playlists) playPin(id, name string, shuffle bool) {
 		ctx := context.Background()
 		songs, err := p.api.PinTracks(ctx, id)
 		if err != nil {
-			p.env.Post(func() { kit.ToastErrorf(i18n.T("Couldn't play “{name}”", "name", name), failText(err)) })
+			p.env.Post(func() { kit.ToastFailure(i18n.T("Couldn't play “{name}”", "name", name), err) })
 			return
 		}
 		if len(songs) == 0 {

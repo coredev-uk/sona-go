@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"cmp"
 	"math"
 	"strconv"
 	"strings"
@@ -259,13 +260,6 @@ func cdmSourceRows(cdm services.CDMStatus, now time.Time) []diagRow {
 	return []diagRow{{label: i18n.T("Source"), value: i18n.T("Downloaded from Google")}, updates}
 }
 
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
-}
-
 func orDash(s string) string {
 	if s == "" {
 		return dash
@@ -287,8 +281,8 @@ func cdmRows(p services.DiagPlayback, cdm services.CDMStatus, now time.Time) []d
 		iface = i18n.T("{cdmInterface} (host {hostInterface})", "cdmInterface", p.CDMInterface, "hostInterface", p.HostInterface)
 	}
 	rows = append(rows,
-		diagRow{label: i18n.T("Version"), value: orDash(firstNonEmpty(cdm.Version, p.CDMVersion))},
-		diagRow{label: i18n.T("CDM file"), value: orDash(firstNonEmpty(p.CDMPath, cdm.Path))},
+		diagRow{label: i18n.T("Version"), value: orDash(cmp.Or(cdm.Version, p.CDMVersion))},
+		diagRow{label: i18n.T("CDM file"), value: orDash(cmp.Or(p.CDMPath, cdm.Path))},
 		diagRow{label: i18n.T("CDM interface"), value: iface},
 	)
 	check := func(label, found, missing, hint string, notFound diagStatus) diagRow {
@@ -348,7 +342,7 @@ func diagnosticsGroups(d services.Diagnostics, live *services.CDMStatus, now tim
 	}
 	c := d.Database.Counts
 	contents := strings.Join([]string{
-		i18n.T("{songs, plural, one {# song} other {# songs}}", "songs", c.Songs),
+		i18n.SongCount(c.Songs),
 		i18n.T("{albums, plural, one {# album} other {# albums}}", "albums", c.Albums),
 		i18n.T("{artists, plural, one {# artist} other {# artists}}", "artists", c.Artists),
 		i18n.T("{playlists, plural, one {# playlist} other {# playlists}}", "playlists", c.Playlists),

@@ -32,7 +32,7 @@ type headProps struct {
 // the cover and lines, the disc at the end.
 func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32, beside bool) {
 	tk := theme.Current()
-	title, release := releaseTitle(al.Name)
+	title, release := kit.ReleaseTitle(al.Name)
 	kind := i18n.T("Album")
 	switch {
 	case release == "ep":
@@ -40,28 +40,25 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32, b
 	case release == "single" || al.Single:
 		kind = i18n.T("Single")
 	}
-	when := releaseBadge(al, a.now())
+	when := kit.ReleaseBadge(al, a.now())
 	if when == "" {
 		when = i18n.FormatISODate(al.ReleaseDate, i18n.DateMedium)
 	}
-	whenLine := i18n.T("Latest release")
-	if when != "" {
-		whenLine += " · " + when
-	}
+	whenLine := i18n.Meta(i18n.T("Latest release"), when)
 	path := albumPath(al.ID)
-	kindLine := catalogueLine(kind, "", al.TrackCount)
+	kindLine := i18n.CatalogueLine(kind, "", al.TrackCount, 0)
 	item := services.Item{Kind: services.ItemAlbum, ID: al.ID, Name: al.Name, Subtitle: al.Artist, Art: al.Art, Explicit: al.Explicit, Album: &al}
 	canPlay := a.env.Players.CanPlay(item)
 	// The link is named by the title; the lines ride in its description, as
 	// the one piece MyGo reads the link as holds no more.
 	slip := ui.ButtonBase(c.Key("latest")).MinWidth(0).Radius(tk.Radius["sm"]).Label(title).
-		Description(whenLine + " · " + kindLine)
+		Description(i18n.Meta(whenLine, kindLine))
 	if beside {
 		slip.Column().Width(size).Shrink(0).AlignItems(ui.Start).Gap(10)
 	} else {
 		slip.Row().Grow(1).Basis(0).Justify(ui.Start).AlignItems(ui.Center).Gap(16)
 	}
-	if a.has(path) {
+	if a.env.Routed(path) {
 		slip.Role(ui.RoleLink)
 	}
 	slip.Children(func() {
@@ -85,7 +82,7 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32, b
 			meta(kindLine, 1)
 		})
 	})
-	if slip.Clicked() && a.has(path) {
+	if slip.Clicked() && a.env.Routed(path) {
 		a.env.Nav.Push(path)
 	}
 	if canPlay {

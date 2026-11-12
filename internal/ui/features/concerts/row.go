@@ -173,7 +173,7 @@ func tickets(c *ui.Context, env *module.Env, con services.Concert, o rowOpts) {
 // lineupLink is the line-up as a link to the headliner's page when the page
 // exists, else plain text, in the type style named.
 func lineupLink(c *ui.Context, env *module.Env, con services.Concert, lead *services.ConcertArtist, title, style string, o rowOpts) {
-	if lead != nil && lead.ID != "" && env.HasRoute != nil && env.HasRoute("/artist/"+lead.ID) {
+	if lead != nil && lead.ID != "" && env.Routed("/artist/"+lead.ID) {
 		t := theme.Current().Type[style]
 		link := ui.Link(c.Key("name"), title, "/artist/"+lead.ID).FontSize(t.Size).FixedLineHeight(t.LineHeight).
 			FontWeight(int(t.Weight)).TextColor(theme.C("ink")).SingleLine().MinWidth(0)

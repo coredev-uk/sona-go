@@ -2,7 +2,6 @@ package album
 
 import (
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -61,10 +60,10 @@ func (a *album) wide(c *ui.Context, m *model, k *colours, lay layout, head, trac
 	grid := ui.Grid(c.Key("wide")).FillWidth().
 		ColumnTracks(ui.Fixed(lay.cover+sleeveRoom+2*a.gl), ui.Fr(1)).
 		RowTracks(ui.Fr(1)).AlignItems(ui.Stretch)
-	if a.paneRect != nil {
+	if a.pane != nil {
 		// The sleeve runs to the pane's bottom edge however short the
 		// record; the shelves begin under the gatefold.
-		grid.MinHeight(a.paneRect().H)
+		grid.MinHeight(a.pane.Bounds().H)
 	}
 	grid.Children(func() {
 		a.sleeve(c, m, k, func() {
@@ -100,13 +99,13 @@ func (a *album) wide(c *ui.Context, m *model, k *colours, lay layout, head, trac
 // within the sleeve's column, when the pane shows all of them (measured from
 // the contents' height in the frame before).
 func (a *album) stick(in ui.Element) {
-	if a.paneRect == nil {
+	if a.pane == nil {
 		return
 	}
 	if b := in.LayoutBounds(); b.H > 0 {
 		a.sleeveH = b.H
 	}
-	if pane := a.paneRect(); pane.H == 0 || a.sleeveH > pane.H {
+	if pane := a.pane.Bounds(); pane.H == 0 || a.sleeveH > pane.H {
 		return
 	}
 	in.Sticky().Top(0)
@@ -224,10 +223,7 @@ func (a *album) byline(c *ui.Context, m *model, k *colours) {
 		// The artist is the record's link out, in the cover's accent.
 		ink = theme.C("play-ink")
 	}
-	opts := kit.ArtistLinksOpts{HasRoute: a.env.HasRoute}
-	if opts.HasRoute == nil {
-		opts.HasRoute = func(string) bool { return false }
-	}
+	opts := kit.ArtistLinksOpts{HasRoute: a.env.Routed}
 	switch {
 	case m.page != nil:
 		kit.ArtistLinks(c, m.page.Artists, m.album.Artist, ink, opts)
@@ -278,7 +274,7 @@ func (a *album) releaseStatus(c *ui.Context, m *model, now time.Time, account bo
 		}
 	}
 	theme.Text(c, lead, "title").TextColor(theme.C("ink"))
-	theme.Text(c, strings.Join(parts, " · "), "sub").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+	theme.Text(c, i18n.Meta(parts...), "sub").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
 }
 
 // libraryShare is "3 of 13 songs in your library · Show complete album".
@@ -332,28 +328,22 @@ func (a *album) actions(c *ui.Context, m *model, account bool) {
 func (a *album) songs(c *ui.Context, m *model, highlight string, now time.Time, restricted bool) {
 	list := m.list
 	at := func(i int) *services.Song { return &list[i] }
-	cur := a.env.Play.State()
-	playing := cur.State == "playing"
 	subline := m.subline(now, restricted)
-	o := kit.TrackListOpts{
-		Label:      i18n.T("Songs on {albumName}", "albumName", m.album.Name),
-		Columns:    kit.TrackColumns{Artist: m.compilation},
-		Discs:      !m.mixed,
-		Highlight:  highlight,
-		Popular:    m.popular,
-		Subline:    func(s *services.Song) string { return subline(*s) },
-		Container:  &kit.ActionContainer{Kind: "album", ID: m.album.ID},
-		Restricted: restricted,
-		// An album not out yet has no lengths to give: no row of dashes.
-		BlankDuration: m.upcoming || m.justOut,
-		Current:       cur.Current,
-		Playing:       playing,
-		Art:           a.env.Art,
-		Menus:         a.trackMenus,
-		Motion:        a.env.Motion,
-		Pane:          &kit.Pane{Pos: &a.pos, Bounds: a.paneRect},
-		OnPlay:        func(i int) { a.env.Queue.PlaySongs(list, i, services.PlayFrom{Kind: "album", ID: m.album.ID}) },
-	}
+	// The base links the album's artist only: its songs' own album and
+	// "added by" are not links here.
+	o := a.env.TrackOpts(a.trackMenus, restricted)
+	o.OpenAlbum, o.OpenProfile = nil, nil
+	o.Label = i18n.T("Songs on {albumName}", "albumName", m.album.Name)
+	o.Columns = kit.TrackColumns{Artist: m.compilation}
+	o.Discs = !m.mixed
+	o.Highlight = highlight
+	o.Popular = m.popular
+	o.Subline = func(s *services.Song) string { return subline(*s) }
+	o.Container = &kit.ActionContainer{Kind: "album", ID: m.album.ID}
+	// An album not out yet has no lengths to give: no row of dashes.
+	o.BlankDuration = m.upcoming || m.justOut
+	o.Pane = a.pane
+	o.OnPlay = func(i int) { a.env.Queue.PlaySongs(list, i, services.PlayFrom{Kind: "album", ID: m.album.ID}) }
 	// The heading before a song: its group's on an album not out yet, else
 	// (or after it) a classical album's work.
 	group := m.groupHeading(now)
@@ -384,15 +374,12 @@ func (a *album) songs(c *ui.Context, m *model, highlight string, now time.Time, 
 			}
 			switch {
 			case g != "" && w != "":
-				return g + " · " + w
+				return i18n.Meta(g, w)
 			case g != "":
 				return g
 			}
 			return w
 		}
-	}
-	if a.has("/artist/0") {
-		o.OpenArtist = func(id string) { a.push("/artist/" + id) }
 	}
 	a.list = listView{opts: o, count: len(list), at: at}
 	kit.TrackList(c, &a.tracks, len(list), at, o)
@@ -405,12 +392,12 @@ func (a *album) discIndex(c *ui.Context, m *model) {
 	tk := theme.Current()
 	ui.Column(c).Margin(0, -8, 0, -8).Gap(2).Role(ui.RoleList).Label(i18n.T("Discs")).Children(func() {
 		for _, d := range m.discs {
-			count := catalogueLine("", "", d.songs, d.durationMs)
+			count := i18n.CatalogueLine("", "", d.songs, d.durationMs)
 			name := i18n.T("Disc {disc}", "disc", d.number)
 			// A list holds items: the button is the item's only child.
 			ui.Column(c.Key("item-" + strconv.Itoa(d.number))).FillWidth().Role(ui.RoleListItem).Children(func() {
 				btn := ui.ButtonBase(c.Key("disc-" + strconv.Itoa(d.number))).Height(32).FillWidth().PaddingX(8).
-					Radius(tk.Radius["md"]).Label(name + " · " + count)
+					Radius(tk.Radius["md"]).Label(i18n.Meta(name, count))
 				bg := ui.Transparent
 				if btn.Hovered() {
 					bg = theme.C("ink").Alpha(0.06)
@@ -424,7 +411,7 @@ func (a *album) discIndex(c *ui.Context, m *model) {
 				})
 				if btn.Clicked() && a.list.at != nil {
 					// The disc's heading sits 16 DIPs from the pane's top.
-					a.tracks.ScrollToBlock(&kit.Pane{Pos: &a.pos, Bounds: a.paneRect}, &a.list.opts, a.list.count, a.list.at, d.first, 16)
+					a.tracks.ScrollToBlock(a.pane, &a.list.opts, a.list.count, a.list.at, d.first, 16)
 				}
 			})
 		}

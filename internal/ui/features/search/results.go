@@ -153,7 +153,7 @@ func (s *search) topResults(c *ui.Context, ctx kit.ItemsCtx, q string, items []s
 	v := &s.pages.search
 	best := items[0]
 	rest := items[1:min(len(items), 1+bestRows)]
-	wide := v.inner <= 0 || v.inner >= bestSplit
+	wide := v.Inner() <= 0 || v.Inner() >= bestSplit
 	topFlow(c, wide).Children(func() {
 		s.bestMatch(c, ctx, best, v.claim(), len(rest) > 0 && wide)
 		if len(rest) == 0 {
@@ -315,7 +315,7 @@ func (s *search) itemBlock(c *ui.Context, pv *pageView, st *kit.CoverShelfState,
 func (s *search) resultsSkeleton(c *ui.Context) {
 	v := &s.pages.search
 	tk := theme.Current()
-	wide := v.inner <= 0 || v.inner >= bestSplit
+	wide := v.Inner() <= 0 || v.Inner() >= bestSplit
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Searching")).Children(func() {
 		ui.Row(c.Key("heading")).Height(28).AlignItems(ui.Center).Margin(0, 0, 12, 0).Children(func() { kit.Skeleton(c, 96, 16) })
 		topFlow(c, wide).Children(func() {
@@ -353,11 +353,7 @@ func (s *search) resultsSkeleton(c *ui.Context) {
 		})
 		ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line")).Margin(32, 0, 24, 0).Role(ui.RoleNone)
 		ui.Row(c.Key("heading2")).Height(28).AlignItems(ui.Center).Margin(0, 0, 12, 0).Children(func() { kit.Skeleton(c, 72, 16) })
-		cols := v.columns(portrait, 24)
-		tile := float32(portrait)
-		if v.inner > 0 {
-			tile = (v.inner - 24*float32(cols-1)) / float32(cols)
-		}
+		cols, tile := kit.CoverColumns(v.Inner(), portrait)
 		ui.Row(c.Key("covers")).Gap(24).Children(func() {
 			for i := range cols {
 				ui.Box(c.Key(i)).Size(tile, tile).Radius(tk.Radius["full"]).Background(theme.C("accent")).Shrink(0).Role(ui.RoleNone)

@@ -12,6 +12,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
@@ -125,7 +126,7 @@ func TestRoomLoadsFurtherPagesOfAHundredOnDemandFromTheNextOffset(t *testing.T) 
 	if got := api.count("room-items"); got != 1 {
 		t.Fatalf("%d further pages asked for before any scrolling, want the one the short list needed", got)
 	}
-	r.d.room.pg.pos.Y = math.MaxFloat32
+	r.d.room.pg.Pos.Y = math.MaxFloat32
 	r.calls(api, "room-items", 2)
 	want := []string{"room/1?", "room-items/1?@100", "room-items/1?@200"}
 	if got := api.asked(); !slices.Equal(got, want) {
@@ -457,7 +458,7 @@ func TestRoomSongsFollowARefetchOfTheSameSize(t *testing.T) {
 	api.mu.Lock()
 	api.room.Items = songItems(10, 3)
 	api.mu.Unlock()
-	r.env.Queries.Invalidate(keyDiscover)
+	r.env.Queries.Invalidate(store.KeyDiscover)
 	r.tt.Until("the new songs", r.tt.Shows("Song 10", "Song 12"))
 	if r.tt.HasText("Song 0") {
 		t.Error("the list still shows the old songs")

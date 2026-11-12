@@ -119,10 +119,10 @@ func (s *sidebar) menu(id string) *kit.Menu {
 // sidebarActions are the item actions' menus of the playlist rows (nil when the
 // Env has no registry).
 func (p *playlists) sidebarActions() *kit.ActionMenus {
-	if p.side.actions == nil && p.env.Actions != nil {
-		p.side.actions = kit.NewActionMenus(p.env.Actions, nil)
+	if p.env.Actions == nil {
+		return p.side.actions
 	}
-	return p.side.actions
+	return kit.MenusIn(&p.side.actions, p.env.Actions, nil)
 }
 
 // sidebarSection builds the sections of the sidebar's playlists.
@@ -257,7 +257,7 @@ func (p *playlists) pinPath(pin services.Pin) string {
 }
 
 func (p *playlists) routeOr(path string) string {
-	if p.hasRoute(path) {
+	if p.env.Routed(path) {
 		return path
 	}
 	return ""

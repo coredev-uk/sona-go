@@ -103,9 +103,11 @@ func TestEmbeddedMappingFitsCatalogue(t *testing.T) {
 }
 
 // retiredV020 are v0.2.0's mapped messages the native UI no longer asks
-// for, with why; none today. A retired feature's message is listed here
-// and left in the verbatim copy of v0.2.0's mapping.
-var retiredV020 = map[po.Key]string{}
+// for, with why. A retired feature's message is listed here and left in the
+// verbatim copy of v0.2.0's mapping.
+var retiredV020 = map[po.Key]string{
+	{ID: "{0, plural, one {# song} other {# songs}}"}: "folded into `{songs, plural…}` (i18n.SongCount), same Apple key",
+}
 
 // Moving the UI from Lingui to Go keeps every mapping v0.2.0 shipped: each of
 // its 147 messages still reaches the app mapped to the same key and

@@ -11,7 +11,7 @@ import (
 )
 
 // LinkListState is the state of a LinkList: the width its columns follow.
-type LinkListState struct{ width itemsWidth }
+type LinkListState struct{ width WidthTracker }
 
 // LinkListOpts are the options of LinkList.
 type LinkListOpts struct {
@@ -49,7 +49,7 @@ func LinkList(c *ui.Context, st *LinkListState, items []services.Item, ctx Items
 				TextColor(theme.C("ink")).SingleLine().Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
 		}
 		grid := ui.Grid(c.Key("grid")).Gap(itemsLinkGap).Role(ui.RoleList).Label(label)
-		width := st.width.track(c, grid)
+		width := st.width.Track(c, grid)
 		rows := 1
 		if width > 0 {
 			var cols int

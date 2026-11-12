@@ -8,6 +8,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -45,19 +46,19 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 	if key := group + "\x00" + q; v.key != key {
 		v.key, v.want = key, 1
 	}
-	s.scrollPage(c, &v.pageView, v.key, func(pane *kit.Pane) {
+	s.framePage(c, &v.pageView, v.key, nil, func(pane *kit.Pane) {
 		s.groupHeader(c, group, q)
 
 		// The pages loaded so far, in order: each is asked for at the
 		// offset the one before named.
 		var items []services.Item
-		var failed error
+		var failedRes store.Result[services.SearchGroupPage]
 		var failedAt, loaded int
 		more, loading, offset := false, false, 0
 		for range v.want {
 			res := s.groupPageAt(q, group, offset)
 			if !res.HasData {
-				failed, failedAt = res.Err, offset
+				failedRes, failedAt = res, offset
 				loading = res.Err == nil
 				break
 			}
@@ -72,11 +73,8 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 		title := groupTitle(group)
 
 		switch {
-		case failed != nil && len(items) == 0:
-			kit.ErrorBlock(c, groupLoadError(group), failed, kit.ErrorBlockOpts{
-				OnRetry:  func() { s.env.Queries.Invalidate(keyGroup(q, group, failedAt)) },
-				Retrying: s.groupPageAt(q, group, failedAt).Fetching,
-			})
+		case failedRes.Err != nil && len(items) == 0:
+			kit.QueryError(c, s.env.Queries, groupLoadError(group), failedRes, keyGroup(q, group, failedAt))
 			return
 		case loaded > 0 && len(items) == 0 && !more:
 			kit.EmptyState(c, groupEmpty(group, q), i18n.T("Apple Music has nothing more of this kind for the search."), kit.EmptyOpts{})
@@ -112,11 +110,9 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 				return nil
 			}, ctx, kit.ItemGridOpts{Label: label, Pane: pane})
 		}
-		if failed != nil {
+		if failedRes.Err != nil {
 			ui.Box(c).Height(24)
-			kit.ErrorBlock(c, i18n.T("Couldn't load more"), failed, kit.ErrorBlockOpts{
-				OnRetry: func() { s.env.Queries.Invalidate(keyGroup(q, group, failedAt)) },
-			})
+			kit.QueryFailed(c, s.env.Queries, i18n.T("Couldn't load more"), failedRes.Err, keyGroup(q, group, failedAt))
 		}
 
 		// The end of the list: when it comes within a screen of the view,
@@ -127,7 +123,7 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 			v.built = len(items) + pending
 			c.Invalidate()
 		}
-		if settled && more && failed == nil && !loading && loaded == v.want {
+		if settled && more && failedRes.Err == nil && !loading && loaded == v.want {
 			if b, p := end.Bounds(), pane.Bounds(); b.H > 0 && p.H > 0 && b.Y < p.Y+2*p.H {
 				v.want++
 				c.Invalidate()

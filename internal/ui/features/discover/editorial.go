@@ -16,8 +16,8 @@ type editorialPage struct {
 	pg     pageView
 	menus  *kit.ActionMenus
 	ed     kit.EditorialState
-	skel   measure
-	banner measure
+	skel   kit.WidthTracker
+	banner kit.WidthTracker
 }
 
 // maxBanner is the tallest a campaign banner gets (max-h-64).
@@ -34,7 +34,7 @@ func (d *discover) editorialPage(c *ui.Context, r *ui.Route, kind string) {
 	id := r.Param("id")
 	q := d.editorial(kind, id)
 	key := kind + "/" + id
-	if st.pg.key != key && st.pg.key != "" {
+	if st.pg.Shown != key && st.pg.Shown != "" {
 		st.ed = kit.EditorialState{} // another page's sections
 	}
 	st.pg.body(c, key, func(_ *kit.Pane, _ float32) {
@@ -59,7 +59,7 @@ func (d *discover) editorialPage(c *ui.Context, r *ui.Route, kind string) {
 			default:
 				title = i18n.T("Couldn't load this page")
 			}
-			d.pageError(c, title, q.Err, q.Fetching, d.retry(keyPage(kind, id)))
+			kit.QueryError(c, d.env.Queries, title, q, keyPage(kind, id))
 		default:
 			d.masthead(c, "", "", true, nil)
 			d.shelvesSkeleton(c, &st.skel, false)
@@ -104,15 +104,15 @@ func (d *discover) editorialHeader(c *ui.Context, p services.EditorialPage) {
 
 // banner is a campaign banner at its own shape, at most 256 tall,
 // letterboxed on its own colour when that cap bites; never cropped.
-func (d *discover) banner(c *ui.Context, m *measure, src, colour string) {
+func (d *discover) banner(c *ui.Context, m *kit.WidthTracker, src, colour string) {
 	tk := theme.Current()
 	aspect := kit.ArtAspect(src)
 	root := ui.Row(c.Key("banner")).FillWidth().Justify(ui.Center).Margin(0, 0, 24, 0).Radius(tk.Radius["sm"]).ClipX().ClipY().Shrink(0).
 		Background(theme.C("hover"))
-	if col, ok := itemColour(services.Item{Color: colour}); ok {
+	if col, ok := kit.ParseHex(colour); ok {
 		root.Background(col)
 	}
-	width := m.track(c, root)
+	width := m.Track(c, root)
 	root.Children(func() {
 		if width <= 0 {
 			ui.Box(c).Height(0)

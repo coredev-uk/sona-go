@@ -21,21 +21,6 @@ type prefs struct {
 	write func(config.Sidebar)
 }
 
-// newPrefs keeps the state in memory, starting from what the settings hold;
-// save (nil: none) is told the new state after every change.
-func newPrefs(from config.Sidebar, save func(config.Sidebar)) *prefs {
-	cur := from
-	return &prefs{
-		read: func() config.Sidebar { return cur },
-		write: func(sb config.Sidebar) {
-			cur = sb
-			if save != nil {
-				save(sb)
-			}
-		},
-	}
-}
-
 // settingsPrefs is the prefs of the app: read live from the settings cache
 // (store.UseSettings; Go's own copy until the cache holds one), saved
 // through SystemService.SetSidebar off the main thread, one save at a time and
@@ -119,9 +104,6 @@ func (p *prefs) SetCollapsed(section string, folded bool) {
 	sb.FoldedSections = with(sb.FoldedSections, section, folded)
 	p.write(sb)
 }
-
-// snapshot is the state as settings hold it.
-func (p *prefs) snapshot() config.Sidebar { return p.read() }
 
 // with is list with id in it (on) or out of it, as a new sorted list.
 func with(list []string, id string, on bool) []string {

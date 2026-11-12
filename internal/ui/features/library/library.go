@@ -12,7 +12,6 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
-	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
@@ -152,14 +151,8 @@ func (l *library) module() module.Module {
 	}
 }
 
-// Query keys, as v0.2.0's shared/lib/keys.ts: ["library", …].
-var (
-	keyLibrary    = store.Key{"library"}
-	keyCounts     = store.Key{"library", "counts"}
-	keySync       = store.Key{"library", "sync-status"}
-	keyFavourites = store.Key{"library", "favorite-songs"}
-	keyRecent     = store.Key{"library", "recent"}
-)
+// keySync is the sync status's query.
+var keySync = store.Key{"library", "sync-status"}
 
 // init follows what changes the library: a sync finishing a domain, a
 // whole sync, a playlist created or deleted here (the playlist feature
@@ -175,7 +168,7 @@ func (l *library) init() {
 	})
 	store.On(l.env.Bus, services.EventSyncDone, func(d services.SyncDone) {
 		l.sync.done(d)
-		q.Invalidate(keyLibrary)
+		q.Invalidate(store.KeyLibrary)
 	})
 	store.On(l.env.Bus, services.EventPlaylistsChanged, func(ev services.PlaylistsChanged) {
 		if ev.Tree {
@@ -189,10 +182,10 @@ func (l *library) init() {
 var domainLists = map[string][]store.Key{
 	"artists":         {{"library", "artists"}, {"library", "artist"}},
 	"albums":          {{"library", "albums"}, {"library", "album"}, keyRecentlyAdded},
-	"songs":           {{"library", "songs"}, {"library", "album"}, {"library", "artist"}, {"library", "favorite-songs"}},
-	"playlists":       {{"library", "playlists"}, keyRecentlyAdded},
+	"songs":           {{"library", "songs"}, {"library", "album"}, {"library", "artist"}, store.KeyLibraryFavourites},
+	"playlists":       {store.KeyLibraryPlaylistsAll, keyRecentlyAdded},
 	"playlist-tracks": {{"library", "playlist"}},
-	"ratings":         {{"library", "favorite-songs"}, {"library", "state"}},
+	"ratings":         {store.KeyLibraryFavourites, {"library", "state"}},
 }
 
 // syncInvalidations are the queries a sync's progress makes stale: when a
@@ -205,12 +198,7 @@ func syncInvalidations(p services.SyncProgress) []store.Key {
 	}
 	lists, ok := domainLists[p.Domain]
 	if !ok {
-		lists = []store.Key{keyLibrary}
+		lists = []store.Key{store.KeyLibrary}
 	}
-	return append(append([]store.Key(nil), lists...), keyCounts, keySync)
-}
-
-// failToast toasts what failed and why (shared/lib/run.ts).
-func failToast(what string, err error) {
-	kit.ToastErrorf(what, i18n.ErrorText(services.CodeOf(err)))
+	return append(append([]store.Key(nil), lists...), store.KeyLibraryCounts, keySync)
 }

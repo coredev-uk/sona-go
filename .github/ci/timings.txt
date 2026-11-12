@@ -70,6 +70,7 @@
 ./internal/nowplaying 0
 ./internal/playback/video 0
 ./internal/ui/devstate@dev 0
+./internal/ui/features/song@dev 0
 ./internal/devinstance@dev 0
 ./internal/app@dev 0
 ./internal/tunein 0

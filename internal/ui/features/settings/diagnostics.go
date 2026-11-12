@@ -147,9 +147,7 @@ func (s *settings) diagnostics(c *ui.Context) {
 	ui.Column(c.Key("diag")).FillWidth().Children(func() {
 		s.diagHeader(c, q, problems, warnings)
 		if q.Err != nil {
-			kit.ErrorBlock(c.Key("err"), i18n.T("Couldn't run the checks"), q.Err, kit.ErrorBlockOpts{
-				OnRetry: func() { s.env.Queries.Invalidate(keyDiagnostics) }, Retrying: q.Fetching,
-			})
+			kit.QueryError(c.Key("err"), s.env.Queries, i18n.T("Couldn't run the checks"), q, keyDiagnostics)
 		}
 		if !q.HasData && q.Err == nil {
 			s.diagLoading(c)
@@ -294,14 +292,14 @@ func (s *settings) diagGroup(c *ui.Context, g diagGroup) {
 func (s *settings) diagLoading(c *ui.Context) {
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		s.marginal(c, 10, func() {
-			ui.Box(c.Key("h")).Width(112).Height(16).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+			kit.Bar(c.Key("h"), 112, 16)
 		}, func() {
 			for i := range 7 {
 				k := c.Key("row" + strconv.Itoa(i))
 				ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 				ui.Row(k).FillWidth().Height(40).AlignItems(ui.Center).Gap(24).Children(func() {
-					ui.Box(k.Key("l")).Width(128).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
-					ui.Box(k.Key("v")).Width(float32(160 + (i*13)%35*6)).Height(12).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+					kit.Bar(k.Key("l"), 128, 12)
+					kit.Bar(k.Key("v"), float32(160+(i*13)%35*6), 12)
 				})
 			}
 		})

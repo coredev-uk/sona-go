@@ -203,13 +203,13 @@ type rowShelf struct {
 // on Home): the banner beside its name, line and play control, filling the row
 // instead of leaving half of it empty.
 type heroCard struct {
-	width widthTracker
+	width kit.WidthTracker
 }
 
 func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.ItemsCtx, menus *kit.ActionMenus) {
 	tk := theme.Current()
 	root := ui.Row(c.Key("hero")).Margin(shelfGapTop, 0, 0, 0).Gap(40).AlignItems(ui.Center).Role(ui.RoleGroup).Label(i18n.T("Featured"))
-	width := hc.width.track(c, root)
+	width := hc.width.Track(c, root)
 	banner := it.Wide.Large
 	if banner == "" {
 		banner = it.Wide.Medium
@@ -225,29 +225,8 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	root.Children(func() {
 		ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-			if link != "" && !h.opens(link) {
-				// Its page is not served: the name is plain text.
-				theme.Text(c, it.Name, "page").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
-			} else {
-				opener := ui.ButtonBase(c.Key("open")).Justify(ui.Start).Radius(tk.Radius["sm"]).Label(it.Name)
-				if link != "" {
-					opener.Role(ui.RoleLink)
-				}
-				opener.Children(func() {
-					t := theme.Text(c, it.Name, "page").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
-					if opener.Hovered() {
-						t.Underline()
-					}
-				})
-				if opener.Clicked() {
-					h.open(it, ctx)
-				}
-			}
-			if it.Subtitle != "" {
-				theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
-			}
-			if meta := catalogueLine(it); meta != "" {
-				theme.Text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)
+			if h.titleBlock(c, it, "page", link).Clicked() {
+				h.open(it, ctx)
 			}
 			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 				if ctx.Players.CanPlay(it) {
@@ -261,7 +240,7 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 			})
 		})
 		bg := theme.C("hover")
-		if col, ok := hexColour(it.Color); ok {
+		if col, ok := kit.ParseHex(it.Color); ok {
 			bg = col
 		}
 		ui.Box(c.Key("banner")).Size(w, w/heroRatio).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg).Children(func() {

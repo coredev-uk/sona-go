@@ -751,12 +751,12 @@ func TestResultsRailListsTheGroupsAndJumpsToOne(t *testing.T) {
 		}
 	}
 	v := &r.s.pages.search
-	if v.pos.Y != 0 {
-		t.Fatalf("the page starts scrolled to %v", v.pos.Y)
+	if v.Pos.Y != 0 {
+		t.Fatalf("the page starts scrolled to %v", v.Pos.Y)
 	}
 	r.click("Songs, 10")
 	r.tt.Drain()
-	if v.pos.Y <= 0 {
+	if v.Pos.Y <= 0 {
 		t.Error("jumping to Songs did not scroll")
 	}
 	if !r.tt.Focused("Songs") {

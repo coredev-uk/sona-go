@@ -17,7 +17,7 @@ var albumTypes = []string{"", "albums", "singles"}
 
 // albumsPage is the Albums page's view state.
 type albumsPage struct {
-	pageView
+	railFrame
 	cover coverList
 	// announced is the filter result last read out.
 	announced string
@@ -30,7 +30,7 @@ func (l *library) albumsPage(c *ui.Context, r *ui.Route) {
 	q := albumsSpec.parse(r)
 	pg := &l.albums
 	list := l.albumList(q)
-	counts := store.Use(l.env.Queries, keyCounts, l.lib.Counts)
+	counts := store.Use(l.env.Queries, store.KeyLibraryCounts, l.lib.Counts)
 
 	// A type with no albums must not read as an empty library.
 	total := list.Total
@@ -76,7 +76,7 @@ func (l *library) albumsPage(c *ui.Context, r *ui.Route) {
 			})
 		}
 	}
-	l.scrollPageRail(c, &pg.pageView, q.key(), true, rail, func(pane *kit.Pane) {
+	l.scrollRail(c, &pg.railFrame, q.key(), rail, func(pane *kit.Pane) {
 		l.pageHead(c, headOpts{title: i18n.T("Albums"), count: subline, actions: func() {
 			// The type and the sort are the page's filter bar.
 			ui.Row(c.Key("filters")).Gap(8).AlignItems(ui.Center).Role(ui.RoleSearch).Label(i18n.T("Filter albums")).Children(func() {
@@ -165,7 +165,7 @@ func (l *library) albumTile() func(a *services.Album) kit.CoverItem {
 // openTo makes a tile open the page at path, when a module registered it:
 // nothing links to a page that is not ported yet.
 func (l *library) openTo(t *kit.CoverItem, path string) {
-	if l.env.HasRoute != nil && l.env.HasRoute(path) {
+	if l.env.Routed(path) {
 		t.Open = func() { l.env.Nav.Push(path) }
 	}
 }
@@ -173,7 +173,7 @@ func (l *library) openTo(t *kit.CoverItem, path string) {
 // jumpTo scrolls the grid so the row of item i is the first in view.
 func (pg *albumsPage) jumpTo(i int) {
 	cols, tile := kit.CoverColumns(pg.gridW, 0)
-	pg.pos.Y = max(0, pg.gridTop+float32(i/cols)*kit.CoverRowHeight(tile, false)-16)
+	pg.Pos.Y = max(0, pg.gridTop+float32(i/cols)*kit.CoverRowHeight(tile, false)-16)
 }
 
 // albumLetters is the rail of albums ordered by title or artist.

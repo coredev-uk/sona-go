@@ -9,8 +9,7 @@ import (
 )
 
 // Query keys (v0.2.0's discoverKeys); every key starts with "discover" so a
-// sign-in change can drop them all.
-var keyDiscover = store.Key{"discover"}
+// sign-in change can drop them all (store.KeyDiscover).
 
 func keyPage(kind, id string) store.Key { return store.Key{"discover", "page", kind, id} }
 func keyRoom(id, sort string) store.Key { return store.Key{"discover", "room", id, sort} }

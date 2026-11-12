@@ -161,7 +161,7 @@ in
       set -e
       ${lib.optionalString isLinux "dbus-run-session -- "}go test -race ./... "$@"
       # The packages with dev-only code, in a development build.
-      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/app ./internal/mpris
+      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris
     '';
     auth-spike.exec = ''go run ./cmd/authspike "$@"'';
     play-spike.exec = ''go run ./cmd/playspike "$@"'';

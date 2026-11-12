@@ -164,13 +164,7 @@ func artistLine(genre, origin string, releases int, extra string) string {
 	if releases > 0 {
 		count = i18n.T("{releases, plural, one {# release} other {# releases}}", "releases", releases)
 	}
-	var parts []string
-	for _, p := range []string{i18n.T("Artist"), genre, origin, count, extra} {
-		if p != "" {
-			parts = append(parts, p)
-		}
-	}
-	return strings.Join(parts, " · ")
+	return i18n.Meta(i18n.T("Artist"), genre, origin, count, extra)
 }
 
 var paragraphBreak = regexp.MustCompile(`\n{2,}`)
@@ -181,17 +175,4 @@ func paragraphs(bio string) []string { return paragraphBreak.Split(bio, -1) }
 // bioLead is the biography's first paragraph, for the header.
 func bioLead(bio string) string {
 	return strings.TrimSpace(paragraphs(bio)[0])
-}
-
-var releaseSuffix = regexp.MustCompile(`^(.+?) - (Single|EP)$`)
-
-// releaseTitle is a single's or EP's title without Apple's " - Single" /
-// " - EP" suffix, and which it was ("single", "ep", or "" for neither): the
-// catalogue lists say the kind in their own line.
-func releaseTitle(name string) (title, kind string) {
-	m := releaseSuffix.FindStringSubmatch(name)
-	if m == nil {
-		return name, ""
-	}
-	return m[1], strings.ToLower(m[2])
 }

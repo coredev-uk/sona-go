@@ -18,7 +18,7 @@ type newPage struct {
 	ed    kit.EditorialState
 
 	// What loads: the skeletons' measures.
-	frontSkel, shelvesSkel measure
+	frontSkel, shelvesSkel kit.WidthTracker
 
 	// The issue is what the data makes of the page: the front page's cards
 	// and the shelves in bands. It is made again when the data changes.
@@ -111,7 +111,7 @@ func (d *discover) newPage(c *ui.Context, r *ui.Route) {
 			d.issueView(c)
 		case q.Err != nil:
 			d.masthead(c, i18n.T("Discover"), "", false, nil)
-			d.pageError(c, i18n.T("Couldn't load what's new"), q.Err, q.Fetching, d.retry(keyPage(kindNew, "")))
+			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load what's new"), q, keyPage(kindNew, ""))
 		default:
 			d.masthead(c, i18n.T("Discover"), "", true, nil)
 			d.newSkeleton(c)
@@ -141,7 +141,7 @@ func (d *discover) anchorOf(e ui.Element, id, label string) ui.Element {
 		if st.anchors == nil {
 			st.anchors = map[string]float32{}
 		}
-		st.anchors[id] = b.Y - st.pg.top + st.pg.laidY
+		st.anchors[id] = b.Y - st.pg.Top + st.pg.laidY
 	}
 	if st.focus == id {
 		e.TabStop(false).FocusRing(false)
@@ -164,7 +164,7 @@ func (d *discover) anchorOf(e ui.Element, id, label string) ui.Element {
 func (d *discover) jump(id string) {
 	st := &d.newPg
 	if y, ok := st.anchors[id]; ok {
-		st.pg.pos.Y = max(0, y-24)
+		st.pg.Pos.Y = max(0, y-24)
 	}
 	st.focus, st.focusNow = id, true
 }
@@ -176,12 +176,12 @@ func (d *discover) issueView(c *ui.Context) {
 	ctx := d.env.ItemsCtx(st.menus)
 	ctx.NoPopup = true // the page draws the menus' popup once, after the shelves
 	if len(is.hero) > 0 {
-		d.frontPage(c, is.hero)
+		d.frontPage(c, is.hero, ctx)
 	}
 	if len(is.bands) > 1 {
 		d.contents(c, is.bands)
 	}
-	wide := st.pg.width >= marginAt
+	wide := st.pg.Width >= marginAt
 	ui.Column(c.Key("bands")).FillWidth().Children(func() {
 		for bi, b := range is.bands {
 			sec := ui.Column(c.Key("band:" + string(b.id))).FillWidth().Role(ui.RoleGroup).Label(b.title)
@@ -311,13 +311,13 @@ func (d *discover) newSkeleton(c *ui.Context) {
 	tk := theme.Current()
 	d.frontSkeleton(c, &st.frontSkel)
 	ui.Column(c.Key("contents-skeleton")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleNone).Children(func() {
-		ui.Row(c).Height(22).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(c, 112, 16) })
+		ui.Row(c).Height(22).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 112, 16) })
 		ui.Row(c).FillWidth().Gap(24).AlignItems(ui.Start).Children(func() {
 			for i := range 3 {
 				ui.Column(c.Key(i)).Width(contentsColumn).Shrink(0).Gap(6).Children(func() {
 					ui.Box(c).Size(136, tk.Metric["control"]).Radius(tk.Radius["md"]).Background(theme.C("hover"))
 					for range 2 {
-						ui.Row(c).Height(24).PaddingX(12).AlignItems(ui.Center).Children(func() { bar(c, 112, 12) })
+						ui.Row(c).Height(24).PaddingX(12).AlignItems(ui.Center).Children(func() { kit.Bar(c, 112, 12) })
 					}
 				})
 			}
@@ -325,14 +325,14 @@ func (d *discover) newSkeleton(c *ui.Context) {
 	})
 	ui.Column(c.Key("band-skeleton")).FillWidth().Role(ui.RoleNone).Children(func() {
 		ui.Box(c).FillWidth().Height(1).Background(theme.C("line"))
-		if st.pg.width < marginAt {
-			ui.Row(c).Height(30).Margin(24, 0, 20, 0).AlignItems(ui.Center).Children(func() { bar(c, 176, 20) })
+		if st.pg.Width < marginAt {
+			ui.Row(c).Height(30).Margin(24, 0, 20, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 176, 20) })
 			d.shelvesSkeleton(c, &st.shelvesSkel, false)
 			return
 		}
 		ui.Row(c).FillWidth().Margin(24, 0, 0, 0).Gap(marginGap).AlignItems(ui.Start).Children(func() {
 			ui.Column(c).Width(marginWidth).Shrink(0).Children(func() {
-				ui.Row(c).Height(30).AlignItems(ui.Center).Children(func() { bar(c, 176, 20) })
+				ui.Row(c).Height(30).AlignItems(ui.Center).Children(func() { kit.Bar(c, 176, 20) })
 			})
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Margin(6, 0, 0, 0).Children(func() {
 				d.shelvesSkeleton(c, &st.shelvesSkel, false)

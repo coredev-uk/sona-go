@@ -14,7 +14,7 @@ import (
 // open is a tile's way to a page: a navigation where the page is ported,
 // else nil (the tile is not a link).
 func (a *album) open(path string) func() {
-	if !a.has(path) {
+	if !a.env.Routed(path) {
 		return nil
 	}
 	return func() { a.push(path) }
@@ -111,7 +111,7 @@ func (a *album) sections(c *ui.Context, m *model, now time.Time, restricted bool
 		episodes[i] = a.episodeTile(s)
 	}
 	var more func()
-	if al.ArtistID != "" && a.has("/artist/"+al.ArtistID+"/view/"+services.ViewFullAlbums) {
+	if al.ArtistID != "" && a.env.Routed("/artist/"+al.ArtistID+"/view/"+services.ViewFullAlbums) {
 		more = func() { a.push("/artist/" + al.ArtistID + "/view/" + services.ViewFullAlbums) }
 	}
 	type shelf struct {

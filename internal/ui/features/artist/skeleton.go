@@ -20,9 +20,6 @@ func (a *artist) skeleton(c *ui.Context, width float32) {
 	g, scrollbar := gutter(c), tk.Metric["scrollbar"]
 	lay := layoutFor(width)
 	r := tk.Radius["sm"]
-	bar := func(w, h float32) ui.Element {
-		return ui.Box(c).Width(w).Height(h).Radius(r).Background(hover).Shrink(0)
-	}
 	pct := func(p, h float32) ui.Element { return ui.Box(c).WidthPercent(p).Height(h).Radius(r).Background(hover) }
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		ui.Column(c.Key("head")).AlignSelf(ui.Stretch).Padding(32, g+scrollbar, 28, g).
@@ -34,13 +31,13 @@ func (a *artist) skeleton(c *ui.Context, width float32) {
 					ui.Column(c).MaxWidth(512).Margin(16, 0, 0, 0).Children(func() {
 						ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { pct(100, 12) })
 						ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { pct(80, 12) })
-						ui.Row(c).Height(18).Margin(2, 0, 0, 0).AlignItems(ui.Center).Children(func() { bar(64, 12) })
+						ui.Row(c).Height(18).Margin(2, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 64, 12) })
 					})
 					ui.Row(c).Gap(8).AlignItems(ui.Center).Margin(20, 0, 0, 0).Children(func() {
 						ui.Box(c).Size(40, 40).Shrink(0).Radius(tk.Radius["full"]).Background(hover)
-						bar(96, 32)
+						kit.Bar(c, 96, 32)
 						for range 3 {
-							bar(32, 32)
+							kit.Bar(c, 32, 32)
 						}
 					})
 				})
@@ -74,7 +71,7 @@ func (a *artist) skeleton(c *ui.Context, width float32) {
 			return
 		}
 		heading := func(w float32) {
-			ui.Row(c).Height(28).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(w, 16) })
+			ui.Row(c).Height(28).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, w, 16) })
 		}
 		tracks := func() {
 			heading(96)

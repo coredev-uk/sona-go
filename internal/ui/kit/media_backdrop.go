@@ -84,7 +84,7 @@ func Backdrop(c *ui.Context, l *ArtLoader, o BackdropOpts, children func()) ui.E
 			st.prev = nil
 		}
 	}
-	colour, hasColour := mediaHexColour(o.Color)
+	colour, hasColour := ParseHex(o.Color)
 	if st.cur == nil && !hasColour {
 		return finish()
 	}
@@ -143,20 +143,6 @@ func drawBackdropImage(p *ui.Painter, r ui.Rect, cv *cover, a float32) {
 	p.ImageRegion(bmp, src, dst, ui.ImageOptions{Tint: tint})
 }
 
-// mediaHexColour parses "#rrggbb" (as the services send colours), reporting false
-// for anything else rather than panicking as ui.Hex does.
-func mediaHexColour(s string) (c ui.Color, ok bool) {
-	if s == "" {
-		return c, false
-	}
-	defer func() {
-		if recover() != nil {
-			c, ok = ui.Color{}, false
-		}
-	}()
-	return ui.Hex(s), true
-}
-
 // Wash is what a Backdrop of some options shows, as colours can be read from
 // it: the cover's colour under the scrim.
 type Wash struct {
@@ -179,7 +165,7 @@ func (l *ArtLoader) WashOf(o BackdropOpts) Wash {
 	if theme.ReduceEffects() {
 		return w // the Backdrop draws nothing
 	}
-	if c, ok := mediaHexColour(o.Color); ok {
+	if c, ok := ParseHex(o.Color); ok {
 		w.under, w.hasCol = c, true
 	}
 	if cv := l.backdrop(nil, o.Src); cv != nil && cv.state == coverReady {

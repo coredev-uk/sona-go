@@ -13,7 +13,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
-	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // albumPath is the page's route.
@@ -33,10 +32,6 @@ type catalogAPI interface {
 type radioAPI interface {
 	Play(ctx context.Context, id string) error
 }
-
-// Query keys, as v0.2.0's shared/lib/keys.ts.
-func libraryKey(id string) store.Key { return store.Key{"library", "album", id} }
-func catalogKey(id string) store.Key { return store.Key{"catalog", "album", id} }
 
 // New is the album module.
 func New(env *module.Env) module.Module {

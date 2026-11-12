@@ -129,7 +129,7 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 		if items := m.libraryEntries(c, q); len(items) > 0 {
 			out = append(out, kit.PaletteSection{Title: i18n.T("In your library"), Entries: items})
 		}
-		if m.env.HasRoute != nil && m.env.HasRoute("/search") {
+		if m.env.Routed("/search") {
 			out = append(out, kit.PaletteSection{Title: i18n.T("Apple Music"), Entries: []kit.PaletteEntry{{
 				Key: "search", Label: i18n.T("Search Apple Music for “{term}”", "term", q), Leading: iconTile("search"),
 				Run: func() { m.env.Nav.Push("/search?q=" + url.QueryEscape(q)) },
@@ -148,7 +148,7 @@ func (m *commands) libraryEntries(c *ui.Context, q string) []kit.PaletteEntry {
 		return nil
 	}
 	term := m.term
-	r := store.Use(m.env.Queries, store.Key{"library", "search", term, libraryPerKind},
+	r := store.Use(m.env.Queries, store.LibrarySearch(term, libraryPerKind),
 		func(ctx context.Context) (services.LibrarySearch, error) {
 			return m.lib.Library(ctx, term, libraryPerKind)
 		})
@@ -194,7 +194,7 @@ func (m *commands) itemEntry(c *ui.Context, kind, id, name, subtitle string, art
 	case song != nil && m.env.Queue != nil:
 		s := *song
 		e.Run = func() { m.playSong(s) }
-	case path != "" && m.env.HasRoute != nil && m.env.HasRoute(path):
+	case path != "" && m.env.Routed(path):
 		e.Run = func() { m.env.Nav.Push(path) }
 	}
 	return e

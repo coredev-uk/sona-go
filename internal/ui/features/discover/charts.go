@@ -19,7 +19,7 @@ const topSongs = 10
 type chartsPage struct {
 	pg     pageView
 	menus  *kit.ActionMenus
-	skel   measure
+	skel   kit.WidthTracker
 	shelf  map[string]*kit.CoverShelfState
 	tracks kit.TrackListState
 	songs  []services.Song
@@ -30,7 +30,7 @@ type chartPage struct {
 	pg    pageView
 	menus *kit.ActionMenus
 	list  listState
-	skel  measure
+	skel  kit.WidthTracker
 }
 
 // genreChoice is the Genre select: a chart genre, "All genres" for the
@@ -77,7 +77,7 @@ func (d *discover) chartsPage(c *ui.Context, r *ui.Route) {
 		case q.HasData:
 			d.chartList(c, q.Data)
 		case q.Err != nil:
-			d.pageError(c, i18n.T("Couldn't load the charts"), q.Err, q.Fetching, d.retry(keyCharts(genre)))
+			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load the charts"), q, keyCharts(genre))
 		default:
 			d.chartsSkeleton(c, &st.skel)
 		}
@@ -90,9 +90,6 @@ func (d *discover) chartList(c *ui.Context, page services.ChartsPage) {
 	st := &d.charts
 	ctx := d.env.ItemsCtx(st.menus)
 	ctx.NoPopup = true // the page draws the menus' popup once, after the charts
-	if st.shelf == nil {
-		st.shelf = map[string]*kit.CoverShelfState{}
-	}
 	for i, ch := range page.Charts {
 		more := chartURL(ch.Key, page.Genre, ch.ChartID)
 		if ch.Key == services.ChartSongs {
@@ -100,11 +97,7 @@ func (d *discover) chartList(c *ui.Context, page services.ChartsPage) {
 			continue
 		}
 		id := ch.Key + ":" + ch.ChartID
-		sh := st.shelf[id]
-		if sh == nil {
-			sh = new(kit.CoverShelfState)
-			st.shelf[id] = sh
-		}
+		sh := kit.Entry(&st.shelf, id)
 		minTile := float32(160)
 		if ch.Key == services.ChartMusicVideos {
 			minTile = 240
@@ -132,36 +125,24 @@ func (d *discover) topSongs(c *ui.Context, ch services.Chart, more string, ctx k
 				SingleLine().Role(ui.RoleHeading).Level(2)
 			ui.Row(c.Key("play")).Gap(8).AlignItems(ui.Center).Children(func() { d.playButtons(c, title, songs) })
 			ui.Box(c.Key("fill")).Grow(1)
-			seeAllLink(c, "see-all", func() { d.env.Nav.Push(more) })
+			kit.ShelfSeeAll(c, "see-all", func() { d.env.Nav.Push(more) })
 		})
 		shown := songs[:min(len(songs), topSongs)]
-		kit.TrackList(c, &st.tracks, len(shown), func(i int) *services.Song { return &shown[i] }, kit.TrackListOpts{
-			Label:   title,
-			Columns: kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true},
-			OnPlay:  func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) },
-			Menus:   st.menus, Art: ctx.Art, Motion: ctx.Motion,
-			Current: ctx.Current, Playing: ctx.Playing, Restricted: ctx.Restricted,
-			OpenArtist: d.pageOpener("/artist/"), OpenAlbum: d.pageOpener("/album/"),
-			NoPopup: true,
-		})
+		opts := d.env.TrackOpts(st.menus, ctx.Restricted)
+		opts.Label = title
+		opts.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true}
+		opts.OnPlay = func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) }
+		opts.NoPopup = true
+		kit.TrackList(c, &st.tracks, len(shown), func(i int) *services.Song { return &shown[i] }, opts)
 	})
-}
-
-// pageOpener opens the page of an item under prefix ("/artist/"), nil where
-// that page is not ported.
-func (d *discover) pageOpener(prefix string) func(id string) {
-	if d.env.HasRoute == nil || !d.env.HasRoute(prefix+"x") {
-		return nil
-	}
-	return func(id string) { d.env.Nav.Push(prefix + id) }
 }
 
 // chartsSkeleton is the charts overview while it loads: the top songs'
 // heading and rows, then a shelf of tiles, as flat bars at their real sizes.
-func (d *discover) chartsSkeleton(c *ui.Context, m *measure) {
+func (d *discover) chartsSkeleton(c *ui.Context, m *kit.WidthTracker) {
 	tk := theme.Current()
 	ui.Column(c.Key("top-songs-skeleton")).FillWidth().Margin(8, 0, 40, 0).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-		ui.Row(c).Height(32).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(c, 112, 16) })
+		ui.Row(c).Height(32).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 112, 16) })
 		for i := range 6 {
 			ui.Row(c.Key(i)).FillWidth().Height(kit.TrackRowHeight).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
 				ui.Box(c).Size(tk.Metric["track-art"], tk.Metric["track-art"]).Shrink(0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
@@ -184,7 +165,7 @@ func (d *discover) chartPage(c *ui.Context, r *ui.Route) {
 		case q.HasData:
 			d.chartContent(c, r, pane, key, chartID, genre, q.Data)
 		case q.Err != nil:
-			d.pageError(c, i18n.T("Couldn't load this chart"), q.Err, q.Fetching, d.retry(keyCharts(genre)))
+			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load this chart"), q, keyCharts(genre))
 		default:
 			d.masthead(c, "", "", true, nil)
 			if key == services.ChartSongs {

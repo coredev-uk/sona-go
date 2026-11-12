@@ -146,7 +146,7 @@ func (p *player) titlePath(cur *services.QueueItem) string {
 // else plain text. Outside a page ui.Link would hand its URL to the
 // browser, so it has an empty URL and the click pushes the path.
 func (p *player) link(c *ui.Context, key, text, path, style string, color ui.Color) {
-	if path == "" || p.env.HasRoute == nil || !p.env.HasRoute(path) {
+	if path == "" || !p.env.Routed(path) {
 		label(c, text, style).TextColor(color)
 		return
 	}
@@ -201,7 +201,7 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 		p.live(c, s)
 	case cur.Artist == "" && cur.Album == "":
 		// A broadcaster names no provider: its name stands alone.
-	case cur.ArtistID != "" && p.env.HasRoute != nil && p.env.HasRoute("/artist/"+url.PathEscape(cur.ArtistID)):
+	case cur.ArtistID != "" && p.env.Routed("/artist/"+url.PathEscape(cur.ArtistID)):
 		ui.Row(c).MinWidth(0).Shrink(1).AlignItems(ui.Center).Children(func() {
 			p.link(c, "artist", cur.Artist, "/artist/"+url.PathEscape(cur.ArtistID), "sub", theme.C("ink-muted"))
 			if cur.Album != "" {

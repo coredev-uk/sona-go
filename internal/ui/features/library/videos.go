@@ -2,7 +2,6 @@ package library
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -26,7 +25,7 @@ var keyMusicVideos = store.Key{"library", "music-videos"}
 
 // videosPage is the Music videos page's view state.
 type videosPage struct {
-	pageView
+	kit.PageFrame
 	cover kit.CoverState
 	menus *kit.ActionMenus
 }
@@ -44,7 +43,7 @@ func (l *library) videosPage(c *ui.Context, r *ui.Route) {
 		// translators: {0} is the number of music videos.
 		subline = i18n.T("{0, plural, one {# music video} other {# music videos}}", "0", len(q.Data))
 	}
-	l.scrollPage(c, &pg.pageView, "videos", func(pane *kit.Pane) {
+	pg.Scroll(c, "videos", func(pane *kit.Pane, _ float32) {
 		l.pageHead(c, headOpts{title: i18n.T("Music videos"), count: subline, note: i18n.T("From Apple Music: needs a connection")})
 		switch {
 		case out:
@@ -53,10 +52,7 @@ func (l *library) videosPage(c *ui.Context, r *ui.Route) {
 				kit.EmptyOpts{Frame: kit.FrameBox, Action: l.signIn()})
 			return
 		case q.Err != nil:
-			kit.ErrorBlock(c, i18n.T("Couldn't load your music videos from Apple Music"), q.Err, kit.ErrorBlockOpts{
-				OnRetry:  func() { l.env.Queries.Invalidate(keyMusicVideos) },
-				Retrying: q.Fetching,
-			})
+			kit.QueryError(c, l.env.Queries, i18n.T("Couldn't load your music videos from Apple Music"), q, keyMusicVideos)
 			return
 		case q.HasData && len(q.Data) == 0:
 			kit.EmptyState(c, i18n.T("No music videos in your library"),
@@ -115,17 +111,14 @@ func (l *library) canPlayVideo() bool { return l.env.Players.CanPlayVideo() }
 // video alone as the queue (shared/items/play.ts playVideo).
 func (l *library) videoTile(videos []services.MusicVideo, i int, canPlay bool) kit.CoverItem {
 	v := videos[i]
-	sub := []string{}
-	if v.Artist != "" {
-		sub = append(sub, v.Artist)
-	}
+	dur := ""
 	if v.DurationMs > 0 {
-		sub = append(sub, i18n.FormatDuration(time.Duration(v.DurationMs)*time.Millisecond))
+		dur = i18n.FormatDuration(time.Duration(v.DurationMs) * time.Millisecond)
 	}
 	tile := kit.CoverItem{
 		Key:      v.ID,
 		Title:    v.Name,
-		Subtitle: strings.Join(sub, " · "),
+		Subtitle: i18n.Meta(v.Artist, dur),
 		Art:      v.Art.Medium,
 		Video:    true,
 		Explicit: v.Explicit,

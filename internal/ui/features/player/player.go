@@ -262,7 +262,7 @@ func (p *player) init() {
 			id = s.Current.ID
 		}
 		if id != "" && id != last {
-			p.env.Queries.Invalidate(store.Key{"library", "recent"})
+			p.env.Queries.Invalidate(store.KeyLibraryRecent)
 		}
 		last = id
 		if s.Current == nil {

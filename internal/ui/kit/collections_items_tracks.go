@@ -19,7 +19,7 @@ const (
 )
 
 // TrackShelfState is the state of a TrackShelf: the width its columns follow.
-type TrackShelfState struct{ width itemsWidth }
+type TrackShelfState struct{ width WidthTracker }
 
 // TrackShelfOpts are the options of TrackShelf.
 type TrackShelfOpts struct {
@@ -51,7 +51,7 @@ func TrackShelf(c *ui.Context, st *TrackShelfState, items []services.Item, ctx I
 	}
 	Shelf(c, so, func() {
 		grid := ui.Grid(c.Key("kit.tracks")).GapX(trackGapX).Role(ui.RoleList).Label(o.Title)
-		width := st.width.track(c, grid)
+		width := st.width.Track(c, grid)
 		cols := 1
 		if width > 0 {
 			cols, _ = CoverColumns(width, trackMin)

@@ -68,13 +68,11 @@ func (p *playlists) suggestionsShelf(c *ui.Context, id, playlist string) {
 
 // suggestionSkeleton is a loading row: flat bars at the real sizes.
 func (p *playlists) suggestionSkeleton(c *ui.Context, i int) {
-	hover := theme.C("hover")
-	r := theme.Current().Radius["sm"]
 	ui.Row(c.Key("loading-" + strconv.Itoa(i))).FillWidth().Height(suggestionRow).AlignItems(ui.Center).Gap(suggestionGap).
 		PaddingX(suggestionPadX).Role(ui.RoleNone).Children(func() {
 		ui.Box(c).Width(suggestionNumW).Shrink(0).Role(ui.RoleNone)
-		ui.Box(c).Size(suggestionArt, suggestionArt).Shrink(0).Radius(r).Background(hover)
-		ui.Box(c).WidthPercent(24).Height(14).Radius(r).Background(hover)
+		kit.Bar(c, suggestionArt, suggestionArt)
+		kit.Bar(c, 0, 14).WidthPercent(24)
 	})
 }
 
@@ -151,7 +149,7 @@ func (p *playlists) addSuggestion(id, playlist string, s services.Song) {
 		p.env.Post(func() {
 			if err != nil {
 				delete(added, s.ID)
-				kit.ToastErrorf(i18n.T("Couldn't add “{songName}” to “{playlistName}”", "songName", s.Name, "playlistName", playlist), failText(err))
+				kit.ToastFailure(i18n.T("Couldn't add “{songName}” to “{playlistName}”", "songName", s.Name, "playlistName", playlist), err)
 				// An earlier add that did succeed was never shown in the
 				// list: SQLite has it.
 				if !p.edits.editing(id) {

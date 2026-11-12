@@ -1,28 +1,32 @@
 package search
 
 import (
-	"net/url"
-
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/account"
-	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// The page's geometry, from the reference page (AppShell's main, PageHeader)
-// in DIPs.
-const (
-	padTop    = 28 // pt-7
-	padBottom = 48 // pb-12
-	narrow    = 960
-	// libraryPerKind is how many library matches per kind are asked for.
-	libraryPerKind = 25
-)
+// libraryPerKind is how many library matches per kind are asked for.
+const libraryPerKind = 25
+
+// browseSkeleton is how many placeholder tiles stand for the browse
+// categories while they load.
+const browseSkeleton = 12
+
+// skeletonRows is how many placeholders each row of a grid of cols columns
+// holds to show total of them: full rows, then what is left.
+func skeletonRows(total, cols int) []int {
+	rows := make([]int, 0, (total+cols-1)/cols)
+	for ; total > 0; total -= cols {
+		rows = append(rows, min(cols, total))
+	}
+	return rows
+}
 
 // pages is the state of the feature's pages.
 type pages struct {
@@ -31,38 +35,22 @@ type pages struct {
 	profile profileView
 }
 
-// pageView is the view state every search page keeps: the scroll place, the
-// size of its scroll container as laid out in the last frame, and the
-// field's request to focus the first result.
+// pageView is the view state every search page keeps: the scroll frame and
+// the field's request to focus the first result.
 type pageView struct {
-	pos ui.ScrollState
-	// width, height are the scroll container's size, zero until a frame
-	// laid it out; inner is the width the content has.
-	width, height, inner float32
-	// outer is the width the page has with its rail, top the scroll
-	// container's place in the window; laidY is the scroll offset the last
-	// layout was built at and builtY the one this frame is built at: the
-	// places the last layout gave are in content terms by laidY.
-	outer, top, laidY, builtY float32
+	kit.PageFrame
+	// outer is the width the page has with its rail; laidY is the scroll
+	// offset the last layout was built at and builtY the one this frame is
+	// built at: the places the last layout gave are in content terms by
+	// laidY.
+	outer, laidY, builtY float32
 	// anchors are the places in the content the rail jumps to, by id;
 	// focusID the one that holds the focus after a jump.
 	anchors  map[string]float32
 	focusID  string
 	focusNow bool
-	// shown is the identity of what the page lists: another one starts from
-	// its top.
-	shown string
 
 	wantFocus, claimed bool
-}
-
-// columns is how many columns of at least min DIPs, gap apart, fit the
-// page's content (auto-fill, minmax(min, 1fr)).
-func (pv *pageView) columns(min, gap float32) int {
-	if pv.inner <= 0 {
-		return 1
-	}
-	return max(1, int((pv.inner+gap)/(min+gap)))
 }
 
 // claim is true once per frame for the first focusable result built, when
@@ -79,55 +67,44 @@ func (pv *pageView) claim() bool {
 // narrow up.
 const railWidth = 200
 
-// scrollPage builds a page's frame: one scroll container holding the page's
-// column (the header scrolls with the content), inside the shell's gutters.
-// body builds the page into it and is given the Pane virtual lists are built
-// in. identity names what the page lists: a change starts from the top.
-func (s *search) scrollPage(c *ui.Context, pv *pageView, identity string, body func(pane *kit.Pane)) {
-	s.framePage(c, pv, identity, nil, body)
+// Gutter is the page's side padding: it follows the width the page has with
+// its rail, the width of the last frame.
+func (pv *pageView) Gutter() float32 { return kit.PageGutter(pv.outer) }
+
+// Inner is the width of the page's content at the last frame's width.
+func (pv *pageView) Inner() float32 {
+	return pv.Width - 2*pv.Gutter() - theme.Current().Metric["scrollbar"]
 }
 
-// framePage is scrollPage with a rail: when rail is not nil and the page is
-// wide, it builds into a column left of the scroll container, which does
-// not scroll with the content.
+// framePage builds a page's frame, as PageFrame.Scroll does (one scroll
+// container holding the page's column, the header scrolling with the
+// content): when rail is not nil and the page is wide, it builds into a
+// column left of the scroll container, which does not scroll with the
+// content. identity names what the page lists: a change starts from the top.
 func (s *search) framePage(c *ui.Context, pv *pageView, identity string, rail func(), body func(pane *kit.Pane)) {
-	if pv.shown != identity {
-		if pv.shown != "" {
-			pv.pos = ui.ScrollState{}
+	if pv.Shown != identity {
+		if pv.Shown != "" {
+			pv.Pos = ui.ScrollState{}
 		}
-		pv.shown = identity
+		pv.Shown = identity
 		clear(pv.anchors)
 		pv.focusID = ""
 	}
 	pv.laidY = pv.builtY
-	tk := theme.Current()
-	gutter := tk.Metric["gutter"]
-	small := pv.outer > 0 && pv.outer < narrow
-	if small {
-		gutter = tk.Metric["gutter-narrow"]
-	}
-	showRail := rail != nil && !small
-	scrollbar := tk.Metric["scrollbar"]
-	left := gutter
-	pv.inner = pv.width - left - gutter - scrollbar
-	devstate.Scroll(c, &pv.pos) // dev builds: the offset survives a restart
-	var sc ui.Element
+	gutter := pv.Gutter()
+	showRail := rail != nil && !(pv.outer > 0 && pv.outer < kit.PageNarrow)
+	var b ui.Rect
 	outer := ui.Row(c).Grow(1).Basis(0).MinHeight(0).MinWidth(0).AlignItems(ui.Stretch)
 	outer.Children(func() {
 		if showRail {
-			ui.Column(c.Key("rail-slot")).Width(railWidth+gutter).Shrink(0).Padding(padTop, 0, padBottom, gutter).Children(rail)
+			ui.Column(c.Key("rail-slot")).Width(railWidth+gutter).Shrink(0).Padding(kit.PagePadTop, 0, kit.PagePadBottom, gutter).Children(rail)
 		}
-		sc = ui.Scroll(c).TrackScroll(&pv.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
-		sc.Children(func() {
-			ui.Column(c).Padding(padTop, gutter+scrollbar, padBottom, left).Children(func() {
-				body(&kit.Pane{Pos: &pv.pos, Bounds: sc.Bounds})
-			})
-		})
+		b = kit.PageScroll(c, &pv.Pos, gutter, body)
 	})
-	pv.builtY = pv.pos.Y
-	b, ob := sc.Bounds(), outer.Bounds()
-	if b.W != pv.width || b.H != pv.height || b.Y != pv.top || ob.W != pv.outer {
-		pv.width, pv.height, pv.top, pv.outer = b.W, b.H, b.Y, ob.W
+	pv.builtY = pv.Pos.Y
+	ob := outer.Bounds()
+	if b.W != pv.Width || b.H != pv.Height || b.Y != pv.Top || ob.W != pv.outer {
+		pv.Width, pv.Height, pv.Top, pv.outer = b.W, b.H, b.Y, ob.W
 		c.Invalidate() // the columns follow the width
 	}
 }
@@ -141,7 +118,7 @@ func (pv *pageView) anchored(e ui.Element, id, label string) ui.Element {
 		if pv.anchors == nil {
 			pv.anchors = map[string]float32{}
 		}
-		pv.anchors[id] = b.Y - pv.top + pv.laidY
+		pv.anchors[id] = b.Y - pv.Top + pv.laidY
 	}
 	if pv.focusID == id {
 		// While it has the focus it is a group named label, so that what the
@@ -162,7 +139,7 @@ func (pv *pageView) anchored(e ui.Element, id, label string) ui.Element {
 // line above it) and moves the focus to it.
 func (pv *pageView) jump(id string) {
 	if y, ok := pv.anchors[id]; ok {
-		pv.pos.Y = max(0, y-padTop)
+		pv.Pos.Y = max(0, y-kit.PagePadTop)
 	}
 	pv.focusID, pv.focusNow = id, true
 }
@@ -172,7 +149,7 @@ func (pv *pageView) jump(id string) {
 func (pv *pageView) current(ids []string) string {
 	cur := ""
 	for _, id := range ids {
-		if y, ok := pv.anchors[id]; ok && y <= pv.pos.Y+padTop+24 {
+		if y, ok := pv.anchors[id]; ok && y <= pv.Pos.Y+kit.PagePadTop+24 {
 			cur = id
 		}
 	}
@@ -197,25 +174,13 @@ func grid(c *ui.Context, key, label string, cols int, gapX, gapY float32, n int,
 	})
 }
 
-// routed reports whether a page the feature links to is ported.
-func (s *search) routed(path string) bool { return s.env.HasRoute != nil && s.env.HasRoute(path) }
-
 // itemMenus is the item menu of a list over its selection, made once; nil
 // when the shell has no action registry.
 func (s *search) itemMenus(m **kit.ActionMenus, sel kit.SelectionScope) *kit.ActionMenus {
-	if *m == nil && s.env.Actions != nil {
-		*m = kit.NewActionMenus(s.env.Actions, sel)
-	}
-	return *m
-}
-
-// openLink is the path of a page for the track list's artist and album
-// cells; nil when the page is not ported.
-func (s *search) openLink(prefix string) func(id string) {
-	if !s.routed(prefix + "x") {
+	if s.env.Actions == nil {
 		return nil
 	}
-	return func(id string) { s.env.Nav.Push(prefix + url.PathEscape(id)) }
+	return kit.MenusIn(m, s.env.Actions, sel)
 }
 
 // songList is the songs of a result as v0.2.0's TrackList: number, artwork,
@@ -229,20 +194,12 @@ func (s *search) songList(c *ui.Context, st *kit.TrackListState, menus **kit.Act
 		}
 		return nil
 	}
-	kit.TrackList(c, st, len(songs)+pending, at, kit.TrackListOpts{
-		Label:      label,
-		Columns:    kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: album},
-		OnPlay:     onPlay,
-		Current:    ctx.Current,
-		Playing:    ctx.Playing,
-		Restricted: ctx.Restricted,
-		Art:        s.env.Art,
-		Menus:      s.itemMenus(menus, &st.Sel),
-		Motion:     s.env.Motion,
-		Pane:       pane,
-		OpenArtist: s.openLink("/artist/"),
-		OpenAlbum:  s.openLink("/album/"),
-	})
+	o := s.env.TrackOpts(s.itemMenus(menus, &st.Sel), ctx.Restricted)
+	o.Label = label
+	o.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: album}
+	o.OnPlay = onPlay
+	o.Pane = pane
+	kit.TrackList(c, st, len(songs)+pending, at, o)
 }
 
 // searchView is the search page's state.
@@ -268,15 +225,7 @@ type searchView struct {
 	announced outcome
 }
 
-func (v *searchView) shelf(key string) *kit.CoverShelfState {
-	if v.shelves == nil {
-		v.shelves = map[string]*kit.CoverShelfState{}
-	}
-	if v.shelves[key] == nil {
-		v.shelves[key] = &kit.CoverShelfState{}
-	}
-	return v.shelves[key]
-}
+func (v *searchView) shelf(key string) *kit.CoverShelfState { return kit.Entry(&v.shelves, key) }
 
 // outcome names what a search found: the term and scope searched, and
 // whether anything came back.
@@ -337,7 +286,7 @@ func (s *search) searchPage(c *ui.Context, r *ui.Route) {
 	}
 	s.framePage(c, &v.pageView, scope+"\x00"+q, rail, func(pane *kit.Pane) {
 		s.queryHeader(c, q, scope)
-		if len(entries) > 1 && v.outer > 0 && v.outer < narrow {
+		if len(entries) > 1 && v.outer > 0 && v.outer < kit.PageNarrow {
 			s.chipRow(c, &v.pageView, entries)
 		}
 		switch {
@@ -378,20 +327,13 @@ func (s *search) browseShelf(c *ui.Context, pane *kit.Pane, first bool) {
 	kit.Shelf(c, kit.ShelfOpts{Title: title, First: first}, func() {
 		switch {
 		case res.Err != nil && !res.HasData:
-			kit.ErrorBlock(c, i18n.T("Couldn't load the categories"), res.Err, kit.ErrorBlockOpts{
-				OnRetry:  func() { s.env.Queries.Invalidate(keyBrowse) },
-				Retrying: res.Fetching,
-			})
+			kit.QueryError(c, s.env.Queries, i18n.T("Couldn't load the categories"), res, keyBrowse)
 		case !res.HasData:
-			cols := v.columns(160, 24)
-			tile := (v.inner - 24*float32(cols-1)) / float32(cols)
-			if v.inner <= 0 {
-				tile = 160
-			}
+			cols, tile := kit.CoverColumns(v.Inner(), 160)
 			ui.Column(c.Key("browse-loading")).FillWidth().Gap(24).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
-				for r := range 12 / cols {
+				for r, n := range skeletonRows(browseSkeleton, cols) {
 					ui.Row(c.Key(r)).Gap(24).Children(func() {
-						for i := range cols {
+						for i := range n {
 							kit.Skeleton(c.Key(i), tile, tile)
 						}
 					})
@@ -467,10 +409,7 @@ func (s *search) catalogResults(c *ui.Context, pane *kit.Pane, q string, cs cata
 				action)
 			return
 		}
-		kit.ErrorBlock(c, i18n.T("Couldn't search Apple Music"), res.Err, kit.ErrorBlockOpts{
-			OnRetry:  func() { s.env.Queries.Invalidate(keyCatalogSearch(q)) },
-			Retrying: res.Fetching,
-		})
+		kit.QueryError(c, s.env.Queries, i18n.T("Couldn't search Apple Music"), res, keyCatalogSearch(q))
 		return
 	case len(data.Sections) == 0:
 		empty := i18n.T("Nothing on Apple Music for “{q}”", "q", q)
@@ -529,7 +468,7 @@ func (s *search) catalogSection(c *ui.Context, pane *kit.Pane, ctx kit.ItemsCtx,
 		}
 		s.groupBlock(c, &v.pageView, sec.Group, title, first, func() {
 			kit.Shelf(c, kit.ShelfOpts{Title: title, First: true, More: s.seeAll(more)}, func() {
-				s.songList(c, &v.songs, &v.songMenus, pane, ctx, songs, 0, v.inner >= songAlbumFrom, i18n.T("Songs matching {q}", "q", q), func(i int) {
+				s.songList(c, &v.songs, &v.songMenus, pane, ctx, songs, 0, v.Inner() >= songAlbumFrom, i18n.T("Songs matching {q}", "q", q), func(i int) {
 					s.opened(q, scopeCatalog)(from[i])
 					s.env.Queue.PlaySongs(songs, i, searchFrom)
 				})
@@ -610,9 +549,7 @@ func (s *search) libraryResults(c *ui.Context, pane *kit.Pane, q string, ls libr
 	v := &s.pages.search
 	switch {
 	case ls.failed():
-		kit.ErrorBlock(c, i18n.T("Couldn't search your library"), ls.err, kit.ErrorBlockOpts{
-			OnRetry: func() { s.env.Queries.Invalidate(keyLibrarySearch(q, libraryPerKind)) },
-		})
+		kit.QueryFailed(c, s.env.Queries, i18n.T("Couldn't search your library"), ls.err, store.LibrarySearch(q, libraryPerKind))
 		return
 	case ls.loading():
 		s.resultsSkeleton(c)
@@ -666,7 +603,7 @@ func (s *search) libraryShelves(c *ui.Context, pane *kit.Pane, ctx kit.ItemsCtx,
 					v.allSongs = !v.allSongs
 				}
 			}}, func() {
-				s.songList(c, &v.libSongs, &v.libSongMenus, pane, ctx, shown, 0, v.inner >= songAlbumFrom, i18n.T("Library songs matching {q}", "q", q), func(i int) {
+				s.songList(c, &v.libSongs, &v.libSongMenus, pane, ctx, shown, 0, v.Inner() >= songAlbumFrom, i18n.T("Library songs matching {q}", "q", q), func(i int) {
 					s.rememberTerm(q, scopeLibrary)
 					s.env.Queue.PlaySongs(r.Songs, i, searchFrom)
 				})

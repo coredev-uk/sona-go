@@ -18,12 +18,6 @@ const (
 	twoColumns = 900
 )
 
-// linkToConcerts is whether the Concerts page is registered: the shelves
-// link to it only then.
-func linkToConcerts(env *module.Env) bool {
-	return env.HasRoute != nil && env.HasRoute(concertsPath)
-}
-
 // rows is the shows as rows with their date column: one column, or two
 // filled top to bottom (v0.2.0's grid-flow-col with three rows). The list
 // is named label.
@@ -81,7 +75,7 @@ func ArtistConcerts(c *ui.Context, env *module.Env, artistID string, first bool)
 				list = list[:artistRows]
 			}
 			rows(c, env, list, 1, true, i18n.T("Upcoming concerts"))
-			if linkToConcerts(env) {
+			if env.Routed(concertsPath) {
 				more := ui.Link(c.Key("more"), "", "").Margin(8, 0, 0, 8)
 				more.Children(func() {
 					text(c, i18n.T("More concerts near {city}", "city", city), "meta", "ink-faint").SingleLine()
@@ -109,7 +103,7 @@ func ConcertsShelf(c *ui.Context, env *module.Env, first bool) {
 		title = i18n.T("Concerts in {city}", "city", city)
 	}
 	opts := kit.ShelfOpts{Title: title, First: first}
-	if linkToConcerts(env) {
+	if env.Routed(concertsPath) {
 		opts.More = func() { env.Nav.Push(concertsPath) }
 	}
 	kit.Shelf(c, opts, func() {
@@ -118,7 +112,7 @@ func ConcertsShelf(c *ui.Context, env *module.Env, first bool) {
 			shelfSkeleton(c, 3)
 		case len(q.Data.Concerts) == 0:
 			empty := kit.EmptyOpts{}
-			if linkToConcerts(env) {
+			if env.Routed(concertsPath) {
 				empty.Action = &kit.EmptyAction{Label: i18n.T("Set location"), Run: func() { env.Nav.Push(concertsPath) }}
 			}
 			kit.EmptyState(c, i18n.T("No concerts"),

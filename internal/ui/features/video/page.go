@@ -88,7 +88,7 @@ func (v *video) page(c *ui.Context, r *ui.Route) {
 				v.body(c, q.Data, v.widths(c, gutter))
 			case q.Err != nil:
 				back := kit.EmptyAction{}
-				if v.env.HasRoute != nil && v.env.HasRoute("/search") {
+				if v.env.Routed("/search") {
 					back = kit.EmptyAction{Label: i18n.T("Go to Search"), Run: func() { v.env.Nav.Push("/search") }}
 				}
 				kit.DetailError(c, kit.NounMusicVideo, q.Err, kit.DetailErrorOpts{
@@ -125,9 +125,6 @@ func (v *video) widths(c *ui.Context, gutter float32) widths {
 	h := min(max(fold, heroMinH), heroMaxH)
 	return widths{content: content, hero: min(content, float32(math.Floor(float64(h*16/9))))}
 }
-
-// hasRoute is Env.HasRoute, false in a hand-built Env.
-func (v *video) hasRoute(path string) bool { return v.env.HasRoute != nil && v.env.HasRoute(path) }
 
 // skeleton is the loaded page at its real sizes: the 16:9 picture, the
 // caption's bars and a row of tiles, as flat --hover shapes. It is a
@@ -193,7 +190,7 @@ func (v *video) body(c *ui.Context, d services.CatalogVideo, w widths) {
 		kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Notes")}, func() { kit.Notes(c, d.Notes, 0) })
 	}
 	var seeAll func()
-	if p := "/artist/" + vid.ArtistID + "/view/music-videos"; vid.ArtistID != "" && v.hasRoute(p) {
+	if p := "/artist/" + vid.ArtistID + "/view/music-videos"; vid.ArtistID != "" && v.env.Routed(p) {
 		seeAll = func() { v.env.Nav.Push(p) }
 	}
 	by := kit.CoverShelfOpts{CoverOpts: v.coverOpts(), More: seeAll}
@@ -224,7 +221,7 @@ func (v *video) songLine(c *ui.Context, s services.Song) {
 		id = s.ID
 	}
 	ui.Text(c.Key("song-before"), before)
-	if path := "/song/" + id; v.hasRoute(path) {
+	if path := "/song/" + id; v.env.Routed(path) {
 		ui.Link(c.Key("song"), s.Name, path).TextColor(theme.C("ink"))
 	} else {
 		ui.Text(c.Key("song"), s.Name).TextColor(theme.C("ink"))

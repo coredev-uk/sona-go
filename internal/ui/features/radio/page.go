@@ -5,7 +5,6 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/account"
-	"github.com/coredev-uk/sona-go/internal/ui/devstate"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -14,16 +13,16 @@ import (
 // radioPage is the Radio page's state: its scroll container, the one item
 // menu its lists share, and what each list keeps (selection, "show all").
 type radioPage struct {
-	frame
+	kit.PageFrame
 	menus *kit.ActionMenus
 	board board
 	// loading is the width the loading frames' columns follow.
-	loadingBoard, loadingStations, loadingTiles widthOf
+	loadingBoard, loadingStations, loadingTiles kit.WidthTracker
 
 	live kit.EditorialState
 	// stations is the state of each local broadcasters list, by section.
 	stations map[string]*kit.StationListState
-	bands    map[bandID]*kit.EditorialState
+	bands    map[string]*kit.EditorialState
 	yours    kit.CoverShelfState
 	// yoursMenus is the menu of "Your stations": its own selection.
 	yoursMenus *kit.ActionMenus
@@ -31,13 +30,7 @@ type radioPage struct {
 
 // bandState is the state of a band's sections.
 func (pg *radioPage) bandState(id bandID) *kit.EditorialState {
-	if pg.bands == nil {
-		pg.bands = map[bandID]*kit.EditorialState{}
-	}
-	if pg.bands[id] == nil {
-		pg.bands[id] = &kit.EditorialState{}
-	}
-	return pg.bands[id]
+	return kit.Entry(&pg.bands, string(id))
 }
 
 // stationCover is a station as a cover tile (v0.2.0's RadioPage stationCover):
@@ -100,12 +93,8 @@ func (r *radio) radioView(c *ui.Context, _ *ui.Route) {
 	if signedIn {
 		recent = r.recent()
 	}
-	if pg.menus == nil {
-		pg.menus = kit.NewActionMenus(r.env.Actions, nil)
-	}
-	if pg.yoursMenus == nil {
-		pg.yoursMenus = kit.NewActionMenus(r.env.Actions, &pg.yours.Row.Sel)
-	}
+	kit.MenusIn(&pg.menus, r.env.Actions, nil)
+	kit.MenusIn(&pg.yoursMenus, r.env.Actions, &pg.yours.Row.Sel)
 	// The page's lists share one menu, whose popup is drawn once, last.
 	ctx := r.env.ItemsCtx(pg.menus)
 	ctx.NoPopup = true
@@ -125,8 +114,7 @@ func (r *radio) radioView(c *ui.Context, _ *ui.Route) {
 	hasYours := (signedIn && recent.HasData && len(recent.Data) > 0) || isSignedOut(state)
 	yours := func() { r.yours(c, state, recent) }
 
-	devstate.Scroll(c, &pg.pos) // dev builds: the offset survives a restart
-	pg.scroll(c, func(gutter float32) {
+	pg.Scroll(c, "radio", func(*kit.Pane, float32) {
 		kit.PageHeader(c, i18n.T("Radio"), "", nil)
 		if failed(live) && failed(grouping) {
 			// Nothing on the page loaded: one block says so, not one per part.
@@ -144,9 +132,7 @@ func (r *radio) radioView(c *ui.Context, _ *ui.Route) {
 				if hasYours {
 					ui.Column(c.Key("yours")).Margin(0, 0, 40, 0).Children(yours)
 				}
-				kit.ErrorBlock(c, i18n.T("Couldn't load Apple Music's radio page"), grouping.Err, kit.ErrorBlockOpts{
-					OnRetry: func() { r.env.Queries.Invalidate(keyGrouping) }, Retrying: grouping.Fetching,
-				})
+				kit.QueryError(c, r.env.Queries, i18n.T("Couldn't load Apple Music's radio page"), grouping, keyGrouping)
 			})
 		default:
 			for _, b := range bands {

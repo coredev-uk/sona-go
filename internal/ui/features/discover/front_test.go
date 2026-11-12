@@ -91,7 +91,7 @@ func (r *rig) away() {
 // v0.2.0's are); a card other than the lead is found by its title, which only
 // its strip card shows.
 func (r *rig) rowCentre(n int) (float32, float32) {
-	lay := layoutFor(r.d.front.width.w)
+	lay := layoutFor(r.d.newPg.pg.Inner())
 	k := r.lead()/lay.perPage*lay.perPage + n
 	for _, name := range []string{"Card %d", "List %d"} { // the names these tests give their cards
 		if row, ok := r.tt.Find(fmt.Sprintf(name, k+1)); ok {

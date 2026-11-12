@@ -30,7 +30,7 @@ const (
 // leadState is the state of the lead: its width, the picks' rows and their
 // toggle, and the lead pick's selection and menu.
 type leadState struct {
-	width widthTracker
+	width kit.WidthTracker
 	cols  int
 	open  bool
 	rows  rowsState
@@ -60,14 +60,14 @@ func (h *home) leadBand(c *ui.Context, lead *services.Item, children func()) {
 		return
 	}
 	tk := theme.Current()
-	gutter, bar := h.page.gutter(), tk.Metric["scrollbar"]
+	gutter, bar := h.page.Gutter(), tk.Metric["scrollbar"]
 	art := lead.Art.Medium
 	if art == "" {
 		art = lead.Art.Large
 	}
 	// The band is the backdrop: what it holds draws over the wash.
 	kit.Backdrop(c.Key("band"), h.env.Art, kit.BackdropOpts{Src: backdropURL(art), Color: lead.Color, Tone: kit.ToneGround}, children).
-		AlignSelf(ui.Stretch).Shrink(0).Padding(padTop, gutter+bar, 24, gutter).Margin(-padTop, -(gutter + bar), 0, -gutter)
+		AlignSelf(ui.Stretch).Shrink(0).Padding(kit.PagePadTop, gutter+bar, 24, gutter).Margin(-kit.PagePadTop, -(gutter + bar), 0, -gutter)
 }
 
 // homeLead is the first "feature" shelf (Top Picks) set as the A-side of a
@@ -76,9 +76,8 @@ func (h *home) leadBand(c *ui.Context, lead *services.Item, children func()) {
 // …) in one list beside it, so the first screen answers "what shall I play?"
 // without scrolling. The numbers are Apple's order. Under 900 DIPs the lead is
 // a row (cover, name) over the full-width order.
-func (h *home) homeLead(c *ui.Context, sec services.Section) {
+func (h *home) homeLead(c *ui.Context, sec services.Section, ctx kit.ItemsCtx) {
 	st := &h.lead
-	ctx := h.env.ItemsCtx(nil)
 	items := st.cap.of(sec.Items)
 	first, rest := items[0], items[1:]
 	title := sec.Title
@@ -86,7 +85,7 @@ func (h *home) homeLead(c *ui.Context, sec services.Section) {
 		title = i18n.T("Top picks")
 	}
 	root := ui.Column(c.Key("lead")).Role(ui.RoleGroup).Label(title)
-	wide := st.width.track(c, root) >= sideBySide
+	wide := st.width.Track(c, root) >= sideBySide
 	root.Children(func() {
 		hidden := st.cols > 0 && len(rest) > st.cols*slateRows
 		head := ruledOpts{Title: title}
@@ -119,35 +118,6 @@ func (h *home) homeLead(c *ui.Context, sec services.Section) {
 	})
 }
 
-// toggleButton is a heading-row button that shows the rest of a shelf in place
-// ("Show all 12", "Show fewer") with a chevron that turns over; read Clicked to
-// flip it.
-func toggleButton(c *ui.Context, label string, open bool) ui.Element {
-	tk := theme.Current()
-	b := ui.ButtonBase(c.Key("toggle")).Role(ui.RoleDisclosure).Expanded(open).Label(label)
-	bg, fg := ui.Transparent, theme.C("ink-muted")
-	if b.Hovered() {
-		bg, fg = theme.C("hover"), theme.C("ink")
-	}
-	b.Height(28).PaddingX(6).MarginEnd(-4).Gap(2).Radius(tk.Radius["md"]).Background(bg).TextColor(fg).Center()
-	theme.Fade(b, "feedback")
-	b.Children(func() {
-		sub := tk.Type["sub"]
-		ui.Text(c, label).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine()
-		ic := theme.Glyph(c, "chevron-down", 14, theme.GlyphOpts{Color: fg, Inherit: true})
-		turn := float32(0)
-		if open {
-			turn = 180
-		}
-		if theme.ReducedMotion() {
-			ic.Rotate(turn)
-		} else {
-			ic.Rotate(ic.Animate("turn", turn, tk.Motion["press"].Duration))
-		}
-	})
-	return b
-}
-
 // pickState is the lead pick's selection and menu.
 type pickState struct {
 	sel   kit.Selection
@@ -163,16 +133,14 @@ func (h *home) leadPick(c *ui.Context, it services.Item, wide bool, ctx kit.Item
 	if wide {
 		cover = leadCover
 	}
-	if st.menus == nil {
-		st.menus = kit.NewActionMenus(h.env.Actions, &st.sel)
-	}
+	menus := kit.MenusIn(&st.menus, h.env.Actions, &st.sel)
 	tk := theme.Current()
 	target, selectable := kit.ActionItemOf(it, ctx.Players)
 	key := ""
 	if selectable {
 		key = "lead:" + it.Kind + ":" + it.ID
 	}
-	st.sel.Hold = func() bool { return st.menus.IsOpen() || kit.ConfirmPending() }
+	st.sel.Hold = func() bool { return menus.IsOpen() || kit.ConfirmPending() }
 	st.sel.Rows(kit.RowKeys{key}, func(int) (kit.Item, bool) { return target, selectable })
 	selected := selectable && st.sel.Selected(key)
 
@@ -227,33 +195,13 @@ func (h *home) leadPick(c *ui.Context, it services.Item, wide bool, ctx kit.Item
 			// The lead is 01 of the running order beside it.
 			theme.Text(c, "01", "page").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().Width(32).Shrink(0)
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-				if link != "" && !h.opens(link) {
-					// Its page is not served: the name is plain text.
-					theme.Text(c, it.Name, "page").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
-				} else {
-					opener = ui.ButtonBase(c.Key("open")).Justify(ui.Start).Radius(tk.Radius["sm"]).Label(it.Name)
-					if link != "" {
-						opener.Role(ui.RoleLink)
-					}
-					opener.Children(func() {
-						t := theme.Text(c, it.Name, "page").TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
-						if opener.Hovered() {
-							t.Underline()
-						}
-					})
-				}
-				if it.Subtitle != "" {
-					theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
-				}
-				if meta := catalogueLine(it); meta != "" {
-					theme.Text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)
-				}
+				opener = h.titleBlock(c, it, "page", link)
 				ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 					if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
 						ctx.Players.PlayItem(it)
 					}
 					if selectable {
-						st.menus.Trigger(c.Key("more"), at, kit.TriggerOpts{Header: true})
+						menus.Trigger(c.Key("more"), at, kit.TriggerOpts{Header: true})
 					}
 				})
 			})
@@ -276,10 +224,39 @@ func (h *home) leadPick(c *ui.Context, it services.Item, wide bool, ctx kit.Item
 	}
 	st.sel.OutsidePress(w)
 	if selectable {
-		rightClickMenu(&st.sel, st.menus, src, at, 0)
-		keyMenu(&st.sel, st.menus, opener, at, 0)
-		st.menus.Popup(c)
+		menus.OpenFor(&st.sel, src, opener, at, 0)
+		menus.Popup(c)
 	}
+}
+
+// titleBlock is the head of a featured item's text column: its name (a link
+// when its page is served, plain text when it is not) in the type style, the
+// subtitle and the catalogue line. It returns the name's button, the zero
+// Element when the name is plain text.
+func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string) (opener ui.Element) {
+	tk := theme.Current()
+	if link != "" && !h.opens(link) {
+		// Its page is not served: the name is plain text.
+		theme.Text(c, it.Name, style).TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
+	} else {
+		opener = ui.ButtonBase(c.Key("open")).Justify(ui.Start).Radius(tk.Radius["sm"]).Label(it.Name)
+		if link != "" {
+			opener.Role(ui.RoleLink)
+		}
+		opener.Children(func() {
+			t := theme.Text(c, it.Name, style).TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
+			if opener.Hovered() {
+				t.Underline()
+			}
+		})
+	}
+	if it.Subtitle != "" {
+		theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
+	}
+	if meta := catalogueLine(it); meta != "" {
+		theme.Text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)
+	}
+	return opener
 }
 
 // signInLead is shown signed out: where the lead will be, what it needs and
@@ -331,7 +308,7 @@ func (h *home) leadNotice(c *ui.Context, icon, title string, body, action func()
 
 // skeletonState is the loading lead's widths.
 type skeletonState struct {
-	width, right widthTracker
+	width kit.WidthTracker
 }
 
 // leadSkeleton is the lead's shape while Home loads: the ruled head, the 01
@@ -342,10 +319,10 @@ func (h *home) leadSkeleton(c *ui.Context) {
 	tk := theme.Current()
 	hover, r := theme.C("hover"), tk.Radius["sm"]
 	root := ui.Column(c.Key("lead-skeleton")).Role(ui.RoleStatus).Label(i18n.T("Loading"))
-	wide := st.width.track(c, root) >= sideBySide
+	wide := st.width.Track(c, root) >= sideBySide
 	root.Children(func() {
 		ui.Row(c.Key("head")).MinHeight(28).Margin(0, 0, 12, 0).Gap(16).AlignItems(ui.Center).Children(func() {
-			ui.Box(c).Size(140, 16).Shrink(0).Radius(r).Background(hover)
+			kit.Bar(c, 140, 16)
 			rule(c)
 		})
 		var body ui.Element
@@ -359,7 +336,7 @@ func (h *home) leadSkeleton(c *ui.Context) {
 		body.Margin(12, 0, 0, 0).Children(func() {
 			words := func() {
 				ui.Row(c.Key("words")).Gap(8).AlignItems(ui.Start).Grow(1).Children(func() {
-					ui.Box(c).Size(24, 24).Shrink(0).Radius(r).Background(hover)
+					kit.Bar(c, 24, 24)
 					ui.Column(c).Grow(1).Children(func() {
 						ui.Box(c).WidthPercent(75).Height(24).Radius(r).Background(hover)
 						ui.Box(c).WidthPercent(50).Height(16).Radius(r).Background(hover).Margin(10, 0, 0, 0)
@@ -369,12 +346,12 @@ func (h *home) leadSkeleton(c *ui.Context) {
 			}
 			if wide {
 				ui.Column(c.Key("pick")).Width(cover).Shrink(0).Gap(16).Children(func() {
-					ui.Box(c).Size(cover, cover).Radius(r).Background(hover)
+					kit.Bar(c, cover, cover)
 					words()
 				})
 			} else {
 				ui.Row(c.Key("pick")).Gap(20).AlignItems(ui.End).Children(func() {
-					ui.Box(c).Size(cover, cover).Shrink(0).Radius(r).Background(hover)
+					kit.Bar(c, cover, cover)
 					words()
 				})
 			}
@@ -385,8 +362,8 @@ func (h *home) leadSkeleton(c *ui.Context) {
 			order.Children(func() {
 				for i := range slateRows {
 					ui.Row(c.Key("row" + strconv.Itoa(i))).Height(rowH).PaddingX(rowPadX).Gap(rowGap).AlignItems(ui.Center).Children(func() {
-						ui.Box(c).Size(rowNum-rowGap, 12).Shrink(0).Radius(r).Background(hover)
-						ui.Box(c).Size(rowArt, rowArt).Shrink(0).Radius(r).Background(hover)
+						kit.Bar(c, rowNum-rowGap, 12)
+						kit.Bar(c, rowArt, rowArt)
 						ui.Column(c).Grow(1).Children(func() {
 							ui.Box(c).WidthPercent(float32(40 + (i%3)*10)).Height(14).Radius(r).Background(hover)
 							ui.Box(c).WidthPercent(30).Height(12).Radius(r).Background(hover).Margin(6, 0, 0, 0)

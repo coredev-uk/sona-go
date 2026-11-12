@@ -63,8 +63,8 @@ type album struct {
 
 // pageState is the state of one album's page, kept on the page's root.
 type pageState struct {
-	pos          ui.ScrollState
-	paneW, paneH float32 // the scroll container as last laid out
+	// PageFrame is the scroll place and the scroll container as last laid out.
+	kit.PageFrame
 	// trackMenus are the songs' item menus, over their selection.
 	trackMenus *kit.ActionMenus
 
@@ -76,8 +76,8 @@ type pageState struct {
 	// gl and gr are the page's left and right gutters (the right one holds
 	// the scrollbar): the pane has no padding of its own, so the sleeve can
 	// run to its edges and each part sets its own.
-	gl, gr   float32
-	paneRect func() ui.Rect
+	gl, gr float32
+	pane   *kit.Pane // the scroll container, as this frame builds it
 	// pal is the cover's colours, built once per cover, theme and layout.
 	pal palCache
 }
@@ -88,10 +88,6 @@ type listView struct {
 	count int
 	at    func(i int) *services.Song
 }
-
-// has reports whether a registered page matches path: the page links only
-// to ported pages.
-func (a *album) has(path string) bool { return a.env.HasRoute != nil && a.env.HasRoute(path) }
 
 // push opens a page.
 func (a *album) push(path string) { a.env.Nav.Push(path) }
@@ -128,7 +124,7 @@ type load struct {
 func (a *album) query(id string) load {
 	q := a.env.Queries
 	if !isLibraryID(id) {
-		key := catalogKey(id)
+		key := store.CatalogAlbum(id)
 		r := store.Use(q, key, func(ctx context.Context) (services.CatalogAlbum, error) { return a.cat.Album(ctx, id) }, forever)
 		l := load{hasData: r.HasData, err: r.Err, fetching: r.Fetching, key: key, cat: true}
 		if r.HasData {
@@ -136,7 +132,7 @@ func (a *album) query(id string) load {
 		}
 		return l
 	}
-	key := libraryKey(id)
+	key := store.LibraryAlbum(id)
 	r := store.Use(q, key, func(ctx context.Context) (services.AlbumDetail, error) { return a.lib.Album(ctx, id) }, forever)
 	l := load{hasData: r.HasData, err: r.Err, fetching: r.Fetching, key: key}
 	if !r.HasData {
@@ -144,7 +140,7 @@ func (a *album) query(id string) load {
 	}
 	l.detail = r.Data
 	if cid := r.Data.Album.CatalogID; cid != "" {
-		linked := store.Use(q, catalogKey(cid), func(ctx context.Context) (services.CatalogAlbum, error) { return a.cat.Album(ctx, cid) }, forever)
+		linked := store.Use(q, store.CatalogAlbum(cid), func(ctx context.Context) (services.CatalogAlbum, error) { return a.cat.Album(ctx, cid) }, forever)
 		if linked.HasData {
 			l.page = &linked.Data
 		}
@@ -162,40 +158,37 @@ func (a *album) page(c *ui.Context, r *ui.Route) {
 	root := ui.Column(c.Key("album:" + id)).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
 	st := *ui.Local(root, "page", func() *pageState { return &pageState{} })
 	a.pageState = st
-	if st.trackMenus == nil {
-		st.trackMenus = kit.NewActionMenus(a.env.Actions, &st.tracks.Sel)
-	}
+	kit.MenusIn(&st.trackMenus, a.env.Actions, &st.tracks.Sel)
 
-	tk := theme.Current()
-	gutter := tk.Metric["gutter"]
-	if st.paneW > 0 && st.paneW < 960 {
-		gutter = tk.Metric["gutter-narrow"]
-	}
-	scrollbar := tk.Metric["scrollbar"]
-	width := st.paneW
+	width := st.Width
 	if width == 0 {
 		ww, _ := c.Size()
 		width = ww - sidebarGuess
 	}
+	gutter := st.Gutter()
+	scrollbar := theme.Current().Metric["scrollbar"]
 	lay := albumLayout(width - 2*gutter - scrollbar)
 	a.gl, a.gr = gutter, gutter+scrollbar
-	root.Children(func() { a.scroll(c, id, highlight, lay, now, gutter, scrollbar) })
+	root.Children(func() { a.scroll(c, id, highlight, lay, now) })
 	a.menus.Popup(c)
 }
 
-// scroll is the page's scroll container.
-func (a *album) scroll(c *ui.Context, id, highlight string, lay layout, now time.Time, gutter, scrollbar float32) {
-	var sc ui.Element
-	devstate.Scroll(c, &a.pos) // dev builds: the offset survives a restart
-	sc = ui.Scroll(c).TrackScroll(&a.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
-	a.paneRect = func() ui.Rect { return sc.Bounds() }
+// scroll is the page's scroll container. The shared page frame pads its
+// column, which the sleeve (cut by the pane's edges) cannot sit inside, so the
+// pane has no padding and each part sets its own; the frame's state still
+// tracks the pane's place and size.
+func (a *album) scroll(c *ui.Context, id, highlight string, lay layout, now time.Time) {
+	st := a.pageState
+	devstate.Scroll(c, &st.Pos) // dev builds: the offset survives a restart
+	sc := ui.Scroll(c).TrackScroll(&st.Pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+	a.pane = &kit.Pane{Pos: &st.Pos, Bounds: sc.Bounds}
 	sc.Children(func() {
 		ui.Column(c).Children(func() {
 			a.content(c, id, highlight, lay, now)
 		})
 	})
-	if b := sc.Bounds(); b.W != a.paneW || b.H != a.paneH {
-		a.paneW, a.paneH = b.W, b.H
+	if b := sc.Bounds(); b.W != st.Width || b.H != st.Height || b.Y != st.Top {
+		st.Width, st.Height, st.Top = b.W, b.H, b.Y
 		c.Invalidate() // the layout follows the pane's width
 	}
 }
@@ -275,12 +268,9 @@ func (a *album) waitForSongs(d *services.AlbumDetail, id string, now time.Time) 
 // errorBlock is DetailError: not found, signed out, or the failure with
 // Retry; the way back is the library's Albums.
 func (a *album) errorBlock(c *ui.Context, l load) {
-	kit.DetailError(c, kit.NounAlbum, l.err, kit.DetailErrorOpts{
-		Retry:    func() { a.env.Queries.Invalidate(l.key) },
-		Retrying: l.fetching,
-		Back:     kit.EmptyAction{Label: i18n.T("Go to Albums"), Run: func() { a.push("/library/albums") }},
-		SignIn:   a.signIn,
-	})
+	res := store.Result[struct{}]{Err: l.err, Fetching: l.fetching}
+	back := kit.BackAction(i18n.T("Go to Albums"), "/library/albums", true, a.push)
+	kit.DetailQueryError(c, kit.NounAlbum, a.env.Queries, res, back, a.signIn, l.key)
 }
 
 // skeleton is the sleeve, head and rows at their real sizes while the album
@@ -309,7 +299,7 @@ func (a *album) skeleton(c *ui.Context, lay layout) {
 	rows := func() {
 		for i := range 8 {
 			ui.Row(c.Key(i)).FillWidth().Height(44).PaddingX(8).Gap(16).AlignItems(ui.Center).Children(func() {
-				ui.Box(c).Width(20).Height(12).Radius(tk.Radius["sm"]).Background(hover).Shrink(0)
+				kit.Bar(c, 20, 12)
 				ui.Box(c).Height(14).WidthPercent(float32(30 + (i*17)%30)).Radius(tk.Radius["sm"]).Background(hover)
 			})
 		}

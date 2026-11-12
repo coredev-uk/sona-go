@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
 
 // This file is v0.2.0's features/album/album.ts, album/layout.ts and
@@ -103,7 +104,7 @@ func workHeading(song services.Song, prev *services.Song, composers int) string 
 		return ""
 	}
 	if composers > 1 && song.Composer != "" {
-		return song.Composer + " · " + song.Work
+		return i18n.Meta(song.Composer, song.Work)
 	}
 	return song.Work
 }

@@ -29,7 +29,7 @@ func (s *search) itemRun(it services.Item) (run func(), role ui.Role) {
 	path := itemPath(it)
 	role = ui.RoleLink
 	switch {
-	case path != "" && s.env.HasRoute != nil && s.env.HasRoute(path):
+	case path != "" && s.env.Routed(path):
 		run = func() { s.env.Nav.Push(path) }
 	case path == "" && it.Kind == services.ItemSong && it.Song != nil && it.Song.Playable:
 		role = ui.RoleButton
@@ -56,9 +56,13 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 
 	tk := theme.Current()
 	row := ui.Row(c.Key(o.key)).FillWidth().AlignItems(ui.Center).Radius(tk.Radius["md"]).PaddingEnd(4)
-	shown := row.Hovered() || row.FocusWithin()
-	if shown {
-		row.Background(theme.C("hover"))
+	shown := kit.HoverRow(row)
+	var target kit.ActionTarget // the row's menu target; menus nil or no actions: none
+	var hasTarget bool
+	if o.menus != nil {
+		if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
+			target, hasTarget = kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key}, true
+		}
 	}
 	row.Children(func() {
 		body := func() {
@@ -96,13 +100,11 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			if o.focus {
 				main.Focus()
 			}
-			if o.menus != nil && main.RightClicked() {
+			if hasTarget && main.RightClicked() {
 				// The open button takes the press, so the row never sees it.
-				if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
-					x, y, _ := main.PointerPosition()
-					wx, wy := main.LocalToWindow(x, y)
-					o.menus.OpenAt(kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key}, wx, wy, false)
-				}
+				x, y, _ := main.PointerPosition()
+				wx, wy := main.LocalToWindow(x, y)
+				o.menus.OpenAt(target, wx, wy, false)
 			}
 			if main.Clicked() {
 				if o.onOpen != nil {
@@ -111,16 +113,11 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 				run()
 			}
 		}
-		if o.menus != nil {
-			if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
-				t := kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key}
-				o.menus.Trigger(c, t, kit.TriggerOpts{Visible: shown})
-			}
+		if hasTarget {
+			o.menus.Trigger(c, target, kit.TriggerOpts{Visible: shown})
 		}
 	})
-	if o.menus != nil {
-		if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
-			o.menus.Row(row, kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key})
-		}
+	if hasTarget {
+		o.menus.Row(row, target)
 	}
 }

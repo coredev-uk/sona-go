@@ -4206,7 +4206,6 @@ msgstr ""
 
 #: internal/ui/features/album/body.go
 #: internal/ui/features/album/model.go
-#: internal/ui/features/artist/format.go
 #: internal/ui/kit/collections_items_cover.go
 msgid "Out {releaseDate}"
 msgstr ""
@@ -5261,8 +5260,6 @@ msgstr ""
 msgid "Secret Service keyring"
 msgstr ""
 
-#: internal/ui/features/discover/room.go
-#: internal/ui/features/home/index.go
 #: internal/ui/features/radio/rail.go
 #: internal/ui/kit/collections_shelf.go
 msgid "See all"
@@ -7931,12 +7928,6 @@ msgstr ""
 msgid "{0, plural, one {# single or EP} other {# singles & EPs}}"
 msgstr ""
 
-#. {0} is the number of songs: a list's total, or a playlist's track count.
-#: internal/ui/features/album/format.go
-#: internal/ui/features/home/local.go
-#: internal/ui/features/library/favourites.go
-#: internal/ui/features/library/playlists.go
-#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/header.go
 msgid "{0, plural, one {# song} other {# songs}}"
 msgstr ""
@@ -8039,7 +8030,7 @@ msgstr ""
 msgid "{count} of {what}"
 msgstr ""
 
-#: internal/ui/features/album/format.go
+#: internal/ui/i18n/catalogue.go
 msgid "{count}, {time}"
 msgstr ""
 
@@ -8179,7 +8170,6 @@ msgid "{n, plural, one {# song you played hasn't been sent yet.} other {# songs 
 msgstr ""
 
 #: internal/ui/features/home/index.go
-#: internal/ui/features/playlist/dialogs.go
 #: internal/ui/kit/overlays_actions.go
 msgid "{n, plural, one {# song} other {# songs}}"
 msgstr ""
@@ -8301,10 +8291,7 @@ msgstr ""
 msgid "{seconds} s"
 msgstr ""
 
-#: internal/ui/features/artist/format.go
-#: internal/ui/features/library/artists_index.go
-#: internal/ui/features/library/history.go
-#: internal/ui/features/settings/diag_rows.go
+#: internal/ui/i18n/catalogue.go
 msgid "{songs, plural, one {# song} other {# songs}}"
 msgstr ""
 

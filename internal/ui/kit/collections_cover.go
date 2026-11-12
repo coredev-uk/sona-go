@@ -339,7 +339,7 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 		st.Sel.Keys(s, i)
 	}
 	if selectable && o.Menus != nil {
-		collectionsMenu(&st.Sel, o.Menus, s, ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key}, i)
+		o.Menus.OpenFor(&st.Sel, s, s, ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key}, i)
 	}
 }
 
@@ -469,22 +469,4 @@ func Fade(e ui.Element, show bool) {
 		return
 	}
 	e.Opacity(e.Animate("fade", to, theme.Current().Motion["press"].Duration))
-}
-
-// collectionsMenu opens an item's menu on a right-click, or on Shift+F10 or
-// the Menu key while it has the focus, as ActionMenus.Row does, but first
-// selects the item alone when it is outside the selection (a menu acts on the
-// whole selection only when the item is in it).
-func collectionsMenu(sel *Selection, menus *ActionMenus, s ui.Element, t ActionTarget, index int) {
-	if s.RightClicked() {
-		sel.MenuOn(index)
-		x, y, _ := s.PointerPosition()
-		wx, wy := s.LocalToWindow(x, y)
-		menus.OpenAt(t, wx, wy, false)
-	}
-	if s.Shortcut(ui.Shift, ui.KeyF10) || s.Shortcut(0, ui.KeyContextMenu) {
-		sel.MenuOn(index)
-		b := s.Bounds()
-		menus.OpenAt(t, b.X+16, b.Y+b.H, true)
-	}
 }

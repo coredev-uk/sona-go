@@ -13,7 +13,7 @@ import (
 )
 
 // The header's geometry, in DIPs: the cover is the card's front panel, 224
-// square (144 when the window is under narrowPage), and the text beside it
+// square (144 when the window is under kit.PageNarrow), and the text beside it
 // is as tall as the cover, the title and byline at its top and the actions
 // on its bottom edge.
 const (
@@ -97,7 +97,7 @@ func (p *playlists) header(c *ui.Context, d services.PlaylistDetail, byline func
 	tk := theme.Current()
 	ww, _ := c.Size()
 	gutter, art := tk.Metric["gutter"], float32(headCover)
-	if ww < narrowPage {
+	if ww < kit.PageNarrow {
 		gutter, art = tk.Metric["gutter-narrow"], headCoverNarrow
 	}
 	pl, hd := d.Playlist, d.Header
@@ -148,7 +148,7 @@ func (p *playlists) pageSkeleton(c *ui.Context) {
 	tk := theme.Current()
 	ww, _ := c.Size()
 	art := float32(headCover)
-	if ww < narrowPage {
+	if ww < kit.PageNarrow {
 		art = headCoverNarrow
 	}
 	hover := theme.C("hover")

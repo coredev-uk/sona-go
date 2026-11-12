@@ -4,6 +4,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -50,7 +51,7 @@ func ruledHead(c *ui.Context, o ruledOpts) {
 				o.Actions()
 			}
 			if o.More != nil {
-				seeAll(c, o.More).MarginEnd(-6)
+				kit.ShelfSeeAll(c, "see-all", o.More)
 			}
 		})
 	})
@@ -75,7 +76,7 @@ func showAll(c *ui.Context, count int, open *bool) {
 	if *open {
 		label = i18n.T("Show fewer")
 	}
-	if toggleButton(c, label, *open).Clicked() {
+	if kit.ShelfDisclosure(c, label, *open).Clicked() {
 		*open = !*open
 	}
 }

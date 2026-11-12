@@ -41,7 +41,7 @@ type timelineLink struct{ view string }
 func releaseKind(view string, al services.Album) string {
 	switch view {
 	case services.ViewSingles:
-		if _, kind := releaseTitle(al.Name); kind == "ep" {
+		if _, kind := kit.ReleaseTitle(al.Name); kind == "ep" {
 			return i18n.T("EP")
 		}
 		return i18n.T("Single")
@@ -50,7 +50,7 @@ func releaseKind(view string, al services.Album) string {
 	case services.ViewCompilations:
 		return i18n.T("Compilation")
 	}
-	switch _, kind := releaseTitle(al.Name); {
+	switch _, kind := kit.ReleaseTitle(al.Name); {
 	case kind == "ep":
 		return i18n.T("EP")
 	case kind == "single" || al.Single:
@@ -108,7 +108,7 @@ func buildTimeline(shelves []services.ArtistShelf, now time.Time) (years []timel
 		y := &years[len(years)-1]
 		y.albums = append(y.albums, e.al)
 		line := e.kind
-		if badge := releaseBadge(*e.al, now); badge != "" {
+		if badge := kit.ReleaseBadge(*e.al, now); badge != "" {
 			line += " · " + badge
 		}
 		y.lines = append(y.lines, line)
@@ -174,7 +174,7 @@ func (a *artist) timeline(c *ui.Context, pg *pageState, shelves []services.Artis
 			for _, l := range more {
 				title, _ := viewTitle(l.view, art.Name)
 				path := viewPath(art.ID, l.view)
-				if !a.has(path) {
+				if !a.env.Routed(path) {
 					continue
 				}
 				b := kit.Button(c.Key("all:"+l.view), strings.TrimSpace(title), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-right", IconAfter: true})

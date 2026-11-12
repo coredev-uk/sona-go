@@ -446,8 +446,8 @@ func TestAddAndDeleteAvailabilityFollowTheLibraryState(t *testing.T) {
 func TestFavouriteCallsTheServiceAndShowsAtOnce(t *testing.T) {
 	r, f := newActRig(t)
 	f.gate = make(chan struct{})
-	watch := actWatch(r, keyFavourites)
-	counts := actWatch(r, keyCounts)
+	watch := actWatch(r, store.KeyLibraryFavourites)
+	counts := actWatch(r, store.KeyLibraryCounts)
 	item := kit.SongItem(actCatalogSong)
 	ctx := actContext(r, item)
 
@@ -540,7 +540,7 @@ func TestCopyLinkCopiesAndToastsEitherWay(t *testing.T) {
 
 func TestAddToLibraryCallsAddWithTheCatalogueIDAndRefreshesTheLists(t *testing.T) {
 	r, f := newActRig(t)
-	counts := actWatch(r, keyCounts)
+	counts := actWatch(r, store.KeyLibraryCounts)
 	songs := actWatch(r, store.Key{"library", "songs"})
 	item := kit.SongItem(services.Song{ID: "x-lib", Source: services.SourceCatalog, CatalogID: "cat-9", Name: "Karma Police"})
 	ctx := actContext(r, item)
@@ -568,7 +568,7 @@ func TestDeleteAsksFirstAndCancelDoesNothing(t *testing.T) {
 
 func deleteAsksFirstAndCancelDoesNothing(t *testing.T) {
 	r, f := newActRig(t)
-	counts := actWatch(r, keyCounts)
+	counts := actWatch(r, store.KeyLibraryCounts)
 	item := kit.SongItem(actLibrarySong)
 	ctx := actContext(r, item)
 	del := actDef(t, r, kit.KindSong, "library.remove.song")
@@ -823,7 +823,7 @@ func TestMenuDataOfAMenuIsOneStatesCall(t *testing.T) {
 
 func TestItemStateEventWritesTheStateAndRefreshesFavourites(t *testing.T) {
 	r, _ := newActRig(t)
-	watch := actWatch(r, keyFavourites)
+	watch := actWatch(r, store.KeyLibraryFavourites)
 	if _, ok := actCached(r, "songs", "1001"); ok {
 		t.Fatal("cached before the event")
 	}

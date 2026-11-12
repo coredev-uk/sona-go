@@ -124,8 +124,8 @@ func TestNewPageContentsJumpToAShelfOrABandAndMoveFocusToIt(t *testing.T) {
 	if len(r.d.newPg.anchors) == 0 {
 		t.Fatal("the page has no places to jump to")
 	}
-	if r.d.newPg.pg.pos.Y != 0 {
-		t.Fatalf("the page starts scrolled to %v", r.d.newPg.pg.pos.Y)
+	if r.d.newPg.pg.Pos.Y != 0 {
+		t.Fatalf("the page starts scrolled to %v", r.d.newPg.pg.Pos.Y)
 	}
 	if err := r.tt.Click("Updated Playlists"); err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestNewPageContentsJumpToAShelfOrABandAndMoveFocusToIt(t *testing.T) {
 	r.tt.Drain()
 	// The shelf is scrolled to the top (its scroll margin of 24 below it), and the
 	// focus is on its section, which is not a stop of Tab.
-	pos := r.d.newPg.pg.pos
+	pos := r.d.newPg.pg.Pos
 	want := min(r.d.newPg.anchors["new:playlists-0"]-24, pos.MaxY)
 	if got := pos.Y; got <= 0 || got < want-1 || got > want+1 {
 		t.Errorf("scrolled to %v, want the shelf's place %v (the page's end is %v)", got, want, pos.MaxY)
@@ -146,7 +146,7 @@ func TestNewPageContentsJumpToAShelfOrABandAndMoveFocusToIt(t *testing.T) {
 		t.Errorf("the focus is not on the shelf's section")
 	}
 	// A band's own button goes to its band.
-	r.d.newPg.pg.pos.Y = 0
+	r.d.newPg.pg.Pos.Y = 0
 	r.tt.Drain()
 	if err := r.tt.Click("Playlists"); err != nil {
 		t.Fatal(err)

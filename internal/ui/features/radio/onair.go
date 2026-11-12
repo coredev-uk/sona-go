@@ -34,7 +34,7 @@ const (
 // board is the state of the on-air board: the width its track follows, and the
 // moment its schedules are read against.
 type board struct {
-	width widthOf
+	width kit.WidthTracker
 	clock refresh
 }
 
@@ -50,7 +50,7 @@ func stationURL(id string) string { return "/station/" + url.PathEscape(id) }
 func (r *radio) onAirBoard(c *ui.Context, b *board, stations []services.Station, ctx kit.ItemsCtx, menus *kit.ActionMenus) {
 	now := b.clock.read(c, r.now)
 	root := ui.Column(c.Key("board")).FillWidth().Margin(0, 0, 0, -boardBleed)
-	width := b.width.track(c, root)
+	width := b.width.Track(c, root)
 	root.Children(func() {
 		trackW := width - whoW - whoGap
 		if trackW < 120 {
@@ -374,11 +374,11 @@ func (r *radio) toggle() {
 // onAirSkeleton is the board's frame while the live stations load: the
 // ruler's heading and lanes at their real height, the art and the programmes
 // as bars.
-func (r *radio) onAirSkeleton(c *ui.Context, w *widthOf) {
+func (r *radio) onAirSkeleton(c *ui.Context, w *kit.WidthTracker) {
 	hover := theme.C("hover")
 	tk := theme.Current()
 	root := ui.Column(c.Key("board-skeleton")).FillWidth().Margin(0, 0, 0, -boardBleed).Role(ui.RoleStatus).Label(i18n.T("Loading"))
-	width := w.track(c, root)
+	width := w.Track(c, root)
 	root.Children(func() {
 		r.ruler(c, guide{}, i18n.T("Live now"))
 		trackW := width - whoW - whoGap
@@ -390,8 +390,8 @@ func (r *radio) onAirSkeleton(c *ui.Context, w *widthOf) {
 		for i, sh := range shares {
 			ui.Row(c.Key(i)).FillWidth().Height(rowH).Gap(whoGap).Children(func() {
 				ui.Row(c.Key("who")).Width(whoW).Shrink(0).Padding(8, 8, 8, boardBleed).Gap(12).AlignItems(ui.Center).Children(func() {
-					ui.Box(c).Size(rowArt, rowArt).Radius(tk.Radius["sm"]).Background(hover).Shrink(0)
-					ui.Box(c).Width(96).Height(14).Radius(tk.Radius["sm"]).Background(hover)
+					kit.Bar(c, rowArt, rowArt)
+					kit.Bar(c, 96, 14)
 				})
 				ui.Row(c.Key("track")).Grow(1).MinWidth(0).Height(rowH).AlignItems(ui.Center).Gap(4).Children(func() {
 					ui.Box(c.Key(0)).Width(trackW * sh[0]).Height(laneH).Radius(tk.Radius["md"]).Background(hover)

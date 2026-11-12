@@ -19,7 +19,7 @@ const shelfLoading = 12
 // its item menu.
 type shelfPage struct {
 	id    string
-	view  pageView
+	view  kit.PageFrame
 	grid  kit.ItemGridState
 	menus *kit.ActionMenus
 }
@@ -42,16 +42,13 @@ func (h *home) shelfPage(c *ui.Context, r *ui.Route) {
 		*g = shelfPage{id: id}
 		g.menus = kit.NewActionMenus(h.env.Actions, &g.grid.Sel)
 	}
-	h.scrollPage(c, &g.view, id, func(pane *kit.Pane) {
+	g.view.Scroll(c, id, func(pane *kit.Pane, _ float32) {
 		q := h.env.Queries
 		res := store.Use(q, keyHomeShelf(id), func(cx context.Context) (services.Section, error) {
 			return h.disc.HomeShelf(cx, id)
 		}, store.Options{Stale: store.Forever})
 		if res.Err != nil {
-			kit.ErrorBlock(c, i18n.T("Couldn't load this shelf"), res.Err, kit.ErrorBlockOpts{
-				OnRetry:  func() { q.Invalidate(keyHomeShelf(id)) },
-				Retrying: res.Fetching,
-			})
+			kit.QueryError(c, q, i18n.T("Couldn't load this shelf"), res, keyHomeShelf(id))
 			return
 		}
 		kit.PageHeader(c, res.Data.Title, "", nil)

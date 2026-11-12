@@ -61,6 +61,9 @@ type message struct {
 
 var (
 	current atomic.Pointer[layers]
+	// revision counts the layers made: it changes with the language, the
+	// regional formats and every translation loaded.
+	revision atomic.Uint64
 
 	// settings is what builds the layers; guarded by mu.
 	mu            sync.Mutex
@@ -93,7 +96,13 @@ func rebuild() {
 		}
 	}
 	current.Store(l)
+	revision.Add(1)
 }
+
+// Revision changes whenever what a message reads as can have: a language, a
+// format or a translation set. A view that keeps formatted text keeps it for
+// one revision.
+func Revision() uint64 { return revision.Load() }
 
 func isSource(tag string) bool {
 	return langOf(strings.ToLower(tag)) == SourceLocale && tag != PseudoLocale && !strings.EqualFold(tag, PseudoLocale)

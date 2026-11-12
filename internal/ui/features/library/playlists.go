@@ -13,7 +13,7 @@ import (
 
 // playlistsPage is the Playlists page's view state.
 type playlistsPage struct {
-	pageView
+	kit.PageFrame
 	cover coverList
 }
 
@@ -30,7 +30,7 @@ func (l *library) playlistsPage(c *ui.Context, r *ui.Route) {
 		// translators: {0} is the number of playlists listed.
 		subline = i18n.T("{0, plural, one {# playlist} other {# playlists}}", "0", list.Total)
 	}
-	l.scrollPage(c, &pg.pageView, q.key(), func(pane *kit.Pane) {
+	pg.Scroll(c, q.key(), func(pane *kit.Pane, _ float32) {
 		l.pageHead(c, headOpts{title: i18n.T("Playlists"), count: subline, actions: func() {
 			l.sortSelect(c, playlistsSpec, q)
 		}})
@@ -49,7 +49,7 @@ func (l *library) playlistsPage(c *ui.Context, r *ui.Route) {
 // "playlists", sort, desc, page]`).
 func (l *library) playlistList(q listQuery) *listView[services.Playlist] {
 	return usePaged(l, &l.playlists.cover.pager, func(n int) store.Key {
-		return store.Key{"library", "playlists", q.sort, q.desc, n}
+		return store.LibraryPlaylists(q.sort, q.desc, n)
 	}, func(ctx context.Context, off, lim int) (listPage[services.Playlist], error) {
 		p, err := l.lib.Playlists(ctx, q.sort, q.desc, off, lim)
 		return listPage[services.Playlist]{p.Items, p.Total}, err
@@ -62,7 +62,7 @@ func playlistSubtitle(p *services.Playlist) string {
 		return p.Curator
 	}
 	if p.TrackCount > 0 {
-		return i18n.T("{0, plural, one {# song} other {# songs}}", "0", p.TrackCount)
+		return i18n.SongCount(p.TrackCount)
 	}
 	return ""
 }

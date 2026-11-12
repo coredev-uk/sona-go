@@ -57,3 +57,7 @@ func (e *Env) ItemsCtx(menus *kit.ActionMenus) kit.ItemsCtx {
 	}
 	return ctx
 }
+
+// Routed reports whether a module serves path: HasRoute, false in a hand-built
+// Env. A feature links to a page only when this is true.
+func (e *Env) Routed(path string) bool { return e.HasRoute != nil && e.HasRoute(path) }

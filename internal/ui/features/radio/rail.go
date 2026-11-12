@@ -109,12 +109,11 @@ type railOpts struct {
 }
 
 // railed is true when the page is wide enough to hang headings in a rail.
-func (f *frame) railed() bool {
-	if f.width <= 0 {
+func (pg *radioPage) railed() bool {
+	if pg.Width <= 0 {
 		return true // the first frame; the next one knows the width
 	}
-	m := theme.Current().Metric
-	return f.width-2*f.gutter()-m["scrollbar"] >= railMin
+	return pg.Inner() >= railMin
 }
 
 // rail lays out a block of the page as the guide does: a rule across the
@@ -214,16 +213,11 @@ func (r *radio) yours(c *ui.Context, state string, recent store.Result[[]service
 // shelves, each at the place it will land.
 func (r *radio) bandsSkeleton(c *ui.Context) {
 	pg := &r.radioPg
-	hover := theme.C("hover")
-	sm := theme.Current().Radius["sm"]
-	bar := func(w, h float32) ui.Element {
-		return ui.Box(c).Width(w).Height(h).Radius(sm).Background(hover)
-	}
-	headBar := func(w, h float32) func() { return func() { bar(w, h) } }
+	headBar := func(w, h float32) func() { return func() { kit.Bar(c, w, h) } }
 	ui.Column(c.Key("bands-skeleton")).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		pg.rail(c, railOpts{key: "broadcasters", gap: 40, pad: 20, head: headBar(128, 22)}, func() {
 			root := ui.Grid(c.Key("stations")).GapX(16).GapY(4).MarginX(-8)
-			width := pg.loadingStations.track(c, root)
+			width := pg.loadingStations.Track(c, root)
 			if width > 0 {
 				root.Columns(max(1, int((width+16)/(260+16))))
 			}
@@ -234,8 +228,8 @@ func (r *radio) bandsSkeleton(c *ui.Context) {
 				}
 				for i := range 8 {
 					ui.Row(c.Key(i)).Height(64).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
-						ui.Box(c).Size(48, 48).Radius(sm).Background(hover).Shrink(0)
-						bar(112, 14)
+						kit.Bar(c, 48, 48)
+						kit.Bar(c, 112, 14)
 					})
 				}
 			})
@@ -244,9 +238,9 @@ func (r *radio) bandsSkeleton(c *ui.Context) {
 			ui.Column(c.Key("shelves")).Gap(40).Children(func() {
 				for s := range 2 {
 					ui.Column(c.Key(s)).Children(func() {
-						ui.Row(c).Height(28).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { bar(160, 16) })
+						ui.Row(c).Height(28).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 160, 16) })
 						root := ui.Row(c.Key("tiles")).Gap(theme.Current().Metric["tile-gap-x"]).FillWidth().Clip()
-						width := pg.loadingTiles.track(c, root)
+						width := pg.loadingTiles.Track(c, root)
 						root.Children(func() {
 							if width <= 0 {
 								ui.Box(c).Height(1)
@@ -255,9 +249,9 @@ func (r *radio) bandsSkeleton(c *ui.Context) {
 							cols, tile := kit.CoverColumns(width, theme.Current().Metric["tile-min"])
 							for i := range cols {
 								ui.Column(c.Key(i)).Width(tile).Children(func() {
-									ui.Box(c).Size(tile, tile).Radius(sm).Background(hover)
-									ui.Box(c).WidthPercent(75).Height(14).Margin(8, 0, 0, 0).Radius(sm).Background(hover)
-									ui.Box(c).WidthPercent(50).Height(12).Margin(6, 0, 0, 0).Radius(sm).Background(hover)
+									kit.Bar(c, tile, tile)
+									ui.Box(c).WidthPercent(75).Height(14).Margin(8, 0, 0, 0).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
+									ui.Box(c).WidthPercent(50).Height(12).Margin(6, 0, 0, 0).Radius(theme.Current().Radius["sm"]).Background(theme.C("hover"))
 								})
 							}
 						})

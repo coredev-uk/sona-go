@@ -100,6 +100,15 @@ func NewActionMenus(reg *ActionRegistry, sel SelectionScope) *ActionMenus {
 	return &ActionMenus{reg: reg, sel: sel}
 }
 
+// MenusIn returns the menus in *slot, made over reg and sel the first time
+// (a page's item menu, made once on its first frame).
+func MenusIn(slot **ActionMenus, reg *ActionRegistry, sel SelectionScope) *ActionMenus {
+	if *slot == nil {
+		*slot = NewActionMenus(reg, sel)
+	}
+	return *slot
+}
+
 // IsOpen reports whether a menu shows.
 func (a *ActionMenus) IsOpen() bool { return a.menu.IsOpen() }
 
@@ -270,7 +279,7 @@ func (a *ActionMenus) show(c *ui.Context, anchor ui.Element) {
 // stop: Shift+F10 or the Menu key on the row open the same menu). The
 // header variant is an always-visible outline icon button.
 func (a *ActionMenus) Trigger(c *ui.Context, t ActionTarget, o TriggerOpts) ui.Element {
-	if !a.reg.Has(t.Item.Kind) && a.reg.BulkFor([]Item{t.Item}) == nil {
+	if !a.HasMenu(t.Item) {
 		return ui.Element{}
 	}
 	mine := a.menu.IsOpen() && a.cur.target.Key == t.Key && a.cur.target.Item.Kind == t.Item.Kind &&
@@ -325,6 +334,30 @@ func (a *ActionMenus) Row(row ui.Element, t ActionTarget) {
 	}
 	if row.Shortcut(ui.Shift, ui.KeyF10) || row.Shortcut(0, ui.KeyContextMenu) {
 		b := row.Bounds()
+		a.OpenAt(t, b.X+16, b.Y+b.H, true)
+	}
+}
+
+// HasMenu says whether the item has a more menu: a kind with actions, or one
+// the bulk actions take. False for nil menus or no registry.
+func (a *ActionMenus) HasMenu(it Item) bool {
+	return a != nil && a.reg != nil && (a.reg.Has(it.Kind) || len(a.reg.BulkFor([]Item{it})) > 0)
+}
+
+// OpenFor opens an item's menu on a right-click on src (at the pointer), or on
+// Shift+F10 or the Menu key while opener has the focus (below it), as Row
+// does, but first selects the item alone when it is outside the selection (a
+// menu acts on the whole selection only when the item is in it).
+func (a *ActionMenus) OpenFor(sel *Selection, src, opener ui.Element, t ActionTarget, index int) {
+	if src.RightClicked() {
+		sel.MenuOn(index)
+		x, y, _ := src.PointerPosition()
+		wx, wy := src.LocalToWindow(x, y)
+		a.OpenAt(t, wx, wy, false)
+	}
+	if opener.Shortcut(ui.Shift, ui.KeyF10) || opener.Shortcut(0, ui.KeyContextMenu) {
+		sel.MenuOn(index)
+		b := opener.Bounds()
 		a.OpenAt(t, b.X+16, b.Y+b.H, true)
 	}
 }
