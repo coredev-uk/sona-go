@@ -341,6 +341,42 @@ func TestUploadDownloadResumesAfterCut(t *testing.T) {
 	}
 }
 
+// A download cancelled while it waits to retry ends with the context's
+// error at once, instead of trying again.
+func TestUploadDownloadStopsWhenCancelledDuringBackoff(t *testing.T) {
+	hit := make(chan struct{}, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case hit <- struct{}{}:
+		default:
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+	e := New(Options{HTTP: srv.Client(), IdleTimeout: -1})
+	e.retry = []time.Duration{time.Hour}
+	t.Cleanup(func() { e.Close() })
+	u := &upload{url: srv.URL, wake: make(chan struct{}), size: -1}
+	c, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		e.download(c, u)
+	}()
+	<-hit
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("download still waiting to retry after its context ended")
+	}
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.err != context.Canceled || u.done {
+		t.Errorf("download ended with err %v, done %v; want context.Canceled", u.err, u.done)
+	}
+}
+
 func TestSoundCheckFollowsSettingAndHosts(t *testing.T) {
 	h := newHarness(t, time.Minute, false)
 	if err := h.e.SetSoundCheck(ctx(t), true); err != nil {

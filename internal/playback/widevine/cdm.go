@@ -355,6 +355,9 @@ type Subsample = fmp4.Subsample
 var (
 	_ [8 - unsafe.Sizeof(Subsample{})]struct{}
 	_ [unsafe.Sizeof(Subsample{}) - 8]struct{}
+	_ [0 - unsafe.Offsetof(Subsample{}.Clear)]struct{}
+	_ [4 - unsafe.Offsetof(Subsample{}.Cipher)]struct{}
+	_ [unsafe.Offsetof(Subsample{}.Cipher) - 4]struct{}
 )
 
 // Buffer is one 'cenc' (or, with CBCS, 'cbcs') sample to decrypt.

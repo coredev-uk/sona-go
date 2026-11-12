@@ -322,12 +322,18 @@ func retryable(err error) bool {
 
 // retrying runs op until it succeeds, retrying transient failures after
 // the delays in e.retry. onRetry sees each failure that will be retried
-// and returns the delay to wait. A ctx that ends during the wait returns
-// ctx.Err(); any other failure is op's last error.
+// and returns the delay to wait. A ctx that ends, during op or the wait,
+// returns ctx.Err(); any other failure is op's last error.
 func (e *Engine) retrying(ctx context.Context, op func() error, onRetry func(err error, delay time.Duration) time.Duration) error {
 	for attempt := 0; ; attempt++ {
 		err := op()
-		if err == nil || attempt >= len(e.retry) || !retryable(err) || ctx.Err() != nil {
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if attempt >= len(e.retry) || !retryable(err) {
 			return err
 		}
 		t := time.NewTimer(onRetry(err, e.retry[attempt]))
@@ -578,10 +584,10 @@ type segResult struct {
 	err  error
 }
 
-// prefetch runs get for segments from..to-1 in a goroutine and delivers
+// readAhead runs get for segments from..to-1 in a goroutine and delivers
 // the results in order, up to n ahead of the consumer. It stops after the
 // first error or when ctx ends, and closes the channel.
-func prefetch(ctx context.Context, n, from, to int, get func(i int) ([]byte, error)) <-chan segResult {
+func readAhead(ctx context.Context, n, from, to int, get func(i int) ([]byte, error)) <-chan segResult {
 	ch := make(chan segResult, n)
 	go func() {
 		defer close(ch)
@@ -603,7 +609,7 @@ func prefetch(ctx context.Context, n, from, to int, get func(i int) ([]byte, err
 // feed streams m's segments from index from to the host for track tok,
 // fetching up to readAhead segments ahead.
 func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *media, from int) {
-	for r := range prefetch(ctx, e.readAhead, from, len(m.pl.Segments), func(i int) ([]byte, error) { return e.segment(ctx, m, i) }) {
+	for r := range readAhead(ctx, e.readAhead, from, len(m.pl.Segments), func(i int) ([]byte, error) { return e.segment(ctx, m, i) }) {
 		err := r.err
 		switch {
 		case err != nil:

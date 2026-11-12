@@ -284,7 +284,7 @@ func (e *Engine) feedVideo(ctx context.Context, it *item, tok uint64, h host, m 
 		}
 		return b, err
 	}
-	for r := range prefetch(ctx, e.readAhead, from, len(v.pl.Segments), get) {
+	for r := range readAhead(ctx, e.readAhead, from, len(v.pl.Segments), get) {
 		err := r.err
 		if err == nil {
 			err = h.FeedVideo(ctx, tok, r.data)
