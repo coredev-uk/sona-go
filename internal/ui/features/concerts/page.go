@@ -111,7 +111,7 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 	}
 
 	tk := theme.Current()
-	gutter := tk.Metric["gutter"]
+	gutter := kit.PageGutter(pg.width)
 	devstate.Scroll(c, &pg.pos) // dev builds: the offset survives a restart
 	sc := ui.Scroll(c).TrackScroll(&pg.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
 	sc.Children(func() {
@@ -154,6 +154,7 @@ func (s *concerts) concertsPage(c *ui.Context, r *ui.Route) {
 			}
 		})
 	})
+	pg.width = sc.Bounds().W
 	s.where.show(c, s.data, loc)
 }
 

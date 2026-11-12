@@ -233,19 +233,23 @@ func TestRouteURLsCarryOnlyWhatIsSet(t *testing.T) {
 // wider than the banner's 4:1), and the strip under it shows four cards a
 // page, in a row of four or two rows of two.
 func TestFrontLayoutAtTheWidthsOfTheReferencePage(t *testing.T) {
-	l := layoutFor(1200)
+	l := layoutFor(1200, 0)
 	if l.lead != 1200 || l.perPage != 4 || l.columns != 4 || l.rows != 1 {
 		t.Errorf("at 1200: %+v", l)
 	}
-	for _, tc := range []struct{ width, height float32 }{
-		{800, 458},  // the hero shape: 800 / (1060/608)
-		{941, 539},  // still the hero shape, just under the cap
-		{1200, 540}, // capped: the box widens
-		{1600, 540}, // capped
-		{2400, 600}, // the banner's own 4:1, never wider
+	for _, tc := range []struct{ width, view, height float32 }{
+		{800, 0, 458},   // the hero shape: 800 / (1060/608)
+		{941, 0, 539},   // still the hero shape, just under the cap
+		{1200, 0, 540},  // capped: the box widens
+		{1600, 0, 540},  // capped
+		{2400, 0, 600},  // the banner's own 4:1, never wider
+		{920, 700, 315}, // a short window: 45% of the page, so the strip shows
+		{920, 400, 280}, // never under 280
+		{1920, 1100, 495},
+		{1920, 1400, 540}, // a tall window keeps the cap
 	} {
-		if h := layoutFor(tc.width).artHeight(); h != tc.height {
-			t.Errorf("at %v: lead art height %v, want %v", tc.width, h, tc.height)
+		if h := layoutFor(tc.width, tc.view).artHeight(); h != tc.height {
+			t.Errorf("at %v x %v: lead art height %v, want %v", tc.width, tc.view, h, tc.height)
 		}
 	}
 	// The strip reaches 8 past the lead's edges on each side.
@@ -261,7 +265,7 @@ func TestFrontLayoutAtTheWidthsOfTheReferencePage(t *testing.T) {
 		{879, 879, 2, 2},
 		{648, 648, 2, 2},
 	} {
-		l := layoutFor(tc.width)
+		l := layoutFor(tc.width, 0)
 		if l.lead != tc.lead || l.columns != tc.columns || l.rows != tc.rows || l.perPage != 4 || l.rowHeight != listRow {
 			t.Errorf("at %v: %+v", tc.width, l)
 		}

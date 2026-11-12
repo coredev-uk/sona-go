@@ -33,7 +33,7 @@ type noticeOpts struct {
 }
 
 // notice is Account.tsx's Notice: an icon, the text body and an optional
-// action at the end. It is a plain status: a problem shown on arrival or a
+// action under it. It is a plain status: a problem shown on arrival or a
 // neutral note. A problem the user's last action caused puts its words in
 // an alert (errorNotice).
 func notice(c *ui.Context, o noticeOpts, body func(), action func()) {
@@ -50,10 +50,14 @@ func notice(c *ui.Context, o noticeOpts, body func(), action func()) {
 		} else {
 			ui.Icon(c, theme.Icon(o.Icon)).FontSize(16).TextColor(theme.C(o.IconColor)).Margin(2, 0, 0, 0).Shrink(0)
 		}
-		ui.Column(c.Key("body")).Grow(1).MinWidth(0).Children(body)
-		if action != nil {
-			ui.Row(c.Key("action")).Shrink(0).AlignItems(ui.Center).Margin(-4, 0, -4, 0).Children(action)
-		}
+		// The action sits under the message, so the text keeps the notice's
+		// whole measure.
+		ui.Column(c.Key("body")).Grow(1).MinWidth(0).Children(func() {
+			body()
+			if action != nil {
+				ui.Row(c.Key("action")).AlignItems(ui.Center).Margin(8, 0, -4, 0).Children(action)
+			}
+		})
 	})
 }
 

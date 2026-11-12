@@ -86,10 +86,11 @@ func cellsFor(s services.Station, schedule []services.StationEvent, g guide) []c
 	}
 	blocks := g.win.blocks(programmes(schedule), g.now, g.trackW)
 	if len(blocks) == 0 {
-		if s.Tagline == "" {
-			return nil
+		title := s.Tagline
+		if title == "" {
+			title = i18n.T("No schedule")
 		}
-		return []cell{{key: "tagline", x1: g.trackW, look: lookQuiet, info: true, title: s.Tagline, text: label{x0: blockPad, w: room}}}
+		return []cell{{key: "tagline", x1: g.trackW, look: lookQuiet, info: true, title: title, text: label{x0: blockPad, w: room}}}
 	}
 	// Nothing to count down to when the station's own hours run to the end of
 	// its schedule.

@@ -923,7 +923,7 @@ func TestSignedInShowsTheAccount(t *testing.T) {
 	r := newRig(t, signedIn)
 	r.shows(
 		"Signed in to Apple Music", "Storefront: United Kingdom · British English", "Sign out",
-		"Where your token is kept", "secret-service",
+		"Where your token is kept", "Secret Service keyring",
 	)
 	r.hides("Apple Account", "Your token is stored unencrypted", "Explicit content is restricted on this account; Sona hides it.")
 

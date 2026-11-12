@@ -137,22 +137,20 @@ func (p *player) nowPlaying(c *ui.Context) {
 						p.closeButton(c)
 					})
 				} else {
-					// The sleeve: the cover and its label copy as one block, centred
-					// in the column on its height (the room above and below the
-					// block is shared; a block taller than the column starts at the
-					// top and is cut at the foot).
-					ui.Column(c.Key("left")).Width(lay.cover + 2*sleeveX).Shrink(0).PaddingX(sleeveX).Clip().Children(func() {
-						ui.Box(c.Key("above")).Grow(1).Basis(0).MinHeight(24)
+					// The sleeve: the cover and its label copy as one block, held
+					// at the top of the column on the insert's own top inset, so
+					// the two halves start on one line at any height (a block
+					// taller than the column is cut at the foot).
+					ui.Column(c.Key("left")).Width(lay.cover+2*sleeveX).Shrink(0).Padding(paneTop, sleeveX, 0).Clip().Children(func() {
 						p.nowPlayingArt(c, cur, lay.cover)
 						ui.Column(c.Key("sleeve-copy")).FillWidth().Margin(24, 0, 0, 0).Children(func() { p.songCopy(c, cur, lay.cover >= 320) })
-						ui.Box(c.Key("below")).Grow(1).Basis(0)
 					})
 					// The fold between the sleeve and the insert.
 					ui.Box(c.Key("fold")).Width(1).FillHeight().Shrink(0).Background(theme.C("line"))
 				}
 				pane := ui.Column(c.Key("pane")).FillHeight().Grow(1).Basis(0).MinWidth(0).MinHeight(0)
 				if !lay.stacked {
-					pane.Padding(8, paneEdge, 8)
+					pane.Padding(paneTop, paneEdge, 8)
 				}
 				pane.Children(func() {
 					// The insert's header: the tabs and Close over a rule that
@@ -221,6 +219,7 @@ const (
 	paneHeadH = 47
 	paneFootH = 52
 	paneEdge  = 12 // the insert's room at its sides, beside the fold
+	paneTop   = 24 // the room above the sleeve's cover and the insert's tabs alike
 	paneInset = 12 // where its words start, from the pane's own edge
 )
 

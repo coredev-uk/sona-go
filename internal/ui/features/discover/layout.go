@@ -23,6 +23,10 @@ const (
 	// crops the centre of the banner to it, where its title and subject are),
 	// so the front page never runs a screen tall.
 	leadMaxHeight = 540
+	// leadShare is the most of the page's visible height the lead's art
+	// takes, and leadMinHeight the least it is cut to by that.
+	leadShare     = 0.45
+	leadMinHeight = 280
 	// leadCaption is the lead's caption under its art: a 12 gap, a 30 title
 	// line and an 18 line.
 	leadCaption = 60
@@ -68,6 +72,8 @@ type frontLayout struct {
 	// lead is the lead's width, which its art is requested at; the caption and
 	// the strip are as wide.
 	lead float32
+	// view is the page's visible height (0 before it is known).
+	view float32
 	// columns and rows are the strip's cards in a row and the rows of a page
 	// (perPage = columns × rows); card is a card's width.
 	columns, rows, perPage int
@@ -79,7 +85,7 @@ type frontLayout struct {
 // in Apple's hero shape until that reaches leadMaxHeight, wider than it from
 // there (artHeight); the strip of featured cards under it shows four a page:
 // in one row of four, or two rows of two in a narrow window.
-func layoutFor(width float32) frontLayout {
+func layoutFor(width, view float32) frontLayout {
 	lead := float32(math.Floor(float64(max(width, 0))))
 	columns, rows := stripPerPage, 1
 	if lead < stripWide {
@@ -87,13 +93,19 @@ func layoutFor(width float32) frontLayout {
 	}
 	// The strip reaches 8 past the lead's edges on each side (frontPage).
 	card := float32(math.Floor(float64((lead + 16 - float32(columns-1)*stripGap) / float32(columns))))
-	return frontLayout{lead: lead, columns: columns, rows: rows, perPage: columns * rows, card: card, rowHeight: listRow}
+	return frontLayout{lead: lead, view: view, columns: columns, rows: rows, perPage: columns * rows, card: card, rowHeight: listRow}
 }
 
 // artHeight is the lead art's height at its width: the hero shape, at most
-// leadMaxHeight, and never wider than the banner itself.
+// leadMaxHeight, and never wider than the banner itself; and, so that the
+// featured strip shows under it, at most leadShare of the page's visible
+// height (leadMinHeight at the least).
 func (l frontLayout) artHeight() float32 {
-	return float32(math.Floor(float64(max(l.lead/bannerRatio, min(l.lead/heroRatio, leadMaxHeight)))))
+	h := max(l.lead/bannerRatio, min(l.lead/heroRatio, leadMaxHeight))
+	if l.view > 0 {
+		h = min(h, max(leadMinHeight, l.view*leadShare))
+	}
+	return float32(math.Floor(float64(h)))
 }
 
 // artAspect is the lead art box's width over its height, which its picture

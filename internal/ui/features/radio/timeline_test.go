@@ -181,8 +181,8 @@ func TestCellsOfALaneThatSaysSomethingInstead(t *testing.T) {
 		t.Errorf("a station without a schedule shows its tagline: %+v", bare)
 	}
 	none := liveStation("ra.6", "Quiet", func(s *services.Station) { s.Tagline = "" })
-	if got := cellsFor(none, nil, g); len(got) != 0 {
-		t.Errorf("a lane with nothing to say has cells: %+v", got)
+	if got := cellsFor(none, nil, g); len(got) != 1 || got[0].title != "No schedule" || !got[0].info {
+		t.Errorf("a lane with nothing to say reads No schedule: %+v", got)
 	}
 	// Own hours to the end of the schedule have nothing to count down to.
 	hits := liveStation("ra.2", "Hits")

@@ -4,7 +4,7 @@ Package `internal/ui/features/player`. Branch `feat/rd-player`.
 
 ## Direction: the transport deck
 
-The player stops being a strip of controls with a seek bar squeezed under them and becomes a deck. The seek bar is the bar's top edge, across the whole window, with the transport at the centre of the bar and its times either side. The queue is a numbered running order in three named groups. Now Playing is a record held open on a fold: the sleeve (cover and label copy, one block centred on the column's height) on one side of a hairline, the insert on the other, with a header, a body and a foot that each have their own rule. Full-screen lyrics keep the sheet exactly as it was and only gain a footer rule.
+The player stops being a strip of controls with a seek bar squeezed under them and becomes a deck. The seek bar is the bar's top edge, across the whole window, with the transport at the centre of the bar and its times either side. The queue is a numbered running order in three named groups. Now Playing is a record held open on a fold: the sleeve (cover and label copy, one block held at the column's top, level with the insert's tabs) on one side of a hairline, the insert on the other, with a header, a body and a foot that each have their own rule. Full-screen lyrics keep the sheet exactly as it was and only gain a footer rule.
 
 ## What moved, by region
 
@@ -25,7 +25,7 @@ The player stops being a strip of controls with a seek bar squeezed under them a
 
 ### Now Playing (Overlay)
 
-- **Sleeve**: cover and label copy are one block, centred vertically in a column the cover's width plus 48px at each side; the copy is left-aligned to the cover's edge. Cover sizes (400/320/240/168) and their rules are unchanged.
+- **Sleeve**: cover and label copy are one block, held at the top of a column the cover's width plus 48px at each side; the copy is left-aligned to the cover's edge. Cover sizes (400/320/240/168) and their rules are unchanged.
 - **Fold**: a 1px `--line` from the top of the view to its foot divides sleeve and insert (wide layout only).
 - **Insert**: the tabs and Close are one 47px header row over a 1px rule that starts and ends at the text edge, the shown tab's 2px ink rule resting on it. Each pane's foot (lyric tools, Up next's summary and tools) is a 52px strip under a rule of the same length. Body text edge: 24px from the fold in the wide layout (the tabs, both rules, the lyric lines, the queue's numbers, the foot's line), with the dashed empty and the error block on it too.
 - **Up next** is the queue panel's list (same groups). Beside the page the Next heading carries the summary; here the pane's foot already says it, so the heading has no detail. The playing row's fill is ink at 5% on the wash.

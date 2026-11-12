@@ -119,14 +119,12 @@ func TestA11yRadioPageHasNoControlInsideAnotherAndItsListsHoldOnlyItems(t *testi
 	if !ok || !play.Has(access.Focusable) {
 		t.Errorf("no focusable play button for the station: %v", play)
 	}
-	// One with no page: a button named by its text then the action, and its menu beside it.
+	// One with no page: a button named by its text then the action, and a play button beside it.
 	if b, ok := tr.Find(ui.RoleButton, "KISS FM Play"); !ok || !b.Has(access.Focusable) {
 		t.Errorf("no play button named by the station's text: %v", b)
 	}
-	if m, ok := tr.Find(ui.RoleMenuButton, "More for KISS FM"); !ok {
-		t.Error("the station with no page has no more button on the tree")
-	} else if m.Has(access.Focusable) {
-		t.Error("the more button is a Tab stop: Shift+F10 on the row opens the menu")
+	if b, ok := tr.Find(ui.RoleButton, "Play KISS FM"); !ok || !b.Has(access.Focusable) {
+		t.Errorf("no play button for the station with no page: %v", b)
 	}
 	// The progress of the programme on air: a progress indicator with its range and what is left.
 	prog, ok := tr.Find(ui.RoleProgress, "Time through this programme")

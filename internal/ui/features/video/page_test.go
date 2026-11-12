@@ -334,6 +334,7 @@ func TestStageBox(t *testing.T) {
 		{"cap ceiling is 640", 1500, 1400, 640, 1138, 640},
 		{"column exactly 16:9 at the cap", 1067, 1000, 600, 1067, 600},
 		{"fills just under the cap", 1000, 1000, 563, 1000, 563},
+		{"a matte of a sliver fills the column", 648, 700, 365, 648, 365},
 		{"no column", 0, 900, 0, 0, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

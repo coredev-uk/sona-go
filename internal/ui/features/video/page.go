@@ -27,6 +27,9 @@ const (
 	stageFrac = 0.6
 	stageMinH = 360
 	stageMaxH = 640
+	// stageSliver is the most matte, both sides together, worth a cinema
+	// screen: less than this and the picture fills the column instead.
+	stageSliver = 16
 	// pictureAspect is the video still's shape.
 	pictureAspect = 16.0 / 9
 	// stackBelow is the content width under which the actions go under the
@@ -136,7 +139,9 @@ func (v *video) widths(c *ui.Context, gutter float32) widths {
 func stageBox(content, visible float32) widths {
 	limit := float32(math.Floor(float64(min(max(visible*stageFrac, stageMinH), stageMaxH))))
 	natural := float32(math.Round(float64(content / pictureAspect)))
-	if natural <= limit {
+	// A matte under stageSliver across is a misaligned edge, not a screen:
+	// the picture then fills the column a little over the cap.
+	if natural <= limit || content-float32(math.Round(float64(limit*pictureAspect))) <= stageSliver {
 		return widths{content: content, stageH: natural, picW: content, picH: natural}
 	}
 	picW := float32(math.Round(float64(limit * pictureAspect)))
