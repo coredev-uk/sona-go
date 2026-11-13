@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/coredev-uk/sona-go/compare/v0.4.0...v0.5.0) (2026-11-13)
+
+
+### Features
+
+* **media:** motion artwork through the OS's own video engine on macOS and Windows ([#264](https://github.com/coredev-uk/sona-go/issues/264)) ([386db0c](https://github.com/coredev-uk/sona-go/commit/386db0cfd1be6cfc49b0d74138f62a896c768582))
+* **ui:** redesign every page, add themes and sidebar shuffle ([#277](https://github.com/coredev-uk/sona-go/issues/277)) ([6710eea](https://github.com/coredev-uk/sona-go/commit/6710eea90bef1689932ea034a335e4429db5d581))
+* use MyGo v0.9.0's session-end quit, KeepRunning, DefaultApp and GPU YUV ([#263](https://github.com/coredev-uk/sona-go/issues/263)) ([bd792ad](https://github.com/coredev-uk/sona-go/commit/bd792ad3bbfc507e1d13d6561ad3bb7f8b8fdd31))
+
+
+### Bug Fixes
+
+* **deps:** update module golang.org/x/mod to v0.43.0 ([#274](https://github.com/coredev-uk/sona-go/issues/274)) ([dfe6336](https://github.com/coredev-uk/sona-go/commit/dfe633613a27f11236d4b97ad0f6f0d1636e578e))
+* **deps:** update MyGo to v0.9.0 ([#262](https://github.com/coredev-uk/sona-go/issues/262)) ([0a33597](https://github.com/coredev-uk/sona-go/commit/0a3359718ac7da259566795e2be11195167923bd))
+* **playback:** a skip supersedes a slow load instead of queueing behind it ([#260](https://github.com/coredev-uk/sona-go/issues/260)) ([289065b](https://github.com/coredev-uk/sona-go/commit/289065b6bf5accdf32a6925410dfc68d31e42260))
+
 ## [0.4.0](https://github.com/coredev-uk/sona-go/compare/v0.3.2...v0.4.0) (2026-11-11)
 
 
