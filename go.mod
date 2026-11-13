@@ -20,7 +20,7 @@ require (
 require (
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
 	github.com/bitfield/gotestdox v0.2.2 // indirect
-	github.com/cloudflare/circl v1.6.2 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dnephin/pflag v1.0.7 // indirect
 	github.com/fatih/color v1.18.0 // indirect
