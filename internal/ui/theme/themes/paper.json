@@ -1,0 +1,44 @@
+{
+  "$comment": "A warm neutral board, grey rather than cream. Teal marks what plays.",
+  "format": 1,
+  "id": "paper",
+  "name": "Paper",
+  "author": "Sona",
+  "light": {
+    "color": {
+      "ground": "#f5f2ef",
+      "surface": "#eeebe7",
+      "raised": "#fdf9f6",
+      "hover": "#e6e3e0",
+      "active": "#dedbd7",
+      "line": "#dbd8d5",
+      "control-line": "#82807d",
+      "ink": "#1e1a16",
+      "ink-muted": "#5c5753",
+      "ink-faint": "#625c58",
+      "amber": "#2a9898",
+      "amber-ink": "#006161",
+      "on-amber": "#021a19",
+      "positive": "#1a6842",
+      "danger": "#b22116"
+    }
+  },
+  "dark": {
+    "color": {
+      "ground": "#181512",
+      "surface": "#1e1a17",
+      "raised": "#25211e",
+      "hover": "#2a2623",
+      "active": "#322e2b",
+      "line": "#2e2b27",
+      "control-line": "#75716d",
+      "ink": "#efece8",
+      "ink-muted": "#b0adaa",
+      "ink-faint": "#a7a4a0",
+      "amber": "#5cc9c2",
+      "amber-ink": "#5cc9c2",
+      "on-amber": "#021a19",
+      "danger": "#f47362"
+    }
+  }
+}

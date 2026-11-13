@@ -394,3 +394,33 @@ func TestRowsAreNamedForAssistiveTechnology(t *testing.T) {
 		t.Errorf("the grid has no name; texts %q", r.tt.Texts())
 	}
 }
+
+func TestStripTilesAreOneTabStopWithTheRowsKeys(t *testing.T) {
+	// A strip: covers across one row, the same keys as the rows.
+	r := newRowsRig(t, moodStations(), rowsOpts{Label: "Recently Played", Rows: 1, Min: stripMin, Tile: true}, 640, 600)
+	if r.cols < 3 {
+		t.Fatalf("the strip fits %d tiles, want the three", r.cols)
+	}
+	r.key(ui.KeyTab)
+	r.focused("Energy")
+	r.key(ui.KeyRight)
+	r.focused("Focus")
+	r.key(ui.KeyEnd)
+	r.focused("Relax")
+	r.key(ui.KeySpace)
+	if got := r.rec.all(); !slices.Equal(got, []string{"station:ra.3"}) {
+		t.Errorf("Space played %q, want the focused station", got)
+	}
+	r.key(ui.KeyEnter)
+	if got := r.router.Path(); got != "/station/ra.3" {
+		t.Errorf("Enter opened %q, want the station's page", got)
+	}
+	// Tab leaves the strip: one stop.
+	r.key(ui.KeyTab)
+	r.focused("After")
+}
+
+func TestRankedRowsNumberFromTheFirstRank(t *testing.T) {
+	r := newRowsRig(t, moodStations(), rowsOpts{Label: "Top Picks", Rows: 3, Cols: 1, Number: 2, Rules: true}, 640, 600)
+	requireTexts(t, &rig{tt: r.tt}, "02", "03", "04", "Energy", "Relax")
+}

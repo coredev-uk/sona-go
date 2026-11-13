@@ -119,14 +119,12 @@ func TestA11yRadioPageHasNoControlInsideAnotherAndItsListsHoldOnlyItems(t *testi
 	if !ok || !play.Has(access.Focusable) {
 		t.Errorf("no focusable play button for the station: %v", play)
 	}
-	// One with no page: a button named by its text then the action, and its menu beside it.
+	// One with no page: a button named by its text then the action, and a play button beside it.
 	if b, ok := tr.Find(ui.RoleButton, "KISS FM Play"); !ok || !b.Has(access.Focusable) {
 		t.Errorf("no play button named by the station's text: %v", b)
 	}
-	if m, ok := tr.Find(ui.RoleMenuButton, "More for KISS FM"); !ok {
-		t.Error("the station with no page has no more button on the tree")
-	} else if m.Has(access.Focusable) {
-		t.Error("the more button is a Tab stop: Shift+F10 on the row opens the menu")
+	if b, ok := tr.Find(ui.RoleButton, "Play KISS FM"); !ok || !b.Has(access.Focusable) {
+		t.Errorf("no play button for the station with no page: %v", b)
 	}
 	// The progress of the programme on air: a progress indicator with its range and what is left.
 	prog, ok := tr.Find(ui.RoleProgress, "Time through this programme")
@@ -139,6 +137,21 @@ func TestA11yRadioPageHasNoControlInsideAnotherAndItsListsHoldOnlyItems(t *testi
 	// The tiles of the user's stations are a table of rows.
 	if _, ok := tr.Find(ui.RoleTable, "Your stations"); !ok {
 		t.Error("no table of the user's stations")
+	}
+}
+
+func TestA11yAProgrammesBoxIsALinkNamedForItsSlotThatIsNoTabStop(t *testing.T) {
+	rg := radioWithSchedule(t)
+	t0 := base()
+	name := "The Zane Lowe Show, " + clockAt(t0.UnixMilli()) + "–" + clockAt(t0.Add(time.Hour).UnixMilli())
+	l, ok := access.Read(t, rg.tt.Tester).Find(ui.RoleLink, name)
+	if !ok || !l.Has(access.Focusable) {
+		t.Fatalf("no link %q", name)
+	}
+	// The station's own link is the one stop: the boxes are reached by the
+	// pointer and by screen readers' link lists.
+	if slices.Contains(walk(t, rg), name) {
+		t.Errorf("a programme's box is a Tab stop")
 	}
 }
 

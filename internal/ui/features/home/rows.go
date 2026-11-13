@@ -1,6 +1,8 @@
 package home
 
 import (
+	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/egoist/mygo/ui"
@@ -20,6 +22,15 @@ const (
 	rowGap   = 12
 	rowGapX  = kit.TileGapX
 	rowMarkA = 0.7 // the play mark's ground wash
+	// rowNum is the room of a row's rank (a running order's "02"), rowInline
+	// the column width from which a ranked row sets its reason beside its
+	// name instead of under it.
+	rowNum    = 32
+	rowInline = 480
+	// tilePad is the plate around a tile's cover and text.
+	tilePad = 6
+	// tileDisc is the play disc over a tile's cover.
+	tileDisc = 40
 )
 
 // rowsState is the state of one ItemRows list: its selection and menu, its
@@ -57,6 +68,21 @@ type rowsOpts struct {
 	// OnBackdrop: the rows sit on a cover's backdrop, where a hover tints
 	// with ink, not the opaque --hover fill.
 	OnBackdrop bool
+	// colW is a column's width as laid out, set by itemRows.
+	colW float32
+	// Number, when above zero, ranks the rows: the first shows it ("02"),
+	// the next one more, in tabular faint figures before the art. The order
+	// is Apple's, so the figure is information.
+	Number int
+	// Cols forces the column count (a running order is one column); zero
+	// fits as many as the width allows.
+	Cols int
+	// Rules draws a hairline under every row, a ledger.
+	Rules bool
+	// Tile sets each item as a cover tile (the cover as wide as its column,
+	// the name and the line under it) in place of a row: a strip. The list
+	// is still one Tab stop with the same keys.
+	Tile bool
 }
 
 // sync brings the rows' IDs, keys and targets up to date with the items
@@ -105,10 +131,20 @@ func (h *home) itemRows(c *ui.Context, st *rowsState, items []services.Item, ctx
 	}
 	hint := i18n.T("Enter opens, Space plays, Shift+F10 shows more actions.")
 	root := ui.Grid(c.Key("rows." + o.Label)).GapX(rowGapX).Role(ui.RoleList).Label(o.Label).Description(hint)
+	// The art and the rank, not the plate behind them, sit on the page's
+	// edges.
+	if o.Tile {
+		root.Margin(0, -tilePad, 0, -tilePad)
+	} else {
+		root.Margin(0, -rowPadX, 0, -rowPadX)
+	}
 	width := st.width.Track(c, root)
 	cols := 1
 	if width > 0 {
 		cols, _ = kit.CoverColumns(width, o.Min)
+		if o.Cols > 0 {
+			cols = o.Cols
+		}
 		root.Columns(cols)
 	}
 	root.Children(func() {
@@ -126,6 +162,7 @@ func (h *home) itemRows(c *ui.Context, st *rowsState, items []services.Item, ctx
 		if !o.Open {
 			shown = items[:min(len(items), cols*o.Rows)]
 		}
+		o.colW = (width - float32(cols-1)*rowGapX) / float32(cols)
 		st.sync(shown, ctx.Players)
 		st.sel.Hold = func() bool { return st.menus.IsOpen() || kit.ConfirmPending() }
 		st.sel.Rows(st.keys, st.itemAt)
@@ -172,9 +209,21 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 	if round {
 		radius = tk.Radius["full"]
 	}
+	// lead is the room the rank takes before the art.
+	var lead float32
+	if o.Number > 0 {
+		lead = rowNum
+	}
+	// A tile's cover is its column less the plate.
+	tileArt := max(rowArt, float32(math.Floor(float64(o.colW)))-2*tilePad)
+	if o.Tile && it.Art.Medium != "" {
+		art = it.Art.Medium
+	}
+	inline := o.Number > 0 && o.colW >= rowInline && subtitle != ""
+	rule := hairline()
 
 	_, src := kit.DragItem(c, kit.DragOpts{
-		Key: st.ids[i], Scope: st, Index: i, Art: h.env.Art, Row: true,
+		Key: st.ids[i], Scope: st, Index: i, Art: h.env.Art, Row: !o.Tile,
 		Payload: func() *kit.DragPayload {
 			if !selectable || withheld {
 				return nil
@@ -189,7 +238,10 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			return &kit.DragPayload{Items: items, Label: label, Art: it.Art.Small}
 		},
 		Outer: func(w ui.Element) {
-			w.Height(rowH).Shrink(0).MinWidth(0).Role(ui.RoleListItem)
+			w.Shrink(0).MinWidth(0).Role(ui.RoleListItem)
+			if !o.Tile {
+				w.Height(rowH)
+			}
 			if selectable {
 				w.Checked(selected)
 			}
@@ -212,10 +264,17 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				if bg.A > 0 {
 					p.Fill(r, bg, radius)
 				}
+				if o.Rules {
+					p.Fill(ui.Rect{X: r.X + rowPadX, Y: r.Y + r.H - 1, W: r.W - 2*rowPadX, H: 1}, rule, 0)
+				}
 			})
 		},
 		Source: func(e ui.Element) {
-			e.PaddingX(rowPadX).Gap(rowGap).Radius(tk.Radius["md"]).Label(name)
+			if o.Tile {
+				e.Padding(tilePad).Gap(8).Radius(tk.Radius["md"]).Label(name)
+			} else {
+				e.PaddingX(rowPadX).Gap(rowGap).Radius(tk.Radius["md"]).Label(name)
+			}
 			if subtitle != "" {
 				// A button or a link is read as one piece: the line under
 				// the name is its description.
@@ -244,8 +303,12 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			// menu), assistive technology finds and presses them.
 			hover := w.Hovered()
 			if playable && !direct {
-				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
+				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX+lead).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
 					Background(theme.C("ground").Alpha(rowMarkA)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
+				if o.Tile {
+					// A disc at the middle of the cover.
+					play.Left(tilePad+(tileArt-tileDisc)/2).Top(tilePad+(tileArt-tileDisc)/2).Size(tileDisc, tileDisc).Radius(tk.Radius["full"])
+				}
 				kit.Fade(play, hover)
 				play.Children(func() {
 					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
@@ -255,27 +318,51 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 			}
 			if menu {
-				st.menus.Trigger(c.Key("more"), target, kit.TriggerOpts{Visible: hover || src.FocusWithin()}).
+				more := st.menus.Trigger(c.Key("more"), target, kit.TriggerOpts{Visible: hover || src.FocusWithin()}).
 					Absolute().Right(rowPadX).Top((rowH - 24) / 2)
+				if o.Tile {
+					more.Right(tilePad + 6).Top(tilePad + 6)
+				}
 			}
 		},
 	}, func(w, src ui.Element) {
 		hot := w.Hovered() || src.FocusWithin()
-		ui.Box(c.Key("art")).Size(rowArt, rowArt).Shrink(0).Children(func() {
-			kit.Artwork(c, h.env.Art, art, rowArt, kit.ArtOpts{Round: round})
+		if o.Number > 0 {
+			theme.Text(c, fmt.Sprintf("%02d", o.Number+i), "sub").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().
+				Width(rowNum - rowGap).Shrink(0).TextAlign(ui.Start)
+		}
+		artSize := float32(rowArt)
+		if o.Tile {
+			artSize = tileArt
+		}
+		ui.Box(c.Key("art")).Size(artSize, artSize).Shrink(0).Children(func() {
+			kit.Artwork(c, h.env.Art, art, artSize, kit.ArtOpts{Round: round})
 			if direct {
 				// A station with no page plays when it is opened: the mark is
 				// the name's button, not a second control.
-				mark := ui.Row(c.Key("mark")).Absolute().Left(0).Top(0).Size(rowArt, rowArt).Center().Radius(radius).
+				mark := ui.Row(c.Key("mark")).Absolute().Left(0).Top(0).Size(artSize, artSize).Center().Radius(radius).
 					Background(theme.C("ground").Alpha(rowMarkA)).IgnoreInput(true)
+				if o.Tile {
+					mark.Left((artSize-tileDisc)/2).Top((artSize-tileDisc)/2).Size(tileDisc, tileDisc).Radius(tk.Radius["full"])
+				}
 				kit.Fade(mark, hot)
 				mark.Children(func() {
 					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
 				})
 			}
 		})
-		ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
-			ui.Row(c.Key("name")).Gap(4).AlignItems(ui.Center).MinWidth(0).Children(func() {
+		textBox := ui.Column(c.Key("text")).Grow(1).MinWidth(0)
+		if inline {
+			// A ranked row wide enough is a ledger line: the name and Apple's
+			// reason side by side, in two columns of one width.
+			textBox.Row().AlignItems(ui.Center).Gap(rowGap)
+		}
+		textBox.Children(func() {
+			nameRow := ui.Row(c.Key("name")).Gap(4).AlignItems(ui.Center).MinWidth(0)
+			if inline {
+				nameRow.Grow(1).Basis(0)
+			}
+			nameRow.Children(func() {
 				label := tk.Type["label"]
 				t := ui.Text(c, name).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).FontWeight(int(label.Weight)).
 					TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).TextAlign(ui.Start)
@@ -287,10 +374,13 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 			})
 			if subtitle != "" {
-				theme.Text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+				sub := theme.Text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+				if inline {
+					sub.Grow(1).Basis(0).MinWidth(0)
+				}
 			}
 		})
-		if menu {
+		if menu && !o.Tile {
 			ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits
 		}
 	})

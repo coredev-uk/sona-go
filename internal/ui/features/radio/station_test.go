@@ -309,8 +309,8 @@ func TestStationPageSchedulesTheProgrammesThatHaveNotEnded(t *testing.T) {
 	if rg.tt.HasText("Ended") || rg.tt.HasText("Already over.") {
 		t.Errorf("a programme that ended shows: %q", rg.tt.Texts())
 	}
-	slot := clockAt(t0.UnixMilli()) + "–" + clockAt(t0.Add(time.Hour).UnixMilli())
-	for _, want := range []string{slot, "New music with Zane.", "Matt plays the best of the week."} {
+	// Each programme's start is at its rail; the one on air says how long is left.
+	for _, want := range []string{clockAt(t0.UnixMilli()), clockAt(t0.Add(time.Hour).UnixMilli()), "45 min left", "New music with Zane.", "Matt plays the best of the week."} {
 		if !rg.tt.HasText(want) {
 			t.Errorf("the schedule lacks %q: %q", want, rg.tt.Texts())
 		}
@@ -353,5 +353,27 @@ func TestStationScheduleMovesOnEvery30Seconds(t *testing.T) {
 	}
 	if n := rg.count("On air"); n != 1 {
 		t.Errorf("%d \"On air\" labels, want 1", n)
+	}
+}
+
+func TestIdentitySizeIsOneOfTwoClassesByContentWidth(t *testing.T) {
+	for _, c := range []struct{ content, want float32 }{
+		{-20, 264}, // the first frame, before the width is known
+		{800, 264},
+		{1132, 264},
+		{1499, 264},
+		{1500, 320},
+		{1688, 320},
+		{2400, 320},
+	} {
+		if got := identitySize(c.content); got != c.want {
+			t.Errorf("identitySize(%v) = %v, want %v", c.content, got, c.want)
+		}
+	}
+	// Both classes, and the lists beside them at their widest, fit in the
+	// narrowest content that takes the larger class: the two columns stay
+	// together instead of the lists being squeezed.
+	if identityWide+identityGap+listsMax > identityWideAt {
+		t.Errorf("%d+%d+%d does not fit in %d", identityWide, identityGap, listsMax, identityWideAt)
 	}
 }

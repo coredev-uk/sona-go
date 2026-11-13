@@ -82,7 +82,7 @@ func (s *search) recentEntry(c *ui.Context, pg *pageView, e services.RecentSearc
 		onOpen = func() { s.rememberItem(it, e.Source) }
 		art = func() { kit.Artwork(c, s.env.Art, e.Art, 40, kit.ArtOpts{Round: kit.ItemRound(it), Edge: true}) }
 	}
-	linked := e.Kind == services.RecentTerm || (s.env.Routed(path))
+	linked := e.Kind == services.RecentTerm || s.env.Routed(path)
 
 	row := ui.Row(c.Key(e.Key)).FillWidth().AlignItems(ui.Center).Radius(tk.Radius["md"]).PaddingEnd(4)
 	shown := kit.HoverRow(row)

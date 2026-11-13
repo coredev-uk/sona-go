@@ -243,7 +243,7 @@ func TestEndToEndPasswordSignInAndSignOut(t *testing.T) {
 	e.typeInto("Password", "pw-secret-1")
 	e.click("Sign in")
 	e.signedIn()
-	e.shows("Explicit content is restricted on this account; Sona hides it.", "Where your token is kept", "secret-service")
+	e.shows("Explicit content is restricted on this account; Sona hides it.", "Where your token is kept", "Secret Service keyring")
 	e.hides("Your token is stored unencrypted")
 	if mem.token() != goodMUT {
 		t.Error("the token was not stored in the keyring")

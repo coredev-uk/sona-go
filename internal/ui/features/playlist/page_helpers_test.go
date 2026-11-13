@@ -84,6 +84,10 @@ type pageRig struct {
 	linked bool
 }
 
+// rigWidth is the window width of the next page rig (a test narrowing it
+// restores it).
+var rigWidth = 1132
+
 // newPageRig builds the page of playlist id; details are what the service
 // holds. Every other page of Sona is linkable until rig.linked says not.
 func newPageRig(t *testing.T, id string, details ...services.PlaylistDetail) *pageRig {
@@ -121,7 +125,7 @@ func newPageRigWith(t *testing.T, id string, setup func(*fakeAPI), details ...se
 		})
 		p.dialogHost(c)
 		kit.Toaster(c)
-	}, 1132, 1000)
+	}, rigWidth, 1000)
 	return r
 }
 

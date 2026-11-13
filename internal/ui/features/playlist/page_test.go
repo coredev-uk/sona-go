@@ -18,7 +18,7 @@ func TestPageShowsHeaderMetaAndByline(t *testing.T) {
 	d.Playlist.Description = "Songs for the drive."
 	d.Curator = services.PlaylistCurator{ID: "ac.1", Kind: "apple-curator", Name: "Apple Music Indie"}
 	r := newPageRig(t, "p.1", d)
-	r.shows("Road Trip", "Songs for the drive.", "Playlist · 3 songs, 10 min", "Apple Music Indie", "Songs in Road Trip", "Song A", "Artist B", "Album C")
+	r.shows("Road Trip", "Songs for the drive.", "Playlist", "3 songs", "10 min", "Apple Music Indie", "Songs in Road Trip", "Song A", "Artist B", "Album C")
 	// The byline is a link to the curator's page.
 	r.click("Apple Music Indie")
 	if got := r.router.Path(); got != "/curator/ac.1" {
@@ -52,31 +52,39 @@ func TestPageBylineLinksProfilesAndFallsBackToText(t *testing.T) {
 	r.shows("Fallback Curator")
 }
 
-func TestPageMetaLineKindsAndUpdated(t *testing.T) {
+// The ledger strip: the kind of playlist, then the songs, the running time
+// and, when Apple gives one, the date it changed.
+func TestPageLedgerKinds(t *testing.T) {
 	p := &playlists{}
 	d := libraryDetail("p.1", "Mix", threeSongs()...)
+	join := func(cells []ledgerCell) string {
+		var texts []string
+		for _, c := range cells {
+			texts = append(texts, c.text)
+		}
+		return strings.Join(texts, " | ")
+	}
 	for _, c := range []struct {
 		name string
 		mod  func(*services.PlaylistDetail)
 		want string
 	}{
-		{"plain", func(*services.PlaylistDetail) {}, "Playlist · 3 songs, 10 min"},
-		{"mix", func(d *services.PlaylistDetail) { d.Kind = "personal-mix" }, "Made for you · 3 songs, 10 min"},
-		{"chart", func(d *services.PlaylistDetail) { d.IsChart = true }, "Chart · 3 songs, 10 min"},
-		{"favourites", func(d *services.PlaylistDetail) { d.Favorited = true }, "Your favourites · 3 songs, 10 min"},
+		{"plain", func(*services.PlaylistDetail) {}, "Playlist | 3 songs | 10 min"},
+		{"mix", func(d *services.PlaylistDetail) { d.Kind = "personal-mix" }, "Made for you | 3 songs | 10 min"},
+		{"chart", func(d *services.PlaylistDetail) { d.IsChart = true }, "Chart | 3 songs | 10 min"},
+		{"favourites", func(d *services.PlaylistDetail) { d.Favorited = true }, "Your favourites | 3 songs | 10 min"},
 		{"empty", func(d *services.PlaylistDetail) { d.Tracks, d.DurationMs = nil, 0 }, "Playlist"},
 	} {
 		dd := d
 		c.mod(&dd)
-		if got := p.metaLine(dd, nil); got != c.want {
-			t.Errorf("%s: meta %q, want %q", c.name, got, c.want)
+		if got := join(p.ledger(dd, nil, "", "")); got != c.want {
+			t.Errorf("%s: ledger %q, want %q", c.name, got, c.want)
 		}
 	}
 
 	collab := &services.PlaylistCollaboration{Collaborative: true, Viewer: services.RoleCollaborator}
-	d.Playlist.LastModified = 0
-	if got := p.metaLine(d, collab); got != "Collaborative playlist · You're a collaborator · 3 songs, 10 min" {
-		t.Errorf("collaborative meta %q", got)
+	if got := join(p.ledger(d, collab, "Updated yesterday", "Monday")); got != "Collaborative playlist | You're a collaborator | 3 songs | 10 min | Updated yesterday" {
+		t.Errorf("collaborative ledger %q", got)
 	}
 }
 
@@ -103,7 +111,7 @@ func TestPageUpdatedReadsInCalendarWordsWithTheExactDate(t *testing.T) {
 			r := newPageRigWith(t, "p.1", func(*fakeAPI) {}, d)
 			r.p.now = func() time.Time { return clock }
 			r.tt.Frame()
-			r.shows("Playlist · 3 songs, 10 min", c.want)
+			r.shows("Playlist", "3 songs", "10 min", c.want)
 			exact := i18n.FormatDateTime(c.mod)
 			tr := access.Read(t, r.tt.Tester)
 			n, ok := tr.Find(ui.RoleText, c.want)
@@ -113,7 +121,7 @@ func TestPageUpdatedReadsInCalendarWordsWithTheExactDate(t *testing.T) {
 		})
 	}
 
-	// The keyboard stops at it, after the title and before the actions.
+	// The keyboard stops at it, after the actions, on its way to the finder.
 	d := libraryDetail("p.1", "Road Trip", threeSongs()...)
 	d.Playlist.LastModified = now.Add(-time.Hour).UnixMilli()
 	r := newPageRig(t, "p.1", d)
@@ -121,8 +129,8 @@ func TestPageUpdatedReadsInCalendarWordsWithTheExactDate(t *testing.T) {
 	r.tt.Frame()
 	r.shows("Updated 1 hr. ago")
 	stops := stopLabels(access.TabWalk(t, r.tt.Tester, 60))
-	if !inOrder(stops, []string{"Updated 1 hr. ago", "Play Road Trip"}) {
-		t.Errorf("Tab walk %q lacks the note before Play", stops)
+	if !inOrder(stops, []string{"Play Road Trip", "Updated 1 hr. ago", "Find in playlist"}) {
+		t.Errorf("Tab walk %q lacks the note between Play and the finder", stops)
 	}
 
 	// Left open across midnight, the page relabels itself: a playlist changed
@@ -309,7 +317,7 @@ func TestPageSuggestionsAddAtOnceAndSerialise(t *testing.T) {
 		pgSong("s1", "Sugg One", "Singer", "Album S"),
 		pgSong("s2", "Sugg Two", "Singer", "Album S"),
 	}
-	r.shows("Suggested songs", "Sugg One", "Singer · 3:20", "Add Sugg One to Road Trip", "Play Sugg One")
+	r.shows("Suggested songs", "Sugg One", "Singer", "3:20", "Add Sugg One to Road Trip", "Play Sugg One")
 
 	// Art plays that song.
 	r.click("Play Sugg Two")
@@ -394,7 +402,7 @@ func TestPageCollaborativePlaylistShowsTheStackDialogAndAddedBy(t *testing.T) {
 		Viewer:  services.RoleListener,
 		AddedBy: []services.TrackAddedBy{{SongID: "cb", ProfileID: "sp.2"}},
 	}
-	r.shows("Collaborative playlist · 3 songs, 10 min", "Ada & 2 others", "Added by", "Song B")
+	r.shows("Collaborative playlist", "3 songs", "10 min", "Ada & 2 others", "Added by", "Song B")
 	if !r.tt.HasText("Bo") {
 		t.Errorf("no adder in the Added by column: %q", r.tt.Texts())
 	}
@@ -495,5 +503,20 @@ func TestPageMoreLikeThisWithNoCurator(t *testing.T) {
 	r.shows("More like this", "Other mix")
 	if r.tt.HasText("More from") {
 		t.Error("a curator-less shelf names a curator")
+	}
+}
+
+func TestHeadArtIsOneOfThreeClasses(t *testing.T) {
+	for _, tc := range []struct{ width, want float32 }{
+		{600, headCoverNarrow},
+		{959, headCoverNarrow},
+		{960, headCover},
+		{1599, headCover},
+		{1600, headCoverLarge},
+		{1920, headCoverLarge},
+	} {
+		if got := headArt(tc.width); got != tc.want {
+			t.Errorf("headArt(%v) = %v, want %v", tc.width, got, tc.want)
+		}
 	}
 }

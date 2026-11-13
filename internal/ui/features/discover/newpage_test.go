@@ -11,6 +11,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
+	"github.com/egoist/mygo/ui"
 )
 
 func playlistItem(id, name string) services.Item {
@@ -84,6 +86,13 @@ func TestNewPageContentsListsTheBandsInOrderWithTheirShelves(t *testing.T) {
 	if slices.Contains(at, -1) || !slices.IsSorted(at) {
 		t.Errorf("contents order %v: %q", at, r.tt.Texts())
 	}
+	tr := access.Read(t, r.tt.Tester)
+	for _, band := range []string{"Songs and albums", "Playlists", "Radio"} {
+		b, ok := tr.Find(ui.RoleButton, band)
+		if !ok || b.Description != "1 shelf" {
+			t.Errorf("the contents' button for %q is %+v (found %v), want one described as 1 shelf", band, b, ok)
+		}
+	}
 	// Each band's heading follows the contents, with its shelf under it.
 	texts := r.tt.Texts()
 	rest := texts[slices.Index(texts, "Live Radio")+1:]
@@ -103,9 +112,9 @@ func TestNewPageHasNoContentsForASingleBand(t *testing.T) {
 	}
 }
 
-func TestNewPageContentsJumpToAShelfAndMoveFocusToIt(t *testing.T) {
+func TestNewPageContentsJumpToAShelfOrABandAndMoveFocusToIt(t *testing.T) {
 	api := &fakeAPI{}
-	r := newRig(t, "/new", withAPI(api), withSize(1132, 700))
+	r := newRig(t, "/new", withAPI(api), withSize(1132, 1000))
 	newPageWith(api, r.h.Clock.Now(), issueSections()...)
 	r.tt.Until("the page", r.tt.Shows("On this page"))
 	r.d.front.paused = true
@@ -136,9 +145,16 @@ func TestNewPageContentsJumpToAShelfAndMoveFocusToIt(t *testing.T) {
 	if !r.tt.Focused("Updated Playlists") {
 		t.Errorf("the focus is not on the shelf's section")
 	}
-	// A band's own button goes to its heading.
-	if err := r.tt.Click("Songs and albums"); err == nil {
-		r.tt.Drain()
+	// A band's own button goes to its band.
+	r.d.newPg.pg.Pos.Y = 0
+	r.tt.Drain()
+	if err := r.tt.Click("Playlists"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Drain()
+	r.tt.Drain()
+	if got := r.d.newPg.focus; got != "new:playlists" {
+		t.Errorf("focus anchor %q after the band's button", got)
 	}
 }
 

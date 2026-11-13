@@ -1,0 +1,24 @@
+{
+  "$comment": "True black for OLED screens, dark only: the ground is #000000 and surface and raised are just enough above it to separate menus. Lime marks what plays.",
+  "format": 1,
+  "id": "oled",
+  "name": "OLED",
+  "author": "Sona",
+  "dark": {
+    "color": {
+      "ground": "#000000",
+      "surface": "#0a0a0a",
+      "raised": "#121212",
+      "hover": "#181818",
+      "active": "#222222",
+      "line": "#1c1c1c",
+      "control-line": "#6a6a6a",
+      "ink": "#f2f2f2",
+      "ink-muted": "#b4b4b4",
+      "ink-faint": "#aaaaaa",
+      "amber": "#bdf043",
+      "amber-ink": "#bdf043",
+      "on-amber": "#0b1400"
+    }
+  }
+}

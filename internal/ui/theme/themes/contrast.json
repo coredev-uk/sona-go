@@ -1,0 +1,53 @@
+{
+  "$comment": "Every text colour keeps 7:1 on every surface, and lines and the focus ring are strong. Blue (light) and yellow (dark) mark what plays.",
+  "format": 1,
+  "id": "contrast",
+  "name": "High contrast",
+  "author": "Sona",
+  "light": {
+    "color": {
+      "ground": "#ffffff",
+      "surface": "#f4f4f4",
+      "raised": "#ffffff",
+      "hover": "#e8e8e8",
+      "active": "#d8d8d8",
+      "line": "#6b6b6b",
+      "control-line": "#4d4d4d",
+      "ink": "#000000",
+      "ink-muted": "#262626",
+      "ink-faint": "#2e2e2e",
+      "amber": "#0b63ce",
+      "amber-ink": "#093a85",
+      "on-amber": "#ffffff",
+      "positive": "#004a22",
+      "danger": "#7d0800",
+      "ring": "ink",
+      "edge": "ink/25",
+      "scrollbar": "ink/50",
+      "scrollbar-hover": "ink/70"
+    }
+  },
+  "dark": {
+    "color": {
+      "ground": "#000000",
+      "surface": "#0b0b0b",
+      "raised": "#141414",
+      "hover": "#1e1e1e",
+      "active": "#2c2c2c",
+      "line": "#a0a0a0",
+      "control-line": "#a8a8a8",
+      "ink": "#ffffff",
+      "ink-muted": "#e6e6e6",
+      "ink-faint": "#dcdcdc",
+      "amber": "#ffd23f",
+      "amber-ink": "#ffd23f",
+      "on-amber": "#000000",
+      "positive": "#7be8ab",
+      "danger": "#ffaa9c",
+      "ring": "ink",
+      "edge": "ink/25",
+      "scrollbar": "ink/50",
+      "scrollbar-hover": "ink/70"
+    }
+  }
+}

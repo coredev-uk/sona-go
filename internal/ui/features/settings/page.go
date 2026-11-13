@@ -17,7 +17,7 @@ import (
 // 700 DIP tall.
 const (
 	indexWidth   = 240
-	contentWidth = 800
+	contentWidth = 960
 	indexGap     = 48
 	narrowWidth  = kit.PageNarrow
 	stickyHeight = 700
@@ -58,6 +58,7 @@ func (s *settings) page(c *ui.Context, r *ui.Route) {
 
 	w, h := c.Size()
 	narrow := w <= narrowWidth
+	s.wide = !narrow
 	sticky := !narrow && h >= stickyHeight
 	tk := theme.Current()
 	gutter := tk.Metric["gutter"]
@@ -107,7 +108,18 @@ func (s *settings) content(c *ui.Context, section string, narrow bool) {
 		if narrow {
 			theme.Text(c, title, "page").Size(0, 0).Opacity(0).Role(ui.RoleHeading).Level(2) // sr-only
 		} else {
-			theme.Text(c, title, "page").TextColor(theme.C("ink")).Margin(0, 0, 24, 0).Role(ui.RoleHeading).Level(2)
+			// The document's masthead: the section's name over one ink rule;
+			// the groups' margins and the rows' hairlines hang from it.
+			theme.Text(c, title, "title").TextColor(theme.C("ink")).Margin(0, 0, 12, 0).Role(ui.RoleHeading).Level(2)
+			// Every section but Shortcuts opens on a row whose own hairline
+			// would sit under this rule: that line is skipped (s.line), so
+			// the section has one rule and the row's padding is the air.
+			s.ruled = section != secShortcuts
+			gap := float32(16)
+			if s.ruled {
+				gap = 0
+			}
+			ui.Box(c.Key("masthead")).FillWidth().Height(1).Shrink(0).Background(theme.C("ink")).Margin(0, 0, gap, 0)
 		}
 		switch section {
 		case secGeneral:
@@ -125,7 +137,20 @@ func (s *settings) content(c *ui.Context, section string, narrow bool) {
 		case secDiagnostics:
 			s.diagnostics(c)
 		}
+		s.ruled = false
 	})
+}
+
+// sectionIcon is each section's 16 DIP Lucide icon in the index (the theme
+// has no sliders-horizontal, palette, plug, hard-drive or stethoscope).
+var sectionIcon = map[string]string{
+	secGeneral:     "sliders-vertical",
+	secPlayback:    "play",
+	secAppearance:  "moon",
+	secConnections: "link-2",
+	secShortcuts:   "keyboard",
+	secStorage:     "folder-closed",
+	secDiagnostics: "badge-check",
 }
 
 // index is the page's index column: its title, Find a setting and the
@@ -176,11 +201,14 @@ func (s *settings) sectionList(c *ui.Context, section string, narrow bool) {
 				s.env.Nav.Replace(settingsPath + "?section=" + id)
 			}
 			b.Children(func() {
-				ui.Column(c.Key(id)).Shrink(1).MinWidth(0).Children(func() {
-					theme.Text(c, title, "label").TextColor(fg)
-					if sum != "" && !narrow {
-						theme.Text(c, sum, "meta").TextColor(theme.C("ink-muted")).MaxLines(2)
-					}
+				ui.Row(c.Key("in:" + id)).Shrink(1).MinWidth(0).Gap(10).AlignItems(ui.Start).Children(func() {
+					ui.Icon(c.Key("icon:"+id), theme.Icon(sectionIcon[id])).FontSize(16).TextColor(fg).Shrink(0).Margin(2, 0, 0, 0)
+					ui.Column(c.Key(id)).Shrink(1).MinWidth(0).Children(func() {
+						theme.Text(c, title, "label").TextColor(fg)
+						if sum != "" && !narrow {
+							theme.Text(c, sum, "meta").TextColor(theme.C("ink-muted")).MaxLines(2)
+						}
+					})
 				})
 			})
 		}

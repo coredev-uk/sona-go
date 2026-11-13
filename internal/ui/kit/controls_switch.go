@@ -38,18 +38,12 @@ func Switch(c *ui.Context, on *bool, o SwitchOpts) ui.Element {
 	if !theme.ReducedMotion() {
 		pos = e.Animate("knob", pos, 140*time.Millisecond)
 	}
-	off := theme.C("input")
-	if theme.Dark() {
-		off = off.Alpha(0.8)
-	}
+	off := theme.C("switch-off")
 	e.Background(off.Mix(theme.C("primary"), pos))
 	if *on {
 		e.Background(theme.C("primary"))
 	}
-	thumbOff, thumbOn := theme.C("background"), theme.C("background")
-	if theme.Dark() {
-		thumbOff, thumbOn = theme.C("foreground"), theme.C("primary-foreground")
-	}
+	thumbOff, thumbOn := theme.C("switch-thumb"), theme.C("switch-thumb-on")
 	rtl := c.Direction() == ui.RightToLeft
 	e.Draw(func(p *ui.Painter, r ui.Rect) {
 		at := pos
@@ -261,12 +255,8 @@ func Tabs(c *ui.Context, selected *int, labels []string, o TabsOpts) ui.Element 
 			case on:
 				fg = theme.C("foreground")
 				if !o.Line {
-					bg := theme.C("background")
-					if theme.Dark() {
-						bg = theme.C("input").Alpha(0.3)
-						tab.Border(1, theme.C("input"))
-					}
-					tab.Background(bg)
+					tab.Border(1, theme.C("tab-active-border"))
+					tab.Background(theme.C("tab-active-bg"))
 					sh := theme.Current().Shadow["sm"]
 					tab.Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color)
 				}

@@ -24,6 +24,34 @@ func TestLoadMissingReturnsDefaults(t *testing.T) {
 	}
 }
 
+func TestThemeIDDefaultsToSonaAndKeepsUnknownIDs(t *testing.T) {
+	if d := Defaults(); d.ThemeID != DefaultThemeID || DefaultThemeID != "sona" {
+		t.Errorf("default theme %q", d.ThemeID)
+	}
+	for in, want := range map[string]string{
+		"":                      "sona",
+		"   ":                   "sona",
+		"graphite":              "graphite",
+		" ink ":                 "ink",
+		"my-theme-from-a-file":  "my-theme-from-a-file", // no theme may have it now: kept
+		strings.Repeat("x", 65): "sona",
+	} {
+		s := Defaults()
+		s.ThemeID = in
+		if got := s.Normalized().ThemeID; got != want {
+			t.Errorf("ThemeID %q normalises to %q, want %q", in, got, want)
+		}
+	}
+	// A settings file from before themes has no themeId.
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(`{"theme":"dark"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := LoadSettings(path); err != nil || s.ThemeID != "sona" || s.Theme != ThemeDark {
+		t.Errorf("old file: %+v, %v", s, err)
+	}
+}
+
 func TestSaveLoadRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	// From the defaults: zero nested settings normalize to their defaults.

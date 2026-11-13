@@ -44,7 +44,7 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 	if key := group + "\x00" + q; v.key != key {
 		v.key, v.want = key, 1
 	}
-	v.Scroll(c, v.key, func(pane *kit.Pane, _ float32) {
+	s.framePage(c, &v.pageView, v.key, nil, func(pane *kit.Pane) {
 		s.groupHeader(c, group, q)
 
 		// The pages loaded so far, in order: each is asked for at the
@@ -95,7 +95,7 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 					from = append(from, it)
 				}
 			}
-			s.songList(c, &v.songs, &v.listMenus, pane, ctx, songs, pending, label, func(i int) {
+			s.songList(c, &v.songs, &v.listMenus, pane, ctx, songs, pending, true, label, func(i int) {
 				ctx.OnOpen(from[i])
 				s.env.Queue.PlaySongs(songs, i, searchFrom)
 			})
@@ -134,7 +134,7 @@ func (s *search) groupPage(c *ui.Context, r *ui.Route) {
 // results for “q”", with the term linking back to the search.
 func (s *search) groupHeader(c *ui.Context, group, q string) {
 	ui.Column(c.Key("header")).FillWidth().Margin(0, 0, 24, 0).Children(func() {
-		theme.Text(c, groupTitle(group), "title").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
+		theme.Text(c, groupTitle(group), "display").TextColor(theme.C("ink")).SingleLine().Role(ui.RoleHeading).Level(1)
 		msg := i18n.T("Apple Music results for <0>“{q}”</0>", "q", q)
 		before, link, after, _ := i18n.SplitLink(msg)
 		ui.Row(c.Key("subline")).AlignItems(ui.Center).Margin(4, 0, 0, 0).Children(func() {

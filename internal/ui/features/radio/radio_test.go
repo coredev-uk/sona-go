@@ -259,3 +259,23 @@ func TestRadioQueriesUseV020Keys(t *testing.T) {
 		t.Errorf("stale times %v %v %v", editorialStale, recentStale, kit.StationStale)
 	}
 }
+
+func TestRadioBandsHeadingStaysInViewWhileItsBandScrolls(t *testing.T) {
+	rg := goldenRigAt(t, radioPath, false, 1132, 700)
+	rg.tt.Until("the page", rg.tt.Shows("Stations", "My Station"))
+	before, ok := rg.tt.Find("Stations")
+	if !ok {
+		t.Fatalf("no heading: %q", rg.tt.Texts())
+	}
+	// The Stations band starts below the fold of a short window; scroll its
+	// shelves past the heading's own place.
+	rg.tt.Scroll(600, 400, 0, float32(before.Y)+200)
+	rg.tt.Drain()
+	h, ok := rg.tt.Find("Stations")
+	if !ok {
+		t.Fatalf("the heading left the frame: %q", rg.tt.Texts())
+	}
+	if h.Y < 0 || h.Y > 120 {
+		t.Errorf("the heading is at %v after scrolling %v: want it held near the top of the view", h.Y, before.Y+200)
+	}
+}

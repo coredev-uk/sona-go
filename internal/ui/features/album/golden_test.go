@@ -55,6 +55,28 @@ func TestGoldenAlbumPage(t *testing.T) {
 	}
 }
 
+// The gatefold's wide layout: 1440×900 less the sidebar, top bar and player
+// bar is 1207×780 of page column.
+func TestGoldenAlbumPageWide(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		opts []uitest.Option
+	}{
+		{"album-wide-light", nil},
+		{"album-wide-dark", []uitest.Option{uitest.Dark()}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			goldenRegional(t)
+			r := newRig(t, "/album/100", 1207, 780, c.opts...)
+			r.addCatalog(saltFlats(goldenAlbum))
+			r.shows("Salt Flats", "Blue Hour", "Notes")
+			r.tt.Art = append(r.tt.Art, r.h.Env.Art)
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), c.name)
+		})
+	}
+}
+
 func TestGoldenAlbumPageMinimumWindow(t *testing.T) {
 	goldenRegional(t)
 	r := newRig(t, "/album/100", 707, 480)
@@ -149,6 +171,25 @@ func TestGoldenUpcomingAlbumPageMinimumWindow(t *testing.T) {
 	r.addCatalog(saltFlats(goldenUpcoming(r)))
 	r.shows("Out in 18 days, 6 hours", "Remind me")
 	settleGolden(t, r, "album-upcoming-940x600-light")
+}
+
+// With the queue panel open the page is about 580 wide: the text beside the
+// cover has no room for the actions, so they run under the band, whole.
+func TestGoldenAlbumPageBesideQueue(t *testing.T) {
+	goldenRegional(t)
+	r := newRig(t, "/album/100", 580, 560)
+	r.addCatalog(saltFlats(goldenAlbum))
+	r.shows("Salt Flats", "Notes")
+	r.tt.Art = append(r.tt.Art, r.h.Env.Art)
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "album-queue-580-light")
+}
+
+func TestGoldenUpcomingAlbumPageBesideQueue(t *testing.T) {
+	r := upcomingRig(t, 580, 560)
+	r.addCatalog(saltFlats(goldenUpcoming(r)))
+	r.shows("Out in 18 days, 6 hours", "Remind me")
+	settleGolden(t, r, "album-upcoming-queue-580-light")
 }
 
 // With no day and no song out, Pre-add is the page's one primary action.

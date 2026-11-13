@@ -802,7 +802,7 @@ func TestSleeveStaysBesideTheSongsOnlyWhenItFits(t *testing.T) {
 }
 
 func TestSleeveStopsAtTheGridsEnd(t *testing.T) {
-	r := newRig(t, "/album/100", 1132, 620)
+	r := newRig(t, "/album/100", 1132, 900)
 	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
 		p.Tracks = nil
 		for i := 1; i <= 60; i++ {
@@ -841,6 +841,8 @@ func TestCatalogueSections(t *testing.T) {
 		p.Similar = []services.Album{{ID: "300", Name: "Dust", Artist: "Cy Moor"}}
 	}))
 	r.shows("Other versions", "Music videos", "More to hear", "More by Mia Vale", "Featured in playlists", "You might also like")
+	r.tt.Scroll(600, 300, 0, 2400)
+	r.tt.Settle()
 	r.wantTexts("Salt Flats (Deluxe)", "Low Tide (Video)", "Salt Flats, the story", "Record Club", "Blue Hour", "2021", "Road Trip", "Dust", "Cy Moor")
 	// See all of the artist's albums.
 	r.click("See all")
@@ -857,6 +859,8 @@ func TestSectionTilesOpenPagesAndPlay(t *testing.T) {
 		p.MoreByArtist = []services.Album{{ID: "200", Name: "Blue Hour", Artist: "Mia Vale"}}
 	}))
 	r.shows("The story")
+	r.tt.Scroll(600, 300, 0, 1400)
+	r.tt.Settle()
 	// A radio episode plays from its tile.
 	r.click("Play The story")
 	r.tt.Until("the station", func() bool { return len(r.radio.got()) > 0 })

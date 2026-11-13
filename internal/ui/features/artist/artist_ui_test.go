@@ -399,8 +399,9 @@ func TestCatalogueArtistPageHasTheHeaderTheLeadAndTheBandsInOrder(t *testing.T) 
 	// Discography: albums as covers, the back catalogue as lists (the title
 	// without Apple's suffix, the kind in its line), then Related.
 	for _, w := range []string{
-		"Albums by Radiohead", "Singles and EPs featuring Radiohead", "Compilations featuring Radiohead",
-		"Daydreaming", "2016 · Single", "Com Lag: 2+2=5", "2004 · EP", "KID A MNESIA",
+		"Singles and EPs featuring Radiohead", // the singles view has more: the timeline links to it
+		"2021", "KID A MNESIA", "Compilation", "2016", "Daydreaming", "Single", "2007", "In Rainbows", "Album",
+		"2004", "Com Lag: 2+2=5", "EP",
 		"Albums featuring Radiohead", "Radiohead · 2021", "Playlists featuring Radiohead", "Similar artists to Radiohead",
 		"From", "Born or formed", "Genre", "Alternative",
 	} {
@@ -411,8 +412,8 @@ func TestCatalogueArtistPageHasTheHeaderTheLeadAndTheBandsInOrder(t *testing.T) 
 	if slices.Contains(r.tt.Texts(), "Daydreaming - Single") {
 		t.Error("the single's suffix is still in its title")
 	}
-	if got := r.y("Albums by Radiohead"); got < d {
-		t.Errorf("Albums by Radiohead (%v) is above the Discography band (%v)", got, d)
+	if got := r.y("KID A MNESIA"); got < d {
+		t.Errorf("the newest release (%v) is above the Discography band (%v)", got, d)
 	}
 	if r.y("Albums featuring Radiohead") < rel {
 		t.Error("Albums featuring is above the Related band")
@@ -425,7 +426,8 @@ func TestPageAsksTheCatalogueOnceAndShowsSeeAllWhereThereIsMore(t *testing.T) {
 	if got := r.cat.asked(); !slices.Equal(got, []string{"artist 657515"}) {
 		t.Errorf("asked %q", got)
 	}
-	// Top songs say there is more, singles has more, essentials has two of six.
+	// Top songs say there is more; singles has more too, and the timeline
+	// names that view in its link; essentials has two of six.
 	r.tt.Drain()
 	n := 0
 	for _, x := range r.tt.Texts() {
@@ -433,8 +435,8 @@ func TestPageAsksTheCatalogueOnceAndShowsSeeAllWhereThereIsMore(t *testing.T) {
 			n++
 		}
 	}
-	if n != 2 {
-		t.Errorf("%d See all links, want 2 (top songs, singles); texts %q", n, r.tt.Texts())
+	if n != 1 || !r.tt.HasText("Singles and EPs featuring Radiohead") {
+		t.Errorf("%d See all links, want 1 (top songs) and the singles link; texts %q", n, r.tt.Texts())
 	}
 }
 
@@ -517,9 +519,9 @@ func TestLatestReleaseUpcomingShowsItsBadgeInPlaceOfTheDate(t *testing.T) {
 	}
 }
 
-func TestCoverShelfTilesLinkToTheirPages(t *testing.T) {
+func TestTimelineReleasesLinkToTheirPages(t *testing.T) {
 	r := catalogRig(t, nil)
-	r.shows("Albums by Radiohead", "In Rainbows")
+	r.shows("Discography", "In Rainbows")
 	if err := r.tt.Click("In Rainbows"); err != nil {
 		t.Fatal(err)
 	}
@@ -1279,13 +1281,17 @@ func TestGoToArtistIsListedForSongsThatNameAnArtist(t *testing.T) {
 
 // ---- layout ----
 
-func TestLatestReleaseSitsBesideTheTextWhenWideAndBelowWhenNarrow(t *testing.T) {
+func TestLatestReleaseSitsInASecondColumnWhenWideAndBelowWhenNarrow(t *testing.T) {
 	wide := catalogRig(t, nil)
 	wide.shows("Latest release · May 3, 2016")
 	slip, _ := wide.tt.Find("Latest release · May 3, 2016")
 	name, _ := wide.tt.Find("Radiohead")
-	if !(slip.X > name.X+300) || slip.Y > wide.y("Shuffle") {
+	if !(slip.X > name.X+300) {
 		t.Errorf("wide: slip at %v, name at %v", slip, name)
+	}
+	// The portrait is at the trailing edge, after the slip's column.
+	if sl, _ := wide.tt.Find("Hail to the Thief (Live Recordings 2003-2009)"); !(sl.X+sl.W < 1132-32) {
+		t.Errorf("wide: slip %v runs to the edge", sl)
 	}
 
 	narrow := newRig(t, "/artist/657515", 760, 1400, func(r *rig) { r.cat.page = radiohead() })
@@ -1299,16 +1305,41 @@ func TestLatestReleaseSitsBesideTheTextWhenWideAndBelowWhenNarrow(t *testing.T) 
 	}
 }
 
-func TestCatalogueListsShareARowWhenTheyFitAndStackWhenTheyDoNot(t *testing.T) {
-	wide := catalogRig(t, nil)
-	wide.shows("Singles and EPs featuring Radiohead", "Compilations featuring Radiohead")
-	if a, b := wide.y("Singles and EPs featuring Radiohead"), wide.y("Compilations featuring Radiohead"); a != b {
-		t.Errorf("wide: lists at %v and %v", a, b)
+func TestLatestReleasePlaysThroughTheItemPlayers(t *testing.T) {
+	r := catalogRig(t, nil)
+	var played []string
+	r.h.Env.Players.Register(services.ItemAlbum, func(it services.Item) { played = append(played, it.ID) })
+	r.shows("Discography")
+	r.tt.Drain()
+	if err := r.tt.Click("Play Hail to the Thief (Live Recordings 2003-2009)"); err != nil {
+		t.Fatal(err)
 	}
-	narrow := newRig(t, "/artist/657515", 500, 2400, func(r *rig) { r.cat.page = radiohead() })
-	narrow.shows("Singles and EPs featuring Radiohead", "Compilations featuring Radiohead")
-	if a, b := narrow.y("Singles and EPs featuring Radiohead"), narrow.y("Compilations featuring Radiohead"); !(a < b) {
-		t.Errorf("narrow: lists at %v and %v", a, b)
+	if !slices.Equal(played, []string{"latest"}) {
+		t.Errorf("played %q", played)
+	}
+}
+
+func TestDiscographyIsACareerLineWithTheYearsInAGutter(t *testing.T) {
+	r := catalogRig(t, nil)
+	r.shows("2021", "2016", "2007", "2004")
+	if !(r.y("2021") < r.y("2016") && r.y("2016") < r.y("2007") && r.y("2007") < r.y("2004")) {
+		t.Error("the years are not newest first")
+	}
+	for year, title := range map[string]string{"2021": "KID A MNESIA", "2016": "Daydreaming", "2007": "In Rainbows", "2004": "Com Lag: 2+2=5"} {
+		y, _ := r.tt.Find(year)
+		rel, _ := r.tt.Find(title)
+		// The year's group holds its gutter and its releases: the release is
+		// inside it, right of the 64 DIP gutter.
+		if rel.X < y.X+64 || rel.Y < y.Y || rel.Y+rel.H > y.Y+y.H {
+			t.Errorf("%s at %v is not in its year %s at %v", title, rel, year, y)
+		}
+	}
+	// The views are one link away from the timeline.
+	if err := r.tt.Click("Singles and EPs featuring Radiohead"); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.router.Path(); got != "/artist/657515/view/singles" {
+		t.Errorf("path %q", got)
 	}
 }
 
@@ -1327,43 +1358,50 @@ func TestRestrictedAccountFollowsTheAuthStatus(t *testing.T) {
 
 // ---- goldens ----
 
-func goldenRig(t *testing.T, dark bool) *rig {
+func goldenRig(t *testing.T, dark bool, height int) *rig {
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
-	// The shell's page column at 1132×1253 (less sidebar, top bar, player
-	// bar), dated as an en-GB system, as the reference shots are.
+	// The shell's page column at 1132 wide (less sidebar), dated as an en-GB
+	// system, as the reference shots are.
 	i18n.SetRegional("en-GB")
 	t.Cleanup(func() { i18n.SetRegional() })
-	r := newRig(t, "/artist/657515", 899, 1133, func(r *rig) { r.cat.page = radiohead() })
+	r := newRig(t, "/artist/657515", 1132, height, func(r *rig) { r.cat.page = radiohead() })
+	r.h.Env.Players.Register(services.ItemAlbum, func(services.Item) {})
 	theme.SetMode(map[bool]theme.Mode{true: theme.ModeDark, false: theme.ModeLight}[dark])
 	return r
 }
 
 func TestGoldenArtistLight(t *testing.T) {
-	r := goldenRig(t, false)
+	r := goldenRig(t, false, 1800)
 	r.shows("Discography")
 	r.tt.Settle()
 	uitest.Golden(t, r.tt.Image(), "artist_light")
 }
 
 func TestGoldenArtistDark(t *testing.T) {
-	r := goldenRig(t, true)
+	r := goldenRig(t, true, 1100)
 	r.tt.SetDark(true)
 	r.shows("Discography")
 	r.tt.Settle()
 	uitest.Golden(t, r.tt.Image(), "artist_dark")
 }
 
-func TestGoldenArtistMinimumWindow(t *testing.T) {
+// goldenAt is the page at a content-narrow window (940×600 less the shell's
+// chrome is 707 wide; 899 is the middle tier) in light.
+func goldenAt(t *testing.T, w, h int, name string) {
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
 	i18n.SetRegional("en-GB")
 	t.Cleanup(func() { i18n.SetRegional() })
-	// 940×600 less the shell's chrome.
-	r := newRig(t, "/artist/657515", 707, 480, func(r *rig) { r.cat.page = radiohead() })
+	r := newRig(t, "/artist/657515", w, h, func(r *rig) { r.cat.page = radiohead() })
+	r.h.Env.Players.Register(services.ItemAlbum, func(services.Item) {})
 	theme.SetMode(theme.ModeLight)
 	r.shows("Discography")
 	r.tt.Settle()
-	uitest.Golden(t, r.tt.Image(), "artist_940x600_light")
+	uitest.Golden(t, r.tt.Image(), name)
 }
+
+func TestGoldenArtistMinimumWindow(t *testing.T) { goldenAt(t, 707, 1800, "artist_940x600_light") }
+
+func TestGoldenArtistMiddleWidth(t *testing.T) { goldenAt(t, 899, 1000, "artist_900_light") }
 
 // The concerts feature's section sits in the page, with the artist's ID, once
 // the feature has set its hook; without the hook there is nothing. It is never
@@ -1420,8 +1458,8 @@ func TestArtistConcertsHookBuildsAfterTheLead(t *testing.T) {
 	}
 }
 
-// The About grid keeps its 32 rem biography cell empty when there is no
-// biography: the facts stay in their own column beside it.
+// The About grid keeps the facts in their own 200 DIP column ahead of the
+// biography, with or without one.
 func TestAboutKeepsTheBiographyCellWhenThereIsNoBiography(t *testing.T) {
 	with := catalogRig(t, nil)
 	with.shows("About Radiohead", "Born or formed")
@@ -1432,8 +1470,9 @@ func TestAboutKeepsTheBiographyCellWhenThereIsNoBiography(t *testing.T) {
 	without.shows("About Radiohead", "Born or formed")
 	a, _ := with.tt.Find("Born or formed")
 	b, _ := without.tt.Find("Born or formed")
-	if a.X != b.X || b.X < 32+512 {
-		t.Errorf("facts at x=%v with a biography, %v without; want both after the 512 DIP cell", a.X, b.X)
+	bio, _ := with.tt.Find("Formed in 1985.")
+	if a.X != b.X || bio.X < a.X+200 {
+		t.Errorf("facts at x=%v with a biography, %v without; the biography is at %v, want it after the 200 DIP facts column", a.X, b.X, bio.X)
 	}
 	if without.tt.HasText("Formed in 1985.") {
 		t.Error("a biography that is empty is shown")

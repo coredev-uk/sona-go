@@ -20,7 +20,7 @@ func TestPageListsTheAgendaByMonthAndDay(t *testing.T) {
 	r.shows("Concerts", "April 2027", "June 2027", "Example Hall · London", "Another Act")
 	for _, w := range []string{
 		"Near London, the main city of your Apple Music storefront", "Updated just now", "Set location", "Filter concerts",
-		"Placeholder Arena · Watford", "Nowhere Club · Reading", "6:00 PM · 6 mi away", "Your artist",
+		"Placeholder Arena · Watford", "Nowhere Club · Reading", "6:00 PM", "6 mi away", "Your artist", "2 shows", "1 show",
 		"Wed, Apr 14", "Tue, Jun 1", "Wed", "14", "Tue", "1",
 	} {
 		if !r.tt.HasText(w) {
@@ -339,4 +339,84 @@ func TestCalendarChoosesADayWithinTheFieldsRange(t *testing.T) {
 		_, open := access.Read(t, r.tt.Tester).Find(ui.RoleButton, "April 20, 2027")
 		return !open
 	})
+}
+
+// The coming days: a strip of the next fortnight over the agenda. A day with
+// shows is a button that scrolls the agenda to it and focuses its first
+// control; the others are dim and take no click.
+func TestComingDaysStripJumpsToADay(t *testing.T) {
+	onDay(t, 2027, time.April, 9)
+	r := newRig(t, "/concerts", 1132, 420, exampleBand, sampleSinger, lateShow, anotherAct)
+	r.shows("Coming days", "Wed, Apr 14, 2 shows", "Wed, Apr 21, 1 show")
+	tr := access.Read(t, r.tt.Tester)
+	if _, ok := tr.Find(ui.RoleGroup, "Coming days"); !ok {
+		t.Fatalf("no Coming days group:\n%s", tr.Dump())
+	}
+	// Only the days with shows are controls.
+	if got := len(tr.Roles(ui.RoleButton)); got < 2 {
+		t.Fatalf("the strip has %d buttons", got)
+	}
+	if _, ok := tr.Find(ui.RoleButton, "Thu, Apr 15"); ok {
+		t.Error("a day without shows is a button")
+	}
+	before, _ := r.tt.Find("Late Show")
+	if before.Y < 300 {
+		t.Fatalf("Late Show at %v starts in view: the test cannot tell a jump", before)
+	}
+	r.tt.MustClick("Wed, Apr 21, 1 show")
+	r.tt.Drain()
+	r.tt.Drain()
+	r.tt.Settle()
+	if !r.tt.Focused("Late Show") {
+		t.Errorf("the jump did not focus the day's first control; focus %v", access.Read(t, r.tt.Tester).Focus)
+	}
+	after, _ := r.tt.Find("Late Show")
+	if after.Y > 150 {
+		t.Errorf("Late Show is at %v after the jump, want the day at the top of the view", after)
+	}
+}
+
+// The strip is one Tab stop, with arrows between its days, and none of the
+// range's days is offered when no show falls in it.
+func TestComingDaysStripIsOneTabStopAndAbsentWithoutShows(t *testing.T) {
+	onDay(t, 2027, time.April, 9)
+	r := newRig(t, "/concerts", 1132, 900, exampleBand, sampleSinger, lateShow, anotherAct)
+	r.shows("Coming days")
+	r.tt.Settle()
+	walk := walkLabels(t, r.tt, 100)
+	n := 0
+	for _, l := range walk {
+		if strings.HasPrefix(l, "Wed, Apr") {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("the strip has %d Tab stops, want 1; the walk was %q", n, walk)
+	}
+	access.InOrder(t, walk, "Your artists (2)", "Wed, Apr 14, 2 shows", "Example Band with Opener Duo")
+
+	// Weeks before the shows, no day of the fortnight has one: no strip.
+	onDay(t, 2027, time.February, 10)
+	r = newRig(t, "/concerts", 1132, 900, exampleBand, sampleSinger, lateShow, anotherAct)
+	r.shows("April 2027")
+	r.tt.Lacks("Coming days")
+	if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleGroup, "Coming days"); ok {
+		t.Error("a strip with no show in it was drawn")
+	}
+}
+
+// A month says how many shows it holds, unless Apple has more than the list
+// asked for: the last month's count could be short.
+func TestMonthHeadingCountsItsShowsExceptThePartialLast(t *testing.T) {
+	r := newRig(t, "/concerts", 1132, 9000, bulk(120)...)
+	r.shows("January 2027", "31 shows", "28 shows", "Show more concerts")
+	n := 0
+	for _, w := range r.tt.Texts() {
+		if strings.HasSuffix(w, " shows") || w == "1 show" {
+			n++
+		}
+	}
+	if n != 3 { // January, February and March; April is cut by the limit
+		t.Errorf("%d month counts, want 3 (not the last month's); texts %q", n, r.tt.Texts())
+	}
 }

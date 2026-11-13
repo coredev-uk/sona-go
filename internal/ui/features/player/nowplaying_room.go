@@ -47,10 +47,13 @@ func (p *player) roomLayer(c *ui.Context) {
 	// sibling would paint above them).
 	root := kit.Backdrop(c.Key("room"), p.env.Art, washOf(cur), func() {
 		p.roomLines(c, songID, roomLook(w, h))
-		ui.Row(c.Key("room-footer")).FillWidth().Shrink(0).Gap(16).Padding(12, 0.07*w, 28).AlignItems(ui.Center).Children(func() {
-			kit.Artwork(c.Key("art"), p.env.Art, cur.Art.Small, 44, kit.ArtOpts{})
+		// The foot: the song and the timing nudge under a rule that starts and
+		// ends where the window's side room does.
+		ui.Box(c.Key("room-rule")).Height(1).Shrink(0).Margin(0, 0.07*w).Background(theme.C("line"))
+		ui.Row(c.Key("room-footer")).FillWidth().Shrink(0).Gap(16).Padding(14, 0.07*w, 24).AlignItems(ui.Center).Children(func() {
+			kit.Artwork(c.Key("art"), p.env.Art, cur.Art.Small, 48, kit.ArtOpts{})
 			ui.Column(c.Key("song")).Grow(1).MinWidth(0).Children(func() {
-				lineText(c.Key("name"), cur.Name, 14, 20, 500, theme.C("ink")).SingleLine()
+				lineText(c.Key("name"), cur.Name, 14, 20, 600, theme.C("ink")).SingleLine()
 				lineText(c.Key("artist"), cur.Artist, 13, 18, 400, theme.C("ink-muted")).SingleLine()
 			})
 			p.lyricsTiming(c, songID)

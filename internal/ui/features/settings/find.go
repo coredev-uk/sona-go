@@ -192,7 +192,12 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 		},
 		{ID: "idle", Section: secPlayback, Group: advanced, Title: i18n.T("Free memory when idle"), When: cdmEngine},
 
-		{ID: "theme", Section: secAppearance, Group: appearance, Title: i18n.T("Theme"), Keywords: i18n.T("dark, light")},
+		{ID: "theme", Section: secAppearance, Group: appearance, Title: i18n.T("Mode"), Keywords: i18n.T("dark, light, system, appearance")},
+		{
+			ID: "theme-gallery", Section: secAppearance, Group: appearance, Title: i18n.T("Theme"),
+			Keywords: i18n.T("colours, palette, graphite, ink, high contrast, paper, spot colour"),
+		},
+		{ID: "themes-folder", Section: secAppearance, Group: appearance, Title: i18n.T("Your own themes"), Keywords: i18n.T("custom, json, folder")},
 		{
 			ID: "reduce-effects", Section: secAppearance, Group: appearance, Title: i18n.T("Reduce effects"),
 			Keywords: i18n.T("animation, motion, blur"),

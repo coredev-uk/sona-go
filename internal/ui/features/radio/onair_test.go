@@ -27,7 +27,7 @@ func boardRig(t *testing.T, stations []services.Station, details map[string]serv
 	})}, setup...)...)
 }
 
-func TestOnAirRowShowsTheProgrammeHowLongIsLeftAndTheNextNamedProgramme(t *testing.T) {
+func TestOnAirRowShowsTheProgrammeHowLongIsLeftAndWhatComesAfter(t *testing.T) {
 	t0 := base()
 	one := appleMusic1
 	rg := boardRig(t, []services.Station{one}, map[string]services.StationDetail{"ra.1": {Station: one, Schedule: []services.StationEvent{
@@ -35,21 +35,24 @@ func TestOnAirRowShowsTheProgrammeHowLongIsLeftAndTheNextNamedProgramme(t *testi
 		stationEvent("Apple Music 1", t0.Add(time.Hour), t0.Add(2*time.Hour)),
 		stationEvent("The Matt Wilkinson Show", t0.Add(2*time.Hour), t0.Add(3*time.Hour)),
 	}}})
-	next := "Later at " + clockAt(t0.Add(2*time.Hour).UnixMilli()) + ": The Matt Wilkinson Show"
-	rg.tt.Until("the programme", rg.tt.Shows("The Zane Lowe Show", next))
+	rg.tt.Until("the programme", rg.tt.Shows("The Zane Lowe Show", "The Matt Wilkinson Show"))
 	slot := clockAt(t0.UnixMilli()) + "–" + clockAt(t0.Add(time.Hour).UnixMilli())
 	for _, want := range []string{slot, "45 min left", "Time through this programme"} {
 		if !rg.tt.HasText(want) {
 			t.Errorf("the row lacks %q: %q", want, rg.tt.Texts())
 		}
 	}
-	// The station's own hour comes between, so the show is "later", not "next".
-	if rg.tt.HasText("Next at") {
-		t.Errorf("the show is called next: %q", rg.tt.Texts())
+	// The station's own hour comes between: it is a box of its own (quiet,
+	// the tagline), and the later show starts where its slot says.
+	if !rg.tt.HasText("Apple Music 1 tagline") {
+		t.Errorf("the station's own hour is not on the board: %q", rg.tt.Texts())
+	}
+	if !rg.tt.HasText(clockAt(t0.Add(2*time.Hour).UnixMilli()) + "–" + clockAt(t0.Add(3*time.Hour).UnixMilli())) {
+		t.Errorf("the later show lacks its slot: %q", rg.tt.Texts())
 	}
 }
 
-func TestOnAirRowCountsTheStationsOwnHoursDownToTheNextNamedShow(t *testing.T) {
+func TestOnAirRowJoinsTheStationsOwnHoursIntoOneBoxAndCountsThemDownToTheNextShow(t *testing.T) {
 	t0 := base()
 	one := appleMusic1
 	rg := boardRig(t, []services.Station{one}, map[string]services.StationDetail{"ra.1": {Station: one, Schedule: []services.StationEvent{
@@ -58,8 +61,7 @@ func TestOnAirRowCountsTheStationsOwnHoursDownToTheNextNamedShow(t *testing.T) {
 		stationEvent("The Ebro Show", t0.Add(2*time.Hour), t0.Add(3*time.Hour)),
 	}}})
 	slot := clockAt(t0.UnixMilli()) + "–" + clockAt(t0.Add(2*time.Hour).UnixMilli())
-	next := "Next at " + clockAt(t0.Add(2*time.Hour).UnixMilli()) + ": The Ebro Show"
-	rg.tt.Until("the row", rg.tt.Shows("New music.", slot, next))
+	rg.tt.Until("the row", rg.tt.Shows("New music.", slot, "The Ebro Show"))
 	// 1 h 45 min to the show, as one stretch.
 	if !rg.tt.HasText("1 hr, 45 min left") {
 		t.Errorf("no count down: %q", rg.tt.Texts())
@@ -74,27 +76,10 @@ func TestOnAirRowFallsBackToTheTaglineForItsOwnHoursAndWithoutASchedule(t *testi
 		stationEvent("Hits", t0.Add(time.Hour), t0.Add(2*time.Hour)),
 	}}})
 	rg.tt.Until("the rows", rg.tt.Shows("Hits tagline", "Chill tagline"))
-	if rg.tt.HasText("Next at") || rg.tt.HasText("Later at") {
-		t.Errorf("a next programme from the station's own hours: %q", rg.tt.Texts())
-	}
 	// Hours to the end of the schedule have nothing to count down to; no
 	// schedule has no bar.
 	if rg.tt.HasText("Time through this programme") {
 		t.Errorf("a progress bar without a stretch to count down: %q", rg.tt.Texts())
-	}
-}
-
-func TestOnAirRowArtIsTheProgrammesElseTheStations(t *testing.T) {
-	s := liveStation("ra.1", "Hits")
-	prog := services.StationEvent{Art: services.Art{Medium: "/art/show/show.jpg"}}
-	if got := artOf(s, prog, true); got != "/art/show/show.jpg" {
-		t.Errorf("art with a programme = %q", got)
-	}
-	if got := artOf(s, services.StationEvent{}, true); got != s.Art.Medium {
-		t.Errorf("a programme without art = %q, want the station's", got)
-	}
-	if got := artOf(s, prog, false); got != s.Art.Medium {
-		t.Errorf("no programme on air = %q, want the station's", got)
 	}
 }
 
@@ -138,15 +123,12 @@ func TestOnAirRowPlaysFromItsButtonAndMarksTheStationPlaying(t *testing.T) {
 	}
 }
 
-func TestOnAirRowOfAStationWithNoPagePlaysAndOffersItsMenu(t *testing.T) {
+func TestOnAirRowOfAStationWithNoPagePlaysFromItsLaneAndItsButton(t *testing.T) {
 	quiet := liveStation("ra.2", "Quiet FM", func(s *services.Station) { s.HasPage = false })
 	rg := boardRig(t, []services.Station{quiet}, map[string]services.StationDetail{"ra.2": {Station: quiet, Schedule: []services.StationEvent{}}})
-	rg.tt.Until("the row", rg.tt.Shows("Quiet FM", "More for Quiet FM"))
-	// Its name is a button that plays it; there is no page link and no play
-	// button of the row's.
-	if _, ok := rg.tt.Find("Play Quiet FM"); ok {
-		t.Error("a station with no page has a second play control")
-	}
+	rg.tt.Until("the row", rg.tt.Shows("Quiet FM", "Play Quiet FM"))
+	// Its lane is a button that plays it, and the row's own play control
+	// sits beside the name.
 	rg.click("Quiet FM Play")
 	rg.tt.Until("the play", func() bool { return slices.Equal(rg.api.plays(), []string{"ra.2"}) })
 	if rg.router.Path() != radioPath {
@@ -200,36 +182,56 @@ func TestOnAirBoardReadsItsSchedulesEvery30SecondsAndNeverTicks(t *testing.T) {
 		// Ten seconds before the show ends.
 		rg.now = t0.Add(time.Hour - 10*time.Second)
 	})
-	rg.tt.Until("the show", rg.tt.Shows("The Zane Lowe Show"))
+	rg.tt.Until("the show", rg.tt.Shows("The Zane Lowe Show", "1 min left"))
 	// Twenty seconds on the slot is over, but the board has not read the
-	// clock again: no ticking counter.
+	// clock again: no ticking counter, the show is still the one on air.
 	rg.advance(20 * time.Second)
-	if rg.count("The Zane Lowe Show") == 0 || rg.count("The Matt Wilkinson Show") != 0 {
+	if !rg.tt.HasText("1 min left") || rg.tt.HasText("1 hr left") {
 		t.Errorf("the board moved before its 30 seconds: %q", rg.tt.Texts())
 	}
 	// Thirty seconds in, it reads again and the next show is on air.
 	rg.advance(10 * time.Second)
-	if rg.count("The Matt Wilkinson Show") == 0 || rg.count("The Zane Lowe Show") != 0 {
+	if !rg.tt.HasText("1 hr left") || rg.tt.HasText("1 min left") {
 		t.Errorf("the board did not move on after 30 seconds: %q", rg.tt.Texts())
 	}
 }
 
-func TestOnAirRowsFollowTheWidthOfTheWindow(t *testing.T) {
-	stations := []services.Station{appleMusic1, appleHits}
-	// Two columns of 420 or more at 1132 DIPs; one at the narrowest window.
-	wide := boardRig(t, stations, nil)
-	wide.tt.Until("the rows", wide.tt.Shows("Apple Music 1", "Hits"))
+func TestOnAirBoardKeepsWorkingAtTheNarrowestWindowWithAShorterStretchOfTime(t *testing.T) {
+	t0 := base()
+	one, hits := appleMusic1, appleHits
+	details := map[string]services.StationDetail{
+		"ra.1": {Station: one, Schedule: []services.StationEvent{
+			stationEvent("The Zane Lowe Show", t0, t0.Add(time.Hour)),
+			stationEvent("The Matt Wilkinson Show", t0.Add(time.Hour), t0.Add(2*time.Hour)),
+			stationEvent("The Ebro Show", t0.Add(2*time.Hour), t0.Add(3*time.Hour)),
+		}},
+		"ra.2": {Station: hits},
+	}
+	stations := []services.Station{one, hits}
+	// The lanes are stacked at every width; the wider the window, the more
+	// hours its track holds.
+	wide := boardRig(t, stations, details)
+	wide.tt.Until("the lanes", wide.tt.Shows("Apple Music 1", "Hits", "The Ebro Show"))
 	a, _ := wide.tt.Find("Apple Music 1")
 	b, _ := wide.tt.Find("Hits")
-	if a.Y != b.Y || b.X <= a.X {
-		t.Errorf("wide: %v and %v are not side by side", a, b)
+	if a.X != b.X || b.Y <= a.Y {
+		t.Errorf("wide: %v and %v are not stacked", a, b)
 	}
-	narrow := newRig(t, radioPath, 760, 1253, fake(func(f *fakeRadio) { f.live = stations }))
-	narrow.tt.Until("the rows", narrow.tt.Shows("Apple Music 1", "Hits"))
+	narrow := newRig(t, radioPath, 700, 1253, fake(func(f *fakeRadio) {
+		f.live = stations
+		for id, d := range details {
+			f.details[id] = d
+		}
+	}))
+	narrow.tt.Until("the lanes", narrow.tt.Shows("Apple Music 1", "Hits", "The Zane Lowe Show"))
 	a, _ = narrow.tt.Find("Apple Music 1")
 	b, _ = narrow.tt.Find("Hits")
 	if a.X != b.X || b.Y <= a.Y {
 		t.Errorf("narrow: %v and %v are not stacked", a, b)
+	}
+	// The narrow track is two hours at most: the third show is out of view.
+	if narrow.tt.HasText("The Ebro Show") {
+		t.Errorf("a show three hours ahead is on a narrow board: %q", narrow.tt.Texts())
 	}
 }
 
@@ -266,8 +268,8 @@ func TestOnAirProgressIsAmberOnlyWhileThisStationPlays(t *testing.T) {
 		if !ok {
 			t.Fatalf("no progress bar: %q", rg.tt.Texts())
 		}
-		// 25% through: the bar's first pixels are the fill.
-		return pixel(rg, bar.X+2, bar.Y+bar.H/2)
+		// 25% through: the bar's first pixels (past the box's rounded corner) are the fill.
+		return pixel(rg, bar.X+12, bar.Y+bar.H/2)
 	}
 	still := boardRig(t, []services.Station{one}, details)
 	still.tt.Until("the bar", still.tt.Shows("Time through this programme"))
@@ -285,5 +287,33 @@ func TestOnAirProgressIsAmberOnlyWhileThisStationPlays(t *testing.T) {
 	paused.tt.Until("the bar", paused.tt.Shows("Time through this programme"))
 	if got := fill(paused); !near(got, rgba(theme.C("ink-muted"))) {
 		t.Errorf("fill of the station paused = %v, want --ink-muted", got)
+	}
+}
+
+func TestOnAirProgrammeBoxOpensTheStationsPage(t *testing.T) {
+	t0 := base()
+	one := appleMusic1
+	rg := boardRig(t, []services.Station{one}, map[string]services.StationDetail{"ra.1": {Station: one, Schedule: []services.StationEvent{
+		stationEvent("The Zane Lowe Show", t0, t0.Add(time.Hour)),
+		stationEvent("The Matt Wilkinson Show", t0.Add(time.Hour), t0.Add(2*time.Hour)),
+	}}})
+	rg.tt.Until("the boxes", rg.tt.Shows("The Zane Lowe Show", "The Matt Wilkinson Show"))
+	// A box to come is as much a link as the one on air.
+	rg.click("The Matt Wilkinson Show, " + clockAt(t0.Add(time.Hour).UnixMilli()) + "–" + clockAt(t0.Add(2*time.Hour).UnixMilli()))
+	if rg.router.Path() != "/station/ra.1" {
+		t.Errorf("went to %q", rg.router.Path())
+	}
+}
+
+func TestOnAirNowLineAndFlagSitAtTheClockTimeOfTheBoard(t *testing.T) {
+	rg := boardRig(t, []services.Station{appleMusic1}, nil)
+	now := clockAt(rg.now.UnixMilli())
+	rg.tt.Until("the flag", rg.tt.Shows(now))
+	// The ruler names every half hour but the one the flag covers.
+	if !rg.tt.HasText(clockAt(base().UnixMilli())) {
+		t.Errorf("the ruler lacks the hour: %q", rg.tt.Texts())
+	}
+	if n := rg.count(now); n != 1 {
+		t.Errorf("the clock time of now shows %d times", n)
 	}
 }

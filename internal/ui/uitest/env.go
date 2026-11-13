@@ -191,7 +191,11 @@ func New(t testing.TB, opts ...Option) *Harness {
 	} else {
 		theme.SetMode(theme.ModeLight)
 	}
-	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
+	t.Cleanup(func() {
+		theme.SetMode(theme.ModeSystem)
+		theme.LoadUser(nil)
+		theme.SetTheme(theme.DefaultThemeID)
+	})
 
 	h := &Harness{Clock: NewClock(), Main: &MainThread{}, Covers: &fixture.CDN{}, Dir: t.TempDir()}
 	isolate(t, filepath.Join(h.Dir, "env"))

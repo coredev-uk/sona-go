@@ -93,7 +93,7 @@ func (s *settings) languagePanel(c *ui.Context, cfg config.Settings) {
 	if value == "" {
 		value = automaticLanguage
 	}
-	ui.Column(c.Key("language")).FillWidth().Children(func() {
+	s.bare(c.Key("language"), func() {
 		s.selectRow(c, rowOpts{
 			ID: "language", Title: i18n.T("Language"),
 			Desc: i18n.T("Automatic follows your Apple Music account and your system. Apple Music's own text, such as album notes, follows too where your country or region offers the language."),

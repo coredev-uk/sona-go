@@ -20,7 +20,7 @@ type songList struct {
 
 // songsPage is the Songs page's view state.
 type songsPage struct {
-	kit.PageFrame
+	railFrame
 	list songList
 }
 
@@ -35,6 +35,10 @@ func (l *library) songsList(q listQuery) *listView[services.Song] {
 	})
 }
 
+// songsHeadHeight is the table's header row and the space under it, which
+// the rows start after (kit's trackHeaderHeight and the body's 4px).
+const songsHeadHeight = 36
+
 // songsPage is LibrarySongsPage: the header (title, count, sort and play
 // controls) and the song table inside one scroll container.
 func (l *library) songsPage(c *ui.Context, r *ui.Route) {
@@ -46,8 +50,19 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 	if list.Total > 0 {
 		subline = i18n.SongCount(list.Total)
 	}
-	pg.Scroll(c, q.key(), func(pane *kit.Pane, _ float32) {
-		kit.PageHeaderCounted(c, i18n.T("Songs"), subline, func() {
+	var rail func()
+	if railShown(q.sort, q.desc, list.Total) {
+		jumps, ready := l.songLetters(q, list)
+		rail = func() {
+			l.letterRail(c, jumps, ready, func(slot int) {
+				// The body starts under the table's header row.
+				pg.Pos.Y = max(0, pg.gridTop+songsHeadHeight+float32(jumps[slot])*kit.TrackRowHeight)
+				c.Invalidate()
+			})
+		}
+	}
+	l.scrollRail(c, &pg.railFrame, q.key(), rail, func(pane *kit.Pane) {
+		l.pageHead(c, headOpts{title: i18n.T("Songs"), count: subline, actions: func() {
 			l.sortSelect(c, songsSpec, q)
 			play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{
 				PlayLabel: i18n.T("Play your songs"), Shuffle: true, Disabled: list.Total == 0,
@@ -58,7 +73,7 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 			if shuffle {
 				l.playSongsFrom(q, randomPlayable(list.Loaded()), true)
 			}
-		})
+		}})
 		if l.gate(c, gateOpts{
 			total: list.Total, pending: list.Pending(), err: list.Err(), retry: list.Retry, retrying: list.Retrying(),
 			kind: kindSongs, frame: kit.FrameBox,
@@ -78,6 +93,9 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 		switch q.sort {
 		case kit.SortTitle, kit.SortArtist, kit.SortAlbum:
 			sortState.Key = q.sort
+		}
+		if rail != nil {
+			pg.gridAnchor(c, pane)
 		}
 		l.songTable(c, &pg.list, pane, list, songTableOpts{
 			label:  i18n.T("Songs in your library"),
@@ -122,4 +140,31 @@ func (l *library) songTable(c *ui.Context, g *songList, pane *kit.Pane, list *li
 	opts.OnRange = g.onRange(c)
 	opts.Pane = pane
 	kit.TrackList(c, &g.st, count, func(i int) *services.Song { return at(i) }, opts)
+}
+
+// songLetters is the rail of songs ordered by title, artist or album.
+func (l *library) songLetters(q listQuery, list *listView[services.Song]) (letterJumps, bool) {
+	name := func(s *services.Song) string {
+		switch q.sort {
+		case "artist":
+			return s.Artist
+		case "album":
+			return s.Album
+		}
+		return s.Name
+	}
+	held := func(i int) string {
+		if s := list.At(i); s != nil {
+			return name(s)
+		}
+		return ""
+	}
+	key := store.Key{"library", "songs", "letters", q.sort, list.Total}
+	return jumpsOf(l, list.Total, list.first.HasData, held, key, func(ctx context.Context, i int) (string, error) {
+		p, err := l.lib.Songs(ctx, q.sort, false, i, 1)
+		if err != nil || len(p.Items) == 0 {
+			return "", err
+		}
+		return name(&p.Items[0]), nil
+	})
 }

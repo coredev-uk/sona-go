@@ -110,6 +110,12 @@ type rig struct {
 // the first frame already asks it.
 func newRig(t *testing.T, supported bool, setup func(*fake), opts ...uitest.Option) *rig {
 	t.Helper()
+	return newRigAt(t, 900, supported, setup, opts...)
+}
+
+// newRigAt is newRig in a window width DIPs wide.
+func newRigAt(t *testing.T, width int, supported bool, setup func(*fake), opts ...uitest.Option) *rig {
+	t.Helper()
 	h := uitest.New(t, append([]uitest.Option{uitest.Bare()}, opts...)...)
 	r := &rig{t: t, fake: newFake(), router: ui.NewRouter("/equalizer")}
 	if setup != nil {
@@ -126,7 +132,7 @@ func newRig(t *testing.T, supported bool, setup func(*fake), opts ...uitest.Opti
 			})
 		})
 		kit.OverlayLayer(c) // the toasts
-	}, 900, 760)
+	}, width, 760)
 	return r
 }
 

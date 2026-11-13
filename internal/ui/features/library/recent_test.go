@@ -91,7 +91,7 @@ func TestRecentlyAddedTilesLinkOnlyToExistingPages(t *testing.T) {
 func TestRecentlyAddedKeyboardAndSelection(t *testing.T) {
 	r := newGridRig(t, recentPath, nil, uitest.Albums(sevenAlbums...))
 	r.tt.Until("the entries", r.tt.Shows("Paper Planes", "Blue Hour"))
-	sel := &r.l.recent.cover.st.Sel
+	sel := &r.l.recent.grids[bucketEarlier].st.Sel
 	if err := r.tt.ClickWith(ui.Cmd, "Paper Planes"); err != nil {
 		t.Fatal(err)
 	}

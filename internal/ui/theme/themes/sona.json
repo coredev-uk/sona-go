@@ -1,0 +1,9 @@
+{
+  "$comment": "Sona's own theme: tokens.json as it is. A theme gives only what it changes; empty variants say it has both a light and a dark look.",
+  "format": 1,
+  "id": "sona",
+  "name": "Sona",
+  "author": "Sona",
+  "light": {},
+  "dark": {}
+}

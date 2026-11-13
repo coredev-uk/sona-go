@@ -31,9 +31,9 @@ func (l *library) playlistsPage(c *ui.Context, r *ui.Route) {
 		subline = i18n.T("{0, plural, one {# playlist} other {# playlists}}", "0", list.Total)
 	}
 	pg.Scroll(c, q.key(), func(pane *kit.Pane, _ float32) {
-		kit.PageHeaderCounted(c, i18n.T("Playlists"), subline, func() {
+		l.pageHead(c, headOpts{title: i18n.T("Playlists"), count: subline, actions: func() {
 			l.sortSelect(c, playlistsSpec, q)
-		})
+		}})
 		if l.gate(c, gateOpts{
 			total: list.Total, pending: list.Pending(), err: list.Err(), retry: list.Retry, retrying: list.Retrying(),
 			kind: kindPlaylists, frame: kit.FrameCovers,

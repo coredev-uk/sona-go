@@ -27,6 +27,9 @@ type concerts struct {
 
 	page struct {
 		pos ui.ScrollState
+		// width is the scroll container's width in the last frame: the
+		// gutters narrow with it, as every page's do.
+		width float32
 		// more is how many concerts the listing asks for, for the filters it
 		// was raised under.
 		more struct {
@@ -38,6 +41,11 @@ type concerts struct {
 		prev     *services.ConcertsPage
 		from, to dateField
 		rov      roving
+		// view is the listing grouped for drawing, kept while it is still
+		// the listing; jump is the day of the strip chosen, for the frame
+		// that scrolls the agenda to it.
+		view agendaView
+		jump string
 		// heard is the listing last read out (filters and whether it was
 		// the first): the first listing is the page opening, which
 		// announces itself, so it is only noted.

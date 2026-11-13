@@ -183,3 +183,18 @@ func TestHoldsSaysWhatAShelfHoldsInTheOrderItMeetsTheKinds(t *testing.T) {
 		t.Errorf("holds %q", got)
 	}
 }
+
+func TestLeadCoverIsOneOfThreeClasses(t *testing.T) {
+	for _, tc := range []struct{ width, want float32 }{
+		{0, leadCoverNarrow},
+		{899, leadCoverNarrow},
+		{900, leadCover},
+		{1399, leadCover},
+		{1400, leadCoverLarge},
+		{1700, leadCoverLarge},
+	} {
+		if got := leadCoverFor(tc.width); got != tc.want {
+			t.Errorf("leadCoverFor(%v) = %v, want %v", tc.width, got, tc.want)
+		}
+	}
+}

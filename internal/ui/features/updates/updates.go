@@ -65,63 +65,67 @@ func (u *updates) notice(c *ui.Context) {
 		return
 	}
 	st := r.Data
+	// msg is the sentence a screen reader gets; the slip shows it in two
+	// lines, "New version" over "Sona {latest}", and the other states in words
+	// of their own.
 	msg := i18n.T("Sona {latest} is available", "latest", st.Latest)
+	shown := i18n.T("Sona {latest}", "latest", st.Latest)
 	switch {
 	case st.Installed:
 		msg = i18n.T("Restarting into Sona {latest}…", "latest", st.Latest)
+		shown = msg
 	case st.Installing:
 		msg = i18n.T("Downloading Sona {latest}…", "latest", st.Latest)
+		shown = msg
 	case st.InstallError != "":
 		msg = i18n.T("Couldn't install Sona {latest}", "latest", st.Latest)
+		shown = msg
 	}
-	meta := theme.Current().Type["meta"]
-	col := ui.Column(c.Key("update-notice")).FillWidth().Gap(6).PaddingX(10).Margin(0, 0, 8, 0)
-	col.Children(func() {
-		ui.Row(c.Key("line")).FillWidth().Gap(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
-			ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Shrink(1).Children(func() {
-				ui.Icon(c, theme.Icon("circle-arrow-up")).FontSize(12).TextColor(theme.C("ink")).Shrink(0)
-				// The status is the words, not the notice: its button's label
-				// is not news. A status is read when its text changes and not
-				// when it first appears, so the notice turning up is announced
-				// here and what changes it afterwards is its own to read.
-				said := ui.Text(c.Key("said"), msg).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).
-					TextColor(theme.C("ink")).SingleLine().MinWidth(0).Shrink(1).Role(ui.RoleStatus)
-				kit.AnnounceMounted(c, said, msg)
-			})
-			if st.Installing || st.Installed {
-				return
-			}
-			label := i18n.T("View")
-			if st.SelfUpdate {
-				label = i18n.T("Install and restart")
-			}
-			act := ui.ButtonBase(c.Key("update-act")).Radius(theme.Current().Radius["sm"]).Shrink(0).Label(label)
-			fg := theme.C("ink-muted")
-			if act.Hovered() {
-				fg = theme.C("ink")
-			}
-			act.TextColor(fg).Children(func() {
-				t := ui.Text(c, label).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).SingleLine()
-				if act.Hovered() {
-					t.Underline()
-				}
-			})
-			if act.Clicked() {
-				if st.SelfUpdate {
-					u.installAndRestart()
-				} else {
-					u.view()
-				}
-			}
-		})
-		if st.Installing {
-			value := -1.0 // unknown until the first bytes arrive
-			if st.Total > 0 {
-				value = float64(st.Downloaded) / float64(st.Total)
-			}
-			kit.ProgressBar(c.Key("update-progress"), value, kit.ProgressOpts{A11yLabel: i18n.T("Update download")})
-		}
+	// The release slip: a quiet raised block, radius 6, whose action runs the
+	// full width under the version.
+	ui.Column(c.Key("update-notice")).FillWidth().PaddingX(10).Margin(0, 0, 8, 0).Children(func() {
+		ui.Column(c.Key("slip")).FillWidth().Gap(8).Padding(10).Radius(theme.Current().Radius["md"]).
+			Background(theme.C("raised")).Children(func() { u.slip(c, st, msg, shown) })
 	})
+}
+
+// slip is the block's content: the version, the download's bar and the action.
+func (u *updates) slip(c *ui.Context, st services.UpdateStatus, msg, shown string) {
+	meta := theme.Current().Type["meta"]
+	body := theme.Current().Type["body"]
+	ui.Column(c.Key("slip-head")).FillWidth().Children(func() {
+		ui.Text(c.Key("slip-meta"), i18n.T("New version")).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).
+			TextColor(theme.C("ink-muted")).SingleLine().MinWidth(0).Role(ui.RoleNone)
+		// The status is the words, not the slip: its button's label is
+		// not news. A status is read when its text changes and not when
+		// it first appears, so the slip turning up is announced here and
+		// what changes it afterwards is its own to read.
+		said := ui.Text(c.Key("said"), shown).FontSize(body.Size).FixedLineHeight(body.LineHeight).FontWeight(500).
+			TextColor(theme.C("ink")).MinWidth(0).Role(ui.RoleStatus).Label(msg)
+		kit.AnnounceMounted(c, said, msg)
+	})
+	if st.Installing {
+		value := -1.0 // unknown until the first bytes arrive
+		if st.Total > 0 {
+			value = float64(st.Downloaded) / float64(st.Total)
+		}
+		kit.ProgressBar(c.Key("update-progress"), value, kit.ProgressOpts{A11yLabel: i18n.T("Update download")})
+	}
+	if st.Installing || st.Installed {
+		return
+	}
+	label := i18n.T("View")
+	if st.SelfUpdate {
+		label = i18n.T("Install and restart")
+	}
+	act := kit.Button(c.Key("update-act"), label, kit.ButtonOpts{Size: kit.SizeSM}).FillWidth()
+	if act.Clicked() {
+		if st.SelfUpdate {
+			u.installAndRestart()
+		} else {
+			u.view()
+		}
+	}
 }
 
 // installAndRestart installs the update; a failure toasts and the notice
