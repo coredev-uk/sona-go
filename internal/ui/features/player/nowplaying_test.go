@@ -25,6 +25,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // seeker records what Now Playing asked of the playback service; the rest of
@@ -1116,5 +1117,35 @@ func TestArrowingDuringThePageTurnKeepsTheFocusedLineInView(t *testing.T) {
 	r.advance(time.Second)
 	if line.Y < sheet.Y-1 || line.Y+line.H > sheet.Y+sheet.H+1 {
 		t.Errorf("a second on, line %d at %v..%v is outside the sheet %v..%v", sh.focused, line.Y, line.Y+line.H, sheet.Y, sheet.Y+sheet.H)
+	}
+}
+
+// A song of several artists shows Apple's artist string under its title in Now
+// Playing as a menu button; each artist in its menu closes the view and opens
+// their page.
+func TestNowPlayingChoosesAmongSeveralArtists(t *testing.T) {
+	r := newNPRig(t)
+	nav := routed(&rig{h: r.h, env: r.h.Env}, true)
+	r.play(30_000, func(s *services.PlaybackState) {
+		s.Current.Artist, s.Current.ArtistID, s.Current.Artists = stayCredit, "1435848034", stayArtists
+	})
+	r.open("")
+	tr := access.Read(t, r.tt.Tester)
+	btn, ok := tr.Find(ui.RoleMenuButton, stayCredit)
+	if !ok || btn.HasPopup != ui.PopupMenu || !btn.Has(access.Focusable) {
+		t.Fatalf("no menu button for the credit:\n%s", tr.Dump())
+	}
+	r.tt.MustClick(stayCredit)
+	if len(nav.Pushed) != 0 {
+		t.Fatalf("opening the chooser went to %q", nav.Pushed)
+	}
+	r.tt.MustClick("The Kid LAROI")
+	r.settle()
+	r.tt.Pump(3, 50*time.Millisecond)
+	if want := []string{"/artist/1435848034"}; !slices.Equal(nav.Pushed, want) {
+		t.Errorf("pushed %q, want %q", nav.Pushed, want)
+	}
+	if r.p.ui.overlay != overlayNone {
+		t.Errorf("Now Playing stayed open: %v", r.p.ui.overlay)
 	}
 }

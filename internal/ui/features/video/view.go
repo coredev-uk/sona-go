@@ -441,17 +441,20 @@ func (v *video) caption(c *ui.Context, cur *services.QueueItem, pr *problem, sta
 			}
 		})
 		ui.Row(c).Gap(12).AlignItems(ui.Center).MinWidth(0).Children(func() {
-			if path := "/artist/" + cur.ArtistID; cur.ArtistID != "" && v.env.Routed(path) {
-				l := ui.Link(c.Key("artist"), "", "").Shrink(1).MinWidth(0)
-				l.Children(func() { text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")) })
-				control(l, focusVisible)
-				if l.Clicked() {
+			open := v.env.ArtistOpener()
+			if open != nil {
+				// The view closes as it goes, like the title's link.
+				page := open
+				open = func(id string) {
 					v.env.Video.Close()
-					v.env.Nav.Push(path)
+					page(id)
 				}
-			} else {
-				text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")).Shrink(1)
 			}
+			kit.ArtistLinks(c, v.env.SongArtists.OfPlaying(cur), cur.Artist, theme.C("ink-muted"), kit.ArtistLinksOpts{
+				Open: open, Hover: theme.C("ink"),
+				Style: func(e ui.Element) { theme.StyleText(e, "sub").SingleLine().MinWidth(0) },
+				Wire:  func(e ui.Element) { control(e, focusVisible) },
+			})
 			// A status reads its text when that changes; the frame the
 			// view opens in, which builds it with its first text, says it.
 			row := ui.Row(c.Key("status")).Shrink(0).AlignItems(ui.Center).Role(ui.RoleStatus)

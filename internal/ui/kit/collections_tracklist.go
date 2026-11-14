@@ -142,6 +142,11 @@ type TrackListOpts struct {
 	OpenArtist  func(id string)
 	OpenAlbum   func(id string)
 	OpenProfile func(id string)
+	// Artists gives a row's artists beyond its first (Song.Artists; for a
+	// library song the catalogue copy's, looked up as its row is built): a
+	// song with several shows its artist cell as a chooser (ArtistLinks).
+	// Nil: the rows' own.
+	Artists *SongArtists
 }
 
 // TrackListState is the state of one track list: selection, keyboard
@@ -799,7 +804,20 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 		})
 		if cols.Artist {
 			o.cell(ui.Row(c.Key("artist")).Role(ui.RoleCell).AlignItems(ui.Center), cellArtist).Children(func() {
-				trackLink(c, w, s.Artist, s.ArtistID, muted, o.OpenArtist, selectRow)
+				typ := tk.Type["sub"]
+				ArtistLinks(c, o.Artists.OfSong(*s), s.Artist, muted, ArtistLinksOpts{
+					Open: o.OpenArtist, Static: true, Hover: theme.C("ink"),
+					Style: func(e ui.Element) {
+						e.FontSize(typ.Size).FixedLineHeight(typ.LineHeight).SingleLine().MinWidth(0)
+					},
+					Click: func(m ClickMods) bool {
+						if m.Range || m.Toggle {
+							selectRow(m)
+							return true
+						}
+						return false
+					},
+				})
 			})
 		}
 		if cols.Album {

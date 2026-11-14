@@ -221,7 +221,9 @@ func init() {
 		artists := []services.Artist{{ID: "1", Name: "Radiohead"}}
 		kit.CollectionHeader(c, kit.CollectionHeaderOpts{
 			Title: "OK Computer", Art: "/art/k1", Loader: g.art,
-			Byline: func() { kit.ArtistLinks(c, artists, "Radiohead", ui.Color{}) },
+			Byline: func() {
+				kit.ArtistLinks(c, artists, "Radiohead", ui.Color{}, kit.ArtistLinksOpts{Open: func(string) {}})
+			},
 			Meta:   "Album · 1997 · 12 songs, 53 min",
 			Badges: func() { kit.Badges(c, kit.BadgesOpts{Explicit: true, Traits: services.Traits{Lossless: true}}) },
 			Description: "Radiohead's third album, recorded in an Oxfordshire mansion and released in 1997, turned a band known for guitars " +
@@ -236,12 +238,14 @@ func init() {
 
 	register(section{name: "Controls / Notes and ArtistLinks", build: func(c *ui.Context, g *gallery) {
 		s := &controlsState
-		controlsNote(c, "kit.Notes clamps to four lines and offers Read more only when the text runs longer; kit.ArtistLinks joins credits as \"A, B & C\".")
+		controlsNote(c, "kit.Notes clamps to four lines and offers Read more only when the text runs longer; kit.ArtistLinks is a link for one artist and a menu button for several.")
 		kit.Notes(c, s.noteText, 0)
 		controlsHeading(c, "ArtistLinks")
 		all := []services.Artist{{ID: "1", Name: "Daft Punk"}, {ID: "2", Name: "Pharrell Williams"}, {ID: "3", Name: "Nile Rodgers"}}
-		kit.ArtistLinks(c.Key("3"), all, "Daft Punk", ui.Color{})
-		kit.ArtistLinks(c.Key("2"), all[:2], "Daft Punk", ui.Color{})
-		kit.ArtistLinks(c.Key("1"), nil, "Daft Punk, Pharrell Williams & Nile Rodgers", ui.Color{})
+		open := kit.ArtistLinksOpts{Open: func(string) {}}
+		kit.ArtistLinks(c.Key("3"), all, "Daft Punk, Pharrell Williams & Nile Rodgers", ui.Color{}, open)
+		kit.ArtistLinks(c.Key("2"), all[:2], "Daft Punk & Pharrell Williams", ui.Color{}, open)
+		kit.ArtistLinks(c.Key("1"), all[:1], "Daft Punk", ui.Color{}, open)
+		kit.ArtistLinks(c.Key("0"), nil, "Various Artists", ui.Color{}, open)
 	}})
 }

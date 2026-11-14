@@ -24,6 +24,10 @@ type trackMeta struct {
 	source                   Source
 	id, catalogID, libraryID string
 	albumID, artistID        string
+	// artists are every credited artist where the song came from the
+	// catalogue with them named (a fetched song, a station's); a stored row
+	// keeps only the first artist's ID.
+	artists []Artist
 }
 
 // PlaybackService controls the play queue (internal/playback/coordinator).
@@ -260,7 +264,7 @@ func (s *PlaybackService) item(uid uint64, it coordinator.Item) QueueItem {
 	}
 	return QueueItem{
 		UID: uid, ID: m.id, Source: m.source, CatalogID: m.catalogID, LibraryID: m.libraryID,
-		Name: it.Title, Artist: it.Artist, Album: it.Album, AlbumID: m.albumID, ArtistID: m.artistID,
+		Name: it.Title, Artist: it.Artist, Album: it.Album, AlbumID: m.albumID, ArtistID: m.artistID, Artists: m.artists,
 		DurationMs: it.Duration.Milliseconds(), Art: s.m.artOf(it.Artwork),
 		Live:      it.Live(),
 		Broadcast: it.Broadcast,
@@ -393,7 +397,7 @@ func (s *PlaybackService) fetchSongs(ctx context.Context, refs []TrackRef, slots
 			continue
 		}
 		dto := s.m.amSong(so)
-		slots[i] = resolved{item: songItem(so), meta: trackMeta{source: SourceCatalog, id: r.ID, catalogID: r.ID, albumID: dto.AlbumID, artistID: dto.ArtistID}}
+		slots[i] = resolved{item: songItem(so), meta: trackMeta{source: SourceCatalog, id: r.ID, catalogID: r.ID, albumID: dto.AlbumID, artistID: dto.ArtistID, artists: dto.Artists}}
 	}
 	return nil
 }
@@ -460,6 +464,7 @@ func (s *PlaybackService) resolveVideo(ctx context.Context, r TrackRef) (coordin
 	m := trackMeta{source: SourceCatalog, id: id, catalogID: id}
 	if ar := v.Relationships.Artists.Data; len(ar) > 0 {
 		m.artistID = ar[0].ID
+		m.artists = s.m.amArtists(ar)
 	}
 	return itemOf(playback.VideoID(id), a.Name, a.ArtistName, "", a.DurationInMillis, a.Artwork.Template(), a.ContentRating == "explicit"), m, nil
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -190,6 +191,30 @@ var overlaysScenes = []struct {
 		a.scope.sel = []int{0, 2}
 		tt.Frame()
 		_ = tt.RightClick("Karma Police")
+		tt.Advance(400 * time.Millisecond)
+		return tt
+	}},
+	{"artist-chooser", func(t *testing.T) *ui.Tester {
+		a := &artistApp{artists: []services.Artist{{ID: "1", Name: "Luis Fonsi"}, {ID: "2", Name: "Daddy Yankee"}}, text: "Luis Fonsi & Daddy Yankee"}
+		tt := newArtistApp(t, a)
+		tt.Key(0, ui.KeyTab)
+		tt.Key(0, ui.KeyEnter)
+		tt.Key(0, ui.KeyDown)
+		tt.Advance(400 * time.Millisecond)
+		return tt
+	}},
+	{"artist-chooser-three", func(t *testing.T) *ui.Tester {
+		a := &artistApp{artists: []services.Artist{{ID: "1", Name: "Daft Punk"}, {ID: "2", Name: "Pharrell Williams"}, {ID: "3", Name: "Nile Rodgers"}}, text: "Daft Punk, Pharrell Williams & Nile Rodgers"}
+		tt := newArtistApp(t, a)
+		_ = tt.Click(a.text)
+		tt.Advance(400 * time.Millisecond)
+		return tt
+	}},
+	{"actions-go-to-artist", func(t *testing.T) *ui.Tester {
+		_, tt := newChoicesApp(t, []services.Artist{{ID: "1", Name: "Luis Fonsi"}, {ID: "2", Name: "Daddy Yankee"}})
+		_ = tt.Click("More for Stay")
+		tt.Key(0, ui.KeyDown)
+		tt.Key(0, ui.KeyRight)
 		tt.Advance(400 * time.Millisecond)
 		return tt
 	}},

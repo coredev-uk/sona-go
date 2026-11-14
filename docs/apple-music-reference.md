@@ -252,6 +252,27 @@ Data: song attributes (see the badges in §5.9), the album it is on, artists, `l
 | `GET amp-api /v1/catalog/{sf}/songs/{id}/credits` | 200 | no | `role-categories{kind, title}` → `credit-artists` |
 | `GET amp-api /v1/catalog/{sf}/songs/{id}/albums?limit=1` (used by "Show Album" and to resolve a song route) `[bundle]` | 200 | no | albums |
 
+#### Several artists (`artistName` and `relationships.artists`, checked 2026-11-14, gb storefront)
+
+A song's or album's `relationships.artists` lists the artists Apple credits, in the order `artistName` joins them: `"A & B"` for two, `"A, B & C"` for three or more. The relationship holds an artist only where `artistName` names them:
+
+| Item | `artistName` | `relationships.artists` |
+|---|---|---|
+| STAY `1574968888` | `The Kid LAROI & Justin Bieber` | `1435848034` The Kid LAROI, `320569549` Justin Bieber |
+| Despacito `1447401620` | `Luis Fonsi & Daddy Yankee` | `102834` Luis Fonsi, `25514958` Daddy Yankee |
+| Get Lucky `617154366` | `Daft Punk, Pharrell Williams & Nile Rodgers` | `5468295`, `1361068`, `722791` |
+| Lean On `1451912048` | `Major Lazer, MØ & DJ Snake` | `315761934`, `511617296`, `125742557` |
+| Watch the Throne (album `1440848092`) | `JAŸ-Z & Kanye West` | `1352449404`, `2715720` |
+| Run This Town (feat. Rihanna & Kanye West) `1440984706` | `JAŸ-Z` | `1352449404` only: the "feat." artists are in the title |
+| Under Pressure (feat. David Bowie) `6781024200` | `Queen` | `3296287` only |
+| Fortnight (feat. Post Malone) `1736268194` | `Taylor Swift` | `159260351` only |
+| NOW That's What I Call Music! 123 (album `1887917222`) | `Various Artists` | none (`data: []`) |
+
+- A "feat." credit in the title is not an artist of the relationship (unless the same recording is credited to them elsewhere: `Lean On` is `Major Lazer & DJ Snake` on one release, `Major Lazer, MØ & DJ Snake` on another, `Major Lazer` alone on a remix). Sona offers the artists Apple relates and never guesses at a name in a title.
+- A compilation credited to `Various Artists` has no artist relationship at all, so there is no artist page to link: its credit is plain text.
+- The relationship's `data` items are `{id, type: "artists", href}` and carry `attributes.name` **only** when the request includes the artists (`include=artists`, or `include[songs]=artists` on a page). A plain `GET /v1/catalog/{sf}/songs/{id}` or `?ids=…` returned the IDs with no names, so Sona's song lookups (`Client.Song`, the batched `Client.Songs` of #284) send `include=artists`; every list and page request in this document that includes `artists` is enough. A library song's `relationships.artists` (`relate=albums,artists`) are library artists (`r.…`), also nameless.
+- Sona keeps `Song.Artists` and `Album.Artists` (ID and name, Apple's order) from this; the first stays `ArtistID`. See `docs/ui-architecture.md`, "Artists of a song".
+
 ### 4.5 Music video (`/{sf}/music-video/{slug}/{id}`)
 
 Data: `name`, `artistName`, `contentRating`, `durationInMillis`, `editorialNotes`, `genreNames`, `has4K`, `hasHDR`, `videoTraits`, `previews`, `releaseDate`. Views: `more-by-artist`, `more-in-genre`. Actions: play (video), add to library, favourite, playlist actions, link/embed.

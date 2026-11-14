@@ -276,7 +276,9 @@ func (v *video) hero(c *ui.Context, d services.CatalogVideo, videoPlays bool, w 
 		ui.Text(c, vid.Name).FontSize(d0.Size).FixedLineHeight(d0.LineHeight).FontWeight(int(d0.Weight)).LetterSpacing(d0.Tracking).
 			TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(1)
 		ui.Row(c.Key("byline")).Margin(6, 0, 0, 0).MinWidth(0).TextColor(theme.C("ink")).FontSize(tk.Type["heading"].Size).
-			FontWeight(500).Children(func() { kit.ArtistLinks(c, d.Artists, vid.Artist, ui.Color{}) })
+			FontWeight(500).Children(func() {
+			kit.ArtistLinks(c, d.Artists, vid.Artist, ui.Color{}, kit.ArtistLinksOpts{Open: v.env.ArtistOpener()})
+		})
 		ui.Row(c.Key("meta")).Wrap().GapX(10).GapY(4).AlignItems(ui.Center).Margin(6, 0, 0, 0).Children(func() {
 			ui.Text(c, v.catalogueLine(vid)).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).
 				FontWeight(int(tk.Type["meta"].Weight)).TextColor(theme.C("ink-muted"))

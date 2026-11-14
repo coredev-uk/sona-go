@@ -11,15 +11,13 @@ import (
 // by" profile for the pages a module serves. The page adds its label,
 // columns and OnPlay. Build it each frame, on the main thread.
 func (e *Env) TrackOpts(menus *kit.ActionMenus, restricted bool) kit.TrackListOpts {
-	o := kit.TrackListOpts{Art: e.Art, Motion: e.Motion, Menus: menus, Restricted: restricted}
+	o := kit.TrackListOpts{Art: e.Art, Motion: e.Motion, Menus: menus, Restricted: restricted, Artists: e.SongArtists}
 	if e.Play != nil {
 		st := e.Play.State()
 		o.Current = st.Current
 		o.Playing = st.State == store.StatePlaying || st.State == store.StateLoading
 	}
-	if e.Routed("/artist/x") {
-		o.OpenArtist = func(id string) { e.Nav.Push("/artist/" + id) }
-	}
+	o.OpenArtist = e.ArtistOpener()
 	if e.Routed("/album/x") {
 		o.OpenAlbum = func(id string) { e.Nav.Push("/album/" + id) }
 	}

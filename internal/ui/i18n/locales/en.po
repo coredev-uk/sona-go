@@ -931,6 +931,10 @@ msgstr "Choose Favourite on any song, here or in Apple Music, and it is kept her
 msgid "Choose a song, album or playlist to start"
 msgstr "Choose a song, album or playlist to start"
 
+#: internal/ui/kit/artist_links.go
+msgid "Choose an artist"
+msgstr "Choose an artist"
+
 #: internal/ui/features/playlist/covers.go
 msgid "Choose an image…"
 msgstr "Choose an image…"

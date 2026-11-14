@@ -147,13 +147,13 @@ func (s *RadioService) seed(ctx context.Context, st applemusic.Station) *Station
 		var so applemusic.Song
 		if so, err = s.e.Catalog.Song(ctx, id); err == nil {
 			d := s.e.m.amSong(so)
-			out = &StationSeed{Kind: kind, ID: id, Name: d.Name, Subtitle: d.Artist, ArtistID: d.ArtistID, Art: d.Art}
+			out = &StationSeed{Kind: kind, ID: id, Name: d.Name, Subtitle: d.Artist, ArtistID: d.ArtistID, Artists: d.Artists, Art: d.Art}
 		}
 	case SeedAlbum:
 		var a applemusic.Album
 		if a, err = s.e.Catalog.Album(ctx, id); err == nil {
 			d := s.e.m.amAlbum(a)
-			out = &StationSeed{Kind: kind, ID: id, Name: d.Name, Subtitle: d.Artist, ArtistID: d.ArtistID, Art: d.Art}
+			out = &StationSeed{Kind: kind, ID: id, Name: d.Name, Subtitle: d.Artist, ArtistID: d.ArtistID, Artists: d.Artists, Art: d.Art}
 		}
 	case SeedArtist:
 		var a applemusic.Artist

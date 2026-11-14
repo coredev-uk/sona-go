@@ -146,17 +146,16 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 					ExplicitMark(c.Key("explicit"))
 				}
 			})
-			artist := ui.Text(c, song.Artist).FontSize(sub.Size).FixedLineHeight(sub.LineHeight).
-				TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
-			if song.ArtistID != "" {
-				artist.Role(ui.RoleLink).Cursor(ui.CursorPointer)
-				if artist.Hovered() {
-					artist.Underline().TextColor(theme.C("ink"))
-				}
-				if artist.Clicked() {
-					ctx.nav(itemsPage("/artist/", song.ArtistID))
-				}
+			var open func(id string)
+			if ctx.HasRoute == nil || ctx.HasRoute("/artist/x") {
+				open = func(id string) { ctx.nav(itemsPage("/artist/", id)) }
 			}
+			ArtistLinks(c, ctx.Artists.OfSong(song), song.Artist, theme.C("ink-muted"), ArtistLinksOpts{
+				Open: open, Static: true, Hover: theme.C("ink"),
+				Style: func(e ui.Element) {
+					e.FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine().TextAlign(ui.Start)
+				},
+			})
 		})
 
 		if ctx.Menus != nil {

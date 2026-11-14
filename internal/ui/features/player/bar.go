@@ -158,6 +158,33 @@ func (p *player) link(c *ui.Context, key, text, path, style string, color ui.Col
 	p.playingRow(l, p.env.Play.State().Current, &p.menus.bar)
 }
 
+// separator is " · " between the artist and the album: as wide as its text
+// and never shrunk, so the artist and the album give way to each other and
+// it stays whole between them (a single-line text asked to shrink by even a
+// pixel would clip its dot).
+func (p *player) separator(c *ui.Context, style string) {
+	t := theme.Current().Type[style]
+	// Measured between two letters: a text's measure drops its edge spaces.
+	span := func(text string) float32 {
+		w, _ := c.MeasureText(0, ui.Span{Text: text, Font: theme.FontFamily, Size: t.Size, Weight: int(t.Weight)})
+		return w
+	}
+	w := float32(math.Ceil(float64(span("x · x")-2*span("x")))) + 1
+	theme.Text(c, " · ", style).TextColor(theme.C("ink-muted")).SingleLine().Width(w).MinWidth(w).Shrink(0).TextAlign(ui.Center)
+}
+
+// artist is the song's artist in the type style given: a link to their page,
+// or a button that opens a menu of them when the song has several, plain text
+// where that page is not ported.
+func (p *player) artist(c *ui.Context, cur *services.QueueItem, style string, color ui.Color) {
+	kit.ArtistLinks(c, p.env.SongArtists.OfPlaying(cur), cur.Artist, color, kit.ArtistLinksOpts{
+		Open:  p.env.ArtistOpener(),
+		Style: func(e ui.Element) { theme.StyleText(e, style).SingleLine().MinWidth(0).Shrink(1) },
+		// The link takes the pointer from the song around it: it opens the menu itself.
+		Wire: func(e ui.Element) { p.playingRow(e, cur, &p.menus.bar) },
+	})
+}
+
 func (p *player) artistRouted(cur *services.QueueItem) bool {
 	return cur.ArtistID != "" && p.env.Routed("/artist/"+url.PathEscape(cur.ArtistID))
 }
@@ -208,20 +235,17 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 		// A broadcaster names no provider: its name stands alone.
 	case p.artistRouted(cur) || p.albumRouted(cur):
 		// Artist, " · ", album: each a link when its page is ported, else
-		// text, so a routed album links beside an artist that does not.
+		// text, so a routed album links beside an artist that does not. Several
+		// artists are one button that opens a menu of them.
 		ui.Row(c).MinWidth(0).Shrink(1).AlignItems(ui.Center).Children(func() {
-			ap := ""
-			if p.artistRouted(cur) {
-				ap = "/artist/" + url.PathEscape(cur.ArtistID)
-			}
 			if cur.Artist != "" {
-				p.link(c, "artist", cur.Artist, ap, "sub", theme.C("ink-muted"))
+				p.artist(c, cur, "sub", theme.C("ink-muted"))
 			}
 			if cur.Album == "" {
 				return
 			}
 			if cur.Artist != "" {
-				label(c, " · ", "sub").TextColor(theme.C("ink-muted"))
+				p.separator(c, "sub")
 			}
 			alp := ""
 			if p.albumRouted(cur) {

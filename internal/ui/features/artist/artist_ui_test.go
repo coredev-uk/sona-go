@@ -1279,6 +1279,34 @@ func TestGoToArtistIsListedForSongsThatNameAnArtist(t *testing.T) {
 	}
 }
 
+// A song of several artists makes "Go to artist" a submenu with one entry per
+// artist, each opening that artist; a library song's are the catalogue copy's.
+func TestGoToArtistListsEveryArtistOfASongWithSeveral(t *testing.T) {
+	r := catalogRig(t, nil)
+	reg := r.a.env.Actions
+	var goTo *kit.ActionDef
+	for _, d := range reg.For(kit.KindSong) {
+		if d.ID == "artist.go-to" {
+			goTo = d
+		}
+	}
+	two := song(1)
+	two.Artist, two.ArtistID = "The Kid LAROI & Justin Bieber", "1435848034"
+	two.Artists = []services.Artist{{ID: "1435848034", Name: "The Kid LAROI"}, {ID: "320569549", Name: "Justin Bieber"}}
+	ctx := reg.Context([]kit.Item{kit.SongItem(two)}, nil, nil)
+	choices := goTo.Choices(ctx)
+	if len(choices) != 2 || choices[0].Label != "The Kid LAROI" || choices[1].Label != "Justin Bieber" {
+		t.Fatalf("choices %+v, want both artists in Apple's order", choices)
+	}
+	choices[1].Run(ctx)
+	if p := r.router.Path(); p != "/artist/320569549" {
+		t.Errorf("went to %q", p)
+	}
+	if got := goTo.Choices(reg.Context([]kit.Item{kit.SongItem(song(2))}, nil, nil)); len(got) > 1 {
+		t.Errorf("a one-artist song has %d choices", len(got))
+	}
+}
+
 // ---- layout ----
 
 func TestLatestReleaseSitsInASecondColumnWhenWideAndBelowWhenNarrow(t *testing.T) {

@@ -10,19 +10,24 @@ const (
 // suits list keys. ID/Source identify the song (or, with Video, the music
 // video) for navigation.
 type QueueItem struct {
-	UID        uint64 `json:"uid"`
-	ID         string `json:"id"`
-	Source     Source `json:"source"`
-	CatalogID  string `json:"catalogId"`
-	LibraryID  string `json:"libraryId"`
-	Name       string `json:"name"`
-	Artist     string `json:"artistName"`
-	Album      string `json:"albumName"`
-	AlbumID    string `json:"albumId"` // in Source; "" when unknown
-	ArtistID   string `json:"artistId"`
-	DurationMs int64  `json:"durationMs"`
-	Art        Art    `json:"art"`
-	Backdrop   string `json:"backdrop"`
+	UID       uint64 `json:"uid"`
+	ID        string `json:"id"`
+	Source    Source `json:"source"`
+	CatalogID string `json:"catalogId"`
+	LibraryID string `json:"libraryId"`
+	Name      string `json:"name"`
+	Artist    string `json:"artistName"`
+	Album     string `json:"albumName"`
+	AlbumID   string `json:"albumId"` // in Source; "" when unknown
+	ArtistID  string `json:"artistId"`
+	// Artists are every credited artist where the slot's songs were fetched
+	// from the catalogue (Song.Artists); empty for one played from the
+	// library or a stored row, which the UI resolves through
+	// CatalogService.SongArtists when the song names several.
+	Artists    []Artist `json:"artists"`
+	DurationMs int64    `json:"durationMs"`
+	Art        Art      `json:"art"`
+	Backdrop   string   `json:"backdrop"`
 	// Auto: the slot was added by the station or AutoPlay, not the user.
 	Auto bool `json:"auto"`
 	// Live: a live radio stream (no duration, cannot seek).

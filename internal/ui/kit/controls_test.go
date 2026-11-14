@@ -1340,42 +1340,6 @@ func TestNotesParagraphs(t *testing.T) {
 	}
 }
 
-func TestArtistLinksJoinWithCommasAndAnAmpersand(t *testing.T) {
-	artists := []services.Artist{{ID: "1", Name: "Daft Punk"}, {ID: "2", Name: "Pharrell Williams"}, {ID: "3", Name: "Nile Rodgers"}}
-	tt := controlsTester(t, 700, 100, func(c *ui.Context) { ArtistLinks(c, artists, "x", ui.Color{}) })
-	for _, a := range artists {
-		controlsFind(t, tt, a.Name)
-	}
-	joined := strings.Join(tt.Texts(), "")
-	if !strings.Contains(joined, ", ") || !strings.Contains(joined, " & ") {
-		t.Errorf("texts %q: want \"A, B & C\"", tt.Texts())
-	}
-	tt = controlsTester(t, 700, 100, func(c *ui.Context) { ArtistLinks(c, nil, "Daft Punk & Friends", ui.Color{}) })
-	controlsFind(t, tt, "Daft Punk & Friends")
-}
-
-func TestArtistLinksGoToTheArtistPage(t *testing.T) {
-	artists := []services.Artist{{ID: "r.42", Name: "Radiohead"}}
-	var path string
-	router := ui.NewRouter("/")
-	tt := ui.NewTester(func(c *ui.Context) {
-		theme.Apply(c)
-		router.View(c, func(r *ui.Route) {
-			if r.Match("/artist/{id}") {
-				path = r.Param("id")
-				ui.Text(c, "Artist page")
-				return
-			}
-			ArtistLinks(c, artists, "x", ui.Color{})
-		})
-	}, 400, 200)
-	r := controlsFind(t, tt, "Radiohead") // the paragraph's box: the link is at its start
-	tt.ClickAt(r.X+10, r.Y+r.H/2)
-	if path != "r.42" || !tt.HasText("Artist page") {
-		t.Errorf("went to %q (%q)", path, tt.Texts())
-	}
-}
-
 // --- Focus rings, more keys ------------------------------------------------
 
 // controlsRingAround reports whether anything but the ground is drawn within off

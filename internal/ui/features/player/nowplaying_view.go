@@ -330,6 +330,29 @@ func (p *player) outLink(c *ui.Context, key, text, path string, size, lineH floa
 	p.playingRow(t, p.env.Play.State().Current, &p.menus.np)
 }
 
+// outArtist is the playing song's artist under its title, as outLink is the
+// album: a link out of the view, or a button that opens a menu of the artists
+// when the song has several; the view closes as the chosen page opens.
+func (p *player) outArtist(c *ui.Context, cur *services.QueueItem) {
+	open := p.env.ArtistOpener()
+	if open != nil {
+		page := open
+		open = func(id string) {
+			p.ui.closeOverlay()
+			page(id)
+		}
+	}
+	ui.Row(c.Key("artist-row")).Margin(8, 0, 0, 0).MinWidth(0).Children(func() {
+		kit.ArtistLinks(c, p.env.SongArtists.OfPlaying(cur), cur.Artist, theme.C("ink-muted"), kit.ArtistLinksOpts{
+			Open:  open,
+			Hover: theme.C("ink"),
+			Style: func(e ui.Element) { e.FontSize(16).FixedLineHeight(22).FontWeight(500).SingleLine().MinWidth(0) },
+			// The link takes the pointer from the song copy around it: it opens the menu itself.
+			Wire: func(e ui.Element) { p.playingRow(e, cur, &p.menus.np) },
+		})
+	})
+}
+
 // songCopy is the song's label copy under (or, narrow, beside) the cover: the
 // title, the artist and the album as links out, the marks the bar also shows
 // (Explicit, Preview), and the song's own actions: Favourite, Suggest Less and
@@ -359,7 +382,7 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 			}
 		} else {
 			if cur.Artist != "" {
-				p.outLink(c, "artist", cur.Artist, idPath("/artist/", cur.ArtistID), 16, 22, 500, 8)
+				p.outArtist(c, cur)
 			}
 			if cur.Album != "" {
 				p.outLink(c, "album", cur.Album, idPath("/album/", cur.AlbumID), 13, 18, 400, 2)

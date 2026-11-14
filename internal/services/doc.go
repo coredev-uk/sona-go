@@ -79,6 +79,15 @@
 // cancelled and ends without a failure: the last one chosen is the one that
 // plays.
 //
+// Artists of a song: Song.Artists, Album.Artists and QueueItem.Artists hold
+// every artist Apple credits, in its order, filled from the artists
+// relationship when the catalogue sent it named (include=artists). A library
+// song or a stored queue slot has only its first artist's ID; its catalogue
+// copy's artists come from CatalogService.SongArtists, which asks for the
+// songs in the same batches (catalog.Songs) and is called lazily, as the UI
+// shows the song, never by the sync. Nothing of it is stored in the library:
+// the catalogue cache keeps the copy.
+//
 // Audio (audio.go) applies config.Settings.Audio and Settings.Crossfade to
 // the engine: the equaliser, the output device, Sound Check and the
 // crossfade length are sent at start and from a Settings.OnChange

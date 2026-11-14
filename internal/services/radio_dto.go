@@ -33,8 +33,10 @@ type StationSeed struct {
 	Name     string `json:"name"`
 	Subtitle string `json:"subtitle"`
 	ArtistID string `json:"artistId"` // of a song or album, "" when unknown
-	Only     bool   `json:"only"`
-	Art      Art    `json:"art"`
+	// Artists are every artist of the song or album, as Song.Artists.
+	Artists []Artist `json:"artists"`
+	Only    bool     `json:"only"`
+	Art     Art      `json:"art"`
 }
 
 // Create Station seeds (RadioService.CreateStation).

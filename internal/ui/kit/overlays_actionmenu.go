@@ -252,6 +252,19 @@ func (a *ActionMenus) menuItems() []MenuItem {
 			if d.DisabledReason != nil {
 				it.Reason = d.DisabledReason(ctx)
 			}
+			if d.Choices != nil {
+				if choices := d.Choices(ctx); len(choices) > 1 {
+					it.Kind, it.Run = MenuSub, nil
+					for _, ch := range choices {
+						it.Sub = append(it.Sub, MenuItem{Key: ch.Key, Label: ch.Label, Run: func() {
+							if a.Before != nil {
+								a.Before(d)
+							}
+							ch.Run(ctx)
+						}})
+					}
+				}
+			}
 			out = append(out, it)
 		}
 	}
