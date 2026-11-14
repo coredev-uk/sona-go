@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/coredev-uk/sona-go/security/advisories/new
+    about: Report it privately here, never in a public issue (see SECURITY.md).
