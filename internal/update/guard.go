@@ -16,13 +16,16 @@ import (
 )
 
 // The rollback guard. MyGo's updater swaps the app and relaunches; it keeps
-// nothing to fall back on. Sona keeps the version it replaced beside the new
-// one (Sona.app.previous on macOS, previous\ on Windows) and writes
-// update-pending in the state folder before relaunching. The new version
-// clears the file at its first paint. A start that finds the file already
-// counted MaxStarts times never got that far, so it restores the previous
-// version (the CDM's rule of 3 failed starts). The same kept version is what
-// the user can go back to by choice (RestorePrevious, Settings → Diagnostics).
+// nothing to fall back on. Sona stages a copy of the running version before
+// the swap (Stage) and, once the new one is in, keeps it beside the new one
+// (Commit: Sona.app.previous on macOS, previous\ on Windows), and writes
+// update-pending in the state folder before relaunching. An install that
+// fails drops the staged copy (Abandon) and leaves the version kept before.
+// The new version clears the marker at its first paint. A start that finds the
+// marker already counted MaxStarts times never got that far, so it restores
+// the previous version (the CDM's rule of 3 failed starts). The same kept
+// version is what the user can go back to by choice (RestorePrevious,
+// Settings → Diagnostics).
 
 // MaxStarts is how many starts an update gets to reach its first paint.
 const MaxStarts = 3
@@ -114,32 +117,95 @@ func NewGuard(state, exe, goos string) (Guard, bool) {
 	return Guard{}, false
 }
 
-// Snapshot keeps the running version, which is version, as Previous,
-// replacing an older snapshot. Files are hard-linked where the volume allows
-// (the new version is unpacked elsewhere and swapped in, so the links are
-// never written through) and copied otherwise. Where the install has no
-// Info.plist to say which version the snapshot is (Windows), the number is
-// kept in the state folder.
-func (g Guard) Snapshot(version string) error {
-	if err := os.RemoveAll(g.Previous); err != nil {
-		return err
-	}
-	g.forgetVersion()
+// Stage keeps the running version, which is version, beside Previous, which
+// stays as it is until the update has gone in (Commit) or failed (Abandon):
+// an update that can't be installed leaves the version kept before it, not a
+// second copy of the running one that later passes for the version it
+// replaced. On macOS files are hard-linked where the volume allows (the new
+// bundle is unpacked elsewhere and swapped in, so the links are never written
+// through) and copied otherwise. On Windows they are copied: a hard link to
+// the running executable can't be deleted while it runs, which a failed
+// install must be able to do with the staged copy, and the installer and a
+// zip extracted over the folder write files in place, which would rewrite the
+// kept version through the link. Where the install has no Info.plist to say
+// which version the snapshot is (Windows), the number is kept in the state
+// folder.
+func (g Guard) Stage(version string) error {
+	g.Abandon()
 	if g.GOOS == "darwin" {
-		return copyTree(g.Root, g.Previous, nil)
+		return g.abandonOn(copyTree(g.Root, g.staging(), nil, true))
 	}
 	skip := func(rel string) bool {
-		return rel == "previous" || (strings.HasPrefix(rel, ".") && strings.Contains(rel, ".old-"))
+		switch rel {
+		case "previous", "previous.staging", "previous.old":
+			return true
+		}
+		return strings.HasPrefix(rel, ".") && strings.Contains(rel, ".old-")
 	}
-	if err := copyTree(g.Root, g.Previous, skip); err != nil {
+	if err := copyTree(g.Root, g.staging(), skip, false); err != nil {
+		return g.abandonOn(err)
+	}
+	return g.abandonOn(os.WriteFile(g.stagedVersion(), []byte(version), 0o600))
+}
+
+// Commit makes the staged version the previous one, replacing the one kept
+// before, once the update that replaced it has gone in. Where it can't (the
+// old one can't be moved away), the old one stays whole and the staged one
+// is dropped.
+func (g Guard) Commit() error {
+	if _, err := os.Stat(g.staging()); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(g.State, previousFile), []byte(version), 0o600)
+	aside := g.Previous + ".old"
+	if err := os.RemoveAll(aside); err != nil {
+		g.Abandon()
+		return err
+	}
+	had := true
+	if err := os.Rename(g.Previous, aside); errors.Is(err, fs.ErrNotExist) {
+		had = false
+	} else if err != nil {
+		g.Abandon()
+		return err
+	}
+	if err := os.Rename(g.staging(), g.Previous); err != nil {
+		if had {
+			_ = os.Rename(aside, g.Previous)
+		}
+		g.Abandon()
+		return err
+	}
+	if g.GOOS != "darwin" {
+		if err := os.Rename(g.stagedVersion(), filepath.Join(g.State, previousFile)); err != nil {
+			g.forgetVersion()
+			return err
+		}
+	}
+	_ = os.RemoveAll(aside)
+	return nil
 }
+
+// Abandon drops the staged version (a failed install, or a start that finds
+// one left by a process that died); Previous is not touched.
+func (g Guard) Abandon() {
+	_ = os.RemoveAll(g.staging())
+	_ = os.Remove(g.stagedVersion())
+}
+
+// abandonOn is err, after dropping the staged version if err is one.
+func (g Guard) abandonOn(err error) error {
+	if err != nil {
+		g.Abandon()
+	}
+	return err
+}
+
+func (g Guard) staging() string       { return g.Previous + ".staging" }
+func (g Guard) stagedVersion() string { return filepath.Join(g.State, previousFile+".staging") }
 
 // HasPrevious reports whether a previous version is kept, and which one:
 // the CFBundleShortVersionString of Previous's Info.plist on macOS, the
-// number Snapshot recorded elsewhere. version is "" when it can't be read
+// number Stage recorded elsewhere. version is "" when it can't be read
 // (a snapshot made before Sona recorded it).
 func (g Guard) HasPrevious() (version string, ok bool) {
 	if fi, err := os.Stat(g.Previous); err != nil || !fi.IsDir() {
@@ -223,9 +289,18 @@ func (g Guard) Pending() *Pending {
 
 // Begin runs at start of version current, before anything else. It counts
 // the start of an update on trial. With Restore the caller calls Rollback.
+// A staged copy found here is one a process that died left: the update's
+// version running now means the swap went in and the copy is the version
+// replaced (kept), else the update never went in and the copy is of the
+// running version (dropped).
 func (g Guard) Begin(current string) (Action, error) {
 	p := g.Pending()
 	a := Decide(p, current)
+	if a == Normal {
+		g.Abandon()
+	} else {
+		_ = g.Commit() // no staged copy: nothing happens
+	}
 	switch a {
 	case Counted:
 		p.Starts++
@@ -342,9 +417,10 @@ func Relaunch(goos, root, exe string) error {
 	return cmd.Process.Release()
 }
 
-// copyTree copies src to dst (a directory), hard-linking regular files and
-// copying where linking fails; skip, when set, excludes top-level names.
-func copyTree(src, dst string, skip func(rel string) bool) error {
+// copyTree copies src to dst (a directory); with hard it hard-links regular
+// files and copies where linking fails. skip, when set, excludes names by their
+// path from src.
+func copyTree(src, dst string, skip func(rel string) bool, hard bool) error {
 	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -374,7 +450,7 @@ func copyTree(src, dst string, skip func(rel string) bool) error {
 			}
 			return os.Symlink(link, to)
 		case info.Mode().IsRegular():
-			if os.Link(p, to) == nil {
+			if hard && os.Link(p, to) == nil {
 				return nil
 			}
 			return copyFile(p, to, info.Mode().Perm())

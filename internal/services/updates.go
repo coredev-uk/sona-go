@@ -47,10 +47,11 @@ type UpdatesService struct {
 	updater SelfUpdater
 	guard   *update.Guard // rollback guard (nil without a self-updatable install)
 
-	mu        sync.Mutex
-	status    UpdateStatus
-	manifest  *update.Source // the update found, minus the download client
-	restoring bool           // the previous version is being put back (never cleared by success: Sona restarts)
+	mu         sync.Mutex
+	status     UpdateStatus
+	manifest   *update.Source // the update found, minus the download client
+	restoring  bool           // the previous version is being put back (never cleared by success: Sona restarts)
+	installErr string         // why the last install failed, for Diagnostics (the status carries only the code)
 }
 
 func newUpdatesService(e *Env) *UpdatesService {
@@ -121,10 +122,16 @@ func (s *UpdatesService) declined() string {
 }
 
 // bundle is the Diagnostics section: what updates do here, the previous
-// version kept and the last rollback (Manual says the user asked for it).
+// version kept, the last rollback (Manual says the user asked for it) and why
+// the last install failed.
 func (s *UpdatesService) bundle() any {
 	st := s.Status()
 	out := map[string]any{"current": st.Current, "selfUpdate": st.SelfUpdate, "disabled": st.Disabled, "target": s.target}
+	if st.InstallError != "" {
+		s.mu.Lock()
+		out["installError"] = map[string]any{"code": st.InstallError, "detail": s.installErr, "latest": st.Latest}
+		s.mu.Unlock()
+	}
 	if s.guard != nil {
 		if p := s.guard.Pending(); p != nil {
 			out["pending"] = p
@@ -244,6 +251,7 @@ func (s *UpdatesService) Install(ctx context.Context) (UpdateStatus, error) {
 	src.Key = s.key
 	src.Progress = s.progress
 	st.Installing, st.InstallError, st.Downloaded, st.Total = true, "", 0, src.Update.Size
+	s.installErr = ""
 	st.Declined = "" // the user chose the version they went back from: the notice follows the install
 	from, to := st.Current, st.Latest
 	s.mu.Unlock()
@@ -254,6 +262,7 @@ func (s *UpdatesService) Install(ctx context.Context) (UpdateStatus, error) {
 	st.Installing = false
 	if err != nil {
 		st.InstallError = CodeOf(err)
+		s.installErr = err.Error()
 		s.o.Logger.Warn("update install failed", "err", err)
 	} else {
 		st.Installed = true
@@ -269,21 +278,29 @@ func (s *UpdatesService) Install(ctx context.Context) (UpdateStatus, error) {
 	return out, nil
 }
 
-// install keeps the running version, marks the update on trial, and has
-// MyGo swap it in. Nothing stays marked after a failure.
+// install stages the running version, marks the update on trial, and has MyGo
+// swap it in; the staged version is kept once the new one is in. A failure
+// leaves Sona, the version kept before and the marker as they were.
 func (s *UpdatesService) install(ctx context.Context, src *update.Source, from, to string) error {
-	if err := s.guard.Snapshot(from); err != nil {
+	if err := s.guard.Stage(from); err != nil {
 		return fmt.Errorf("%w: keeping the current version: %v", update.ErrInstall, err)
 	}
 	if err := s.guard.Mark(from, to); err != nil {
+		s.guard.Abandon()
 		return fmt.Errorf("%w: %v", update.ErrInstall, err)
 	}
 	if err := s.updater.Install(ctx, src); err != nil {
 		_ = s.guard.Unmark()
+		s.guard.Abandon()
 		if errors.Is(err, update.ErrSignature) || errors.Is(err, context.Canceled) {
 			return err
 		}
 		return fmt.Errorf("%w: %v", update.ErrInstall, err)
+	}
+	// The new version is in: what it replaced is the previous version. A
+	// failure here costs the way back, not the update.
+	if err := s.guard.Commit(); err != nil {
+		s.o.Logger.Warn("update: keeping the replaced version failed", "err", err)
 	}
 	return nil
 }

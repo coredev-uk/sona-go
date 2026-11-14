@@ -590,18 +590,26 @@ needs:
   (or from `UPDATE_FEED` and `UPDATE_KEY`). Other builds leave both unset.
 - The update archive is a gzip tar (`sona-<version>-darwin-arm64.tar.gz` with
   one top-level `Sona.app`; `sona-<version>-windows-amd64.tar.gz` with the
-  folder's files at top level). `go run ./cmd/releasesign -target T -archive
-  FILE -version V -url URL [-notes FILE] -out update-T.json` signs it
-  (key from `$SONA_UPDATE_KEY`); the publish job signs last, after the
-  archives are uploaded.
+  folder's files at top level, made by `build/windows/update-archive.sh`:
+  never `tar -czf OUT .`, whose `./` entry MyGo's extractor refuses, which
+  made every Windows update fail). `update.CheckArchive` (`go run
+  ./cmd/releasesign -check -target T -archive FILE`) applies MyGo's
+  extraction rules and Sona's layout; `package.sh` runs it on what it made
+  and `releasesign` runs it before it signs. `go run ./cmd/releasesign
+  -target T -archive FILE -version V -url URL [-notes FILE] -out
+  update-T.json` signs it (key from `$SONA_UPDATE_KEY`); the publish job signs
+  last, after the archives are uploaded.
 - A prerelease's notes (and its manifests' notes) are `go run ./cmd/rcnotes
   -exclude <tag>`: the changes since the previous `v*` tag, by Conventional
   Commit type (`docs/release-checklist.md`, "Prerelease notes").
 - Tests run against an `httptest` fake release server (`internal/update`,
   `internal/services/updates_self_test.go`): the check, a bad signature
-  refused, no key (off), a development build never checking, and the rollback
-  decision. The real run (install, relaunch, rollback) is the phase 5 update
-  and rollback runs on a Mac and a Windows machine.
+  refused, no key (off), a development build never checking, the rollback
+  decision, a failed install leaving the kept version as it was, and the
+  archive rules (`archive_test.go`, pinned to what MyGo's extractor does with
+  the same entries; the Windows archive script is run on a folder and its
+  output checked). The real run (install, relaunch, rollback) is the phase 5
+  update and rollback runs on a Mac and a Windows machine.
 
 ## Dependency updates
 
