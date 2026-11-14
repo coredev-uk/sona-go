@@ -65,16 +65,24 @@ type Song struct {
 	Artist    string `json:"artistName"`
 	Album     string `json:"albumName"`
 	// AlbumID and ArtistID are in the same Source as the song ("" when
-	// unknown).
-	AlbumID     string `json:"albumId"`
-	ArtistID    string `json:"artistId"`
-	DurationMs  int64  `json:"durationMs"`
-	TrackNumber int    `json:"trackNumber"`
-	DiscNumber  int    `json:"discNumber"`
-	ReleaseDate string `json:"releaseDate"` // YYYY-MM-DD or ""
-	Genre       string `json:"genre"`
-	Explicit    bool   `json:"explicit"`
-	HasLyrics   bool   `json:"hasLyrics"`
+	// unknown). ArtistID is the first of Artists, for code that needs one.
+	AlbumID  string `json:"albumId"`
+	ArtistID string `json:"artistId"`
+	// Artists are every artist Apple credits the song to, in its order (the
+	// ones Artist joins: "A & B"), catalogue artists with ID and name. Empty
+	// where it is not known: a library song or a queue slot whose catalogue
+	// copy has not been looked up (CatalogService.SongArtists), an upload.
+	// A "feat." artist is not here unless Apple credits it: Apple's
+	// relationship lists only who artistName names (the title carries the
+	// rest).
+	Artists     []Artist `json:"artists"`
+	DurationMs  int64    `json:"durationMs"`
+	TrackNumber int      `json:"trackNumber"`
+	DiscNumber  int      `json:"discNumber"`
+	ReleaseDate string   `json:"releaseDate"` // YYYY-MM-DD or ""
+	Genre       string   `json:"genre"`
+	Explicit    bool     `json:"explicit"`
+	HasLyrics   bool     `json:"hasLyrics"`
 	// Composer is Apple's composer credit ("Lindsey Buckingham", "Taylor
 	// Swift & Jack Antonoff"); Work and Movement name the classical work
 	// a track belongs to and its movement ("Goldberg Variations, BWV 988",
@@ -91,14 +99,18 @@ type Song struct {
 
 // Album is an album from the library or the catalog.
 type Album struct {
-	ID          string `json:"id"`
-	Source      Source `json:"source"`
-	CatalogID   string `json:"catalogId"`
-	LibraryID   string `json:"libraryId"`
-	Name        string `json:"name"`
-	Artist      string `json:"artistName"`
-	ArtistID    string `json:"artistId"`
-	ReleaseDate string `json:"releaseDate"` // YYYY-MM-DD, a year alone, or ""
+	ID        string `json:"id"`
+	Source    Source `json:"source"`
+	CatalogID string `json:"catalogId"`
+	LibraryID string `json:"libraryId"`
+	Name      string `json:"name"`
+	Artist    string `json:"artistName"`
+	ArtistID  string `json:"artistId"`
+	// Artists are every artist Apple credits the album to, in its order, as
+	// Song.Artists (a compilation under "Various Artists" has none: Apple
+	// credits no artist to it).
+	Artists     []Artist `json:"artists"`
+	ReleaseDate string   `json:"releaseDate"` // YYYY-MM-DD, a year alone, or ""
 	// ReleaseAt is when the album comes out (local midnight on
 	// ReleaseDate, Unix ms; 0 when ReleaseDate isn't a full date).
 	// Prerelease: not out yet, so its unreleased songs don't play

@@ -42,6 +42,9 @@ type ItemsCtx struct {
 	// Motion decides whether motion covers and the equaliser move; nil:
 	// they stay still.
 	Motion *MotionPolicy
+	// Artists gives a song row the artists it does not carry (SongArtists);
+	// nil: the songs' own.
+	Artists *SongArtists
 
 	// What is playing (the feature supplies it from store.Playback):
 	// Current is the queue's current item (nil: none), which marks a song or

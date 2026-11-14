@@ -67,6 +67,11 @@ type Env struct {
 	// everywhere at once. It follows "library:item-state" itself. Main
 	// thread. Nil in an Env built by hand without services.
 	ItemStates *kit.ItemStates
+	// SongArtists gives a song, a queue slot or a station seed that knows only
+	// its first artist the catalogue copy's (kit.SongArtists: looked up
+	// lazily, batched, as the row or the player is built). Main thread. Nil
+	// in an Env built by hand without services: every artist is the first.
+	SongArtists *kit.SongArtists
 	// HasRoute reports whether a registered module's route pattern matches
 	// path (a query or fragment is ignored), so a feature links only to pages
 	// that are ported: Pattern "/album/{id}" matches "/album/42". Call it

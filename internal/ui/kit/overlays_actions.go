@@ -222,7 +222,20 @@ type ActionDef struct {
 	DisabledReason func(a *ActionContext) string
 	// Data is read through a.Data, loaded when the menu opens.
 	Data []MenuData
-	Run  func(a *ActionContext)
+	// Choices, when it lists more than one, make the action a submenu with
+	// one entry per choice ("Go to artist" for a song of several artists);
+	// Run is then not used. With none or one, the action is the plain row
+	// and runs Run.
+	Choices func(a *ActionContext) []ActionChoice
+	Run     func(a *ActionContext)
+}
+
+// ActionChoice is one entry of an action's submenu: Key is its stable ID
+// (unique among the choices), Run what choosing it does.
+type ActionChoice struct {
+	Key   string
+	Label string
+	Run   func(a *ActionContext)
 }
 
 func (d *ActionDef) bulk() bool { return d.Target == KindSelection }

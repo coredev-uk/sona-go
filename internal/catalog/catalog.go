@@ -37,6 +37,11 @@ const (
 	SongTTL     = 7 * 24 * time.Hour
 )
 
+// songKind keys a cached song. Songs are fetched with their artists named
+// (include=artists); the kind changed with that, so a song cached before it,
+// whose artists are IDs without names, is not read back as one.
+const songKind = "song-artists"
+
 // ErrNoStorefront is returned when the storefront func reports none (signed
 // out and no default configured).
 var ErrNoStorefront = errors.New("catalog: no storefront")
@@ -199,7 +204,7 @@ func (c *Catalog) Playlist(ctx context.Context, id string) (applemusic.CatalogPl
 
 // Song returns catalog song id.
 func (c *Catalog) Song(ctx context.Context, id string) (applemusic.Song, error) {
-	return cached(ctx, c, "song", id, SongTTL, func(ctx context.Context, sf string) (applemusic.Song, error) {
+	return cached(ctx, c, songKind, id, SongTTL, func(ctx context.Context, sf string) (applemusic.Song, error) {
 		return c.api.Song(ctx, sf, id)
 	}, func(q *dbq.Queries, s applemusic.Song, now int64) error {
 		_, err := StoreSong(ctx, q, s, now)
@@ -216,7 +221,7 @@ func (c *Catalog) Songs(ctx context.Context, ids []string) (map[string]applemusi
 	if sf == "" {
 		return nil, ErrNoStorefront
 	}
-	scope := CacheScope(sf, c.api.ContentLanguage()) + "|song|"
+	scope := CacheScope(sf, c.api.ContentLanguage()) + "|" + songKind + "|"
 	now := c.now()
 	out := make(map[string]applemusic.Song, len(ids))
 	seen := make(map[string]bool, len(ids))

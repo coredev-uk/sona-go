@@ -6,6 +6,7 @@ package artist
 import (
 	"context"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,7 +71,10 @@ func newArtist(env *module.Env, lib libraryAPI, cat catalogAPI) *artist {
 }
 
 // goToArtist is the song row's "Go to artist" (id artist.go-to, group item,
-// order 20), listed only for a song that names its artist.
+// order 20), listed only for a song that names its artist. A song with several
+// artists makes it a submenu with one entry per artist (never the first
+// silently): a library song's are the catalogue copy's, looked up as the menu
+// opens (kit.SongArtists), so the row is the plain one until they arrive.
 func goToArtist(env *module.Env) kit.ActionDef {
 	return kit.ActionDef{
 		ID:     "artist.go-to",
@@ -81,6 +85,17 @@ func goToArtist(env *module.Env) kit.ActionDef {
 		Order:  20,
 		Available: func(a *kit.ActionContext) bool {
 			return a.Item().Song().ArtistID != ""
+		},
+		Choices: func(a *kit.ActionContext) []kit.ActionChoice {
+			artists := env.SongArtists.OfSong(a.Item().Song())
+			choices := make([]kit.ActionChoice, len(artists))
+			for i, ar := range artists {
+				choices[i] = kit.ActionChoice{
+					Key: strconv.Itoa(i) + ":" + ar.ID, Label: ar.Name,
+					Run: func(a *kit.ActionContext) { a.Navigate(artistPath(ar.ID)) },
+				}
+			}
+			return choices
 		},
 		Run: func(a *kit.ActionContext) {
 			a.Navigate(artistPath(a.Item().Song().ArtistID))

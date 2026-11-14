@@ -100,6 +100,9 @@ type MenuOpts struct {
 	// Width is the panel's width in DIPs; 0 sizes it to its rows (at least
 	// 8 rem).
 	Width float32
+	// Start lines the panel's start up with its trigger's, as under a text;
+	// the default lines the ends up, as under a button at a row's end.
+	Start bool
 }
 
 // Menu is the state of a dropdown or context menu and draws it (shadcn's
@@ -281,6 +284,8 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 	switch {
 	case lv > 0:
 		panel.AttachTo(anchor, ui.AnchorTopEnd, ui.AnchorTopStart).Margin(-5, 0, 0, 0)
+	case m.anchored && o.Start:
+		panel.AttachTo(anchor, ui.AnchorBottomStart, ui.AnchorTopStart).Margin(4, 0, 0, 0)
 	case m.anchored:
 		panel.AttachTo(anchor, ui.AnchorBottomEnd, ui.AnchorTopEnd).Margin(4, 0, 0, 0)
 	default:

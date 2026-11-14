@@ -202,6 +202,9 @@ func TestSongsBatches(t *testing.T) {
 		if r.URL.Path != "/v1/catalog/gb/songs" {
 			t.Errorf("path = %s", r.URL.Path)
 		}
+		if got := r.URL.Query().Get("include"); got != "artists" {
+			t.Errorf("include = %q, want artists (names come only with it)", got)
+		}
 		ids := strings.Split(r.URL.Query().Get("ids"), ",")
 		mu.Lock()
 		sizes = append(sizes, len(ids))

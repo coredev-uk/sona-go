@@ -158,6 +158,18 @@ func (p *player) link(c *ui.Context, key, text, path, style string, color ui.Col
 	p.playingRow(l, p.env.Play.State().Current, &p.menus.bar)
 }
 
+// artist is the song's artist in the type style given: a link to their page,
+// or a button that opens a menu of them when the song has several, plain text
+// where that page is not ported.
+func (p *player) artist(c *ui.Context, cur *services.QueueItem, style string, color ui.Color) {
+	kit.ArtistLinks(c, p.env.SongArtists.OfPlaying(cur), cur.Artist, color, kit.ArtistLinksOpts{
+		Open:  p.env.ArtistOpener(),
+		Style: func(e ui.Element) { theme.StyleText(e, style).SingleLine().MinWidth(0).Shrink(1) },
+		// The link takes the pointer from the song around it: it opens the menu itself.
+		Wire: func(e ui.Element) { p.playingRow(e, cur, &p.menus.bar) },
+	})
+}
+
 func (p *player) artistRouted(cur *services.QueueItem) bool {
 	return cur.ArtistID != "" && p.env.Routed("/artist/"+url.PathEscape(cur.ArtistID))
 }
@@ -208,20 +220,17 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 		// A broadcaster names no provider: its name stands alone.
 	case p.artistRouted(cur) || p.albumRouted(cur):
 		// Artist, " · ", album: each a link when its page is ported, else
-		// text, so a routed album links beside an artist that does not.
+		// text, so a routed album links beside an artist that does not. Several
+		// artists are one button that opens a menu of them.
 		ui.Row(c).MinWidth(0).Shrink(1).AlignItems(ui.Center).Children(func() {
-			ap := ""
-			if p.artistRouted(cur) {
-				ap = "/artist/" + url.PathEscape(cur.ArtistID)
-			}
 			if cur.Artist != "" {
-				p.link(c, "artist", cur.Artist, ap, "sub", theme.C("ink-muted"))
+				p.artist(c, cur, "sub", theme.C("ink-muted"))
 			}
 			if cur.Album == "" {
 				return
 			}
 			if cur.Artist != "" {
-				label(c, " · ", "sub").TextColor(theme.C("ink-muted"))
+				label(c, " · ", "sub").TextColor(theme.C("ink-muted")).Shrink(0)
 			}
 			alp := ""
 			if p.albumRouted(cur) {

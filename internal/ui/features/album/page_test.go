@@ -14,6 +14,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 func (r *rig) wantTexts(texts ...string) {
@@ -1052,4 +1053,41 @@ func countTexts(texts []string, want string) int {
 		}
 	}
 	return n
+}
+
+// A split album names Apple's artist string in the byline as a menu button;
+// each artist in its menu opens their page. A compilation that Apple credits
+// to no artist is plain text: never a "Various Artists" page.
+func TestSplitAlbumBylineChoosesBetweenItsArtists(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 1000)
+	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Artist = "Mia Vale & Zed Cole"
+		p.Artists = []services.Artist{{ID: "a1", Name: "Mia Vale"}, {ID: "a2", Name: "Zed Cole"}}
+	}))
+	r.shows("Mia Vale & Zed Cole")
+	tr := access.Read(t, r.tt.Tester)
+	btn, ok := tr.Find(ui.RoleMenuButton, "Mia Vale & Zed Cole")
+	if !ok || btn.HasPopup != ui.PopupMenu || !btn.Has(access.Focusable) {
+		t.Fatalf("no menu button for the byline:\n%s", tr.Dump())
+	}
+	r.click("Mia Vale & Zed Cole")
+	if p := r.router.Path(); p != "/album/100" {
+		t.Fatalf("opening the chooser went to %q", p)
+	}
+	r.click("Zed Cole")
+	r.tt.Until("the artist page", func() bool { return r.router.Path() == "/artist/a2" })
+}
+
+func TestCompilationBylineIsTextNotAVariousArtistsPage(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 1000)
+	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Artist, p.Album.ArtistID, p.Artists = "Various Artists", "", nil
+	}))
+	r.shows("Various Artists")
+	tr := access.Read(t, r.tt.Tester)
+	for _, role := range []ui.Role{ui.RoleLink, ui.RoleMenuButton} {
+		if _, ok := tr.Find(role, "Various Artists"); ok {
+			t.Errorf("Various Artists is a %v:\n%s", role, tr.Dump())
+		}
+	}
 }

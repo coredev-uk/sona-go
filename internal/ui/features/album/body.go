@@ -123,24 +123,27 @@ func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account
 	})
 }
 
-// byline is the artist: links from the catalogue page, else a link to the
-// artist when the album knows one, else the name. Links go only where the
-// artist page exists.
+// byline is the artist: from the catalogue page (every credited artist), else
+// the album's own, else a link to its first artist when it knows one, else the
+// name. One artist is a link, several a chooser, none the text (kit.ArtistLinks);
+// the artist page opens only where it exists.
 func (a *album) byline(c *ui.Context, m *model, k *colours) {
 	ink := theme.C("ink")
 	if k != nil && k.accent {
 		// The artist is the record's link out, in the cover's accent.
 		ink = theme.C("play-ink")
 	}
-	opts := kit.ArtistLinksOpts{HasRoute: a.env.Routed}
+	opts := kit.ArtistLinksOpts{Open: a.env.ArtistOpener()}
+	artists := m.album.Artists
 	switch {
 	case m.page != nil:
-		kit.ArtistLinks(c, m.page.Artists, m.album.Artist, ink, opts)
-	case m.album.ArtistID != "":
-		kit.ArtistLinks(c, []services.Artist{{ID: m.album.ArtistID, Name: m.album.Artist}}, m.album.Artist, ink, opts)
-	default:
-		ui.Text(c, m.album.Artist).TextColor(ink).SingleLine()
+		// The catalogue page names every credited artist; a compilation
+		// under "Various Artists" has none, and is text.
+		artists = m.page.Artists
+	case len(artists) == 0 && m.album.ArtistID != "":
+		artists = []services.Artist{{ID: m.album.ArtistID, Name: m.album.Artist}}
 	}
+	kit.ArtistLinks(c, artists, m.album.Artist, ink, opts)
 }
 
 // status is how much of the record the library holds; nil when it holds it

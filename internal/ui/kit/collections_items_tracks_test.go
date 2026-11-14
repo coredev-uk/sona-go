@@ -167,6 +167,33 @@ func TestTrackShelfRowShowsTheExplicitMarkTheArtistLinkAndTheSongMenu(t *testing
 	}
 }
 
+// A song of several artists names them in a chooser, each opening its page.
+func TestTrackShelfSeveralArtistsOpenAChooserThatNavigates(t *testing.T) {
+	items := trackItems(3)
+	items[1].Song.Artist, items[1].Song.Artists = "The Kid LAROI & Justin Bieber", twoArtists
+	a, tt := trackApp(t, items, "", nil)
+	tr := access.Read(t, tt)
+	if _, ok := tr.Find(ui.RoleMenuButton, "The Kid LAROI & Justin Bieber"); !ok {
+		t.Fatalf("no chooser in the song's row:\n%s", tr.Dump())
+	}
+	if _, ok := tr.Find(ui.RoleLink, "Artist 1"); !ok {
+		t.Errorf("a one-artist song lost its link:\n%s", tr.Dump())
+	}
+	r, _ := tt.Find("The Kid LAROI & Justin Bieber")
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	if len(a.rec.nav) != 0 || len(a.rec.songs) != 0 {
+		t.Fatalf("opening the chooser navigated %v, played %v", a.rec.nav, a.rec.songs)
+	}
+	if err := tt.Click("The Kid LAROI"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(50e6)
+	tt.Frame()
+	if !slices.Equal(a.rec.nav, []string{"/artist/1435848034"}) {
+		t.Errorf("nav %v, want the first artist's page", a.rec.nav)
+	}
+}
+
 func TestTrackShelfSeeAllNavigatesToTheSectionsRoom(t *testing.T) {
 	a, tt := trackApp(t, trackItems(3), "/room/9", nil)
 	if err := tt.Click("See all"); err != nil {

@@ -81,10 +81,7 @@ shapes the rules below.
   same name, and a region's own heading or list may repeat its name: a
   heading and a list are not landmarks.
 - A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as an alert, with the limits it broke in view.
-- A text with links in it is not itself on the tree (`kit.ArtistLinks` is a
-  `RoleNone` rich text, so its links sit beside its separators): Orca reads
-  the enclosing text before a focused link, so a link inside an artist's
-  text was read twice ("Ines Calder, Ines Calder, link").
+- The artist of a song (`kit.ArtistLinks`) is one element, never a text with links in it (Orca read the enclosing text before a focused link, so a link inside an artist's text was read twice: "Ines Calder, Ines Calder, link"): a link for one artist; for several a menu button named by Apple's artist string, with `haspopup` menu, `expanded` while open and the description "Choose an artist", opening a menu whose rows are `menuitem`s named by the artists.
 - A tooltip whose first line is the control's name (the account button's)
   describes the control by the rest (`kit.TooltipDescribed`): by itself it
   is the description, and the name is read twice.

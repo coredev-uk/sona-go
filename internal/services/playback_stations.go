@@ -40,7 +40,7 @@ func (f stationFeed) NextTracks(ctx context.Context, stationID string) ([]coordi
 		it := songItem(so)
 		dto := f.s.m.amSong(so)
 		if _, known := f.s.meta[it.ID]; !known {
-			f.s.meta[it.ID] = trackMeta{source: SourceCatalog, id: it.ID, catalogID: it.ID, albumID: dto.AlbumID, artistID: dto.ArtistID}
+			f.s.meta[it.ID] = trackMeta{source: SourceCatalog, id: it.ID, catalogID: it.ID, albumID: dto.AlbumID, artistID: dto.ArtistID, artists: dto.Artists}
 		}
 		items = append(items, it)
 	}

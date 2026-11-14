@@ -46,10 +46,15 @@ func SongPage(ctx context.Context, c *Client, sf, id string) (Song, error) {
 	})
 }
 
-// Song returns catalog song id (with its album and artist relationships).
+// songArtists asks for the artists' names with the relationship: without it
+// Apple sends the artists as IDs alone.
+var songArtists = url.Values{"include": {"artists"}}
+
+// Song returns catalog song id (with its album relationship and its artists,
+// named).
 func (c *Client) Song(ctx context.Context, sf, id string) (Song, error) {
 	var body Page[Song]
-	if err := c.Get(ctx, CatalogPath(sf, "songs", id), nil, &body); err != nil {
+	if err := c.Get(ctx, CatalogPath(sf, "songs", id), songArtists, &body); err != nil {
 		return Song{}, err
 	}
 	return first(body.Data, "song "+id)
@@ -59,7 +64,7 @@ func (c *Client) Song(ctx context.Context, sf, id string) (Song, error) {
 const songsBatch = 100
 
 // Songs returns the catalog songs with the given IDs, as Song does (with
-// their album and artist relationships): one request per 100 IDs, four
+// their album relationship and their artists, named): one request per 100 IDs, four
 // requests at a time, so a whole chart or playlist costs one round trip, not
 // one per song. A song Apple doesn't serve in the storefront is omitted; the
 // order follows Apple's reply, not ids.
@@ -71,7 +76,7 @@ func (c *Client) Songs(ctx context.Context, sf string, ids []string) ([]Song, er
 	for i, batch := range chunks {
 		g.Go(func() error {
 			var body Page[Song]
-			if err := c.Get(gctx, CatalogPath(sf, "songs"), url.Values{"ids": {strings.Join(batch, ",")}}, &body); err != nil {
+			if err := c.Get(gctx, CatalogPath(sf, "songs"), url.Values{"ids": {strings.Join(batch, ",")}, "include": {"artists"}}, &body); err != nil {
 				return err
 			}
 			results[i] = body.Data

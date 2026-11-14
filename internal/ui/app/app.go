@@ -241,6 +241,7 @@ func newApp(opts Options, factories []module.Factory) *App {
 		a.env.Queue = kit.NewQueueCommandsFor(opts.Core, a.env.Play, post)
 		a.env.ItemStates = kit.NewItemStates(a.env.Queries, post, services.Service[services.LibraryService](opts.Core))
 		a.env.ItemStates.Follow(opts.Bus)
+		a.env.SongArtists = kit.NewSongArtists(services.Service[services.CatalogService](opts.Core), post)
 	}
 	a.env.HasRoute = a.hasRoute
 	for _, f := range factories {

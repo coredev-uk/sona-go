@@ -111,7 +111,13 @@ func newRigWith(t *testing.T, volume bool, extra func(*ui.Context)) *rig {
 // newRigSized is newRigWith in a window width wide.
 func newRigSized(t *testing.T, volume bool, width int, extra func(*ui.Context)) *rig {
 	t.Helper()
-	h := uitest.New(t, uitest.Bare()) // the bar reads the mirror and calls the fake transport
+	return newRigOptions(t, volume, width, extra)
+}
+
+// newRigOptions is newRigSized with options for the harness (uitest.Dark).
+func newRigOptions(t *testing.T, volume bool, width int, extra func(*ui.Context), opts ...uitest.Option) *rig {
+	t.Helper()
+	h := uitest.New(t, append([]uitest.Option{uitest.Bare()}, opts...)...) // the bar reads the mirror and calls the fake transport
 	r := &rig{fake: newFake(), h: h, env: h.Env}
 	queueOver(r.env, r.fake)
 	r.p = newPlayer(r.env, r.fake, func() bool { return volume })
