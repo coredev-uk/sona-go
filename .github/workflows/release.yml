@@ -238,7 +238,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     # The Last.fm key and secret and the Discord application ID are items of
-    # the Proton Pass vault "Sona CI release", read with the `release`
+    # the Proton Pass vault "Sona CI", read with the `release`
     # environment's PROTON_PASS_PERSONAL_ACCESS_TOKEN; that environment only
     # runs from main. A dry run from a branch has no token and so none of
     # them, and Sona reads the same variables at runtime.
@@ -297,9 +297,9 @@ jobs:
           export-env: "true"
         env:
           PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
-          SONA_LASTFM_KEY: pass://Sona CI release/Last.fm API/SONA_LASTFM_KEY
-          SONA_LASTFM_SECRET: pass://Sona CI release/Last.fm API/SONA_LASTFM_SECRET
-          SONA_DISCORD_CLIENT_ID: pass://Sona CI release/Discord app/SONA_DISCORD_CLIENT_ID
+          SONA_LASTFM_KEY: pass://Sona CI/Last.fm API/SONA_LASTFM_KEY
+          SONA_LASTFM_SECRET: pass://Sona CI/Last.fm API/SONA_LASTFM_SECRET
+          SONA_DISCORD_CLIENT_ID: pass://Sona CI/Discord app/SONA_DISCORD_CLIENT_ID
 
       # Podman is preinstalled on the runner image.
       - name: Build and smoke-test packages
@@ -376,9 +376,9 @@ jobs:
           export-env: "true"
         env:
           PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
-          SONA_LASTFM_KEY: pass://Sona CI release/Last.fm API/SONA_LASTFM_KEY
-          SONA_LASTFM_SECRET: pass://Sona CI release/Last.fm API/SONA_LASTFM_SECRET
-          SONA_DISCORD_CLIENT_ID: pass://Sona CI release/Discord app/SONA_DISCORD_CLIENT_ID
+          SONA_LASTFM_KEY: pass://Sona CI/Last.fm API/SONA_LASTFM_KEY
+          SONA_LASTFM_SECRET: pass://Sona CI/Last.fm API/SONA_LASTFM_SECRET
+          SONA_DISCORD_CLIENT_ID: pass://Sona CI/Discord app/SONA_DISCORD_CLIENT_ID
 
       # bundle.sh links the update feed and key in only where the key is
       # committed (internal/update/update.pub); without them the build never
@@ -474,9 +474,9 @@ jobs:
           export-env: "true"
         env:
           PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
-          SONA_LASTFM_KEY: pass://Sona CI release/Last.fm API/SONA_LASTFM_KEY
-          SONA_LASTFM_SECRET: pass://Sona CI release/Last.fm API/SONA_LASTFM_SECRET
-          SONA_DISCORD_CLIENT_ID: pass://Sona CI release/Discord app/SONA_DISCORD_CLIENT_ID
+          SONA_LASTFM_KEY: pass://Sona CI/Last.fm API/SONA_LASTFM_KEY
+          SONA_LASTFM_SECRET: pass://Sona CI/Last.fm API/SONA_LASTFM_SECRET
+          SONA_DISCORD_CLIENT_ID: pass://Sona CI/Discord app/SONA_DISCORD_CLIENT_ID
 
       # package.sh links the update feed and key in only where the key is
       # committed (internal/update/update.pub); without them the build never
@@ -530,7 +530,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     # SONA_UPDATE_KEY (the Ed25519 key `go tool mygo keygen` wrote) is an item
-    # of the Proton Pass vault "Sona CI release", read with the `release`
+    # of the Proton Pass vault "Sona CI", read with the `release`
     # environment's PROTON_PASS_PERSONAL_ACCESS_TOKEN.
     environment: release
     permissions:
@@ -611,10 +611,10 @@ jobs:
           export-env: "true"
         env:
           PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
-          SONA_UPDATE_KEY: pass://Sona CI release/Update signing key/SONA_UPDATE_KEY
-          SONA_LASTFM_KEY: pass://Sona CI release/Last.fm API/SONA_LASTFM_KEY
-          SONA_LASTFM_SECRET: pass://Sona CI release/Last.fm API/SONA_LASTFM_SECRET
-          SONA_DISCORD_CLIENT_ID: pass://Sona CI release/Discord app/SONA_DISCORD_CLIENT_ID
+          SONA_UPDATE_KEY: pass://Sona CI/Update signing key/SONA_UPDATE_KEY
+          SONA_LASTFM_KEY: pass://Sona CI/Last.fm API/SONA_LASTFM_KEY
+          SONA_LASTFM_SECRET: pass://Sona CI/Last.fm API/SONA_LASTFM_SECRET
+          SONA_DISCORD_CLIENT_ID: pass://Sona CI/Discord app/SONA_DISCORD_CLIENT_ID
 
       # In this repository a release must not go out without the release
       # secrets (Proton Pass, loaded above): the build jobs (same environment,
@@ -629,7 +629,7 @@ jobs:
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
-            echo "::error::the release secrets are missing:$missing. They are read from Proton Pass (vault \"Sona CI release\") with the release environment's PROTON_PASS_PERSONAL_ACCESS_TOKEN. Nothing is published; a caller of this workflow must pass \`secrets: inherit\`."
+            echo "::error::the release secrets are missing:$missing. They are read from Proton Pass (vault \"Sona CI\") with the release environment's PROTON_PASS_PERSONAL_ACCESS_TOKEN. Nothing is published; a caller of this workflow must pass \`secrets: inherit\`."
             exit 1
           fi
 

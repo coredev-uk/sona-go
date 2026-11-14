@@ -447,11 +447,11 @@ SHA with the version in a comment (`uses: actions/checkout@<sha> # v7.0.1`;
 Renovate keeps pins current); `persist-credentials: false` on every checkout
 that doesn't push; pass expressions to scripts through `env:`, never inline
 in `run:`; secrets live in Proton Pass and are read with Proton's
-`protonpass/load-secret-action`; each environment holds only a vault-scoped,
-viewer-only token (`release`: `PROTON_PASS_PERSONAL_ACCESS_TOKEN` for the vault
-"Sona CI release" with the update key, Last.fm key/secret and Discord ID,
-deploys from main and `v*` tags; `live`: the same name for the vault "Sona CI
-live" with `MUSIC_USER_TOKEN`, main only), so no pull request run can read
+`protonpass/load-secret-action`; the `release` environment (main and `v*`
+tags) and the `live` environment (main only) each hold one secret,
+`PROTON_PASS_PERSONAL_ACCESS_TOKEN`, a viewer-only token for the vault "Sona
+CI" (the update key, the Last.fm key and secret, the Discord ID and
+`MUSIC_USER_TOKEN`), so no pull request run can read
 them. Run `actionlint` on changed
 workflows. The test jobs run `.github/ci/test.sh` (gotestsum: a failing test
 is rerun twice; one that passes on a rerun passes the job and is listed in the
@@ -584,7 +584,7 @@ needs:
 
 - The public key is `internal/update/update.pub` (embedded; empty means
   updates are off). The private key is the `SONA_UPDATE_KEY` item of the Proton
-  Pass vault "Sona CI release" (the `release` environment's token reads it; a
+  Pass vault "Sona CI" (the `release` environment's token reads it; a
   master copy is in Development → Sona Update Signing Key), from `go tool mygo
   keygen`; losing it strands the
   installs that exist. Never print it or commit it.

@@ -96,7 +96,7 @@ jobs:
           export-env: "true"
         env:
           PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
-          MUSIC_USER_TOKEN: pass://Sona CI live/Apple Music user token/MUSIC_USER_TOKEN
+          MUSIC_USER_TOKEN: pass://Sona CI/Apple Music user token/MUSIC_USER_TOKEN
 
       - name: Play a full track (private)
         env:
