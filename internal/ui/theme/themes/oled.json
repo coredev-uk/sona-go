@@ -1,5 +1,5 @@
 {
-  "$comment": "True black for OLED screens, dark only: the ground is #000000 and surface and raised are just enough above it to separate menus. Lime marks what plays.",
+  "$comment": "True black for OLED screens, dark only: the ground is #000000 and surface and raised are just enough above it to separate menus. A clear blue marks what plays. Accents (Settings → Appearance): the spot colour in five more hues, designed for each variant with a neutral glyph colour, each passing theme.Validate; the theme's own colour is \"Theme default\".",
   "format": 1,
   "id": "oled",
   "name": "OLED",
@@ -16,9 +16,46 @@
       "ink": "#f2f2f2",
       "ink-muted": "#b4b4b4",
       "ink-faint": "#aaaaaa",
-      "amber": "#bdf043",
-      "amber-ink": "#bdf043",
-      "on-amber": "#0b1400"
+      "amber": "#5492ff",
+      "amber-ink": "#5492ff",
+      "on-amber": "#0a0a0a"
+    }
+  },
+  "accents": {
+    "amber": {
+      "dark": {
+        "amber": "#fcba43",
+        "amber-ink": "#fcba43",
+        "on-amber": "#0a0a0a"
+      }
+    },
+    "gold": {
+      "dark": {
+        "amber": "#e8d754",
+        "amber-ink": "#e8d754",
+        "on-amber": "#0a0a0a"
+      }
+    },
+    "lime": {
+      "dark": {
+        "amber": "#9ed24d",
+        "amber-ink": "#9ed24d",
+        "on-amber": "#0a0a0a"
+      }
+    },
+    "teal": {
+      "dark": {
+        "amber": "#66d2ce",
+        "amber-ink": "#66d2ce",
+        "on-amber": "#0a0a0a"
+      }
+    },
+    "rose": {
+      "dark": {
+        "amber": "#ff8aa9",
+        "amber-ink": "#ff8aa9",
+        "on-amber": "#0a0a0a"
+      }
     }
   }
 }

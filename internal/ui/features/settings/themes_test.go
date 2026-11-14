@@ -219,3 +219,108 @@ func TestThemesFolderRowSaysWhereAndOpens(t *testing.T) {
 	r.tt.Until("the failure", r.tt.Shows("Couldn't open the themes folder"))
 }
 
+// accentGroup is the Accent radio group of the Appearance page.
+func accentGroup(t *testing.T, r *rig) (access.Tree, access.Node, bool) {
+	t.Helper()
+	tr := access.Read(t, r.tt.Tester)
+	g, ok := tr.Find(ui.RoleRadioGroup, "Accent")
+	return tr, g, ok
+}
+
+func radioNames(tr access.Tree, g access.Node) []string {
+	var names []string
+	for _, n := range tr.Children(g) {
+		if n.Role == ui.RoleRadio {
+			names = append(names, n.Label)
+		}
+	}
+	return names
+}
+
+// The Accent row shows for Sona's own themes only: a radio group of named
+// swatches, "Theme default" first, one Tab stop, the arrows choosing and
+// saving, the chosen one checked.
+func TestA11yAccentRowIsOneRadioGroupOfNamedSwatches(t *testing.T) {
+	r, _ := themeRig(t)
+	access.NoNestedControls(t, r.tt.Tester)
+	tr, g, ok := accentGroup(t, r)
+	if !ok {
+		t.Fatalf("no radio group named Accent:\n%s", tr.Dump())
+	}
+	want := []string{"Theme default", "Gold", "Lime", "Sky", "Teal", "Rose"}
+	if got := radioNames(tr, g); !slices.Equal(got, want) {
+		t.Errorf("accents %q, want %q", got, want)
+	}
+	if n, _ := tr.Find(ui.RoleRadio, "Theme default"); !n.Has(access.Checked) {
+		t.Error("Theme default is not the chosen one")
+	}
+	inGroup := 0
+	for _, label := range access.StopLabels(access.TabWalk(t, r.tt.Tester, 160)) {
+		if slices.Contains(want, label) {
+			inGroup++
+		}
+	}
+	if inGroup != 1 {
+		t.Errorf("the accents are %d stops of Tab, want 1", inGroup)
+	}
+	if err := r.tt.Click("Sky"); err != nil {
+		t.Fatal(err)
+	}
+	r.saved("sky saved for sona", func(s config.Settings) bool { return s.Accents["sona"] == "sky" })
+	r.tt.Until("sky checked", func() bool {
+		n, _ := access.Read(t, r.tt.Tester).Find(ui.RoleRadio, "Sky")
+		return n.Has(access.Checked)
+	})
+	r.tt.Key(0, ui.KeyRight)
+	r.saved("teal saved", func(s config.Settings) bool { return s.Accents["sona"] == "teal" })
+	r.tt.Until("teal checked", func() bool {
+		n, _ := access.Read(t, r.tt.Tester).Find(ui.RoleRadio, "Teal")
+		return n.Has(access.Checked)
+	})
+	r.tt.Key(0, ui.KeyLeft)
+	r.saved("sky again", func(s config.Settings) bool { return s.Accents["sona"] == "sky" })
+}
+
+// The accent applies at once, is kept per theme and comes back with its
+// theme; "Theme default" forgets it; a community palette has no row.
+func TestAccentIsKeptPerThemeAndRestored(t *testing.T) {
+	r, _ := themeRig(t)
+	if err := r.tt.Click("Rose"); err != nil {
+		t.Fatal(err)
+	}
+	if theme.ActiveAccent() != "rose" {
+		t.Errorf("accent %q before Go answered", theme.ActiveAccent())
+	}
+	r.saved("rose for sona", func(s config.Settings) bool { return s.Accents["sona"] == "rose" })
+	r.tt.Until("the summary", r.tt.Shows("Sona · Rose · Light"))
+	if err := r.tt.Click("OLED"); err != nil {
+		t.Fatal(err)
+	}
+	r.saved("oled saved", func(s config.Settings) bool { return s.ThemeID == "oled" })
+	if theme.ActiveAccent() != "" {
+		t.Errorf("oled shows %q, want its own colour", theme.ActiveAccent())
+	}
+	r.tt.Until("oled's row", func() bool { _, _, ok := accentGroup(t, r); return ok })
+	if err := r.tt.Click("Lime"); err != nil {
+		t.Fatal(err)
+	}
+	r.saved("lime for oled", func(s config.Settings) bool { return s.Accents["oled"] == "lime" && s.Accents["sona"] == "rose" })
+	r.tt.Until("the summary", r.tt.Shows("OLED · Lime · Dark"))
+	if err := r.tt.Click("Nord"); err != nil {
+		t.Fatal(err)
+	}
+	r.saved("nord saved", func(s config.Settings) bool { return s.ThemeID == "nord" })
+	r.tt.Until("no accent row", func() bool { _, _, ok := accentGroup(t, r); return !ok })
+	if err := r.tt.Click("Sona"); err != nil {
+		t.Fatal(err)
+	}
+	r.saved("sona again", func(s config.Settings) bool { return s.ThemeID == "sona" })
+	if theme.ActiveAccent() != "rose" {
+		t.Errorf("sona's accent %q was not restored", theme.ActiveAccent())
+	}
+	r.tt.Until("Theme default", func() bool { _, _, ok := accentGroup(t, r); return ok })
+	if err := r.tt.Click("Theme default"); err != nil {
+		t.Fatal(err)
+	}
+	r.saved("sona's accent forgotten", func(s config.Settings) bool { _, has := s.Accents["sona"]; return !has && s.Accents["oled"] == "lime" })
+}

@@ -1,5 +1,5 @@
 {
-  "$comment": "Every text colour keeps 7:1 on every surface, and lines and the focus ring are strong. Blue (light) and yellow (dark) mark what plays.",
+  "$comment": "Every text colour keeps 7:1 on every surface, and lines and the focus ring are strong. Blue (light) and yellow (dark) mark what plays. Accents (Settings → Appearance): the spot colour in five more hues, designed for each variant with a neutral glyph colour, each passing theme.Validate; the theme's own colour is \"Theme default\".",
   "format": 1,
   "id": "contrast",
   "name": "High contrast",
@@ -48,6 +48,80 @@
       "edge": "ink/25",
       "scrollbar": "ink/50",
       "scrollbar-hover": "ink/70"
+    }
+  },
+  "accents": {
+    "amber": {
+      "light": {
+        "amber": "#a66800",
+        "amber-ink": "#6c3100",
+        "on-amber": "#ffffff"
+      },
+      "dark": {
+        "amber": "#fcba43",
+        "amber-ink": "#fcba43",
+        "on-amber": "#000000"
+      }
+    },
+    "gold": {
+      "light": {
+        "amber": "#877500",
+        "amber-ink": "#523f00",
+        "on-amber": "#ffffff"
+      },
+      "dark": {
+        "amber": "#e8d754",
+        "amber-ink": "#e8d754",
+        "on-amber": "#000000"
+      }
+    },
+    "lime": {
+      "light": {
+        "amber": "#548200",
+        "amber-ink": "#224b00",
+        "on-amber": "#ffffff"
+      },
+      "dark": {
+        "amber": "#9ed24d",
+        "amber-ink": "#9ed24d",
+        "on-amber": "#000000"
+      }
+    },
+    "sky": {
+      "light": {
+        "amber": "#107db2",
+        "amber-ink": "#004475",
+        "on-amber": "#ffffff"
+      },
+      "dark": {
+        "amber": "#6cc9ff",
+        "amber-ink": "#6cc9ff",
+        "on-amber": "#000000"
+      }
+    },
+    "teal": {
+      "light": {
+        "amber": "#008381",
+        "amber-ink": "#004a49",
+        "on-amber": "#ffffff"
+      },
+      "dark": {
+        "amber": "#66d2ce",
+        "amber-ink": "#66d2ce",
+        "on-amber": "#000000"
+      }
+    },
+    "rose": {
+      "light": {
+        "amber": "#cb4569",
+        "amber-ink": "#870033",
+        "on-amber": "#ffffff"
+      },
+      "dark": {
+        "amber": "#ff9bb9",
+        "amber-ink": "#ff9bb9",
+        "on-amber": "#000000"
+      }
     }
   }
 }

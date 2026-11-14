@@ -1,9 +1,71 @@
 {
-  "$comment": "Sona's own theme: tokens.json as it is. A theme gives only what it changes; empty variants say it has both a light and a dark look.",
+  "$comment": "Sona's own theme: tokens.json as it is. A theme gives only what it changes; empty variants say it has both a light and a dark look. Accents (Settings → Appearance): the spot colour in five more hues, designed for each variant with a neutral glyph colour, each passing theme.Validate; the theme's own colour is \"Theme default\".",
   "format": 1,
   "id": "sona",
   "name": "Sona",
   "author": "Sona",
   "light": {},
-  "dark": {}
+  "dark": {},
+  "accents": {
+    "gold": {
+      "light": {
+        "amber": "#948300",
+        "amber-ink": "#705e00",
+        "on-amber": "#151515"
+      },
+      "dark": {
+        "amber": "#e8d754",
+        "amber-ink": "#e8d754",
+        "on-amber": "#151515"
+      }
+    },
+    "lime": {
+      "light": {
+        "amber": "#619000",
+        "amber-ink": "#3e6a00",
+        "on-amber": "#151515"
+      },
+      "dark": {
+        "amber": "#9ed24d",
+        "amber-ink": "#9ed24d",
+        "on-amber": "#151515"
+      }
+    },
+    "sky": {
+      "light": {
+        "amber": "#278ac0",
+        "amber-ink": "#006498",
+        "on-amber": "#151515"
+      },
+      "dark": {
+        "amber": "#6cc9ff",
+        "amber-ink": "#6cc9ff",
+        "on-amber": "#151515"
+      }
+    },
+    "teal": {
+      "light": {
+        "amber": "#0c918e",
+        "amber-ink": "#006a68",
+        "on-amber": "#151515"
+      },
+      "dark": {
+        "amber": "#66d2ce",
+        "amber-ink": "#66d2ce",
+        "on-amber": "#151515"
+      }
+    },
+    "rose": {
+      "light": {
+        "amber": "#da5475",
+        "amber-ink": "#af2a52",
+        "on-amber": "#151515"
+      },
+      "dark": {
+        "amber": "#ff8aa9",
+        "amber-ink": "#ff8aa9",
+        "on-amber": "#151515"
+      }
+    }
+  }
 }

@@ -28,7 +28,7 @@ func TestBuiltinThemesAreEmbeddedAndValid(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		th, problems := ParseTheme(data)
+		th, problems := parseTheme(data, state.base, true)
 		for _, p := range problems {
 			t.Errorf("%s: %s", id, p)
 		}

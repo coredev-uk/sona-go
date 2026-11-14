@@ -284,3 +284,21 @@ func TestParseExportRejects(t *testing.T) {
 		}
 	}
 }
+
+func TestAccentsTravelInAnExport(t *testing.T) {
+	from := Defaults()
+	from.Accents = map[string]string{"oled": "lime", "sona": "rose"}
+	b, err := Export(from)
+	if err != nil {
+		t.Fatal(err)
+	}
+	im, err := ParseExport(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	to := Defaults()
+	im.Apply(&to)
+	if to.Accents["oled"] != "lime" || to.Accents["sona"] != "rose" {
+		t.Errorf("accents %v after import", to.Accents)
+	}
+}

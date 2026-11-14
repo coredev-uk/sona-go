@@ -25,6 +25,7 @@ func (s *settings) appearance(c *ui.Context) {
 				Desc:  i18n.T("The colours of the whole window. A theme also picks the colour that marks what plays."),
 				Notes: func() { themeFallbackNote(c) },
 			}, func() ui.Element { return s.themeGallery(c, off) })
+			s.accentRow(c, off)
 			s.themesFolderRow(c)
 		})
 		s.group(c, "appearance-effects", i18n.T("Effects"), "", func() {

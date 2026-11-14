@@ -37,6 +37,8 @@ func listedRow(key string) string {
 	switch key {
 	case "theme":
 		return i18n.T("Theme")
+	case "accents":
+		return i18n.T("Accent")
 	case "reduceEffects":
 		return i18n.T("Reduce effects")
 	case "motionArtwork.enabled":
