@@ -4,7 +4,7 @@ This is the working visual direction. The tokens below live in `internal/ui/them
 
 ## Thesis: the label's house style
 
-A good record label sets every release through one fixed template: the same typeface at the same station, the same catalogue line, a quiet board, and the cover as the only picture. Sona works the same way. The chrome is a neutral, faintly green-grey board set in one grotesque. The colour on screen comes from the music: cover art, and backdrops pre-blurred from it in Go. The interface itself owns one spot colour, amber, and spends it on one job only: showing where the music is.
+A good record label sets every release through one fixed template: the same typeface at the same station, the same catalogue line, a quiet board, and the cover as the only picture. Sona works the same way. The chrome is a neutral grey board set in one grotesque. The colour on screen comes from the music: cover art, and backdrops pre-blurred from it in Go. The interface itself owns one spot colour, amber, and spends it on one job only: showing where the music is.
 
 What it refuses: the streaming-app default of near-black with a brand-coloured accent on every control, and frosted glass over blurred artwork.
 
@@ -39,23 +39,23 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 | Token            | Light     | Dark      | Role                                                 |
 | ---------------- | --------- | --------- | ---------------------------------------------------- |
-| `--ground`       | `#f4f5f3` | `#121513` | Content canvas                                       |
-| `--surface`      | `#eceeeb` | `#171a18` | Sidebar, top bar, now-playing bar                    |
-| `--raised`       | `#ffffff` | `#1e2220` | Menus, dialogs, popovers, inputs                     |
-| `--hover`        | `#e4e7e3` | `#222724` | Row and nav hover                                    |
-| `--active`       | `#dbdfda` | `#2a302c` | Selected nav item, pressed                           |
-| `--line`         | `#dadcd7` | `#262b28` | Structural 1px lines                                 |
-| `--control-line` | `#838984` | `#6b736d` | Input and outline-button borders (≥ 3:1)             |
-| `--ink`          | `#161917` | `#eef1ee` | Primary text                                         |
-| `--ink-muted`    | `#545a55` | `#a9b0aa` | Secondary text                                       |
-| `--ink-faint`    | `#5d635e` | `#959c96` | Meta, placeholders                                   |
-| `--amber`        | `#e5a31b` | `#f0b43c` | Spot fill: play button, progress, now-playing marker |
+| `--ground`       | `#f5f5f5` | `#141414` | Content canvas                                       |
+| `--surface`      | `#ededed` | `#191919` | Sidebar, top bar, now-playing bar                    |
+| `--raised`       | `#ffffff` | `#212121` | Menus, dialogs, popovers, inputs                     |
+| `--hover`        | `#e6e6e6` | `#262626` | Row and nav hover                                    |
+| `--active`       | `#dedede` | `#2e2e2e` | Selected nav item, pressed                           |
+| `--line`         | `#dbdbdb` | `#2a2a2a` | Structural 1px lines                                 |
+| `--control-line` | `#878787` | `#707070` | Input and outline-button borders (≥ 3:1)             |
+| `--ink`          | `#181818` | `#f0f0f0` | Primary text                                         |
+| `--ink-muted`    | `#585858` | `#aeaeae` | Secondary text                                       |
+| `--ink-faint`    | `#5e5e5e` | `#a5a5a5` | Meta, placeholders                                   |
+| `--amber`        | `#ad7700` | `#f0b43c` | Spot fill: play button, progress, now-playing marker |
 | `--amber-ink`    | `#845500` | `#f0b43c` | Amber as text or icon on the ground                  |
 | `--on-amber`     | `#1a1405` | `#1a1405` | Glyphs on an amber fill                              |
 | `--danger`       | `#b42318` | `#f0705f` | Errors and destructive actions only                  |
 | `--positive`     | `#1f6e47` | `#5cc48c` | Success states only                                  |
 
-- The faint green-grey tint (hue ~150) keeps the board from reading as dead grey and sits well next to any cover. No cream, no navy, no violet: that is Sona's own themes' rule, not the community palettes' (Themes, below).
+- Sona's own board is neutral grey (OKLCH chroma 0), so no tint competes with a cover. No cream, no navy, no violet: that is Sona's own themes' rule, not the community palettes' (Themes, below).
 - The primary button is ink-filled (near-black on light, near-white on dark), not amber.
 - Focus ring: 2px `--ink` at 60% (the `ring` token, MyGo's keyboard-focus ring) outside the control, everywhere (≥ 3:1 on every background tone). Selection is amber at 32% (the `selection` token); the caret is `--amber-ink`.
 - Contrast floors (WCAG AA, `docs/accessibility.md`): text tokens ≥ 4.5:1 on every background up to `--active` (selected rows), `--control-line` and the focus ring ≥ 3:1. Slider thumbs are always shown: the thumb, not the fill colour, marks the value.
@@ -77,7 +77,7 @@ The table above is Sona's own theme (`sona`): `tokens.json` is its whole documen
 
 - **Sona's own themes keep the brief.** The chrome is a neutral board (no tone of it strays more than a few levels from grey; a test holds the five to it), the cover is the colour, and there is no cream, navy or violet. The community presets are their projects' palettes mapped onto Sona's tokens: their own hues win, violet and navy included, and each credits its project in `author`. Where an exact palette value fails the floors below (text tiers, the control line, the spot floors), that token is moved in lightness only, and the theme file's `$comment` lists each change.
 - **A theme may change the spot colour** (`amber`, `amber-ink`, `on-amber`; `play`, `play-ink` and `on-play` follow). It still means "playing" and nothing else: a theme whose `primary`, `ring` (the focus ring), `active` or `hover` (navigation selection and hover) or any other role of the kit resolves to it is refused. The cover's accent on the album page replaces it as before; `palette` reads its six colours (ground, hover, active, ink, spot, on-spot) from the current theme.
-- **A theme that fails is refused, not adjusted.** `theme.Validate` is the one rule set, for the built-ins' tests and for a user's file at run time: text tiers, the spot colour as text and the status colours keep 4.5:1 on every tone up to `--active` and on a selected row (ink at 12%); `--control-line` and the ring keep 3:1; avatar tones 4.5:1; the backdrop scrim stays at 0.8 or more; the spot fill keeps 2:1 against the ground and 1.75:1 against surface and hover in a light theme (amber's own 2.0, 1.88 and 1.76), 3:1 in a dark one; `--on-amber` keeps 4.5:1 on it; ink keeps 4.5:1 on the selection (the spot colour at 32%).
+- **A theme that fails is refused, not adjusted.** `theme.Validate` is the one rule set, for the built-ins' tests and for a user's file at run time: text tiers, the spot colour as text and the status colours keep 4.5:1 on every tone up to `--active` and on a selected row (ink at 12%); `--control-line` and the ring keep 3:1; avatar tones 4.5:1; the backdrop scrim stays at 0.8 or more; the spot fill keeps 3:1 against the ground, surface and hover in a light and a dark theme (WCAG 1.4.11, non-text contrast: the play disc is a graphical object; Sona's own light amber has 3.6, 3.3 and 3.1); `--on-amber` keeps 4.5:1 on it; ink keeps 4.5:1 on the selection (the spot colour at 32%).
 - **A theme with one variant pins the appearance** to it: `oled` and `dracula` are dark, so Settings → Appearance disables the mode row and says so. Settings → Appearance lists the themes as cards (a miniature window drawn from each theme's own tokens, its name, a line, "Dark only" where it applies), in two groups, "Sona's own" and "Community palettes", then the user's files.
 
 ## Space and density
@@ -383,7 +383,7 @@ Other versions · Music videos · More to hear · More by · Featured in playlis
   - in the dark theme no lighter than 0.36 OKLCH lightness, hue kept, so a white or pale cover is a dark tint of itself rather than the brightest slab in the window; in the light theme a dark cover stays dark;
   - never so near a mid grey that black or white loses 5.8:1 on it and its pressed tone, so the text and a muted step below it can both reach 4.5:1.
 - **Text on the sleeve** takes Apple's own text colours for the cover (`text1` for ink, `text2` or `text3` for muted) when they read at 4.5:1 on the sleeve and on its hover and pressed tones; otherwise ink is black or white with a trace of the sleeve, and muted is ink mixed 35% towards the sleeve, moved in lightness only as far as 4.5:1 needs. The sleeve redeclares its own `ink`, `ink-muted`, `hover`, `active`, `line`, `control-line` and the roles built on them (`theme.Scope`), so the disc index, badges and outline buttons inside it (the whole head, the cover, the actions and the fine print) follow it; focus rings there are the sleeve's ink. Reduce effects changes nothing: the sleeve is a flat colour already.
-- **The cover's accent takes amber's job on the page**: the most colourful of Apple's colours and Go's dominant ones (OKLCH chroma ≥ 0.06) fills the Play disc, marks the playing row and its equaliser, and sets the artist's name, the record's one link out. Its fill keeps at least amber's own distance from the ground (2:1 in light, 3:1 in dark) and from the sleeve when it sits on it, its glyph 4.5:1; as text it keeps 4.5:1 on every row tone, a selected row included. A greyscale cover keeps amber. (The accent is redeclared as `amber`, `on-amber`, `amber-ink` and the `play` roles for the whole page body, Apple's shelves below included.) Only the album page takes colour from its cover this way: the song, playlist and artist headers keep the backdrop wash of the cover's first dominant colour. Every pair is checked by unit tests over extreme covers (white, black, mid grey, the sRGB primaries, a 6-level grid in both themes).
+- **The cover's accent takes amber's job on the page**: the most colourful of Apple's colours and Go's dominant ones (OKLCH chroma ≥ 0.06) fills the Play disc, marks the playing row and its equaliser, and sets the artist's name, the record's one link out. Its fill keeps at least 2:1 in light and 3:1 in dark from the ground (amber itself keeps 3:1 in both; a light sleeve and the ground leave no colour 3:1 from both) and from the sleeve when it sits on it, its glyph 4.5:1; as text it keeps 4.5:1 on every row tone, a selected row included. A greyscale cover keeps amber. (The accent is redeclared as `amber`, `on-amber`, `amber-ink` and the `play` roles for the whole page body, Apple's shelves below included.) Only the album page takes colour from its cover this way: the song, playlist and artist headers keep the backdrop wash of the cover's first dominant colour. Every pair is checked by unit tests over extreme covers (white, black, mid grey, the sRGB primaries, a 6-level grid in both themes).
 - **One station**: the cover's top and the title's first line share a line on every album, whatever the title's length; the title wraps instead of clamping. Covers come in fixed sizes so Go serves them at the exact box: 256px, 320px from 1280px of content width, 384px from 1600px (a 1920 window).
 - **Held while the songs scroll**: the sleeve's contents stay at the pane's top, inside the sleeve's column, whenever the pane shows all of them (measured, so a one-disc sleeve holds in a shorter window than a three-disc one), so a 40-song album keeps its cover, title, actions, disc index and fine print in view. The column itself is as tall as the pane at least, so it always reaches the pane's bottom edge, and the shelves begin under the gatefold. Motion artwork plays there while it is on screen, under the same rules as every header.
 - **The back of the sleeve** is the record's fine print in meta type, each fact a muted name over its entry: released (the day in full), first released (the year of its oldest recording, when that is earlier: a reissue, a compilation), genres (all of Apple's, without the root "Music"), written by (every songwriter in Apple's composer credits, most credited first, eight named and the rest counted) or, on a classical album, composer, then the label unless the ℗ line names it, and the ℗ line last.

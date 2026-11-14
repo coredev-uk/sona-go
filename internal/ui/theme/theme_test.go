@@ -12,17 +12,17 @@ func hex(s string) ui.Color { return ui.Hex(s) }
 
 // The custom properties of v0.2.0's shared/styles/index.css, light and dark.
 var cssColors = map[string][2]string{
-	"ground":       {"#f4f5f3", "#121513"},
-	"surface":      {"#eceeeb", "#171a18"},
-	"raised":       {"#ffffff", "#1e2220"},
-	"hover":        {"#e4e7e3", "#222724"},
-	"active":       {"#dbdfda", "#2a302c"},
-	"line":         {"#dadcd7", "#262b28"},
-	"control-line": {"#838984", "#6b736d"},
-	"ink":          {"#161917", "#eef1ee"},
-	"ink-muted":    {"#545a55", "#a9b0aa"},
-	"ink-faint":    {"#5a605b", "#a0a7a1"},
-	"amber":        {"#e5a31b", "#f0b43c"},
+	"ground":       {"#f5f5f5", "#141414"},
+	"surface":      {"#ededed", "#191919"},
+	"raised":       {"#ffffff", "#212121"},
+	"hover":        {"#e6e6e6", "#262626"},
+	"active":       {"#dedede", "#2e2e2e"},
+	"line":         {"#dbdbdb", "#2a2a2a"},
+	"control-line": {"#878787", "#707070"},
+	"ink":          {"#181818", "#f0f0f0"},
+	"ink-muted":    {"#585858", "#aeaeae"},
+	"ink-faint":    {"#5e5e5e", "#a5a5a5"},
+	"amber":        {"#ad7700", "#f0b43c"},
 	"amber-ink":    {"#845500", "#f0b43c"},
 	"on-amber":     {"#1a1405", "#1a1405"},
 	"danger":       {"#b42318", "#f0705f"},
@@ -171,7 +171,7 @@ func TestLoadFileAndReload(t *testing.T) {
 	defer ReloadEmbedded()
 	dir := t.TempDir()
 	path := dir + "/tokens.json"
-	custom := strings.Replace(string(embeddedTokens), `"ground": "#f4f5f3"`, `"ground": "#010203"`, 1)
+	custom := strings.Replace(string(embeddedTokens), `"ground": "#f5f5f5"`, `"ground": "#010203"`, 1)
 	if custom == string(embeddedTokens) {
 		t.Fatal("test edit did not apply")
 	}
@@ -192,7 +192,7 @@ func TestLoadFileAndReload(t *testing.T) {
 		t.Errorf("a failed reload changed the tokens: %v", got)
 	}
 	ReloadEmbedded()
-	if got := C("ground"); got != hex("#f4f5f3") {
+	if got := C("ground"); got != hex("#f5f5f5") {
 		t.Errorf("embedded ground = %v", got)
 	}
 }
@@ -218,12 +218,12 @@ func TestApplyFollowsModeAndDesktop(t *testing.T) {
 	SetMode(ModeSystem)
 	tt.SetDark(false)
 	tt.Frame()
-	if dark || seen.Background != hex("#f4f5f3") || seen.Text != hex("#161917") || seen.Font != FontFamily {
+	if dark || seen.Background != hex("#f5f5f5") || seen.Text != hex("#181818") || seen.Font != FontFamily {
 		t.Errorf("light system: dark %v, theme %+v", dark, seen)
 	}
 	tt.SetDark(true)
 	tt.Frame()
-	if !dark || seen.Background != hex("#121513") || seen.Text != hex("#eef1ee") || !seen.Dark {
+	if !dark || seen.Background != hex("#141414") || seen.Text != hex("#f0f0f0") || !seen.Dark {
 		t.Errorf("dark system: dark %v, bg %v", dark, seen.Background)
 	}
 	if seen.Accent != hex("#f0b43c") || seen.AccentText != hex("#1a1405") || seen.Radius != 6 || seen.FontSize != 14 {
@@ -232,13 +232,13 @@ func TestApplyFollowsModeAndDesktop(t *testing.T) {
 
 	SetMode(ModeLight)
 	tt.Frame()
-	if dark || seen.Background != hex("#f4f5f3") {
+	if dark || seen.Background != hex("#f5f5f5") {
 		t.Errorf("forced light on a dark desktop: dark %v bg %v", dark, seen.Background)
 	}
 	SetMode(ModeDark)
 	tt.SetDark(false)
 	tt.Frame()
-	if !dark || seen.Background != hex("#121513") {
+	if !dark || seen.Background != hex("#141414") {
 		t.Errorf("forced dark on a light desktop: dark %v bg %v", dark, seen.Background)
 	}
 
@@ -250,7 +250,7 @@ func TestApplyFollowsModeAndDesktop(t *testing.T) {
 	}
 	// A token change shows on the next frame.
 	defer ReloadEmbedded()
-	d, err := Parse([]byte(strings.Replace(string(embeddedTokens), `"ground": "#121513"`, `"ground": "#0a0b0c"`, 1)))
+	d, err := Parse([]byte(strings.Replace(string(embeddedTokens), `"ground": "#141414"`, `"ground": "#0a0b0c"`, 1)))
 	if err != nil {
 		t.Fatal(err)
 	}

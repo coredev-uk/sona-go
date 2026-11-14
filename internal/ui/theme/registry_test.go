@@ -20,7 +20,7 @@ func reset(t *testing.T) {
 func TestSetThemeChangesTheColours(t *testing.T) {
 	reset(t)
 	SetMode(ModeDark)
-	if got := C("ground"); got != ui.Hex("#121513") {
+	if got := C("ground"); got != ui.Hex("#141414") {
 		t.Fatalf("Sona's dark ground = %v", got)
 	}
 	rev := Revision()
@@ -28,7 +28,7 @@ func TestSetThemeChangesTheColours(t *testing.T) {
 		t.Fatal("graphite is not a theme")
 	}
 	g := Lookup("graphite").Tokens(true)
-	if got := C("ground"); got != g.Color["ground"] || got == ui.Hex("#121513") {
+	if got := C("ground"); got != g.Color["ground"] || got == ui.Hex("#141414") {
 		t.Errorf("ground after graphite = %v", got)
 	}
 	if C("amber") != g.Color["amber"] || C("play") != g.Color["amber"] {
@@ -70,7 +70,7 @@ func TestAnUnknownThemeShowsSonaAndIsKept(t *testing.T) {
 	if SetTheme("no-such-theme") {
 		t.Error("an unknown theme was found")
 	}
-	if Active().ID != DefaultThemeID || Requested() != "no-such-theme" || C("ground") != ui.Hex("#f4f5f3") {
+	if Active().ID != DefaultThemeID || Requested() != "no-such-theme" || C("ground") != ui.Hex("#f5f5f5") {
 		t.Errorf("active %q requested %q ground %v", Active().ID, Requested(), C("ground"))
 	}
 	// Its file turns up: the theme is there without choosing it again.
@@ -128,7 +128,7 @@ func TestUserThemesReloadKeepTheLastGoodAndSayWhy(t *testing.T) {
 		t.Errorf("a broken new file: %+v", es)
 	}
 	// Deleting the file drops its theme, and the choice falls back to Sona.
-	if Active().ID != DefaultThemeID || C("ground") != ui.Hex("#f4f5f3") {
+	if Active().ID != DefaultThemeID || C("ground") != ui.Hex("#f5f5f5") {
 		t.Errorf("after the file went: active %q ground %v", Active().ID, C("ground"))
 	}
 }

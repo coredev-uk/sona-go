@@ -1,5 +1,5 @@
 {
-  "$comment": "Gruvbox light and dark. Yellow marks what plays. Adjusted in lightness only to keep Sona's contrast floors: light ink-faint #665c54 -> #5a5049; light positive #79740e -> #585402; light amber #b57614 -> #c18227; light amber-ink #c18227 -> #734800; dark ink-faint #bdae93 -> #c8b99d; dark positive #b8bb26 -> #bec12f; dark danger #fb4934 -> #ffa292; dark ink #ebdbb2 -> #f4e4ba (over the selection).",
+  "$comment": "Gruvbox light and dark. Yellow marks what plays. Adjusted in lightness only to keep Sona's contrast floors: light ink-faint #665c54 -> #5a5049; light positive #79740e -> #585402; light amber #b57614 -> #c18227; light amber-ink #c18227 -> #734800; dark ink-faint #bdae93 -> #c8b99d; dark positive #b8bb26 -> #bec12f; dark danger #fb4934 -> #ffa292; dark ink #ebdbb2 -> #f4e4ba (over the selection); light amber #c18227 -> #ad6f03; light on-amber #282828 -> #101010 (the play colour keeps 3:1 on the light tones).",
   "format": 1,
   "id": "gruvbox",
   "name": "Gruvbox",
@@ -16,9 +16,9 @@
       "ink": "#3c3836",
       "ink-muted": "#504945",
       "ink-faint": "#5a5049",
-      "amber": "#c18227",
+      "amber": "#ad6f03",
       "amber-ink": "#734800",
-      "on-amber": "#282828",
+      "on-amber": "#101010",
       "positive": "#585402",
       "danger": "#9d0006",
       "avatar-0-bg": "#e9bc97",

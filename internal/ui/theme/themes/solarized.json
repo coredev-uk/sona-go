@@ -1,5 +1,5 @@
 {
-  "$comment": "Solarized light and dark. Yellow marks what plays. Raised, hover and active in dark are mixes of base02 and base01; in light they are mixes of base2 and base3. Adjusted in lightness only to keep Sona's contrast floors: light ink-muted #586e75 -> #4b6067; light ink-faint #586e75 -> #4b6067; light positive #859900 -> #556300; light danger #dc322f -> #bd0112; light amber-ink #b58900 -> #765800; dark ink-muted #93a1a1 -> #b4c2c2; dark ink-faint #839496 -> #b1c3c5; dark positive #859900 -> #b3ca4d; dark danger #dc322f -> #feaaa0; dark control-line #657b83 -> #728991; dark amber-ink #b58900 -> #e7b94e.",
+  "$comment": "Solarized light and dark. Yellow marks what plays. Raised, hover and active in dark are mixes of base02 and base01; in light they are mixes of base2 and base3. Adjusted in lightness only to keep Sona's contrast floors: light ink-muted #586e75 -> #4b6067; light ink-faint #586e75 -> #4b6067; light positive #859900 -> #556300; light danger #dc322f -> #bd0112; light amber-ink #b58900 -> #765800; dark ink-muted #93a1a1 -> #b4c2c2; dark ink-faint #839496 -> #b1c3c5; dark positive #859900 -> #b3ca4d; dark danger #dc322f -> #feaaa0; dark control-line #657b83 -> #728991; dark amber-ink #b58900 -> #e7b94e; light amber #b58900 -> #a37800; light on-amber #002b36 -> #001621 (the play colour keeps 3:1 on the light tones).",
   "format": 1,
   "id": "solarized",
   "name": "Solarized",
@@ -16,9 +16,9 @@
       "ink": "#073642",
       "ink-muted": "#4b6067",
       "ink-faint": "#4b6067",
-      "amber": "#b58900",
+      "amber": "#a37800",
       "amber-ink": "#765800",
-      "on-amber": "#002b36",
+      "on-amber": "#001621",
       "positive": "#556300",
       "danger": "#bd0112",
       "avatar-0-bg": "#fbcab6",

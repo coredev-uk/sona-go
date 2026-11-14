@@ -83,6 +83,19 @@ func TestSonasOwnThemesHaveANeutralBoard(t *testing.T) {
 	}
 }
 
+// Sona's own theme is exactly grey: every board and ink token has chroma 0.
+func TestSonaBoardIsGrey(t *testing.T) {
+	th := Lookup("sona")
+	for _, dark := range []bool{false, true} {
+		tk := th.Tokens(dark)
+		for _, name := range []string{"ground", "surface", "raised", "hover", "active", "line", "control-line", "ink", "ink-muted", "ink-faint"} {
+			if c := tk.Color[name]; c.R != c.G || c.G != c.B {
+				t.Errorf("sona %s %s = %v is tinted, not grey", modeName(dark), name, c)
+			}
+		}
+	}
+}
+
 // High contrast keeps every text colour at 7:1 on every tone up to the
 // pressed one and on a selected row.
 func TestHighContrastTextKeeps7To1(t *testing.T) {
@@ -186,12 +199,12 @@ func TestParseThemeRefusesWhatItShould(t *testing.T) {
 }
 
 func TestAThemeMayPickItsOwnSpotColour(t *testing.T) {
-	th, ps := ParseTheme([]byte(`{"format":1,"id":"coral","name":"Coral","light":{"color":{"amber":"#e8590c","amber-ink":"#a33d00","on-amber":"#1a0a00"}},"dark":{"color":{"amber":"#ff8a5c","amber-ink":"#ff8a5c","on-amber":"#1a0a00"}}}`))
+	th, ps := ParseTheme([]byte(`{"format":1,"id":"coral","name":"Coral","light":{"color":{"amber":"#e25400","amber-ink":"#a33d00","on-amber":"#1a0a00"}},"dark":{"color":{"amber":"#ff8a5c","amber-ink":"#ff8a5c","on-amber":"#1a0a00"}}}`))
 	if th == nil {
 		t.Fatal(ps)
 	}
 	tk := th.Tokens(false)
-	if tk.Color["play"] != ui.Hex("#e8590c") || tk.Color["on-play"] != ui.Hex("#1a0a00") || tk.Color["selection"].R != 0xe8 {
+	if tk.Color["play"] != ui.Hex("#e25400") || tk.Color["on-play"] != ui.Hex("#1a0a00") || tk.Color["selection"].R != 0xe2 {
 		t.Errorf("the play roles and the selection did not follow: %v %v %v", tk.Color["play"], tk.Color["on-play"], tk.Color["selection"])
 	}
 }
