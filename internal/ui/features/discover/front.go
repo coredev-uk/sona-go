@@ -30,6 +30,20 @@ type front struct {
 	paused bool
 	rot    rotation
 	menus  *kit.ActionMenus
+	// keyboard: a control of the hero has the focus from the keyboard (what
+	// the last build saw; each build gathers it again with seeKeyboard).
+	keyboard bool
+}
+
+// seeKeyboard notes whether control e has the keyboard focus, with its ring
+// showing, and returns it. A click focuses the control it lands on too, and
+// that focus stays where it is until the user goes somewhere else, so only
+// the keyboard's counts as someone at the hero's controls.
+func (f *front) seeKeyboard(e ui.Element) ui.Element {
+	if e.FocusVisible() {
+		f.keyboard = true
+	}
+	return e
 }
 
 // choose makes card to the lead; leadMotion cross-fades the cards.
@@ -88,7 +102,12 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 
 	// The rotation: one deadline, asked for as a frame, no per-frame work.
 	available := !theme.ReducedMotion() && count > 1
-	engaged := sec.Hovered() || sec.FocusWithin()
+	// Hovering holds, and so does the focus the keyboard put in the hero. The
+	// focus a click left there (the pause control, the pager) does not: the
+	// pointer has gone, and nothing would ever end the hold.
+	keyboard := f.keyboard
+	f.keyboard = false
+	engaged := sec.Hovered() || (sec.FocusWithin() && keyboard)
 	running := available && width > 0 && !f.paused && !engaged && d.seen(sec)
 	advance, wait := f.rot.step(c.Now(), running, f.at, d.occupied)
 	switch {
@@ -112,6 +131,11 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 	shown := items[page*lay.perPage : min(count, (page+1)*lay.perPage)]
 	pg := pageState{page: page, pages: pages, available: available, label: label}
 
+	defer func() {
+		if f.keyboard != keyboard {
+			c.Invalidate() // the rotation reads it on the next build
+		}
+	}()
 	sec.Children(func() {
 		if width <= 0 {
 			return // the first frame measures; the next one lays it out
@@ -249,6 +273,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			card = ui.Column(c.Key("card")).AlignItems(ui.Start).Label(name)
 		}
 		card.Width(lay.lead)
+		d.front.seeKeyboard(card)
 		card.Children(func() {
 			colour, hasColour := kit.ParseHex(it.Color)
 			art := ui.Box(c.Key("art")).Size(lay.lead, artH).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
@@ -280,7 +305,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			})
 		})
 		if ctx.Players.CanPlay(it) {
-			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48).Absolute().Left(16).Top(artH - 16 - 48)
+			play := d.front.seeKeyboard(kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48)).Absolute().Left(16).Top(artH - 16 - 48)
 			kit.Fade(play, hot || play.Focused())
 			opener := d.front.openers.For("lead:" + leadKey(it, 0))
 			play.Bind(opener)
@@ -289,7 +314,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			}
 		}
 		if hasMenu {
-			ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot}).Absolute().Right(pager).Top(captionTop + 12)
+			d.front.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(pager).Top(captionTop + 12)
 		}
 		if pager > 0 {
 			d.pager(c, pg, captionTop+10)
@@ -332,7 +357,7 @@ func (d *discover) pager(c *ui.Context, pg pageState, top float32) {
 				name, icon = i18n.T("Play featured rotation"), "play"
 			}
 			b := kit.Button(c.Key("rotation"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: icon, Filled: true, A11yLabel: name})
-			b.Size(28, 28).Margin(0, 8, 0, 0)
+			f.seeKeyboard(b).Size(28, 28).Margin(0, 8, 0, 0)
 			if b.Clicked() {
 				if f.paused {
 					c.Announce(i18n.T("Rotation playing"))
@@ -353,12 +378,12 @@ func (d *discover) pager(c *ui.Context, pg pageState, top float32) {
 			c.Announce(i18n.T("{current} of {pages}", "current", to+1, "pages", pg.pages))
 		}
 		prev := kit.Button(c.Key("previous"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-left", A11yLabel: i18n.T("Previous in {label}", "label", pg.label)})
-		prev.Size(28, 28)
+		f.seeKeyboard(prev).Size(28, 28)
 		if prev.Clicked() {
 			turn(-1)
 		}
 		next := kit.Button(c.Key("next"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-right", A11yLabel: i18n.T("Next in {label}", "label", pg.label)})
-		next.Size(28, 28)
+		f.seeKeyboard(next).Size(28, 28)
 		if next.Clicked() {
 			turn(1)
 		}
@@ -397,6 +422,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 			row.Background(theme.C("hover"))
 		}
 		theme.Fade(row, "press")
+		f.seeKeyboard(row)
 		row.Children(func() {
 			src := it.Art.Medium
 			if src == "" {
@@ -429,7 +455,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 			}
 		})
 		if ctx.Players.CanPlay(it) {
-			play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 32).Absolute().
+			play := f.seeKeyboard(kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 32)).Absolute().
 				Left(8 + (listThumb-32)/2).Top((lay.rowHeight - 32) / 2)
 			kit.Fade(play, hot || play.Focused())
 			opener := d.front.openers.For("row:" + leadKey(it, index))
@@ -439,7 +465,7 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 			}
 		}
 		if hasMenu {
-			ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot}).Absolute().Right(8).Top((lay.rowHeight - 24) / 2)
+			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(8).Top((lay.rowHeight - 24) / 2)
 		}
 	})
 	if row.Clicked() {
