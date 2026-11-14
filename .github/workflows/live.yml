@@ -5,7 +5,9 @@
 # response change is caught within a week; a failure opens (or comments on)
 # an issue.
 #
-# Needs the secret MUSIC_USER_TOKEN of the `live` environment, which only
+# Needs the Proton Pass item "Apple Music user token" (field MUSIC_USER_TOKEN) in
+# the vault "Sona CI live", read with the `live` environment's secret
+# PROTON_PASS_PERSONAL_ACCESS_TOKEN; that environment only
 # runs from main (the schedule and a dispatch on main; no pull request can
 # reach it): a Music User Token of an account with an active subscription and
 # a non-empty library. Tokens last about six months; an expired one fails the
@@ -46,13 +48,22 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Load the Apple Music user token from Proton Pass
+        uses: protonpass/load-secret-action@be14c10cac6d490da3b975dd33fc5ff55a5c5e7b # v1.1.0
+        with:
+          version: 2.7.0
+          hash: fd933e76179a5a33b295853e9c6696e49e584fe2141b1aafc63a3d78c0791cdb
+          export-env: "true"
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+          MUSIC_USER_TOKEN: pass://Sona CI live/Apple Music user token/MUSIC_USER_TOKEN
+
       - name: Live contract tests
         env:
           SONA_LIVE: "1"
           # Private mode: the tests refuse to run without it, and any play
           # activity they send must carry "private-enabled".
           SONA_PRIVATE: "1"
-          MUSIC_USER_TOKEN: ${{ secrets.MUSIC_USER_TOKEN }}
         run: go test -count=1 -v -run '^TestLive$' ./internal/applemusic/
 
       - name: Report a failure

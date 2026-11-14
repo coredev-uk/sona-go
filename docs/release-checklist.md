@@ -112,7 +112,8 @@ same files on all three platforms, uploads them as the `linux-release`,
 `macos-release` and `windows-release` run artifacts (kept 7 days) and neither
 attests, signs nor publishes. It runs without the `release` environment, which only
 deploys from `main`, so these builds have no Last.fm or Discord
-credentials compiled in. `release-secrets.yml` checks those secrets.
+credentials compiled in. `release-secrets.yml` checks that the Proton Pass token and
+all four items resolve (monthly and on dispatch).
 
 ### Platforms in a release
 
@@ -191,18 +192,34 @@ and Windows development builds in ci.yml never hold a release up), then the
   corrected one and its re-signed manifest (the key is the `release`
   environment's), or by the next release: the signature covers the bytes.
 - **Signing the manifests:** `go run ./cmd/releasesign` signs each archive's
-  SHA-256 with the Ed25519 key in the `release` environment's secret
-  `SONA_UPDATE_KEY` (the file `go tool mygo keygen` wrote; the public key is
+  SHA-256 with the Ed25519 key in the item "Update signing key" (field
+  `SONA_UPDATE_KEY`) of the Proton Pass vault "Sona CI release" (the master
+  copy is also in Development → Sona Update Signing Key; the file `go tool mygo keygen` wrote; the public key is
   `internal/update/update.pub`, linked into the macOS and Windows builds).
   Manifests are signed last, after the archives are uploaded. **Without the
-  secret** (a fork, a run outside the environment) the step is skipped, says so
+  key** (a fork, a run outside the environment) the step is skipped, says so
   in the run summary, and the release has no `update-<target>.json`, so those
   installs do not self-update. In this repository `publish` refuses instead:
   it checks `SONA_UPDATE_KEY` and the Last.fm and Discord credentials are all
   there before it signs or publishes. `release-please.yml` calls `release.yml`
   with `secrets: inherit`, since a called workflow sees its environment's
-  secrets only that way; with the App secrets passed by name, v0.3.0 shipped
+  secret (the Proton Pass token) only that way; with the App secrets passed by name, v0.3.0 shipped
   without the credentials or manifests and was replaced by v0.3.1.
+- **Where the release secrets live:** in Proton Pass, vault "Sona CI release":
+  "Update signing key" (`SONA_UPDATE_KEY`), "Last.fm API" (`SONA_LASTFM_KEY`,
+  `SONA_LASTFM_SECRET`), "Discord app" (`SONA_DISCORD_CLIENT_ID`). The
+  `release` environment's only secret is `PROTON_PASS_PERSONAL_ACCESS_TOKEN`
+  (token `sona-ci-release`, viewer on that vault alone), which
+  `protonpass/load-secret-action` uses to read them; the `live` environment
+  likewise reads vault "Sona CI live" ("Apple Music user token",
+  `MUSIC_USER_TOKEN`) with the token `sona-ci-live`. **Rotate a value** by
+  editing the item in Proton Pass; nothing changes in GitHub. **Renew a
+  token** (both expire 2027-11-14) with `pass-cli personal-access-token
+  renew`, or create a new one and `gh secret set
+  PROTON_PASS_PERSONAL_ACCESS_TOKEN --env release` (`--env live` for the
+  other), then revoke the old one in Proton Pass. The monthly "Release
+  secrets" run catches an expired or revoked release token before a release;
+  dispatch it after any change.
 - **Release notes:** a release's draft holds release-please's changelog entry;
   `publish` appends `.github/release-notes/install.md` (first-run steps for
   macOS and Windows, verifying downloads).
