@@ -22,7 +22,7 @@ Each page has its own folder here with a `NOTES.md` that names the direction and
 | Artist | **Press kit.** A reworked header and the discography as a career line by year. |
 | Song | **Liner card.** Facts as a ledger beside the cover, credits grouped by role. |
 | Music video | **Cinema.** The picture leads at full width; the title and actions sit under it as a caption row. |
-| Playlist | **Mixtape J-card.** A ledger header and a running "starts at" column in the track list. |
+| Playlist | **Mixtape J-card.** A ledger header over the track list. |
 | Player | **Transport deck.** Seek along the bar's edge, a numbered queue with now, next and later, a recomposed Now Playing. |
 | Mini player | **Cassette.** Cover edge to edge, progress as a hairline on the foot edge. |
 | Equaliser | **Graphic EQ.** Presets as a row of chips, the response curve drawn behind the faders on one scale. |

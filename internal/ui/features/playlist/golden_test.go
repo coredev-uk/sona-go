@@ -155,8 +155,8 @@ func golden(t *testing.T, name string, w int, mode theme.Mode, d services.Playli
 }
 
 // The page at the narrowest width Sona keeps (the cover shrinks, the finder
-// wraps under the facts when they do not fit), in edit mode with the
-// "starts at" column following the order, with no songs and the suggestions
+// wraps under the facts when they do not fit), in edit mode, with no
+// songs and the suggestions
 // as the playlist's next rows, and a catalogue playlist's small shelf of
 // featured artists.
 func TestPlaylistPageStatesGolden(t *testing.T) {
@@ -166,7 +166,7 @@ func TestPlaylistPageStatesGolden(t *testing.T) {
 	t.Run("edit", func(t *testing.T) {
 		golden(t, "playlist-edit-dark", 1132, theme.ModeDark, goldenDetail(), nil, func(r *pageRig) {
 			r.click("Edit")
-			r.shows("Done", "Starts")
+			r.shows("Done", "Album")
 		})
 	})
 	t.Run("empty", func(t *testing.T) {

@@ -40,9 +40,7 @@ type page struct {
 	sort       kit.TrackSortState
 	query      string
 	shownCache viewCache
-	// startsCache is the "starts at" labels of the tracks.
-	startsCache startsCache
-	announced   string
+	announced  string
 }
 
 // addedCache is addedByRows' last answer and what it came from.
@@ -359,18 +357,6 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 	o.Sort = &pg.sort
 	o.NoPopup = true
 	o.Pane = pane
-	// "Starts at" is the song's place on the tape: only true while the list
-	// is in the playlist's own order, so a sort or a filter hides it.
-	if v.order == nil {
-		if sc := pg.starts(d.Tracks); sc.byRow != nil {
-			o.Subline = func(s *services.Song) string {
-				if at, ok := sc.byRow[s]; ok {
-					return i18n.T("Starts at {time}", "time", at)
-				}
-				return ""
-			}
-		}
-	}
 	if editable {
 		o.Container = &kit.ActionContainer{Kind: "playlist", ID: id, Editable: true, Order: v.order}
 	}
