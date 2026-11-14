@@ -64,6 +64,11 @@ shapes the rules below.
   by `ActiveDescendant` on the field, which keeps the keyboard focus: the
   arrows move the option, as in MyGo's `ComboboxBase`, and the field reads as
   a combo box with its list shown (`Expanded`).
+- In the search field Enter or a click on a song suggestion opens its song
+  page, like every other result (the chevron on the active row says so);
+  Shift+Enter plays the active song. An option holds no control, so the
+  keyboard modifier is the field's way to play; the results page has the
+  Play buttons (the best match's disc, a song row's button) and the menu.
 - Landmarks are few and named for what they hold: the shell's search field is
   a `RoleSearch` (no name: it is the one global search, and the field in it is
   already "Search"); the Albums page's type and sort are a `RoleSearch` named
