@@ -1,8 +1,12 @@
 package applemusic
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 	"testing"
 )
 
@@ -186,5 +190,50 @@ func TestArtworkGenerated(t *testing.T) {
 	}
 	if (*Artwork)(nil).Generated() {
 		t.Error("a missing artwork is not a generated one")
+	}
+}
+
+// Songs asks for a hundred IDs a request, so a chart is one round trip, and
+// leaves out the songs Apple doesn't serve.
+func TestSongsBatches(t *testing.T) {
+	var mu sync.Mutex
+	var sizes []int
+	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/catalog/gb/songs" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		ids := strings.Split(r.URL.Query().Get("ids"), ",")
+		mu.Lock()
+		sizes = append(sizes, len(ids))
+		mu.Unlock()
+		var data []string
+		for _, id := range ids {
+			if id != "s7" {
+				data = append(data, fmt.Sprintf(`{"id":%q,"type":"songs","attributes":{"name":"Song %s"}}`, id, id))
+			}
+		}
+		_, _ = fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(data, ","))
+	}))
+	ids := make([]string, 250)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("s%d", i)
+	}
+	songs, err := c.Songs(context.Background(), "gb", ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(songs) != 249 || songs[0].ID != "s0" || songs[248].ID != "s249" {
+		t.Fatalf("songs = %d, first %q, last %q; want 249 in order without s7", len(songs), songs[0].ID, songs[len(songs)-1].ID)
+	}
+	if len(sizes) != 3 {
+		t.Fatalf("requests of %v ids, want 3 of at most 100", sizes)
+	}
+	for _, n := range sizes {
+		if n > 100 {
+			t.Fatalf("a request of %d ids", n)
+		}
+	}
+	if got, err := c.Songs(context.Background(), "gb", nil); err != nil || len(got) != 0 {
+		t.Fatalf("no ids = %v, %v", got, err)
 	}
 }

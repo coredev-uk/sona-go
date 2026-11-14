@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -47,6 +48,15 @@ func newFixture(t *testing.T) *fixture {
 		switch r.URL.Path {
 		case "/v1/catalog/gb/albums/7", "/v1/catalog/us/albums/7":
 			w.Write([]byte(albumJSON))
+		case "/v1/catalog/gb/songs":
+			// Batched lookup: every ID but "404" is known.
+			var data []string
+			for _, id := range strings.Split(r.URL.Query().Get("ids"), ",") {
+				if id != "404" {
+					data = append(data, `{"id":"`+id+`","type":"songs","attributes":{"name":"Song `+id+`","durationInMillis":1000}}`)
+				}
+			}
+			_, _ = w.Write([]byte(`{"data":[` + strings.Join(data, ",") + `]}`))
 		case "/v1/catalog/gb/search":
 			w.Write([]byte(`{"results":{"song":{"data":[{"id":"1","type":"songs"}]}},"resources":{"songs":{"1":{"id":"1","type":"songs","attributes":{"name":"One"}}}}}`))
 		default:
@@ -110,6 +120,45 @@ func TestAlbumReadThrough(t *testing.T) {
 	f.down.Store(true)
 	if a, err := f.cat.Album(ctx, "7"); err != nil || a.ID != "7" {
 		t.Fatalf("stale = %+v, %v", a, err)
+	}
+}
+
+func TestSongsBatchesAndStores(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	got, err := f.cat.Songs(ctx, []string{"1", "2", "404", "1", "3"})
+	if err != nil || len(got) != 3 || got["2"].Attributes.Name != "Song 2" {
+		t.Fatalf("songs = %v, %v (an unknown ID is left out, a repeated one asked once)", got, err)
+	}
+	if f.hits.Load() != 1 {
+		t.Fatalf("hits = %d, want one batched request", f.hits.Load())
+	}
+
+	// Stored as rows, like the single-song lookup, and cached per song.
+	tr, err := f.db.RQ.GetTrackByCatalogID(ctx, db.NullString("2"))
+	if err != nil || tr.Name != "Song 2" || tr.LibraryID.Valid {
+		t.Fatalf("track row = %+v, %v", tr, err)
+	}
+	if s, err := f.cat.Song(ctx, "3"); err != nil || s.Attributes.Name != "Song 3" {
+		t.Fatalf("song = %+v, %v", s, err)
+	}
+	if _, err := f.cat.Songs(ctx, []string{"3", "2"}); err != nil || f.hits.Load() != 1 {
+		t.Fatalf("cached songs asked Apple again: hits=%d err=%v", f.hits.Load(), err)
+	}
+
+	// Only what is missing is asked for; the unknown one is asked again (no
+	// negative entry), and expired entries are refetched.
+	if got, err = f.cat.Songs(ctx, []string{"3", "404", "9"}); err != nil || len(got) != 2 || f.hits.Load() != 2 {
+		t.Fatalf("partial = %v, hits=%d, %v", got, f.hits.Load(), err)
+	}
+	f.clock = f.clock.Add(SongTTL + time.Minute)
+	if _, err := f.cat.Songs(ctx, []string{"3"}); err != nil || f.hits.Load() != 3 {
+		t.Fatalf("after TTL: hits=%d err=%v", f.hits.Load(), err)
+	}
+
+	f.sf = ""
+	if _, err := f.cat.Songs(ctx, []string{"1"}); !errors.Is(err, ErrNoStorefront) {
+		t.Fatalf("no storefront: %v", err)
 	}
 }
 

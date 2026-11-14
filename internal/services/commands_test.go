@@ -38,6 +38,9 @@ type commandEnv struct {
 	settings *config.Store
 	focused  int
 	lyrics   *fakeLyrics
+	// songs answers the catalog's song endpoints (/v1/catalog/gb/songs?ids=…
+	// and /songs/<id>); a test sets it before it plays. Unset: 404.
+	songs http.HandlerFunc
 	// auth stays restoring until signIn or signOut starts it with creds.
 	auth  *auth.Manager
 	creds store.Store
@@ -127,6 +130,15 @@ func newCommandEnv(t *testing.T, private privatemode.Options) *commandEnv {
 			"durationInMillis":182000,"contentRating":"explicit","playParams":{"id":"1440841363","kind":"musicVideo"}},
 			"relationships":{"artists":{"data":[{"id":"136975","type":"artists"}]}}}]}`)
 	})
+	songs := func(w http.ResponseWriter, r *http.Request) {
+		if ce.songs == nil {
+			http.NotFound(w, r)
+			return
+		}
+		ce.songs(w, r)
+	}
+	mux.HandleFunc("/v1/catalog/gb/songs", songs)
+	mux.HandleFunc("/v1/catalog/gb/songs/", songs)
 	mux.Handle("/", ce.apple)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)

@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // CreditCategory is one group of a song's credits ("role-categories"):
@@ -50,6 +53,35 @@ func (c *Client) Song(ctx context.Context, sf, id string) (Song, error) {
 		return Song{}, err
 	}
 	return first(body.Data, "song "+id)
+}
+
+// songsBatch is how many IDs one Songs request carries.
+const songsBatch = 100
+
+// Songs returns the catalog songs with the given IDs, as Song does (with
+// their album and artist relationships): one request per 100 IDs, four
+// requests at a time, so a whole chart or playlist costs one round trip, not
+// one per song. A song Apple doesn't serve in the storefront is omitted; the
+// order follows Apple's reply, not ids.
+func (c *Client) Songs(ctx context.Context, sf string, ids []string) ([]Song, error) {
+	chunks := slices.Collect(slices.Chunk(ids, songsBatch))
+	results := make([][]Song, len(chunks))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(defaultParallel)
+	for i, batch := range chunks {
+		g.Go(func() error {
+			var body Page[Song]
+			if err := c.Get(gctx, CatalogPath(sf, "songs"), url.Values{"ids": {strings.Join(batch, ",")}}, &body); err != nil {
+				return err
+			}
+			results[i] = body.Data
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return slices.Concat(results...), nil
 }
 
 // LyricsOptions select the lyrics variant.

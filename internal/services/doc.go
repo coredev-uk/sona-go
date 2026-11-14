@@ -69,6 +69,16 @@
 //     AMPQuery{Views, Include, Extend, With, Fields, Limit, Offset, Extra}
 //     (platform=web is always sent).
 //
+// Starting a queue (playback.go): PlayItems, PlayNext, Append and Insert
+// resolve their refs to queue items from SQLite first, and fetch the catalog
+// songs not stored yet together (catalog.Songs: one request per hundred, the
+// whole of a chart, a room or search results in one round trip). The first
+// song waits for all of it, so a request per song would delay playback by the
+// length of the queue (50 chart songs: 9 s one by one, 0.3 s together). A
+// PlayItems or PlayLibrary still resolving when a later one starts is
+// cancelled and ends without a failure: the last one chosen is the one that
+// plays.
+//
 // Audio (audio.go) applies config.Settings.Audio and Settings.Crossfade to
 // the engine: the equaliser, the output device, Sound Check and the
 // crossfade length are sent at start and from a Settings.OnChange
