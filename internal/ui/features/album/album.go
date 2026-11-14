@@ -178,34 +178,55 @@ func libraryShare(have, catalogue int) *share {
 	return nil
 }
 
-// layout is the album page's layout for the content's width
-// (docs/design.md, Album page): the sleeve beside the listing from 860, the
-// cover larger from 1280 and again from 1600 (a 1920 window); below 860 the sleeve heads the
-// page with the title beside the cover. Covers come in fixed sizes so Go
-// serves them at the exact box.
+// layout is the album page's layout for the pane's size (docs/design.md,
+// Album page). The page opens on a band of the cover's colour that dissolves
+// into the ground, in every width; from 860 of content the cover is the
+// band's hero (232, 288 from 1240, 352 from 1600: a 1920 window) with the head
+// beside it and the songs below take a margin for the disc index and the
+// fine print; narrower, the cover is 168 beside the head and the fine print
+// follows the songs. A pane shorter than shortPane takes the small cover and
+// the shorter dissolve, so the first screen shows songs. Covers come in fixed
+// sizes so Go serves them at the exact box.
 type layout struct {
 	wide  bool
 	cover float32
+	// fade is how far the band takes to dissolve into the ground.
+	fade float32
 	// stack: in the band the actions run under the cover and the title block
 	// across the whole band, because the text beside the cover is too narrow
 	// to keep them to one line (a lone button would wrap under Play).
 	stack bool
+	// compact: the pane is short, and the head keeps to the essentials.
+	compact bool
 }
 
-// actionsRoom is the width the head's action row needs to stay on one line.
-const actionsRoom = 400
+const (
+	// actionsRoom is the width the head's action row needs to stay on one
+	// line.
+	actionsRoom = 400
+	// shortPane is the pane height under which the band is compact.
+	shortPane = 560
+	// smallCover is the cover of the narrow layout and of a short pane.
+	smallCover = 168
+)
 
-func albumLayout(width float32) layout {
+func albumLayout(width, height float32) layout {
+	short := height > 0 && height < shortPane
+	var l layout
 	switch {
 	case width >= 1600:
-		return layout{wide: true, cover: 384}
-	case width >= 1280:
-		return layout{wide: true, cover: 320}
+		l = layout{wide: true, cover: 352, fade: 128}
+	case width >= 1240:
+		l = layout{wide: true, cover: 288, fade: 120}
 	case width >= 860:
-		return layout{wide: true, cover: 256}
+		l = layout{wide: true, cover: 232, fade: 112}
+	default:
+		return layout{cover: smallCover, fade: 72, stack: width-smallCover-20 < actionsRoom}
 	}
-	const cover, gap = 168, 20
-	return layout{cover: cover, stack: width-cover-gap < actionsRoom}
+	if short {
+		l.cover, l.fade, l.compact = smallCover, 56, true
+	}
+	return l
 }
 
 // isLibraryID: library album IDs carry Apple's "l." prefix; everything else

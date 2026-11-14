@@ -72,9 +72,11 @@ type pageState struct {
 	shelves [6]kit.CoverShelfState
 	// The list as the last frame built it, for the disc index.
 	list    listView
-	sleeveH float32 // the wide layout's sleeve, as last laid out
+	marginH float32 // the margin beside the songs, as last laid out
+	// dissolve is the band's gradient into the ground, built once per theme.
+	dissolve dissolve
 	// gl and gr are the page's left and right gutters (the right one holds
-	// the scrollbar): the pane has no padding of its own, so the sleeve can
+	// the scrollbar): the pane has no padding of its own, so the band can
 	// run to its edges and each part sets its own.
 	gl, gr float32
 	pane   *kit.Pane // the scroll container, as this frame builds it
@@ -167,14 +169,14 @@ func (a *album) page(c *ui.Context, r *ui.Route) {
 	}
 	gutter := st.Gutter()
 	scrollbar := theme.Current().Metric["scrollbar"]
-	lay := albumLayout(width - 2*gutter - scrollbar)
+	lay := albumLayout(width-2*gutter-scrollbar, st.Height)
 	a.gl, a.gr = gutter, gutter+scrollbar
 	root.Children(func() { a.scroll(c, id, highlight, lay, now) })
 	a.menus.Popup(c)
 }
 
 // scroll is the page's scroll container. The shared page frame pads its
-// column, which the sleeve (cut by the pane's edges) cannot sit inside, so the
+// column, which the band (cut by the pane's edges) cannot sit inside, so the
 // pane has no padding and each part sets its own; the frame's state still
 // tracks the pane's place and size.
 func (a *album) scroll(c *ui.Context, id, highlight string, lay layout, now time.Time) {
@@ -273,15 +275,12 @@ func (a *album) errorBlock(c *ui.Context, l load) {
 	kit.DetailQueryError(c, kit.NounAlbum, a.env.Queries, res, back, a.signIn, l.key)
 }
 
-// skeleton is the sleeve, head and rows at their real sizes while the album
-// loads: the same gatefold, the sleeve a flat placeholder tone.
+// skeleton is the band, head and rows at their real sizes while the album
+// loads: the same band and dissolve, the band a flat placeholder tone.
 func (a *album) skeleton(c *ui.Context, lay layout) {
 	hover := theme.C("hover")
 	tone := theme.C("active")
 	tk := theme.Current()
-	bar := func(w, h float32) ui.Element {
-		return ui.Box(c).Width(w).Height(h).Radius(tk.Radius["sm"]).Background(tone).Shrink(0)
-	}
 	cover := func() {
 		ui.Box(c).Size(lay.cover, lay.cover).Radius(tk.Radius["sm"]).Background(tone).Shrink(0)
 	}
@@ -292,7 +291,7 @@ func (a *album) skeleton(c *ui.Context, lay layout) {
 			ui.Box(c).Height(12).WidthPercent(60).Radius(tk.Radius["sm"]).Background(tone).Margin(8, 0, 0, 0)
 			ui.Row(c).Gap(8).Margin(24, 0, 0, 0).Children(func() {
 				ui.Box(c).Size(40, 40).Radius(tk.Radius["full"]).Background(tone)
-				bar(96, 32).Radius(tk.Radius["md"])
+				ui.Box(c).Width(96).Height(32).Radius(tk.Radius["md"]).Background(tone).Shrink(0)
 			})
 		})
 	}
@@ -304,22 +303,27 @@ func (a *album) skeleton(c *ui.Context, lay layout) {
 			})
 		}
 	}
+	fade := lay.fade
+	if theme.ReduceEffects() {
+		fade = 0
+	}
 	root := ui.Column(c).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading"))
 	root.Children(func() {
-		if lay.wide {
-			ui.Row(c).FillWidth().AlignItems(ui.Stretch).Children(func() {
-				ui.Column(c).Width(lay.cover+sleeveRoom+2*a.gl).Padding(padTop, a.gl, padBottom, a.gl).Background(hover).Shrink(0).Children(func() {
-					cover()
-					ui.Column(c).Margin(24, 0, 0, 0).Children(head)
-				})
-				ui.Column(c).Grow(1).MinWidth(0).Padding(padTop, a.gr, padBottom, 40).Children(rows)
+		ui.Box(c.Key("band")).FillWidth().Background(hover).Children(func() {
+			gap := float32(20)
+			if lay.wide {
+				gap = 40
+			}
+			ui.Row(c).FillWidth().Padding(padTop, a.gr, 0, a.gl).Gap(gap).AlignItems(ui.Start).Children(func() {
+				cover()
+				head()
 			})
-			return
-		}
-		ui.Row(c).FillWidth().Gap(20).Padding(24, a.gr, 24, a.gl).AlignItems(ui.Start).Background(hover).Children(func() {
-			cover()
-			head()
+			ui.Box(c).FillWidth().Height(16 + fade)
+			if fade > 0 {
+				ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(fade).PassThrough().
+					LinearGradient(ui.LinearGradient{Angle: 180, Stops: a.dissolve.build()})
+			}
 		})
-		ui.Column(c).FillWidth().Padding(24, a.gr, 0, a.gl).Children(rows)
+		ui.Column(c).FillWidth().Padding(0, a.gr, 0, a.gl).Children(rows)
 	})
 }

@@ -1,5 +1,5 @@
 // Package album is the album page: a library or a catalogue album as v0.2.0
-// laid it out (a sleeve beside the listing, the head, the songs, Apple's
+// laid it out (a band of the cover's colour, the head, the songs, Apple's
 // sections), and "Go to album" on song rows.
 package album
 
