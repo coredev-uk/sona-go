@@ -145,6 +145,7 @@ Sona's board has a faint green-grey tint (OKLCH chroma 0.003–0.006 on the grou
 - light: ground `#f4f5f3` → `#f5f5f5`.
 
 `docs/design.md`'s thesis ("a neutral, faintly green-grey board") and Colour section change with it. The goldens change in tone only.
+- **Also in 8b:** the light play colour reaches 3:1 (WCAG 1.4.11, non-text contrast) against the ground, surface and hover. `theme.Validate` holds light themes to that floor, not the 2.0 and 1.75 that #277 settled for, and Sona's light amber darkens just enough to pass.
 - **Acceptance:** `Validate` and the contrast test pass; goldens are regenerated and checked in light and dark.
 
 ## Debts from #277
@@ -169,9 +170,18 @@ Sona's board has a faint green-grey tint (OKLCH chroma 0.003–0.006 on the grou
 On the station page, Apple Music 1's large artwork shows thin light bars at its sides in dark mode.
 - **Change:** find out whether that comes from the source art or from the box Sona requests. Fix it if Sona's request is the cause; otherwise record it as Apple's art.
 
+### 13. Discover's lead advances by itself
+Reported in use: the featured lead on Discover doesn't move between slides. By design it moves every 7 s and holds while the pointer or focus is in it, a menu is open, or the window is hidden or unfocused.
+- **Change:** find why it stays put in a real session (focus, visibility, a hold that never releases, or the desktop's reduced-motion setting), fix it, and add a regression test. Under reduced motion, the lead changes instantly instead of sliding, unless the docs decide otherwise.
+- **Acceptance:** in a headless live run with the window focused, the lead changes after one interval; the pause control and every hold still work.
+
+### 14. The Albums probe on a large library
+#277's probe scrolled the 24-album fixture, about 590px. CONTRIBUTING.md suggests about 650 albums.
+- **Change:** run the interleaved probe (b259a43 against `main`) on a generated 650-album profile and record the result in `docs/redesign/probe.md`.
+
 ## Order
 
 1. → 2. → 3. → 4. (the add-on v1)
-2. 8b, 9, 10 and 11 can go in parallel with the add-ons at any time. 8a comes after 8b, because it reads the neutral board.
+2. 8b, 9, 10, 11, 13 and 14 can go in parallel with the add-ons at any time. 8a comes after 8b, because it reads the neutral board.
 3. 8 needs a decision first.
 4. 5 → 6 → 7 after the add-on v1 is in use.
