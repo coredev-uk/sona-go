@@ -180,10 +180,14 @@ echo "package: $(find "$dir" -type f | wc -l) files, $(bytes "$dir") MB; GStream
 echo "package: DLLs beside sona.exe: $(cd "$dir" && echo *.dll | sed 's/ /, /g')"
 
 # 4. The artefacts. The portable zip's folder is Sona\, the updater's
-# tar.gz has no wrapper folder, and the installer takes the folder as it is.
+# tar.gz has no wrapper folder and no "./" entry (update-archive.sh says why;
+# releasesign -check applies MyGo's extraction rules to it), and the installer
+# takes the folder as it is.
 rm -f "$out/Sona-$version-windows-x64.zip"
 (cd "$work" && 7z a -tzip -bso0 -bsp0 "$(cygpath -w "$out/Sona-$version-windows-x64.zip")" Sona)
-tar -C "$dir" -czf "$out/sona-$version-windows-amd64.tar.gz" .
+"$here/update-archive.sh" "$dir" "$out/sona-$version-windows-amd64.tar.gz"
+(cd "$repo" && go run ./cmd/releasesign -check -target windows-amd64 -archive "$(cygpath -w "$out/sona-$version-windows-amd64.tar.gz")") ||
+  die "the update archive is not one the updater can install"
 if tar -tzf "$out/sona-$version-windows-amd64.tar.gz" | grep -qi widevinecdm; then die "the update archive contains the Widevine CDM"; fi
 makensis -V2 -DVERSION="$version" -DVERSION_NUMERIC="$numeric" -DSRCDIR="$(cygpath -w "$dir")" \
   -DOUTFILE="$(cygpath -w "$out/Sona-$version-windows-x64-setup.exe")" \

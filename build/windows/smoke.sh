@@ -158,8 +158,17 @@ else
   echo "smoke(windows): no smoke-tools/playspike.exe (package.sh without SONA_SMOKE_TOOLS=1): previews not played"
 fi
 
-# 3. The update archive: the files at the top level.
+# 3. The update archive: the files at the top level, and an archive MyGo's
+# updater can unpack. `tar -x` takes the "./" entry `tar -czf OUT .` writes
+# first; the updater refuses the whole archive at it, which is how every
+# Windows update failed until package.sh stopped writing it. releasesign
+# -check applies the updater's own rules (update.CheckArchive).
 mkdir "$work/tar"
+repo=$(cd "$(dirname "$0")/../.." && pwd)
+(cd "$repo" && go run ./cmd/releasesign -check -target windows-amd64 -archive "$(cygpath -w "$out/sona-$version-windows-amd64.tar.gz")") ||
+  fail "the update archive is not one the updater can install"
+tar -tzf "$out/sona-$version-windows-amd64.tar.gz" >"$work/archive-names"
+if grep -qx '\./\?' "$work/archive-names"; then fail "the update archive has a ./ entry"; fi
 tar -C "$work/tar" -xzf "$out/sona-$version-windows-amd64.tar.gz"
 check_layout "$work/tar" "the update archive"
 if [[ $(cd "$work/tar" && find . -type f | sort) != "$zipfiles" ]]; then

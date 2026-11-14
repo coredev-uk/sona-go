@@ -91,9 +91,19 @@ func TestSelfUpdatingInstallsInPlaceWithProgress(t *testing.T) {
 	}
 	r.h.Bus.Emit(services.EventUpdateInstall, services.UpdateStatus{Latest: "0.3.0", Available: true, SelfUpdate: true, InstallError: services.CodeUpdateFailed})
 	r.tt.Drain()
-	if !r.tt.HasText("Couldn't install Sona 0.3.0") || !r.tt.HasText("Install and restart") {
+	// A failure says so and offers a way out besides retrying: the release
+	// page. "Install and restart" is not offered again as if nothing happened.
+	if !r.tt.HasText("Couldn't install Sona 0.3.0") || !r.tt.HasText("Try again") || !r.tt.HasText("View release") || r.tt.HasText("Install and restart") {
 		t.Fatalf("failed = %q", r.tt.Texts())
 	}
+	if err := r.tt.Click("Try again"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the second install to start", func() bool { return r.installs.Load() == 2 })
+	if err := r.tt.Click("View release"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the release to open", func() bool { return r.opens.Load() == 1 })
 }
 
 func TestViewOpensTheReleaseAndAFailureToasts(t *testing.T) {

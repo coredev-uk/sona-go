@@ -212,6 +212,7 @@ func spawn(o Options) (*Host, error) {
 	if o.realtime != nil {
 		h.rtEnv = *o.realtime
 	}
+	liveChildren.Add(1)
 	go h.relayLogs(p.stderr)
 	go h.pump()
 	go h.read(p.stdout)
@@ -433,6 +434,7 @@ loop:
 	for _, ch := range pending {
 		ch <- reply{Err: err.Error(), Code: "exited"}
 	}
+	liveChildren.Add(-1) // the child has exited and been reaped
 	close(h.done)
 }
 
@@ -786,6 +788,25 @@ func (h *Host) Kill() error {
 	err := h.killChild()
 	<-h.done
 	return err
+}
+
+// liveChildren counts the child processes this package has started that have
+// not yet exited: the playback host and the short-lived probe children
+// (PrepareAudio, Probe, LoadCheck).
+var liveChildren atomic.Int32
+
+// WaitIdle returns once no child process of this package is running, or
+// ctx's error when it ends first. The update waits for it, after the
+// playback host is gone, before replacing the files the children load.
+func WaitIdle(ctx context.Context) error {
+	for liveChildren.Load() > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	return nil
 }
 
 // Probe spawns a child to report the CDM and audio stack for Diagnostics:

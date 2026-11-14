@@ -7086,6 +7086,7 @@ msgstr ""
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go
+#: internal/ui/features/updates/updates.go
 #: internal/ui/features/video/view.go
 #: internal/ui/kit/controls_states.go
 msgid "Try again"
@@ -7338,6 +7339,7 @@ msgid "View playlist collaborators"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
 msgid "View release"
 msgstr ""
 

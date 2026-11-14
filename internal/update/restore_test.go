@@ -93,7 +93,10 @@ func TestAnEarlierSnapshotIsReplacedWithItsVersion(t *testing.T) {
 		t.Run(goos, func(t *testing.T) {
 			g := updated(t, goos)
 			// The next update keeps 0.3.0-rc.4.
-			if err := g.Snapshot("0.3.0-rc.4"); err != nil {
+			if err := g.Stage("0.3.0-rc.4"); err != nil {
+				t.Fatal(err)
+			}
+			if err := g.Commit(); err != nil {
 				t.Fatal(err)
 			}
 			if v, ok := g.HasPrevious(); !ok || v != "0.3.0-rc.4" {
