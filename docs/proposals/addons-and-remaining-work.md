@@ -1,6 +1,6 @@
 # Proposal: add-ons, and the work left after #277
 
-Status: draft for review. Nothing here is built yet.
+Status lives on GitHub: each item below has its own issue (the number beside its heading), labelled by area and platform. This document holds each item's detail, the change and its acceptance, and changes only when that detail does.
 
 Since #277, `main` has the redesign of every page, themes (#276) and shuffle from the sidebar. This document plans what is still open:
 
@@ -8,7 +8,7 @@ Since #277, `main` has the redesign of every page, themes (#276) and shuffle fro
 - **Themes:** fonts in themes (left out of #276 on purpose), an accent selector for Sona's own themes, and a neutral board for the default theme.
 - **Debts from #277:** gaps the redesign worked around rather than fixed.
 
-Each numbered item below is meant to land as its own branch and PR, in the order given. A PR that delivers an item ticks it here.
+Each numbered item lands as its own branch and PR, closing its issue.
 
 ## Decisions already taken
 
@@ -34,7 +34,7 @@ Each numbered item below is meant to land as its own branch and PR, in the order
 
 ## Add-ons
 
-### 1. Protocol v2 and `docs/addons.md`
+### 1. Protocol v2 and `docs/addons.md` (#298)
 Extend `internal/cli`:
 - **`hello`:** add-on ID, protocol version (semver, negotiated) and the permissions it asks for;
 - **event subscription:** a generalised `status --follow` with a filter;
@@ -48,7 +48,7 @@ Extend `internal/cli`:
   - a private listen produces no event;
   - the schema validates every example in the doc.
 
-### 2. Manifests, permissions and the supervisor
+### 2. Manifests, permissions and the supervisor (#299)
 - **Manifest:** `<config>/sona/addons/<id>/addon.json` holds id, name, version, the command to run (an executable inside the folder), permissions, contributions and strings per locale.
 - **`internal/services/addons.go`, with `addons_dto.go` and one `registry.go` line**, which:
   - lists and validates manifests;
@@ -64,7 +64,7 @@ Extend `internal/cli`:
   - an add-on that hangs never blocks the UI;
   - the race tests pass.
 
-### 3. UI contributions, Settings → Add-ons, `sona addons dev`
+### 3. UI contributions, Settings → Add-ons, `sona addons dev` (#300)
 - **UI module `features/addons`:**
   - registers manifest contributions as `kit.ActionDef`s, palette entries and settings rows;
   - add-on strings come from the manifest (English fallback), outside the generated `.po` catalogues.
@@ -75,7 +75,7 @@ Extend `internal/cli`:
   - an item action from a test add-on shows in the album menu, invokes the add-on and shows its answer as a toast;
   - goldens for Settings → Add-ons, light and dark.
 
-### 4. Sample add-ons
+### 4. Sample add-ons (#301)
 These live in a separate repo, and `docs/addons.md` links to them:
 - a "now playing" webhook;
 - a Home Assistant bridge;
@@ -84,7 +84,7 @@ These live in a separate repo, and `docs/addons.md` links to them:
 
 - **Acceptance:** each runs against a release build under `sona addons dev`.
 
-### 5. Sona's own integrations on the API
+### 5. Sona's own integrations on the API (#302)
 Move Last.fm, ListenBrainz and Discord presence onto the add-on API once it covers:
 - private-mode-aware listen events (`scrobble.Provider`'s `NowPlaying` and `Submit`);
 - secrets per add-on in the keyring;
@@ -97,13 +97,13 @@ They ship bundled, enabled by default, and signed by Sona.
   - Settings → Connections still drives them;
   - no behaviour visible to the user changes.
 
-### 6. WASM host
+### 6. WASM host (#303)
 - Same protocol through `wazero` host functions; the manifest's `runtime: "wasm"` picks it.
 - Capability-based: no ambient file or network access.
 - The new dependency needs maintainer review and an update to the Flatpak `go-sources.json`.
 - **Acceptance:** sample 4's item action, built for WASM, behaves exactly like its out-of-process build.
 
-### 7. Sandboxing out-of-process add-ons
+### 7. Sandboxing out-of-process add-ons (#304)
 Reuse the CDM host's sandbox code (`docs/security-review.md`) per OS, and extend the threat model in `docs/security-review.md`.
 
 ### Open questions (add-ons)
@@ -116,7 +116,7 @@ Reuse the CDM host's sandbox code (`docs/security-review.md`) per OS, and extend
 
 ## Themes
 
-### 8. Fonts in themes (decide, then build or close)
+### 8. Fonts in themes, decide then build or close (#305)
 A theme could name a font file inside the themes folder. This needs:
 - `FontFamily` as a token;
 - `theme.RegisterFonts` at load, not only at start;
@@ -152,22 +152,22 @@ Sona's board has a faint green-grey tint (OKLCH chroma 0.003–0.006 on the grou
 
 ## Debts from #277
 
-### 9. `kit.TrackList`: a leading rank column and an extra column
+### 9. `kit.TrackList`: a leading rank column (#306)
 - **Charts:** Discover's charts wanted big rank numerals. They kept the small `#` column because `kit.TrackList` has no hook for it.
 - **Change:** add `TrackListOpts.Rank` (a leading numeral style) and a single extra column slot (`TrackColumns.Extra`, a title plus a func of the row), then use both.
 - **Acceptance:** goldens for charts, light and dark; sorting, multi-select and drag keep working.
 
-### 10. `kit.Artwork` rounds its boxes
+### 10. `kit.Artwork` rounds its boxes (#307)
 `kit.Artwork` computes `h = size / Aspect` without rounding, so a caller passing a raw ratio gets a fractional box and the picture lands off whole pixels. Discover and Home round by hand today.
 - **Change:** round inside the kit (and in `FluidArtwork`), then remove the callers' workarounds.
 - **Acceptance:** an artwork test with a 1060:608 aspect gets a whole-pixel box, and existing goldens don't change.
 
-### 11. Load-sensitive tests
+### 11. Load-sensitive tests (#308)
 `TestCollectionsGolden/grid` (kit) and the theme gallery's arrow-key test failed once in a full `-race` run while the machine was busy. Both pass alone and in quiet runs. The gallery test now waits for the view.
 - **Change:** find what the grid golden depends on timing for (artwork decode or hover fade) and make it wait on state rather than time.
 - **Acceptance:** `devenv shell -- tests` passes 5 runs in a row while another `go test -race ./...` runs in parallel.
 
-### 12. Station page cover
+### 12. Station page cover (#309)
 On the station page, Apple Music 1's large artwork shows thin light bars at its sides in dark mode.
 - **Change:** find out whether that comes from the source art or from the box Sona requests. Fix it if Sona's request is the cause; otherwise record it as Apple's art.
 
@@ -182,17 +182,42 @@ Reported in use: the featured lead on Discover doesn't move between slides. By d
 #277's probe scrolled the 24-album fixture, about 590px. CONTRIBUTING.md suggests about 650 albums.
 - **Change:** run the interleaved probe (b259a43 against `main`) on a generated 650-album profile and record the result in `docs/redesign/probe.md`.
 
-## Fixed outside the plan
-Since this proposal was opened, these landed as their own PRs:
-- #280: Search's best match without the eyebrow, and Home without rank numbers (review findings).
-- #283: the playing glyph eases at 30 fps; it stepped three times a second.
-- #284: chart, search and room plays fetch their unstored songs in one batched request (about 9 s down to 0.3 s for 50 songs).
-- #285: Windows self-update, which never worked because the archive began with `./`. The host now lets go of `lib\` before the swap, and the sandbox's access is re-inherited after it.
-- #287: the album page's wide layout is a band in the cover's colour, replacing the sleeve column that ended mid-scroll.
+## Polish and consistency
+
+### 15. A pixel review of small marks and overlays (#310)
+Small things kept slipping through: the sidebar's play glyph sat off centre on its artwork, the playing glyph looked laggy twice, and a chevron promised something a click didn't do. The goldens didn't catch them, because the fixture's tiles are flat and a 20 px offset of 1 px is easy to miss at 1x.
+- **Review:** walk every place a small mark sits on or beside something else, at 1x and 2x with real covers, in light, dark and a community theme. That covers:
+  - play discs and glyphs over artwork (tiles, rows, the sidebar, the player bar);
+  - the playing glyph;
+  - badges (E, Lossless);
+  - checks and chevrons;
+  - tooltips;
+  - focus rings on artwork;
+  - the hover washes.
+- **Check each for:** optical centring (one rule for the play triangle, shared by every control that draws it), whole-pixel alignment with what it overlays, the same radius as what it covers, and motion that reads smooth on a 60–144 Hz display.
+- **Tooling:** a `uitest` helper that asserts one element's bounds equal another's ("this wash covers exactly that artwork"), and a script that renders 4x crops of a list of marks into one contact sheet for review.
+- **Acceptance:**
+  - every finding is fixed or listed with a reason;
+  - the helper guards each overlay that sits on artwork;
+  - the contact sheet is in the PR.
+
+### 16. An interaction-consistency review (#311)
+The same kind of thing should do the same thing everywhere. Choosing a song in search played it, while everywhere else choosing a result opens it.
+- **Review:** for each item kind (song, album, artist, playlist, station, video) on each surface:
+  - Search: suggestions, best match, compact rows, sections;
+  - Home and Discover shelves;
+  - the sidebar;
+  - track lists;
+  - the palette;
+  - context menus.
+
+  For each one, list what a click, a double-click, Enter, Shift+Enter, the Play disc and the right-click menu do, and what the visible cue (a chevron, a disc, an underline) promises.
+- **Rule to check against:** choosing a result opens its page; Play plays; a track list's row plays (it is a list of songs, as on album pages); a modifier never does something a cue doesn't hint at.
+- **Acceptance:** the table is in `docs/design.md`, every departure from it is fixed or argued there, and a `ui.Tester` test per surface pins its kind's action.
 
 ## Order
 
 1. → 2. → 3. → 4. (the add-on v1)
-2. 8b, 9, 10, 11, 13 and 14 can go in parallel with the add-ons at any time. 8a comes after 8b, because it reads the neutral board.
+2. 8b, 9, 10, 11, 13 and 14 can go in parallel with the add-ons at any time. 8a comes after 8b, because it reads the neutral board. 15 and 16 can run any time, and best before a release.
 3. 8 needs a decision first.
 4. 5 → 6 → 7 after the add-on v1 is in use.
