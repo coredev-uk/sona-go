@@ -2790,6 +2790,10 @@ msgstr ""
 msgid "How long the end of one song overlaps the start of the next. Applies from the next song."
 msgstr ""
 
+#: internal/ui/features/settings/connections.go
+msgid "How scrobbling counts"
+msgstr ""
+
 #: internal/ui/account/code.go
 msgid "How to get the code"
 msgstr ""
