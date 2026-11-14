@@ -274,7 +274,15 @@ Before merging a release PR, install the release candidate's files:
 - **Updates (macOS and Windows):** install rc.N, publish rc.N+1 (dispatch on
   `main` with `nightly=true`), turn Test versions on, see the notice, "Install and
   restart", and check settings, sign-in and the queue survive. A deliberately
-  broken build rolls back.
+  broken build rolls back. On Windows do it with a track playing (it pauses
+  when the download ends and the host child exits: that is what lets the swap
+  rename `lib\`), then play a song after the restart: the host starts in the
+  AppContainer (the log has `cdmhost: granted the sandbox read access to a
+  folder` if the update's files lacked the entry), and Diagnostics' Updates
+  section shows `previous` rc.N. Also make one install fail (a file in `lib\`
+  held open by another program) and check the slip offers "Try again" and
+  "View release", Diagnostics' `installError.detail` names the cause, and
+  playing works again without restarting Sona.
 - **Restoring the previous version (macOS and Windows):** after that update,
   Settings → Diagnostics → Updates → Previous version names rc.N. "Restore…"
   asks first, then Sona quits and starts rc.N with settings, sign-in and the

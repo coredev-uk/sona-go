@@ -677,6 +677,103 @@ func TestIdleShutdownAndTransparentResume(t *testing.T) {
 	}
 }
 
+// An update replaces the install's files, which a running host has open: the
+// host is ended on demand, the item stays paused where it was, no host starts
+// while the hold lasts, and once it is released (the install failed) playback
+// starts a new host at that position.
+func TestHoldHostEndsTheHostAndLeavesItRestartable(t *testing.T) {
+	h := newHarness(t, -1, false) // never idle: only the hold ends the host
+	release := h.holdEnds()
+	defer release()
+	if err := h.e.Play(ctx(t), "A", 0); err != nil {
+		t.Fatal(err)
+	}
+	if st := h.e.Status(); st.State != playback.StatePlaying {
+		t.Fatalf("status %+v", st)
+	}
+	if _, running := h.e.Host(); !running {
+		t.Fatal("no host while playing")
+	}
+
+	free, err := h.e.HoldHost(ctx(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, running := h.e.Host(); running || h.host(0).alive() == nil {
+		t.Fatal("the host is still running after HoldHost returned")
+	}
+	paused := h.e.Status()
+	if paused.State != playback.StatePaused {
+		t.Fatalf("a held engine's item is %s, want paused", paused.State)
+	}
+
+	// While held, a command that needs a host fails and starts none.
+	if err := h.e.Resume(ctx(t)); !errors.Is(err, ErrHostHeld) {
+		t.Fatalf("Resume while held: %v", err)
+	}
+	if err := h.e.Play(ctx(t), "B", 0); !errors.Is(err, ErrHostHeld) {
+		t.Fatalf("Play while held: %v", err)
+	}
+	if n := h.nhosts(); n != 1 {
+		t.Fatalf("%d hosts started while held", n)
+	}
+
+	// The install failed: release, twice (harmless), and playback goes on.
+	free()
+	free()
+	if err := h.e.Play(ctx(t), "A", paused.Position); err != nil {
+		t.Fatalf("Play after release: %v", err)
+	}
+	if h.nhosts() != 2 {
+		t.Fatalf("%d hosts after release, want a new one", h.nhosts())
+	}
+	if st := h.e.Status(); st.State != playback.StatePlaying {
+		t.Fatalf("status %+v", st)
+	}
+}
+
+// The item paused by a hold resumes by itself where it was, the way it does
+// after the idle shutdown, once the hold is released.
+func TestHoldHostThenResumeContinuesWhereItWas(t *testing.T) {
+	h := newHarness(t, -1, false)
+	if err := h.e.Play(ctx(t), "A", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.e.Pause(ctx(t)); err != nil {
+		t.Fatal(err)
+	}
+	paused := h.e.Status()
+	free, err := h.e.HoldHost(ctx(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	free()
+	if err := h.e.Resume(ctx(t)); err != nil {
+		t.Fatal(err)
+	}
+	loads, _, _ := h.host(1).snapshot()
+	if len(loads) != 1 || loads[0].start != paused.Position {
+		t.Fatalf("resume load %+v, want one at %v", loads, paused.Position)
+	}
+}
+
+// With nothing playing and no host there is nothing to end: the hold still
+// refuses a start until released.
+func TestHoldHostWithoutAHost(t *testing.T) {
+	h := newHarness(t, -1, false)
+	free, err := h.e.HoldHost(ctx(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := h.e.Play(ctx(t), "A", 0); !errors.Is(err, ErrHostHeld) {
+		t.Fatalf("Play while held: %v", err)
+	}
+	free()
+	if err := h.e.Play(ctx(t), "A", 0); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPauseDuringLoadingDoesNotPlay(t *testing.T) {
 	h := newHarness(t, -1, false)
 	gate := make(chan struct{})

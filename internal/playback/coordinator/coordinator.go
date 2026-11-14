@@ -774,6 +774,35 @@ func (c *Coordinator) Pause(ctx context.Context) error {
 	return nil
 }
 
+// HoldHost pauses playback and has the engine end its host process, and start
+// none until release is called (playback.HostHolder): the update replaces the
+// files a host has open. The queue and the position stay, so playing again
+// after release starts a host where the item was paused. An engine without a
+// host to let go of is not touched and release does nothing.
+func (c *Coordinator) HoldHost(ctx context.Context) (release func(), err error) {
+	holder, ok := c.eng.(playback.HostHolder)
+	if !ok {
+		return func() {}, nil
+	}
+	c.cmd.Lock()
+	defer c.cmd.Unlock()
+	c.mu.Lock()
+	var uid uint64
+	current := c.index >= 0 && c.loaded
+	if current {
+		uid = c.queue[c.index].uid
+	}
+	c.mu.Unlock()
+	release, err = holder.HoldHost(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("coordinator: hold host: %w", err)
+	}
+	if current {
+		c.refresh(uid)
+	}
+	return release, nil
+}
+
 // Resume continues playback: it resumes a paused item, loads a restored or
 // auth-interrupted item at its saved position, replays an ended item, and
 // starts the queue if nothing is selected. It clears AuthRequired.

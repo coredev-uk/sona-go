@@ -23,22 +23,21 @@ import (
 
 // fakeUpdater is MyGo's updater: it asks the source for the archive, as
 // mygo does, and "swaps" by replacing the executable. failWith, when set, is
-// the error of an install that gets past the download and fails unpacking.
+// the error of an install that gets past the download and fails unpacking;
+// beforeSwap runs after the download, when MyGo would unpack and swap.
 type fakeUpdater struct {
-	enabled   bool
-	exe       string
-	mu        sync.Mutex
-	installed bool
-	failWith  error
-	relaunch  chan struct{}
+	enabled    bool
+	exe        string
+	mu         sync.Mutex
+	installed  bool
+	failWith   error
+	beforeSwap func()
+	relaunch   chan struct{}
 }
 
 func (f *fakeUpdater) Enabled() bool { return f.enabled }
 
 func (f *fakeUpdater) Install(ctx context.Context, src *update.Source) error {
-	if f.failWith != nil {
-		return f.failWith
-	}
 	body, err := src.Open(ctx, src.Update.URL)
 	if err != nil {
 		return err
@@ -46,6 +45,12 @@ func (f *fakeUpdater) Install(ctx context.Context, src *update.Source) error {
 	defer func() { _ = body.Close() }()
 	if _, err := io.Copy(io.Discard, body); err != nil {
 		return err
+	}
+	if f.beforeSwap != nil {
+		f.beforeSwap()
+	}
+	if f.failWith != nil {
+		return f.failWith
 	}
 	if err := os.Remove(f.exe); err != nil {
 		return err

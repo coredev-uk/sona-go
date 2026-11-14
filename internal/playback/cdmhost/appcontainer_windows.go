@@ -119,7 +119,7 @@ func openNamedProfile(profileName string) (*profile, error) {
 	}
 	// The folder's own access list: the profile's AC folder normally hands
 	// it to the AppContainer by inheritance, which this makes certain of.
-	if err := grantAccess(sid, tmp, accessModify, true); err != nil {
+	if _, err := grantAccess(sid, tmp, accessModify, true); err != nil {
 		return nil, err
 	}
 	return &profile{sid: sid, tmp: tmp}, nil
@@ -171,27 +171,33 @@ var grantMu sync.Mutex
 // folder). Nothing else of the list changes: the entry names only sid, and
 // stays until the folder goes or RemoveSandbox (the uninstaller) removes it.
 // own: only an entry for sid counts.
-func grantAccess(sid *windows.SID, path string, mask windows.ACCESS_MASK, own bool) error {
+//
+// sentinels are files under a directory that the grant must cover too, and
+// where one is not covered the directory's list is set again, which hands its
+// entry down to everything below it (grantNeeded says why: an update renames
+// new files into the folder, and they keep the access list they were made
+// with). refreshed reports that the list was set.
+func grantAccess(sid *windows.SID, path string, mask windows.ACCESS_MASK, own bool, sentinels ...string) (refreshed bool, err error) {
 	if filepath.Dir(path) == path {
-		return fmt.Errorf("refusing to change the access list of %s, a drive root", path)
+		return false, fmt.Errorf("refusing to change the access list of %s, a drive root", path)
 	}
 	st, err := os.Stat(path)
 	if err != nil {
-		return err
+		return false, err
 	}
 	dir := st.IsDir()
 	grantMu.Lock()
 	defer grantMu.Unlock()
 	sd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
 	if err != nil {
-		return fmt.Errorf("read the access list of %s: %w", path, err)
+		return false, fmt.Errorf("read the access list of %s: %w", path, err)
 	}
 	old, _, err := sd.DACL()
 	if errors.Is(err, windows.ERROR_OBJECT_NOT_FOUND) || (err == nil && old == nil) {
-		return nil // no list: everyone has full access
+		return false, nil // no list: everyone has full access
 	}
 	if err != nil {
-		return fmt.Errorf("read the access list of %s: %w", path, err)
+		return false, fmt.Errorf("read the access list of %s: %w", path, err)
 	}
 	who := []*windows.SID{sid}
 	if !own {
@@ -199,9 +205,9 @@ func grantAccess(sid *windows.SID, path string, mask windows.ACCESS_MASK, own bo
 			who = append(who, all)
 		}
 	}
-	if aclAllows(old, who, mask, dir) {
+	if !grantNeededFor(old, who, mask, dir, sentinels) {
 		runtime.KeepAlive(sd)
-		return nil
+		return false, nil
 	}
 	inherit := uint32(windows.NO_INHERITANCE)
 	if dir {
@@ -222,37 +228,65 @@ func grantAccess(sid *windows.SID, path string, mask windows.ACCESS_MASK, own bo
 	}}, old)
 	runtime.KeepAlive(sd)
 	if err != nil {
-		return fmt.Errorf("build the access list of %s: %w", path, err)
+		return false, fmt.Errorf("build the access list of %s: %w", path, err)
 	}
 	if err := windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION, nil, nil, acl, nil); err != nil {
-		return fmt.Errorf("grant the sandbox access to %s: %w", path, err)
+		return false, fmt.Errorf("grant the sandbox access to %s: %w", path, err)
 	}
-	return nil
+	return true, nil
 }
 
-// aclAllows reports whether acl has an entry for one of who that allows all
-// of mask on the object itself and, for a directory, on what is under it.
-func aclAllows(acl *windows.ACL, who []*windows.SID, mask windows.ACCESS_MASK, dir bool) bool {
+// grantNeededFor is grantNeeded on Windows access lists: acl is the list of
+// the object being granted (a directory when dir) and sentinels are paths of
+// files whose lists are read (one that can't be read, or has no list, is
+// left out: there is nothing to cover or nothing to refuse).
+func grantNeededFor(acl *windows.ACL, who []*windows.SID, mask windows.ACCESS_MASK, dir bool, sentinels []string) bool {
+	whoText := make([]string, len(who))
+	for i, w := range who {
+		whoText[i] = w.String()
+	}
+	if !dir {
+		return !acesAllow(entriesOf(acl), whoText, uint32(mask), false)
+	}
+	var files [][]aclEntry
+	for _, f := range sentinels {
+		sd, err := windows.GetNamedSecurityInfo(f, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+		if err != nil {
+			continue
+		}
+		if fileACL, _, err := sd.DACL(); err == nil && fileACL != nil {
+			files = append(files, entriesOf(fileACL))
+		}
+		runtime.KeepAlive(sd)
+	}
+	return grantNeeded(entriesOf(acl), files, whoText, uint32(mask))
+}
+
+// entriesOf is the allow entries of acl.
+func entriesOf(acl *windows.ACL) []aclEntry {
+	var out []aclEntry
 	for i := uint32(0); i < uint32(acl.AceCount); i++ {
 		var ace *windows.ACCESS_ALLOWED_ACE
 		if windows.GetAce(acl, i, &ace) != nil || ace.Header.AceType != windows.ACCESS_ALLOWED_ACE_TYPE {
 			continue
 		}
-		if ace.Header.AceFlags&windows.INHERIT_ONLY_ACE != 0 || ace.Mask&mask != mask {
-			continue
-		}
-		const both = windows.OBJECT_INHERIT_ACE | windows.CONTAINER_INHERIT_ACE
-		if dir && ace.Header.AceFlags&both != both {
-			continue
-		}
-		sid := (*windows.SID)(unsafe.Pointer(&ace.SidStart))
-		for _, w := range who {
-			if sid.Equals(w) {
-				return true
-			}
-		}
+		out = append(out, aclEntry{
+			sid:   (*windows.SID)(unsafe.Pointer(&ace.SidStart)).String(),
+			mask:  uint32(ace.Mask),
+			flags: ace.Header.AceFlags,
+		})
 	}
-	return false
+	return out
+}
+
+// aclAllows reports whether acl has an entry for one of who that allows all
+// of mask on the object itself and, for a directory, on what is under it.
+func aclAllows(acl *windows.ACL, who []*windows.SID, mask windows.ACCESS_MASK, dir bool) bool {
+	whoText := make([]string, len(who))
+	for i, w := range who {
+		whoText[i] = w.String()
+	}
+	return acesAllow(entriesOf(acl), whoText, uint32(mask), dir)
 }
 
 // envValue is the value of the variable key in env (names are
@@ -496,9 +530,23 @@ var loggedRegistries sync.Map
 // its temporary files and GStreamer's registry at prof's own folder, and its
 // standard handles are fresh pipes (the only handles it inherits).
 func startInAppContainer(prof *profile, exe string, env []string, log *slog.Logger) (proc, error) {
+	// The program is the file that must be covered: an update replaces it
+	// with the rest of the folder (grantNeeded).
+	program := exe
+	if r, err := filepath.EvalSymlinks(exe); err == nil {
+		program = r
+	}
 	for _, d := range readFolders(exe, env) {
-		if err := grantAccess(prof.sid, d, accessRead, false); err != nil {
+		var sentinels []string
+		if within(program, d) {
+			sentinels = []string{program}
+		}
+		refreshed, err := grantAccess(prof.sid, d, accessRead, false, sentinels...)
+		if err != nil {
 			return proc{}, err
+		}
+		if refreshed {
+			log.Info("cdmhost: granted the sandbox read access to a folder (first run, or an update replaced its files)", "folder", d)
 		}
 	}
 	tmp := filepath.Join(prof.tmp, "tmp")

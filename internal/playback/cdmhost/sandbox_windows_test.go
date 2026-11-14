@@ -349,7 +349,7 @@ func TestGrantAccess(t *testing.T) {
 		t.Fatal("the new folder already grants the AppContainer read access")
 	}
 	for range 2 {
-		if err := grantAccess(prof.sid, dir, accessRead, true); err != nil {
+		if _, err := grantAccess(prof.sid, dir, accessRead, true); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -359,8 +359,71 @@ func TestGrantAccess(t *testing.T) {
 	if aclAllows(dacl(), who, accessModify, true) {
 		t.Error("the AppContainer was given more than read access")
 	}
-	if err := grantAccess(prof.sid, `C:\`, accessRead, false); err == nil || !strings.Contains(err.Error(), "drive root") {
+	if _, err := grantAccess(prof.sid, `C:\`, accessRead, false); err == nil || !strings.Contains(err.Error(), "drive root") {
 		t.Errorf("grant on a drive root: %v", err)
+	}
+}
+
+// TestGrantAccessCoversFilesAnUpdateRenamedIn is an update of the install:
+// MyGo unpacks the new version in a folder beside it and renames the entries
+// in (swapFiles). The install folder keeps its entry for the AppContainer; the
+// files renamed in carry what their own folder gave them. Whether or not
+// Windows hands the entry down by itself, once the host starts (grantAccess
+// with the program as sentinel) the new files have it, and a start after that
+// changes nothing.
+func TestGrantAccessCoversFilesAnUpdateRenamedIn(t *testing.T) {
+	prof, err := appContainer()
+	if err != nil {
+		if os.Getenv(envRequireSandbox) != "" {
+			t.Fatal(err)
+		}
+		t.Skip(err)
+	}
+	root := t.TempDir()
+	install := filepath.Join(root, "Sona")
+	exe := filepath.Join(install, "sona.exe")
+	if err := os.MkdirAll(install, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(exe, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if refreshed, err := grantAccess(prof.sid, install, accessRead, true, exe); err != nil || !refreshed {
+		t.Fatalf("first grant: refreshed %v, %v", refreshed, err)
+	}
+	if refreshed, err := grantAccess(prof.sid, install, accessRead, true, exe); err != nil || refreshed {
+		t.Fatalf("a second start changed the list: refreshed %v, %v", refreshed, err)
+	}
+
+	// The update.
+	unpacked := filepath.Join(root, ".Sona.update-1", "app")
+	if err := os.MkdirAll(filepath.Join(unpacked, "lib"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"sona.exe", filepath.Join("lib", "plugin.dll")} {
+		if err := os.WriteFile(filepath.Join(unpacked, f), []byte("new"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Rename(exe, filepath.Join(install, ".sona.exe.old-1")); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"sona.exe", "lib"} {
+		if err := os.Rename(filepath.Join(unpacked, name), filepath.Join(install, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if _, err := grantAccess(prof.sid, install, accessRead, true, exe); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{exe, filepath.Join(install, "lib"), filepath.Join(install, "lib", "plugin.dll")} {
+		if !hasEntry(t, p, prof.sid) {
+			t.Errorf("no entry for the AppContainer on %s after the update and the next start", p)
+		}
+	}
+	if refreshed, err := grantAccess(prof.sid, install, accessRead, true, exe); err != nil || refreshed {
+		t.Errorf("the start after that changed the list: refreshed %v, %v", refreshed, err)
 	}
 }
 
@@ -431,7 +494,7 @@ func TestRemoveSandbox(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, d := range []string{program, cdmDir} {
-		if err := grantAccess(prof.sid, d, accessRead, true); err != nil {
+		if _, err := grantAccess(prof.sid, d, accessRead, true); err != nil {
 			t.Fatal(err)
 		}
 	}

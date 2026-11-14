@@ -117,6 +117,12 @@ func NewGuard(state, exe, goos string) (Guard, bool) {
 	return Guard{}, false
 }
 
+// SwapsInPlace reports whether an update replaces the install's files while
+// the app runs (Windows: MyGo renames the entries of the folder), so that
+// whatever has one of them open must let go first. On macOS the bundle is
+// replaced after Sona has quit.
+func (g Guard) SwapsInPlace() bool { return g.GOOS != "darwin" }
+
 // Stage keeps the running version, which is version, beside Previous, which
 // stays as it is until the update has gone in (Commit) or failed (Abandon):
 // an update that can't be installed leaves the version kept before it, not a

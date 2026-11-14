@@ -281,6 +281,14 @@ func (s *UpdatesService) Install(ctx context.Context) (UpdateStatus, error) {
 // install stages the running version, marks the update on trial, and has MyGo
 // swap it in; the staged version is kept once the new one is in. A failure
 // leaves Sona, the version kept before and the marker as they were.
+//
+// Where the swap renames the install's own files (Windows), the playback host
+// is let go of once the archive is downloaded and verified (update.Source's
+// Ready), just before MyGo unpacks and swaps: the host has GStreamer's
+// plugins in lib\ open, and a folder holding a loaded DLL can't be renamed.
+// Playback is paused where it is and no host starts until the install has
+// failed, when it is released and a play starts one again; after a good
+// install Sona restarts.
 func (s *UpdatesService) install(ctx context.Context, src *update.Source, from, to string) error {
 	if err := s.guard.Stage(from); err != nil {
 		return fmt.Errorf("%w: keeping the current version: %v", update.ErrInstall, err)
@@ -289,7 +297,21 @@ func (s *UpdatesService) install(ctx context.Context, src *update.Source, from, 
 		s.guard.Abandon()
 		return fmt.Errorf("%w: %v", update.ErrInstall, err)
 	}
+	var release func()
+	if s.guard.SwapsInPlace() && s.o.Coord != nil {
+		src.Ready = func(ctx context.Context) {
+			r, err := s.o.Coord.HoldHost(ctx)
+			if err != nil {
+				s.o.Logger.Warn("update: the playback host was not let go of; installing anyway", "err", err)
+				return
+			}
+			release = r
+		}
+	}
 	if err := s.updater.Install(ctx, src); err != nil {
+		if release != nil {
+			release()
+		}
 		_ = s.guard.Unmark()
 		s.guard.Abandon()
 		if errors.Is(err, update.ErrSignature) || errors.Is(err, context.Canceled) {
