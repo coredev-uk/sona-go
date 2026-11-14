@@ -158,6 +158,21 @@ func (p *player) link(c *ui.Context, key, text, path, style string, color ui.Col
 	p.playingRow(l, p.env.Play.State().Current, &p.menus.bar)
 }
 
+// separator is " · " between the artist and the album: as wide as its text
+// and never shrunk, so the artist and the album give way to each other and
+// it stays whole between them (a single-line text asked to shrink by even a
+// pixel would clip its dot).
+func (p *player) separator(c *ui.Context, style string) {
+	t := theme.Current().Type[style]
+	// Measured between two letters: a text's measure drops its edge spaces.
+	span := func(text string) float32 {
+		w, _ := c.MeasureText(0, ui.Span{Text: text, Font: theme.FontFamily, Size: t.Size, Weight: int(t.Weight)})
+		return w
+	}
+	w := float32(math.Ceil(float64(span("x · x")-2*span("x")))) + 1
+	theme.Text(c, " · ", style).TextColor(theme.C("ink-muted")).SingleLine().Width(w).MinWidth(w).Shrink(0).TextAlign(ui.Center)
+}
+
 // artist is the song's artist in the type style given: a link to their page,
 // or a button that opens a menu of them when the song has several, plain text
 // where that page is not ported.
@@ -230,7 +245,7 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 				return
 			}
 			if cur.Artist != "" {
-				label(c, " · ", "sub").TextColor(theme.C("ink-muted")).Shrink(0)
+				p.separator(c, "sub")
 			}
 			alp := ""
 			if p.albumRouted(cur) {

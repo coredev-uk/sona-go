@@ -541,3 +541,49 @@ func TestBarChooserGolden(t *testing.T) {
 		})
 	}
 }
+
+// The artist and the album give way to each other (each ellipsised) but the
+// " · " between them never does: it keeps its whole width, with its spaces,
+// between the two, whether the artist is a link or a chooser, at the bar's
+// normal width and a narrow one.
+func TestBarSeparatorStaysWholeBetweenArtistAndAlbum(t *testing.T) {
+	var natural float32
+	measure := func(c *ui.Context) {
+		sub := theme.Current().Type["sub"]
+		w := func(s string) float32 {
+			v, _ := c.MeasureText(0, ui.Span{Text: s, Font: theme.FontFamily, Size: sub.Size, Weight: int(sub.Weight)})
+			return v
+		}
+		natural = w("x · x") - 2*w("x") // the spaces count: a bare measure drops them
+	}
+	for name, artists := range map[string]func(*services.QueueItem){
+		"link":    func(q *services.QueueItem) { q.Artist, q.ArtistID = stayCredit, "1435848034" },
+		"chooser": func(q *services.QueueItem) { q.Artist, q.ArtistID, q.Artists = stayCredit, "1435848034", stayArtists },
+	} {
+		for _, width := range []int{1132, 700, 560} {
+			r := newRigSized(t, true, width, measure)
+			routed(r, true)
+			r.seed(func(s *services.PlaybackState) {
+				artists(s.Current)
+				s.Current.Album, s.Current.AlbumID = "A Rather Long Album Title", "al.9"
+			})
+			a, okA := r.tt.Find(stayCredit)
+			sep, okS := r.tt.Find(" · ")
+			al, okL := r.tt.Find("A Rather Long Album Title")
+			if !okA || !okS || !okL {
+				t.Fatalf("%s at %d: artist %v, separator %v, album %v in %q", name, width, okA, okS, okL, r.tt.Texts())
+			}
+			if natural < 8 {
+				t.Fatalf("measured a separator of %v wide", natural)
+			}
+			// The text rects are trimmed to their ink: what lies between the
+			// artist's and the album's is the separator's whole box.
+			if gap := al.X - (a.X + a.W); gap < natural-0.5 {
+				t.Errorf("%s at %d: %.1f between the artist and the album, the separator's text %.1f: it was shrunk and clips its dot", name, width, gap, natural)
+			}
+			if a.X+a.W > sep.X+0.5 || sep.X+sep.W > al.X+0.5 || a.W < 20 || al.W < 20 {
+				t.Errorf("%s at %d: artist %v, separator %v, album %v are not in a row, each with room", name, width, a, sep, al)
+			}
+		}
+	}
+}
