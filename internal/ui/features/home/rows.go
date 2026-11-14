@@ -1,7 +1,6 @@
 package home
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 
@@ -22,10 +21,8 @@ const (
 	rowGap   = 12
 	rowGapX  = kit.TileGapX
 	rowMarkA = 0.7 // the play mark's ground wash
-	// rowNum is the room of a row's rank (a running order's "02"), rowInline
-	// the column width from which a ranked row sets its reason beside its
-	// name instead of under it.
-	rowNum    = 32
+	// rowInline is the column width from which an inline row (a running
+	// order) sets its reason beside its name instead of under it.
 	rowInline = 480
 	// tilePad is the plate around a tile's cover and text.
 	tilePad = 6
@@ -70,10 +67,9 @@ type rowsOpts struct {
 	OnBackdrop bool
 	// colW is a column's width as laid out, set by itemRows.
 	colW float32
-	// Number, when above zero, ranks the rows: the first shows it ("02"),
-	// the next one more, in tabular faint figures before the art. The order
-	// is Apple's, so the figure is information.
-	Number int
+	// Inline sets a row's name and Apple's reason side by side, in two
+	// columns of one width, once the column is rowInline wide: a ledger line.
+	Inline bool
 	// Cols forces the column count (a running order is one column); zero
 	// fits as many as the width allows.
 	Cols int
@@ -131,8 +127,7 @@ func (h *home) itemRows(c *ui.Context, st *rowsState, items []services.Item, ctx
 	}
 	hint := i18n.T("Enter opens, Space plays, Shift+F10 shows more actions.")
 	root := ui.Grid(c.Key("rows." + o.Label)).GapX(rowGapX).Role(ui.RoleList).Label(o.Label).Description(hint)
-	// The art and the rank, not the plate behind them, sit on the page's
-	// edges.
+	// The art, not the plate behind it, sits on the page's edges.
 	if o.Tile {
 		root.Margin(0, -tilePad, 0, -tilePad)
 	} else {
@@ -209,17 +204,12 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 	if round {
 		radius = tk.Radius["full"]
 	}
-	// lead is the room the rank takes before the art.
-	var lead float32
-	if o.Number > 0 {
-		lead = rowNum
-	}
 	// A tile's cover is its column less the plate.
 	tileArt := max(rowArt, float32(math.Floor(float64(o.colW)))-2*tilePad)
 	if o.Tile && it.Art.Medium != "" {
 		art = it.Art.Medium
 	}
-	inline := o.Number > 0 && o.colW >= rowInline && subtitle != ""
+	inline := o.Inline && o.colW >= rowInline && subtitle != ""
 	rule := hairline()
 
 	_, src := kit.DragItem(c, kit.DragOpts{
@@ -303,7 +293,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			// menu), assistive technology finds and presses them.
 			hover := w.Hovered()
 			if playable && !direct {
-				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX+lead).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
+				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
 					Background(theme.C("ground").Alpha(rowMarkA)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
 				if o.Tile {
 					// A disc at the middle of the cover.
@@ -327,10 +317,6 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 		},
 	}, func(w, src ui.Element) {
 		hot := w.Hovered() || src.FocusWithin()
-		if o.Number > 0 {
-			theme.Text(c, fmt.Sprintf("%02d", o.Number+i), "sub").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().
-				Width(rowNum - rowGap).Shrink(0).TextAlign(ui.Start)
-		}
 		artSize := float32(rowArt)
 		if o.Tile {
 			artSize = tileArt
@@ -353,7 +339,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 		})
 		textBox := ui.Column(c.Key("text")).Grow(1).MinWidth(0)
 		if inline {
-			// A ranked row wide enough is a ledger line: the name and Apple's
+			// An inline row wide enough is a ledger line: the name and Apple's
 			// reason side by side, in two columns of one width.
 			textBox.Row().AlignItems(ui.Center).Gap(rowGap)
 		}
