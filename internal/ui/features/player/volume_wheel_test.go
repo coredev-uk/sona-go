@@ -7,6 +7,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
@@ -26,7 +27,7 @@ func (r *rig) volume() float64 { return r.env.Play.State().Volume }
 func near(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
 
 // The wheel over the slider, and over the mute button, raises and lowers the
-// volume by 5% a notch, through the transport the slider's drag uses: the
+// volume by a kit.WheelNotch a notch, through the transport the slider's drag uses: the
 // service is told, the mirror follows, and the slider and the icon show it.
 func TestWheelOverTheVolumeChangesIt(t *testing.T) {
 	for _, over := range []string{"Volume", "Mute"} {
@@ -34,23 +35,24 @@ func TestWheelOverTheVolumeChangesIt(t *testing.T) {
 		r.seed(func(s *services.PlaybackState) { s.Volume = 0.6 })
 		x, y := r.centre(t, over)
 
-		r.tt.Wheel(x, y, 0, -40) // a notch up
+		r.tt.Wheel(x, y, 0, -kit.NotchDIP) // a notch up
 		r.tt.Frame()
-		if v := r.volume(); !near(v, 0.65) {
-			t.Errorf("over %s, a notch up: volume %v, want 0.65", over, v)
+		up := 0.6 + kit.WheelNotch
+		if v := r.volume(); !near(v, up) {
+			t.Errorf("over %s, a notch up: volume %v, want %v", over, v, up)
 		}
-		if got := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleSlider, "Volume").Now; got != 65 {
-			t.Errorf("over %s: the slider reads %v, want 65", over, got)
+		if got := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleSlider, "Volume").Now; !near(got, math.Round(up*100)) {
+			t.Errorf("over %s: the slider reads %v, want %v", over, got, up*100)
 		}
 		r.tt.Wheel(x, y, 0, 40)
 		r.tt.Wheel(x, y, 0, 40)
 		r.tt.Frame()
-		if v := r.volume(); !near(v, 0.55) {
-			t.Errorf("over %s, two notches down: volume %v, want 0.55", over, v)
+		if v := r.volume(); !near(v, 0.6-kit.WheelNotch) {
+			t.Errorf("over %s, two notches down: volume %v, want %v", over, v, 0.6-kit.WheelNotch)
 		}
 		r.fake.Wait(t, 3)
 		vols := r.fake.Volumes()
-		if len(vols) != 3 || !near(vols[len(vols)-1], 0.55) && !near(vols[0], 0.55) {
+		if len(vols) != 3 || !near(vols[len(vols)-1], 0.6-kit.WheelNotch) {
 			t.Errorf("over %s: the service was told %v", over, vols)
 		}
 	}
@@ -63,20 +65,21 @@ func TestTrackpadOverTheVolumeIsProportional(t *testing.T) {
 	r.seed(func(s *services.PlaybackState) { s.Volume = 0.5 })
 	x, y := r.centre(t, "Volume")
 
-	r.tt.Scroll(x, y, -50, 4) // fingers right 50 DIPs (natural scrolling): +10%
-	if v := r.volume(); !near(v, 0.6) {
-		t.Errorf("a swipe right: volume %v, want 0.6", v)
+	n := float32(kit.NotchDIP)
+	r.tt.Scroll(x, y, -2*n, 4) // fingers right two notches (natural scrolling)
+	if v := r.volume(); !near(v, 0.5+2*kit.WheelNotch) {
+		t.Errorf("a swipe right: volume %v, want %v", v, 0.5+2*kit.WheelNotch)
 	}
-	r.tt.Scroll(x, y, 25, -3) // left 25 DIPs: -5%
-	if v := r.volume(); !near(v, 0.55) {
-		t.Errorf("a swipe left: volume %v, want 0.55", v)
+	r.tt.Scroll(x, y, n, -3) // left one notch
+	if v := r.volume(); !near(v, 0.5+kit.WheelNotch) {
+		t.Errorf("a swipe left: volume %v, want %v", v, 0.5+kit.WheelNotch)
 	}
-	r.tt.Scroll(x, y, 2, -50) // mostly vertical, up: +10%
-	if v := r.volume(); !near(v, 0.65) {
-		t.Errorf("a vertical scroll up: volume %v, want 0.65", v)
+	r.tt.Scroll(x, y, 2, -n) // mostly vertical, up
+	if v := r.volume(); !near(v, 0.5+2*kit.WheelNotch) {
+		t.Errorf("a vertical scroll up: volume %v, want %v", v, 0.5+2*kit.WheelNotch)
 	}
 	r.tt.Scroll(x, y, 0, 2) // under 1%: waits
-	if v := r.volume(); !near(v, 0.65) {
+	if v := r.volume(); !near(v, 0.5+2*kit.WheelNotch) {
 		t.Errorf("2 DIPs moved the volume to %v", v)
 	}
 	r.fake.Wait(t, 3)
@@ -87,13 +90,13 @@ func TestWheelOverTheVolumeStopsAtBothEnds(t *testing.T) {
 	r.seed(func(s *services.PlaybackState) { s.Volume = 0.9 })
 	x, y := r.centre(t, "Volume")
 
-	for range 6 {
+	for range 6 { // 5 notches to the top at 2%, with some to spare
 		r.tt.Wheel(x, y, 0, -40)
 	}
 	if v := r.volume(); v != 1 {
 		t.Errorf("past the top: volume %v, want 1", v)
 	}
-	for range 25 {
+	for range 55 {
 		r.tt.Wheel(x, y, 0, 40)
 	}
 	if v := r.volume(); v != 0 {
@@ -106,8 +109,8 @@ func TestWheelOverTheVolumeStopsAtBothEnds(t *testing.T) {
 	// Muted, a notch up raises it, as dragging the slider off 0 does.
 	r.tt.Wheel(x, y, 0, -40)
 	r.tt.Frame()
-	if v := r.volume(); !near(v, 0.05) {
-		t.Errorf("up from muted: volume %v, want 0.05", v)
+	if v := r.volume(); !near(v, kit.WheelNotch) {
+		t.Errorf("up from muted: volume %v, want %v", v, kit.WheelNotch)
 	}
 	if !r.tt.HasText("Mute") || r.tt.HasText("Unmute") {
 		t.Errorf("up from muted the icon should offer Mute: %q", r.tt.Texts())
@@ -155,8 +158,8 @@ func TestWheelOverTheVolumeDoesNotScrollWhatItIsIn(t *testing.T) {
 		if pos.Y != 0 || pos.X != 0 {
 			t.Errorf("over %s the container scrolled to %v, %v", over, pos.X, pos.Y)
 		}
-		if v := r.volume(); !near(v, 0.6-0.05-0.12-0.06) {
-			t.Errorf("over %s: volume %v", over, v)
+		if v := r.volume(); !near(v, 0.6-kit.WheelNotch-0.02-0.01) {
+			t.Errorf("over %s: volume %v, want 0.55 (a notch, then 60 and 30 DIPs: 2%% and 1%%)", over, v)
 		}
 		r.fake.Wait(t, 1)
 	}
@@ -164,7 +167,7 @@ func TestWheelOverTheVolumeDoesNotScrollWhatItIsIn(t *testing.T) {
 
 // Nothing about the keyboard or the tree changes: the wrapper is not a stop
 // and says nothing, the slider keeps its arrows, and Ctrl+Up and Ctrl+Down
-// still step by the same 5%.
+// still step by kit.VolumeStep, 5%.
 func TestVolumeKeyboardAndTreeAreUnchangedByTheWheel(t *testing.T) {
 	r := newRig(t, true)
 	r.seed(func(s *services.PlaybackState) { s.Volume = 0.6 })
