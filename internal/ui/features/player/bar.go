@@ -158,6 +158,16 @@ func (p *player) link(c *ui.Context, key, text, path, style string, color ui.Col
 	p.playingRow(l, p.env.Play.State().Current, &p.menus.bar)
 }
 
+func (p *player) artistRouted(cur *services.QueueItem) bool {
+	return cur.ArtistID != "" && p.env.Routed("/artist/"+url.PathEscape(cur.ArtistID))
+}
+
+// albumRouted: the album link opens the album itself (the title's link is the
+// one that marks the song).
+func (p *player) albumRouted(cur *services.QueueItem) bool {
+	return cur.Album != "" && cur.AlbumID != "" && p.env.Routed("/album/"+url.PathEscape(cur.AlbumID))
+}
+
 // subline is the line under the title: what needs the user, what failed,
 // or the artist and album.
 func (p *player) subline(c *ui.Context, s services.PlaybackState) {
@@ -196,12 +206,28 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 		p.live(c, s)
 	case cur.Artist == "" && cur.Album == "":
 		// A broadcaster names no provider: its name stands alone.
-	case cur.ArtistID != "" && p.env.Routed("/artist/"+url.PathEscape(cur.ArtistID)):
+	case p.artistRouted(cur) || p.albumRouted(cur):
+		// Artist, " · ", album: each a link when its page is ported, else
+		// text, so a routed album links beside an artist that does not.
 		ui.Row(c).MinWidth(0).Shrink(1).AlignItems(ui.Center).Children(func() {
-			p.link(c, "artist", cur.Artist, "/artist/"+url.PathEscape(cur.ArtistID), "sub", theme.C("ink-muted"))
-			if cur.Album != "" {
-				label(c, " · "+cur.Album, "sub").TextColor(theme.C("ink-muted"))
+			ap := ""
+			if p.artistRouted(cur) {
+				ap = "/artist/" + url.PathEscape(cur.ArtistID)
 			}
+			if cur.Artist != "" {
+				p.link(c, "artist", cur.Artist, ap, "sub", theme.C("ink-muted"))
+			}
+			if cur.Album == "" {
+				return
+			}
+			if cur.Artist != "" {
+				label(c, " · ", "sub").TextColor(theme.C("ink-muted"))
+			}
+			alp := ""
+			if p.albumRouted(cur) {
+				alp = "/album/" + url.PathEscape(cur.AlbumID)
+			}
+			p.link(c, "album", cur.Album, alp, "sub", theme.C("ink-muted"))
 		})
 	default:
 		line := cur.Artist
