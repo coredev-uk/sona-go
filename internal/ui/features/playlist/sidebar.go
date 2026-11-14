@@ -488,11 +488,7 @@ func (p *playlists) shuffleButton(c *ui.Context, id, plName string, songs int, l
 		ink = theme.C("ink-faint")
 	}
 	btn.Children(func() {
-		// Lucide's triangle already sits right in its viewBox (its tip is
-		// at 21 of 24): centred as it is, it is half a pixel right of the
-		// wash's middle at 12, its mass half a pixel left, as optically
-		// centred as the glyph gets. A nudge on top pushed it a pixel right.
-		theme.Glyph(c, "play", 12, theme.GlyphOpts{Color: ink, Filled: true})
+		kit.PlayGlyph(c, 12, theme.GlyphOpts{Color: ink})
 	})
 	if reason != "" {
 		btn.AccessDisabled(true)
