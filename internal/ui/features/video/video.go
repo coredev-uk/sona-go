@@ -65,6 +65,8 @@ type video struct {
 	view viewState
 	// tr is the playback commands; a failure is a toast.
 	tr kit.Transport
+	// wheel changes the volume by the scrolling over its controls.
+	wheel kit.VolumeWheel
 }
 
 // New is the video feature's module.
@@ -84,6 +86,7 @@ func New(env *module.Env) module.Module {
 func newVideo(env *module.Env, cat catalogAPI, svc kit.PlaybackService, caps func() (services.PlaybackCapabilities, bool)) *video {
 	v := &video{env: env, cat: cat, caps: caps}
 	v.tr = kit.Transport{Svc: svc, Play: env.Play}
+	v.wheel.OnScroll = func(at time.Time) { v.view.wake = at } // scrolling over the volume brings the controls back
 	if env.Video != nil && env.Video.Frames() != nil {
 		v.feed = kit.NewVideoFeed(env.Video.Frames(), env.Post)
 	}

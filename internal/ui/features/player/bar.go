@@ -461,19 +461,26 @@ func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 		if !p.volume() {
 			return
 		}
-		icon, name := kit.VolumeIcon(s.Volume)
-		if p.iconButton(c, "mute", icon, name, false, "", nil) {
-			p.tr.ToggleMute()
-		}
-		v := s.Volume * 100
-		// v0.2.0's w-24 shrink-0.
-		sl := kit.Slider(c.Key("volume"), &v, 0, 100, kit.SliderOpts{A11yLabel: i18n.T("Volume"), Range: theme.C("ink-muted"), Width: volumeWidth})
-		// No description: its range is 0 to 100, so a screen reader already
-		// says the value and the percentage ("80, 80 percent"); "80%" again
-		// would be a third time.
-		if sl.Changed() {
-			p.tr.SetVolume(v / 100)
-		}
+		// The mute button and the slider are one control to the wheel and a
+		// trackpad's swipe: over either, or the gap between, they change the
+		// volume the way dragging the slider does.
+		vol := ui.Row(c.Key("volume-control")).Gap(4).AlignItems(ui.Center)
+		p.volWheel.Attach(c, vol, p.tr)
+		vol.Children(func() {
+			icon, name := kit.VolumeIcon(s.Volume)
+			if p.iconButton(c, "mute", icon, name, false, "", nil) {
+				p.tr.ToggleMute()
+			}
+			v := s.Volume * 100
+			// v0.2.0's w-24 shrink-0.
+			sl := kit.Slider(c.Key("volume"), &v, 0, 100, kit.SliderOpts{A11yLabel: i18n.T("Volume"), Range: theme.C("ink-muted"), Width: volumeWidth})
+			// No description: its range is 0 to 100, so a screen reader already
+			// says the value and the percentage ("80, 80 percent"); "80%" again
+			// would be a third time.
+			if sl.Changed() {
+				p.tr.SetVolume(v / 100)
+			}
+		})
 	})
 	if w := group.Bounds().W; w != p.rightW {
 		p.rightW = w

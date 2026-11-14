@@ -4,13 +4,11 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 )
 
-const (
-	seekStep   = 10 * time.Second
-	volumeStep = 0.05
-)
+const seekStep = 10 * time.Second
 
 // shortcuts are the keys for what the bar does, with v0.2.0's IDs and keys
 // (features/player/shortcuts.ts). Space and the arrows leave a focused
@@ -60,14 +58,14 @@ func (p *player) shortcuts() []module.Shortcut {
 			Label:    func() string { return i18n.T("Volume up") },
 			Keywords: func() string { return i18n.T("louder") },
 			When:     volume,
-			Run:      func() { p.tr.SetVolume(p.env.Play.State().Volume + volumeStep) },
+			Run:      func() { p.tr.SetVolume(p.env.Play.State().Volume + kit.VolumeStep) },
 		},
 		{
 			ID: "player.volume-down", Group: "playback", Keys: []string{"Ctrl+ArrowDown"}, Icon: "volume-1", Repeat: true,
 			Label:    func() string { return i18n.T("Volume down") },
 			Keywords: func() string { return i18n.T("quieter") },
 			When:     volume,
-			Run:      func() { p.tr.SetVolume(p.env.Play.State().Volume - volumeStep) },
+			Run:      func() { p.tr.SetVolume(p.env.Play.State().Volume - kit.VolumeStep) },
 		},
 		{
 			ID: "player.mute", Group: "playback", Keys: []string{"M"}, Icon: "volume-x",

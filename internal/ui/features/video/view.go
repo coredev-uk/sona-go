@@ -627,18 +627,24 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 	st.seek.Tick(c, playing)
 }
 
-// volume is the mute button and the volume slider.
+// volume is the mute button and the volume slider; the wheel and a
+// trackpad's swipe over them change the volume (kit.VolumeWheel), and bring
+// the faded controls back.
 func (v *video) volume(c *ui.Context, s services.PlaybackState, focusVisible *bool) {
-	icon, name := kit.VolumeIcon(s.Volume)
-	if control(kit.IconButton(c.Key("mute"), icon, name, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}), focusVisible).Clicked() {
-		v.tr.ToggleMute()
-	}
-	pct := s.Volume * 100
-	sl := kit.Slider(c.Key("volume"), &pct, 0, 100, kit.SliderOpts{
-		A11yLabel: i18n.T("Volume"), Width: 96, Range: theme.C("ink-muted"), // 0 to 100: no value text, which would say the number a third time
+	vol := ui.Row(c.Key("volume-control")).Gap(4).AlignItems(ui.Center)
+	v.wheel.Attach(c, vol, v.tr)
+	vol.Children(func() {
+		icon, name := kit.VolumeIcon(s.Volume)
+		if control(kit.IconButton(c.Key("mute"), icon, name, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}), focusVisible).Clicked() {
+			v.tr.ToggleMute()
+		}
+		pct := s.Volume * 100
+		sl := kit.Slider(c.Key("volume"), &pct, 0, 100, kit.SliderOpts{
+			A11yLabel: i18n.T("Volume"), Width: 96, Range: theme.C("ink-muted"), // 0 to 100: no value text, which would say the number a third time
+		})
+		control(v.owns(sl), focusVisible)
+		if sl.Changed() {
+			v.tr.SetVolume(pct / 100)
+		}
 	})
-	control(v.owns(sl), focusVisible)
-	if sl.Changed() {
-		v.tr.SetVolume(pct / 100)
-	}
 }
