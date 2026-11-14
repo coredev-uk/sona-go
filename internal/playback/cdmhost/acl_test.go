@@ -49,52 +49,58 @@ func TestGrantNeededAcrossAnUpdate(t *testing.T) {
 	var exe []aclEntry // the program's list: the user's entry, inherited
 	exe = append(exe, aclEntry{userSID, 0x1f01ff, acePropped})
 
-	// A new install: nothing for the sandbox yet.
-	if !grantNeeded(folder, [][]aclEntry{exe}, who, read) {
-		t.Fatal("a folder without an entry for the sandbox needs the grant")
+	// A new install: nothing for the sandbox yet, so the folder gets its entry.
+	if got := grantNeeded(folder, [][]aclEntry{exe}, who, read); got != grantFolder {
+		t.Fatalf("a folder without an entry for the sandbox: %v, want grantFolder", got)
 	}
 
 	// The grant: an entry on the folder, which the files inherit.
 	folder = append(folder, aclEntry{sandboxSID, read, both})
 	exe = append(exe, aclEntry{sandboxSID, read, acePropped})
-	if grantNeeded(folder, [][]aclEntry{exe}, who, read) {
-		t.Error("a start after the grant sets the list again")
+	if got := grantNeeded(folder, [][]aclEntry{exe}, who, read); got != grantNone {
+		t.Errorf("a start after the grant: %v, want nothing", got)
 	}
 
 	// The update: the folder keeps its entry, the program that was renamed
-	// in has only what the folder it was unpacked in gave it.
+	// in has only what the folder it was unpacked in gave it. The folder's
+	// list is not to be set again (that reached nothing on windows-2025): its
+	// entry is to be inherited again.
 	swapped := []aclEntry{{userSID, 0x1f01ff, acePropped}}
-	if !grantNeeded(folder, [][]aclEntry{swapped}, who, read) {
-		t.Fatal("files renamed in by an update are not covered and the grant is not set again")
+	if got := grantNeeded(folder, [][]aclEntry{swapped}, who, read); got != grantInherit {
+		t.Fatalf("files renamed in by an update: %v, want grantInherit", got)
 	}
 
-	// The start that did: the list set on the folder reached the files.
+	// The start that did: the files inherited the folder's entry.
 	swapped = append(swapped, aclEntry{sandboxSID, read, acePropped})
-	if grantNeeded(folder, [][]aclEntry{swapped}, who, read) {
-		t.Error("covered files need the grant again")
+	if got := grantNeeded(folder, [][]aclEntry{swapped}, who, read); got != grantNone {
+		t.Errorf("covered files: %v, want nothing", got)
 	}
 }
 
 func TestGrantNeededEdges(t *testing.T) {
 	folder := []aclEntry{{sandboxSID, read, both}}
-	if grantNeeded(folder, nil, who, read) {
-		t.Error("nothing to check but the folder, which is covered")
+	if got := grantNeeded(folder, nil, who, read); got != grantNone {
+		t.Errorf("nothing to check but the folder, which is covered: %v", got)
 	}
 	// A program that can't be read, or has no list (everyone has access), is
 	// not passed: the folder decides.
-	if grantNeeded(folder, [][]aclEntry{}, who, read) {
-		t.Error("an empty list of sentinels asks for the grant")
+	if got := grantNeeded(folder, [][]aclEntry{}, who, read); got != grantNone {
+		t.Errorf("an empty list of sentinels: %v", got)
+	}
+	// The folder's own entry comes first, whatever the files have.
+	covered := []aclEntry{{sandboxSID, read, acePropped}}
+	if got := grantNeeded(nil, [][]aclEntry{covered}, who, read); got != grantFolder {
+		t.Errorf("a folder with no entry but covered files: %v, want grantFolder", got)
 	}
 	// Program Files: ALL APPLICATION PACKAGES reads, so files made there are
 	// covered without an entry of the sandbox's own.
 	pf := []aclEntry{{allAppPkgs, read, both}}
 	file := []aclEntry{{allAppPkgs, read, acePropped}}
-	if grantNeeded(pf, [][]aclEntry{file}, []string{sandboxSID, allAppPkgs}, read) {
-		t.Error("an install that ALL APPLICATION PACKAGES reads needs the sandbox's own entry")
+	if got := grantNeeded(pf, [][]aclEntry{file}, []string{sandboxSID, allAppPkgs}, read); got != grantNone {
+		t.Errorf("an install that ALL APPLICATION PACKAGES reads: %v, want nothing", got)
 	}
 	// One uncovered file among several is enough.
-	covered := []aclEntry{{sandboxSID, read, acePropped}}
-	if !grantNeeded(folder, [][]aclEntry{covered, {{userSID, read, acePropped}}}, who, read) {
-		t.Error("one file the sandbox can't read was not asked for")
+	if got := grantNeeded(folder, [][]aclEntry{covered, {{userSID, read, acePropped}}}, who, read); got != grantInherit {
+		t.Errorf("one file the sandbox can't read among several: %v, want grantInherit", got)
 	}
 }

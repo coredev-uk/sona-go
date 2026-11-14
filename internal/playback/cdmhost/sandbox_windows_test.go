@@ -367,10 +367,11 @@ func TestGrantAccess(t *testing.T) {
 // TestGrantAccessCoversFilesAnUpdateRenamedIn is an update of the install:
 // MyGo unpacks the new version in a folder beside it and renames the entries
 // in (swapFiles). The install folder keeps its entry for the AppContainer; the
-// files renamed in carry what their own folder gave them. Whether or not
-// Windows hands the entry down by itself, once the host starts (grantAccess
-// with the program as sentinel) the new files have it, and a start after that
-// changes nothing.
+// files renamed in carry what their own folder gave them (windows-2025: they
+// lack the entry, and setting the folder's list again, also after taking the
+// entry off and adding it afresh, does not hand it down). Once the host
+// starts (grantAccess with the program as sentinel) the new files have it, the
+// folders among them as well, and a start after that changes nothing.
 func TestGrantAccessCoversFilesAnUpdateRenamedIn(t *testing.T) {
 	prof, err := appContainer()
 	if err != nil {

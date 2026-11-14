@@ -42,26 +42,41 @@ func acesAllow(entries []aclEntry, who []string, mask uint32, dir bool) bool {
 	return false
 }
 
-// grantNeeded reports whether the sandbox's read grant on a folder must be
-// (re)applied before a child starts: the folder has no entry that its
-// contents inherit, or one of the files the child needs (sentinels, each
-// one's entries; files whose list is unreadable or empty are left out) lacks
-// one.
+// A grantAction is what a folder's read grant needs before a child starts.
+type grantAction int
+
+const (
+	// grantNone: the folder's entry and the files the child needs are covered.
+	grantNone grantAction = iota
+	// grantFolder: the folder has no entry that its contents inherit; add it.
+	grantFolder
+	// grantInherit: the folder has the entry and a file below it does not;
+	// hand the folder's entry down again.
+	grantInherit
+)
+
+// grantNeeded decides what the sandbox's read grant on a folder needs: the
+// entry on the folder itself when it has none that its contents inherit, and
+// else, when one of the files the child needs (sentinels, each one's entries;
+// files whose list is unreadable or empty are left out) lacks one, that the
+// folder's entry is inherited again.
 //
 // The second case is an update. MyGo unpacks the new version in a folder
 // beside the install and renames its entries in; a rename on the same volume
 // keeps the access list the entry was made with, which came from that other
 // folder, so the folder's own entry is still there and the files in it
-// are not covered. Setting the folder's list again hands its entry down to
-// every file below it.
-func grantNeeded(folder []aclEntry, sentinels [][]aclEntry, who []string, mask uint32) bool {
+// are not covered. Setting the folder's list again does not reach them
+// (observed on windows-2025: the entry stayed missing, also after the entry
+// was removed and added); resetting the inherited entries of the tree does
+// (TreeSetNamedSecurityInfo, TREE_SEC_INFO_RESET_KEEP_EXPLICIT).
+func grantNeeded(folder []aclEntry, sentinels [][]aclEntry, who []string, mask uint32) grantAction {
 	if !acesAllow(folder, who, mask, true) {
-		return true
+		return grantFolder
 	}
 	for _, s := range sentinels {
 		if !acesAllow(s, who, mask, false) {
-			return true
+			return grantInherit
 		}
 	}
-	return false
+	return grantNone
 }

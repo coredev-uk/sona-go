@@ -172,11 +172,11 @@ var grantMu sync.Mutex
 // stays until the folder goes or RemoveSandbox (the uninstaller) removes it.
 // own: only an entry for sid counts.
 //
-// sentinels are files under a directory that the grant must cover too, and
-// where one is not covered the directory's list is set again, which hands its
-// entry down to everything below it (grantNeeded says why: an update renames
-// new files into the folder, and they keep the access list they were made
-// with). refreshed reports that the list was set.
+// sentinels are files under a directory that the grant must cover too. Where
+// the folder has the entry and one of them lacks it (an update renamed new
+// files in: grantNeeded says why), the entries the tree inherits are
+// recomputed from the folder's list (resetInherited). refreshed reports that
+// a list was set.
 func grantAccess(sid *windows.SID, path string, mask windows.ACCESS_MASK, own bool, sentinels ...string) (refreshed bool, err error) {
 	if filepath.Dir(path) == path {
 		return false, fmt.Errorf("refusing to change the access list of %s, a drive root", path)
@@ -205,9 +205,17 @@ func grantAccess(sid *windows.SID, path string, mask windows.ACCESS_MASK, own bo
 			who = append(who, all)
 		}
 	}
-	if !grantNeededFor(old, who, mask, dir, sentinels) {
+	switch grantNeededFor(old, who, mask, dir, sentinels) {
+	case grantNone:
 		runtime.KeepAlive(sd)
 		return false, nil
+	case grantInherit:
+		err := resetInherited(path, old, sd)
+		runtime.KeepAlive(sd)
+		if err != nil {
+			return false, fmt.Errorf("hand the sandbox's access down in %s: %w", path, err)
+		}
+		return true, nil
 	}
 	inherit := uint32(windows.NO_INHERITANCE)
 	if dir {
@@ -236,17 +244,59 @@ func grantAccess(sid *windows.SID, path string, mask windows.ACCESS_MASK, own bo
 	return true, nil
 }
 
+// procTreeSetNamedSecurityInfo is advapi32's TreeSetNamedSecurityInfoW, which
+// x/sys/windows does not wrap.
+var procTreeSetNamedSecurityInfo = modAdvapi32.NewProc("TreeSetNamedSecurityInfoW")
+
+// The TreeSetNamedSecurityInfo arguments resetInherited uses.
+const (
+	treeSecInfoResetKeepExplicit = 3 // TREE_SEC_INFO_RESET_KEEP_EXPLICIT
+	progressInvokeNever          = 1 // PROG_INVOKE_SETTING: ProgressInvokeNever
+)
+
+// resetInherited has everything below the directory path inherit its list
+// again: the inherited entries of each child are recomputed from its parent's
+// and its explicit entries stay, and the directory's own list, acl (what sd
+// holds), is set as it is. A rename within a volume keeps a file's access
+// list, so files renamed in carry the entries of the folder they came from.
+// Setting the folder's list again does not reach them (observed on
+// windows-2025, where taking the entry off and adding it afresh did not
+// either); this does, as Explorer's "replace all child object permissions"
+// does. The directory keeps whether it inherits from its own parent (the
+// protected flag of sd).
+func resetInherited(path string, acl *windows.ACL, sd *windows.SECURITY_DESCRIPTOR) error {
+	info := uint32(windows.DACL_SECURITY_INFORMATION | windows.UNPROTECTED_DACL_SECURITY_INFORMATION)
+	if ctl, _, err := sd.Control(); err == nil && ctl&windows.SE_DACL_PROTECTED != 0 {
+		info = windows.DACL_SECURITY_INFORMATION | windows.PROTECTED_DACL_SECURITY_INFORMATION
+	}
+	name, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return err
+	}
+	r, _, _ := procTreeSetNamedSecurityInfo.Call(
+		uintptr(unsafe.Pointer(name)), uintptr(windows.SE_FILE_OBJECT), uintptr(info),
+		0, 0, uintptr(unsafe.Pointer(acl)), 0, // owner, group, DACL, SACL
+		treeSecInfoResetKeepExplicit, 0, progressInvokeNever, 0) // action, no progress callback
+	if r != 0 {
+		return windows.Errno(r)
+	}
+	return nil
+}
+
 // grantNeededFor is grantNeeded on Windows access lists: acl is the list of
 // the object being granted (a directory when dir) and sentinels are paths of
 // files whose lists are read (one that can't be read, or has no list, is
 // left out: there is nothing to cover or nothing to refuse).
-func grantNeededFor(acl *windows.ACL, who []*windows.SID, mask windows.ACCESS_MASK, dir bool, sentinels []string) bool {
+func grantNeededFor(acl *windows.ACL, who []*windows.SID, mask windows.ACCESS_MASK, dir bool, sentinels []string) grantAction {
 	whoText := make([]string, len(who))
 	for i, w := range who {
 		whoText[i] = w.String()
 	}
 	if !dir {
-		return !acesAllow(entriesOf(acl), whoText, uint32(mask), false)
+		if acesAllow(entriesOf(acl), whoText, uint32(mask), false) {
+			return grantNone
+		}
+		return grantFolder
 	}
 	var files [][]aclEntry
 	for _, f := range sentinels {
