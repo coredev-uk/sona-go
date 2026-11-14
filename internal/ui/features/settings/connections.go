@@ -34,7 +34,7 @@ func (s *settings) scrobbling(c *ui.Context, cfg config.Settings) {
 	res := s.scrobbleStatus()
 	status := res.Data
 	privateOn := store.UsePrivate(s.env.Queries, s.env.Core).Data.On
-	s.group(c, "scrobbling", i18n.T("Scrobbling"),
+	s.groupHelped(c, "scrobbling", i18n.T("Scrobbling"), "", i18n.T("How scrobbling counts"),
 		i18n.T("A song counts once you've played half of it or four minutes. Radio and songs of 30 seconds or less aren't sent. Songs you play offline are sent when you're back online."),
 		func() {
 			if privateOn {

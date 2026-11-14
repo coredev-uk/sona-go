@@ -16,6 +16,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // connFake is a scripted scrobbler: nothing touches the keyring or network.
@@ -162,6 +163,29 @@ func TestConnectionsShowsTheScrobblingRows(t *testing.T) {
 	}}, services.IntegrationsStatus{}, allCaps)
 	r.tt.Until("rows", r.tt.Shows("Scrobbling", "Last.fm", "ListenBrainz", "Discord", "Discord status",
 		"Adds each song you play to your Last.fm profile.", "Adds each song you play to your public ListenBrainz history."))
+}
+
+func TestScrobblingRulesAreATooltipNotAParagraph(t *testing.T) {
+	r := newConnRig(t, &connFake{status: services.ScrobbleStatus{
+		LastFM: services.ScrobblerStatus{Available: true}, ListenBrainz: services.ScrobblerStatus{Available: true},
+	}}, services.IntegrationsStatus{}, allCaps)
+	r.tt.Until("rows", r.tt.Shows("Scrobbling", "Last.fm"))
+	const rules = "A song counts once you've played half of it or four minutes. Radio and songs of 30 seconds or less aren't sent. Songs you play offline are sent when you're back online."
+	var found bool
+	for _, n := range access.Read(t, r.tt.Tester).Nodes {
+		if n.Label == "How scrobbling counts" {
+			found = n.Has(access.Focusable) && n.Description == rules
+		}
+		if n.Label == rules {
+			t.Errorf("the rules are on the page as text: %+v", n)
+		}
+	}
+	if !found {
+		t.Error("no Tab stop named \"How scrobbling counts\" describing the rules")
+	}
+	if r.tt.Shows(rules)() {
+		t.Error("the rules are drawn on the page")
+	}
 }
 
 func TestLastFMWithoutAPIKeyCannotConnect(t *testing.T) {

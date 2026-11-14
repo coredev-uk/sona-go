@@ -195,10 +195,25 @@ func (s *settings) bare(c *ui.Context, rows func()) {
 // h3 under the section's h2), optionally a line about the whole group, then
 // its rows. Wide, the heading and its line are the group's left margin.
 func (s *settings) group(c *ui.Context, id, title, desc string, rows func()) {
+	s.groupHelped(c, id, title, desc, "", "", rows)
+}
+
+// groupHelped is group with a help button beside the heading: a ghost info
+// icon, a Tab stop named helpName whose tooltip is help, also read as its
+// description. It holds text that is neither state nor needed to use the
+// rows, so it stays off the page until asked for.
+func (s *settings) groupHelped(c *ui.Context, id, title, desc, helpName, help string, rows func()) {
 	c = c.Key("group:" + id)
 	ui.Column(c).FillWidth().Role(ui.RoleGroup).Label(title).Children(func() {
 		s.marginal(c, rowPadY+1, func() {
-			theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
+			if help == "" {
+				theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
+			} else {
+				ui.Row(c.Key("title")).AlignItems(ui.Center).Gap(4).Children(func() {
+					theme.Text(c, title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
+					kit.IconButton(c.Key("help"), "info", helpName, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Muted: true, Tip: help})
+				})
+			}
 			if desc != "" {
 				d := theme.Text(c, desc, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 0)
 				if !s.wide {
