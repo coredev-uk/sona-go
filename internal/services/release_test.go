@@ -17,7 +17,8 @@ import (
 
 // A pre-release album as Apple lists it (trimmed from a live answer): no
 // isPrerelease on the album page, the release date ahead, the singles
-// already out dated and playable, the rest without play parameters.
+// already out playable (most dated, one with playParams and no date of its
+// own), the rest without play parameters.
 const prereleaseAlbum = `{"id":"7","type":"albums","attributes":{"name":"Soon","artistName":"Band","releaseDate":"2026-11-19","playParams":{"id":"7","kind":"album"}},
 	"relationships":{"tracks":{"data":[
 		{"id":"1","type":"songs","attributes":{"name":"Track 1"}},
@@ -42,8 +43,8 @@ func TestPrereleaseAlbumMapping(t *testing.T) {
 	if !p.Album.Prerelease || p.Album.ReleaseAt != release.UnixMilli() {
 		t.Fatalf("album = %+v, want a pre-release out at %d", p.Album, release.UnixMilli())
 	}
-	if got := []bool{p.Tracks[0].Playable, p.Tracks[1].Playable, p.Tracks[2].Playable}; got[0] || !got[1] || got[2] {
-		t.Fatalf("playable = %v, want only the single already out", got)
+	if got := []bool{p.Tracks[0].Playable, p.Tracks[1].Playable, p.Tracks[2].Playable}; got[0] || !got[1] || !got[2] {
+		t.Fatalf("playable = %v, want the singles already out, dated or not", got)
 	}
 
 	// From midnight on the release day it is out.
@@ -75,9 +76,11 @@ func TestPlaybackRefusesUnreleasedSongs(t *testing.T) {
 	if _, err := d.Q.UpsertCatalogAlbum(ctx, dbq.UpsertCatalogAlbumParams{CatalogID: db.NullString("7"), Name: "Soon", ReleaseDate: "2026-11-19", UpdatedAt: 1}); err != nil {
 		t.Fatal(err)
 	}
-	for _, tr := range []struct{ id, date string }{{"1", ""}, {"2", "2026-09-17"}, {"4", "2026-12-01"}} {
+	for _, tr := range []struct{ id, date string }{{"1", ""}, {"2", "2026-09-17"}, {"3", ""}, {"4", "2026-12-01"}} {
+		// Track 1 has no playParams; 3 has them and no date of its own.
 		if _, err := d.Q.UpsertCatalogTrack(ctx, dbq.UpsertCatalogTrackParams{
-			CatalogID: db.NullString(tr.id), AlbumCatalogID: db.NullString("7"), Name: "Track " + tr.id, ReleaseDate: tr.date, UpdatedAt: 1,
+			CatalogID: db.NullString(tr.id), AlbumCatalogID: db.NullString("7"), Name: "Track " + tr.id, ReleaseDate: tr.date,
+			NoPlayParams: db.Bool(tr.id == "1"), UpdatedAt: 1,
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -85,28 +88,28 @@ func TestPlaybackRefusesUnreleasedSongs(t *testing.T) {
 	now := localDay(t, "2026-11-01")
 	e := &Env{Deps: Deps{DB: d, Logger: discard(), Now: func() time.Time { return now }}}
 	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
-	refs := []TrackRef{{ID: "1", Source: SourceCatalog}, {ID: "2", Source: SourceCatalog}, {ID: "4", Source: SourceCatalog}}
+	refs := []TrackRef{{ID: "1", Source: SourceCatalog}, {ID: "2", Source: SourceCatalog}, {ID: "3", Source: SourceCatalog}, {ID: "4", Source: SourceCatalog}}
 
-	for _, start := range []int{0, 2} {
+	for _, start := range []int{0, 3} {
 		if _, _, err := s.resolve(ctx, refs, start); !errors.Is(err, ErrNotReleased) || CodeOf(err) != CodeNotReleased {
 			t.Fatalf("start %d: err = %v, want not_released", start, err)
 		}
 	}
 	items, i, err := s.resolve(ctx, refs, 1)
-	if err != nil || len(items) != 1 || items[0].ID != "2" || i != 0 {
+	if err != nil || len(items) != 2 || items[0].ID != "2" || items[1].ID != "3" || i != 0 {
 		t.Fatalf("resolve from the single = %+v, %d, %v", items, i, err)
 	}
 
 	// Release day: the album's songs play; the one dated later still waits.
 	now = localDay(t, "2026-11-19")
 	items, _, err = s.resolve(ctx, refs, 0)
-	if err != nil || len(items) != 2 || items[0].ID != "1" || items[1].ID != "2" {
+	if err != nil || len(items) != 3 || items[0].ID != "1" || items[1].ID != "2" || items[2].ID != "3" {
 		t.Fatalf("resolve on release day = %+v, %v", items, err)
 	}
 }
 
 // Playing the library song list applies the same rule: a song without a
-// date of its own goes by its album's.
+// date of its own or playParams goes by its album's.
 func TestPlayLibrarySkipsUnreleasedSongs(t *testing.T) {
 	ctx := t.Context()
 	d, err := db.Open(ctx, filepath.Join(t.TempDir(), "sona.db"))
@@ -122,15 +125,21 @@ func TestPlayLibrarySkipsUnreleasedSongs(t *testing.T) {
 	// In title order: a single already out, a song of the pre-release
 	// album without a date, a song of an old album without one, one of
 	// no stored album, and one dated ahead itself.
-	for _, tr := range []struct{ id, name, album, date string }{
-		{"i.1", "A single", "l.soon", "2026-09-17"},
-		{"i.2", "B undated", "l.soon", ""},
-		{"i.3", "C old", "l.old", ""},
-		{"i.4", "D loose", "", ""},
-		{"i.5", "E later", "", "2026-12-01"},
+	// and a song of the pre-release album with playParams and no date.
+	for _, tr := range []struct {
+		id, name, album, date string
+		noPlayParams          int64
+	}{
+		{"i.1", "A single", "l.soon", "2026-09-17", 0},
+		{"i.2", "B undated", "l.soon", "", 1},
+		{"i.3", "C old", "l.old", "", 0},
+		{"i.4", "D loose", "", "", 0},
+		{"i.5", "E later", "", "2026-12-01", 0},
+		{"i.6", "F out, no date", "l.soon", "", 0},
 	} {
 		ref, err := d.Q.UpsertLibraryTrack(ctx, dbq.UpsertLibraryTrackParams{
-			LibraryID: db.NullString(tr.id), Name: tr.name, AlbumLibraryID: db.NullString(tr.album), ReleaseDate: tr.date, UpdatedAt: 1,
+			LibraryID: db.NullString(tr.id), Name: tr.name, AlbumLibraryID: db.NullString(tr.album), ReleaseDate: tr.date,
+			NoPlayParams: tr.noPlayParams, UpdatedAt: 1,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -161,7 +170,7 @@ func TestPlayLibrarySkipsUnreleasedSongs(t *testing.T) {
 	for _, it := range s.Queue().Items {
 		ids = append(ids, it.ID)
 	}
-	if !slices.Equal(ids, []string{"i.1", "i.3", "i.4"}) {
+	if !slices.Equal(ids, []string{"i.1", "i.3", "i.4", "i.6"}) {
 		t.Fatalf("queue = %v, want the songs already out", ids)
 	}
 	if got := eng.played(); !slices.Equal(got, []string{"i.3"}) {

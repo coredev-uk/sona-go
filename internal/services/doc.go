@@ -169,8 +169,9 @@
 // code "not_released". A pre-added library album has no release date of
 // its own: libAlbum takes its catalogue album's date and isPrerelease as
 // the library walk stored them (library.Album.CatalogReleaseDate,
-// Prerelease), and a library song with no date of its own goes by its
-// album, a dated one by its date, playParams or not (songUnreleased,
+// Prerelease). A song follows itself, not its album: a dated one by its
+// date, playParams or not, one with playParams and no date is out, and
+// only one with neither goes by its album (songUnreleased,
 // PlaybackService). Reminders (reminders.go, table release_reminders)
 // give one desktop notification when such an album comes out, or after
 // the first paint of the next start when Sona wasn't running then; the

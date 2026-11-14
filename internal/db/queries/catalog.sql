@@ -5,8 +5,8 @@
 INSERT INTO tracks (
     catalog_id, name, artist_name, album_name, album_catalog_id, artist_catalog_id,
     artwork_template, duration_ms, track_number, disc_number, release_date,
-    genre, content_rating, has_lyrics, isrc, composer, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    genre, content_rating, has_lyrics, isrc, composer, no_play_params, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (catalog_id) WHERE library_id IS NULL DO UPDATE SET
     name = excluded.name,
     artist_name = excluded.artist_name,
@@ -23,6 +23,7 @@ ON CONFLICT (catalog_id) WHERE library_id IS NULL DO UPDATE SET
     has_lyrics = excluded.has_lyrics,
     isrc = excluded.isrc,
     composer = excluded.composer,
+    no_play_params = excluded.no_play_params,
     updated_at = excluded.updated_at
 RETURNING id;
 
