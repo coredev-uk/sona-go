@@ -36,15 +36,11 @@ func closeTo(a, b color.RGBA) bool {
 	return d(a.R, b.R) <= 2 && d(a.G, b.G) <= 2 && d(a.B, b.B) <= 2
 }
 
-// sleevePixel is the sleeve's colour: the pixel left of the label in the fine
-// print, inside the sleeve's padding.
-func (r *rig) sleevePixel() color.RGBA {
+// bandPixel is the band's colour: its top left corner, left of the cover and
+// above it, where nothing is drawn and the side gradient has not begun.
+func (r *rig) bandPixel() color.RGBA {
 	r.t.Helper()
-	b, ok := r.tt.Find("Quiet Records")
-	if !ok {
-		r.t.Fatalf("no fine print on screen: %q", r.tt.Texts())
-	}
-	return r.tt.Image().RGBAAt(int(b.X)-6, int(b.Y+b.H/2))
+	return r.tt.Image().RGBAAt(4, 4)
 }
 
 // playPixel is the play control's fill: just inside its left edge.
@@ -57,43 +53,43 @@ func (r *rig) playPixel() color.RGBA {
 	return r.tt.Image().RGBAAt(int(b.X)+3, int(b.Y+b.H/2))
 }
 
-func TestSleeveIsPrintedInTheCoversBackgroundColour(t *testing.T) {
+func TestBandIsPrintedInTheCoversBackgroundColour(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 900)
 	r.addCatalog(saltFlats(coloured("#8acf00", "#050800")))
 	r.shows("Quiet Records")
 	r.tt.Settle()
-	if got, want := r.sleevePixel(), hexRGBA(t, "#8acf00"); !closeTo(got, want) {
-		t.Errorf("the sleeve is %v, want the cover's colour %v", got, want)
+	if got, want := r.bandPixel(), hexRGBA(t, "#8acf00"); !closeTo(got, want) {
+		t.Errorf("the band is %v, want the cover's colour %v", got, want)
 	}
 }
 
-func TestSleeveKeepsOffTheGroundAndIsNoBrightSlabInTheDarkTheme(t *testing.T) {
+func TestBandKeepsOffTheGroundAndIsNoBrightSlabInTheDarkTheme(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 900, uitest.Dark())
 	r.addCatalog(saltFlats(coloured("#fffce9", "#050608")))
 	r.shows("Quiet Records")
 	r.tt.Settle()
 	want := hexRGBA(t, palette.SleeveSurface("#fffce9", palette.Dark))
-	if got := r.sleevePixel(); !closeTo(got, want) {
-		t.Errorf("the dark sleeve is %v, want %v", got, want)
+	if got := r.bandPixel(); !closeTo(got, want) {
+		t.Errorf("the dark band is %v, want %v", got, want)
 	}
 	if l := palette.Lightness(palette.SleeveSurface("#fffce9", palette.Dark)); l > 0.37 {
-		t.Errorf("the dark sleeve is %.2f light", l)
+		t.Errorf("the dark band is %.2f light", l)
 	}
 }
 
-func TestCoverWithNoColourKeepsTheSleevesWash(t *testing.T) {
+func TestCoverWithNoColourKeepsTheBandsWash(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 900)
 	r.addCatalog(saltFlats())
 	r.shows("Quiet Records")
 	r.tt.Settle()
 	// The ground under 4% ink.
 	want := hexRGBA(t, palette.Over(palette.Of(palette.Light).Ground, palette.Of(palette.Light).Ink, 0.04))
-	if got := r.sleevePixel(); !closeTo(got, want) {
-		t.Errorf("a cover with no colour: sleeve %v, want the wash %v", got, want)
+	if got := r.bandPixel(); !closeTo(got, want) {
+		t.Errorf("a cover with no colour: band %v, want the wash %v", got, want)
 	}
 }
 
-func TestDominantColourPrintsTheSleeveWhenAppleGivesNone(t *testing.T) {
+func TestDominantColourPrintsTheBandWhenAppleGivesNone(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 900)
 	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
 		p.Header = services.Header{Colors: []string{"#3366cc"}}
@@ -101,8 +97,8 @@ func TestDominantColourPrintsTheSleeveWhenAppleGivesNone(t *testing.T) {
 	r.shows("Quiet Records")
 	r.tt.Settle()
 	want := hexRGBA(t, palette.SleeveSurface("#3366cc", palette.Light))
-	if got := r.sleevePixel(); !closeTo(got, want) {
-		t.Errorf("sleeve %v, want %v", got, want)
+	if got := r.bandPixel(); !closeTo(got, want) {
+		t.Errorf("band %v, want %v", got, want)
 	}
 }
 
@@ -139,23 +135,23 @@ func TestGreyscaleCoverKeepsAmber(t *testing.T) {
 	}
 }
 
-func TestNarrowLayoutPrintsTheHeadOnTheSleeve(t *testing.T) {
+func TestNarrowLayoutPrintsTheHeadOnTheBand(t *testing.T) {
 	r := newRig(t, "/album/100", 760, 1200)
 	r.addCatalog(saltFlats(coloured("#8acf00", "#050800", "#070a00", "#203000")))
 	r.shows("Salt Flats", "Quiet Records")
 	r.tt.Settle()
-	// The title is on the sleeve: the pixel left of it is the sleeve's colour.
+	// The title is on the band: the pixel left of it is the band's colour.
 	b, ok := r.tt.Find("Salt Flats")
 	if !ok {
 		t.Fatal("no title")
 	}
 	got := r.tt.Image().RGBAAt(int(b.X)-4, int(b.Y+b.H/2))
 	if want := hexRGBA(t, "#8acf00"); !closeTo(got, want) {
-		t.Errorf("narrow: beside the title %v, want the sleeve %v", got, want)
+		t.Errorf("narrow: beside the title %v, want the band %v", got, want)
 	}
 }
 
-func TestColoursAreBuiltOncePerCoverThemeAndLayout(t *testing.T) {
+func TestColoursAreBuiltOncePerCoverAndTheme(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 900)
 	r.addCatalog(saltFlats(coloured("#8acf00", "#050800")))
 	r.shows("Quiet Records")
@@ -177,12 +173,12 @@ func TestColoursAreBuiltOncePerCoverThemeAndLayout(t *testing.T) {
 	if r.a.pal.colours == first {
 		t.Error("colours kept after the theme changed")
 	}
-	if got, want := r.sleevePixel(), hexRGBA(t, palette.SleeveSurface("#8acf00", palette.Dark)); !closeTo(got, want) {
-		t.Errorf("dark sleeve %v, want %v", got, want)
+	if got, want := r.bandPixel(), hexRGBA(t, palette.SleeveSurface("#8acf00", palette.Dark)); !closeTo(got, want) {
+		t.Errorf("dark band %v, want %v", got, want)
 	}
 }
 
-func TestTextOnTheSleeveFollowsItsInk(t *testing.T) {
+func TestTextOnTheBandFollowsItsInk(t *testing.T) {
 	// A cover whose Apple text colour differs from the theme's ink.
 	cover := palette.Cover{Background: "#3f546a", Text1: "#ffffff", Text2: "#dbe4ee"}
 	pal, _ := palette.ForAlbum(&cover, nil, palette.Light, true)
@@ -197,7 +193,7 @@ func TestTextOnTheSleeveFollowsItsInk(t *testing.T) {
 	if !ok {
 		t.Fatal("no title")
 	}
-	// The title's most inked pixel: the one furthest from the sleeve.
+	// The title's most inked pixel: the one furthest from the band.
 	img, bg := r.tt.Image(), hexRGBA(t, pal.Sleeve.Surface)
 	var best color.RGBA
 	far := -1
@@ -211,7 +207,7 @@ func TestTextOnTheSleeveFollowsItsInk(t *testing.T) {
 		}
 	}
 	if want := hexRGBA(t, pal.Sleeve.Ink); !closeTo(best, want) {
-		t.Errorf("the title is drawn in %v, want the sleeve's ink %v", best, want)
+		t.Errorf("the title is drawn in %v, want the band's ink %v", best, want)
 	}
 }
 
@@ -229,7 +225,7 @@ func TestArtistLinkTakesTheCoversAccent(t *testing.T) {
 	if !ok {
 		t.Fatal("no byline")
 	}
-	// The name's most inked pixel: the one furthest from the sleeve it is
+	// The name's most inked pixel: the one furthest from the band it is
 	// printed on.
 	img, bg := r.tt.Image(), hexRGBA(t, pal.Sleeve.Surface)
 	var best color.RGBA
@@ -244,6 +240,6 @@ func TestArtistLinkTakesTheCoversAccent(t *testing.T) {
 		}
 	}
 	if want := hexRGBA(t, pal.Sleeve.AccentInk); !closeTo(best, want) {
-		t.Errorf("the artist is drawn in %v, want the accent as ink on the sleeve %v", best, want)
+		t.Errorf("the artist is drawn in %v, want the accent as ink on the band %v", best, want)
 	}
 }

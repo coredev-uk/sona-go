@@ -157,25 +157,29 @@ func TestLibraryShare(t *testing.T) {
 	}
 }
 
-func TestLayoutFollowsTheContentWidth(t *testing.T) {
+func TestLayoutFollowsThePaneSize(t *testing.T) {
 	for _, c := range []struct {
-		width float32
-		want  layout
+		width, height float32
+		want          layout
 	}{
-		{1900, layout{wide: true, cover: 384}},
-		{1687, layout{wide: true, cover: 384}}, // a 1920 window beside the sidebar
-		{1600, layout{wide: true, cover: 384}},
-		{1599, layout{wide: true, cover: 320}},
-		{1280, layout{wide: true, cover: 320}},
-		{1279, layout{wide: true, cover: 256}},
-		{860, layout{wide: true, cover: 256}},
-		{859, layout{cover: 168}},
-		{588, layout{cover: 168}},
-		{587, layout{cover: 168, stack: true}}, // under 400 beside the cover
-		{0, layout{cover: 168, stack: true}},
+		{1900, 0, layout{wide: true, cover: 352, fade: 128}},
+		{1687, 900, layout{wide: true, cover: 352, fade: 128}}, // a 1920 window beside the sidebar
+		{1600, 900, layout{wide: true, cover: 352, fade: 128}},
+		{1599, 900, layout{wide: true, cover: 288, fade: 120}},
+		{1240, 900, layout{wide: true, cover: 288, fade: 120}},
+		{1239, 900, layout{wide: true, cover: 232, fade: 112}},
+		{970, 680, layout{wide: true, cover: 232, fade: 112}}, // a 1280×800 window
+		{860, 560, layout{wide: true, cover: 232, fade: 112}},
+		// A pane under 560 high takes the small cover, the short dissolve and a compact head.
+		{970, 559, layout{wide: true, cover: 168, fade: 56, compact: true}},
+		{1600, 480, layout{wide: true, cover: 168, fade: 56, compact: true}},
+		{859, 900, layout{cover: 168, fade: 72}},
+		{588, 400, layout{cover: 168, fade: 72}}, // the narrow band is as tall as it is
+		{587, 900, layout{cover: 168, fade: 72, stack: true}}, // under 400 beside the cover
+		{0, 0, layout{cover: 168, fade: 72, stack: true}},
 	} {
-		if got := albumLayout(c.width); got != c.want {
-			t.Errorf("albumLayout(%v) = %+v, want %+v", c.width, got, c.want)
+		if got := albumLayout(c.width, c.height); got != c.want {
+			t.Errorf("albumLayout(%v, %v) = %+v, want %+v", c.width, c.height, got, c.want)
 		}
 	}
 }

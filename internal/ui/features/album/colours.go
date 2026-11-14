@@ -10,14 +10,19 @@ import (
 )
 
 // colours is the album's colours from its cover (v0.2.0's albumColors, in
-// theme/palette) as the page uses them: the sleeve's surface and the colour
-// tokens its content is built with, and the accent's tokens, which take
-// amber's place on the whole page. It is built once per cover, theme and
-// layout (palKey), never per frame.
+// theme/palette) as the page uses them: the band's surface and the colour
+// tokens its content is built with, the gradient that deepens it at its far
+// end, and the accent's tokens, which take amber's place on the whole page.
+// It is built once per cover and theme (palKey), never per frame.
 type colours struct {
-	sleeve    palette.Sleeve
-	surface   ui.Color
-	sleeveTok map[string]ui.Color
+	band    palette.Sleeve
+	surface ui.Color
+	bandTok map[string]ui.Color
+	// side is the band's far end: the colour of its text's opposite (white
+	// under dark ink, black under light) at up to sideShare, across the band.
+	// The text's contrast, which the surface is chosen for, can only improve
+	// where it lies; and nothing but the head's right end reaches it.
+	side      []ui.GradientStop
 	accent    bool
 	accentTok map[string]ui.Color
 }
@@ -42,7 +47,7 @@ type palCache struct {
 
 // colours returns the album's colours for the cover and the theme now, or
 // nil when the cover gives none (a library-only album with no dominant
-// colours: the sleeve keeps its plain wash).
+// colours: the band keeps its plain wash).
 func (a *album) colours(m *model) *colours {
 	key := palKey{dark: theme.Dark(), rev: theme.Revision()}
 	if m.page != nil {
@@ -61,7 +66,17 @@ func (a *album) colours(m *model) *colours {
 	if !ok {
 		return nil
 	}
-	col := &colours{sleeve: pal.Sleeve, surface: ui.Hex(pal.Sleeve.Surface), sleeveTok: pal.Sleeve.Overrides()}
+	col := &colours{band: pal.Sleeve, surface: ui.Hex(pal.Sleeve.Surface), bandTok: pal.Sleeve.Overrides()}
+	pole := ui.RGB(0, 0, 0)
+	if palette.Lightness(pal.Sleeve.Ink) < 0.6 {
+		pole = ui.RGB(255, 255, 255)
+	}
+	col.side = make([]ui.GradientStop, dissolveStops)
+	for i := range col.side {
+		t := float32(i) / (dissolveStops - 1)
+		// It holds back until a third of the way across.
+		col.side[i] = ui.GradientStop{Color: pole.Alpha(sideShare * smootherstep(max(0, (t-0.3)/0.7))), At: t}
+	}
 	if pal.Accent != nil {
 		col.accent, col.accentTok = true, pal.Accent.Overrides()
 	}

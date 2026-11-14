@@ -57,7 +57,7 @@ func TestCatalogueAlbumShowsItsHead(t *testing.T) {
 		"Explicit", "Lossless",
 		"Play Salt Flats", "Shuffle", "Add", "Favourite Salt Flats", "Suggest less like Salt Flats",
 		"Songs on Salt Flats", "Popular",
-		// The sleeve's fine print.
+		// The fine print.
 		"Released", "March 8, 2019", "Genres", "Indie Pop, Pop", "Label", "Quiet Records", "℗ 2019 Mia Vale",
 		// The notes follow the songs.
 		"Notes", "A record about driving across the flats at dusk.",
@@ -729,8 +729,8 @@ func TestMultiDiscAlbumsIndexTheirDiscs(t *testing.T) {
 		t.Errorf("row 21 at y=%v, want %v (heading 16 from the top)", second.Y, wantY)
 	}
 
-	// Below 860 the sleeve heads the page and has no index: the tracks
-	// carry the headings.
+	// Below 860 the page has no margin and so no index: the tracks carry the
+	// headings.
 	n := newRig(t, "/album/100", 700, 600)
 	n.addCatalog(saltFlats(long))
 	n.shows("Salt Flats")
@@ -753,14 +753,14 @@ func TestSongParamMarksAndFocusesTheSong(t *testing.T) {
 }
 
 func TestLayoutFollowsTheContentNotTheWindow(t *testing.T) {
-	// A wide window beside a long sleeve: the fine print is in the sleeve
-	// column, left of the songs.
+	// A wide window: the fine print is in the margin, right of the songs and
+	// under the band.
 	wide := newRig(t, "/album/100", 1500, 1000)
 	wide.addCatalog(saltFlats())
 	wide.shows("Released")
 	rel, _ := wide.tt.Find("Released")
 	song, _ := wide.tt.Find("Low Tide")
-	if rel.X >= song.X {
+	if rel.X <= song.X {
 		t.Errorf("wide: fine print at x=%v, songs at x=%v", rel.X, song.X)
 	}
 	narrow := newRig(t, "/album/100", 700, 1000)
@@ -773,60 +773,72 @@ func TestLayoutFollowsTheContentNotTheWindow(t *testing.T) {
 	}
 }
 
-func TestSleeveStaysBesideTheSongsOnlyWhenItFits(t *testing.T) {
-	long := func(p *services.CatalogAlbum) {
-		p.Tracks = nil
-		for i := 1; i <= 60; i++ {
-			p.Tracks = append(p.Tracks, track(i, fmt.Sprintf("Song %02d", i)))
-		}
+// longRecord is an album of 60 songs and one shelf: the songs outlast any pane.
+func longRecord(p *services.CatalogAlbum) {
+	p.Tracks = nil
+	for i := 1; i <= 60; i++ {
+		p.Tracks = append(p.Tracks, track(i, fmt.Sprintf("Song %02d", i), func(s *services.Song) { s.Composer = "Mia Vale" }))
 	}
-	y := func(h int) (before, after float32) {
+	p.MoreByArtist = []services.Album{{ID: "200", Name: "Blue Hour", Artist: "Mia Vale"}}
+}
+
+func TestMarginHoldsBesideTheSongsOnlyWhenItFits(t *testing.T) {
+	// y is where the margin is after the page has scrolled twice, and whether
+	// it is on screen at all: held, it is in the same place both times.
+	y := func(h int) (first, second float32, shown bool) {
 		r := newRig(t, "/album/100", 1132, h)
-		r.addCatalog(saltFlats(long))
+		r.addCatalog(saltFlats(longRecord))
 		r.shows("Released")
 		r.tt.Settle()
-		b, _ := r.tt.Find("Released")
-		r.tt.Scroll(600, 300, 0, 400)
+		r.tt.Scroll(600, 50, 0, 600)
 		r.tt.Settle()
 		a, _ := r.tt.Find("Released")
-		return b.Y, a.Y
+		r.tt.Scroll(600, 50, 0, 600)
+		r.tt.Settle()
+		b, ok := r.tt.Find("Released")
+		return a.Y, b.Y, ok
 	}
-	// A tall pane shows the whole sleeve: it stays where it was.
-	if b, a := y(900); a != b {
-		t.Errorf("a sleeve that fits moved from %v to %v", b, a)
+	// A tall pane shows the whole margin: it rises to the pane's top and
+	// stays there while the songs go by.
+	if a, b, shown := y(900); !shown || a != b || a > 100 || a <= 0 {
+		t.Errorf("a margin that fits was at %v, then %v (on screen: %v): want it held at the top", a, b, shown)
 	}
-	// A short one scrolls it away with the page.
-	if b, a := y(400); a >= b {
-		t.Errorf("a sleeve taller than the pane stayed: %v then %v", b, a)
+	// A short one is taller than the pane: it scrolls away with the page.
+	// (Find reports no place for what scrolled out.)
+	if _, b, _ := y(200); b > 0 {
+		t.Errorf("a margin taller than the pane stayed at %v", b)
 	}
 }
 
-func TestSleeveStopsAtTheGridsEnd(t *testing.T) {
-	r := newRig(t, "/album/100", 1132, 900)
-	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
-		p.Tracks = nil
-		for i := 1; i <= 60; i++ {
-			p.Tracks = append(p.Tracks, track(i, fmt.Sprintf("Song %02d", i)))
-		}
-		// Sections after the grid, for it to scroll out of the pane.
-		p.MoreByArtist = []services.Album{{ID: "200", Name: "Blue Hour", Artist: "Mia Vale"}}
-	}))
+func TestMarginIsReleasedWhenTheSongsEnd(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 500)
+	r.addCatalog(saltFlats(longRecord))
 	r.shows("Released")
 	r.tt.Settle()
-	y0 := func() float32 { b, _ := r.tt.Find("Released"); return b.Y }
-	start := y0()
-	r.tt.Scroll(600, 300, 0, 400)
+	r.tt.Scroll(600, 300, 0, 600)
 	r.tt.Settle()
-	if got := y0(); got != start {
-		t.Errorf("sleeve moved from %v to %v while the songs scrolled within the grid", start, got)
-	}
-	prev := y0()
+	held, _ := r.tt.Find("Released")
 	for range 3 {
 		r.tt.Scroll(600, 300, 0, 4000)
 		r.tt.Settle()
 	}
-	if got := y0(); got >= prev {
-		t.Errorf("sleeve stayed at %v past the grid's end (was %v)", got, prev)
+	if got, _ := r.tt.Find("Released"); got.Y >= held.Y {
+		t.Errorf("the margin stayed at %v past the end of the songs (was held at %v)", got.Y, held.Y)
+	}
+}
+
+func TestMarginKeepsOneLeftEdge(t *testing.T) {
+	r := newRig(t, "/album/100", 1500, 1000)
+	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+		for i := range p.Tracks {
+			p.Tracks[i].DiscNumber = 1 + i/3
+		}
+	}))
+	r.shows("Released", "Disc 1")
+	disc, _ := r.tt.Find("Disc 1")
+	rel, _ := r.tt.Find("Released")
+	if disc.X != rel.X {
+		t.Errorf("the disc index starts at x=%v, the fine print at x=%v", disc.X, rel.X)
 	}
 }
 
@@ -946,7 +958,7 @@ func TestLayoutFollowsWindowResizes(t *testing.T) {
 	r.shows("Released")
 	rel, _ := r.tt.Find("Released")
 	song, _ := r.tt.Find("Low Tide")
-	if rel.X >= song.X {
+	if rel.X <= song.X {
 		t.Fatalf("wide: fine print at x=%v, songs at x=%v", rel.X, song.X)
 	}
 	// The sidebar or the queue taking room changes the content's width; the
