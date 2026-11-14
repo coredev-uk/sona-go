@@ -41,6 +41,7 @@ func UpdateSettings(cl *store.Client, core *services.Core, change func(*config.S
 // the cached settings: the maps and slices it holds are cloned.
 func CloneSettings(s config.Settings) config.Settings {
 	s.Shortcuts = maps.Clone(s.Shortcuts)
+	s.Accents = maps.Clone(s.Accents)
 	s.Audio.Equalizer.Custom = slices.Clone(s.Audio.Equalizer.Custom)
 	s.Lyrics.Providers = slices.Clone(s.Lyrics.Providers)
 	return s
@@ -51,6 +52,7 @@ func CloneSettings(s config.Settings) config.Settings {
 // gives one variant only pins the mode (theme.Dark).
 func ApplyAppearance(s config.Settings) {
 	theme.SetTheme(s.ThemeID)
+	theme.SetAccent(s.Accents[s.ThemeID])
 	switch s.Theme {
 	case config.ThemeLight:
 		theme.SetMode(theme.ModeLight)

@@ -1,5 +1,5 @@
 {
-  "$comment": "A warm neutral board, grey rather than cream. Teal marks what plays. Adjusted in lightness only to keep Sona's contrast floors: light amber #2a9898 -> #1d9090 (the play colour keeps 3:1 on the light tones).",
+  "$comment": "A warm neutral board, grey rather than cream. Teal marks what plays. Adjusted in lightness only to keep Sona's contrast floors: light amber #2a9898 -> #1d9090 (the play colour keeps 3:1 on the light tones). Accents (Settings → Appearance): the spot colour in five more hues, designed for each variant with a neutral glyph colour, each passing theme.Validate; the theme's own colour is \"Theme default\".",
   "format": 1,
   "id": "paper",
   "name": "Paper",
@@ -39,6 +39,68 @@
       "amber-ink": "#5cc9c2",
       "on-amber": "#021a19",
       "danger": "#f47362"
+    }
+  },
+  "accents": {
+    "amber": {
+      "light": {
+        "amber": "#b27300",
+        "amber-ink": "#8b4f00",
+        "on-amber": "#161616"
+      },
+      "dark": {
+        "amber": "#fcba43",
+        "amber-ink": "#fcba43",
+        "on-amber": "#161616"
+      }
+    },
+    "gold": {
+      "light": {
+        "amber": "#938100",
+        "amber-ink": "#6f5d00",
+        "on-amber": "#161616"
+      },
+      "dark": {
+        "amber": "#e8d754",
+        "amber-ink": "#e8d754",
+        "on-amber": "#161616"
+      }
+    },
+    "lime": {
+      "light": {
+        "amber": "#5f8e00",
+        "amber-ink": "#3d6900",
+        "on-amber": "#161616"
+      },
+      "dark": {
+        "amber": "#9ed24d",
+        "amber-ink": "#9ed24d",
+        "on-amber": "#161616"
+      }
+    },
+    "sky": {
+      "light": {
+        "amber": "#2388be",
+        "amber-ink": "#006397",
+        "on-amber": "#161616"
+      },
+      "dark": {
+        "amber": "#6cc9ff",
+        "amber-ink": "#6cc9ff",
+        "on-amber": "#161616"
+      }
+    },
+    "rose": {
+      "light": {
+        "amber": "#d85274",
+        "amber-ink": "#ae2952",
+        "on-amber": "#161616"
+      },
+      "dark": {
+        "amber": "#ff8aa9",
+        "amber-ink": "#ff8aa9",
+        "on-amber": "#161616"
+      }
     }
   }
 }

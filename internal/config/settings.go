@@ -29,6 +29,10 @@ const DefaultThemeID = "sona"
 // theirs to 40, so a longer one names no theme.
 const maxThemeIDLength = 64
 
+// maxAccentIDLength bounds an accent ID read from a file; Sona's own are a
+// few letters.
+const maxAccentIDLength = 32
+
 // Audio quality values for [Settings.AudioQuality], in kbps. They select the
 // 256 kbps (ctrp256) or 64 kbps (ctrp64) Widevine AAC flavor.
 const (
@@ -51,6 +55,11 @@ type Settings struct {
 	// theme file. An ID no theme has is kept, so the choice returns with its
 	// file; the UI shows Sona's own theme and says so meanwhile.
 	ThemeID string `json:"themeId"`
+	// Accents is the accent chosen for each of Sona's own themes (theme ID to
+	// accent ID, e.g. "oled": "sky"); a theme with no entry has its own
+	// colour. Switching theme brings back that theme's accent. An ID neither
+	// a theme nor an accent has is kept, like ThemeID.
+	Accents map[string]string `json:"accents"`
 	// ReduceEffects turns off backdrops and animation for solid surfaces.
 	ReduceEffects bool `json:"reduceEffects"`
 	// Volume is the playback volume in [0, 1].
@@ -170,6 +179,7 @@ func (s Settings) Normalized() Settings {
 	if s.ThemeID == "" || len(s.ThemeID) > maxThemeIDLength {
 		s.ThemeID = DefaultThemeID
 	}
+	s.Accents = normalizedAccents(s.Accents)
 	s.Volume = clampVolume(s.Volume)
 	if s.AudioQuality != Quality256 && s.AudioQuality != Quality64 {
 		s.AudioQuality = Quality256
@@ -192,6 +202,23 @@ func (s Settings) Normalized() Settings {
 	s.Sidebar = s.Sidebar.normalized()
 	s.Language = normalizedLanguage(s.Language)
 	return s
+}
+
+// normalizedAccents drops the entries that name no theme or no accent (an
+// empty or overlong ID); none left is nil.
+func normalizedAccents(in map[string]string) map[string]string {
+	var out map[string]string
+	for theme, accent := range in {
+		theme, accent = strings.TrimSpace(theme), strings.TrimSpace(accent)
+		if theme == "" || len(theme) > maxThemeIDLength || accent == "" || len(accent) > maxAccentIDLength {
+			continue
+		}
+		if out == nil {
+			out = map[string]string{}
+		}
+		out[theme] = accent
+	}
+	return out
 }
 
 // clampVolume clamps v to [0, 1]; NaN (which min and max pass through)
@@ -267,6 +294,7 @@ func (st *Store) Get() Settings {
 // writing into them, never reach the Store's or a previous copy's values.
 func (s Settings) clone() Settings {
 	s.Shortcuts = maps.Clone(s.Shortcuts)
+	s.Accents = maps.Clone(s.Accents)
 	s.Audio.Equalizer.Custom = slices.Clone(s.Audio.Equalizer.Custom)
 	s.Lyrics.Providers = slices.Clone(s.Lyrics.Providers)
 	return s

@@ -12,7 +12,7 @@ The folder is `themes` inside Sona's config folder: `~/.config/sona/themes` on L
 | `graphite` | Graphite | A cooler neutral board, light and dark | sky blue |
 | `paper` | Paper | A warm neutral board, grey and not cream, light and dark | teal |
 | `contrast` | High contrast | Strong lines, every text colour at 7:1, light and dark | blue (light), yellow (dark) |
-| `oled` | OLED | True black `#000000` ground, dark only | lime |
+| `oled` | OLED | True black `#000000` ground, dark only | blue |
 | `catppuccin` | Catppuccin | Latte (light) and Mocha (dark) | peach |
 | `nord` | Nord | Snow Storm (light) and Polar Night (dark) | frost |
 | `gruvbox` | Gruvbox | Light and dark | yellow |
@@ -91,6 +91,10 @@ Sona's own five keep to the design brief: a neutral board, so that covers read t
 | The spot colour | `amber` (the fill), `amber-ink` (as text or an icon), `on-amber` (a glyph on the fill) and the roles `play`, `play-ink`, `on-play`, which follow them |
 | Avatars | `avatar-0-bg` … `avatar-7-bg` and `avatar-0-fg` … `avatar-7-fg` |
 | Roles | `background`, `foreground`, `card`, `card-foreground`, `popover`, `popover-foreground`, `primary`, `primary-foreground`, `secondary`, `secondary-foreground`, `muted`, `muted-foreground`, `accent`, `accent-foreground`, `destructive`, `border`, `input` (each names one of the tokens above, and follows when you change it) |
+
+## Accents
+
+Sona's own themes (`sona`, `graphite`, `paper`, `contrast`, `oled`) carry an `accents` map: for each accent (`amber`, `gold`, `lime`, `sky`, `teal`, `rose`) the `amber`, `amber-ink` and `on-amber` of each variant the theme gives, which Settings → Appearance offers as the Accent row ("Theme default" is the theme's own colour, so a theme leaves out the accent it already has). An accent that fails the rules below in any variant is not offered. Only the built-in files may carry `accents`: a file of yours that does is refused, because your theme sets its own `amber` and that is its accent.
 
 ## The rules
 
