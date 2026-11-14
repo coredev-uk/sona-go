@@ -4,6 +4,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 // The video view's volume takes the wheel as the bar's does, through the same
@@ -27,8 +29,8 @@ func TestWheelOverTheViewsVolumeChangesItAndWakesTheControls(t *testing.T) {
 		before := r.env.Play.State().Volume
 		r.tt.Wheel(x, y, 0, -40)
 		r.tt.Advance(400 * time.Millisecond)
-		if v := r.env.Play.State().Volume; math.Abs(v-(before+0.05)) > 1e-9 {
-			t.Errorf("over %s: volume %v, want %v", over, v, before+0.05)
+		if v := r.env.Play.State().Volume; math.Abs(v-(before+kit.WheelNotch)) > 1e-9 {
+			t.Errorf("over %s: volume %v, want %v", over, v, before+kit.WheelNotch)
 		}
 		if r.v.view.alpha != 1 {
 			t.Errorf("over %s: the controls stayed faded: %v", over, r.v.view.alpha)

@@ -8,22 +8,40 @@ import (
 )
 
 const (
-	// VolumeStep is one step of the volume: a press of Ctrl+Up or Ctrl+Down,
-	// a notch of a mouse wheel over the volume control.
+	// VolumeStep is one step of the volume from the keyboard: a press of
+	// Ctrl+Up or Ctrl+Down. The wheel is gentler (WheelNotch).
 	VolumeStep = 0.05
 
-	// wheelPerDIP is the volume a touchpad's scrolling changes by per DIP it
-	// travels: 1% for 5 DIPs, so that a swipe as long as a wheel notch is
-	// (40 to 50 DIPs) comes to a little more than a notch's step.
-	wheelPerDIP = 0.002
+	// WheelNotch is the volume one notch of a mouse wheel changes: 2%, 50
+	// notches from silent to full. It is the rate of every scroll over the
+	// volume, whatever kind of wheel or touchpad sends it.
+	WheelNotch = 0.02
 
-	// wheelGrain is the smallest change a touchpad makes: 1%. Smaller
+	// NotchDIP is how far MyGo reports a notch to travel. On Linux it is
+	// 50 DIPs (surface.go, scrollEvent: delta x 50), and a high-resolution
+	// wheel, or a compositor's scroll factor, sends it as Precise fractions
+	// of that. On macOS a line of a wheel is 40 DIPs (never Precise), and
+	// a Precise scroll is a trackpad's pixels. On Windows a notch is 33
+	// DIPs per line of the "lines to scroll" setting (99 at its default of
+	// 3), Precise when the delta is not a multiple of 120. A notch that
+	// is not Precise counts as one WheelNotch whatever its length, so only
+	// Precise scrolling, which is measured, follows these distances: the
+	// rate is exact on Linux and follows the user's scroll speed on
+	// Windows.
+	NotchDIP = 50
+
+	// wheelPerDIP is the volume Precise scrolling changes by per DIP it
+	// travels: the same rate as a notch, 1% per 25 DIPs, so that a wheel
+	// that sends fractions and one that sends whole notches agree.
+	wheelPerDIP = WheelNotch / NotchDIP
+
+	// wheelGrain is the smallest change Precise scrolling makes: 1%. Smaller
 	// travel waits in VolumeWheel until it adds up to one, so a swipe asks
 	// the service for a volume per percent, not per event.
 	wheelGrain = 0.01
 
-	// volumeRound rounds the volume to a ten-thousandth, so that twenty steps
-	// of 5% down end at 0, muted, and not at 1e-17.
+	// volumeRound rounds the volume to a ten-thousandth, so that fifty notches
+	// of 2% down end at 0, muted, and not at 1e-17.
 	volumeRound = 1e4
 )
 
@@ -31,8 +49,9 @@ const (
 // changes: Attach it to the element that holds the mute button and the
 // slider. One per control, main thread only; the zero value is ready.
 //
-// A mouse wheel's notch (InputEvent.Precise false) is one VolumeStep. A
-// touchpad's scrolling (Precise) is proportional, 1% per 5 DIPs, travel
+// A mouse wheel's notch (InputEvent.Precise false) is one WheelNotch, 2%.
+// Precise scrolling (a touchpad, or a high-resolution wheel that sends a
+// notch in fractions) is proportional at the same rate, 1% per 25 DIPs, travel
 // short of 1% waiting here for the next event; a change of direction drops
 // what waited, and so does reaching 0 or 100%, so that turning back at an
 // end answers at once. Whichever axis moved further counts, so a vertical
@@ -94,14 +113,16 @@ func (w *VolumeWheel) input(t Transport, ev ui.InputEvent, rtl bool) bool {
 			w.pending = 0
 		}
 		w.pending += d * wheelPerDIP
-		change = math.Trunc(w.pending/wheelGrain) * wheelGrain
+		// The epsilon keeps 8 events of 6.25 DIPs, which sum to 2% in
+		// exact arithmetic only, from falling a hair short of it.
+		change = math.Copysign(math.Trunc(math.Abs(w.pending)/wheelGrain+1e-9), w.pending) * wheelGrain
 		if change == 0 {
 			return true
 		}
 		w.pending -= change
 	} else {
 		w.pending = 0
-		change = math.Copysign(VolumeStep, d)
+		change = math.Copysign(WheelNotch, d)
 	}
 	cur := t.Play.State().Volume
 	next := min(max(math.Round((cur+change)*volumeRound)/volumeRound, 0), 1)
