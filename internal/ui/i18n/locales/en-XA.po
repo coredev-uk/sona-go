@@ -6387,14 +6387,6 @@ msgstr ""
 msgid "Starting…"
 msgstr ""
 
-#: internal/ui/features/playlist/editor.go
-msgid "Starts"
-msgstr ""
-
-#: internal/ui/features/playlist/page.go
-msgid "Starts at {time}"
-msgstr ""
-
 #: internal/ui/features/home/catalogue.go
 #: internal/ui/features/radio/radio.go
 #: internal/ui/features/radio/schedule.go

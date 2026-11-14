@@ -6387,14 +6387,6 @@ msgstr "Starting Widevine's download…"
 msgid "Starting…"
 msgstr "Starting…"
 
-#: internal/ui/features/playlist/editor.go
-msgid "Starts"
-msgstr "Starts"
-
-#: internal/ui/features/playlist/page.go
-msgid "Starts at {time}"
-msgstr "Starts at {time}"
-
 #: internal/ui/features/home/catalogue.go
 #: internal/ui/features/radio/radio.go
 #: internal/ui/features/radio/schedule.go
