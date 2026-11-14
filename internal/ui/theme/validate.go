@@ -34,15 +34,10 @@ const (
 	TextFloor = 4.5
 	// UIFloor is a control's line and the focus ring (WCAG AA, non-text).
 	UIFloor = 3.0
-	// SpotGroundFloorLight is the spot colour's fill against the ground in
-	// a light theme; Sona's own amber has 2.0:1 there.
-	SpotGroundFloorLight = 2.0
-	// SpotRowFloorLight is the fill against the surface and the hover tone in
-	// a light theme (amber has 1.88:1 and 1.76:1).
-	SpotRowFloorLight = 1.75
-	// SpotFloorDark is the fill against the ground, surface and hover tone in
-	// a dark theme.
-	SpotFloorDark = 3.0
+	// SpotFloor is the spot colour's fill against the ground, surface and
+	// hover tone, in a light and a dark theme (WCAG 1.4.11, non-text: the
+	// play disc is a graphical object).
+	SpotFloor = 3.0
 	// MinBackdropScrim is the least opacity the scrim over a backdrop may have.
 	MinBackdropScrim = 0.8
 )
@@ -169,7 +164,7 @@ var spotRoles = [...]string{
 //   - every avatar tone's text keeps 4.5:1 on its fill;
 //   - the backdrop scrim stays at 0.8 or more;
 //   - the spot colour (amber) keeps its distance from ground, surface and
-//     hover (2:1, 1.75:1 and 1.75:1 in light, 3:1 in dark), its glyph colour
+//     hover (3:1, in light and dark), its glyph colour
 //     (on-amber) 4.5:1 on it, and ink keeps 4.5:1 on the selection (the spot
 //     colour at 32%);
 //   - the play roles follow the spot colour, and no role listed in spotRoles
@@ -246,16 +241,9 @@ func Validate(tk *Tokens) []Problem {
 
 	// The spot colour.
 	fill := opaque(col("amber"), ground)
-	for i, name := range [...]string{"ground", "surface", "hover"} {
-		floor := SpotFloorDark
-		if !tk.Dark {
-			floor = SpotRowFloorLight
-			if i == 0 {
-				floor = SpotGroundFloorLight
-			}
-		}
-		if c := Contrast(fill, opaque(col(name), ground)); c < floor {
-			add(Problem{Kind: ProblemContrast, Token: "amber", Other: name, Got: c, Want: floor})
+	for _, name := range [...]string{"ground", "surface", "hover"} {
+		if c := Contrast(fill, opaque(col(name), ground)); c < SpotFloor {
+			add(Problem{Kind: ProblemContrast, Token: "amber", Other: name, Got: c, Want: SpotFloor})
 		}
 	}
 	if c := Contrast(opaque(col("on-amber"), fill), fill); c < TextFloor {

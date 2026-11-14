@@ -1,5 +1,5 @@
 {
-  "$comment": "A cooler neutral board. Sky blue marks what plays.",
+  "$comment": "A cooler neutral board. Sky blue marks what plays. Adjusted in lightness only to keep Sona's contrast floors: light amber #3b9bd7 -> #278bc6 (the play colour keeps 3:1 on the light tones).",
   "format": 1,
   "id": "graphite",
   "name": "Graphite",
@@ -16,7 +16,7 @@
       "ink": "#171a1d",
       "ink-muted": "#55585c",
       "ink-faint": "#5b5e62",
-      "amber": "#3b9bd7",
+      "amber": "#278bc6",
       "amber-ink": "#005b8e",
       "on-amber": "#04121b"
     }

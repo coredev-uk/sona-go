@@ -84,16 +84,17 @@ func TestValidateChecksTheTextOnTheSelection(t *testing.T) {
 	}
 }
 
-func TestSpotFloorIsLowerInLightThanInDark(t *testing.T) {
-	// A fill 2.3:1 from the ground passes in a light theme, not in a dark one.
+func TestSpotFloorIsThreeToOneInLightAndDark(t *testing.T) {
+	// A fill 2.3:1 from the ground fails the play disc's 3:1 (WCAG 1.4.11)
+	// in a light theme as in a dark one.
 	light, dark := sona(t, false), sona(t, true)
 	fill := ui.Hex("#d9a13a")
-	if c := Contrast(fill, light.Color["ground"]); c < 2 {
+	if c := Contrast(fill, light.Color["ground"]); c < 2 || c >= SpotFloor {
 		t.Fatalf("test fill is %.2f:1 on the light ground", c)
 	}
 	light.Color["amber"], light.Color["play"] = fill, fill
-	if ps := Validate(light); has(ps, ProblemContrast, "amber") {
-		t.Errorf("light: %v", ps)
+	if ps := Validate(light); !has(ps, ProblemContrast, "amber") {
+		t.Errorf("light: a 2.3:1 spot colour passed: %v", ps)
 	}
 	dark.Color["amber"], dark.Color["play"] = fill.Mix(dark.Color["ground"], 0.7), fill.Mix(dark.Color["ground"], 0.7)
 	if ps := Validate(dark); !has(ps, ProblemContrast, "amber") {

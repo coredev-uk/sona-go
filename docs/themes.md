@@ -43,7 +43,7 @@ Sona's own five keep to the design brief: a neutral board, so that covers read t
       "ink": "#141a1a",
       "ink-muted": "#4f5a5a",
       "ink-faint": "#566161",
-      "amber": "#d9602b",
+      "amber": "#d65d28",
       "amber-ink": "#9a3b0c",
       "on-amber": "#1b0a02"
     },
@@ -100,7 +100,7 @@ Sona checks a theme when it loads a file. A theme that fails any rule is **refus
 - **Lines.** `control-line` and `ring` keep 3:1 on `ground`, `surface` and `raised`.
 - **Avatars.** Each `avatar-N-fg` keeps 4.5:1 on its `avatar-N-bg`.
 - **Backdrop.** `backdrop-scrim` is 0.8 or more.
-- **The spot colour** marks what plays, and nothing else. It stays distinct: `amber` has at least 2:1 against `ground`, and 1.75:1 against `surface` and `hover`, in a light variant, and 3:1 against all three in a dark one (Sona's own amber has 2.0, 1.88 and 1.76 in light); `on-amber` keeps 4.5:1 on `amber`; `ink` keeps 4.5:1 on the selection (`selection`, the spot colour at 32%). `play`, `play-ink` and `on-play` must stay the same colours as `amber`, `amber-ink` and `on-amber`. And no other role may be the spot colour: `primary`, `primary-foreground`, `ring`, `active`, `hover`, `accent`, `secondary` and `muted` are refused if they resolve to `amber` or `amber-ink`, because the focus ring, the selected navigation row and the buttons are not what plays.
+- **The spot colour** marks what plays, and nothing else. It stays distinct: `amber` has at least 3:1 against `ground`, `surface` and `hover`, in a light and a dark variant (WCAG 1.4.11, non-text contrast: the play disc is a graphical object; Sona's own light amber has 3.6, 3.3 and 3.1); `on-amber` keeps 4.5:1 on `amber`; `ink` keeps 4.5:1 on the selection (`selection`, the spot colour at 32%). `play`, `play-ink` and `on-play` must stay the same colours as `amber`, `amber-ink` and `on-amber`. And no other role may be the spot colour: `primary`, `primary-foreground`, `ring`, `active`, `hover`, `accent`, `secondary` and `muted` are refused if they resolve to `amber` or `amber-ink`, because the focus ring, the selected navigation row and the buttons are not what plays.
 - Colours must resolve, token names must exist, and shadows must be in range.
 
 Contrast is the WCAG ratio between the two colours; a translucent colour is first laid over the tone it sits on. The album page still takes its accent from the cover, which replaces your spot colour there.
@@ -108,5 +108,5 @@ Contrast is the WCAG ratio between the two colours; a translucent colour is firs
 ## Tips
 
 - Start from a copy of a built-in and change the board first. Keep `hover` and `active` a step apart; they are the pressed and selected tones text must still read on.
-- Check the spot colour in both variants: a colour that looks fine on a dark ground often fails the 2:1 floor on a light one. Pick a darker `amber-ink` than the fill for light themes; in dark themes they are usually the same colour.
+- Check the spot colour in both variants: a colour that looks fine on a dark ground often fails the 3:1 floor on a light one. Pick a darker `amber-ink` than the fill for light themes; in dark themes they are usually the same colour.
 - The theme's `id` is what Sona keeps in your settings. If the file is deleted or refused when Sona starts, Sona shows its own theme and says so in Settings; the choice comes back with the file.

@@ -74,6 +74,9 @@ const (
 	// UIContrast is controls and their edges against their background
 	// (WCAG AA, non-text).
 	UIContrast = 3
+	// coverAccentFloorLight is a cover accent's fill against the light ground
+	// and sleeve surface.
+	coverAccentFloorLight = 2.0
 	// sleeveStep: the sleeve stays at least this far from the ground in OKLCH
 	// lightness (one tone step).
 	sleeveStep = 0.05
@@ -438,9 +441,15 @@ func sleeveColors(bg, primary string, softer []string, th Theme) Sleeve {
 
 func accentColors(accent string, th Theme, under []string) *Accent {
 	t := Of(th)
-	// The fill (play control, equaliser) is never less distinct from what it
-	// sits on than amber is from the ground, nor than 3:1 where amber is.
-	floor := math.Min(UIContrast, Contrast(t.Amber, t.Ground))
+	// The fill (play control, equaliser) of a cover's accent is never less
+	// distinct from what it sits on than 3:1 in dark and coverAccentFloorLight
+	// in light: a light sleeve surface and the ground leave no colour 3:1 from
+	// both, so a 3:1 floor would drop every cover's accent for amber. Amber
+	// itself keeps 3:1 (theme.SpotFloor).
+	floor := float64(UIContrast)
+	if th == Light {
+		floor = coverAccentFloorLight
+	}
 	glyph := func(c string) string {
 		if Contrast(white, c) > Contrast(t.OnAmber, c) {
 			return white
