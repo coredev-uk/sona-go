@@ -77,13 +77,13 @@ func TestPageLedgerKinds(t *testing.T) {
 	} {
 		dd := d
 		c.mod(&dd)
-		if got := join(p.ledger(dd, nil, "", "")); got != c.want {
+		if got := join(p.ledger(dd, nil)); got != c.want {
 			t.Errorf("%s: ledger %q, want %q", c.name, got, c.want)
 		}
 	}
 
 	collab := &services.PlaylistCollaboration{Collaborative: true, Viewer: services.RoleCollaborator}
-	if got := join(p.ledger(d, collab, "Updated yesterday", "Monday")); got != "Collaborative playlist | You're a collaborator | 3 songs | 10 min | Updated yesterday" {
+	if got := join(p.ledger(d, collab, ledgerCell{text: "Updated yesterday", detail: "Monday"})); got != "Collaborative playlist | You're a collaborator | 3 songs | 10 min | Updated yesterday" {
 		t.Errorf("collaborative ledger %q", got)
 	}
 }
@@ -518,5 +518,46 @@ func TestHeadArtIsOneOfThreeClasses(t *testing.T) {
 		if got := headArt(tc.width); got != tc.want {
 			t.Errorf("headArt(%v) = %v, want %v", tc.width, got, tc.want)
 		}
+	}
+}
+
+// "Created …" is a calendar date once it is two days old, "today" or
+// "yesterday" before; with the same day as the last change only one cell is
+// shown, and what Apple does not give is left out. Each carries the exact
+// date and time.
+func TestStampCellsWordCreatedAndUpdated(t *testing.T) {
+	now := time.Date(2026, 11, 10, 15, 0, 0, 0, time.Local)
+	at := func(y int, m time.Month, d, h int) *time.Time {
+		v := time.Date(y, m, d, h, 0, 0, 0, time.Local)
+		return &v
+	}
+	texts := func(cells []ledgerCell) string {
+		var out []string
+		for _, c := range cells {
+			if c.detail == "" {
+				t.Errorf("cell %q has no exact date", c.text)
+			}
+			out = append(out, c.text)
+		}
+		return strings.Join(out, " | ")
+	}
+	for _, c := range []struct {
+		name             string
+		created, updated *time.Time
+		want             string
+	}{
+		{"old and recent", at(2024, 3, 3, 9), at(2026, 11, 9, 21), "Created March 3, 2024 | Updated yesterday"},
+		{"same day today", at(2026, 11, 10, 9), at(2026, 11, 10, 12), "Created today"},
+		{"same day long ago", at(2024, 3, 3, 9), at(2024, 3, 3, 18), "Created March 3, 2024"},
+		{"yesterday", at(2026, 11, 9, 9), at(2026, 11, 10, 12), "Created yesterday | Updated 3 hr. ago"},
+		{"no creation date", nil, at(2026, 11, 9, 21), "Updated yesterday"},
+		{"no update date", at(2024, 3, 3, 9), nil, "Created March 3, 2024"},
+		{"neither", nil, nil, ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := texts(stampCells(c.created, c.updated, now)); got != c.want {
+				t.Errorf("got %q, want %q", got, c.want)
+			}
+		})
 	}
 }

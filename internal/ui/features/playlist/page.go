@@ -181,12 +181,12 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 	case curatorName(d) != "":
 		byline = func() { p.byline(c, d) }
 	}
-	note, detail := p.updated(c, pl)
+	stamps := p.stamps(c, pl)
 	var find func()
 	if !inEdit && len(d.Tracks) > 0 {
 		find = func() { p.songFinder(c, d.Tracks) }
 	}
-	p.header(c, d, byline, p.ledger(d, collab, note, detail), func() { p.headerActions(c, id, d, editable, inEdit, menus) }, find)
+	p.header(c, d, byline, p.ledger(d, collab, stamps...), func() { p.headerActions(c, id, d, editable, inEdit, menus) }, find)
 
 	switch {
 	case inEdit && len(d.Tracks) > 0:
@@ -241,27 +241,64 @@ func (p *playlists) byline(c *ui.Context, d services.PlaylistDetail) {
 	ui.Text(c, name).TextColor(theme.C("ink-muted")).SingleLine()
 }
 
-// updated is when the playlist last changed: "Updated yesterday" in
-// calendar words (i18n.RelativeDay), and the exact date and time behind it
-// ("Monday, November 9, 2026 at 9:30 PM");
-// "" when Apple gives no date. The page is asked back when the words would
-// change: at the next local midnight, and every minute while it changed
-// today.
-func (p *playlists) updated(c *ui.Context, pl services.Playlist) (note, detail string) {
-	if pl.LastModified <= 0 {
-		return "", ""
-	}
+// stamps are the ledger's dated cells: when the playlist was created
+// (library playlists; Apple gives a catalogue playlist no creation date) and
+// when it last changed, each with the exact date and time behind it. A
+// playlist created and last changed on the same day shows one cell, "Created
+// today" or "Created 3 March 2024". Unknown dates leave their cell out. The
+// page is asked back when the words would change: at the next local midnight,
+// and every minute while the update was today.
+func (p *playlists) stamps(c *ui.Context, pl services.Playlist) []ledgerCell {
 	now := c.Now()
 	if p.now != nil {
 		now = p.now()
 	}
-	t := time.UnixMilli(pl.LastModified).In(time.Local)
+	var created, updated *time.Time
+	if pl.DateAdded > 0 {
+		t := time.UnixMilli(pl.DateAdded).In(time.Local)
+		created = &t
+	}
+	if pl.LastModified > 0 {
+		t := time.UnixMilli(pl.LastModified).In(time.Local)
+		updated = &t
+	}
+	if created == nil && updated == nil {
+		return nil
+	}
 	wake := i18n.NextMidnight(now, time.Local).Sub(now)
-	if i18n.CalendarDays(t, now, time.Local) <= 0 {
+	if updated != nil && i18n.CalendarDays(*updated, now, time.Local) <= 0 {
 		wake = min(wake, time.Minute)
 	}
 	c.After(max(time.Millisecond, wake))
-	return i18n.T("Updated {when}", "when", i18n.RelativeDay(t, now, time.Local)), i18n.FormatDateTime(t)
+	return stampCells(created, updated, now)
+}
+
+// stampCells words the created and updated times against now; see stamps.
+func stampCells(created, updated *time.Time, now time.Time) []ledgerCell {
+	var cells []ledgerCell
+	sameDay := created != nil && updated != nil && i18n.CalendarDays(*created, *updated, time.Local) == 0
+	if created != nil {
+		cells = append(cells, ledgerCell{text: createdText(*created, now), detail: i18n.FormatDateTime(*created)})
+	}
+	if updated != nil && !sameDay {
+		cells = append(cells, ledgerCell{
+			text:   i18n.T("Updated {when}", "when", i18n.RelativeDay(*updated, now, time.Local)),
+			detail: i18n.FormatDateTime(*updated),
+		})
+	}
+	return cells
+}
+
+// createdText is "Created today", "Created yesterday" or, from two days
+// back, "Created 3 March 2024": a creation date rarely matters to the minute.
+func createdText(t, now time.Time) string {
+	switch days := i18n.CalendarDays(t, now, time.Local); {
+	case days <= 0:
+		return i18n.T("Created today")
+	case days == 1:
+		return i18n.T("Created yesterday")
+	}
+	return i18n.T("Created {date}", "date", i18n.FormatDate(t, i18n.DateLong))
 }
 
 // headerActions are the header's controls: Play and Shuffle, the library
