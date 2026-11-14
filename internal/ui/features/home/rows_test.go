@@ -420,7 +420,16 @@ func TestStripTilesAreOneTabStopWithTheRowsKeys(t *testing.T) {
 	r.focused("After")
 }
 
-func TestRankedRowsNumberFromTheFirstRank(t *testing.T) {
-	r := newRowsRig(t, moodStations(), rowsOpts{Label: "Top Picks", Rows: 3, Cols: 1, Number: 2, Rules: true}, 640, 600)
-	requireTexts(t, &rig{tt: r.tt}, "02", "03", "04", "Energy", "Relax")
+func TestInlineRowsKeepTheItemsOrderWithoutNumerals(t *testing.T) {
+	r := newRowsRig(t, moodStations(), rowsOpts{Label: "Top Picks", Rows: 3, Cols: 1, Inline: true, Rules: true}, 640, 600)
+	requireTexts(t, &rig{tt: r.tt}, "Energy", "Focus", "Relax")
+	requireNoTexts(t, &rig{tt: r.tt}, "01", "02", "03", "04")
+	prev, _ := r.tt.Find("Energy")
+	for _, name := range []string{"Focus", "Relax"} {
+		at, _ := r.tt.Find(name)
+		if at.Y <= prev.Y {
+			t.Errorf("%s (y %.0f) is not under the row before it (y %.0f)", name, at.Y, prev.Y)
+		}
+		prev = at
+	}
 }

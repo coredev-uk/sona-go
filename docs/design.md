@@ -183,18 +183,18 @@ The playlist is set like a tape's J-card: the cover is the front panel and the f
 
 ## Home
 
-Home ("For you") answers one question first: what shall I play now. It is set like the A-side of a record: the lead pick is 01, Apple's other picks are the running order, and the shelves under it are ruled sections. It sets Apple's personal shelves (`internal/ui/features/home/plan.go`) instead of stacking them as Apple sends them, and never copies Apple's own Home.
+Home ("For you") answers one question first: what shall I play now. It is set like the A-side of a record: the lead pick is large, Apple's other picks are the running order beside it (unnumbered: Apple's order is not information a reader needs), and the shelves under it are ruled sections. It sets Apple's personal shelves (`internal/ui/features/home/plan.go`) instead of stacking them as Apple sends them, and never copies Apple's own Home.
 
 ```
 ┌───────────────────────────────────────────────────────────┐
 │ For you  Picked for you 3 min. ago              ⟳ Refresh │  one line; wash of the lead's
 │ Top Picks for You ───────────────────────── Show all 12 ⌄ │  cover, full bleed
-│ [ cover 280 ]     02 [40] Apple Music Live    New Release │
+│ [ cover 280 ]     [40] Apple Music Live       New Release │
 │                   ──────────────────────────────────────  │  the running order:
-│                   03 [40] …                   …           │  one list, hairlines
-│ 01 Your Station   04 [40] …                   …           │
-│    Station · …    …                                       │
-│    (▶) (⋯)        09 [40] …                   …           │
+│                   [40] …                      …           │  one list, hairlines
+│ Your Station      [40] …                      …           │
+│ Station · …       …                                       │
+│ (▶) (⋯)           [40] …                      …           │
 ├───────────────────────────────────────────────────────────┤
 │ Recently Played ───────────────────────────── See all ›   │
 │ [112] [112] [112] [112] [112] [112] [112] [112]            │  strip of covers
@@ -209,7 +209,7 @@ Home ("For you") answers one question first: what shall I play now. It is set li
 
 - **The page's head** is one line of the lead band: "For you" at 24/650, when Home was picked (13 muted, on the title's baseline) and the ghost Refresh at the far end. Under it the first section's ruled head.
 - **Ruled heads**: every section of Home (`rule.go`) is its heading at 16/600, a 1px hairline (ink at 14%, so it reads on the ground and on a cover's wash) that runs to the right edge, and the section's controls on the line's end: "See all" to the section's own page, or "Show all N" / "Show fewer" in place. Sections sit 48px apart, so the page keeps a rhythm of rule, content, space.
-- **The lead**: the first "feature" shelf (Top Picks). Its first pick is 01: the cover at 280px as the left column (360px from 1400px of lead width; a 144px cover beside the name when the page is under 900px wide), then "01" at 24/650 in faint ink hanging beside the name at 24/650, the artist or curator at 16/500, the catalogue line (`Station · Made for You`: what it is, then Apple's reason) and the amber play disc with the item's menu. The other picks are the running order beside it (under it when narrow): one column of 56px rows, each with its rank in tabular faint figures (02, 03 …: Apple's order, so the number is information), the 40px art, the name at 14/500 and Apple's reason, side by side in two equal columns from 480px of row, under the name below it. A hairline closes every row. Eight rows show; "Show all 12" in the head opens the rest. The page header and the lead sit on the lead cover's pre-blurred backdrop, ground scrim, full bleed; reduce effects leaves the plain ground.
+- **The lead**: the first "feature" shelf (Top Picks). Its first pick is large: the cover at 280px as the left column (360px from 1400px of lead width; a 144px cover beside the name when the page is under 900px wide), then the name at 24/650, the artist or curator at 16/500, the catalogue line (`Station · Made for You`: what it is, then Apple's reason) and the amber play disc with the item's menu. The other picks are the running order beside it (under it when narrow): one column of 56px rows in Apple's order, none numbered (the order is not information the reader needs, and a rank is decoration), each its 40px art, the name at 14/500 and Apple's reason, side by side in two equal columns from 480px of row, under the name below it. A hairline closes every row. Eight rows show; "Show all 12" in the head opens the rest. The page header and the lead sit on the lead cover's pre-blurred backdrop, ground scrim, full bleed; reduce effects leaves the plain ground.
 - **Rows** (`internal/ui/features/home/rows.go`): 56px rows with 40px art, the title at 14/500 and Apple's reason with the artist or curator at 13 muted. Every shelf of stations only (Stations for You, moods, favourite artists) is rows two deep, in as many columns as fit from 264px: you play them at once, so a name and a play control matter more than a large cover. The art sits on the page's left edge; the hover plate reaches 8px past it. On a backdrop the hover is ink at 6%, not the opaque `--hover`.
 - **Recently Played** is a strip: one row of covers as wide as their columns fit (112px up to about 130, the name at 14/500 and the line under it at 13 muted), so a whole evening's listening reads at once. It is the same list as the rows (one Tab stop; arrows, Home and End move; Enter opens; Space plays; Shift+F10 or the Menu key opens the menu): hover or focus shows a play disc on the cover and the more button at its corner. "Show all N" opens further rows of covers in place.
 - **Cover shelves**: the first three plain shelves Apple ranks highest keep their cover tiles (160px; feature shelves 176px) under a ruled head. Features, heroes and track shelves always stay in full.
@@ -345,7 +345,7 @@ The term is the page title (32/36, in curly quotes) with the scope switch (Apple
 
 Results are a **card catalogue**: a 200px rail on the left lists the groups found, each as a button with its name and its count (tabular figures); a click scrolls that group to the top and moves the focus to it, and the group in view sits on the `--hover` tone. The rail is outside the scroll container, so it stays while the results scroll. Under 960px it is a wrapping row of the same buttons (6px radius, a `--line` border) above the results. The results column follows Apple's order, each group under a 1px `--line` and its 16/600 heading:
 
-- **Top results** are a best match and its neighbours: the first result in a `--surface` panel (radius 8, `--line` border) with a 120px cover, its kind in 14px muted, its name at 24/650 and its catalogue line, and the amber Play disc where it plays; up to four compact rows (40px cover) beside it, below it under 640px. Opening the panel opens the result's page, or plays a song.
+- **Top results** are a best match and its neighbours: the first result in a `--surface` panel (radius 8, `--line` border) with a 120px cover, its name at 24/650 and its catalogue line under it (the kind first, then the subtitle: `Artist · Rock`, `Album · Blue Band · 2019`; no label above the name), and the amber Play disc where it plays; up to four compact rows (40px cover) beside it, below it under 640px. Opening the panel opens the result's page, or plays a song.
 - **Artists** are one row of round portraits (104px at least, the tile grows to fill the row), the other item groups cover shelves with 136px tiles, so five or six fit where the other pages fit four.
 - **Songs** are the track list (number, cover, title, artist, and album from 720px of results width), eight rows, "See all" beside the heading.
 

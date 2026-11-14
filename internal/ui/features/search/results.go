@@ -189,10 +189,10 @@ func topFlow(c *ui.Context, wide bool) ui.Element {
 	return ui.Column(c.Key("top")).FillWidth().Gap(16)
 }
 
-// bestMatch is the first top result large: the cover, its kind, its name at
-// the title size and its catalogue line, with the amber Play disc where the
-// result plays (opening it is the panel). beside: it shares its line with
-// the compact rows.
+// bestMatch is the first top result large: the cover, its name at the title
+// size and its catalogue line (its kind, then its subtitle: "Album · Blue
+// Band · 2019"), with the amber Play disc where the result plays (opening it
+// is the panel). beside: it shares its line with the compact rows.
 func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, focus, beside bool) {
 	v := &s.pages.search
 	tk := theme.Current()
@@ -215,17 +215,14 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 		body := func() {
 			kit.Artwork(c, s.env.Art, it.Art.Small, bestArt, kit.ArtOpts{Round: kit.ItemRound(it), Edge: true})
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Margin(0, 0, 0, 16).Gap(2).Children(func() {
-				if kind := kindLabel(it); kind != "" {
-					theme.Text(c, kind, "body").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
-				}
 				ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
 					theme.Text(c, it.Name, "title").TextColor(theme.C("ink")).MaxLines(2).Shrink(1).MinWidth(0)
 					if it.Explicit {
 						kit.ExplicitMark(c).Shrink(0)
 					}
 				})
-				if it.Subtitle != "" {
-					theme.Text(c, it.Subtitle, "body").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
+				if meta := itemMeta(it); meta != "" {
+					theme.Text(c, meta, "body").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
 				}
 			})
 		}
@@ -236,6 +233,7 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 			if role == ui.RoleButton {
 				// Named by its visible text (WCAG 2.5.3), with the action after it.
 				main.Label(it.Name + ", " + i18n.T("Play"))
+				main.Description(itemMeta(it))
 			} else {
 				main.Label(strings.TrimSpace(it.Name + " " + itemMeta(it)))
 			}
