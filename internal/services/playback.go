@@ -33,6 +33,10 @@ type PlaybackService struct {
 
 	mu   sync.Mutex
 	meta map[string]trackMeta // by coordinator.Item.ID
+	// replMu guards replCancel, which ends the queue-replacing command (PlayItems,
+	// PlayLibrary) still resolving its songs when a later one starts.
+	replMu     sync.Mutex
+	replCancel context.CancelCauseFunc
 
 	volMu    sync.Mutex
 	volTimer *time.Timer
@@ -299,20 +303,47 @@ func metaOf(t dbq.Track, src Source) trackMeta {
 	return m
 }
 
-// resolve turns refs into coordinator items from SQLite (falling back to
-// the catalog for catalog songs not stored yet). Unplayable songs and
-// songs not out yet are dropped; start is remapped to the same song, and
-// fails with not_playable or not_released when that song itself is one.
+// resolved is one ref turned into a queue slot, or why it can't be.
+type resolved struct {
+	item coordinator.Item
+	meta trackMeta
+	err  error
+}
+
+// errNotStored is resolveStored's answer for a catalog song with no row in
+// SQLite yet: resolve fetches those together.
+var errNotStored = errors.New("song not stored")
+
+// resolve turns refs into coordinator items from SQLite. The catalog songs
+// not stored yet (a chart, search results or a room: their songs are only
+// stored once fetched on their own) are fetched together, one request per
+// hundred, never one per song: the start song waits on that and on nothing
+// else, so playback begins about one round trip after the click, whatever the
+// queue's length. Unplayable songs and songs not out yet are dropped; start
+// is remapped to the same song, and fails with not_playable or not_released
+// when that song itself is one.
 func (s *PlaybackService) resolve(ctx context.Context, refs []TrackRef, start int) ([]coordinator.Item, int, error) {
 	if start < 0 || (len(refs) > 0 && start >= len(refs)) {
 		return nil, 0, fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(refs))
+	}
+	slots := make([]resolved, len(refs))
+	var fetch []int
+	for i, r := range refs {
+		slots[i].item, slots[i].meta, slots[i].err = s.resolveStored(ctx, r)
+		if errors.Is(slots[i].err, errNotStored) {
+			fetch = append(fetch, i)
+		}
+	}
+	if len(fetch) > 0 {
+		if err := s.fetchSongs(ctx, refs, slots, fetch); err != nil {
+			return nil, 0, err
+		}
 	}
 	items := make([]coordinator.Item, 0, len(refs))
 	metas := make([]trackMeta, 0, len(refs))
 	newStart := -1
 	for i, r := range refs {
-		it, m, err := s.resolveOne(ctx, r)
-		if err != nil {
+		if err := slots[i].err; err != nil {
 			if i == start {
 				return nil, 0, err
 			}
@@ -325,8 +356,8 @@ func (s *PlaybackService) resolve(ctx context.Context, refs []TrackRef, start in
 		if i == start {
 			newStart = len(items)
 		}
-		items = append(items, it)
-		metas = append(metas, m)
+		items = append(items, slots[i].item)
+		metas = append(metas, slots[i].meta)
 	}
 	s.mu.Lock()
 	for i, it := range items {
@@ -336,7 +367,41 @@ func (s *PlaybackService) resolve(ctx context.Context, refs []TrackRef, start in
 	return items, max(newStart, 0), nil
 }
 
-func (s *PlaybackService) resolveOne(ctx context.Context, r TrackRef) (coordinator.Item, trackMeta, error) {
+// fetchSongs fills slots[i] for every i in fetch (catalog songs resolveStored
+// didn't find) from one batched catalog lookup. A song Apple doesn't serve in
+// the storefront fails its slot with not_found, which drops it like any
+// unplayable one; a failed lookup fails them all.
+func (s *PlaybackService) fetchSongs(ctx context.Context, refs []TrackRef, slots []resolved, fetch []int) error {
+	ids := make([]string, len(fetch))
+	for k, i := range fetch {
+		ids[k] = refs[i].ID
+	}
+	songs, err := s.o.Catalog.Songs(ctx, ids)
+	if err != nil {
+		s.o.Report(err)
+		return err
+	}
+	for _, i := range fetch {
+		r := refs[i]
+		so, ok := songs[r.ID]
+		if !ok {
+			slots[i] = resolved{err: fmt.Errorf("song %s: %w", r.ID, applemusic.ErrNotFound)}
+			continue
+		}
+		if err := s.released(so.Attributes.ReleaseDate, func() string { return songAlbumDate(so) }); err != nil {
+			slots[i] = resolved{err: fmt.Errorf("track %s/%s: %w", r.Source, r.ID, err)}
+			continue
+		}
+		dto := s.m.amSong(so)
+		slots[i] = resolved{item: songItem(so), meta: trackMeta{source: SourceCatalog, id: r.ID, catalogID: r.ID, albumID: dto.AlbumID, artistID: dto.ArtistID}}
+	}
+	return nil
+}
+
+// resolveStored resolves r from SQLite alone: errNotStored for a catalog song
+// that isn't there. (A music video is looked up in the catalog, one request
+// each: videos are queued one at a time.)
+func (s *PlaybackService) resolveStored(ctx context.Context, r TrackRef) (coordinator.Item, trackMeta, error) {
 	switch r.Kind {
 	case "":
 	case TrackKindVideo:
@@ -354,17 +419,7 @@ func (s *PlaybackService) resolveOne(ctx context.Context, r TrackRef) (coordinat
 	case SourceCatalog:
 		t, err = s.o.DB.RQ.GetTrackByCatalogID(ctx, db.NullString(r.ID))
 		if errors.Is(err, sql.ErrNoRows) {
-			// Not cached yet: the catalog stores the song as it fetches it.
-			var so applemusic.Song
-			if so, err = s.o.Catalog.Song(ctx, r.ID); err != nil {
-				s.o.Report(err)
-				return coordinator.Item{}, trackMeta{}, err
-			}
-			if err := s.released(so.Attributes.ReleaseDate, func() string { return songAlbumDate(so) }); err != nil {
-				return coordinator.Item{}, trackMeta{}, fmt.Errorf("track %s/%s: %w", r.Source, r.ID, err)
-			}
-			dto := s.m.amSong(so)
-			return songItem(so), trackMeta{source: SourceCatalog, id: r.ID, catalogID: r.ID, albumID: dto.AlbumID, artistID: dto.ArtistID}, nil
+			return coordinator.Item{}, trackMeta{}, errNotStored
 		}
 	default:
 		return coordinator.Item{}, trackMeta{}, fmt.Errorf("%w: source %q", ErrInvalidArgument, r.Source)
@@ -508,13 +563,41 @@ func (s *PlaybackService) fail(err error) error {
 	return err
 }
 
+// errSuperseded is why a queue-replacing command that was still resolving
+// its songs ended: a later one took over.
+var errSuperseded = errors.New("playback: superseded by a later play command")
+
+// beginReplace starts a command that replaces the queue (PlayItems,
+// PlayLibrary) and ends the one still resolving its songs, so that a slow
+// lookup never lands after, and replaces, what the user chose last. Resolve
+// with the returned context; superseded says whether a later command took
+// over (it did: do nothing and report no failure, as the coordinator does for
+// its own superseded commands); end releases the context.
+func (s *PlaybackService) beginReplace(ctx context.Context) (rctx context.Context, superseded func() bool, end func()) {
+	rctx, cancel := context.WithCancelCause(ctx)
+	s.replMu.Lock()
+	if s.replCancel != nil {
+		s.replCancel(errSuperseded)
+	}
+	s.replCancel = cancel
+	s.replMu.Unlock()
+	return rctx, func() bool { return errors.Is(context.Cause(rctx), errSuperseded) }, func() { cancel(context.Canceled) }
+}
+
 // PlayItems replaces the queue with refs and plays refs[start]. from
 // names where they came from: its ID comes back as PlaybackState.Context
 // and, for an album, playlist or artist, is reported to Apple with the
-// plays. A replaced queue can be brought back with UndoReplace.
+// plays. A replaced queue can be brought back with UndoReplace. A later
+// PlayItems or PlayLibrary that arrives while this one still resolves its
+// songs ends it without a failure.
 func (s *PlaybackService) PlayItems(ctx context.Context, refs []TrackRef, start int, from PlayFrom) error {
 	s.logCmd("play-items")
-	items, i, err := s.resolve(ctx, refs, start)
+	rctx, superseded, end := s.beginReplace(ctx)
+	defer end()
+	items, i, err := s.resolve(rctx, refs, start)
+	if superseded() {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -561,7 +644,12 @@ func (s *PlaybackService) SetSleep(mode string, minutes int) error {
 // not out yet (by their own date or, without one, their album's) are left
 // out; not_released when it is the start song.
 func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, start int) error {
-	songs, err := s.o.Library.AllSongs(ctx, library.ListOptions{Sort: library.Sort(sort), Desc: desc})
+	rctx, superseded, end := s.beginReplace(ctx)
+	defer end()
+	songs, err := s.o.Library.AllSongs(rctx, library.ListOptions{Sort: library.Sort(sort), Desc: desc})
+	if superseded() {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
