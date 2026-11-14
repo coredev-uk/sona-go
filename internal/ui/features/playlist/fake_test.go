@@ -406,7 +406,14 @@ func (f *fakePlay) played() []string {
 // a router at start and a prefs file of its own. p.init has run.
 func testPlaylists(t *testing.T, start string) (*playlists, *fakeAPI, *fakePlay, *uitest.Harness, *ui.Router) {
 	t.Helper()
-	h := uitest.New(t, uitest.Bare())
+	return testPlaylistsWith(t, start, uitest.Bare())
+}
+
+// testPlaylistsWith is testPlaylists over a harness built with opts (without
+// Bare it has the artwork cache, so covers load).
+func testPlaylistsWith(t *testing.T, start string, opts ...uitest.Option) (*playlists, *fakeAPI, *fakePlay, *uitest.Harness, *ui.Router) {
+	t.Helper()
+	h := uitest.New(t, opts...)
 	router := ui.NewRouter(start)
 	h.Env.Nav = router
 	api, play := newFakeAPI(), &fakePlay{}

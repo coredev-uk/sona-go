@@ -288,7 +288,7 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 func disc(c *ui.Context, size float32) {
 	ui.Box(c.Key("disc")).Size(size, size).Shrink(0).Radius(theme.Current().Radius["full"]).Background(theme.C("play")).
 		Center().Role(ui.RoleNone).Children(func() {
-		theme.Glyph(c, "play", size*0.45, theme.GlyphOpts{Color: theme.C("on-play"), Filled: true}).Margin(0, 0, 0, 1)
+		kit.PlayGlyph(c, size*0.45, theme.GlyphOpts{Color: theme.C("on-play")})
 	})
 }
 
