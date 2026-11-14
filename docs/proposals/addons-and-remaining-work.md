@@ -126,6 +126,7 @@ A theme could name a font file inside the themes folder. This needs:
 It is the costliest theme change, because type metrics feed layout: every golden would need a check under a second font. **Decide:** build it, or close it as not planned.
 
 ### 8a. Accent selector for Sona's own themes
+**Done** in #286, with OLED's own colour changed to blue at the maintainer's request.
 Settings → Appearance gets an **Accent** row under the gallery for Sona, Graphite, Paper, High contrast and OLED. The accent is the "playing" colour, which these themes each fix today (amber, sky, teal, lime).
 - **Presets:**
   - **Theme default**, which is today's colour;
@@ -140,6 +141,7 @@ Settings → Appearance gets an **Accent** row under the gallery for Sona, Graph
   - goldens of OLED with two accents.
 
 ### 8b. A neutral board for Sona's own theme
+**Done** in #282, the 3:1 light floor included.
 Sona's board has a faint green-grey tint (OKLCH chroma 0.003–0.006 on the grounds, up to 0.013 on the lines, hue about 150), which dark mode shows. Make it neutral grey at the same lightness, so contrast is unchanged. Examples:
 - dark: ground `#121513` → `#141414`, surface `#171a18` → `#191919`, raised `#1e2220` → `#212121`, ink-muted `#a9b0aa` → `#aeaeae`;
 - light: ground `#f4f5f3` → `#f5f5f5`.
@@ -171,13 +173,23 @@ On the station page, Apple Music 1's large artwork shows thin light bars at its 
 - **Change:** find out whether that comes from the source art or from the box Sona requests. Fix it if Sona's request is the cause; otherwise record it as Apple's art.
 
 ### 13. Discover's lead advances by itself
+**Done** in #281. A click on one of the lead's controls left focus in the hero, and focus held the rotation until something else took it. Only keyboard focus holds it now.
 Reported in use: the featured lead on Discover doesn't move between slides. By design it moves every 7 s and holds while the pointer or focus is in it, a menu is open, or the window is hidden or unfocused.
 - **Change:** find why it stays put in a real session (focus, visibility, a hold that never releases, or the desktop's reduced-motion setting), fix it, and add a regression test. Under reduced motion, the lead changes instantly instead of sliding, unless the docs decide otherwise.
 - **Acceptance:** in a headless live run with the window focused, the lead changes after one interval; the pause control and every hold still work.
 
 ### 14. The Albums probe on a large library
+**Done** in #288. On a 650-album library, p95 is 17.1 ms and worst is 19.6 ms for both builds. The redesign dropped 7 frames of about 18,700 against the base's 1.
 #277's probe scrolled the 24-album fixture, about 590px. CONTRIBUTING.md suggests about 650 albums.
 - **Change:** run the interleaved probe (b259a43 against `main`) on a generated 650-album profile and record the result in `docs/redesign/probe.md`.
+
+## Fixed outside the plan
+Since this proposal was opened, these landed as their own PRs:
+- #280: Search's best match without the eyebrow, and Home without rank numbers (review findings).
+- #283: the playing glyph eases at 30 fps; it stepped three times a second.
+- #284: chart, search and room plays fetch their unstored songs in one batched request (about 9 s down to 0.3 s for 50 songs).
+- #285: Windows self-update, which never worked because the archive began with `./`. The host now lets go of `lib\` before the swap, and the sandbox's access is re-inherited after it.
+- #287: the album page's wide layout is a band in the cover's colour, replacing the sleeve column that ended mid-scroll.
 
 ## Order
 
