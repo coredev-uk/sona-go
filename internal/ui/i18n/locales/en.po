@@ -1851,6 +1851,18 @@ msgstr "Create playlist"
 msgid "Create station"
 msgstr "Create station"
 
+#: internal/ui/features/playlist/page.go
+msgid "Created today"
+msgstr "Created today"
+
+#: internal/ui/features/playlist/page.go
+msgid "Created yesterday"
+msgstr "Created yesterday"
+
+#: internal/ui/features/playlist/page.go
+msgid "Created {date}"
+msgstr "Created {date}"
+
 #: internal/ui/features/playlist/dialogs.go
 msgid "Creating…"
 msgstr "Creating…"
