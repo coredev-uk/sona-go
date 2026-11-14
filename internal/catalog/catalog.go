@@ -340,7 +340,7 @@ func StoreSong(ctx context.Context, q *dbq.Queries, s applemusic.Song, now int64
 		ArtworkTemplate: a.Artwork.Template(), DurationMs: a.DurationInMillis,
 		TrackNumber: int64(a.TrackNumber), DiscNumber: int64(a.DiscNumber), ReleaseDate: a.ReleaseDate,
 		Genre: cmp.Or(a.GenreNames...), ContentRating: a.ContentRating, HasLyrics: db.Bool(a.HasLyrics),
-		Isrc: a.ISRC, Composer: a.ComposerName, UpdatedAt: now,
+		Isrc: a.ISRC, Composer: a.ComposerName, NoPlayParams: db.Bool(a.PlayParams == nil), UpdatedAt: now,
 	})
 }
 

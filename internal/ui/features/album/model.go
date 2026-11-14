@@ -2,6 +2,7 @@ package album
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -62,20 +63,37 @@ type model struct {
 // catalogue album when that one is not out yet. Apple answers a pre-added
 // album's library entry without a releaseDate or isPrerelease, and the
 // library keeps what it last synced: the catalogue page, fetched with the
-// album, is the one that knows. The songs the album's library entry dates
-// not themselves are not out either (services.markUnreleased).
+// album, is the one that knows. Each song then follows the catalogue's copy of
+// itself (services.CatalogService.Album: out with playParams and no date
+// ahead): the library may be stale about a song, but a song out stays out
+// whatever its album's date says.
 func withCatalogueRelease(d services.AlbumDetail, page *services.CatalogAlbum, now time.Time) services.AlbumDetail {
 	if page == nil || !kit.IsUpcoming(page.Album, now) {
 		return d
 	}
 	d.Album.Prerelease, d.Album.ReleaseAt, d.Album.ReleaseDate = true, page.Album.ReleaseAt, page.Album.ReleaseDate
+	out := make(map[string]bool, len(page.Tracks))
+	for _, t := range page.Tracks {
+		out[t.CatalogID] = t.Playable
+		out[trackKey(t)] = t.Playable
+	}
 	d.Tracks = slices.Clone(d.Tracks)
-	for i := range d.Tracks {
-		if d.Tracks[i].ReleaseDate == "" {
+	for i, t := range d.Tracks {
+		playable, ok := out[t.CatalogID]
+		if !ok || t.CatalogID == "" {
+			playable, ok = out[trackKey(t)]
+		}
+		if ok && !playable {
 			d.Tracks[i].Playable = false
 		}
 	}
 	return d
+}
+
+// trackKey names a song by its place on the album, for a library song with
+// no catalogue ID of its own (one not out has none yet).
+func trackKey(s services.Song) string {
+	return fmt.Sprintf("%d/%d", s.DiscNumber, s.TrackNumber)
 }
 
 // releaseMemo keeps the last withCatalogueRelease, so the track list is
@@ -89,13 +107,14 @@ type releaseMemo struct {
 
 // releaseKey is what the answer depends on: the loaded tracks (the slice
 // the query hands out is the same until it reloads), and the catalogue
-// album's release.
+// album's release and tracks.
 type releaseKey struct {
 	first *services.Song
 	n     int
 	id    string
 	at    int64
 	date  string
+	songs *services.Song
 }
 
 // of is withCatalogueRelease(d, page, now), from the memo when d and the
@@ -107,6 +126,9 @@ func (m *releaseMemo) of(d services.AlbumDetail, page *services.CatalogAlbum, no
 	k := releaseKey{n: len(d.Tracks), id: d.Album.ID, at: page.Album.ReleaseAt, date: page.Album.ReleaseDate}
 	if len(d.Tracks) > 0 {
 		k.first = &d.Tracks[0]
+	}
+	if len(page.Tracks) > 0 {
+		k.songs = &page.Tracks[0]
 	}
 	if !m.valid || m.key != k {
 		m.key, m.valid, m.out = k, true, withCatalogueRelease(d, page, now)

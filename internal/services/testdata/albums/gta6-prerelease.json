@@ -1,0 +1,969 @@
+{
+  "data": [
+    {
+      "id": "6812476961",
+      "type": "albums",
+      "href": "/v1/catalog/gb/albums/6812476961",
+      "attributes": {
+        "artistName": "Various Artists",
+        "artwork": {
+          "bgColor": "7e8db8",
+          "hasP3": false,
+          "height": 1425,
+          "textColor1": "130d1b",
+          "textColor2": "1c162b",
+          "textColor3": "28273a",
+          "textColor4": "2f2e47",
+          "url": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/5d/d3/1c/5dd31c9c-1e1c-0bbc-104f-4a42e2bb4c59/075679556424.jpg/{w}x{h}bb.jpg",
+          "width": 1425
+        },
+        "audioTraits": [
+          "lossless",
+          "lossy-stereo"
+        ],
+        "contentRating": "explicit",
+        "copyright": "℗ 2026 Atlantic Recording Corporation and Take-Two Interactive Software, Inc.",
+        "genreNames": [
+          "Soundtrack",
+          "Music"
+        ],
+        "isCompilation": true,
+        "isComplete": false,
+        "isMasteredForItunes": false,
+        "isPrerelease": true,
+        "isSingle": false,
+        "name": "Grand Theft Auto VI: The Album",
+        "playParams": {
+          "id": "6812476961",
+          "kind": "album"
+        },
+        "recordLabel": "Atlantic Records",
+        "releaseDate": "2026-11-20",
+        "trackCount": 34,
+        "upc": "075679556424"
+      },
+      "relationships": {
+        "artists": {
+          "href": "/v1/catalog/gb/albums/6812476961/artists",
+          "data": []
+        },
+        "genres": {
+          "href": "/v1/catalog/gb/albums/6812476961/genres",
+          "data": [
+            {
+              "id": "16",
+              "type": "genres",
+              "href": "/v1/catalog/gb/genres/16",
+              "attributes": {
+                "name": "Soundtrack",
+                "parentId": "34"
+              }
+            },
+            {
+              "id": "34",
+              "type": "genres",
+              "href": "/v1/catalog/gb/genres/34",
+              "attributes": {
+                "name": "Music"
+              }
+            }
+          ]
+        },
+        "tracks": {
+          "href": "/v1/catalog/gb/albums/6812476961/tracks",
+          "data": [
+            {
+              "id": "6812476962",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812476962",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606641",
+                "name": "Track 1",
+                "previews": [],
+                "trackNumber": 1
+              }
+            },
+            {
+              "id": "6812476964",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812476964",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "Yung Lean",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Emmanuel Hailemariam, Jonatan Aron Leandoer Håstad, Leland Tyler Wayne, Nayvadius Wilburn & Rami Dawod",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 161733,
+                "genreNames": [
+                  "Hip-Hop/Rap",
+                  "Music"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606642",
+                "name": "That's It (feat. Future & Metro Boomin)",
+                "playParams": {
+                  "id": "6812476964",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/0d/8b/5f/0d8b5f30-ebee-0ecd-0609-52c4232107af/mzaf_17507104805635088160.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2026-09-17",
+                "trackNumber": 2
+              }
+            },
+            {
+              "id": "6812477266",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477266",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606643",
+                "name": "Track 3",
+                "previews": [],
+                "trackNumber": 3
+              }
+            },
+            {
+              "id": "6812477268",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477268",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "Travis Scott",
+                "audioTraits": [
+                  "hi-res-lossless",
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Guy-Manuel de Homem-Christo & Jacques Webster II",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 180000,
+                "genreNames": [
+                  "Hip-Hop/Rap",
+                  "Music"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606644",
+                "name": "RHYNO",
+                "playParams": {
+                  "id": "6812477268",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/ab/c9/f0/abc9f025-df7c-a497-c418-1927afaae23b/mzaf_4045237351786511867.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2026-09-17",
+                "trackNumber": 4
+              }
+            },
+            {
+              "id": "6812477269",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477269",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "CA7RIEL & Paco Amoroso, PinkPantheress, Fred again.. & Etienne de Crécy",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Boo, Carl Hampton, Catriel Guerreiro, Etienne de Crécy, Fred Gibson, Homer Banks, PinkPantheress, Raymond Jackson, Ulises Guerriero & Vicente Jimenez Gomez",
+                "discNumber": 1,
+                "durationInMillis": 195840,
+                "genreNames": [
+                  "Pop",
+                  "Music",
+                  "Dance"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606645",
+                "name": "Sexy Magic",
+                "playParams": {
+                  "id": "6812477269",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/9d/4b/ec/9d4becbd-5e91-3b1f-9464-1cd464f0ed03/mzaf_1804629593676779959.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2026-09-17",
+                "trackNumber": 5
+              }
+            },
+            {
+              "id": "6812477273",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477273",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "Justice, King Gizzard & The Lizard Wizard, Tame Impala & SZA",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "discNumber": 1,
+                "durationInMillis": 221190,
+                "genreNames": [
+                  "Alternative",
+                  "Music",
+                  "Pop"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606646",
+                "name": "Flower In A Hurricane",
+                "playParams": {
+                  "id": "6812477273",
+                  "kind": "song"
+                },
+                "previews": [],
+                "trackNumber": 6
+              }
+            },
+            {
+              "id": "6812477282",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477282",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606647",
+                "name": "Track 7",
+                "previews": [],
+                "trackNumber": 7
+              }
+            },
+            {
+              "id": "6812477290",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477290",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "Morgan Wallen",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Blake Pendergrass, Chase McGill, John Byron, Morgan Wallen & Ryan Vojtesak",
+                "discNumber": 1,
+                "durationInMillis": 196000,
+                "genreNames": [
+                  "Country",
+                  "Music"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606648",
+                "name": "Last Thing You Need",
+                "playParams": {
+                  "id": "6812477290",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/4e/e5/3b/4ee53b41-7545-b0a0-2fbd-04c4fd4e6919/mzaf_16024730284648828924.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2026-09-17",
+                "trackNumber": 8
+              }
+            },
+            {
+              "id": "6812477297",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477297",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606649",
+                "name": "Track 9",
+                "previews": [],
+                "trackNumber": 9
+              }
+            },
+            {
+              "id": "6812477298",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477298",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "Fuerza Regida",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Carlos Daniel Gutierrez Trujillo, Diego Armando Millán Medrano, Garrison Webster, Javier Mercado, Jesus Ortiz Paz, Jonathan Caro & Oswaldo Yahir López Alderete",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 111655,
+                "genreNames": [
+                  "Latin",
+                  "Music",
+                  "Regional Mexican"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606650",
+                "name": "Suzuki",
+                "playParams": {
+                  "id": "6812477298",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/8d/05/e4/8d05e47c-8e04-078d-a9d5-adc04a1dd407/mzaf_15533124657097233225.plus.aac.p.m4a"
+                  }
+                ],
+                "releaseDate": "2026-10-08",
+                "trackNumber": 10
+              }
+            },
+            {
+              "id": "6812477299",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477299",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "Rauw Alejandro",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Carlos Samuel Vega, Jorge Cedeño Echevarria, Nino Karlo Segarra & Raul Alejandro Ocasio Ruiz",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 173882,
+                "genreNames": [
+                  "Latin",
+                  "Music"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606651",
+                "name": "Macacoa 2000",
+                "playParams": {
+                  "id": "6812477299",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/07/b4/25/07b42549-4dfe-b40a-f27c-c4b46874f5aa/mzaf_7335973796547797575.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2026-09-17",
+                "trackNumber": 11
+              }
+            },
+            {
+              "id": "6812477300",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477300",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606652",
+                "name": "Track 12",
+                "previews": [],
+                "trackNumber": 12
+              }
+            },
+            {
+              "id": "6812477301",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477301",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606653",
+                "name": "Track 13",
+                "previews": [],
+                "trackNumber": 13
+              }
+            },
+            {
+              "id": "6812477302",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477302",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606654",
+                "name": "Track 14",
+                "previews": [],
+                "trackNumber": 14
+              }
+            },
+            {
+              "id": "6812477303",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477303",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606655",
+                "name": "Track 15",
+                "previews": [],
+                "trackNumber": 15
+              }
+            },
+            {
+              "id": "6812477304",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477304",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606656",
+                "name": "Track 16",
+                "previews": [],
+                "trackNumber": 16
+              }
+            },
+            {
+              "id": "6812477305",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477305",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606657",
+                "name": "Track 17",
+                "previews": [],
+                "trackNumber": 17
+              }
+            },
+            {
+              "id": "6812477306",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477306",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606658",
+                "name": "Track 18",
+                "previews": [],
+                "trackNumber": 18
+              }
+            },
+            {
+              "id": "6812477308",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477308",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "Cardi B",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "ANDERSON HERNANDEZ, Andre Betts, Belcalis Almanzar, Jordan Thorpe & Timothy Mosley",
+                "contentRating": "explicit",
+                "discNumber": 1,
+                "durationInMillis": 164200,
+                "genreNames": [
+                  "Hip-Hop/Rap",
+                  "Music"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606659",
+                "name": "Don't Chart",
+                "playParams": {
+                  "id": "6812477308",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b6/6a/4c/b66a4cc4-0579-44e0-6afb-696c47505682/mzaf_18309827104590306668.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2026-10-08",
+                "trackNumber": 19
+              }
+            },
+            {
+              "id": "6812477309",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477309",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606660",
+                "name": "Track 20",
+                "previews": [],
+                "trackNumber": 20
+              }
+            },
+            {
+              "id": "6812477311",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477311",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606661",
+                "name": "Track 21",
+                "previews": [],
+                "trackNumber": 21
+              }
+            },
+            {
+              "id": "6812477312",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477312",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "Tove Lo",
+                "audioTraits": [
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Ilya Salmanzadeh, Ludvig Söderberg & Tove Lo",
+                "discNumber": 1,
+                "durationInMillis": 161220,
+                "genreNames": [
+                  "Pop",
+                  "Music",
+                  "Electronic"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606662",
+                "name": "Blood In Your Eyes",
+                "playParams": {
+                  "id": "6812477312",
+                  "kind": "song"
+                },
+                "previews": [],
+                "trackNumber": 22
+              }
+            },
+            {
+              "id": "6812477313",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477313",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606663",
+                "name": "Track 23",
+                "previews": [],
+                "trackNumber": 23
+              }
+            },
+            {
+              "id": "6812477314",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477314",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606664",
+                "name": "Track 24",
+                "previews": [],
+                "trackNumber": 24
+              }
+            },
+            {
+              "id": "6812477315",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477315",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606665",
+                "name": "Track 25",
+                "previews": [],
+                "trackNumber": 25
+              }
+            },
+            {
+              "id": "6812477316",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477316",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606666",
+                "name": "Track 26",
+                "previews": [],
+                "trackNumber": 26
+              }
+            },
+            {
+              "id": "6812477317",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477317",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606667",
+                "name": "Track 27",
+                "previews": [],
+                "trackNumber": 27
+              }
+            },
+            {
+              "id": "6812477318",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477318",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606668",
+                "name": "Track 28",
+                "previews": [],
+                "trackNumber": 28
+              }
+            },
+            {
+              "id": "6812477319",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477319",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606669",
+                "name": "Track 29",
+                "previews": [],
+                "trackNumber": 29
+              }
+            },
+            {
+              "id": "6812477320",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477320",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606670",
+                "name": "Track 30",
+                "previews": [],
+                "trackNumber": 30
+              }
+            },
+            {
+              "id": "6812477321",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477321",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606671",
+                "name": "Track 31",
+                "previews": [],
+                "trackNumber": 31
+              }
+            },
+            {
+              "id": "6812477507",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477507",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "Keith Richards",
+                "audioTraits": [
+                  "hi-res-lossless",
+                  "lossless",
+                  "lossy-stereo"
+                ],
+                "composerName": "Jimmy Reed",
+                "discNumber": 1,
+                "durationInMillis": 210910,
+                "genreNames": [
+                  "Rock",
+                  "Music",
+                  "Folk"
+                ],
+                "hasLyrics": true,
+                "hasTimeSyncedLyrics": true,
+                "isrc": "USAT22606672",
+                "name": "Bright Lights, Big City",
+                "playParams": {
+                  "id": "6812477507",
+                  "kind": "song"
+                },
+                "previews": [
+                  {
+                    "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/28/f6/b5/28f6b56c-3202-ab92-6b6d-57b9dc21cf09/mzaf_8961330712946852514.plus.aac.ep.m4a"
+                  }
+                ],
+                "releaseDate": "2026-09-17",
+                "trackNumber": 32
+              }
+            },
+            {
+              "id": "6812477515",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477515",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606673",
+                "name": "Track 33",
+                "previews": [],
+                "trackNumber": 33
+              }
+            },
+            {
+              "id": "6812477516",
+              "type": "songs",
+              "href": "/v1/catalog/gb/songs/6812477516",
+              "attributes": {
+                "albumArtistName": "Various Artists",
+                "albumName": "Grand Theft Auto VI: The Album",
+                "artistName": "unknown",
+                "audioTraits": [],
+                "discNumber": 1,
+                "genreNames": [
+                  "Soundtrack",
+                  "Music"
+                ],
+                "hasLyrics": false,
+                "hasTimeSyncedLyrics": false,
+                "isrc": "USAT22606674",
+                "name": "Track 34",
+                "previews": [],
+                "trackNumber": 34
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

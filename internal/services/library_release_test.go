@@ -68,7 +68,9 @@ func TestLibSongRelease(t *testing.T) {
 		{"no playParams on an album ahead", library.Song{LibraryID: "i.1", NoPlayParams: true, Album: ahead}, release.Add(-time.Hour), false},
 		{"no playParams, no date, the album's date has passed", library.Song{LibraryID: "i.1", NoPlayParams: true, Album: ahead}, release, true},
 		{"no playParams, a year-only album still flagged", library.Song{LibraryID: "i.1", NoPlayParams: true, Album: library.ReleaseState{CatalogDate: "2027", Prerelease: true}}, release, false},
-		{"playParams but no date of its own on an album ahead", library.Song{LibraryID: "i.1", Album: ahead}, release.Add(-time.Hour), false},
+		// Apple gives some singles playParams and no releaseDate (Flower In A
+		// Hurricane, GTA VI): the song is out whatever its album says.
+		{"playParams but no date of its own on an album ahead", library.Song{LibraryID: "i.1", Album: ahead}, release.Add(-time.Hour), true},
 		{"a song out, on an album ahead", library.Song{LibraryID: "i.1", ReleaseDate: "2026-09-17", Album: ahead}, release.Add(-time.Hour), true},
 		{"a song dated ahead", library.Song{LibraryID: "i.1", ReleaseDate: "2026-12-01"}, release, false},
 		// Apple dates only the songs already out, and PlaybackService plays a
@@ -90,7 +92,8 @@ func TestLibSongRelease(t *testing.T) {
 
 // preAddedStore holds a pre-added library album as the sync stores it: no
 // library release date, the catalog's date and flag, one song out (dated, with
-// playParams) and two not (neither).
+// playParams), one out with playParams but no date of its own, and two not
+// (neither).
 func preAddedStore(t *testing.T) *db.DB {
 	t.Helper()
 	ctx := t.Context()
@@ -112,7 +115,7 @@ func preAddedStore(t *testing.T) *db.DB {
 	for i, tr := range []struct {
 		id, date     string
 		noPlayParams int64
-	}{{"i.out", "2026-09-17", 0}, {"i.later", "", 1}, {"i.last", "", 1}} {
+	}{{"i.out", "2026-09-17", 0}, {"i.later", "", 1}, {"i.last", "", 1}, {"i.single", "", 0}} {
 		ref, err := d.Q.UpsertLibraryTrack(ctx, dbq.UpsertLibraryTrackParams{
 			LibraryID: db.NullString(tr.id), Name: tr.id, AlbumLibraryID: db.NullString("l.soon"),
 			TrackNumber: int64(i + 1), DiscNumber: 1, ReleaseDate: tr.date, NoPlayParams: tr.noPlayParams, UpdatedAt: 1,
@@ -142,16 +145,16 @@ func TestLibraryAlbumDetailOfAPreAddedAlbum(t *testing.T) {
 	if !got.Album.Prerelease || got.Album.ReleaseAt != release.UnixMilli() || got.Album.ReleaseDate != "2026-11-20" {
 		t.Fatalf("album = %+v, want a pre-release out on 2026-11-20", got.Album)
 	}
-	if p := playables(got.Tracks); !slices.Equal(p, []bool{true, false, false}) {
-		t.Fatalf("playable = %v, want only the song already out", p)
+	if p := playables(got.Tracks); !slices.Equal(p, []bool{true, false, false, true}) {
+		t.Fatalf("playable = %v, want the songs already out (dated, or with playParams)", p)
 	}
 	// The song list shows the same, without the album page's help.
 	songs, err := s.Songs(ctx, "title", false, 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p := playables(songs.Items); !slices.Equal(p, []bool{false, false, true}) {
-		t.Fatalf("songs playable = %v (title order: i.last, i.later, i.out)", p)
+	if p := playables(songs.Items); !slices.Equal(p, []bool{false, false, true, true}) {
+		t.Fatalf("songs playable = %v (title order: i.last, i.later, i.out, i.single)", p)
 	}
 
 	// At midnight on the day it is out, and its songs play.
@@ -160,7 +163,7 @@ func TestLibraryAlbumDetailOfAPreAddedAlbum(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Album.Prerelease || got.Album.ReleaseAt != release.UnixMilli() || !slices.Equal(playables(got.Tracks), []bool{true, true, true}) {
+	if got.Album.Prerelease || got.Album.ReleaseAt != release.UnixMilli() || !slices.Equal(playables(got.Tracks), []bool{true, true, true, true}) {
 		t.Fatalf("released = %+v, playable %v", got.Album, playables(got.Tracks))
 	}
 }
@@ -175,7 +178,7 @@ func TestPlaybackRefusesPreAddedLibrarySongs(t *testing.T) {
 	now := localDay(t, "2026-11-01")
 	e := &Env{Deps: Deps{DB: d, Logger: discard(), Now: func() time.Time { return now }}}
 	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
-	refs := []TrackRef{{ID: "i.out", Source: SourceLibrary}, {ID: "i.later", Source: SourceLibrary}, {ID: "i.last", Source: SourceLibrary}}
+	refs := []TrackRef{{ID: "i.out", Source: SourceLibrary}, {ID: "i.later", Source: SourceLibrary}, {ID: "i.last", Source: SourceLibrary}, {ID: "i.single", Source: SourceLibrary}}
 
 	for _, start := range []int{1, 2} {
 		if _, _, err := s.resolve(ctx, refs, start); !errors.Is(err, ErrNotReleased) || CodeOf(err) != CodeNotReleased {
@@ -183,13 +186,13 @@ func TestPlaybackRefusesPreAddedLibrarySongs(t *testing.T) {
 		}
 	}
 	items, at, err := s.resolve(ctx, refs, 0)
-	if err != nil || len(items) != 1 || items[0].ID != "i.out" || at != 0 {
+	if err != nil || len(items) != 2 || items[0].ID != "i.out" || items[1].ID != "i.single" || at != 0 {
 		t.Fatalf("resolve from the song out = %+v, %d, %v", items, at, err)
 	}
 
 	now = localDay(t, "2026-11-20")
 	items, _, err = s.resolve(ctx, refs, 1)
-	if err != nil || len(items) != 3 {
+	if err != nil || len(items) != 4 {
 		t.Fatalf("resolve on release day = %+v, %v", items, err)
 	}
 }
@@ -218,7 +221,7 @@ func TestPlayLibraryRefusesPreAddedSongs(t *testing.T) {
 	e := &Env{Deps: Deps{DB: d, Library: library.New(d, nil), Coord: coord, Logger: discard(), Now: func() time.Time { return now }}}
 	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
 
-	// By title: i.last, i.later (neither out), i.out.
+	// By title: i.last, i.later (neither out), i.out, i.single (out).
 	for _, start := range []int{0, 1} {
 		if err := s.PlayLibrary(ctx, "title", false, start); CodeOf(err) != CodeNotReleased {
 			t.Fatalf("start %d: %v, want not_released", start, err)
@@ -231,15 +234,15 @@ func TestPlayLibraryRefusesPreAddedSongs(t *testing.T) {
 	for _, it := range s.Queue().Items {
 		ids = append(ids, it.ID)
 	}
-	if !slices.Equal(ids, []string{"i.out"}) {
-		t.Fatalf("queue = %v, want only the song out", ids)
+	if !slices.Equal(ids, []string{"i.out", "i.single"}) {
+		t.Fatalf("queue = %v, want only the songs out", ids)
 	}
 
 	now = localDay(t, "2026-11-20")
 	if err := s.PlayLibrary(ctx, "title", false, 0); err != nil {
 		t.Fatalf("on release day: %v", err)
 	}
-	if n := len(s.Queue().Items); n != 3 {
-		t.Fatalf("queue on release day has %d songs, want 3", n)
+	if n := len(s.Queue().Items); n != 4 {
+		t.Fatalf("queue on release day has %d songs, want 4", n)
 	}
 }

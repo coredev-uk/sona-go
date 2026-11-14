@@ -63,13 +63,22 @@ func TestUpcomingAlbumLeavesReleaseDayToTheCountdown(t *testing.T) {
 
 func TestWithCatalogueReleaseTakesAnUpcomingCataloguePage(t *testing.T) {
 	release := modelNow.Add(24 * time.Hour)
+	// The catalogue page says which songs are out: track 2 is not (no
+	// playParams), 1 and 3 are (3 has no releaseDate of its own, as Flower In A
+	// Hurricane on the GTA VI album).
 	upcoming := saltFlats(func(p *services.CatalogAlbum) {
 		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), "2026-11-05"
+		p.Tracks[1].Playable, p.Tracks[3].Playable = false, false
 	})
 	library := func() services.AlbumDetail {
 		d := services.AlbumDetail{
-			Album:  services.Album{ID: "l.9", Source: services.SourceLibrary, CatalogID: "100", ReleaseDate: ""},
-			Tracks: []services.Song{{ID: "i.1", Playable: true, ReleaseDate: "2026-09-17"}, {ID: "i.2", Playable: true}},
+			Album: services.Album{ID: "l.9", Source: services.SourceLibrary, CatalogID: "100", ReleaseDate: ""},
+			Tracks: []services.Song{
+				{ID: "i.1", CatalogID: "c1", Playable: true, ReleaseDate: "2026-09-17"},
+				{ID: "i.2", CatalogID: "c2", Playable: true},
+				{ID: "i.3", CatalogID: "c3", Playable: true},
+				{ID: "i.4", TrackNumber: 4, DiscNumber: 1, Playable: true}, // a library copy with no catalogue ID yet
+			},
 		}
 		return d
 	}
@@ -79,8 +88,8 @@ func TestWithCatalogueReleaseTakesAnUpcomingCataloguePage(t *testing.T) {
 	if !got.Album.Prerelease || got.Album.ReleaseAt != release.UnixMilli() || got.Album.ReleaseDate != "2026-11-05" {
 		t.Fatalf("album = %+v, want the catalogue's release state", got.Album)
 	}
-	if !got.Tracks[0].Playable || got.Tracks[1].Playable {
-		t.Errorf("playable = %v, %v: the dated song is out, the undated one is not", got.Tracks[0].Playable, got.Tracks[1].Playable)
+	if p := []bool{got.Tracks[0].Playable, got.Tracks[1].Playable, got.Tracks[2].Playable, got.Tracks[3].Playable}; !slices.Equal(p, []bool{true, false, true, false}) {
+		t.Errorf("playable = %v: each song follows the catalogue's copy of itself, not the album's date", p)
 	}
 	if !d.Tracks[1].Playable || d.Album.Prerelease {
 		t.Error("the loaded album was changed in place")
@@ -195,8 +204,9 @@ func TestReleaseMemoCopiesTheTracksOncePerLoad(t *testing.T) {
 	})
 	d := services.AlbumDetail{
 		Album:  services.Album{ID: "l.9", Source: services.SourceLibrary},
-		Tracks: []services.Song{{ID: "i.1", Playable: true}, {ID: "i.2", Playable: true, ReleaseDate: "2026-09-17"}},
+		Tracks: []services.Song{{ID: "i.1", CatalogID: "c1", Playable: true}, {ID: "i.2", CatalogID: "c2", Playable: true, ReleaseDate: "2026-09-17"}},
 	}
+	upcoming.Tracks[0].Playable = false
 	var m releaseMemo
 	first := m.of(d, &upcoming, modelNow)
 	again := m.of(d, &upcoming, modelNow.Add(time.Minute))

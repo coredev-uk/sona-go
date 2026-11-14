@@ -152,9 +152,6 @@ func (s *LibraryService) Album(ctx context.Context, id string) (AlbumDetail, err
 	}
 	tracks := mapSlice(songs, s.m.libSong)
 	album := s.m.libAlbum(a)
-	if album.Prerelease {
-		markUnreleased(tracks, s.m.clock())
-	}
 	return AlbumDetail{
 		Album:      album,
 		Tracks:     tracks,

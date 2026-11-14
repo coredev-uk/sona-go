@@ -124,9 +124,9 @@ type Song struct {
 	HasLyrics       bool   `json:"hasLyrics"`
 	// NoPlayParams: Apple gave the song no playParams, as for the songs of a
 	// pre-added album that are not out yet. Album is the release state of
-	// its library album, read for a song with no playParams or no
-	// releaseDate of its own; a song without a date goes by it, a dated
-	// one by its date, playParams or not; zero
+	// its library album, read only for a song with neither playParams nor a
+	// releaseDate of its own: it goes by its album. A dated song goes by its
+	// date, and one with playParams is out (a single can carry no date); zero
 	// otherwise, and when the album is not stored.
 	NoPlayParams bool         `json:"noPlayParams"`
 	Album        ReleaseState `json:"album"`
@@ -216,9 +216,9 @@ type DomainStatus struct {
 const trackColumns = `t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name,
 	t.album_library_id, t.artist_library_id, t.artwork_template, t.duration_ms,
 	t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.no_play_params,
-	CASE WHEN t.no_play_params = 1 OR t.release_date = '' THEN coalesce((SELECT al.is_prerelease FROM albums al WHERE al.library_id = t.album_library_id), 0) ELSE 0 END,
-	CASE WHEN t.no_play_params = 1 OR t.release_date = '' THEN coalesce((SELECT al.release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END,
-	CASE WHEN t.no_play_params = 1 OR t.release_date = '' THEN coalesce((SELECT al.catalog_release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END`
+	CASE WHEN t.no_play_params = 1 AND t.release_date = '' THEN coalesce((SELECT al.is_prerelease FROM albums al WHERE al.library_id = t.album_library_id), 0) ELSE 0 END,
+	CASE WHEN t.no_play_params = 1 AND t.release_date = '' THEN coalesce((SELECT al.release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END,
+	CASE WHEN t.no_play_params = 1 AND t.release_date = '' THEN coalesce((SELECT al.catalog_release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END`
 
 func scanSong(sc scanner) (Song, error) {
 	var s Song
@@ -233,8 +233,8 @@ func scanSong(sc scanner) (Song, error) {
 	return s, err
 }
 
-// songFromRow maps a stored track. A song without playParams or date also
-// gets its library album's release state (see Song.Album): from albums by
+// songFromRow maps a stored track. A song with neither playParams nor a date
+// also gets its library album's release state (see Song.Album): from albums by
 // library ID, which the caller has when it read the albums.
 func songFromRow(t dbq.Track, albums map[string]ReleaseState) Song {
 	s := Song{
@@ -245,7 +245,7 @@ func songFromRow(t dbq.Track, albums map[string]ReleaseState) Song {
 		Genre: t.Genre, Explicit: t.ContentRating == "explicit", HasLyrics: t.HasLyrics != 0,
 		NoPlayParams: t.NoPlayParams != 0,
 	}
-	if s.NoPlayParams || s.ReleaseDate == "" {
+	if s.NoPlayParams && s.ReleaseDate == "" {
 		s.Album = albums[s.AlbumLibraryID]
 	}
 	return s
