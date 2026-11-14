@@ -5,7 +5,7 @@ Status: draft for review. Nothing here is built yet.
 Since #277, `main` has the redesign of every page, themes (#276) and shuffle from the sidebar. This document plans what is still open:
 
 - **Add-ons** (plugins): a way to extend Sona from outside its own code.
-- **Fonts in themes:** left out of #276 on purpose.
+- **Themes:** fonts in themes (left out of #276 on purpose), an accent selector for Sona's own themes, and a neutral board for the default theme.
 - **Debts from #277:** gaps the redesign worked around rather than fixed.
 
 Each numbered item below is meant to land as its own branch and PR, in the order given. A PR that delivers an item ticks it here.
@@ -125,6 +125,28 @@ A theme could name a font file inside the themes folder. This needs:
 
 It is the costliest theme change, because type metrics feed layout: every golden would need a check under a second font. **Decide:** build it, or close it as not planned.
 
+### 8a. Accent selector for Sona's own themes
+Settings → Appearance gets an **Accent** row under the gallery for Sona, Graphite, Paper, High contrast and OLED. The accent is the "playing" colour, which these themes each fix today (amber, sky, teal, lime).
+- **Presets:**
+  - **Theme default**, which is today's colour;
+  - six named hues: Amber, Gold, Lime, Sky, Teal and Rose.
+  - Each hue holds light and dark values per theme (OLED is dark only), built into the theme files, not computed. A hue is offered for a theme only if that combination passes `theme.Validate`.
+- **What it changes:** `amber`, `amber-ink` and `on-amber`; the `play*` and `selection` roles follow. No other role may use it, so the rule that the spot colour only means "playing" holds.
+- **Settings:** `AccentID`, chosen per theme (a map from theme ID to accent), so switching back to OLED brings back its lime.
+- **Community palettes keep their own spot colour.** Later, a palette that publishes accents (Catppuccin's 14) could offer them through the same row.
+- **Acceptance:**
+  - `Validate` holds for every theme × hue that is offered;
+  - a gallery test checks the row shows only for themes that have accents, with radio semantics and keys;
+  - goldens of OLED with two accents.
+
+### 8b. A neutral board for Sona's own theme
+Sona's board has a faint green-grey tint (OKLCH chroma 0.003–0.006 on the grounds, up to 0.013 on the lines, hue about 150), which dark mode shows. Make it neutral grey at the same lightness, so contrast is unchanged. Examples:
+- dark: ground `#121513` → `#141414`, surface `#171a18` → `#191919`, raised `#1e2220` → `#212121`, ink-muted `#a9b0aa` → `#aeaeae`;
+- light: ground `#f4f5f3` → `#f5f5f5`.
+
+`docs/design.md`'s thesis ("a neutral, faintly green-grey board") and Colour section change with it. The goldens change in tone only.
+- **Acceptance:** `Validate` and the contrast test pass; goldens are regenerated and checked in light and dark.
+
 ## Debts from #277
 
 ### 9. `kit.TrackList`: a leading rank column and an extra column
@@ -150,6 +172,6 @@ On the station page, Apple Music 1's large artwork shows thin light bars at its 
 ## Order
 
 1. → 2. → 3. → 4. (the add-on v1)
-2. 9, 10 and 11 can go in parallel with the add-ons at any time.
+2. 8b, 9, 10 and 11 can go in parallel with the add-ons at any time. 8a comes after 8b, because it reads the neutral board.
 3. 8 needs a decision first.
 4. 5 → 6 → 7 after the add-on v1 is in use.
