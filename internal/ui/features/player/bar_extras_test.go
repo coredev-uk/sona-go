@@ -32,7 +32,8 @@ func TestTitleAndArtistLinkToPagesThatExist(t *testing.T) {
 	})
 	r.tt.MustClick("Song Title")
 	r.tt.MustClick("The Artist")
-	if want := []string{"/album/al.9?song=i.1", "/artist/ar.7"}; !slices.Equal(nav.Pushed, want) {
+	r.tt.MustClick("The Album")
+	if want := []string{"/album/al.9?song=i.1", "/artist/ar.7", "/album/al.9"}; !slices.Equal(nav.Pushed, want) {
 		t.Errorf("pushed %q, want %q", nav.Pushed, want)
 	}
 	if !r.tt.HasText("The Album") {
@@ -386,5 +387,28 @@ func TestAPausedOrRestoredVideoDoesNotOpenTheVideoView(t *testing.T) {
 	r.h.Main.Drain()
 	if !r.env.Video.IsOpen() {
 		t.Error("a loading video did not open the view")
+	}
+}
+
+func TestAlbumLinkIsIndependentOfTheArtist(t *testing.T) {
+	r := newRig(t, true)
+	nav := routed(r, true)
+	r.seed(func(s *services.PlaybackState) { s.Current.AlbumID = "al.9" })
+	r.tt.MustClick("The Album")
+	if want := []string{"/album/al.9"}; !slices.Equal(nav.Pushed, want) {
+		t.Errorf("pushed %q, want %q", nav.Pushed, want)
+	}
+	if !r.tt.HasText("The Artist") {
+		t.Errorf("the artist is missing: %q", r.tt.Texts())
+	}
+}
+
+func TestNoAlbumLinkWithoutAnIDOrRoute(t *testing.T) {
+	r := newRig(t, true)
+	nav := routed(r, true)
+	r.seed(func(s *services.PlaybackState) { s.Current.ArtistID = "ar.7" })
+	_ = r.tt.Click("The Album")
+	if len(nav.Pushed) != 0 {
+		t.Errorf("pushed %q for an album with no id", nav.Pushed)
 	}
 }
