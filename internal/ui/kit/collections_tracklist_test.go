@@ -262,8 +262,8 @@ func TestTrackListPlayingGlyphAnimatesWithoutRebuildingTheList(t *testing.T) {
 	}
 	builds, whole = 0, 0
 	prev, changes := append([]byte(nil), tt.Image().Pix...), 0
-	for range 60 { // two seconds
-		tt.Advance(33 * time.Millisecond)
+	for range 120 { // two seconds at 60 Hz
+		tt.Advance(time.Second / 60)
 		if cur := tt.Image().Pix; !bytes.Equal(cur, prev) {
 			changes++
 			prev = append(prev[:0], cur...)
@@ -272,8 +272,11 @@ func TestTrackListPlayingGlyphAnimatesWithoutRebuildingTheList(t *testing.T) {
 	if builds != 0 || whole != 0 {
 		t.Errorf("a playing glyph rebuilt the page %d times and painted it whole %d times in two seconds, want 0 and 0", builds, whole)
 	}
-	if changes < 12 {
-		t.Errorf("the glyph changed the picture %d times in two seconds, want a smooth movement", changes)
+	// A frame in which the glyph does not change the picture is a frame it
+	// stutters: the bars' tops move by fractions of a pixel, so nearly every
+	// frame shows a new picture.
+	if changes < 100 {
+		t.Errorf("the glyph changed the picture in %d of 120 frames in two seconds, want a smooth movement", changes)
 	}
 }
 
