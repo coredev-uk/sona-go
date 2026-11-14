@@ -55,6 +55,9 @@ type player struct {
 	// (PlatformService capabilities).
 	volume func() bool
 	now    func() time.Time
+	// volWheel turns the scrolling over the mute button and the slider into
+	// volume changes (kit.VolumeWheel).
+	volWheel kit.VolumeWheel
 	// rightW is the width of the bar's right group of controls as last laid
 	// out: the least its column keeps.
 	rightW float32

@@ -220,6 +220,11 @@ live region on Windows) and every toast.
 | Reorder a playlist in the editor | Alt+↑ / Alt+↓ on a focused row, announced |
 | Reorder pins in the sidebar | "Move up" in the pin's menu |
 
+Scrolling over the volume (a mouse wheel, a trackpad's swipe; `kit.VolumeWheel`)
+changes it too, as a convenience for the pointer only: the wrapper it sits on is
+not a stop and has no role, and the slider keeps its arrows, Page Up and Page
+Down, Home and End, with Ctrl+↑ and Ctrl+↓ (5% each) and M (mute) anywhere.
+
 ### Reduced motion
 
 The platform's reduce-motion setting and Sona's reduce-effects mode set
