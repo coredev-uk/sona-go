@@ -182,6 +182,39 @@ Reported in use: the featured lead on Discover doesn't move between slides. By d
 #277's probe scrolled the 24-album fixture, about 590px. CONTRIBUTING.md suggests about 650 albums.
 - **Change:** run the interleaved probe (b259a43 against `main`) on a generated 650-album profile and record the result in `docs/redesign/probe.md`.
 
+## Polish and consistency
+
+### 15. A pixel review of small marks and overlays
+Small things kept slipping through: the sidebar's play glyph sat off centre on its artwork, the playing glyph looked laggy twice, and a chevron promised something a click didn't do. The goldens didn't catch them, because the fixture's tiles are flat and a 20 px offset of 1 px is easy to miss at 1x.
+- **Review:** walk every place a small mark sits on or beside something else, at 1x and 2x with real covers, in light, dark and a community theme. That covers:
+  - play discs and glyphs over artwork (tiles, rows, the sidebar, the player bar);
+  - the playing glyph;
+  - badges (E, Lossless);
+  - checks and chevrons;
+  - tooltips;
+  - focus rings on artwork;
+  - the hover washes.
+- **Check each for:** optical centring (one rule for the play triangle, shared by every control that draws it), whole-pixel alignment with what it overlays, the same radius as what it covers, and motion that reads smooth on a 60–144 Hz display.
+- **Tooling:** a `uitest` helper that asserts one element's bounds equal another's ("this wash covers exactly that artwork"), and a script that renders 4x crops of a list of marks into one contact sheet for review.
+- **Acceptance:**
+  - every finding is fixed or listed with a reason;
+  - the helper guards each overlay that sits on artwork;
+  - the contact sheet is in the PR.
+
+### 16. An interaction-consistency review
+The same kind of thing should do the same thing everywhere. Choosing a song in search played it, while everywhere else choosing a result opens it.
+- **Review:** for each item kind (song, album, artist, playlist, station, video) on each surface:
+  - Search: suggestions, best match, compact rows, sections;
+  - Home and Discover shelves;
+  - the sidebar;
+  - track lists;
+  - the palette;
+  - context menus.
+
+  For each one, list what a click, a double-click, Enter, Shift+Enter, the Play disc and the right-click menu do, and what the visible cue (a chevron, a disc, an underline) promises.
+- **Rule to check against:** choosing a result opens its page; Play plays; a track list's row plays (it is a list of songs, as on album pages); a modifier never does something a cue doesn't hint at.
+- **Acceptance:** the table is in `docs/design.md`, every departure from it is fixed or argued there, and a `ui.Tester` test per surface pins its kind's action.
+
 ## Fixed outside the plan
 Since this proposal was opened, these landed as their own PRs:
 - #280: Search's best match without the eyebrow, and Home without rank numbers (review findings).
@@ -193,6 +226,6 @@ Since this proposal was opened, these landed as their own PRs:
 ## Order
 
 1. → 2. → 3. → 4. (the add-on v1)
-2. 8b, 9, 10, 11, 13 and 14 can go in parallel with the add-ons at any time. 8a comes after 8b, because it reads the neutral board.
+2. 8b, 9, 10, 11, 13 and 14 can go in parallel with the add-ons at any time. 8a comes after 8b, because it reads the neutral board. 15 and 16 can run any time, and best before a release.
 3. 8 needs a decision first.
 4. 5 → 6 → 7 after the add-on v1 is in use.
