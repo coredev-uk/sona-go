@@ -184,6 +184,24 @@ func (s *search) playSong(it services.Item) {
 	s.env.Queue.PlaySongs([]services.Song{*it.Song}, 0, services.PlayFrom{ID: it.Name})
 }
 
+// playable reports whether a result has a Play control of its own: a song
+// that streams here, or any other kind its player takes.
+func (s *search) playable(it services.Item) bool {
+	if it.Kind == services.ItemSong {
+		return it.Song != nil && it.Song.Playable
+	}
+	return s.env.Players.CanPlay(it)
+}
+
+// playResult plays a result that playable accepts.
+func (s *search) playResult(it services.Item) {
+	if it.Kind == services.ItemSong {
+		s.playSong(it)
+		return
+	}
+	s.env.Players.PlayItem(it)
+}
+
 // searchFrom is where songs played from search say they come from (v0.2.0's
 // playSongs(songs, i, "search")).
 var searchFrom = services.PlayFrom{ID: "search"}

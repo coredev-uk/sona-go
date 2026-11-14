@@ -191,8 +191,11 @@ func topFlow(c *ui.Context, wide bool) ui.Element {
 
 // bestMatch is the first top result large: the cover, its name at the title
 // size and its catalogue line (its kind, then its subtitle: "Album · Blue
-// Band · 2019"), with the amber Play disc where the result plays (opening it
-// is the panel). beside: it shares its line with the compact rows.
+// Band · 2019"). The panel opens the result's page (a song's included) and
+// the amber Play disc beside it plays it; only a result with no page here
+// (a library upload, a station that plays when opened) plays as a whole,
+// with the disc drawn into the panel. beside: it shares its line with the
+// compact rows.
 func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, focus, beside bool) {
 	v := &s.pages.search
 	tk := theme.Current()
@@ -261,13 +264,13 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 			}
 		}
 		// A result that opens a page and also plays has its own disc.
-		if role == ui.RoleLink && s.env.Players != nil && s.env.Players.CanPlay(it) {
+		if role == ui.RoleLink && s.playable(it) {
 			d := kit.PlayButton(c.Key("play"), i18n.T("Play {label}", "label", it.Name), 40)
 			if d.Clicked() {
 				if ctx.OnOpen != nil {
 					ctx.OnOpen(it)
 				}
-				s.env.Players.PlayItem(it)
+				s.playResult(it)
 			}
 		}
 		if menus != nil {

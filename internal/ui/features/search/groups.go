@@ -187,13 +187,26 @@ func itemMeta(it services.Item) string {
 	return i18n.Meta(kindLabel(it), it.Subtitle)
 }
 
-// itemPath is the Sona page a result opens, "" when it has none (a song
-// plays in place; a station with nothing to show plays or opens in the
-// browser; web-only items). The caller links only when env.Routed says
-// the page is ported.
+// itemPath is the Sona page a result opens, "" when it has none (a library
+// upload, which has no catalogue song to show; a station with nothing to
+// show plays or opens in the browser; web-only items). The caller links only
+// when env.Routed says the page is ported.
 func itemPath(it services.Item) string {
 	if it.Kind == services.ItemSong {
-		return ""
+		return songPath(it)
 	}
 	return kit.ItemLink(it)
+}
+
+// songPath is a song result's page: /song/{id} takes a catalogue ID, so a
+// library song opens the page of its catalogue copy; "" for one with none.
+func songPath(it services.Item) string {
+	id := it.ID
+	if s := it.Song; s != nil && s.Source == services.SourceLibrary {
+		id = s.CatalogID
+	}
+	if id == "" {
+		return ""
+	}
+	return kit.ItemLink(services.Item{Kind: services.ItemSong, ID: id})
 }

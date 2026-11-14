@@ -58,6 +58,8 @@ type pageApple struct {
 	// private and verified shape the profile; playlists how many it shares.
 	private, verified bool
 	playlists         int
+	// songFirst puts a song first in the top results: the best match.
+	songFirst bool
 }
 
 func newPageApple() *pageApple {
@@ -135,6 +137,10 @@ func (a *pageApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		songs := seq(1, a.songsFirst)
+		top := `{"id":"9","type":"artists"},{"id":"5","type":"albums"},{"id":"1","type":"songs"}`
+		if a.songFirst {
+			top = `{"id":"1","type":"songs"},{"id":"9","type":"artists"},{"id":"5","type":"albums"}`
+		}
 		var res []string
 		for _, n := range songs {
 			res = append(res, songJSON(n))
@@ -144,7 +150,7 @@ func (a *pageApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			next = fmt.Sprintf(`"next":"/v1/catalog/gb/search?groups=song&offset=%d&term=blue",`, a.songsFirst)
 		}
 		_, _ = fmt.Fprintf(w, `{"results":{
-			"top":{"data":[{"id":"9","type":"artists"},{"id":"5","type":"albums"},{"id":"1","type":"songs"}]},
+			"top":{"data":[%s]},
 			"artist":{"data":[{"id":"9","type":"artists"}]},
 			"album":{"data":[{"id":"5","type":"albums"}]},
 			"song":{%s"data":%s},
@@ -155,7 +161,7 @@ func (a *pageApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"albums":{"5":{"id":"5","type":"albums","attributes":{"name":"Blue Hour","artistName":"Blue Band","trackCount":10,%s}}},
 			"playlists":{"pl.1":{"id":"pl.1","type":"playlists","attributes":{"name":"Blue Mix","curatorName":"Apple Music",%s}}}},
 			"meta":{"results":{"order":["top","artist","album","song","playlist"]}}}`,
-			next, dataRefs("songs", songs...), strings.Join(res, ","), artwork(9), artwork(5), artwork(7))
+			top, next, dataRefs("songs", songs...), strings.Join(res, ","), artwork(9), artwork(5), artwork(7))
 	case "/v1/recommendations/gb":
 		_, _ = w.Write([]byte(`{"data":[{"id":"r1","type":"personal-recommendation"},{"id":"r2","type":"personal-recommendation"}],"resources":{
 			"personal-recommendation":{
@@ -342,6 +348,18 @@ func (r *pageRig) click(label string) {
 	}
 }
 
+// clickText clicks the first place the text shows, where a name that
+// repeats down the page (a song's, in the top results and in the track
+// list) has no label of its own to find it by.
+func (r *pageRig) clickText(text string) {
+	r.t.Helper()
+	rect, ok := r.tt.Find(text)
+	if !ok {
+		r.t.Fatalf("%q is not shown", text)
+	}
+	r.tt.ClickAt(rect.X+rect.W/2, rect.Y+rect.H/2)
+}
+
 func TestSearchPageWithoutAQueryShowsTheBrowseCategories(t *testing.T) {
 	r := newPageRig(t, "/search", rigOpts{signedIn: true})
 	r.tt.Until("the categories", r.tt.Shows("Search", "Browse categories", "Alternative", "Ibiza"))
@@ -499,18 +517,75 @@ func TestTopResultRowsOpenPagesAndRememberTheTermAndItem(t *testing.T) {
 	r.untilRecent("term:catalog:blue", "artist:Blue Band")
 }
 
-func TestTopResultSongRowPlaysInPlace(t *testing.T) {
+func TestTopResultSongRowOpensItsPageAndDoesNotPlay(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
 	r.tt.Until("the results", r.tt.Shows("Song · Blue Band"))
-	r.click("Blue Song 1, Play")
+	r.clickText("Blue Song 1") // the row's link: the first place the name shows
+	if got := r.loc(); got != "/song/1" {
+		t.Errorf("a song row went to %q, want its page", got)
+	}
+	r.untilRecent("term:catalog:blue", "song:Blue Song 1")
+	if r.play.plays() != 0 {
+		t.Errorf("opening a song played it %d times", r.play.plays())
+	}
+}
+
+func TestTopResultSongRowHasItsOwnPlayButton(t *testing.T) {
+	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
+	r.tt.Until("the results", r.tt.Shows("Song · Blue Band"))
+	r.click("Play Blue Song 1") // the row's own: the first on the page
 	if got := r.loc(); got != "/search?q=blue" {
-		t.Errorf("a song row navigated to %q", got)
+		t.Errorf("the Play button navigated to %q", got)
 	}
 	r.tt.Until("the song to play", func() bool { return r.play.plays() >= 1 })
 	if r.play.plays() != 1 {
 		t.Fatalf("played %d times, want 1", r.play.plays())
 	}
 	r.untilRecent("song:Blue Song 1")
+}
+
+func TestBestMatchSongOpensItsPage(t *testing.T) {
+	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, setup: func(a *pageApple) { a.songFirst = true }})
+	r.tt.Until("the results", r.tt.Shows("Song · Blue Band"))
+	r.clickText("Blue Song 1") // the panel: the first place the name shows
+	if got := r.loc(); got != "/song/1" {
+		t.Errorf("the best match went to %q, want the song's page", got)
+	}
+	r.untilRecent("term:catalog:blue", "song:Blue Song 1")
+	if r.play.plays() != 0 {
+		t.Errorf("opening the best match played it %d times", r.play.plays())
+	}
+}
+
+func TestBestMatchSongDiscPlaysIt(t *testing.T) {
+	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, setup: func(a *pageApple) { a.songFirst = true }})
+	r.tt.Until("the results", r.tt.Shows("Song · Blue Band"))
+	r.click("Play Blue Song 1") // the disc: the first on the page
+	if got := r.loc(); got != "/search?q=blue" {
+		t.Errorf("the disc navigated to %q", got)
+	}
+	r.tt.Until("the song to play", func() bool { return r.play.plays() >= 1 })
+	if r.play.plays() != 1 {
+		t.Fatalf("played %d times, want 1", r.play.plays())
+	}
+	r.play.mu.Lock()
+	defer r.play.mu.Unlock()
+	if len(r.play.refs[0]) != 1 || r.play.refs[0][0].ID != "1" {
+		t.Errorf("played %v, want the song alone", r.play.refs[0])
+	}
+}
+
+func TestBestMatchSongWithNoSongPagePlaysAsAWhole(t *testing.T) {
+	r := newPageRig(t, "/search?q=blue", rigOpts{
+		signedIn: true, setup: func(a *pageApple) { a.songFirst = true },
+		routes: func(p string) bool { return !strings.HasPrefix(p, "/song/") },
+	})
+	r.tt.Until("the results", r.tt.Shows("Song · Blue Band"))
+	r.click("Blue Song 1, Play")
+	if got := r.loc(); got != "/search?q=blue" {
+		t.Errorf("navigated to %q", got)
+	}
+	r.tt.Until("the song to play", func() bool { return r.play.plays() >= 1 })
 }
 
 func TestResultsLinkOnlyToPagesThatAreThere(t *testing.T) {
@@ -703,6 +778,37 @@ func TestPageGoldens(t *testing.T) {
 			r.tt.Until("the results", r.tt.Shows("Top results", "Songs", "Playlists", "Blue Song 8"))
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), name)
+		})
+	}
+}
+
+// TestPageSongGoldens: a song as the best match (the panel opens its page,
+// the amber disc beside it plays) and a song's compact row under the
+// pointer (its Play and More buttons shown), in both themes.
+func TestPageSongGoldens(t *testing.T) {
+	for _, dark := range []bool{false, true} {
+		suffix := "_light"
+		var opts []uitest.Option
+		if dark {
+			suffix, opts = "_dark", []uitest.Option{uitest.Dark()}
+		}
+		t.Run("best"+suffix, func(t *testing.T) {
+			r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 1132, height: 640,
+				setup: func(a *pageApple) { a.songFirst = true }}, opts...)
+			r.tt.Until("the results", r.tt.Shows("Top results", "Song · Blue Band"))
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), "page_song_best"+suffix)
+		})
+		t.Run("row"+suffix, func(t *testing.T) {
+			r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 1132, height: 640}, opts...)
+			r.tt.Until("the results", r.tt.Shows("Top results", "Song · Blue Band"))
+			rect, ok := r.tt.Find("Song · Blue Band")
+			if !ok {
+				t.Fatal("the song row is not shown")
+			}
+			r.tt.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), "page_song_row"+suffix)
 		})
 	}
 }

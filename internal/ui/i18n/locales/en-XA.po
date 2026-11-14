@@ -4515,6 +4515,7 @@ msgid "Play {artistName}'s top songs"
 msgstr ""
 
 #: internal/ui/features/artist/head.go
+#: internal/ui/features/search/itemrow.go
 #: internal/ui/features/search/results.go
 #: internal/ui/kit/button.go
 msgid "Play {label}"

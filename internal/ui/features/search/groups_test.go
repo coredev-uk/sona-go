@@ -121,12 +121,21 @@ func TestItemMetaJoinsKindAndSubtitle(t *testing.T) {
 	}
 }
 
-func TestItemPathSongsPlayInsteadOfLinking(t *testing.T) {
-	if got := itemPath(services.Item{Kind: services.ItemSong, ID: "1"}); got != "" {
-		t.Errorf("a song has page %q", got)
-	}
-	if got := itemPath(services.Item{Kind: services.ItemAlbum, ID: "5"}); got != "/album/5" {
-		t.Errorf("album page %q", got)
+func TestItemPathSongsOpenTheirSongPage(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		it   services.Item
+		want string
+	}{
+		{"catalogue song", services.Item{Kind: services.ItemSong, ID: "1"}, "/song/1"},
+		{"catalogue song with its payload", services.Item{Kind: services.ItemSong, ID: "1", Song: &services.Song{ID: "1", Source: services.SourceCatalog}}, "/song/1"},
+		{"library song with a catalogue copy", services.Item{Kind: services.ItemSong, ID: "i.4", Song: &services.Song{ID: "i.4", Source: services.SourceLibrary, CatalogID: "44"}}, "/song/44"},
+		{"library upload", services.Item{Kind: services.ItemSong, ID: "i.5", Song: &services.Song{ID: "i.5", Source: services.SourceLibrary}}, ""},
+		{"album", services.Item{Kind: services.ItemAlbum, ID: "5"}, "/album/5"},
+	} {
+		if got := itemPath(c.it); got != c.want {
+			t.Errorf("%s: page %q, want %q", c.name, got, c.want)
+		}
 	}
 }
 
