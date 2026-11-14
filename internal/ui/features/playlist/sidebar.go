@@ -39,6 +39,14 @@ const (
 	folderIndent = 14
 )
 
+// rowArtLeft is where a row's picture starts across, at folder depth depth:
+// the row's left padding (the shuffle button's wash is placed from the same
+// number, so it lies on the picture).
+func rowArtLeft(depth int) float32 { return 10 + float32(depth)*folderIndent }
+
+// rowArtTop is where a row's picture starts down: the row centres it.
+func rowArtTop() float32 { return (theme.Current().Metric["nav-row"] - rowArt) / 2 }
+
 // sidebar is the sidebar's UI state: one menu per row that has one, the item
 // menus, the folder a drag is resting on and the lists derived from the
 // tree. Main thread only.
@@ -341,7 +349,7 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAft
 			}
 			row = ui.ButtonBase(c.Key("open")).Label(pin.Name + suffix)
 		}
-		row.Grow(1).MinWidth(0).Padding(0, 32, 0, 10)
+		row.Grow(1).MinWidth(0).Padding(0, 32, 0, rowArtLeft(0))
 		fg := rowFace(row, hot, active, over)
 		row.Gap(rowArtGap)
 		if active {
@@ -359,7 +367,7 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAft
 		}
 		row.Children(func() { p.rowContent(c, pin.Art.Small, pin.Kind == "artist", pin.Name, fg, active) })
 		if pin.Kind == "playlist" {
-			p.shuffleButton(c, pin.ID, pin.Name, -1, 10, hot)
+			p.shuffleButton(c, pin.ID, pin.Name, -1, rowArtLeft(0), hot)
 		}
 
 		p.moreMenu(c, "pin:"+pin.ID, i18n.T("More for {pinName}", "pinName", pin.Name), hot, func() []kit.MenuItem {
@@ -419,7 +427,7 @@ func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth
 	wrap.Children(func() {
 		active := p.env.Nav != nil && p.env.Nav.Path() == path
 		row := ui.ButtonBase(c.Key("open")).Role(ui.RoleLink).Label(pl.Name).Grow(1).MinWidth(0).
-			Padding(0, 32, 0, 10+float32(depth)*folderIndent)
+			Padding(0, 32, 0, rowArtLeft(depth))
 		fg := rowFace(row, hot, active, over)
 		row.Gap(rowArtGap)
 		if active {
@@ -434,7 +442,7 @@ func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth
 		}
 		row.Children(func() { p.rowContent(c, pl.Art.Small, false, pl.Name, fg, active) })
 
-		p.shuffleButton(c, pl.ID, pl.Name, pl.TrackCount, 10+float32(depth)*folderIndent, hot)
+		p.shuffleButton(c, pl.ID, pl.Name, pl.TrackCount, rowArtLeft(depth), hot)
 		if am := p.sidebarActions(); am != nil {
 			ui.Box(c.Key("more")).Absolute().Top(4).Right(4).Children(func() {
 				am.Trigger(c, kit.ActionTarget{
@@ -471,7 +479,7 @@ func (p *playlists) shuffleReason(songs int) string {
 func (p *playlists) shuffleButton(c *ui.Context, id, plName string, songs int, left float32, hot bool) {
 	name := i18n.T("Shuffle {playlist}", "playlist", plName)
 	reason := p.shuffleReason(songs)
-	btn := ui.ButtonBase(c.Key("shuffle")).Absolute().Left(left).Top((theme.Current().Metric["nav-row"]-rowArt)/2).
+	btn := ui.ButtonBase(c.Key("shuffle")).Absolute().Left(left).Top(rowArtTop()).
 		Size(rowArt, rowArt).Center().Radius(theme.Current().Radius["sm"]).Cursor(ui.CursorPointer).
 		Background(theme.C("ground").Alpha(shuffleWash)).Label(name).TabStop(false).IgnoreInput(!hot)
 	kit.Fade(btn, hot)
@@ -480,7 +488,11 @@ func (p *playlists) shuffleButton(c *ui.Context, id, plName string, songs int, l
 		ink = theme.C("ink-faint")
 	}
 	btn.Children(func() {
-		theme.Glyph(c, "play", 12, theme.GlyphOpts{Color: ink, Filled: true}).Margin(0, 0, 0, 1)
+		// Lucide's triangle already sits right in its viewBox (its tip is
+		// at 21 of 24): centred as it is, it is half a pixel right of the
+		// wash's middle at 12, its mass half a pixel left, as optically
+		// centred as the glyph gets. A nudge on top pushed it a pixel right.
+		theme.Glyph(c, "play", 12, theme.GlyphOpts{Color: ink, Filled: true})
 	})
 	if reason != "" {
 		btn.AccessDisabled(true)
@@ -648,7 +660,7 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 		wrap := ui.Row(c.Key("row")).FillWidth()
 		hot := wrap.Hovered() || wrap.FocusWithin()
 		wrap.Children(func() {
-			row := ui.ButtonBase(c.Key("toggle")).Role(ui.RoleDisclosure).Label(f.Name).Expanded(open).Grow(1).MinWidth(0).Padding(0, 32, 0, 10+pad)
+			row := ui.ButtonBase(c.Key("toggle")).Role(ui.RoleDisclosure).Label(f.Name).Expanded(open).Grow(1).MinWidth(0).Padding(0, 32, 0, rowArtLeft(depth))
 			fg := rowFace(row, hot, false, false)
 			row.Gap(rowArtGap)
 			if row.Clicked() || p.springOpen(c, row, f.ID, open) {
