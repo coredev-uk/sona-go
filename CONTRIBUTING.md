@@ -301,7 +301,7 @@ if one of them skipped (the CDM tests are in no allow-list).
 
 ### Preview playback (tests without a Music User Token)
 
-`MUSIC_USER_TOKEN` is not a test credential: Apple refreshes it now and then, so a stored copy (`.env`, a repository secret) goes stale. Tests, CI and smoke runs that need audio play Apple's 30-second song previews instead, which need only the developer token Sona reads from Apple's web player: no `.env`, no Widevine CDM, no licence. (Apple's web player does the same when signed out: MusicKit JS `instance.previewOnly = true`, i.e. `playbackMode` `PREVIEW_ONLY`.)
+`MUSIC_USER_TOKEN` is not a test credential: Apple refreshes it now and then, so a stored copy (`.env`, a CI secret) goes stale. Tests, CI and smoke runs that need audio play Apple's 30-second song previews instead, which need only the developer token Sona reads from Apple's web player: no `.env`, no Widevine CDM, no licence. (Apple's web player does the same when signed out: MusicKit JS `instance.previewOnly = true`, i.e. `playbackMode` `PREVIEW_ONLY`.)
 
 - The app: `SONA_PREVIEW=1` (any build) plays every song as its preview, through a playback host that loads no CDM (still sandboxed, still without network). The player bar shows "Preview" beside the title. Songs are looked up in the account's storefront, or the locale's when signed out. Library uploads and radio have no preview and are skipped. Nothing reports a preview as a play: no Apple play activity, history or scrobble.
 - `go run ./cmd/playspike -preview [-storefront gb] [-device <sink>]` plays a song's preview, watches it advance, plays it out and starts the next one, with no `.env` and no CDM (none is downloaded). It ends with `licence: not requested` and fails if any webPlayback, certificate or licence request went out.
@@ -446,9 +446,13 @@ read` and widen per job only where needed; pin every action to a full commit
 SHA with the version in a comment (`uses: actions/checkout@<sha> # v7.0.1`;
 Renovate keeps pins current); `persist-credentials: false` on every checkout
 that doesn't push; pass expressions to scripts through `env:`, never inline
-in `run:`; secrets live in environments (`release`: Last.fm key/secret,
-Discord ID, deploys from main and `v*` tags; `live`: `MUSIC_USER_TOKEN`, main
-only), so no pull request run can read them. Run `actionlint` on changed
+in `run:`; secrets live in Proton Pass and are read with Proton's
+`protonpass/load-secret-action`; the `release` environment (main and `v*`
+tags) and the `live` environment (main only) each hold one secret,
+`PROTON_PASS_PERSONAL_ACCESS_TOKEN`, a viewer-only token for the vault "CI"
+(the update key, the Last.fm key and secret, the Discord ID and
+`MUSIC_USER_TOKEN`), so no pull request run can read
+them. Run `actionlint` on changed
 workflows. The test jobs run `.github/ci/test.sh` (gotestsum: a failing test
 is rerun twice; one that passes on a rerun passes the job and is listed in the
 job summary as flaky) and then `.github/ci/skips.sh` (the `finish-tests`
@@ -579,8 +583,10 @@ folder in place (design: `docs/architecture.md`, "Updates"). What a release
 needs:
 
 - The public key is `internal/update/update.pub` (embedded; empty means
-  updates are off). The private key is the `SONA_UPDATE_KEY` secret of the
-  `release` environment, from `go tool mygo keygen`; losing it strands the
+  updates are off). The private key is the `SONA_UPDATE_KEY` item of the Proton
+  Pass vault "CI" (the `release` environment's token reads it; a
+  master copy is in Development → Sona Update Signing Key), from `go tool mygo
+  keygen`; losing it strands the
   installs that exist. Never print it or commit it.
 - Release builds link MyGo's updater with `-ldflags "-X
   github.com/egoist/mygo.packageUpdateFeed=https://github.com/coredev-uk/sona-go/releases/latest/download/update-<target>.json

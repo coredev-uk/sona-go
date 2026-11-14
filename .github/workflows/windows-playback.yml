@@ -6,7 +6,9 @@
 #
 # Weekly (Mondays, like live.yml: Apple's side of it can change under us) and
 # on dispatch (Actions → Windows playback → Run workflow), from main: it needs
-# the secret MUSIC_USER_TOKEN of the `live` environment, which deploys only
+# the Proton Pass item "Apple Music User Token" (MUSIC_USER_TOKEN, vault
+# "CI"), read with the `live` environment's secret
+# PROTON_PASS_PERSONAL_ACCESS_TOKEN; that environment deploys only
 # to main (docs/security-review.md, "Workflows"), so it builds main and never
 # a branch; no pull request's CI depends on it (ci.yml's Windows job plays
 # previews with no secret). A failing scheduled run opens, or comments on, an
@@ -86,10 +88,19 @@ jobs:
       - name: Download the Widevine CDM
         run: go run ./cmd/cdmfetch -platform windows/amd64 -dir "$RUNNER_TEMP/widevine"
 
+      - name: Load the Apple Music user token from Proton Pass
+        uses: protonpass/load-secret-action@be14c10cac6d490da3b975dd33fc5ff55a5c5e7b # v1.1.0
+        with:
+          version: 2.7.0
+          hash: c752af109dbda98ad154dfcdb40e8e43f1a38bc37de224b6182647b625290bb7
+          export-env: "true"
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+          MUSIC_USER_TOKEN: pass://CI/Apple Music User Token/MUSIC_USER_TOKEN
+
       - name: Play a full track (private)
         env:
           SONA_PRIVATE: "1"
-          MUSIC_USER_TOKEN: ${{ secrets.MUSIC_USER_TOKEN }}
           # A scheduled run has no inputs: the defaults.
           SEEK: ${{ inputs.seek || '90' }}
           ARGS: ${{ inputs.args }}
