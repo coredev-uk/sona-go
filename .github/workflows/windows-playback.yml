@@ -6,8 +6,8 @@
 #
 # Weekly (Mondays, like live.yml: Apple's side of it can change under us) and
 # on dispatch (Actions → Windows playback → Run workflow), from main: it needs
-# the Proton Pass item "Apple Music user token" (MUSIC_USER_TOKEN, vault "Sona CI
-# live"), read with the `live` environment's secret
+# the Proton Pass item "Apple Music User Token" (MUSIC_USER_TOKEN, vault
+# "CI"), read with the `live` environment's secret
 # PROTON_PASS_PERSONAL_ACCESS_TOKEN; that environment deploys only
 # to main (docs/security-review.md, "Workflows"), so it builds main and never
 # a branch; no pull request's CI depends on it (ci.yml's Windows job plays
@@ -96,7 +96,7 @@ jobs:
           export-env: "true"
         env:
           PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
-          MUSIC_USER_TOKEN: pass://Sona CI/Apple Music user token/MUSIC_USER_TOKEN
+          MUSIC_USER_TOKEN: pass://CI/Apple Music User Token/MUSIC_USER_TOKEN
 
       - name: Play a full track (private)
         env:

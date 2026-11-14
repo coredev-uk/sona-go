@@ -449,8 +449,8 @@ that doesn't push; pass expressions to scripts through `env:`, never inline
 in `run:`; secrets live in Proton Pass and are read with Proton's
 `protonpass/load-secret-action`; the `release` environment (main and `v*`
 tags) and the `live` environment (main only) each hold one secret,
-`PROTON_PASS_PERSONAL_ACCESS_TOKEN`, a viewer-only token for the vault "Sona
-CI" (the update key, the Last.fm key and secret, the Discord ID and
+`PROTON_PASS_PERSONAL_ACCESS_TOKEN`, a viewer-only token for the vault "CI"
+(the update key, the Last.fm key and secret, the Discord ID and
 `MUSIC_USER_TOKEN`), so no pull request run can read
 them. Run `actionlint` on changed
 workflows. The test jobs run `.github/ci/test.sh` (gotestsum: a failing test
@@ -584,7 +584,7 @@ needs:
 
 - The public key is `internal/update/update.pub` (embedded; empty means
   updates are off). The private key is the `SONA_UPDATE_KEY` item of the Proton
-  Pass vault "Sona CI" (the `release` environment's token reads it; a
+  Pass vault "CI" (the `release` environment's token reads it; a
   master copy is in Development → Sona Update Signing Key), from `go tool mygo
   keygen`; losing it strands the
   installs that exist. Never print it or commit it.

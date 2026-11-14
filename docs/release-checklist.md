@@ -192,8 +192,8 @@ and Windows development builds in ci.yml never hold a release up), then the
   corrected one and its re-signed manifest (the key is the `release`
   environment's), or by the next release: the signature covers the bytes.
 - **Signing the manifests:** `go run ./cmd/releasesign` signs each archive's
-  SHA-256 with the Ed25519 key in the item "Update signing key" (field
-  `SONA_UPDATE_KEY`) of the Proton Pass vault "Sona CI" (the master
+  SHA-256 with the Ed25519 key in the item "Update Signing Key" (field
+  `SONA_UPDATE_KEY`) of the Proton Pass vault "CI" (the master
   copy is also in Development → Sona Update Signing Key; the file `go tool mygo keygen` wrote; the public key is
   `internal/update/update.pub`, linked into the macOS and Windows builds).
   Manifests are signed last, after the archives are uploaded. **Without the
@@ -205,16 +205,17 @@ and Windows development builds in ci.yml never hold a release up), then the
   with `secrets: inherit`, since a called workflow sees its environment's
   secret (the Proton Pass token) only that way; with the App secrets passed by name, v0.3.0 shipped
   without the credentials or manifests and was replaced by v0.3.1.
-- **Where the CI secrets live:** in Proton Pass, vault "Sona CI":
-  "Update signing key" (`SONA_UPDATE_KEY`), "Last.fm API" (`SONA_LASTFM_KEY`,
-  `SONA_LASTFM_SECRET`), "Discord app" (`SONA_DISCORD_CLIENT_ID`) and "Apple
-  Music user token" (`MUSIC_USER_TOKEN`, for the live checks). The `release`
+- **Where the CI secrets live:** in Proton Pass, vault "CI":
+  "Update Signing Key" (`SONA_UPDATE_KEY`), "Last.fm API" (`SONA_LASTFM_KEY`,
+  `SONA_LASTFM_SECRET`), "Discord App" (`SONA_DISCORD_CLIENT_ID`) and "Apple
+  Music User Token" (`MUSIC_USER_TOKEN`, for the live checks). Item titles
+  are matched exactly, case included. The `release`
   and `live` environments each hold one secret,
   `PROTON_PASS_PERSONAL_ACCESS_TOKEN`: the same token, `sona-ci`, viewer on
   that vault alone, which `protonpass/load-secret-action` uses to read them.
   **Rotate a value** by editing the item in Proton Pass; nothing changes in
   GitHub. **Renew the token** (it expires 2027-11-14) with `pass-cli pat
-  renew --pat-name sona-ci --expiration 1y`: it keeps its access to "Sona CI"
+  renew --pat-name sona-ci --expiration 1y`: it keeps its access to "CI"
   but prints a new token string and the old one stops working at once, so
   set the new one straight away with `gh secret set
   PROTON_PASS_PERSONAL_ACCESS_TOKEN --env release` and `--env live`. The
