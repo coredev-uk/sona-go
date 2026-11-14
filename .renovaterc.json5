@@ -28,6 +28,15 @@
       automerge: false,
       addLabels: ["verdict/review"],
     },
+    {
+      // Proton's tags (v1, v1.0.0, v1.1.0) ship no dist/index.js, so the
+      // workflows pin main's commit (v1.1.0 plus its build). Renovate would
+      // move that digest back to the tag's commit and break every secrets step;
+      // re-enable once a tagged release contains dist/.
+      description: "protonpass/load-secret-action: pinned by hand",
+      matchPackageNames: ["protonpass/load-secret-action"],
+      enabled: false,
+    },
     // Labeling rules
     {
       matchUpdateTypes: ["major"],
