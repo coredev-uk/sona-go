@@ -85,6 +85,31 @@ func SetTheme(id string) bool {
 	return state.active.ID == id
 }
 
+// SetAccent chooses the accent laid over the chosen theme (config.Settings.
+// Accents[ThemeID]; "" is the theme's own colour). An accent the theme does
+// not offer shows the theme's own colour, and stays chosen: it applies when
+// a theme that offers it is.
+func SetAccent(id string) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.accentID == id {
+		return
+	}
+	state.accentID = id
+	resolveLocked()
+}
+
+// ActiveAccent is the accent in use: the one SetAccent chose when the active
+// theme offers it, else "" (the theme's own colour).
+func ActiveAccent() string {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.active != nil && state.active.HasAccent(state.accentID) {
+		return state.accentID
+	}
+	return ""
+}
+
 // Requested is the ID the settings ask for; Active().ID differs from it when
 // no theme has that ID.
 func Requested() string {
@@ -145,7 +170,7 @@ func LoadUser(files []UserFile) []UserEntry {
 		case f.Unreadable:
 			problems = []Problem{{Kind: ProblemUnreadable}}
 		default:
-			th, problems = parseTheme(f.Data, state.base)
+			th, problems = parseTheme(f.Data, state.base, false)
 			if th != nil && taken[th.ID] {
 				th, problems = nil, []Problem{{Kind: ProblemIDTaken}}
 			}
@@ -182,7 +207,7 @@ func resolveLocked() {
 	if th == nil {
 		th = builtinThemes[0]
 	}
-	d, err := th.document(state.base)
+	d, err := th.withAccentLocked(state.accentID).document(state.base)
 	if err != nil {
 		// A base reloaded in development that this theme no longer fits.
 		th, d = builtinThemes[0], state.base

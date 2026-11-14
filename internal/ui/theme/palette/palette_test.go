@@ -91,7 +91,10 @@ func TestEveryPairIsReadable(t *testing.T) {
 				tk := Of(th)
 				ac := a.Accent
 				atLeast(t, "glyph on fill", Contrast(ac.OnFill, ac.Fill), TextContrast)
-				floor := min(UIContrast, Contrast(tk.Amber, tk.Ground))
+				floor := float64(UIContrast)
+				if th == Light {
+					floor = coverAccentFloorLight
+				}
 				atLeast(t, "fill on ground", Contrast(ac.Fill, tk.Ground), floor-1e-9)
 				for _, bg := range PageBackgrounds(th) {
 					atLeast(t, "accent ink on "+bg, Contrast(ac.Ink, bg), TextContrast)
@@ -294,14 +297,14 @@ func TestOverridesDeclareTheRolesBuiltOnTheSleeve(t *testing.T) {
 // against.
 func TestOfReadsTheCurrentTheme(t *testing.T) {
 	defer theme.ReloadEmbedded()
-	if got := Of(Light); got.Ground != "#f4f5f3" || got.Amber != "#e5a31b" || got.OnAmber != "#1a1405" {
+	if got := Of(Light); got.Ground != "#f5f5f5" || got.Amber != "#ad7700" || got.OnAmber != "#1a1405" {
 		t.Errorf("Sona light = %+v", got)
 	}
 	data, err := os.ReadFile("../tokens.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	custom := strings.NewReplacer(`"ground": "#f4f5f3"`, `"ground": "#fafafa"`, `"amber": "#e5a31b"`, `"amber": "#d97706"`).Replace(string(data))
+	custom := strings.NewReplacer(`"ground": "#f5f5f5"`, `"ground": "#fafafa"`, `"amber": "#ad7700"`, `"amber": "#d97706"`).Replace(string(data))
 	d, err := theme.Parse([]byte(custom))
 	if err != nil {
 		t.Fatal(err)
@@ -310,7 +313,7 @@ func TestOfReadsTheCurrentTheme(t *testing.T) {
 	if got := Of(Light); got.Ground != "#fafafa" || got.Amber != "#d97706" {
 		t.Errorf("custom light = %+v", got)
 	}
-	if got := Of(Dark); got.Ground != "#121513" {
+	if got := Of(Dark); got.Ground != "#141414" {
 		t.Errorf("the dark tokens changed with the light ones: %+v", got)
 	}
 	if bgs := PageBackgrounds(Light); bgs[0] != "#fafafa" {

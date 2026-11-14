@@ -1,10 +1,12 @@
 package kit
 
 import (
+	"bytes"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -238,6 +240,40 @@ func TestTrackListCurrentRowSaysNowPlayingOrPaused(t *testing.T) {
 		if _, ok := tt.Find(l); ok {
 			t.Errorf("a list with no current song shows %q", l)
 		}
+	}
+}
+
+// The playing row's glyph animates by painting itself alone: in a long list a
+// frame of it builds nothing, lays nothing out and paints nothing else, so
+// what a song costs while it plays does not grow with the page.
+func TestTrackListPlayingGlyphAnimatesWithoutRebuildingTheList(t *testing.T) {
+	a, _ := newCollTrackApp(t, 100, 1000, 700)
+	a.current = &services.QueueItem{ID: "s2"}
+	a.opts.Playing = true
+	builds, whole := 0, 0
+	tt := ui.NewTester(func(c *ui.Context) {
+		builds++
+		a.view(c)
+		ui.Box(c.Key("page")).Absolute().Left(0).Top(0).Size(1, 1).Draw(func(*ui.Painter, ui.Rect) { whole++ })
+	}, 1000, 700)
+	tt.Frame()
+	if _, ok := tt.Find("Now playing"); !ok {
+		t.Fatalf("the current row has no glyph: %q", tt.Texts())
+	}
+	builds, whole = 0, 0
+	prev, changes := append([]byte(nil), tt.Image().Pix...), 0
+	for range 60 { // two seconds
+		tt.Advance(33 * time.Millisecond)
+		if cur := tt.Image().Pix; !bytes.Equal(cur, prev) {
+			changes++
+			prev = append(prev[:0], cur...)
+		}
+	}
+	if builds != 0 || whole != 0 {
+		t.Errorf("a playing glyph rebuilt the page %d times and painted it whole %d times in two seconds, want 0 and 0", builds, whole)
+	}
+	if changes < 12 {
+		t.Errorf("the glyph changed the picture %d times in two seconds, want a smooth movement", changes)
 	}
 }
 

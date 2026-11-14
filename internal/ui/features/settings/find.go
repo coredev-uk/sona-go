@@ -13,6 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // The sections of the page, in the order it lists them (search-params.ts).
@@ -196,6 +197,11 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 		{
 			ID: "theme-gallery", Section: secAppearance, Group: appearance, Title: i18n.T("Theme"),
 			Keywords: i18n.T("colours, palette, graphite, ink, high contrast, paper, spot colour"),
+		},
+		{
+			ID: "accent", Section: secAppearance, Group: appearance, Title: i18n.T("Accent"),
+			Keywords: i18n.T("colour, play button, spot colour, amber, gold, lime, sky, teal, rose"),
+			When:     func(findContext) bool { return len(theme.Active().Accents()) > 0 },
 		},
 		{ID: "themes-folder", Section: secAppearance, Group: appearance, Title: i18n.T("Your own themes"), Keywords: i18n.T("custom, json, folder")},
 		{

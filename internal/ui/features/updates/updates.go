@@ -114,8 +114,16 @@ func (u *updates) slip(c *ui.Context, st services.UpdateStatus, msg, shown strin
 	if st.Installing || st.Installed {
 		return
 	}
+	// After a failed install the same button tries again, and the release
+	// page, where the installer is, is one click off: a failure that comes
+	// from this install (a folder it can't write, an update file it can't
+	// unpack) comes again, and the notice must not be a loop of retries.
+	failed := st.SelfUpdate && st.InstallError != ""
 	label := i18n.T("View")
-	if st.SelfUpdate {
+	switch {
+	case failed:
+		label = i18n.T("Try again")
+	case st.SelfUpdate:
 		label = i18n.T("Install and restart")
 	}
 	act := kit.Button(c.Key("update-act"), label, kit.ButtonOpts{Size: kit.SizeSM}).FillWidth()
@@ -123,6 +131,11 @@ func (u *updates) slip(c *ui.Context, st services.UpdateStatus, msg, shown strin
 		if st.SelfUpdate {
 			u.installAndRestart()
 		} else {
+			u.view()
+		}
+	}
+	if failed {
+		if kit.Button(c.Key("update-view"), i18n.T("View release"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM}).FillWidth().Clicked() {
 			u.view()
 		}
 	}

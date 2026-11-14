@@ -82,7 +82,11 @@ func (s *settings) summaries() map[string]string {
 	case pinned, st.Theme == "light":
 		mode = i18n.T("Light")
 	}
-	themeLine := i18n.Meta(themeName(active), mode)
+	accent := ""
+	if id := theme.ActiveAccent(); id != "" {
+		accent = accentName(id)
+	}
+	themeLine := i18n.Meta(themeName(active), accent, mode)
 	effects := ""
 	switch {
 	case st.ReduceEffects:

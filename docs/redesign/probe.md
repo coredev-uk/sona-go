@@ -91,3 +91,25 @@ Interleaved against the b259a43 build again. The machine's load average was abou
 
 - **Against the budget:** the redesign's medians are 17.2 ms p95 and 18.8 ms worst. Both are inside the budget of 17.96 ms and 19.6 ms.
 - **Against the interleaved base:** both medians are lower than the base build's. CPU work per frame is 1.30 ms p50 for both.
+
+## On a 650-album library (after #277)
+
+The runs above scrolled the 24-album fixture, about 590 px. This set scrolls a generated library of 650 albums: the fixture's 24, repeated with numbered names, a page about 42,000 px tall. Each pass covers 20,000 px each way at 2000 px/s (`-runs 3`, the probe's default speed and distance), with the same window, llvmpipe and local covers as above.
+- **Builds:** b259a43 (before the redesign) and 6710eea9 (#277 on `main`), alternating, five pairs.
+- **Load average** when each run started: 3.6 to 6.6.
+
+| Pair | Base p95 | Base worst | Base dropped | Redesign p95 | Redesign worst | Redesign dropped |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 17.1 ms | 20.6 ms | 0 | 17.3 ms | 26.4 ms | 4 |
+| 2 | 17.3 ms | 18.6 ms | 0 | 17.2 ms | 19.5 ms | 1 |
+| 3 | 17.1 ms | 22.9 ms | 1 | 17.1 ms | 19.6 ms | 2 |
+| 4 | 17.0 ms | 19.5 ms | 0 | 17.1 ms | 20.1 ms | 0 |
+| 5 | 17.0 ms | 19.6 ms | 0 | 17.0 ms | 18.3 ms | 0 |
+| **Median** | **17.1 ms** | **19.6 ms** | | **17.1 ms** | **19.6 ms** | |
+
+Worst is the median over a pair's three passes of each pass's largest gap. Dropped is summed over the three passes, about 3,750 frames.
+
+- **p95 and worst:** the same for both builds, 17.1 ms and 19.6 ms. Both are within the budget above (17.96 ms and 19.6 ms).
+- **Dropped frames:** 7 of about 18,700 for the redesign and 1 for the base. Four of the seven fall in pair 1, all of whose passes peak at 26–27 ms. No frame in either build took over 50 ms.
+- **CPU work per frame:** 1.7 ms p50 for the redesign, against 1.6–1.7 ms for the base.
+- **Memory:** RSS after the passes is about 355 MiB for the redesign and 361 MiB for the base.

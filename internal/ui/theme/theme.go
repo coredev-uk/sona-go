@@ -40,6 +40,7 @@ var state struct {
 	// The themes (registry.go): the one the settings ask for and the one
 	// in use, which is Sona's own when no theme has the asked-for ID.
 	wantID   string
+	accentID string // the accent asked for; the active theme may not offer it
 	active   *Theme
 	all      []*Theme // built-ins, then the user's
 	user     []*Theme

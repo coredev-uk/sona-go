@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,13 +22,17 @@ import (
 )
 
 // fakeUpdater is MyGo's updater: it asks the source for the archive, as
-// mygo does, and "swaps" by replacing the executable.
+// mygo does, and "swaps" by replacing the executable. failWith, when set, is
+// the error of an install that gets past the download and fails unpacking;
+// beforeSwap runs after the download, when MyGo would unpack and swap.
 type fakeUpdater struct {
-	enabled   bool
-	exe       string
-	mu        sync.Mutex
-	installed bool
-	relaunch  chan struct{}
+	enabled    bool
+	exe        string
+	mu         sync.Mutex
+	installed  bool
+	failWith   error
+	beforeSwap func()
+	relaunch   chan struct{}
 }
 
 func (f *fakeUpdater) Enabled() bool { return f.enabled }
@@ -40,6 +45,12 @@ func (f *fakeUpdater) Install(ctx context.Context, src *update.Source) error {
 	defer func() { _ = body.Close() }()
 	if _, err := io.Copy(io.Discard, body); err != nil {
 		return err
+	}
+	if f.beforeSwap != nil {
+		f.beforeSwap()
+	}
+	if f.failWith != nil {
+		return f.failWith
 	}
 	if err := os.Remove(f.exe); err != nil {
 		return err
@@ -216,6 +227,60 @@ func TestSelfUpdateRefusesABadSignature(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(r.up.exe); string(b) != "0.2.0" {
 		t.Fatalf("the app changed: %q", b)
+	}
+}
+
+// The tester's report: an update whose archive the updater refuses ("./")
+// failed, and left a copy of the running version as the previous one. A
+// failed install leaves what was kept before it, says why in Diagnostics, and
+// a later install that works keeps the version it replaced.
+func TestSelfUpdateFailedInstallLeavesTheKeptVersionAndSaysWhy(t *testing.T) {
+	r := newSelfRig(t, selfOpts{version: "0.2.0", latest: "0.3.0", key: true})
+	r.keepPrevious(t, "0.1.0", "0.2.0")
+	if _, err := r.s.Check(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	r.up.failWith = errors.New(`mygo: installing the update: invalid path in update archive: "./"`)
+	st, err := r.s.Install(context.Background())
+	if CodeOf(err) != CodeUpdateFailed || !errors.Is(err, update.ErrInstall) {
+		t.Fatalf("err = %v", err)
+	}
+	if st.InstallError != CodeUpdateFailed || st.Installed || st.Installing || !st.Available {
+		t.Fatalf("status = %+v", st)
+	}
+	select {
+	case <-r.up.relaunch:
+		t.Fatal("relaunched after a failed install")
+	default:
+	}
+	if r.g.Pending() != nil {
+		t.Fatal("a failed install stays on trial")
+	}
+	if p := r.s.Previous(); !p.Available || p.Version != "0.1.0" {
+		t.Fatalf("previous = %+v, want the 0.1.0 kept before", p)
+	}
+	if b, _ := os.ReadFile(filepath.Join(r.g.Previous, "Contents", "MacOS", "sona")); string(b) != "0.1.0" {
+		t.Fatalf("the kept version's files are %q", b)
+	}
+	if _, err := os.Stat(r.g.Previous + ".staging"); err == nil {
+		t.Error("the staged copy stays")
+	}
+	ie, _ := r.s.bundle().(map[string]any)["installError"].(map[string]any)
+	if ie["code"] != CodeUpdateFailed || ie["latest"] != "0.3.0" || !strings.Contains(ie["detail"].(string), `invalid path in update archive: "./"`) {
+		t.Fatalf("Diagnostics installError = %v", ie)
+	}
+
+	// Trying again, with the fault gone, installs and keeps 0.2.0.
+	r.up.failWith = nil
+	st, err = r.s.Install(context.Background())
+	if err != nil || !st.Installed || st.InstallError != "" {
+		t.Fatalf("second install = %+v, %v", st, err)
+	}
+	if v, ok := r.g.HasPrevious(); !ok || v != "0.2.0" {
+		t.Fatalf("previous after the update = %q, %v", v, ok)
+	}
+	if _, ok := r.s.bundle().(map[string]any)["installError"]; ok {
+		t.Error("Diagnostics still reports the failure of an install that worked")
 	}
 }
 

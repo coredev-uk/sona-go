@@ -98,6 +98,12 @@ msgstr ""
 msgid "About {artistName}"
 msgstr ""
 
+#: internal/ui/features/settings/accents.go
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/settingsfile.go
+msgid "Accent"
+msgstr ""
+
 #: internal/ui/features/auth/dialog.go
 #: internal/ui/features/auth/menu.go
 msgid "Account"
@@ -330,6 +336,10 @@ msgstr ""
 
 #: internal/ui/features/onboarding/appearance.go
 msgid "Always light"
+msgstr ""
+
+#: internal/ui/features/settings/accents.go
+msgid "Amber"
 msgstr ""
 
 #: internal/ui/features/settings/linkhandler.go
@@ -2666,6 +2676,10 @@ msgstr ""
 msgid "Go to artist"
 msgstr ""
 
+#: internal/ui/features/settings/accents.go
+msgid "Gold"
+msgstr ""
+
 #: internal/ui/i18n/cdm.go
 msgid "Google doesn't make Widevine for this computer, so songs can't play here."
 msgstr ""
@@ -3107,6 +3121,10 @@ msgstr ""
 
 #: internal/ui/features/settings/themes.go
 msgid "Light: {text}"
+msgstr ""
+
+#: internal/ui/features/settings/accents.go
+msgid "Lime"
 msgstr ""
 
 #: internal/ui/features/settings/storage.go
@@ -5228,6 +5246,10 @@ msgstr ""
 msgid "Rock"
 msgstr ""
 
+#: internal/ui/features/settings/accents.go
+msgid "Rose"
+msgstr ""
+
 #: internal/ui/features/discover/front.go
 msgid "Rotation paused"
 msgstr ""
@@ -5838,6 +5860,10 @@ msgstr ""
 
 #: internal/ui/features/onboarding/layer.go
 msgid "Skip the rest of the setup?"
+msgstr ""
+
+#: internal/ui/features/settings/accents.go
+msgid "Sky"
 msgstr ""
 
 #: internal/ui/kit/overlays_palette.go
@@ -6518,6 +6544,10 @@ msgctxt "keyboard key"
 msgid "Tab"
 msgstr ""
 
+#: internal/ui/features/settings/accents.go
+msgid "Teal"
+msgstr ""
+
 #: internal/ui/features/settings/audio.go
 msgid "Ten bands, presets and a preamp, heard as you move them. Off now."
 msgstr ""
@@ -6598,6 +6628,10 @@ msgstr ""
 
 #: internal/ui/account/signin.go
 msgid "The account's country or region has no Apple Music storefront."
+msgstr ""
+
+#: internal/ui/features/settings/accents.go
+msgid "The colour that marks what plays: the play button, the progress and the song that is playing. Each theme keeps its own."
 msgstr ""
 
 #: internal/ui/features/settings/appearance.go
@@ -6766,6 +6800,10 @@ msgstr ""
 #: internal/ui/features/settings/settingsfile.go
 #: internal/ui/features/settings/themes.go
 msgid "Theme"
+msgstr ""
+
+#: internal/ui/features/settings/accents.go
+msgid "Theme default"
 msgstr ""
 
 #: internal/ui/features/player/queue_list.go
@@ -7034,7 +7072,7 @@ msgid "Treble Reducer"
 msgstr ""
 
 #: internal/ui/features/settings/themes.go
-msgid "True black, lime"
+msgid "True black, blue"
 msgstr ""
 
 #: internal/ui/account/code.go
@@ -7048,6 +7086,7 @@ msgstr ""
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go
+#: internal/ui/features/updates/updates.go
 #: internal/ui/features/video/view.go
 #: internal/ui/kit/controls_states.go
 msgid "Try again"
@@ -7300,6 +7339,7 @@ msgid "View playlist collaborators"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
 msgid "View release"
 msgstr ""
 
@@ -7789,6 +7829,10 @@ msgstr ""
 
 #: internal/ui/features/settings/find.go
 msgid "bug report"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+msgid "colour, play button, spot colour, amber, gold, lime, sky, teal, rose"
 msgstr ""
 
 #: internal/ui/features/settings/find.go

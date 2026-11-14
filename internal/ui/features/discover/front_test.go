@@ -308,6 +308,38 @@ func TestFrontHoldsWhileFocusIsAnywhereInsideTheHeroAndGoesOnWhenItLeaves(t *tes
 	}
 }
 
+// A click focuses the control it lands on and the focus stays there while the
+// pointer goes elsewhere; the hold is for the keyboard's focus, or a click on
+// the pager or the pause control would stop the rotation for good (the
+// pointer left, and nothing else would end the hold).
+func TestFrontGoesOnWhenTheFocusIsOnlyWhereAClickLeftIt(t *testing.T) {
+	for name, c := range map[string]struct {
+		clicks  []string
+		focused string // the control's name once the clicks are done
+	}{
+		"the pager":                {[]string{"Next in Featured"}, "Next in Featured"},
+		"the pause control, twice": {[]string{"Pause featured rotation", "Play featured rotation"}, "Pause featured rotation"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newFront(t, 8)
+			for _, label := range c.clicks {
+				if err := r.tt.Click(label); err != nil {
+					t.Fatal(err)
+				}
+			}
+			r.tt.Move(2, 2) // the pointer leaves; the click's focus stays
+			r.tt.Drain()
+			if !r.tt.Focused(c.focused) {
+				t.Fatalf("the click did not leave the focus on %q", c.focused)
+			}
+			r.tick(rotateEvery)
+			if r.lead() != 1 {
+				t.Errorf("lead %d after a whole interval, want 1: a click's focus holds the rotation", r.lead())
+			}
+		})
+	}
+}
+
 func TestFrontStopsWhileTheWindowIsHiddenAndGoesOnWhenItIsBack(t *testing.T) {
 	r := newFront(t, 8)
 	r.tick(rotateEvery - time.Millisecond)

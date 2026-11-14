@@ -2,6 +2,7 @@ package home
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"slices"
 	"strings"
@@ -489,12 +490,24 @@ func indexPage() services.HomePage {
 	}
 }
 
-func TestLeadIsOneOfTheRunningOrderAndTheOthersFollowByRank(t *testing.T) {
+func TestLeadIsFollowedByTheOtherPicksInAppleOrderWithoutNumerals(t *testing.T) {
 	r := newRig(t, "/", 1132, 1253, withHome(samplePage()))
 	r.until("the page", "Lead Album", "Pick 2")
-	// The lead is 01, Apple's next picks 02 to 09; the rest wait behind Show all.
-	requireTexts(t, r, "01", "02", "03", "09")
-	requireNoTexts(t, r, "10", "11")
+	// The lead and Apple's next picks run top to bottom in Apple's order, eight
+	// of them; the rest wait behind Show all. None of them is numbered.
+	prev, _ := r.tt.Find("Pick 2")
+	for i := 3; i <= 9; i++ {
+		at, ok := r.tt.Find(fmt.Sprintf("Pick %d", i))
+		if !ok {
+			t.Fatalf("the running order lacks Pick %d; texts %q", i, r.tt.Texts())
+		}
+		if at.Y <= prev.Y {
+			t.Errorf("Pick %d (y %.0f) is not under the pick before it (y %.0f)", i, at.Y, prev.Y)
+		}
+		prev = at
+	}
+	requireNoTexts(t, r, "01", "02", "03", "09", "10", "Pick 10")
 	r.click("Show all 12")
-	r.tt.Until("every pick", r.tt.Shows("12", "Pick 12"))
+	r.tt.Until("every pick", r.tt.Shows("Pick 12"))
+	requireNoTexts(t, r, "01", "02", "10", "11", "12")
 }

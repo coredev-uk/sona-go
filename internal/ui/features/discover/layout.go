@@ -142,8 +142,8 @@ func (r *rotation) restart(now time.Time, at int) {
 }
 
 // step is called every frame. running says the lead may move on now: rotation
-// on offer, not paused by the user, with no pointer or focus inside the
-// hero, the window visible and focused and the hero on screen. At the
+// on offer, not paused by the user, with no pointer or keyboard focus inside
+// the hero, the window visible and focused and the hero on screen. At the
 // deadline occupied (a menu is open, the page is covered) is asked: a tick
 // that finds the page occupied waits a whole interval more. It reports
 // whether the lead moves on now and, when it does not, how long until the

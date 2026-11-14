@@ -207,6 +207,67 @@ func (c *Catalog) Song(ctx context.Context, id string) (applemusic.Song, error) 
 	})
 }
 
+// Songs returns the catalog songs with the given IDs by ID, as Song does for
+// one: cached ones as they are, the rest in batched requests (one per 100
+// IDs) that store each song's row and cache entry in one transaction. A
+// song Apple doesn't serve in the storefront is absent from the result.
+func (c *Catalog) Songs(ctx context.Context, ids []string) (map[string]applemusic.Song, error) {
+	sf := c.storefront()
+	if sf == "" {
+		return nil, ErrNoStorefront
+	}
+	scope := CacheScope(sf, c.api.ContentLanguage()) + "|song|"
+	now := c.now()
+	out := make(map[string]applemusic.Song, len(ids))
+	seen := make(map[string]bool, len(ids))
+	var missing []string
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		if row, err := c.db.RQ.GetCache(ctx, scope+id); err == nil && now.UnixMilli() < row.ExpiresAt {
+			var s applemusic.Song
+			if json.Unmarshal(row.Body, &s) == nil {
+				out[id] = s
+				continue
+			}
+		}
+		missing = append(missing, id)
+	}
+	if len(missing) == 0 {
+		return out, nil
+	}
+	songs, err := c.api.Songs(ctx, sf, missing)
+	if err != nil {
+		return nil, err
+	}
+	ms := db.Millis(now)
+	err = c.db.Tx(ctx, func(q *dbq.Queries) error {
+		for _, s := range songs {
+			body, err := json.Marshal(s)
+			if err != nil {
+				return fmt.Errorf("catalog: encode song: %w", err)
+			}
+			if _, err := StoreSong(ctx, q, s, ms); err != nil {
+				return err
+			}
+			if err := q.PutCache(ctx, dbq.PutCacheParams{Key: scope + s.ID, Storefront: sf, Body: body, FetchedAt: ms, ExpiresAt: ms + SongTTL.Milliseconds()}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		// The data is good; a cache write failure must not hide it.
+		c.log.Warn("catalog cache: write songs", "err", err)
+	}
+	for _, s := range songs {
+		out[s.ID] = s
+	}
+	return out, nil
+}
+
 // Prune deletes expired cache entries and returns how many it removed.
 func (c *Catalog) Prune(ctx context.Context) (int64, error) {
 	return c.db.Q.DeleteExpiredCache(ctx, db.Millis(c.now()))

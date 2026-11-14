@@ -112,7 +112,8 @@ same files on all three platforms, uploads them as the `linux-release`,
 `macos-release` and `windows-release` run artifacts (kept 7 days) and neither
 attests, signs nor publishes. It runs without the `release` environment, which only
 deploys from `main`, so these builds have no Last.fm or Discord
-credentials compiled in. `release-secrets.yml` checks those secrets.
+credentials compiled in. `release-secrets.yml` checks that the Proton Pass token and
+all four items resolve (monthly and on dispatch).
 
 ### Platforms in a release
 
@@ -124,7 +125,7 @@ and Windows development builds in ci.yml never hold a release up), then the
 | --------- | ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `linux`   | ubuntu-26.04  | the Linux packages (`build/linux/release/release.sh`)              | each package on clean Ubuntu, Fedora and Arch containers                              |
 | `macos`   | macos-15      | `Sona-<v>-macos-arm64.dmg`, `sona-<v>-darwin-arm64.tar.gz` (`build/darwin/bundle.sh`) | `build/darwin/smoke.sh`: `--version`, first paint, no video plugin in the bundle and a preview played from the bundle's GStreamer (`avdec_aac`), no `/nix`, `/opt/homebrew` or `/Library/Frameworks` paths, `codesign --verify` |
-| `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh` with GStreamer off `PATH`: layout (shim, GStreamer runtime and plugins, no CDM), the zip's `--version`, first paint and audio stack from the bundle, two previews played to `fakesink`, the update archive's files, silent install, files and `music:`/`itms:` keys; silent uninstall, which also removes the playback sandbox's AppContainer profile and package folder (checked gone); the zip's `sona.exe --remove-sandbox` takes the sandbox's entry off its folder |
+| `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh` with GStreamer off `PATH`: layout (shim, GStreamer runtime and plugins, no CDM), the zip's `--version`, first paint and audio stack from the bundle, two previews played to `fakesink`, the update archive's files and that the updater could unpack it (`releasesign -check`: no `./` entry), silent install, files and `music:`/`itms:` keys; silent uninstall, which also removes the playback sandbox's AppContainer profile and package folder (checked gone); the zip's `sona.exe --remove-sandbox` takes the sandbox's entry off its folder |
 | `publish` | ubuntu-26.04  | `update-darwin-arm64.json`, `update-windows-amd64.json`, `SHA256SUMS` | checks the Linux checksums; attests the manifests and the combined `SHA256SUMS`       |
 
 - **macOS app:** plain Go and Xcode's clang against the official GStreamer
@@ -179,21 +180,47 @@ and Windows development builds in ci.yml never hold a release up), then the
   the release job runs.
 - **Update archives:** `sona-<v>-darwin-arm64.tar.gz` holds `Sona.app/` alone;
   `sona-<v>-windows-amd64.tar.gz` holds the install folder's files at the top
-  level. Both are what MyGo's updater installs; the `.dmg`, `.zip` and
-  installer are for people.
+  level, every entry named from there: MyGo's updater refuses the whole
+  archive at an entry named `./`, which `tar -czf OUT .` writes first and
+  which every Windows archive up to 0.5.0-rc.3 began with
+  (`invalid path in update archive: "./"`). `build/windows/update-archive.sh`
+  makes it; `package.sh` and `smoke.sh` run `go run ./cmd/releasesign -check
+  -target windows-amd64 -archive FILE`, and `publish` refuses to sign an
+  archive that fails the same check (`update.CheckArchive`). Both archives
+  are what MyGo's updater installs; the `.dmg`, `.zip` and installer are for
+  people. An archive already published can only be fixed by uploading a
+  corrected one and its re-signed manifest (the key is the `release`
+  environment's), or by the next release: the signature covers the bytes.
 - **Signing the manifests:** `go run ./cmd/releasesign` signs each archive's
-  SHA-256 with the Ed25519 key in the `release` environment's secret
-  `SONA_UPDATE_KEY` (the file `go tool mygo keygen` wrote; the public key is
+  SHA-256 with the Ed25519 key in the item "Update Signing Key" (field
+  `SONA_UPDATE_KEY`) of the Proton Pass vault "CI" (the master
+  copy is also in Development → Sona Update Signing Key; the file `go tool mygo keygen` wrote; the public key is
   `internal/update/update.pub`, linked into the macOS and Windows builds).
   Manifests are signed last, after the archives are uploaded. **Without the
-  secret** (a fork, a run outside the environment) the step is skipped, says so
+  key** (a fork, a run outside the environment) the step is skipped, says so
   in the run summary, and the release has no `update-<target>.json`, so those
   installs do not self-update. In this repository `publish` refuses instead:
   it checks `SONA_UPDATE_KEY` and the Last.fm and Discord credentials are all
   there before it signs or publishes. `release-please.yml` calls `release.yml`
   with `secrets: inherit`, since a called workflow sees its environment's
-  secrets only that way; with the App secrets passed by name, v0.3.0 shipped
+  secret (the Proton Pass token) only that way; with the App secrets passed by name, v0.3.0 shipped
   without the credentials or manifests and was replaced by v0.3.1.
+- **Where the CI secrets live:** in Proton Pass, vault "CI":
+  "Update Signing Key" (`SONA_UPDATE_KEY`), "Last.fm API" (`SONA_LASTFM_KEY`,
+  `SONA_LASTFM_SECRET`), "Discord App" (`SONA_DISCORD_CLIENT_ID`) and "Apple
+  Music User Token" (`MUSIC_USER_TOKEN`, for the live checks). Item titles
+  are matched exactly, case included. The `release`
+  and `live` environments each hold one secret,
+  `PROTON_PASS_PERSONAL_ACCESS_TOKEN`: the same token, `sona-ci`, viewer on
+  that vault alone, which `protonpass/load-secret-action` uses to read them.
+  **Rotate a value** by editing the item in Proton Pass; nothing changes in
+  GitHub. **Renew the token** (it expires 2027-11-14) with `pass-cli pat
+  renew --pat-name sona-ci --expiration 1y`: it keeps its access to "CI"
+  but prints a new token string and the old one stops working at once, so
+  set the new one straight away with `gh secret set
+  PROTON_PASS_PERSONAL_ACCESS_TOKEN --env release` and `--env live`. The
+  monthly "Release secrets" run catches an expired or revoked token before a
+  release; dispatch it after any change.
 - **Release notes:** a release's draft holds release-please's changelog entry;
   `publish` appends `.github/release-notes/install.md` (first-run steps for
   macOS and Windows, verifying downloads).
@@ -265,7 +292,15 @@ Before merging a release PR, install the release candidate's files:
 - **Updates (macOS and Windows):** install rc.N, publish rc.N+1 (dispatch on
   `main` with `nightly=true`), turn Test versions on, see the notice, "Install and
   restart", and check settings, sign-in and the queue survive. A deliberately
-  broken build rolls back.
+  broken build rolls back. On Windows do it with a track playing (it pauses
+  when the download ends and the host child exits: that is what lets the swap
+  rename `lib\`), then play a song after the restart: the host starts in the
+  AppContainer (the log has `cdmhost: granted the sandbox read access to a
+  folder` if the update's files lacked the entry), and Diagnostics' Updates
+  section shows `previous` rc.N. Also make one install fail (a file in `lib\`
+  held open by another program) and check the slip offers "Try again" and
+  "View release", Diagnostics' `installError.detail` names the cause, and
+  playing works again without restarting Sona.
 - **Restoring the previous version (macOS and Windows):** after that update,
   Settings → Diagnostics → Updates → Previous version names rc.N. "Restore…"
   asks first, then Sona quits and starts rc.N with settings, sign-in and the
@@ -387,6 +422,7 @@ run, with the evidence for anything not obvious from the check itself.
 | 2026-11-07 | 0.3.0 rcs | macOS, Apple silicon | Updates through the later rcs; full-track playback | Pass | Maintainer's run |
 | 2026-11-08 | 0.3.0-rc.5 | macOS, Apple silicon | `music://` links after "Make Sona the default" (#198) | Pass | Maintainer's run |
 | 2026-11-08 | 0.3.0-rc.5 → rc.4 | macOS, Apple silicon | Rollback after 3 failed starts | Pass | An `update-pending` marker (rc.4 → rc.5, 3 starts) on the maintainer's Mac: rc.5 logged "never reached its first paint: restoring the previous version", put `Sona.app.previous` (rc.4) back, relaunched it, and rc.4 reached first paint signed in 1.2 s later; `update-rollback.json` recorded it and `update-pending` was cleared. The counting of failed starts is `internal/update`'s tests. rc.5 was put back by hand afterwards |
+| 2026-11-14 | 0.3.1 → 0.4.0 → 0.5.0-rc.3 | Windows 11 Home (build 26300), per-user install in `%LOCALAPPDATA%\Programs\Sona` | Updates (Test versions on, Install and restart) | Fail | A tester's diagnostics bundle: each install, from the slip, logged `update install failed … mygo: installing the update: invalid path in update archive: "./"`, twice for 0.3.1 → 0.4.0 (the notice kept offering "Install and restart"). The extraction fails before anything is swapped, so the versions advanced some other way: the 9–11 s between `shutdown complete` and the next `process start` fit the installer being run by hand (inferred; nothing in the log says it). Cause: the `./` first entry of the Windows update archive, in every release; fixed in `update-archive.sh`, checked by `releasesign -check`. The Windows update run itself (install, relaunch, rollback) is still to do on a real machine |
 
 ## 4. Known issues
 

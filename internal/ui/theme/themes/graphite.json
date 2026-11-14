@@ -1,5 +1,5 @@
 {
-  "$comment": "A cooler neutral board. Sky blue marks what plays.",
+  "$comment": "A cooler neutral board. Sky blue marks what plays. Adjusted in lightness only to keep Sona's contrast floors: light amber #3b9bd7 -> #278bc6 (the play colour keeps 3:1 on the light tones). Accents (Settings → Appearance): the spot colour in five more hues, designed for each variant with a neutral glyph colour, each passing theme.Validate; the theme's own colour is \"Theme default\".",
   "format": 1,
   "id": "graphite",
   "name": "Graphite",
@@ -16,7 +16,7 @@
       "ink": "#171a1d",
       "ink-muted": "#55585c",
       "ink-faint": "#5b5e62",
-      "amber": "#3b9bd7",
+      "amber": "#278bc6",
       "amber-ink": "#005b8e",
       "on-amber": "#04121b"
     }
@@ -37,6 +37,68 @@
       "amber-ink": "#5fbdf0",
       "on-amber": "#04121b",
       "danger": "#f77665"
+    }
+  },
+  "accents": {
+    "amber": {
+      "light": {
+        "amber": "#b47500",
+        "amber-ink": "#8d5100",
+        "on-amber": "#101010"
+      },
+      "dark": {
+        "amber": "#fcba43",
+        "amber-ink": "#fcba43",
+        "on-amber": "#101010"
+      }
+    },
+    "gold": {
+      "light": {
+        "amber": "#958300",
+        "amber-ink": "#705e00",
+        "on-amber": "#101010"
+      },
+      "dark": {
+        "amber": "#e8d754",
+        "amber-ink": "#e8d754",
+        "on-amber": "#101010"
+      }
+    },
+    "lime": {
+      "light": {
+        "amber": "#619000",
+        "amber-ink": "#3f6b00",
+        "on-amber": "#101010"
+      },
+      "dark": {
+        "amber": "#9ed24d",
+        "amber-ink": "#9ed24d",
+        "on-amber": "#101010"
+      }
+    },
+    "teal": {
+      "light": {
+        "amber": "#10928f",
+        "amber-ink": "#006b69",
+        "on-amber": "#101010"
+      },
+      "dark": {
+        "amber": "#66d2ce",
+        "amber-ink": "#66d2ce",
+        "on-amber": "#101010"
+      }
+    },
+    "rose": {
+      "light": {
+        "amber": "#db5476",
+        "amber-ink": "#b02b53",
+        "on-amber": "#101010"
+      },
+      "dark": {
+        "amber": "#ff8aa9",
+        "amber-ink": "#ff8aa9",
+        "on-amber": "#101010"
+      }
     }
   }
 }

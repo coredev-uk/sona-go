@@ -23,18 +23,30 @@ func TestSettingsGolden(t *testing.T) {
 		opts    []uitest.Option
 		width   int
 		height  int
+		themeID string // "" keeps Sona's own
+		accent  string
 	}{
-		{"settings-general-light", "general", "Stay awake while playing", nil, 1132, 1253},
-		{"settings-general-dark", "general", "Stay awake while playing", []uitest.Option{uitest.Dark()}, 1132, 1253},
-		{"settings-appearance-light", "appearance", "Motion artwork", nil, 1132, 1700},
-		{"settings-appearance-dark", "appearance", "Motion artwork", []uitest.Option{uitest.Dark()}, 1132, 1700},
-		{"settings-playback-light", "playback", "Crossfade", nil, 1132, 1253},
-		{"settings-general-narrow-dark", "general", "Stay awake while playing", []uitest.Option{uitest.Dark()}, 707, 1000},
+		{"settings-general-light", "general", "Stay awake while playing", nil, 1132, 1253, "", ""},
+		{"settings-general-dark", "general", "Stay awake while playing", []uitest.Option{uitest.Dark()}, 1132, 1253, "", ""},
+		{"settings-appearance-light", "appearance", "Motion artwork", nil, 1132, 1700, "", ""},
+		{"settings-appearance-dark", "appearance", "Motion artwork", []uitest.Option{uitest.Dark()}, 1132, 1700, "", ""},
+		{"settings-appearance-accent-light", "appearance", "Motion artwork", nil, 1132, 1800, "sona", "rose"},
+		{"settings-appearance-accent-dark", "appearance", "Motion artwork", []uitest.Option{uitest.Dark()}, 1132, 1800, "oled", "lime"},
+		{"settings-appearance-accent-narrow-dark", "appearance", "Motion artwork", []uitest.Option{uitest.Dark()}, 940, 1900, "oled", "lime"},
+		{"settings-appearance-accent-wide-light", "appearance", "Motion artwork", nil, 1600, 1700, "sona", "rose"},
+		{"settings-appearance-accent-contrast-narrow-light", "appearance", "Motion artwork", nil, 940, 1900, "contrast", "teal"},
+		{"settings-playback-light", "playback", "Crossfade", nil, 1132, 1253, "", ""},
+		{"settings-general-narrow-dark", "general", "Stay awake while playing", []uitest.Option{uitest.Dark()}, 707, 1000, "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			caps := linuxCaps()
 			r := newRigCaps(t, tc.width, tc.height, nil, &caps, tc.opts...)
 			withFakeThemes(r.s)
+			if tc.themeID != "" {
+				t.Cleanup(func() { theme.SetTheme(theme.DefaultThemeID); theme.SetAccent("") })
+				theme.SetTheme(tc.themeID)
+				theme.SetAccent(tc.accent)
+			}
 			r.router.Replace(settingsPath + "?section=" + tc.section)
 			r.tt.Until("the section", r.tt.Shows(tc.ready))
 			r.tt.Settle()

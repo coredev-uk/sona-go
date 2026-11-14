@@ -291,22 +291,25 @@ func read(t *testing.T, p string) string {
 	return string(b)
 }
 
-// install swaps the new version in as MyGo's updater does, leaving the
-// snapshot of the old one.
+// install swaps the new version in as the service does around MyGo's updater:
+// the old one staged, the marker, new files renamed in (never written
+// through), the old one kept as the previous version.
 func install(t *testing.T, g Guard, v string) {
 	t.Helper()
-	if err := g.Snapshot("0.2.0"); err != nil {
+	if err := g.Stage("0.2.0"); err != nil {
 		t.Fatal(err)
 	}
 	if err := g.Mark("0.2.0", v); err != nil {
 		t.Fatal(err)
 	}
-	// MyGo replaces files by renaming new ones in, never writing through.
 	exe := exeOf(g)
 	if err := os.Remove(exe); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(exe, []byte(v), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Commit(); err != nil {
 		t.Fatal(err)
 	}
 }

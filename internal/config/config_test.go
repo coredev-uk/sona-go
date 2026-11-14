@@ -1,6 +1,7 @@
 package config
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -342,5 +343,37 @@ func TestLanguageKeepsWellFormedTags(t *testing.T) {
 	}
 	if Defaults().Language != LanguageAutomatic {
 		t.Errorf("default language %q, want Automatic", Defaults().Language)
+	}
+}
+
+func TestAccentsAreKeptPerThemeAndTidied(t *testing.T) {
+	if Defaults().Accents != nil {
+		t.Errorf("default accents %v", Defaults().Accents)
+	}
+	s := Defaults()
+	s.Accents = map[string]string{"oled": " sky ", "sona": "", "": "rose", "paper": strings.Repeat("a", 40), strings.Repeat("t", 65): "gold", "graphite": "lime"}
+	want := map[string]string{"oled": "sky", "graphite": "lime"}
+	if got := s.Normalized().Accents; !maps.Equal(got, want) {
+		t.Errorf("accents %v, want %v", got, want)
+	}
+	s.Accents = map[string]string{"sona": ""}
+	if got := s.Normalized().Accents; got != nil {
+		t.Errorf("an empty set normalises to %v, want nil", got)
+	}
+
+	path := filepath.Join(t.TempDir(), "settings.json")
+	s.Accents = map[string]string{"oled": "sky", "sona": "rose"}
+	if err := SaveSettings(path, s); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := LoadSettings(path); err != nil || !maps.Equal(got.Accents, s.Accents) {
+		t.Errorf("round trip %v, %v", got.Accents, err)
+	}
+	// A copy the Store hands out never shares the map.
+	st, _ := OpenStore(path)
+	a := st.Get()
+	a.Accents["oled"] = "teal"
+	if st.Get().Accents["oled"] != "sky" {
+		t.Error("Get shares the accents map")
 	}
 }

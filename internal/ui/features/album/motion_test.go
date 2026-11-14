@@ -58,7 +58,7 @@ func (r *rig) coverPx() int {
 	if r.a.Width > 0 && r.a.Width < 960 {
 		gutter = tk.Metric["gutter-narrow"]
 	}
-	return int(albumLayout(r.a.Width - 2*gutter - tk.Metric["scrollbar"]).cover)
+	return int(albumLayout(r.a.Width-2*gutter-tk.Metric["scrollbar"], r.a.Height).cover)
 }
 
 // The window of a test inside a synctest bubble. MyGo rasterises a frame of

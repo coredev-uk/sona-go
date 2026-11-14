@@ -30,6 +30,11 @@ type Source struct {
 	Dir string
 	// Progress reports bytes downloaded and the total, throttled.
 	Progress func(done, total int64)
+	// Ready, when set, is called once the archive has been downloaded and
+	// verified, before Open returns it to the installer, which unpacks it and
+	// swaps the app in. It is the point to let go of what the swap needs:
+	// on Windows, whatever has a file of the install open.
+	Ready func(ctx context.Context)
 }
 
 // Manifest returns the manifest read at check time.
@@ -93,6 +98,9 @@ func (s *Source) Open(ctx context.Context, url string) (io.ReadCloser, error) {
 	}
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return nil, err
+	}
+	if s.Ready != nil {
+		s.Ready(ctx)
 	}
 	keep = true
 	return &tempFile{f}, nil

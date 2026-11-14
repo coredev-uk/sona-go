@@ -36,7 +36,10 @@ func (r *selfRig) keepPrevious(t *testing.T, v, running string) {
 	}
 	swap(r.up.exe, v)
 	plist(v)
-	if err := r.g.Snapshot(v); err != nil {
+	if err := r.g.Stage(v); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.g.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	swap(r.up.exe, running)

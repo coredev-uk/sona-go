@@ -12,6 +12,16 @@
 // the environment variable named by -key-env (never a flag, which a process
 // list would show). The publish job runs it last, so no install sees a
 // manifest whose archive isn't uploaded yet.
+//
+// It signs nothing that the updater couldn't install: the archive must pass
+// update.CheckArchive (MyGo's extraction rules and Sona's layout). The Windows
+// archives of every release up to 0.5.0-rc.3 began with a "./" entry that the
+// updater refuses, and no Windows install could update:
+// `invalid path in update archive: "./"`.
+// With -check it only does that check (no key, no manifest): package.sh runs it
+// on the archive it has just made.
+//
+//	go run ./cmd/releasesign -check -target windows-amd64 -archive sona-0.3.0-windows-amd64.tar.gz
 package main
 
 import (
@@ -40,7 +50,8 @@ func main() {
 func run(args []string, getenv func(string) string, now func() time.Time) error {
 	fs := flag.NewFlagSet("releasesign", flag.ContinueOnError)
 	target := fs.String("target", "", "manifest target: darwin-arm64 or windows-amd64")
-	archive := fs.String("archive", "", "the update archive (gzip tar) to sign")
+	archive := fs.String("archive", "", "the update archive (gzip tar) to sign or check")
+	check := fs.Bool("check", false, "only check that the updater can install -archive; sign nothing")
 	version := fs.String("version", "", "the release version, without a leading v")
 	url := fs.String("url", "", "where the archive is published (https)")
 	notes := fs.String("notes", "", "file holding the release notes (Markdown), optional")
@@ -53,8 +64,17 @@ func run(args []string, getenv func(string) string, now func() time.Time) error 
 	if !validTarget(*target) {
 		return fmt.Errorf("unknown -target %q", *target)
 	}
-	if *archive == "" || *url == "" || !update.Valid(*version) {
-		return errors.New("-archive, -url and a semantic -version are required")
+	if *archive == "" {
+		return errors.New("-archive is required")
+	}
+	if err := checkArchive(*archive, *target); err != nil {
+		return err
+	}
+	if *check {
+		return nil
+	}
+	if *url == "" || !update.Valid(*version) {
+		return errors.New("-url and a semantic -version are required")
 	}
 	keyText := strings.TrimSpace(getenv(*keyEnv))
 	if keyText == "" {
@@ -97,3 +117,16 @@ func run(args []string, getenv func(string) string, now func() time.Time) error 
 }
 
 func validTarget(t string) bool { return t == "darwin-arm64" || t == "windows-amd64" }
+
+// checkArchive refuses an archive the updater could not install.
+func checkArchive(path, target string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	if err := update.CheckArchive(f, target); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
+}

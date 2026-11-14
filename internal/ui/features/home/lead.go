@@ -87,12 +87,13 @@ func (h *home) leadBand(c *ui.Context, lead *services.Item, children func()) {
 		AlignSelf(ui.Stretch).Shrink(0).Padding(kit.PagePadTop, gutter+bar, 24, gutter).Margin(-kit.PagePadTop, -(gutter + bar), 0, -gutter)
 }
 
-// homeLead is the first "feature" shelf (Top Picks) set as the A-side of a
-// record: its first pick is 01, large, with what it is, Apple's reason and its
-// play control; every other pick follows as a numbered running order (02, 03
-// …) in one list beside it, so the first screen answers "what shall I play?"
-// without scrolling. The numbers are Apple's order. Under 900 DIPs the lead is
-// a row (cover, name) over the full-width order.
+// homeLead is the first "feature" shelf (Top Picks): its first pick large,
+// with what it is, Apple's reason and its play control; every other pick
+// follows as a running order (cover, name, reason, a hairline between rows)
+// in one list beside it, so the first screen answers "what shall I play?"
+// without scrolling. Apple's order is not numbered: a reader needs what is
+// on offer, not its rank. Under 900 DIPs the lead is a row (cover, name) over
+// the full-width order.
 func (h *home) homeLead(c *ui.Context, sec services.Section, ctx kit.ItemsCtx) {
 	st := &h.lead
 	items := st.cap.of(sec.Items)
@@ -127,7 +128,7 @@ func (h *home) homeLead(c *ui.Context, sec services.Section, ctx kit.ItemsCtx) {
 				order.Children(func() {
 					h.itemRows(c, &st.rows, rest, ctx, rowsOpts{
 						Label: title, Rows: slateRows, Cols: 1, Min: rowMin, Open: st.open, OnBackdrop: true,
-						Number: 2, Rules: true,
+						Inline: true, Rules: true,
 						OnColumns: func(n int) { st.cols = n; c.Invalidate() },
 					})
 				})
@@ -206,19 +207,15 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 		},
 	}, func(w, s ui.Element) {
 		kit.Artwork(c, h.env.Art, art, cover, kit.ArtOpts{Edge: true, Round: kit.ItemRound(it)})
-		ui.Row(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Start).Gap(8).Padding(0, 0, 4, 0).Children(func() {
-			// The lead is 01 of the running order beside it.
-			theme.Text(c, "01", "page").TextColor(theme.C("ink-faint")).FontFeatures("tnum").SingleLine().Width(32).Shrink(0)
-			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-				opener = h.titleBlock(c, it, "page", link)
-				ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
-					if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
-						ctx.Players.PlayItem(it)
-					}
-					if selectable {
-						menus.Trigger(c.Key("more"), at, kit.TriggerOpts{Header: true})
-					}
-				})
+		ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
+			opener = h.titleBlock(c, it, "page", link)
+			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
+				if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
+					ctx.Players.PlayItem(it)
+				}
+				if selectable {
+					menus.Trigger(c.Key("more"), at, kit.TriggerOpts{Header: true})
+				}
 			})
 		})
 	})
@@ -326,9 +323,9 @@ type skeletonState struct {
 	width kit.WidthTracker
 }
 
-// leadSkeleton is the lead's shape while Home loads: the ruled head, the 01
+// leadSkeleton is the lead's shape while Home loads: the ruled head, the
 // cover with the name's lines and the play circle, and the running order's
-// eight rows with their numbers.
+// eight rows.
 func (h *home) leadSkeleton(c *ui.Context) {
 	st := &h.lead.skel
 	tk := theme.Current()
@@ -350,13 +347,10 @@ func (h *home) leadSkeleton(c *ui.Context) {
 		}
 		body.Margin(12, 0, 0, 0).Children(func() {
 			words := func() {
-				ui.Row(c.Key("words")).Gap(8).AlignItems(ui.Start).Grow(1).Children(func() {
-					kit.Bar(c, 24, 24)
-					ui.Column(c).Grow(1).Children(func() {
-						ui.Box(c).WidthPercent(75).Height(24).Radius(r).Background(hover)
-						ui.Box(c).WidthPercent(50).Height(16).Radius(r).Background(hover).Margin(10, 0, 0, 0)
-						ui.Box(c).Size(40, 40).Radius(tk.Radius["full"]).Background(hover).Margin(20, 0, 0, 0)
-					})
+				ui.Column(c.Key("words")).Grow(1).Children(func() {
+					ui.Box(c).WidthPercent(75).Height(24).Radius(r).Background(hover)
+					ui.Box(c).WidthPercent(50).Height(16).Radius(r).Background(hover).Margin(10, 0, 0, 0)
+					ui.Box(c).Size(40, 40).Radius(tk.Radius["full"]).Background(hover).Margin(20, 0, 0, 0)
 				})
 			}
 			if wide {
@@ -377,7 +371,6 @@ func (h *home) leadSkeleton(c *ui.Context) {
 			order.Children(func() {
 				for i := range slateRows {
 					ui.Row(c.Key("row" + strconv.Itoa(i))).Height(rowH).PaddingX(rowPadX).Gap(rowGap).AlignItems(ui.Center).Children(func() {
-						kit.Bar(c, rowNum-rowGap, 12)
 						kit.Bar(c, rowArt, rowArt)
 						ui.Column(c).Grow(1).Children(func() {
 							ui.Box(c).WidthPercent(float32(40 + (i%3)*10)).Height(14).Radius(r).Background(hover)

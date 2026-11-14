@@ -98,6 +98,12 @@ msgstr "About Sona"
 msgid "About {artistName}"
 msgstr "About {artistName}"
 
+#: internal/ui/features/settings/accents.go
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/settingsfile.go
+msgid "Accent"
+msgstr "Accent"
+
 #: internal/ui/features/auth/dialog.go
 #: internal/ui/features/auth/menu.go
 msgid "Account"
@@ -331,6 +337,10 @@ msgstr "Always dark"
 #: internal/ui/features/onboarding/appearance.go
 msgid "Always light"
 msgstr "Always light"
+
+#: internal/ui/features/settings/accents.go
+msgid "Amber"
+msgstr "Amber"
 
 #: internal/ui/features/settings/linkhandler.go
 msgid "Another app opens them now."
@@ -2666,6 +2676,10 @@ msgstr "Go to album"
 msgid "Go to artist"
 msgstr "Go to artist"
 
+#: internal/ui/features/settings/accents.go
+msgid "Gold"
+msgstr "Gold"
+
 #: internal/ui/i18n/cdm.go
 msgid "Google doesn't make Widevine for this computer, so songs can't play here."
 msgstr "Google doesn't make Widevine for this computer, so songs can't play here."
@@ -3108,6 +3122,10 @@ msgstr "Light only"
 #: internal/ui/features/settings/themes.go
 msgid "Light: {text}"
 msgstr "Light: {text}"
+
+#: internal/ui/features/settings/accents.go
+msgid "Lime"
+msgstr "Lime"
 
 #: internal/ui/features/settings/storage.go
 msgid "Limit and cleanup"
@@ -5228,6 +5246,10 @@ msgstr "Right Arrow"
 msgid "Rock"
 msgstr "Rock"
 
+#: internal/ui/features/settings/accents.go
+msgid "Rose"
+msgstr "Rose"
+
 #: internal/ui/features/discover/front.go
 msgid "Rotation paused"
 msgstr "Rotation paused"
@@ -5839,6 +5861,10 @@ msgstr "Skip setup"
 #: internal/ui/features/onboarding/layer.go
 msgid "Skip the rest of the setup?"
 msgstr "Skip the rest of the setup?"
+
+#: internal/ui/features/settings/accents.go
+msgid "Sky"
+msgstr "Sky"
 
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
@@ -6518,6 +6544,10 @@ msgctxt "keyboard key"
 msgid "Tab"
 msgstr "Tab"
 
+#: internal/ui/features/settings/accents.go
+msgid "Teal"
+msgstr "Teal"
+
 #: internal/ui/features/settings/audio.go
 msgid "Ten bands, presets and a preamp, heard as you move them. Off now."
 msgstr "Ten bands, presets and a preamp, heard as you move them. Off now."
@@ -6599,6 +6629,10 @@ msgstr "The account name or password isn't right."
 #: internal/ui/account/signin.go
 msgid "The account's country or region has no Apple Music storefront."
 msgstr "The account's country or region has no Apple Music storefront."
+
+#: internal/ui/features/settings/accents.go
+msgid "The colour that marks what plays: the play button, the progress and the song that is playing. Each theme keeps its own."
+msgstr "The colour that marks what plays: the play button, the progress and the song that is playing. Each theme keeps its own."
 
 #: internal/ui/features/settings/appearance.go
 msgid "The colours of the whole window. A theme also picks the colour that marks what plays."
@@ -6767,6 +6801,10 @@ msgstr "Their albums and songs leave your library too."
 #: internal/ui/features/settings/themes.go
 msgid "Theme"
 msgstr "Theme"
+
+#: internal/ui/features/settings/accents.go
+msgid "Theme default"
+msgstr "Theme default"
 
 #: internal/ui/features/player/queue_list.go
 msgid "Then AutoPlay continues with similar music"
@@ -7034,8 +7072,8 @@ msgid "Treble Reducer"
 msgstr "Treble Reducer"
 
 #: internal/ui/features/settings/themes.go
-msgid "True black, lime"
-msgstr "True black, lime"
+msgid "True black, blue"
+msgstr "True black, blue"
 
 #: internal/ui/account/code.go
 msgid "Trusted phone number"
@@ -7048,6 +7086,7 @@ msgstr "Trusted phone number"
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go
+#: internal/ui/features/updates/updates.go
 #: internal/ui/features/video/view.go
 #: internal/ui/kit/controls_states.go
 msgid "Try again"
@@ -7300,6 +7339,7 @@ msgid "View playlist collaborators"
 msgstr "View playlist collaborators"
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
 msgid "View release"
 msgstr "View release"
 
@@ -7790,6 +7830,10 @@ msgstr "bitrate, data saver, lossless"
 #: internal/ui/features/settings/find.go
 msgid "bug report"
 msgstr "bug report"
+
+#: internal/ui/features/settings/find.go
+msgid "colour, play button, spot colour, amber, gold, lime, sky, teal, rose"
+msgstr "colour, play button, spot colour, amber, gold, lime, sky, teal, rose"
 
 #: internal/ui/features/settings/find.go
 msgid "colours, palette, graphite, ink, high contrast, paper, spot colour"

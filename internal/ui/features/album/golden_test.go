@@ -3,12 +3,14 @@ package album
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -55,7 +57,7 @@ func TestGoldenAlbumPage(t *testing.T) {
 	}
 }
 
-// The gatefold's wide layout: 1440×900 less the sidebar, top bar and player
+// The wide layout: 1440×900 less the sidebar, top bar and player
 // bar is 1207×780 of page column.
 func TestGoldenAlbumPageWide(t *testing.T) {
 	for _, c := range []struct {
@@ -75,6 +77,62 @@ func TestGoldenAlbumPageWide(t *testing.T) {
 			uitest.Golden(t, r.tt.Image(), c.name)
 		})
 	}
+}
+
+// goldenLong is a record that outlasts any pane: two discs, 18 songs, notes,
+// the fine print and a row of shelves.
+func goldenLong(p *services.CatalogAlbum) {
+	goldenAlbum(p)
+	p.Tracks = nil
+	for i := 1; i <= 18; i++ {
+		disc, n := 1, i
+		if i > 10 {
+			disc, n = 2, i-10
+		}
+		p.Tracks = append(p.Tracks, track(i, fmt.Sprintf("Song %02d", i), func(s *services.Song) {
+			s.DiscNumber, s.TrackNumber, s.Composer = disc, n, "Mia Vale"
+		}))
+	}
+	p.Album.TrackCount, p.DurationMs = 18, 18*200000
+	for i := range 6 {
+		p.MoreByArtist = append(p.MoreByArtist, services.Album{ID: fmt.Sprintf("21%d", i), Name: fmt.Sprintf("Blue Hour %d", i), Artist: "Mia Vale", ReleaseDate: "2021-05-01", Art: services.Art{Medium: fmt.Sprintf("/art/21%d/m.jpg", i)}})
+	}
+}
+
+// A short pane (a 1280×600 window: 1047×480 of page column) keeps Play and the
+// first songs on the first screen.
+func TestGoldenAlbumPageWideShortPane(t *testing.T) {
+	goldenRegional(t)
+	r := newRig(t, "/album/100", 1047, 480)
+	r.addCatalog(saltFlats(goldenLong))
+	r.shows("Song 01", "Disc 1")
+	settleGolden(t, r, "album-wide-short-light")
+}
+
+// Scrolled into a long record: the band is gone and nothing ends where the
+// songs do; the margin holds at the pane's top.
+func TestGoldenAlbumPageWideScrolled(t *testing.T) {
+	goldenRegional(t)
+	r := newRig(t, "/album/100", 1047, 680)
+	r.addCatalog(saltFlats(goldenLong))
+	r.shows("Song 01", "Disc 1")
+	r.tt.Art = append(r.tt.Art, r.h.Env.Art)
+	r.tt.Settle()
+	r.tt.Scroll(700, 300, 0, 700)
+	r.tt.Move(-5, -5)
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "album-wide-scrolled-light")
+}
+
+// Reduce effects: one flat colour that ends square.
+func TestGoldenAlbumPageWideReducedEffects(t *testing.T) {
+	theme.SetReduceEffects(true)
+	t.Cleanup(func() { theme.SetReduceEffects(false) })
+	goldenRegional(t)
+	r := newRig(t, "/album/100", 1207, 780)
+	r.addCatalog(saltFlats(goldenAlbum))
+	r.shows("Salt Flats", "Blue Hour", "Notes")
+	settleGolden(t, r, "album-wide-reduced-light")
 }
 
 func TestGoldenAlbumPageMinimumWindow(t *testing.T) {

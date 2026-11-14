@@ -120,7 +120,9 @@ kept past its build pass, and a handle cannot stand in for it.
 
 - Text tokens are ≥ 4.5:1 on every background up to `--active` and on
   selected rows (ink at 12%); `--control-line` and the focus ring are
-  ≥ 3:1 on ground, surface and raised. The values live in the theme tokens
+  ≥ 3:1 on ground, surface and raised. The spot colour's fill (the play
+  disc, WCAG 1.4.11 non-text contrast) is ≥ 3:1 on ground, surface and hover
+  in light and dark. The values live in the theme tokens
   (`internal/ui/theme`); `docs/design.md` lists them.
 - Slider thumbs are always shown: the thumb, not the fill colour, marks
   the value.

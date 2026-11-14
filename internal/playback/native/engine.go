@@ -186,6 +186,7 @@ type Engine struct {
 	sessions   map[string]*media // CDM session → media, for renewals
 	idleT      *time.Timer
 	restarts   []time.Time
+	held       int // HoldHost calls not yet released
 	events     chan playback.Event
 
 	retry  []time.Duration // waits between fetch attempts
@@ -193,7 +194,10 @@ type Engine struct {
 	stopBG context.CancelFunc
 }
 
-var _ playback.Engine = (*Engine)(nil)
+var (
+	_ playback.Engine     = (*Engine)(nil)
+	_ playback.HostHolder = (*Engine)(nil)
+)
 
 // New returns an idle Engine. No process starts until Play or Preload.
 func New(o Options) *Engine {
@@ -327,6 +331,15 @@ func (e *Engine) setState(s playback.State, pos time.Duration, at time.Time) {
 }
 
 var errClosed = errors.New("native: engine closed")
+
+// ErrHostHeld is what a command that needs a host gets while HoldHost is in
+// force: Sona is replacing its own files.
+var ErrHostHeld = errors.New("native: playback is paused while Sona installs an update")
+
+// holdWait bounds how long HoldHost waits for the probe children (the audio
+// stack's preparation, Diagnostics' probe) that may still hold the install's
+// files after the playback host has gone.
+const holdWait = 10 * time.Second
 
 // Play loads id and plays it from start, replacing the current item. It
 // returns once audio is playing (or the item was paused meanwhile). Errors
@@ -832,6 +845,55 @@ func (e *Engine) Close() error {
 	return nil
 }
 
+// HoldHost is playback.HostHolder: it pauses the current item, ends the host
+// now (as the idle shutdown would later) and waits for it and the probe
+// children to exit, and keeps ensureHost from starting another until
+// release. The item stays current and paused, so Resume after release starts a
+// host at its position (TestIdleShutdownAndTransparentResume's path).
+func (e *Engine) HoldHost(ctx context.Context) (func(), error) {
+	// A host that can't be paused is ended all the same.
+	if err := e.pause(ctx, nil); err != nil {
+		e.log.Warn("pausing before the host is held failed", "err", err)
+	}
+	// Behind a host start that is under way, so that its host is the one
+	// ended here and none starts after the hold is in place.
+	e.spawnMu.Lock()
+	defer e.spawnMu.Unlock()
+	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		return func() {}, nil
+	}
+	e.held++
+	h := e.h
+	e.h = nil
+	e.stopIdle()
+	if h != nil && e.cur != nil {
+		if e.cur.cancel != nil {
+			e.cur.cancel()
+		}
+		e.cur.loaded = false
+	}
+	e.mu.Unlock()
+	if h != nil {
+		e.log.Info("ending the playback host: Sona is replacing its files", "pid", h.Info().PID)
+		_ = h.Close()
+	}
+	wctx, cancel := context.WithTimeout(ctx, holdWait)
+	defer cancel()
+	if err := cdmhost.WaitIdle(wctx); err != nil {
+		e.log.Warn("a playback child process is still running; replacing the files anyway", "err", err)
+	}
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			e.mu.Lock()
+			e.held--
+			e.mu.Unlock()
+		})
+	}, nil
+}
+
 // stopIdle cancels the idle shutdown; with mu held.
 func (e *Engine) stopIdle() {
 	if e.idleT != nil {
@@ -884,6 +946,10 @@ func (e *Engine) ensureHost(ctx context.Context) (host, int, error) {
 		h, gen := e.h, e.hostGen
 		e.mu.Unlock()
 		return h, gen, nil
+	}
+	if e.held > 0 {
+		e.mu.Unlock()
+		return nil, 0, ErrHostHeld
 	}
 	e.mu.Unlock()
 	// The CDM is chosen per host: a version installed since the last one

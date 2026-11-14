@@ -79,8 +79,9 @@ jobs:
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
     # inherit, not a list: the build and publish jobs read the `release`
-    # environment's secrets (SONA_UPDATE_KEY, the Last.fm and Discord
-    # credentials), which a called workflow sees only when the caller
+    # environment's secret (PROTON_PASS_PERSONAL_ACCESS_TOKEN, the token
+    # that reads the update key and the Last.fm and Discord credentials from
+    # Proton Pass), which a called workflow sees only when the caller
     # inherits its secrets. With the two App secrets passed by name, v0.3.0
     # was built without the credentials and published without update
     # manifests (run 42482812544).

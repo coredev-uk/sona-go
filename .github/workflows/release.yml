@@ -15,7 +15,7 @@
 #   windows   the x64 portable .zip, the per-user installer and the update
 #             archive (build/windows), smoke-tested
 #   publish   signs the update manifests (update-<target>.json) with the
-#             SONA_UPDATE_KEY secret, writes one SHA256SUMS over everything,
+#             SONA_UPDATE_KEY (Proton Pass), writes one SHA256SUMS over everything,
 #             attests it, uploads and publishes, as the bot-cecil GitHub App
 #
 # The notes in a tag's draft are release-please's changelog entry; publishing
@@ -31,7 +31,7 @@
 #     platform, attaches the files to the run as the linux-release,
 #     macos-release and windows-release artifacts, and publishes, signs and
 #     attests nothing. It runs without the `release` environment, so the
-#     builds have no Last.fm or Discord credentials.
+#     builds have no Proton Pass token and so no Last.fm or Discord credentials.
 #   - with `prerelease` set (rc.1, rc.2, …) builds v<VERSION>-<prerelease> from
 #     the branch, signs the manifests and publishes a GitHub prerelease, which
 #     only installs with Settings → Updates → Test versions on. It runs in the
@@ -46,7 +46,8 @@
 # runs only when something landed on main since the last nightly or release:
 # a night whose head already has a v* tag (each nightly tags the head it
 # built) builds nothing, and a failed night is retried the next.
-# Without the SONA_UPDATE_KEY secret (forks, a run outside the environment)
+# Without the SONA_UPDATE_KEY (forks, a run outside the environment: no
+# Proton Pass token)
 # the signing step is skipped, says so in the run summary, and the release has
 # no update-<target>.json: those installs do not self-update.
 name: Release
@@ -65,6 +66,9 @@ on:
       RENOVATE_APP_PRIVATE_KEY:
         description: bot-cecil GitHub App private key
         required: true
+      PROTON_PASS_PERSONAL_ACCESS_TOKEN:
+        description: The release environment's Proton Pass token (inherited; a fork has none)
+        required: false
   workflow_dispatch:
     inputs:
       checks:
@@ -233,10 +237,14 @@ jobs:
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 60
-    # The Last.fm key and secret and the Discord application ID are secrets
-    # of the `release` environment, which only runs from main. A dry run
-    # from a branch has none, and Sona reads the same variables at runtime.
+    # The Last.fm key and secret and the Discord application ID are items of
+    # the Proton Pass vault "CI", read with the `release`
+    # environment's PROTON_PASS_PERSONAL_ACCESS_TOKEN; that environment only
+    # runs from main. A dry run from a branch has no token and so none of
+    # them, and Sona reads the same variables at runtime.
     environment: ${{ needs.plan.outputs.publish == 'true' && 'release' || '' }}
+    env:
+      HAVE_PROTON_PASS: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN != '' }}
     permissions:
       contents: read
       packages: read # pull the build image (images.yml)
@@ -280,12 +288,23 @@ jobs:
           key: release-${{ runner.os }}-${{ hashFiles('go.sum') }}
           restore-keys: release-${{ runner.os }}-
 
+      - name: Load the release secrets from Proton Pass
+        if: env.HAVE_PROTON_PASS == 'true'
+        # main: v1.1.0 plus its built dist/; the v1 tags ship no dist/index.js
+        uses: protonpass/load-secret-action@e51765b8ef320ff9304a1f6523737714b67c5ddf # v1.1.0
+        with:
+          version: 2.7.0
+          hash: fd933e76179a5a33b295853e9c6696e49e584fe2141b1aafc63a3d78c0791cdb
+          export-env: "true"
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+          SONA_LASTFM_KEY: pass://CI/Last.fm API/SONA_LASTFM_KEY
+          SONA_LASTFM_SECRET: pass://CI/Last.fm API/SONA_LASTFM_SECRET
+          SONA_DISCORD_CLIENT_ID: pass://CI/Discord App/SONA_DISCORD_CLIENT_ID
+
       # Podman is preinstalled on the runner image.
       - name: Build and smoke-test packages
         env:
-          SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
-          SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
-          SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
           SONA_RELEASE_CACHE: ${{ env.CACHE_DIR }}
         run: bash build/linux/release/release.sh "$RELEASE_DIR"
 
@@ -331,6 +350,7 @@ jobs:
       attestations: write
     env:
       VERSION: ${{ needs.plan.outputs.version }}
+      HAVE_PROTON_PASS: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -348,14 +368,25 @@ jobs:
       # pinned and checked by build/darwin/gstreamer.sha256.
       - uses: ./.github/actions/setup-macos-gstreamer
 
+      - name: Load the release secrets from Proton Pass
+        if: env.HAVE_PROTON_PASS == 'true'
+        # main: v1.1.0 plus its built dist/; the v1 tags ship no dist/index.js
+        uses: protonpass/load-secret-action@e51765b8ef320ff9304a1f6523737714b67c5ddf # v1.1.0
+        with:
+          version: 2.7.0
+          hash: f17222619b4c4c4112eccc3796edea4bc0e4a341dc8960f7bb4023782adcc4a1
+          export-env: "true"
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+          SONA_LASTFM_KEY: pass://CI/Last.fm API/SONA_LASTFM_KEY
+          SONA_LASTFM_SECRET: pass://CI/Last.fm API/SONA_LASTFM_SECRET
+          SONA_DISCORD_CLIENT_ID: pass://CI/Discord App/SONA_DISCORD_CLIENT_ID
+
       # bundle.sh links the update feed and key in only where the key is
       # committed (internal/update/update.pub); without them the build never
       # updates.
       - name: Build, bundle and sign ad hoc
         env:
-          SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
-          SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
-          SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
           SONA_SMOKE_TOOLS: "1"
         run: build/darwin/bundle.sh "$OUT_DIR"
 
@@ -409,6 +440,7 @@ jobs:
         shell: bash
     env:
       VERSION: ${{ needs.plan.outputs.version }}
+      HAVE_PROTON_PASS: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN != '' }}
       # cgo: the runner's MinGW-w64 gcc links GStreamer (package.sh) and
       # mattn/go-sqlite3.
       CGO_ENABLED: "1"
@@ -435,6 +467,20 @@ jobs:
       - name: Choose the output directory
         run: echo "OUT_DIR=$RUNNER_TEMP/release" >>"$GITHUB_ENV"
 
+      - name: Load the release secrets from Proton Pass
+        if: env.HAVE_PROTON_PASS == 'true'
+        # main: v1.1.0 plus its built dist/; the v1 tags ship no dist/index.js
+        uses: protonpass/load-secret-action@e51765b8ef320ff9304a1f6523737714b67c5ddf # v1.1.0
+        with:
+          version: 2.7.0
+          hash: c752af109dbda98ad154dfcdb40e8e43f1a38bc37de224b6182647b625290bb7
+          export-env: "true"
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+          SONA_LASTFM_KEY: pass://CI/Last.fm API/SONA_LASTFM_KEY
+          SONA_LASTFM_SECRET: pass://CI/Last.fm API/SONA_LASTFM_SECRET
+          SONA_DISCORD_CLIENT_ID: pass://CI/Discord App/SONA_DISCORD_CLIENT_ID
+
       # package.sh links the update feed and key in only where the key is
       # committed (internal/update/update.pub); without them the build never
       # updates. It links GStreamer (setup above) and ships its runtime and the
@@ -442,9 +488,6 @@ jobs:
       - name: Build, zip and make the installer
         env:
           SONA_SMOKE_TOOLS: "1"
-          SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
-          SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
-          SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
         run: build/windows/package.sh "$OUT_DIR"
 
       # The zip, the update archive and the installer, with the installed
@@ -489,14 +532,16 @@ jobs:
     if: ${{ !cancelled() && needs.plan.outputs.publish == 'true' && needs.linux.result == 'success' && needs.macos.result == 'success' && needs.windows.result == 'success' && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 20
-    # SONA_UPDATE_KEY (the Ed25519 key `go tool mygo keygen` wrote) is a
-    # secret of the `release` environment.
+    # SONA_UPDATE_KEY (the Ed25519 key `go tool mygo keygen` wrote) is an item
+    # of the Proton Pass vault "CI", read with the `release`
+    # environment's PROTON_PASS_PERSONAL_ACCESS_TOKEN.
     environment: release
     permissions:
       contents: read
       id-token: write # attest the manifests and the checksums
       attestations: write
     env:
+      HAVE_PROTON_PASS: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN != '' }}
       VERSION: ${{ needs.plan.outputs.version }}
       TAG: ${{ needs.plan.outputs.tag }}
       PRERELEASE: ${{ needs.plan.outputs.prerelease }}
@@ -560,25 +605,35 @@ jobs:
           echo "draft=$draft" >>"$GITHUB_OUTPUT"
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body >changelog.md
 
+      - name: Load the release secrets from Proton Pass
+        if: env.HAVE_PROTON_PASS == 'true'
+        # main: v1.1.0 plus its built dist/; the v1 tags ship no dist/index.js
+        uses: protonpass/load-secret-action@e51765b8ef320ff9304a1f6523737714b67c5ddf # v1.1.0
+        with:
+          version: 2.7.0
+          hash: fd933e76179a5a33b295853e9c6696e49e584fe2141b1aafc63a3d78c0791cdb
+          export-env: "true"
+        env:
+          PROTON_PASS_PERSONAL_ACCESS_TOKEN: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN }}
+          SONA_UPDATE_KEY: pass://CI/Update Signing Key/SONA_UPDATE_KEY
+          SONA_LASTFM_KEY: pass://CI/Last.fm API/SONA_LASTFM_KEY
+          SONA_LASTFM_SECRET: pass://CI/Last.fm API/SONA_LASTFM_SECRET
+          SONA_DISCORD_CLIENT_ID: pass://CI/Discord App/SONA_DISCORD_CLIENT_ID
+
       # In this repository a release must not go out without the release
-      # environment's secrets: the build jobs (same environment, same run)
-      # linked them into the binaries, and the update manifests need the
-      # key. v0.3.0 was published without them (run 42482812544). A fork's
+      # secrets (Proton Pass, loaded above): the build jobs (same environment,
+      # same run) linked them into the binaries, and the update manifests need
+      # the key. v0.3.0 was published without them (run 42482812544). A fork's
       # run, which has none, still publishes unsigned, as below.
       - name: The release environment's secrets are here
         if: ${{ steps.notes.outputs.draft == 'true' && github.repository == 'coredev-uk/sona-go' }}
-        env:
-          SONA_UPDATE_KEY: ${{ secrets.SONA_UPDATE_KEY }}
-          SONA_LASTFM_KEY: ${{ secrets.SONA_LASTFM_KEY }}
-          SONA_LASTFM_SECRET: ${{ secrets.SONA_LASTFM_SECRET }}
-          SONA_DISCORD_CLIENT_ID: ${{ secrets.SONA_DISCORD_CLIENT_ID }}
         run: |
           missing=""
           for name in SONA_UPDATE_KEY SONA_LASTFM_KEY SONA_LASTFM_SECRET SONA_DISCORD_CLIENT_ID; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
-            echo "::error::the release environment's secrets are missing:$missing. Nothing is published; a caller of this workflow must pass \`secrets: inherit\`."
+            echo "::error::the release secrets are missing:$missing. They are read from Proton Pass (vault \"CI\") with the release environment's PROTON_PASS_PERSONAL_ACCESS_TOKEN. Nothing is published; a caller of this workflow must pass \`secrets: inherit\`."
             exit 1
           fi
 
@@ -587,8 +642,6 @@ jobs:
       # step says so and the release has no manifests (no self-updates).
       - name: Sign the update manifests
         if: ${{ steps.notes.outputs.draft == 'true' }}
-        env:
-          SONA_UPDATE_KEY: ${{ secrets.SONA_UPDATE_KEY }}
         run: |
           if [ -z "$SONA_UPDATE_KEY" ]; then
             msg="SONA_UPDATE_KEY is not set: update manifests are NOT signed and this release has no update-<target>.json; installs will not self-update."

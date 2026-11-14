@@ -177,3 +177,18 @@ type Engine interface {
 	Capabilities() Capabilities
 	Close() error
 }
+
+// HostHolder is an Engine that plays in a process of its own (the CDM host)
+// and can be made to let go of it. Sona holds the host while an update
+// replaces the install's files: on Windows a folder with a loaded DLL in it
+// (GStreamer's plugins in lib\) can't be renamed.
+type HostHolder interface {
+	// HoldHost pauses the current item and ends the host process, and any
+	// other child the engine runs, now rather than after the idle timeout,
+	// returning once they have exited. Until release is called no host is
+	// started: a command that needs one fails with an error. The item stays
+	// current, paused where it was, so that after release a Resume or Play
+	// starts a new host as it does after an idle shutdown. release may be
+	// called more than once. Where there is no host it only holds.
+	HoldHost(ctx context.Context) (release func(), err error)
+}

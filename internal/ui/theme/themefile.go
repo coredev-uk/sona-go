@@ -52,6 +52,13 @@ type Theme struct {
 
 	light, dark *variant // nil: the variant is not given
 
+	// accents are the accents this theme offers (accents.go), by ID: only
+	// built-ins have any, and only the ones that pass Validate.
+	accents map[string]*accentValues
+	// derived are this theme with each accent laid over it; guarded by
+	// state.mu.
+	derived map[string]*Theme
+
 	// cache is the resolved tokens of this theme over the base of that
 	// revision; guarded by state.mu.
 	cache struct {
@@ -98,6 +105,8 @@ type file struct {
 	Author  string       `json:"author"`
 	Light   *variantFile `json:"light"`
 	Dark    *variantFile `json:"dark"`
+	// Accents is Sona's own themes' set of play colours (accents.go).
+	Accents map[string]accentFile `json:"accents"`
 }
 
 type variantFile struct {
@@ -115,10 +124,12 @@ func ParseTheme(data []byte) (*Theme, []Problem) {
 	state.mu.Lock()
 	base := state.base
 	state.mu.Unlock()
-	return parseTheme(data, base)
+	return parseTheme(data, base, false)
 }
 
-func parseTheme(data []byte, base *Document) (*Theme, []Problem) {
+// parseTheme reads a theme file; builtin says Sona's own embedded file, the
+// only kind that may hold accents.
+func parseTheme(data []byte, base *Document, builtin bool) (*Theme, []Problem) {
 	var f file
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
@@ -159,6 +170,9 @@ func parseTheme(data []byte, base *Document) (*Theme, []Problem) {
 		*v.set = &variant{color: v.in.Color, scalar: v.in.Scalar, shadow: v.in.Shadow}
 		out = append(out, checkVariant(base, v.dark, *v.set)...)
 	}
+	if len(f.Accents) > 0 && !builtin {
+		out = append(out, Problem{Kind: ProblemBadValue, Token: "accents", Detail: "accents are only for Sona's own themes: give your theme's own amber"})
+	}
 	if len(out) > 0 {
 		return nil, out
 	}
@@ -181,6 +195,12 @@ func parseTheme(data []byte, base *Document) (*Theme, []Problem) {
 	}
 	if len(out) > 0 {
 		return nil, out
+	}
+	if len(f.Accents) > 0 {
+		var ps []Problem
+		if t.accents, ps = readAccents(base, t, f.Accents); len(ps) > 0 {
+			return nil, ps
+		}
 	}
 	return t, nil
 }
@@ -336,7 +356,7 @@ func builtins(base *Document) []*Theme {
 		if err != nil {
 			panic(err)
 		}
-		t, problems := parseTheme(data, base)
+		t, problems := parseTheme(data, base, true)
 		if t == nil {
 			panic(fmt.Sprintf("theme: built-in %q: %v", id, problems))
 		}

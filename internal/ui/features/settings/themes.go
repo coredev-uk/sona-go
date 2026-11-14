@@ -76,7 +76,7 @@ func themeHint(t *theme.Theme) (what, only string) {
 		case "graphite":
 			what = i18n.T("Cool grey, sky blue")
 		case "oled":
-			what = i18n.T("True black, lime")
+			what = i18n.T("True black, blue")
 		case "contrast":
 			what = i18n.T("Text at 7:1, strong lines")
 		case "paper":
@@ -273,7 +273,11 @@ func (s *settings) themeCard(c *ui.Context, sel *string, t *theme.Theme, hint, o
 		if pd, pinned := t.Pinned(); pinned {
 			look = pd
 		}
-		kit.ThemePreview(c.Key("picture"), t.Tokens(look))
+		shown := t
+		if checked {
+			shown = t.WithAccent(theme.ActiveAccent())
+		}
+		kit.ThemePreview(c.Key("picture"), shown.Tokens(look))
 		ui.Column(c.Key("words")).FillWidth().Padding(0, 2, 2, 2).Gap(2).Children(func() {
 			ui.Row(c.Key("name")).Gap(4).AlignItems(ui.Center).Children(func() {
 				if checked {
