@@ -213,10 +213,11 @@ and Windows development builds in ci.yml never hold a release up), then the
   `PROTON_PASS_PERSONAL_ACCESS_TOKEN`: the same token, `sona-ci`, viewer on
   that vault alone, which `protonpass/load-secret-action` uses to read them.
   **Rotate a value** by editing the item in Proton Pass; nothing changes in
-  GitHub. **Renew the token** (it expires 2027-11-14) with `pass-cli
-  personal-access-token renew`, or create a new one, grant it viewer on "Sona
-  CI", set it with `gh secret set PROTON_PASS_PERSONAL_ACCESS_TOKEN --env
-  release` and `--env live`, then delete the old one in Proton Pass. The
+  GitHub. **Renew the token** (it expires 2027-11-14) with `pass-cli pat
+  renew --pat-name sona-ci --expiration 1y`: it keeps its access to "Sona CI"
+  but prints a new token string and the old one stops working at once, so
+  set the new one straight away with `gh secret set
+  PROTON_PASS_PERSONAL_ACCESS_TOKEN --env release` and `--env live`. The
   monthly "Release secrets" run catches an expired or revoked token before a
   release; dispatch it after any change.
 - **Release notes:** a release's draft holds release-please's changelog entry;
