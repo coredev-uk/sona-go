@@ -24,6 +24,11 @@ devenv shell -- <command>        # one command
 nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv -- shell
 ```
 
+With [direnv](https://direnv.net), the checked-in `.envrc` loads the same
+environment whenever you `cd` into the checkout or a worktree: run
+`direnv allow` once in each, and `go`, `dev`, `check` and the other scripts
+work without the `devenv shell --` prefix.
+
 It sets `CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5`, the GStreamer plugin
 path (core, base, good, bad, libav and, on Linux, PipeWire; never the host's
 plugins) and, on Linux, `LD_LIBRARY_PATH` for GTK3 and friends (MyGo loads
