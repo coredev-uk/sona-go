@@ -1,7 +1,40 @@
 name: Feature request
 description: Suggest something Sona should do.
-labels: [enhancement]
+labels: [enhancement, needs-triage]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. The first answers set the labels that route it, so please pick the closest match.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Only if the idea is about one platform.
+      options:
+        - All of them
+        - Linux
+        - macOS
+        - Windows
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Where the idea belongs, as best you can tell. "Not sure" is fine.
+      options:
+        - Playback, the queue or audio output
+        - "My library: songs, albums, artists, playlists"
+        - Search
+        - Pages, menus, windows or how Sona looks
+        - Themes
+        - Add-ons
+        - Installing or updating Sona
+        - Signing in
+        - Last.fm, Discord, media keys or the desktop
+        - "Accessibility: screen reader, keyboard, contrast"
+        - Not sure
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
@@ -20,3 +53,10 @@ body:
     id: alternatives
     attributes:
       label: Alternatives considered
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I searched the existing issues and this is not already requested.
+          required: true

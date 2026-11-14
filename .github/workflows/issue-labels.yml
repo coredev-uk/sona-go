@@ -1,0 +1,56 @@
+name: Issue labels
+
+# Labels an issue from its form's answers: the platform/* label of the
+# Platform dropdown and the area/* label of the Area dropdown
+# (.github/ISSUE_TEMPLATE, parsed by cmd/issuelabels from the issue body). It
+# only ever adds: a kind (platform, area) that already has a label is left
+# alone, so an edit by the reporter never overrides a maintainer's triage, and
+# an issue that is not from a form gets nothing.
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions: {}
+
+concurrency:
+  group: issue-labels-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    name: Label from the form
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      # Only the parser and the module file (go.mod names the Go version).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            go.mod
+            cmd/issuelabels
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Add the labels the answers call for
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          BODY: ${{ github.event.issue.body }}
+          HAVE: ${{ join(github.event.issue.labels.*.name, ',') }}
+        run: |
+          labels=$(printf '%s' "$BODY" | go run ./cmd/issuelabels -have "$HAVE" | paste -sd, -)
+          if [ -z "$labels" ]; then
+            echo "No form answers to label from."
+            exit 0
+          fi
+          gh issue edit "$NUMBER" --add-label "$labels"
+          echo "Added: $labels"
