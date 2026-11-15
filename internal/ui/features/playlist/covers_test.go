@@ -21,6 +21,29 @@ var coverStyles = []string{"Gradient", "Disc", "Split", "Bars", "Fold", "Eclipse
 // noDesigns is what the picker says when Apple made the playlist no cover.
 const noDesigns = "Apple Music's designs show once it makes this playlist's cover: when the playlist has songs and no photo of its own."
 
+// coverNotice is what the picker says, before the tiles, about where a cover
+// lives.
+const coverNotice = "Only in Sona: Apple Music can't keep covers set here."
+
+// The limitation is a status at the top of the dialog (read where it stands
+// when it opens) and the dialog's own description, so a screen reader hears
+// it with the dialog's name; it is not a second announcement.
+func TestCoverDialogNoticeIsExposedToAssistiveTech(t *testing.T) {
+	r := newDialogsRig(t)
+	r.showCover()
+	tr := access.Read(t, r.tt.Tester)
+	if _, ok := tr.Find(ui.RoleStatus, coverNotice); !ok {
+		t.Fatalf("no status says %q", coverNotice)
+	}
+	dlg, ok := tr.Find(ui.RoleDialog, "Playlist cover")
+	if !ok || dlg.Description != coverNotice {
+		t.Fatalf("dialog = %+v, want it described by the notice", dlg)
+	}
+	if got := r.tt.Announcements(); slices.Contains(got, coverNotice) {
+		t.Errorf("announcements %q repeat the notice a status already carries", got)
+	}
+}
+
 // showCover opens the cover picker of playlist p.a and waits for its options.
 func (r *dialogsRig) showCover() {
 	r.show(dialogState{kind: dialogCover, id: "p.a", name: "Road Trip"})
@@ -50,7 +73,7 @@ func TestCoverDialogOffersEveryChoiceAndSaysWhereTheCoverLives(t *testing.T) {
 	r := newDialogsRig(t)
 	r.showCover()
 	r.shows(append([]string{
-		"Apple Music can't keep a playlist cover from here, so your choice stays on this computer and shows in Sona only.",
+		coverNotice,
 		"Choose an image…",
 		"JPEG or PNG, up to 20 MB and 40 megapixels, at least 300 px wide and tall. Sona crops it to a square from the centre.",
 	}, coverStyles...)...)
