@@ -56,7 +56,7 @@ Details of those:
 
 - Media controls are MPRIS on Linux. On macOS and Windows they are MyGo's NowPlaying through `internal/nowplaying` (`nowplaying_desktop.go`), never linked on Linux.
 - The tray itself is the UI's (`internal/ui/app`, `mygo.NewTray`), reported through `services.Windows.HasTray`.
-- The playback engine and the CDM host child hook (`newEngine`, `childMain`, `cdmLoadCheck`) are `engine_cdm.go`'s on Linux and macOS: the CDM host engine, loading the downloaded CDM. Elsewhere they are `engine_other.go`'s (`playback.Unsupported`, and no download).
+- The playback engine and the CDM host child hook (`newEngine`, `childMain`, `cdmLoadCheck`) are `engine_cdm.go`'s on Linux and in cgo builds for macOS and Windows: the CDM host engine, loading the downloaded CDM. Elsewhere (a cgo-off type-check build, other systems) they are `engine_other.go`'s (`playback.Unsupported`, and no download).
 
 A nil seam is unsupported. The service using it does nothing or returns an error wrapping `errors.ErrUnsupported` (error code `unsupported`). `PlatformService.Capabilities` tells the UI, which hides or explains the control (`internal/services/doc.go`, [ui-architecture.md](ui-architecture.md)).
 
@@ -65,19 +65,18 @@ A nil seam is unsupported. The service using it does nothing or returns an error
 - **One OS.** A file is named `_linux.go`, `_darwin.go` or `_windows.go`; Go applies the constraint from the name. The fallback for the rest is `_other.go` with the complementary `//go:build` line (`!linux`).
 - **A group of systems.** The file carries an explicit line and a descriptive name: `//go:build unix` (`internal/discord/ipc_unix.go`) or `//go:build !darwin && !windows` (XDG paths in `internal/config/paths_xdg.go`, the Secret Service backend name in `internal/auth/store/keyring_other.go`).
 - **Tests** that only make sense on one OS follow their file.
-- **Code that only compiles on some systems is tagged.** The CDM host engine (`internal/playback/gst`, `widevine`, `cdmhost`, `native`) and `cmd/playspike` carry `//go:build linux || (darwin && cgo)`: cgo against GStreamer and the C++ shim, which a macOS build has anyway.
-- **MyGo** is pure Go on every OS (it loads GTK by soname on Linux), so the UI packages need no tags.
+- **Code that only compiles on some systems is tagged.** The CDM host engine (`internal/playback/gst`, `widevine`, `cdmhost`, `native`) and `cmd/playspike` carry `//go:build linux || (cgo && (darwin || windows))`: cgo against GStreamer and the C++ shim (on Windows, the MSVC-built shim DLL).
+- **MyGo** is pure Go on every OS (it loads GTK by soname on Linux), so the UI packages need no tags. The exception is the motion artwork decoder in `internal/ui/media`: `motion_gst.go` (`linux && cgo`), `motion_native.go` (macOS and Windows: AVFoundation and Media Foundation through MyGo's `ui/video`) and `motion_none.go` for the rest.
 - **Portable Go implementations of Linux protocols** stay untagged, so they type-check and their tests run everywhere. These are the D-Bus clients in `internal/mpris`, `internal/desktop/*`, `internal/power` and `internal/app`, and the XDG autostart entry. Only `platform_linux.go` uses them.
 
-Inside the tagged packages, what differs is in `_linux.go` and `_darwin.go` files:
+Inside the tagged packages, what differs is in `_linux`, `_darwin` and `_windows` files:
 
 | What | Files |
 | --- | --- |
 | The sink and the output device | `gst/output_<os>.go` |
-| PipeWire's device provider | `devices_linux.c` |
-| Core Audio's devices and the default-output watch | `devices_darwin.c` |
-| PipeWire's relink detection | `relink_linux.c` |
-| The sandbox | `cdmhost/sandbox_linux.go`, `sandbox_fs_linux.go`, `sandbox_darwin.go` and the portable `seatbelt.go` |
+| The device list (PipeWire's device provider; Core Audio's devices and its default-output watch; WASAPI endpoints through wasapi2's provider) | `gst/devices_<os>.c` |
+| PipeWire's relink detection (a stub on macOS and Windows, which have no sound server that relinks streams) | `gst/relink_<os>.c` |
+| The sandbox | `cdmhost/sandbox_linux.go`, `sandbox_fs_linux.go`, `sandbox_darwin.go` with the portable `seatbelt.go`, and `sandbox_windows.go`, `appcontainer_windows.go`, `sandbox_remove_windows.go` with the portable `acl.go` |
 
 ## Per-OS conventions
 
