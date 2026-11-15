@@ -88,9 +88,8 @@ html {
   caret-color: var(--sl-color-text-accent);
   scrollbar-color: color-mix(in srgb, var(--sl-color-white) 24%, transparent) transparent;
 }
-table,
 .sl-markdown-content :is(td, th) {
-  font-variant-numeric: tabular-nums;
+  min-width: 6rem;
 }
 
 /* Headings: weight carries the hierarchy, tracking stays tight but sane */
