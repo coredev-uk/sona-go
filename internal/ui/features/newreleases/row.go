@@ -184,7 +184,7 @@ func (n *newReleases) row(c *ui.Context, st *releaseList, i int, r services.NewR
 			},
 			After: func(w, s ui.Element) {
 				hot := w.Hovered() || w.FocusWithin()
-				st.menus.Trigger(c.Key("more"), target, kit.TriggerOpts{Visible: hot}).
+				st.menus.Trigger(c.Key("more"), s, target, kit.TriggerOpts{Visible: hot, Select: &st.sel, Index: i}).
 					Absolute().Right(rowPadX).Top((rowH - btn) / 2)
 				// The remove button shows under the pointer only: for the
 				// keyboard it is the menu's entry and the Delete key, so that a
@@ -251,7 +251,4 @@ func (n *newReleases) row(c *ui.Context, st *releaseList, i int, r services.NewR
 	if !st.nav.Keys(src, i, &st.sel) {
 		st.sel.Keys(src, i)
 	}
-	// The item's menu: right-click, Shift+F10 or the Menu key; an item
-	// outside the selection is selected alone first.
-	st.menus.OpenFor(&st.sel, src, src, target, i)
 }
