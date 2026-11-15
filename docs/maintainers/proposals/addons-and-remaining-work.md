@@ -152,7 +152,7 @@ Sona's board has a faint green-grey tint (OKLCH chroma 0.003–0.006 on the grou
 
 ### 9. `kit.TrackList`: a leading rank column (#306)
 - **Charts:** Discover's charts wanted big rank numerals. They kept the small `#` column because `kit.TrackList` has no hook for it.
-- **Change:** add `TrackListOpts.Rank` (a leading numeral style) and a single extra column slot (`TrackColumns.Extra`, a title plus a func of the row), then use both.
+- **Change:** add `TrackListOpts.Rank` (a leading numeral style) and use it. The extra column slot (`TrackColumns.Extra`) was left out because no list has data for it yet; add it with its first user.
 - **Acceptance:** goldens for charts, light and dark; sorting, multi-select and drag keep working.
 
 ### 10. `kit.Artwork` rounds its boxes (#307)
