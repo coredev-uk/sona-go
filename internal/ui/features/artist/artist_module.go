@@ -77,12 +77,13 @@ func newArtist(env *module.Env, lib libraryAPI, cat catalogAPI) *artist {
 // opens (kit.SongArtists), so the row is the plain one until they arrive.
 func goToArtist(env *module.Env) kit.ActionDef {
 	return kit.ActionDef{
-		ID:     "artist.go-to",
-		Target: kit.KindSong,
-		Label:  func(*kit.ActionContext) string { return i18n.T("Go to artist") },
-		Icon:   "mic-vocal",
-		Group:  kit.GroupItem,
-		Order:  20,
+		ID:           "artist.go-to",
+		Target:       kit.KindSong,
+		NeedsRelease: true,
+		Label:        func(*kit.ActionContext) string { return i18n.T("Go to artist") },
+		Icon:         "mic-vocal",
+		Group:        kit.GroupItem,
+		Order:        20,
 		Available: func(a *kit.ActionContext) bool {
 			return a.Item().Song().ArtistID != ""
 		},

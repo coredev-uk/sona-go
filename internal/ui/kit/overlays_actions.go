@@ -215,6 +215,10 @@ type ActionDef struct {
 	Order int
 	// Available: listed for this target at all (default: always).
 	Available func(a *ActionContext) bool
+	// NeedsRelease: the action needs a song that is out (a rating, a playlist,
+	// a pin, the artist's page), so it is not listed for a song not out yet,
+	// a placeholder of a pre-added album, nor for a selection holding one.
+	NeedsRelease bool
 	// Enabled: listed but greyed out when false (default: enabled).
 	Enabled func(a *ActionContext) bool
 	// DisabledReason greys the row out with this line under its label
@@ -239,6 +243,21 @@ type ActionChoice struct {
 }
 
 func (d *ActionDef) bulk() bool { return d.Target == KindSelection }
+
+// SongNotOut reports whether s is a song not out yet (a placeholder of a
+// pre-added album, which Apple has not published): the library's song that
+// does not play. Only its album lists it, and the actions that need a
+// released song (ActionDef.NeedsRelease) leave it out.
+func SongNotOut(s services.Song) bool { return !s.Playable && s.Source == services.SourceLibrary }
+
+// refusedBy reports whether d, which needs a released song, is not for the
+// items of ctx.
+func (d *ActionDef) refusedBy(ctx *ActionContext) bool {
+	if !d.NeedsRelease {
+		return false
+	}
+	return slices.ContainsFunc(ctx.Items, func(it Item) bool { return it.Kind == KindSong && SongNotOut(it.Song()) })
+}
 
 func (d *ActionDef) rank() int { return int(d.Group)*1000 + d.Order }
 

@@ -53,7 +53,7 @@ func (l *Library) SearchAll(ctx context.Context, term string, perKind int) (Resu
 	if playlistIDs, r.PlaylistsMore, err = ids("playlist"); err != nil {
 		return r, err
 	}
-	if r.Songs, err = byIDs(ctx, l, `SELECT `+trackColumns+` FROM tracks t WHERE t.library_id IN `, songIDs, scanSong,
+	if r.Songs, err = byIDs(ctx, l, `SELECT `+trackColumns(l.today())+` FROM tracks t`+withAlbum+` WHERE t.library_id IN `, songIDs, scanSong,
 		func(s Song) string { return s.LibraryID }); err != nil {
 		return r, err
 	}

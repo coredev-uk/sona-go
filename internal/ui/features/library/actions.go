@@ -93,8 +93,9 @@ func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool
 	}
 	defs := []kit.ActionDef{
 		{
-			ID:     "library.favorite." + string(target),
-			Target: target,
+			ID:           "library.favorite." + string(target),
+			Target:       target,
+			NeedsRelease: true,
 			Label: func(a *kit.ActionContext) string {
 				if ratingOf(a) == 1 {
 					return i18n.T("Undo favourite")
@@ -110,8 +111,9 @@ func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool
 			Run:     rate(kit.RateFavorite, kit.RateUnfavorite, 1),
 		},
 		{
-			ID:     "library.suggest-less." + string(target),
-			Target: target,
+			ID:           "library.suggest-less." + string(target),
+			Target:       target,
+			NeedsRelease: true,
 			Label: func(a *kit.ActionContext) string {
 				if ratingOf(a) == -1 {
 					return i18n.T("Undo suggest less")
@@ -288,9 +290,10 @@ func (l *library) bulkActions() []kit.ActionDef {
 	}
 	return []kit.ActionDef{
 		{
-			ID:     "library.favorite.many",
-			Target: kit.KindSelection,
-			Kinds:  []kit.ItemKind{kit.KindSong, kit.KindAlbum, kit.KindArtist, kit.KindPlaylist},
+			ID:           "library.favorite.many",
+			NeedsRelease: true,
+			Target:       kit.KindSelection,
+			Kinds:        []kit.ItemKind{kit.KindSong, kit.KindAlbum, kit.KindArtist, kit.KindPlaylist},
 			Label: func(a *kit.ActionContext) string {
 				if allFavourite(a) {
 					return i18n.T("Undo favourite")
