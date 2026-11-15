@@ -23,6 +23,13 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Track notifications | Shows the song and artist, with artwork and a Next button, when a track starts. Not shown while Sona's window is in front. | _macOS_ and _Windows_ show the song and artist only, and a click opens Sona. _macOS_ needs Sona.app. _Linux_ needs a notification service. |
 | Stay awake while playing | Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. | On _Linux_ needs logind or the desktop portal. |
 
+### New releases
+
+| Setting | What it does | Platform |
+| --- | --- | --- |
+| Track new releases from favourite artists | Once a day, looks at the artists you've favourited and lists their new albums, EPs and singles in [New releases](/guide/new-releases/). Off until you turn it on. Releases that are out when you turn it on aren't listed, only the ones that come out afterwards. | |
+| Also show a desktop notification | Shows a notification for a new release, or one summary when several arrive together. Click it to open the release. Needs the first setting. | Needs a notification service on _Linux_ and Sona.app on _macOS_. Not on _Windows_ yet. |
+
 ### Updates
 
 | Setting | What it does | Platform |

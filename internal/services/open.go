@@ -11,7 +11,8 @@ import (
 // launched with (argv or a forwarded second instance). Kind is song,
 // album, artist, playlist (catalog "pl.…"), library-playlist ("p.…"),
 // library-album ("l.…"), music-video, station ("ra.…") or curator;
-// AlbumID is set for a song shared within its album.
+// AlbumID is set for a song shared within its album. A notification can
+// also open Sona's own New releases page (Kind OpenNewReleases, no ID).
 type OpenTarget struct {
 	Kind       string `json:"kind"`
 	ID         string `json:"id"`

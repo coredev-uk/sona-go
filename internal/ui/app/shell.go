@@ -68,6 +68,9 @@ func (a *App) rememberRoute(c *ui.Context) {
 // routeForOpen, app/open.ts): a song shared within its album opens the
 // album with the song marked; "" for a kind Sona has no page for.
 func routeForOpen(t services.OpenTarget) string {
+	if t.Kind == services.OpenNewReleases {
+		return "/new-releases" // Sona's own page, from a summary notification: no ID
+	}
 	if t.ID == "" {
 		return ""
 	}

@@ -13,6 +13,7 @@ How Sona is built and why: scope, process model, playback and DRM, authenticatio
   - [Artwork](#artwork)
   - [Private mode](#private-mode)
   - [Concerts](#concerts)
+  - [Artist tracker](#artist-tracker)
   - [Updates](#updates)
   - [Themes](#themes)
   - [Lyrics](#lyrics)
@@ -203,6 +204,18 @@ A user's choice for a library playlist beats both a mosaic and Apple's cover. Th
 - **Setting**: the choice is `concerts.city`, kept out of settings exports. Only the geohash of its area goes to Apple, in the concerts requests alone, never in the personal recommendations.
 - **Cache**: lists are cached in `discover_cache` (3 hours, per area, filters and day). The one with the user's artists is personal and wiped on sign-out. A list is served stale when Apple can't be reached.
 - **Tickets**: the links are Apple's, https only, opened in the browser.
+
+### Artist tracker
+
+`ArtistTrackerService` (`internal/services/artisttracker.go`) is the opt-in tracker of new releases from the artists the user has favourited. It is off until Settings → General turns it on (`artistTracker.enabled`; `artistTracker.desktop` adds a desktop notification where the platform has notifications). Nothing is asked of Apple while it is off or nobody is signed in, and nothing before the first paint: the loop starts from `Env.OnNetwork`, waits 30 seconds, and only then looks. A check never reports a play: it reads the catalogue, so private listening changes nothing in it.
+
+- **Schedule**: one check about every 24 hours (when the last complete one finished is kept in `artist_tracker_state`, so a restart does not repeat it), and one when the setting is turned on. A failed check is tried again after 15 minutes, doubling up to 6 hours; the client's own 429 and 5xx backoff runs inside each request. Sign-out and shutdown stop it, a check in progress included.
+- **Favourite artists**: Apple has no call that lists them (`GET /v1/me/ratings/artists` answers only for the IDs it is given). The candidates are the synced library's artists that have a catalogue ID and the artists favourited in Sona (`favorites`, kind `artists`); `applemusic.Client.Ratings` keeps those rated 1. A favourite that is neither in the library nor favourited in Sona is not found.
+- **Releases**: one batched amp-api call per 25 artists (`/v1/catalog/{sf}/artists?ids=…&views=latest-release,full-albums,singles`), 2 seconds apart, so a long list never bursts. The views come newest first and carry the artist's latest release, newest albums and newest singles and EPs; only the album attributes the tracker keeps are asked for (`docs/apple-music-reference.md`, "Artist tracker").
+- **Seeding**: an artist not yet in `tracked_artists` is being seeded. What is out is recorded as seen and never shown; a release still to come is listed, already read, so its Remind me is there. Turning the setting on empties `tracked_artists`, so the releases that came out while it was off are not announced either. A release found for the first time that came out more than 90 days ago is recorded silently too (the catalogue growing, not news). An artist that stops being a favourite leaves, with its records.
+- **State** (`artist_releases`, `tracked_artists`, `artist_tracker_state`; user data, wiped on sign-out and by `db.WipeUserData`): every release seen, when it was found, read and dismissed. A dismissed or seeded release stays, which is what keeps it from being found again, across checks and restarts. Records older than 180 days go.
+- **Surfaces**: `artisttracker:changed` carries the list (`NewReleases`: items, unread count, when it was last checked) to the New releases page and the sidebar's count (`docs/ui-architecture.md`). A release still to come carries the album's Remind me (`RemindersService`); the tracker has no notification of its own for it.
+- **Desktop notification**: one per new release, or one summary when several arrive in one check, shown by the notifier `RemindersService` uses (`clickNotices`): a click raises the window and emits `app:open` for the album (a summary opens the list, `OpenNewReleases`). The text is Go's own (`l10n`).
 
 ### Updates
 
@@ -703,6 +716,7 @@ SQLite, libSQL-compatible, with migrations in `internal/db/migrations` numbered 
 - `search_fts`: FTS5 over titles, artists and albums.
 - `recent_searches`: searched terms and opened results (user data, wiped on sign-out).
 - `release_reminders`: pre-release albums to notify about on release day, or at the next start after it (user data, wiped on sign-out).
+- `tracked_artists`, `artist_releases`, `artist_tracker_state`: the artist tracker's seeded artists, the releases it has seen (found, read and dismissed times) and when its last check finished (user data, wiped on sign-out; [Artist tracker](#artist-tracker)).
 - `accounts`: storefront, its default and supported content languages, restricted flag, when the MUT was obtained and last validated. Never tokens.
 - A catalogue response cache (key, fetched at, expiry).
 

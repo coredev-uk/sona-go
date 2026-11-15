@@ -24,6 +24,7 @@ export default defineConfig({
             { slug: 'guide/install' },
             { slug: 'guide/first-run' },
             { slug: 'guide/library' },
+            { slug: 'guide/new-releases' },
             { slug: 'guide/playback' },
             { slug: 'guide/settings' },
             { slug: 'guide/keyboard-shortcuts' },

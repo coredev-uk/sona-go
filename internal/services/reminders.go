@@ -10,7 +10,6 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
-	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 )
 
 // Release reminder timing. The wait for the next release is capped at
@@ -41,13 +40,14 @@ type RemindersService struct {
 	quit chan struct{}
 	done chan struct{}
 
+	notices clickNotices // fired reminders, kept to deliver their clicks
+
 	mu      sync.Mutex
 	started bool
-	shown   []Notifier // fired reminders, kept to deliver their clicks
 }
 
 func newRemindersService(e *Env) *RemindersService {
-	s := &RemindersService{e: e, wake: make(chan struct{}, 1), quit: make(chan struct{}), done: make(chan struct{})}
+	s := &RemindersService{e: e, wake: make(chan struct{}, 1), quit: make(chan struct{}), done: make(chan struct{}), notices: clickNotices{e: e}}
 	if e.Platform.Notifications != nil {
 		e.OnNetwork(func() {
 			s.mu.Lock()
@@ -241,52 +241,10 @@ func (s *RemindersService) movedTo(ctx context.Context, id string) int64 {
 	return 0
 }
 
-// show shows r's notification on its own notifier, which it keeps so a
-// click opens the album.
+// show shows r's notification, whose click opens the album. Its action's
+// label is the album's name, not words of Sona's.
 func (s *RemindersService) show(ctx context.Context, r dbq.ReleaseReminder) error {
-	var image string
-	if r.ArtworkTemplate != "" && s.e.Art != nil {
-		if p, err := s.e.Art.LocalPath(ctx, r.ArtworkTemplate, mprisArtSize, mprisArtSize); err == nil {
-			image = p
-		} else {
-			s.e.Logger.Debug("reminders: artwork", "err", err)
-		}
-	}
-	id := r.AlbumID
-	n, err := s.e.Platform.Notifications(ctx, func(key string) {
-		if key == notify.DefaultAction {
-			s.open(id)
-		}
-	})
-	if err != nil {
-		return err
-	}
-	err = n.Show(ctx, notify.Notification{
-		Summary: r.Name,
-		Body:    r.Message,
-		Image:   image,
-		// The body click; its label is the album's name, not words of Sona's.
-		Actions: []notify.Action{{Key: notify.DefaultAction, Label: r.Name}},
-		Urgency: notify.UrgencyNormal,
-	})
-	if err != nil {
-		n.Close()
-		return err
-	}
-	s.mu.Lock()
-	s.shown = append(s.shown, n)
-	s.mu.Unlock()
-	return nil
-}
-
-// open brings the window up on the album.
-func (s *RemindersService) open(id string) {
-	if s.e.Focus != nil {
-		s.e.Focus()
-	}
-	if s.e.Emit != nil {
-		s.e.Emit.Emit(EventAppOpen, OpenTarget{Kind: string(app.KindAlbum), ID: id})
-	}
+	return s.notices.show(ctx, r.Name, r.Message, r.ArtworkTemplate, r.Name, OpenTarget{Kind: string(app.KindAlbum), ID: r.AlbumID})
 }
 
 // close stops the loop. Shown notifications stay on screen.
@@ -294,13 +252,9 @@ func (s *RemindersService) close() {
 	s.mu.Lock()
 	close(s.quit)
 	started := s.started
-	shown := s.shown
-	s.shown = nil
 	s.mu.Unlock()
 	if started {
 		<-s.done
 	}
-	for _, n := range shown {
-		n.Close()
-	}
+	s.notices.close()
 }

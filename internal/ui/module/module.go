@@ -191,6 +191,10 @@ type NavItem struct {
 	Order   int           // ascending within the section
 	Exact   bool          // active only on this exact path
 	Keys    []string      // default chords of its go-to shortcut; nil: Ctrl+1…9 / Alt+1…9 by position
+	// Count, when set, is a number the link carries at its end (unread new
+	// releases): drawn while it is above 0, and part of the link's name for
+	// assistive technology. Called every frame it is built: cheap, main thread.
+	Count func() int
 }
 
 // Route is a page.

@@ -41,6 +41,7 @@ func (s *settings) general(c *ui.Context) {
 			s.windowSizeRow(c, cfg)
 		})
 		s.group(c, "general-playing", i18n.T("While music plays"), "", func() { s.playingRows(c, cfg, cp) })
+		s.group(c, "general-releases", i18n.T("New releases"), "", func() { s.releaseRows(c, cfg, cp) })
 		s.updatesGroup(c, cfg)
 	})
 }
