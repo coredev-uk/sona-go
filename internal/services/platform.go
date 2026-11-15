@@ -62,7 +62,7 @@ type Platform struct {
 	NeedsAppBundle bool
 	// PlainNotifications: the system's notifications show the title and
 	// text and a click that opens Sona, not the artwork nor the Next
-	// button (macOS: MyGo's notifications have neither).
+	// button (macOS and Windows: MyGo's notifications have neither).
 	PlainNotifications bool
 	// MotionArtwork: the build decodes motion artwork (internal/ui/media
 	// has a decoder: GStreamer on Linux and macOS, none on Windows).

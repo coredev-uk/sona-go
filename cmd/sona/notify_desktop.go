@@ -1,4 +1,4 @@
-//go:build darwin
+//go:build darwin || windows
 
 package main
 
@@ -25,12 +25,12 @@ type note struct {
 	OnClick         func()
 }
 
-// notificationCenter is MyGo's notifications (UNUserNotificationCenter), and
-// a fake in the tests.
+// notificationCenter is MyGo's notifications (UNUserNotificationCenter on
+// macOS, notification-area balloons on Windows), and a fake in the tests.
 type notificationCenter interface {
 	// Show shows n, replacing the notification of the same ID, and returns
-	// what removes it. It waits for the user's answer to the system's first
-	// "allow notifications?" question, and fails with
+	// what removes it. On macOS it waits for the user's answer to the
+	// system's first "allow notifications?" question, and fails with
 	// mygo.ErrNotificationsDenied when it is no.
 	Show(ctx context.Context, n note) (remove func(), err error)
 	// OnWillQuit calls fn as the app quits, while MyGo can still remove
@@ -53,16 +53,18 @@ func (mygoCenter) OnWillQuit(fn func()) func() {
 	return mygo.App.OnWillQuit(func(*mygo.QuitEvent) { fn() })
 }
 
-// macNotifier shows Sona's notifications through MyGo's Notification, which
-// needs the app bundle (Sona.app). Of a notify.Notification only the Summary,
-// the Body, the Urgency and the click (reported as notify.DefaultAction)
-// arrive: MyGo's notifications carry no artwork and no buttons, which
-// Platform.PlainNotifications tells Settings.
+// desktopNotifier shows Sona's notifications through MyGo's Notification:
+// on macOS UNUserNotificationCenter, which needs the app bundle (Sona.app);
+// on Windows a notification-area balloon, which Windows 10 and later show as
+// a toast. Of a notify.Notification only the Summary, the Body, the Urgency
+// and the click (reported as notify.DefaultAction) arrive: neither system's
+// notifications as MyGo shows them carry Sona's artwork or a Next button,
+// which Platform.PlainNotifications tells Settings.
 //
 // One Notifier is one notification the system replaces in place: it shows
 // under one identifier, so each Show replaces the one before, and every
 // Notifier has its own (each release reminder keeps its own).
-type macNotifier struct {
+type desktopNotifier struct {
 	center   notificationCenter
 	id       string
 	onAction func(key string)
@@ -73,22 +75,22 @@ type macNotifier struct {
 	offQuit func() // the quit hook of a track notification; nil without one
 }
 
-// newNotifier is services.Platform.Notifications on macOS. The first
-// notification asks the user whether to allow them; until they answer, Show
-// waits (or ends with its ctx).
-func newNotifier(c notificationCenter, onAction func(key string)) (*macNotifier, error) {
+// newNotifier is services.Platform.Notifications on macOS and Windows. On
+// macOS the first notification asks the user whether to allow them; until
+// they answer, Show waits (or ends with its ctx).
+func newNotifier(c notificationCenter, onAction func(key string)) (*desktopNotifier, error) {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return nil, fmt.Errorf("notify: identifier: %w", err)
 	}
-	return &macNotifier{center: c, id: "dev.coredev.Sona.notification." + hex.EncodeToString(b[:]), onAction: onAction}, nil
+	return &desktopNotifier{center: c, id: "dev.coredev.Sona.notification." + hex.EncodeToString(b[:]), onAction: onAction}, nil
 }
 
 // openNotifier is newNotifier over MyGo's notifications, where there are
-// any.
+// any (on macOS, only from Sona.app).
 func openNotifier(_ context.Context, onAction func(key string)) (services.Notifier, error) {
 	if !mygo.NotificationsSupported() {
-		return nil, fmt.Errorf("notifications need Sona.app: %w", errors.ErrUnsupported)
+		return nil, fmt.Errorf("notifications aren't available here: %w", errors.ErrUnsupported)
 	}
 	return newNotifier(mygoCenter{}, onAction)
 }
@@ -98,7 +100,7 @@ func openNotifier(_ context.Context, onAction func(key string)) (services.Notifi
 // dismissed; a reminder the user asked for (normal urgency) plays the
 // system's sound and stays. It fails with services.ErrNotificationsDenied
 // when the system lets Sona show none.
-func (n *macNotifier) Show(ctx context.Context, msg notify.Notification) error {
+func (n *desktopNotifier) Show(ctx context.Context, msg notify.Notification) error {
 	n.mu.Lock()
 	if n.closed {
 		n.mu.Unlock()
@@ -129,7 +131,7 @@ func (n *macNotifier) Show(ctx context.Context, msg notify.Notification) error {
 }
 
 // clicked is the click on a notification (on the main thread).
-func (n *macNotifier) clicked() {
+func (n *desktopNotifier) clicked() {
 	n.mu.Lock()
 	closed := n.closed
 	n.mu.Unlock()
@@ -138,9 +140,9 @@ func (n *macNotifier) clicked() {
 	}
 }
 
-// Dismiss removes the notification from the screen and from Notification
-// Center.
-func (n *macNotifier) Dismiss(context.Context) error {
+// Dismiss removes the notification from the screen (and, on macOS, from
+// Notification Center).
+func (n *desktopNotifier) Dismiss(context.Context) error {
 	n.mu.Lock()
 	remove := n.remove
 	n.remove = nil
@@ -152,7 +154,7 @@ func (n *macNotifier) Dismiss(context.Context) error {
 }
 
 // Close stops reporting clicks.
-func (n *macNotifier) Close() {
+func (n *desktopNotifier) Close() {
 	n.mu.Lock()
 	n.closed = true
 	off := n.offQuit

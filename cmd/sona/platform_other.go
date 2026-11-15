@@ -22,14 +22,16 @@ import (
 
 // macOS and Windows (and any other OS): the UI with single instance and
 // `sona <command>` over a local socket in the state folder
-// (app.AcquireSocket). Windows has no other desktop integration yet; each is
-// absent from services.Platform, so Capabilities reports it and the UI hides
-// or explains it. macOS has MyGo's (integrations_darwin.go): sleep inhibit,
-// the power source, the file chooser, and, from Sona.app, notifications and
-// the login item. Media keys and Now Playing are MyGo's NowPlaying on macOS
-// and Windows (nowplaying_desktop.go; internal/nowplaying). The tray is the
-// UI's (internal/ui/app): on macOS a menu bar item with a template icon. The
-// playback engine is engine_cdm.go's on macOS, engine_other.go's elsewhere.
+// (app.AcquireSocket). The desktop integrations are MyGo's, per OS:
+// integrations_darwin.go (sleep inhibit, the power source, the file chooser,
+// and, from Sona.app, notifications and the login item) and
+// integrations_windows.go (notifications). What an OS lacks is absent from
+// services.Platform, so Capabilities reports it and the UI hides or explains
+// it. Media keys and Now Playing are MyGo's NowPlaying on macOS and Windows
+// (nowplaying_desktop.go; internal/nowplaying). The tray is the UI's
+// (internal/ui/app): on macOS a menu bar item with a template icon. The
+// playback engine is engine_cdm.go's in a cgo build on macOS and Windows,
+// engine_other.go's elsewhere.
 
 // dialInstance reaches the running Sona for `sona <command>` through its
 // socket in the state folder.

@@ -86,6 +86,7 @@ Inside the tagged packages, what differs is in `_linux.go` and `_darwin.go` file
 | Config paths (`internal/config`) | XDG | `~/Library/...` | `%APPDATA%`, `%LOCALAPPDATA%` |
 | Keyring backend (go-keyring) | Secret Service | Keychain | Credential Manager |
 | Discord IPC socket | Unix socket | Unix socket | Unsupported (uses a named pipe) |
+| Track notifications | `org.freedesktop.Notifications` (`internal/desktop/notify`) | MyGo: UNUserNotificationCenter, from Sona.app only | MyGo: notification-area balloons, shown as toasts |
 | Audio sink | `pipewiresink` | `osxaudiosink` | `wasapi2sink` |
 | CDM library | `libwidevinecdm.so` | `libwidevinecdm.dylib` | `widevinecdm.dll` |
 
