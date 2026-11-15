@@ -326,9 +326,12 @@ func TestSignOutDialogTakesTheFocusAndEscapeGivesItBack(t *testing.T) {
 
 // TestStatusNoticesThatAppearAreAnnounced: v0.2.0's notices were polite live
 // regions. A notice there when the section is first built is read with the
-// dialog; one that appears after is announced once.
+// dialog; one that appears after is announced once, as a screen reader
+// hears it: the keyring notice changing its words is read by MyGo, not
+// announced again on top.
 func TestStatusNoticesThatAppearAreAnnounced(t *testing.T) {
 	r := newRig(t, signedIn)
+	r.tt.UseScreenReader()
 	r.tt.Frame()
 	if got := r.tt.Announcements(); len(got) != 0 {
 		t.Fatalf("announced at rest: %q", got)
@@ -346,10 +349,17 @@ func TestStatusNoticesThatAppearAreAnnounced(t *testing.T) {
 		t.Errorf("announced again: %q", got)
 	}
 	r.status(signedIn)
+	r.status(services.AuthStatus{State: "restoring", Keyring: "waiting"})
+	r.tt.Frame()
+	if got := r.tt.Announcements(); !slices.Equal(got, []string{"Signing in…"}) {
+		t.Errorf("the keyring notice appearing: %q", got)
+	}
 	r.status(services.AuthStatus{State: "signed_out", Keyring: "unavailable"})
 	r.tt.Frame()
-	if got := r.tt.Announcements(); !slices.Contains(got, "Sona couldn't read your sign-in from your keyring") {
-		t.Errorf("the keyring notice: %q", got)
+	r.tt.Frame()
+	got = r.tt.Announcements()
+	if len(got) != 1 || !strings.HasPrefix(got[0], "Sona couldn't read your sign-in from your keyring") {
+		t.Errorf("the keyring notice changing, want it read once: %q", got)
 	}
 }
 

@@ -244,6 +244,7 @@ func TestUnavailableBarControlsKeepTheFocusExplainAndIgnoreThePress(t *testing.T
 
 func TestTheBarSaysWhatItDoesNotPlayOnce(t *testing.T) {
 	r := newRig(t, true)
+	r.tt.UseScreenReader()
 	r.seed(func(s *services.PlaybackState) { s.Current.ID = "a" })
 	r.tt.Announcements()
 	fail := func(code services.ErrorCode) {

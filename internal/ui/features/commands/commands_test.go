@@ -376,6 +376,31 @@ func TestHelpFilterNarrowsShortcutsAsYouType(t *testing.T) {
 	}
 }
 
+// TestHelpFilterThatFindsNothingIsSaidOnce: as a screen reader hears it, a
+// filter that finds nothing says so once as the line appears and once for
+// each change of the term, read from the line's status, never twice.
+func TestHelpFilterThatFindsNothingIsSaidOnce(t *testing.T) {
+	r := newRig(t)
+	r.tt.UseScreenReader()
+	r.tt.Key(ui.Shift, ui.KeySlash)
+	r.settle()
+	r.tt.Announcements()
+	for _, term := range []string{"z", "zz", "zzz"} {
+		r.tt.Type("z")
+		r.settle()
+		want := []string{"No shortcuts match “" + term + "”"}
+		if got := r.tt.Announcements(); !slices.Equal(got, want) {
+			t.Errorf("%q: announced %q, want %q", term, got, want)
+		}
+	}
+	r.tt.Key(ui.Ctrl, ui.KeyA)
+	r.tt.Type("next")
+	r.settle()
+	if got := r.tt.Announcements(); !slices.Equal(got, []string{"1 shortcut"}) {
+		t.Errorf("next: announced %q, want the count", got)
+	}
+}
+
 func TestHelpQuestionMarkAfterTextIsText(t *testing.T) {
 	r := newRig(t)
 	r.tt.Key(ui.Shift, ui.KeySlash)
