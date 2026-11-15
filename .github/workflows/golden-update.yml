@@ -18,10 +18,10 @@
 # label's event run it.
 #
 # Maintainer setup (docs/maintainers/ci-and-secrets.md, "bot-cecil App permissions"):
-# the `golden-update` environment needs the secrets RENOVATE_APP_CLIENT_ID and
-# RENOVATE_APP_PRIVATE_KEY (bot-cecil's, as release-please.yml uses; the
-# repository-level secrets of the same names work until the environment has
-# its own), and the label `update-goldens` must exist.
+# the `golden-update` environment needs required reviewers and the secrets
+# RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY (bot-cecil's, as
+# release-please.yml uses; they are not repository-level secrets, which a
+# pull request's run could read), and the label `update-goldens` must exist.
 name: Update goldens
 
 on:

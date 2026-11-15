@@ -34,7 +34,7 @@ The `release` and `live` environments each hold one secret, `PROTON_PASS_PERSONA
 | `MUSIC_USER_TOKEN` (a real account's Music User Token, about six months' access to its library and playback) | Proton Pass item "Apple Music User Token" in the vault "CI"; the `live` environment holds the vault token | Jobs that name `environment: live` and run from `main`: `live.yml` (weekly schedule, dispatch), `windows-playback.yml` (weekly schedule, dispatch) |
 | Last.fm API key and secret, Discord application ID (compiled into every release binary, so readable by anyone who has one; the risk is someone else's builds or abuse posing as Sona before a release), and the Ed25519 update key | Proton Pass items in the vault "CI"; the `release` environment holds the vault token | Jobs that name `environment: release` and run from `main` or a `v*` tag: `release.yml`'s build job (not a dispatched dry run, which has no environment), `release-secrets.yml` (monthly, dispatch, prints only whether each is set) |
 | `OP_SERVICE_ACCOUNT_TOKEN` (Renovate's 1Password service account, which yields the Renovate app's key) | Repository secret, maintained with Renovate (`renovate.yaml`) | Any workflow run on a branch of this repository; never a fork's run |
-| bot-cecil GitHub App credentials (`RENOVATE_APP_CLIENT_ID`, `RENOVATE_APP_PRIVATE_KEY`; the App's token is how release-please and the release publish step write, as Renovate does) | Repository secrets | Workflows run on a branch of this repository; `release-please.yml` and the `publish` job of `release.yml` mint a job-scoped token from them (contents, pull requests, issues write for release-please; contents write to publish) |
+| bot-cecil GitHub App credentials (`RENOVATE_APP_CLIENT_ID`, `RENOVATE_APP_PRIVATE_KEY`; the App's token is how release-please and the release publish step write, as Renovate does) | Environment secrets: `bot-cecil` (branch policy: `main` and `v*` tags), `release` (the same policy), `golden-update` and `nix-vendor-hash` (required reviewers) | Jobs that name the environment: `renovate.yaml`, `release-please.yml`, `nix-branch.yml`'s push job (`bot-cecil`); the `publish` job of `release.yml` (`release`); `golden-update.yml`'s push job and `nix-vendor-hash.yml`'s fix job (a reviewer approves each run, which runs on a pull request's ref and so can't satisfy a branch policy). Each mints a job-scoped token (contents, pull requests, issues write for release-please; contents write to publish) |
 | `GITHUB_TOKEN` write scopes | Per job | `live` (`issues: write`, to report a failed scheduled run), `issue-labels.yml` (`issues: write`, to add labels), `release.yml`'s build job (`id-token` and `attestations: write`, for the build provenance); every other job reads only; releases are written with the App token |
 | Release assets and tags | GitHub releases | The `publish` job, after the CI checks and the build; the `release tags` ruleset keeps `v*` tags immutable |
 
@@ -42,8 +42,8 @@ The `release` and `live` environments each hold one secret, `PROTON_PASS_PERSONA
 
 release-please and the publish job act as the bot-cecil GitHub App (the same
 App Renovate uses), through a token minted by
-`actions/create-github-app-token` in each job from the repository secrets
-`RENOVATE_APP_CLIENT_ID` and `RENOVATE_APP_PRIVATE_KEY`. The App must be
+`actions/create-github-app-token` in each job from the secrets
+`RENOVATE_APP_CLIENT_ID` and `RENOVATE_APP_PRIVATE_KEY` of the job's environment (none is a repository-level secret, which any pull request run from a branch of this repository could read). The App must be
 installed on this repository with at least these repository permissions, all
 of which Renovate's token (`renovate.yaml`) already requests:
 
@@ -55,10 +55,11 @@ of which Renovate's token (`renovate.yaml`) already requests:
 | Workflows      | write | nix-branch.yml: merging main onto the `nix` branch brings main's workflow changes with it, and GitHub refuses an App's push of those without this |
 
 Each job requests only what it uses (`permission-*` inputs), so the token is
-narrower than the installation. `golden-update.yml` reads the same two secrets
-in its own `golden-update` environment (create it under Settings →
-Environments and copy them there, so no other workflow's job reaches them
-through it; until then the repository-level secrets serve it). The build provenance needs no App
+narrower than the installation. The same two secrets are in each of four
+environments (Settings → Environments): `bot-cecil` and `release` (deploy
+branches: `main` and `v*` tags), and `golden-update` and `nix-vendor-hash`
+(required reviewers: the jobs run on a pull request's ref, which no branch
+policy lets in, so a reviewer approves each run instead). The build provenance needs no App
 permission: it uses the workflow's `id-token: write` and
 `attestations: write`.
 
@@ -66,15 +67,15 @@ permission: it uses the workflow's `id-token: write` and
 
 Each runs the branch's code without secrets; the job that writes runs none of it.
 
-- **`golden-update.yml`:** the `update-goldens` label on a pull request of this repository regenerates the golden images of the failing golden tests in the CI image, commits them to the branch as bot-cecil and removes the label. It needs the `golden-update` environment's App secrets.
-- **`nix-vendor-hash.yml`:** builds the Go modules of `build/linux/nix/package.nix` on pushes to `main` and on pull requests that touch `go.mod`, `go.sum`, the flake or the package. On a mismatch in a pull request of this repository (a Renovate bump, say) it commits the hash Nix reported to the branch as bot-cecil, once.
+- **`golden-update.yml`:** the `update-goldens` label on a pull request of this repository regenerates the golden images of the failing golden tests in the CI image, commits them to the branch as bot-cecil and removes the label. It needs the `golden-update` environment (required reviewers) and its App secrets.
+- **`nix-vendor-hash.yml`:** builds the Go modules of `build/linux/nix/package.nix` on pushes to `main` and on pull requests that touch `go.mod`, `go.sum`, the flake or the package. On a mismatch in a pull request of this repository (a Renovate bump, say) it commits the hash Nix reported to the branch as bot-cecil, once, after a reviewer approves the `nix-vendor-hash` environment.
 - **`nix-branch.yml`:** on every published release and prerelease, each night and on dispatch, it keeps the flake's `nix` branch (`main` plus `build/linux/nix/pins.json`) on the latest release and the newest published build, with no pull request. It checks both Arch packages against their `SHA256SUMS` and attestations, merges `main` into the branch, builds the flake's `sona` and `sona-nightly` with the new pins and pushes the result as bot-cecil, never force-pushing. It pushes only the tree the build checked.
 - **`issue-labels.yml`:** on an issue opened or edited, adds the `platform/*` and `area/*` labels its form's answers name, with `cmd/issuelabels`. It only adds, never over a label of that kind already there, so a maintainer's triage stands (`issues: write` only).
 - **Labels owned by bots:** `state/*`, `verdict/*`, `kind/*`, `type/*`, `clarence:*`, `autorelease:*`, `dependencies`, `go` and `update-goldens`. See [clarence.md](clarence.md).
 
 ## Threats and controls
 
-- *A fork's pull request runs its own code in CI.* Every workflow a pull request triggers uses `pull_request`, never `pull_request_target` or `workflow_run`, so a fork's run gets a read-only `GITHUB_TOKEN` and no secrets; GitHub withholds both. None of those workflows (`ci.yml`, `pr-title.yml`) reads a secret other than `GITHUB_TOKEN`. Environment secrets stay out of reach even for a pull request from a branch of this repository: an environment deploys only to the refs in its policy (`release`: `main` and `v*` tags; `live`: `main`), and a pull request's ref is `refs/pull/<n>/merge`.
+- *A fork's pull request runs its own code in CI.* Every workflow a pull request triggers uses `pull_request`, never `pull_request_target` or `workflow_run`, so a fork's run gets a read-only `GITHUB_TOKEN` and no secrets; GitHub withholds both. None of those workflows (`ci.yml`, `pr-title.yml`) reads a secret other than `GITHUB_TOKEN`. Environment secrets stay out of reach even for a pull request from a branch of this repository: an environment deploys only to the refs in its policy (`release` and `bot-cecil`: `main` and `v*` tags; `live`: `main`), and a pull request's ref is `refs/pull/<n>/merge`. The two jobs that must run on a pull request's ref and need bot-cecil's key (`golden-update.yml`, `nix-vendor-hash.yml`'s fix job) name an environment with required reviewers, so a person approves each run. Nothing holds the App's key as a repository-level secret.
 - *A token that outlives its job.* Every checkout sets `persist-credentials: false`, so the token isn't left in `.git/config` for later steps (tests, build scripts) to read. No workflow pushes with git.
 - *Too much token scope.* Each workflow starts from `permissions: contents: read` (`pr-title.yml`: `pull-requests: read`; `release-secrets.yml`: none), and only the two jobs above widen it (`release.yml`'s build job for the provenance, `live`). The release PR, tag and release are written with a job-scoped bot-cecil App token instead. The repository's default workflow permission is read.
 - *A third-party action moves its tag.* Every action is pinned to a full commit SHA, with the version in a comment; Renovate proposes updates to the pins, which are reviewed like any other pull request.
@@ -86,6 +87,6 @@ Each runs the branch's code without secrets; the job that writes runs none of it
 
 ## Residual risks
 
-- Anyone with write access can push a `v*` tag, and with it a workflow that names `environment: release`. A tag ruleset that limits who may create `v*` tags closes that; once releases run from `main` alone, the `v*` rule can leave the environment's policy.
+- Anyone with write access can push a `v*` tag, and with it a workflow that names `environment: release` or `bot-cecil`. A tag ruleset that limits who may create `v*` tags closes that; once releases run from `main` alone, the `v*` rule can leave the environments' policies.
 - `OP_SERVICE_ACCOUNT_TOKEN` is a repository secret, readable by a workflow on any branch of this repository (not a fork's), including the branches Renovate's app pushes. Moving it into an environment limited to `main` would confine it to `renovate.yaml`'s own runs.
 - While the repository is private, forks' pull requests run no workflows at all ("Run workflows from fork pull requests" is off, and so are write tokens and secrets for them). Once it is public, a first-time contributor's pull request waits for a maintainer's approval before CI runs ("Require approval for outside contributors"); the controls above are what holds after that approval.

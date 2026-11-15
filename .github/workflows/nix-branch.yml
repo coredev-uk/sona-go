@@ -18,8 +18,8 @@
 #          writes only versions and hashes of the expected shapes, and pushes only if the
 #          result is the tree the check built.
 #
-# Maintainer setup: the repository secrets RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY
-# (bot-cecil's, as release-please.yml uses), with Contents and Workflows write (merging main
+# Maintainer setup: the bot-cecil environment (main and v* tags only) with the secrets
+# RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY (bot-cecil's, as release-please.yml uses), with Contents and Workflows write (merging main
 # brings its workflow changes onto the branch, which GitHub refuses an App without Workflows).
 name: Nix branch
 
@@ -148,6 +148,7 @@ jobs:
     if: ${{ needs.check.outputs.changed == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    environment: bot-cecil # the App's key: main and v* tags only
     permissions: {}
     steps:
       - name: Generate bot-cecil token

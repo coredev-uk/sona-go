@@ -13,8 +13,11 @@
 #          expected shape into the vendorHash line.
 # A fork's pull request only gets the failing check, with the hash to use in its error.
 #
-# Maintainer setup: the repository secrets RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY
-# (bot-cecil's, as release-please.yml uses), with Contents write on this repository.
+# Maintainer setup: the `nix-vendor-hash` environment, with required reviewers, holding the
+# secrets RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY (bot-cecil's, as release-please.yml
+# uses), with Contents write on this repository. A pull request's ref can't satisfy a branch
+# policy, so the fix job waits for a reviewer's approval instead; no repository-level copy of the
+# key exists for a branch's workflow to read.
 name: Nix vendorHash
 
 on:
@@ -96,6 +99,7 @@ jobs:
       && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    environment: nix-vendor-hash # required reviewers: the App's key is not for a branch's run alone
     permissions: {}
     steps:
       - name: Generate bot-cecil token
