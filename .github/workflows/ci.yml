@@ -228,7 +228,10 @@ jobs:
     needs: [changes, image]
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    # A main or nightly shard runs every UI package under -race: 9 min of
+    # tests on its own (shard ui 1/3 on db0b380), so 10 left no room for the
+    # cache steps and a busy runner.
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: read # pull the image
