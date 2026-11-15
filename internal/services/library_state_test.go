@@ -321,3 +321,20 @@ func TestStatesOfLibraryAlbumsAreInTheLibrary(t *testing.T) {
 		t.Fatalf("after favouriting: %+v", got[0])
 	}
 }
+
+// A removal tells the lists once its local half is done, before Apple's
+// DELETE has answered.
+func TestRemoveAnnouncesTheLibraryChange(t *testing.T) {
+	s, _, _, _ := newStateService(t)
+	rec := &recorder{}
+	s.o.Emit = rec
+	song := ItemRef{Kind: "songs", ID: "i.100", Source: SourceLibrary, CatalogID: "100", LibraryID: "i.100"}
+	if _, err := s.Remove(t.Context(), song); err != nil {
+		t.Fatal(err)
+	}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if !slices.Equal(rec.events, []string{EventLibraryChanged}) {
+		t.Fatalf("events = %v", rec.events)
+	}
+}

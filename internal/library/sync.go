@@ -173,6 +173,7 @@ func (s *Syncer) Sync(ctx context.Context, mode Mode, progress func(Progress), d
 		errs    []error
 		changed bool
 		stop    bool
+		synced  = map[Domain]bool{}
 	)
 	run := func(d Domain) {
 		start := s.now()
@@ -190,6 +191,7 @@ func (s *Syncer) Sync(ctx context.Context, mode Mode, progress func(Progress), d
 			return
 		}
 		changed = changed || dchanged
+		synced[d] = true
 		s.log.Info("library synced", "domain", d, "full", mode == Full, "items", total, "changed", dchanged, "took", s.now().Sub(start).Round(time.Millisecond))
 		report(Progress{Domain: d, Done: total, Total: total, Finished: true})
 	}
@@ -204,6 +206,15 @@ func (s *Syncer) Sync(ctx context.Context, mode Mode, progress func(Progress), d
 		if stop {
 			break
 		}
+	}
+	// Apple may keep listing an album whose last song was deleted: with both
+	// albums and songs just synced, an album with no song is not stored.
+	if synced[DomainAlbums] && synced[DomainSongs] {
+		pruned, err := pruneEmpty(context.WithoutCancel(ctx), s.db)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		changed = changed || pruned
 	}
 	if changed {
 		if err := RebuildSearch(context.WithoutCancel(ctx), s.db); err != nil {

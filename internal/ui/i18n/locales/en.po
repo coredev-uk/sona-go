@@ -2989,6 +2989,10 @@ msgstr "It's removed from your library on all your devices. The songs in it stay
 msgid "Items"
 msgstr "Items"
 
+#: internal/ui/features/album/page.go
+msgid "Its last song was deleted from your library."
+msgstr "Its last song was deleted from your library."
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Its seccomp filter isn't installed."
 msgstr "Its seccomp filter isn't installed."
@@ -4281,6 +4285,10 @@ msgstr "Open now playing"
 #: internal/ui/features/settings/settingsfile.go
 msgid "Open on"
 msgstr "Open on"
+
+#: internal/ui/features/album/page.go
+msgid "Open on Apple Music"
+msgstr "Open on Apple Music"
 
 #: internal/ui/features/commands/commands.go
 msgid "Open the command palette"
@@ -6912,6 +6920,10 @@ msgstr "This account needs your browser to sign in"
 #: internal/ui/i18n/errors.go
 msgid "This account's two-factor method can't be completed inside Sona."
 msgstr "This account's two-factor method can't be completed inside Sona."
+
+#: internal/ui/features/album/page.go
+msgid "This album is no longer in your library"
+msgstr "This album is no longer in your library"
 
 #: internal/ui/kit/controls_states.go
 msgid "This album isn't available"

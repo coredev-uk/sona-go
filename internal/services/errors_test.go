@@ -244,6 +244,7 @@ func eventPayloads(t *testing.T) []reflect.Type {
 		"EventSyncProgress":       reflect.TypeFor[SyncProgress](),
 		"EventSyncDone":           reflect.TypeFor[SyncDone](),
 		"EventItemState":          reflect.TypeFor[ItemState](),
+		"EventLibraryChanged":     reflect.TypeFor[LibraryChanged](),
 		"EventPower":              reflect.TypeFor[PowerState](),
 		"EventPlaybackState":      reflect.TypeFor[PlaybackState](),
 		"EventPlaybackQueue":      reflect.TypeFor[QueueState](),

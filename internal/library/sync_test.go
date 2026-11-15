@@ -296,3 +296,43 @@ func TestSyncStopsOnUnauthorized(t *testing.T) {
 		t.Fatalf("domains attempted after an auth failure: %v", finished)
 	}
 }
+
+// Whichever way Apple behaves when a library album's last song is deleted
+// (it may keep listing the album), a sync stores and shows no album with no
+// library song.
+func TestSyncDoesNotStoreAnAlbumWithNoSongs(t *testing.T) {
+	e := newEnv(t)
+	seed(e.fake, 100)
+	e.fake.albums = append(e.fake.albums, album("l.hollow", "Hollow", "Ghost", "r.ghost", "2024-02-01T00:00:00Z"))
+	e.fake.artists = append(e.fake.artists, artist("r.ghost", "Ghost"))
+	ctx := context.Background()
+	for i, run := range []func(testing.TB, ...Domain) error{e.run, e.run, e.runFull} {
+		if err := run(t); err != nil {
+			t.Fatal(err)
+		}
+		if c, _ := e.lib.Counts(ctx); c.Albums != 10 || c.Artists != 6 || c.Songs != 100 {
+			t.Fatalf("run %d: counts = %+v", i, c)
+		}
+		if _, _, err := e.lib.Album(ctx, "l.hollow"); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("run %d: the empty album is stored: %v", i, err)
+		}
+		if hits, _ := e.lib.Search(ctx, "Hollow", 5); len(hits) != 0 {
+			t.Fatalf("run %d: search finds the empty album: %+v", i, hits)
+		}
+	}
+
+	// Apple dropping a song but still listing its album: the album goes
+	// when it was the last song.
+	e.fake.mu.Lock()
+	e.fake.songs = slices.DeleteFunc(e.fake.songs, func(s map[string]any) bool {
+		rel := s["relationships"].(map[string]any)["albums"].(map[string]any)["data"].([]any)[0].(map[string]any)
+		return rel["id"] == "l.3"
+	})
+	e.fake.mu.Unlock()
+	if err := e.run(t); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := e.lib.Counts(ctx); c.Albums != 9 || c.Songs != 90 {
+		t.Fatalf("after l.3 lost its songs: %+v", c)
+	}
+}

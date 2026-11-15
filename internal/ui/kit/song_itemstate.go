@@ -209,10 +209,14 @@ func (s *ItemStates) Remember(st services.ItemState) {
 	s.q.Invalidate(store.KeyLibraryFavourites)
 }
 
-// Follow subscribes the states to "library:item-state": call it from a
-// module's Init.
+// Follow subscribes the states to "library:item-state" and the lists to
+// "library:changed" (a removal hides the item before Apple answers, and
+// puts it back when Apple refuses): call it from a module's Init.
 func (s *ItemStates) Follow(bus *store.Bus) {
 	store.On(bus, services.EventItemState, s.Remember)
+	store.On(bus, services.EventLibraryChanged, func(services.LibraryChanged) {
+		s.q.Invalidate(membershipLists...)
+	})
 }
 
 // learn records what Go answered to a load begun when the item had gen

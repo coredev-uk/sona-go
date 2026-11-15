@@ -158,7 +158,7 @@ func TestRemoveAlbumForgetsItsSongs(t *testing.T) {
 	rec := withAMP(t, e)
 	ctx := context.Background()
 
-	if err := e.lib.Remove(ctx, applemusic.TypeAlbums, "l.1"); err != nil {
+	if err := e.lib.Remove(ctx, applemusic.TypeAlbums, "l.1", nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := rec.take(); !slices.Equal(got, []string{"DELETE /v1/me/library/albums/l.1?"}) {
@@ -185,17 +185,137 @@ func TestRemoveAlbumForgetsItsSongs(t *testing.T) {
 	}
 
 	// Removing an artist takes its albums and songs.
-	if err := e.lib.Remove(ctx, applemusic.TypeArtists, "r.b"); err != nil {
+	if err := e.lib.Remove(ctx, applemusic.TypeArtists, "r.b", nil); err != nil {
 		t.Fatal(err)
 	}
-	if c, _ := e.lib.Counts(ctx); c != (Counts{Playlists: 1, Artists: 1}) {
+	if c, _ := e.lib.Counts(ctx); c != (Counts{Playlists: 1}) {
 		t.Fatalf("counts after removing r.b = %+v", c)
 	}
 	// Music videos are not stored locally: Apple only.
-	if err := e.lib.Remove(ctx, applemusic.TypeMusicVideos, "i.v"); err != nil {
+	if err := e.lib.Remove(ctx, applemusic.TypeMusicVideos, "i.v", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.lib.Forget(ctx, applemusic.TypeSongs, "i.unknown"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Deleting an album's last song takes the album with it, and the artist when
+// it was their last album; an album with songs left stays.
+func TestForgetOfTheLastSongForgetsItsAlbumAndArtist(t *testing.T) {
+	e := newEnv(t)
+	seedLibrary(t, e)
+	ctx := context.Background()
+	counts := func() Counts {
+		c, err := e.lib.Counts(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	if c := counts(); c != (Counts{Songs: 3, Albums: 2, Artists: 2, Playlists: 1}) {
+		t.Fatalf("seeded counts = %+v", c)
+	}
+
+	// Beta (l.1) keeps i.3: only the song goes.
+	if err := e.lib.Forget(ctx, applemusic.TypeSongs, "i.1"); err != nil {
+		t.Fatal(err)
+	}
+	if c := counts(); c != (Counts{Songs: 2, Albums: 2, Artists: 2, Playlists: 1}) {
+		t.Fatalf("counts after i.1 = %+v", c)
+	}
+	// Alpha (l.2) held only i.2: the album and its artist Abba go, their
+	// ratings and search entries too.
+	if err := e.lib.Forget(ctx, applemusic.TypeSongs, "i.2"); err != nil {
+		t.Fatal(err)
+	}
+	if c := counts(); c != (Counts{Songs: 1, Albums: 1, Artists: 1, Playlists: 1}) {
+		t.Fatalf("counts after i.2 = %+v", c)
+	}
+	if _, _, err := e.lib.Album(ctx, "l.2"); err != ErrNotFound {
+		t.Fatalf("album l.2 still readable: %v", err)
+	}
+	if hits, _ := e.lib.Search(ctx, "Alpha", 5); len(hits) != 0 {
+		t.Fatalf("search still finds the album: %+v", hits)
+	}
+	if hits, _ := e.lib.Search(ctx, "Abba", 5); len(hits) != 0 {
+		t.Fatalf("search still finds the artist: %+v", hits)
+	}
+	// The last song of Beta takes Beta and Zed.
+	if err := e.lib.Forget(ctx, applemusic.TypeSongs, "i.3"); err != nil {
+		t.Fatal(err)
+	}
+	if c := counts(); c != (Counts{Playlists: 1}) {
+		t.Fatalf("counts after i.3 = %+v", c)
+	}
+	var rows int
+	if err := e.db.R.QueryRowContext(ctx, `SELECT count(*) FROM albums WHERE library_id IS NOT NULL`).Scan(&rows); err != nil || rows != 0 {
+		t.Fatalf("%d library album rows left (%v)", rows, err)
+	}
+}
+
+// A removal hides the item at once and Restore puts back all of it.
+func TestHideAndRestoreAnAlbumsLastSong(t *testing.T) {
+	e := newEnv(t)
+	seedLibrary(t, e)
+	ctx := context.Background()
+	h, err := e.lib.Hide(ctx, applemusic.TypeSongs, "i.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := e.lib.Counts(ctx); c != (Counts{Songs: 2, Albums: 1, Artists: 1, Playlists: 1}) {
+		t.Fatalf("counts while hidden = %+v", c)
+	}
+	if err := e.lib.Restore(ctx, h); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := e.lib.Counts(ctx); c != (Counts{Songs: 3, Albums: 2, Artists: 2, Playlists: 1}) {
+		t.Fatalf("counts after restoring = %+v", c)
+	}
+	if _, tracks, err := e.lib.Album(ctx, "l.2"); err != nil || len(tracks) != 1 {
+		t.Fatalf("album l.2 = %v, %v", tracks, err)
+	}
+	if v, _ := e.lib.Rating(ctx, applemusic.TypeLibrarySongs, "i.2"); v != -1 {
+		t.Fatalf("rating of i.2 = %d", v)
+	}
+	if hits, _ := e.lib.Search(ctx, "Two", 5); len(hits) == 0 {
+		t.Fatal("search lost the song")
+	}
+	p, tracks, err := e.lib.Playlist(ctx, "p.1", ListOptions{})
+	if err != nil || len(tracks) != 2 || p.TrackCount != 2 {
+		t.Fatalf("playlist = %+v %+v %v", p, tracks, err)
+	}
+}
+
+// Remove drops the item before Apple answers, and puts it back when Apple
+// refuses.
+func TestRemoveHidesBeforeAppleAnswersAndRestoresOnFailure(t *testing.T) {
+	e := newEnv(t)
+	seedLibrary(t, e)
+	ctx := context.Background()
+	gate := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-gate
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	t.Cleanup(srv.Close)
+	e.api.AMPBase = srv.URL
+	changed := make(chan struct{}, 4)
+	done := make(chan error, 1)
+	go func() {
+		done <- e.lib.Remove(ctx, applemusic.TypeSongs, "i.2", func() { changed <- struct{}{} })
+	}()
+	<-changed
+	// Apple has not answered: the song, its album and its artist are gone.
+	if c, _ := e.lib.Counts(ctx); c != (Counts{Songs: 2, Albums: 1, Artists: 1, Playlists: 1}) {
+		t.Fatalf("counts while Apple works = %+v", c)
+	}
+	close(gate)
+	if err := <-done; err == nil {
+		t.Fatal("a refused delete succeeded")
+	}
+	<-changed
+	if c, _ := e.lib.Counts(ctx); c != (Counts{Songs: 3, Albums: 2, Artists: 2, Playlists: 1}) {
+		t.Fatalf("counts after the refusal = %+v", c)
 	}
 }

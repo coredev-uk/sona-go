@@ -261,7 +261,9 @@ func (s *LibraryService) rate(ctx context.Context, r ItemRef, on bool, value int
 // "music-videos") from the library, as the web player's Delete from
 // Library: an album takes its songs with it, an artist their albums and
 // songs, and removed songs leave every playlist. The local library
-// updates at once. It returns the item's new state.
+// updates at once, before Apple answers, and goes back if Apple refuses; an
+// album or artist left with no library songs leaves too. It returns the
+// item's new state.
 func (s *LibraryService) Remove(ctx context.Context, r ItemRef) (ItemState, error) {
 	if !removeKinds[r.Kind] {
 		return ItemState{}, fmt.Errorf("%w: remove %q from the library", ErrInvalidArgument, r.Kind)
@@ -286,7 +288,15 @@ func (s *LibraryService) Remove(ctx context.Context, r ItemRef) (ItemState, erro
 	if lib == "" {
 		return ItemState{}, fmt.Errorf("%w: %s %s is not in the library", library.ErrNotFound, r.Kind, r.ID)
 	}
-	if err := s.o.Library.Remove(ctx, r.Kind, lib); err != nil {
+	// The local library drops the item (and an album or artist left empty)
+	// at once; the lists hear of it before Apple answers, and again if Apple
+	// refuses and the item is put back.
+	changed := func() {
+		if s.o.Emit != nil {
+			s.o.Emit.Emit(EventLibraryChanged, LibraryChanged{})
+		}
+	}
+	if err := s.o.Library.Remove(ctx, r.Kind, lib, changed); err != nil {
 		return ItemState{}, s.o.Fail(err)
 	}
 	st.InLibrary, st.LibraryID = false, ""

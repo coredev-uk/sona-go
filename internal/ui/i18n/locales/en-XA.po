@@ -2989,6 +2989,10 @@ msgstr ""
 msgid "Items"
 msgstr ""
 
+#: internal/ui/features/album/page.go
+msgid "Its last song was deleted from your library."
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Its seccomp filter isn't installed."
 msgstr ""
@@ -4280,6 +4284,10 @@ msgstr ""
 #: internal/ui/features/settings/general.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "Open on"
+msgstr ""
+
+#: internal/ui/features/album/page.go
+msgid "Open on Apple Music"
 msgstr ""
 
 #: internal/ui/features/commands/commands.go
@@ -6911,6 +6919,10 @@ msgstr ""
 
 #: internal/ui/i18n/errors.go
 msgid "This account's two-factor method can't be completed inside Sona."
+msgstr ""
+
+#: internal/ui/features/album/page.go
+msgid "This album is no longer in your library"
 msgstr ""
 
 #: internal/ui/kit/controls_states.go
