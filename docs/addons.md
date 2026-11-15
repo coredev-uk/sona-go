@@ -6,7 +6,46 @@ An add-on can be written in any language. `internal/cli/testdata/addon-client.sh
 
 > **Permissions are advisory until the OS sandbox (#304) lands.** An add-on is a program that runs with your rights. It can read what you can read, including files and the keyring, and it can reach the network. Permissions limit what Sona's protocol hands it; they do not limit the process. Run only add-ons you trust, and say so wherever one is offered for approval.
 
-Status: the protocol and its session are implemented. Manifests, the supervisor that starts add-ons, UI contributions and `sona addons dev` follow in their own changes (#299, #300).
+Status: the protocol, manifests and the supervisor that starts add-ons are implemented. UI contributions, Settings → Add-ons and `sona addons dev` follow in their own change (#300).
+
+## Installing an add-on
+
+An add-on is a folder in the `addons` directory of Sona's config directory (`~/.config/sona/addons` on Linux). Sona creates the directory with mode 0700: an add-on is code Sona runs, so only you add one. The folder's name is the add-on's ID, and it holds the manifest, `addon.json`, and the program the manifest names.
+
+```json example Manifest
+{"id":"now-playing-webhook","name":"Now playing webhook","version":"1.2.0","description":"Posts the song that plays to a web address.","command":"bin/webhook","permissions":["playback.read"]}
+```
+
+| Field | Rules |
+| --- | --- |
+| `id` | Required. Lowercase letters, digits and hyphens, starting with a letter, 2 to 40 characters, no dots. It equals the folder's name (compared without regard to case). `lastfm`, `listenbrainz`, `discord` and anything starting with `sona` are reserved for Sona's own bundled add-ons and refused in your folder. |
+| `name` | Required. 1 to 60 characters of plain text: no control, bidirectional or other format characters, no space at either end. Shown wherever the add-on contributes something. |
+| `version` | Required. Semver (`1.2.0`). |
+| `description` | Optional. At most 300 characters, plain text like `name`. |
+| `command` | Required. The program to run, a path inside the folder: relative, `/` separators, no `..`, no `.` or empty element, no drive or backslash, at most 200 bytes. |
+| `permissions` | Required, may be empty. The [permissions](#permissions) the add-on asks for, each at most once. |
+
+The manifest is at most 64 KiB, and **a field this version doesn't know refuses it**. Why an add-on is refused is one of these codes, shown in Settings: `unreadable`, `manifest_too_large`, `manifest_invalid`, `bad_id`, `reserved_id`, `id_mismatch`, `bad_name`, `bad_version`, `bad_command`, `bad_permission`, `no_executable`, `executable_escapes`, `unsafe_owner`, `too_many_addons`. At most 100 folders are read.
+
+**Safety rules for the files.** Sona refuses an add-on when:
+
+- the folder is a link, or the program, once every link in its path is followed, is not inside the folder (`executable_escapes`);
+- the program is not a regular file, or on Linux and macOS not executable (`no_executable`);
+- on Linux and macOS, the folder, the manifest, the program or any folder on the way to it belongs to another user, or is writable by its group or by everyone (`unsafe_owner`). Windows keeps a profile's folders to their user by ACLs, which Sona doesn't read.
+
+Sona runs the program by the absolute path it checked: never through `PATH` or the working directory.
+
+### Permissions are granted when you enable an add-on
+
+Enabling an add-on shows the permissions its manifest asks for and, once you approve them, saves them as granted. The grant is yours and stays on this computer: a settings export leaves it out and a settings import never sets it. An update to the add-on that **asks for another permission** does not run until you approve again. Revoking a permission refuses the add-on's very next call, and the add-on needs approval before it runs again. And because permissions are advisory until the OS sandbox (#304), enabling an add-on is trusting it as you trust any program you run.
+
+### How Sona runs an add-on
+
+- **After the first paint**, never during start-up. A hello must arrive within 10 seconds, or the add-on is killed.
+- **Its environment** is an allowlist: `HOME`, `PATH`, `LANG`, `LANGUAGE`, `LC_*`, `TZ`, `TMPDIR` (and on Windows what a process needs to start: `SystemRoot`, `SystemDrive`, `TEMP`, `TMP`, `USERPROFILE`, `PATHEXT`, `ComSpec`), plus `SONA_ADDON_ID` and `SONA_ADDON_PROTOCOL=2`. A token, a key, a bus address or anything else in Sona's environment never reaches it. Its working directory is its folder.
+- **Its processes end with Sona's.** An add-on leads a process group of its own (a job object on Windows). When Sona quits, it sends the `shutdown` event, closes the add-on's input, gives it a second, asks it to terminate, gives it a second more, then kills the whole group and reaps it. On Linux the kernel also kills the add-on if Sona dies without quitting. macOS has no such signal: when Sona is killed the add-on's input closes, and **an add-on must exit when its input ends**. Do not start children that leave the group.
+- **It is restarted when it stops on its own**, after 1, 2, 5, 15 and then 30 seconds. After 5 stops in a row, with no run of a minute between, it is switched off and Sona tells you.
+- **Its log** is `addons/<id>.log` in Sona's state directory, beside `sona.log`: what it writes to standard error, with the time, control characters replaced by spaces and lines cut at 4 KiB, and Sona's own notes marked `sona:`. The file is mode 0600, rotated at 1 MiB with one older copy kept. The bug-report bundle lists add-ons (ID, version, on or off) and never their logs.
 
 ## The channel
 
@@ -470,6 +509,17 @@ Sona reports its limits in the `hello` answer and enforces each. A refusal is an
             "url": {"type": "string", "pattern": "^https?://[^@ ]+$", "maxLength": 2048}
           }
         }
+      }
+    },
+    "Manifest": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "version", "command", "permissions"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,39}$"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 240},
+        "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$", "maxLength": 40},
+        "description": {"type": "string", "maxLength": 1200},
+        "command": {"type": "string", "pattern": "^[^/\\\\:][^\\\\:]*$", "maxLength": 200},
+        "permissions": {"type": "array", "maxItems": 9, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}}
       }
     },
     "Frame": {

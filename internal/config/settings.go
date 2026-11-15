@@ -111,6 +111,9 @@ type Settings struct {
 	// LyricsView is the lyrics view's Translation and Pronunciation choices
 	// (lyricsview.go).
 	LyricsView LyricsView `json:"lyricsView"`
+	// Addons is what the user decided about each add-on: whether it runs
+	// and the permissions granted to it (addons.go).
+	Addons Addons `json:"addons"`
 }
 
 // Scrobbling holds the non-secret part of the scrobbler connections.
@@ -201,6 +204,7 @@ func (s Settings) Normalized() Settings {
 	s.TitleBar = s.TitleBar.normalized()
 	s.Lyrics = s.Lyrics.normalized()
 	s.Concerts = s.Concerts.normalized()
+	s.Addons = s.Addons.normalized()
 	s.Sidebar = s.Sidebar.normalized()
 	s.Language = normalizedLanguage(s.Language)
 	return s
@@ -299,6 +303,7 @@ func (s Settings) clone() Settings {
 	s.Accents = maps.Clone(s.Accents)
 	s.Audio.Equalizer.Custom = slices.Clone(s.Audio.Equalizer.Custom)
 	s.Lyrics.Providers = slices.Clone(s.Lyrics.Providers)
+	s.Addons = s.Addons.clone()
 	return s
 }
 

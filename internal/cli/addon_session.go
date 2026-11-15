@@ -78,6 +78,7 @@ type Session struct {
 	invokes  map[int64]chan invokeAnswer
 	nextID   int64
 	done     chan struct{}
+	helloCh  chan struct{} // closed once hello is accepted
 	started  bool
 	wg       sync.WaitGroup
 	callCtx  context.Context
@@ -94,7 +95,7 @@ func NewSession(cfg AddonConfig) *Session {
 	s := &Session{
 		cfg: cfg, limits: cfg.Limits.withDefaults(), now: cfg.Now, log: cfg.Log,
 		latest: map[string][]byte{}, subs: map[string]func(){}, rates: map[string]*bucket{},
-		invokes: map[int64]chan invokeAnswer{}, done: make(chan struct{}),
+		invokes: map[int64]chan invokeAnswer{}, done: make(chan struct{}), helloCh: make(chan struct{}),
 	}
 	if s.now == nil {
 		s.now = time.Now
@@ -108,6 +109,10 @@ func NewSession(cfg AddonConfig) *Session {
 
 // Done is closed when the session has ended.
 func (s *Session) Done() <-chan struct{} { return s.done }
+
+// Helloed is closed when the add-on's hello was accepted. A supervisor that
+// sees no hello in time stops the add-on.
+func (s *Session) Helloed() <-chan struct{} { return s.helloCh }
 
 // Serve runs the session over conn until the add-on hangs up, breaks the
 // protocol, doesn't read its frames, or ctx or Close ends it. It closes
@@ -406,6 +411,7 @@ func (s *Session) hello(f Frame) bool {
 	res, _ := json.Marshal(HelloResult{ID: p.ID, Protocol: ver, Permissions: granted, Limits: s.limits})
 	s.mu.Lock()
 	s.helloed = true
+	close(s.helloCh) // hello is accepted once: a second one never gets here
 	s.mu.Unlock()
 	s.reply(Frame{ID: f.ID, Result: res})
 	return true

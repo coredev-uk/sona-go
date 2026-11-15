@@ -109,6 +109,21 @@
 // checks and applies a file, keeping the last good theme when an edit is
 // refused (site/src/content/docs/reference/theme-format.md).
 //
+// Add-ons (addons.go, addonhost.go; docs/addons.md) are programs Sona runs
+// beside itself. AddonsService lists the folders of the user's add-ons
+// directory (internal/addons validates each manifest and its executable),
+// grants the permissions the user approves when they enable one, and after
+// the first paint runs the enabled ones: one supervising goroutine each,
+// locked to its OS thread so the add-on dies with Sona, restarting with a
+// growing wait and switching an add-on off after repeated crashes
+// ("addons:notice"). "addons:changed" carries the list. An add-on talks
+// protocol v2 (cli.Session) over its standard streams; addonHost is what it
+// is served from: the v1 commands and topics with private listens and
+// previews hidden. The grant is read from the settings at every call.
+// Nothing here waits on an add-on but Invoke, which waits at most its
+// deadline: the UI calls it off its thread. Permissions are advisory until
+// the OS sandbox (#304).
+//
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls
 // (MPRIS), notifications, the sleep inhibitor, the on-battery monitor, the

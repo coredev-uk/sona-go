@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/coredev-uk/sona-go/internal/addons"
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 	"github.com/coredev-uk/sona-go/internal/discord"
@@ -203,6 +204,7 @@ func newPlatformService(e *Env) *PlatformService {
 		NeedsAppBundle:     p.NeedsAppBundle,
 		PlainNotifications: p.PlainNotifications,
 		DiscordPresence:    discord.Supported,
+		Addons:             addons.Supported(),
 		DeveloperTools:     e.Windows != nil && e.Windows.DeveloperTools(),
 		WindowControls: WindowControls{
 			Native:    p.TitleBar.Native,

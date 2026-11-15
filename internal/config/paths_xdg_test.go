@@ -69,7 +69,7 @@ func TestEnsureCreatesAndTightens(t *testing.T) {
 	if err := p.Ensure(); err != nil {
 		t.Fatal(err)
 	}
-	for _, dir := range []string{p.Config, p.Data, p.Cache, p.Art, p.State} {
+	for _, dir := range []string{p.Config, p.Data, p.Cache, p.Art, p.State, p.AddonsDir(), p.AddonLogDir()} {
 		fi, err := os.Stat(dir)
 		if err != nil {
 			t.Fatal(err)

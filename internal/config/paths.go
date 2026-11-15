@@ -24,6 +24,14 @@ type Paths struct {
 	State  string // logs, the saved queue, crash reports
 }
 
+// AddonsDir is the folder of the user's add-ons, one folder each
+// (docs/addons.md). Ensure creates it with mode 0700: an add-on is code Sona
+// runs, so only its user may add one.
+func (p Paths) AddonsDir() string { return filepath.Join(p.Config, "addons") }
+
+// AddonLogDir holds the add-ons' logs, one file each, beside sona.log.
+func (p Paths) AddonLogDir() string { return filepath.Join(p.State, "addons") }
+
 // DefaultPaths resolves the directories from the process environment and
 // ensures they exist.
 func DefaultPaths() (Paths, error) {
@@ -39,7 +47,7 @@ func DefaultPaths() (Paths, error) {
 // directories that do not exist are created 0700 as well.
 func (p Paths) Ensure() error {
 	var errs []error
-	for _, dir := range []string{p.Config, p.Data, p.Cache, p.Art, p.State} {
+	for _, dir := range []string{p.Config, p.Data, p.Cache, p.Art, p.State, p.AddonsDir(), p.AddonLogDir()} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			errs = append(errs, fmt.Errorf("config: create %s: %w", dir, err))
 			continue

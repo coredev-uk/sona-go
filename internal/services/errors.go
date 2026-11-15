@@ -83,6 +83,7 @@ const (
 	CodeRestoreFailed       ErrorCode = "restore_failed"        // the previous version couldn't be put back (update.ErrRestore)
 	CodeKeyring             ErrorCode = "keyring"               // the token store failed or didn't answer in time
 	CodeImageUnusable       ErrorCode = "image_unusable"        // a chosen image can't be a cover (artwork.ErrCoverImage)
+	CodeAddonUnavailable    ErrorCode = "addon_unavailable"     // the add-on isn't running or didn't answer (ErrAddonUnavailable)
 	CodeUnknown             ErrorCode = "unknown"               // none of the above; the UI shows a generic message
 )
 
@@ -154,6 +155,10 @@ func CodeOf(err error) ErrorCode {
 		return CodeKeyring
 	case errors.Is(err, artwork.ErrCoverImage):
 		return CodeImageUnusable
+	case errors.Is(err, ErrAddonUnavailable):
+		return CodeAddonUnavailable
+	case errors.Is(err, ErrNotFoundAddon):
+		return CodeNotFound
 	case errors.Is(err, mut.ErrTimeout), errors.Is(err, context.DeadlineExceeded):
 		return CodeTimeout
 	case errors.Is(err, mut.ErrCanceled), errors.Is(err, context.Canceled):
