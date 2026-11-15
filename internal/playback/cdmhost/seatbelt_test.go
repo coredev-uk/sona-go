@@ -33,9 +33,10 @@ func TestSeatbeltProfile(t *testing.T) {
 	// Each exception comes after the rule it narrows: later rules win.
 	allow, network, noWrite := index("(allow default)"), index("(deny network*)"), index("(deny file-write*)")
 	writable := index("(allow file-write*")
+	terminals := index("(deny file-write* file-ioctl")
 	hidden := index("(deny file-read* file-write*")
 	readable := index("(allow file-read*")
-	if allow >= network || network >= noWrite || noWrite >= writable || writable >= hidden || hidden >= readable {
+	if allow >= network || network >= noWrite || noWrite >= writable || writable >= terminals || terminals >= hidden || hidden >= readable {
 		t.Errorf("rule order: allow %d, network %d, no write %d, writable %d, hidden %d, readable %d", allow, network, noWrite, writable, hidden, readable)
 	}
 	for _, want := range []string{

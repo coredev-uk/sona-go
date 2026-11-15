@@ -125,7 +125,7 @@ func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSan
 	}
 	log.Warn("cdmhost: no namespaces for the playback host; starting it without", "err", err)
 	ps := parentSandbox{reason: "no network namespace or mount namespace (user namespaces unavailable: " + err.Error() + ")"}
-	p, err = startChild([]string{exe}, env, nil)
+	p, err = startChild([]string{exe}, env, newSession())
 	return p, ps, err
 }
 
@@ -142,13 +142,15 @@ func (s Sandbox) withParent(ps parentSandbox) Sandbox {
 // their owner), a new, empty network namespace and a new mount namespace.
 // CAP_SYS_ADMIN (in the new user namespace only) is kept across exec as an
 // ambient capability so the first stage can build its filesystem view; it
-// is gone after the first stage re-executes. Tests replace it.
+// is gone after the first stage re-executes. Like every child, it starts
+// in a session of its own (newSession). Tests replace it.
 var namespaceAttr = func() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{
 		Cloneflags:  syscall.CLONE_NEWUSER | syscall.CLONE_NEWNET | syscall.CLONE_NEWNS,
 		UidMappings: []syscall.SysProcIDMap{{ContainerID: os.Getuid(), HostID: os.Getuid(), Size: 1}},
 		GidMappings: []syscall.SysProcIDMap{{ContainerID: os.Getgid(), HostID: os.Getgid(), Size: 1}},
 		AmbientCaps: []uintptr{unix.CAP_SYS_ADMIN},
+		Setsid:      true,
 	}
 }
 

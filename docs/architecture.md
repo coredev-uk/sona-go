@@ -561,7 +561,8 @@ Details and residual risks for every platform: `docs/security-review.md`.
 The child starts in its own user, network and mount namespace (`cdmhost/sandbox_linux.go`, `sandbox_fs_linux.go`).
 
 - **First stage**: replaces `/run`, `/tmp`, `/var/tmp` and `$XDG_RUNTIME_DIR` with empty tmpfs (binding back only the audio socket and the program's own files), makes the home directory read-only, and hides Sona's config and state, `~/.ssh`, `~/.gnupg` and the keyrings.
-- **Landlock**: no writes outside `/dev` and the private `/tmp`, no TCP or UDP, `connect()` only to the audio socket, abstract sockets and signals scoped. The child then re-executes itself, so the second stage has no capabilities.
+- **Session**: the child runs in a session of its own (no controlling terminal), and `/dev/pts` is an empty tmpfs.
+- **Landlock**: no writes outside `/dev/null`, `/dev/shm`, `/dev/snd` and the private `/tmp`, no device ioctls elsewhere (ABI 5), no TCP or UDP, `connect()` only to the audio socket, abstract sockets and signals scoped. The child then re-executes itself, so the second stage has no capabilities.
 - **Second stage**: installs a seccomp filter. Sockets are allowed only for `AF_UNIX`; ptrace, `process_vm_*`, `pidfd_getfd`, io_uring, bpf, perf events, keyrings, namespace changes and mounts are refused.
 - **Self-checks**: the child checks that inet and netlink sockets are refused and refuses to load the CDM without the seccomp filter.
 - **Without user namespaces** (Flatpak, Ubuntu's AppArmor restriction): it runs with Landlock and seccomp only, and Diagnostics shows why.

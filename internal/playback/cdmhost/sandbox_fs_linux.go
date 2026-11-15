@@ -69,7 +69,7 @@ type fsLayout struct {
 	home       string
 	runtimeDir string
 	// fresh are the directories replaced by an empty tmpfs (the runtime
-	// directory last, after /run); hidden the home directories replaced by
+	// directory last, after /run; /dev/pts hides the user's terminals); hidden the home directories replaced by
 	// an empty read-only one.
 	fresh  []string
 	hidden []string
@@ -87,7 +87,7 @@ type fsLayout struct {
 // layout derives the child's filesystem view from its environment.
 func layout() fsLayout {
 	l := fsLayout{home: os.Getenv("HOME"), runtimeDir: os.Getenv("XDG_RUNTIME_DIR")}
-	l.fresh = []string{"/tmp", "/var/tmp", "/run"}
+	l.fresh = []string{"/tmp", "/var/tmp", "/run", "/dev/pts"}
 	if l.runtimeDir != "" {
 		l.fresh = append(l.fresh, l.runtimeDir)
 	}
@@ -232,6 +232,8 @@ func isolateFS() error {
 		switch d {
 		case "/run":
 			mode = "0755"
+		case "/dev/pts": // the user's terminals are gone, not just unwritable
+			mode = "0555"
 		case l.runtimeDir:
 			mode = "0700"
 		}
@@ -325,9 +327,15 @@ const llWrite = unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_REM
 	unix.LANDLOCK_ACCESS_FS_MAKE_SOCK | unix.LANDLOCK_ACCESS_FS_MAKE_FIFO | unix.LANDLOCK_ACCESS_FS_MAKE_BLOCK |
 	unix.LANDLOCK_ACCESS_FS_MAKE_SYM
 
+// llFileRights are the handled rights that apply to a file rather than a
+// directory.
+const llFileRights = unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_TRUNCATE | unix.LANDLOCK_ACCESS_FS_IOCTL_DEV |
+	unix.LANDLOCK_ACCESS_FS_RESOLVE_UNIX
+
 // restrictLandlock confines this thread (and what it executes) with
-// Landlock: writes only under /dev (and the private /tmp when the
-// filesystem view is in place), no TCP or UDP, connect() only to the audio
+// Landlock: writes only to /dev/null, /dev/shm and /dev/snd (and the
+// private /tmp when the filesystem view is in place), and device ioctls
+// only there (so no terminal is written or driven), no TCP or UDP, connect() only to the audio
 // server's socket, abstract Unix sockets and signals scoped to the
 // sandbox. It returns the ABI version enforced, 0 when the kernel has no
 // Landlock.
@@ -346,6 +354,9 @@ func restrictLandlock(privateTmp bool) (int, error) {
 	}
 	if abi >= 4 {
 		attr.Handled_access_net = unix.LANDLOCK_ACCESS_NET_BIND_TCP | unix.LANDLOCK_ACCESS_NET_CONNECT_TCP
+	}
+	if abi >= 5 {
+		attr.Handled_access_fs |= unix.LANDLOCK_ACCESS_FS_IOCTL_DEV
 	}
 	if abi >= 6 {
 		attr.Scoped = unix.LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET | unix.LANDLOCK_SCOPE_SIGNAL
@@ -366,7 +377,7 @@ func restrictLandlock(privateTmp bool) (int, error) {
 	defer func() { _ = unix.Close(ruleset) }()
 
 	writable := attr.Handled_access_fs &^ unix.LANDLOCK_ACCESS_FS_RESOLVE_UNIX
-	dirs := []string{"/dev"}
+	dirs := []string{"/dev/null", "/dev/shm", "/dev/snd"}
 	if privateTmp {
 		dirs = append(dirs, "/tmp", "/var/tmp")
 	}
@@ -376,6 +387,13 @@ func restrictLandlock(privateTmp bool) (int, error) {
 			return err
 		}
 		defer func() { _ = unix.Close(fd) }()
+		var st unix.Stat_t
+		if err := unix.Fstat(fd, &st); err != nil {
+			return err
+		}
+		if st.Mode&unix.S_IFMT != unix.S_IFDIR {
+			access &= llFileRights // the kernel refuses directory rights on a file
+		}
 		rule := unix.LandlockPathBeneathAttr{Allowed_access: access, Parent_fd: int32(fd)}
 		_, _, errno := unix.Syscall6(unix.SYS_LANDLOCK_ADD_RULE, uintptr(ruleset), unix.LANDLOCK_RULE_PATH_BENEATH, uintptr(unsafe.Pointer(&rule)), 0, 0, 0)
 		if errno != 0 {
