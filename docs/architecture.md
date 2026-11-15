@@ -963,7 +963,7 @@ CI runners are shared and run everything under `-race`, and so does a workstatio
 
 ### UI
 
-`ui.Tester` renders views headless (no window). Behaviour (focus, keys, selection, drag slots) is asserted, and image snapshots land in `testdata/` for review. Query and event logic is plain Go tests. Accessibility rules and how to check them: `docs/accessibility.md`.
+`ui.Tester` renders views headless (no window). Behaviour (focus, keys, selection, drag slots) is asserted, and image snapshots land in `testdata/` for review. Query and event logic is plain Go tests. Accessibility rules and how to check them: `site/src/content/docs/contributing/accessibility.md`.
 
 ### Cross-platform
 

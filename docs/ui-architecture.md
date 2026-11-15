@@ -723,7 +723,7 @@ Other helpers: `uitest.Transport` (a recording fake of the playback commands, ov
 - `access.NoNestedControls` fails for a control nested inside a button or link, which MyGo reads as one piece and so hides.
 - `access.TabWalk` walks Tab round the window and fails for a stop that is not on the tree or a trap.
 - `access.InOrder`, `access.StopLabels` and `Tree.MustFind` serve the checks every feature repeats.
-- Each feature package keeps its pages' tree, Tab-order, Escape and announcement checks in `a11y_test.go` (`docs/accessibility.md`).
+- Each feature package keeps its pages' tree, Tab-order, Escape and announcement checks in `a11y_test.go` (`site/src/content/docs/contributing/accessibility.md`).
 
 ### `uitest/overlay`
 
@@ -1499,7 +1499,7 @@ Both read `Env.Shortcuts()`: every module's shortcuts, the shell's and each side
 - `kit.ShiftSlash` notes Shift and the slash key with no `Key` (`kit.IsShiftSlash`). It is observed on the shell's root and an open layer (`ObserveInput`). The dispatcher reads it as the chord Shift+/ in the next frame, unless the focus takes text or the focused element took it itself (`kit.TakeShiftSlash`; the key recorder's `HandleInput`, which records `?`).
 - Windows' press has its `Key`, which the shortcut takes, so nothing runs twice.
 - The help's dialog observes its own, to close on it (`ShiftSlash.Pressed`).
-- The position is where US and UK layouts have `?`, so on GTK and AppKit (`kit.SlashByPosition`) the command's label says so while it answers to `?` (`docs/accessibility.md`, "Focus").
+- The position is where US and UK layouts have `?`, so on GTK and AppKit (`kit.SlashByPosition`) the command's label says so while it answers to `?` (`site/src/content/docs/contributing/accessibility.md`, "Focus").
 
 #### Palette
 

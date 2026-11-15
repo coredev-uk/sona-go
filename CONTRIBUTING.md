@@ -68,6 +68,7 @@ One change per branch and pull request. Each step links to its page on the site.
 
 - **Go.** Format with `fmt` (gofumpt). `check` runs golangci-lint on new code and must pass clean.
 - **UI.** [UI conventions](https://sona.coredev.uk/contributing/ui-conventions/): modules, kit, tokens, performance and accessibility.
+- **Accessibility.** [Accessibility Rules](https://sona.coredev.uk/contributing/accessibility/): the keyboard and assistive-technology rules, and how they are checked.
 - **Docs.** [Writing docs](https://sona.coredev.uk/contributing/documentation/): lead with the task, keep it short.
 - **Commits.** [Conventional Commits](https://www.conventionalcommits.org) for every commit and pull request title: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `ci`, `build`, `chore` or `revert`.
 
@@ -82,7 +83,6 @@ You may use AI tools. A human reviews every change and can explain it, and you o
 | [docs/architecture.md](docs/architecture.md) | How Sona is built, and why |
 | [docs/ui-architecture.md](docs/ui-architecture.md) | The UI's modules, store, kit and tokens |
 | [docs/design.md](docs/design.md) | The visual direction |
-| [docs/accessibility.md](docs/accessibility.md) | Keyboard and assistive-technology rules, and how they are checked |
 | [docs/development.md](docs/development.md) | The environment, every devenv script, live playback, the Widevine CDM |
 | [docs/testing.md](docs/testing.md) | Checks, preview playback, sandbox and packaging tests, goldens, end-to-end, VM tests |
 | [docs/performance.md](docs/performance.md) | Measuring frame cost, start-up and memory |

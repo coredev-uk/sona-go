@@ -178,7 +178,7 @@ in
     # end-to-end smoke"); `e2e` runs the end-to-end smoke in it.
     headless.exec = ''bash e2e/headless.sh "$@"'';
     e2e.exec = ''headless -- go test -tags e2e -count=1 ./e2e/... "$@"'';
-    # A real Orca walked through the app in `headless` (docs/accessibility.md,
+    # A real Orca walked through the app in `headless` (site/src/content/docs/contributing/accessibility.md,
     # "Listening with Orca"). Orca comes from the pinned nixpkgs and is built
     # on first use, so it is not part of everyone's dev shell; what it said
     # is kept in bin/orca-out (E2E_OUT).

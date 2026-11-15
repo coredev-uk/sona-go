@@ -264,7 +264,7 @@ How it reads Orca:
 
 What it checks and keeps:
 
-- The test checks what Orca said against [accessibility.md](accessibility.md).
+- The test checks what Orca said against [the accessibility rules](../site/src/content/docs/contributing/accessibility.md).
 - `E2E_OUT` keeps `orca-walk.md` and `orca-setup.md` (what each key was answered with, and where Orca put the focus) and Orca's whole log.
 
 How to run it:

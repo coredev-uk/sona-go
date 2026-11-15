@@ -34,4 +34,4 @@ Sona aims for WCAG 2.2 AA in every built-in theme. This page says what works, wh
 
 ## Report a problem
 
-Open an issue on [GitHub](https://github.com/coredev-uk/sona-go/issues/new?template=bug_report.yml) and say which screen reader and system you use. The technical rules are in [docs/accessibility.md](https://github.com/coredev-uk/sona-go/blob/main/docs/accessibility.md).
+Open an issue on [GitHub](https://github.com/coredev-uk/sona-go/issues/new?template=bug_report.yml) and say which screen reader and system you use. The technical rules are in [Accessibility Rules](/contributing/accessibility/).
