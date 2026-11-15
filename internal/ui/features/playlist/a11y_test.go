@@ -2,6 +2,7 @@ package playlist
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -110,8 +111,9 @@ func TestA11ySidebar(t *testing.T) {
 			if slices.Contains(names, row.name) {
 				found = true
 				roles := childRoles(tr, it)
-				// A playlist's item has its shuffle button between them.
-				if shuffle := slices.Contains(names, "Shuffle "+row.name); shuffle {
+				// A playlist's or album's item has its shuffle button between them.
+				plain, _, _ := strings.Cut(row.name, ", ") // a pin's name adds what it does
+				if shuffle := slices.Contains(names, "Shuffle "+plain); shuffle {
 					roles = slices.Delete(slices.Clone(roles), 1, 2)
 				}
 				if len(roles) < 2 || roles[0] != row.opener || roles[1] != ui.RoleMenuButton || !slices.Contains(names, row.more) {
