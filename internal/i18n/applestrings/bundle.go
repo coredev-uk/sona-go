@@ -451,7 +451,7 @@ func (p *jsParser) escape(b *strings.Builder) error {
 				return p.errorf("bad \\u{} escape")
 			}
 			n, err := strconv.ParseUint(p.src[p.pos+1:p.pos+end], 16, 32)
-			if err != nil {
+			if err != nil || n > utf8.MaxRune {
 				return p.errorf("bad \\u{} escape")
 			}
 			b.WriteRune(rune(n))
@@ -472,14 +472,14 @@ func (p *jsParser) hexRune(b *strings.Builder, n int) error {
 	if p.pos+n > len(p.src) {
 		return p.errorf("short escape")
 	}
-	v, err := strconv.ParseUint(p.src[p.pos:p.pos+n], 16, 32)
+	v, err := strconv.ParseUint(p.src[p.pos:p.pos+n], 16, 16) // n <= 4 digits
 	if err != nil {
 		return p.errorf("bad escape")
 	}
 	p.pos += n
 	r := rune(v)
 	if n == 4 && r >= 0xD800 && r < 0xDC00 && strings.HasPrefix(p.src[p.pos:], `\u`) {
-		lo, err := strconv.ParseUint(p.src[p.pos+2:min(p.pos+6, len(p.src))], 16, 32)
+		lo, err := strconv.ParseUint(p.src[p.pos+2:min(p.pos+6, len(p.src))], 16, 16)
 		if err == nil && lo >= 0xDC00 && lo < 0xE000 {
 			r = (r-0xD800)<<10 + (rune(lo) - 0xDC00) + 0x10000
 			p.pos += 6

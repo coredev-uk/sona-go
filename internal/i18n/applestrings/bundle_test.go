@@ -31,6 +31,7 @@ func TestParseBundleModuleRejectsCode(t *testing.T) {
 		`const o={"A":unknown};export{o as default};`,
 		`const o={"A":1};export{o as default};`,
 		`const o=["A"];export{o as default};`,
+		`const o={"A":"\u{110000}"};export{o as default};`,
 	} {
 		if _, err := ParseBundleModule(src); err == nil {
 			t.Errorf("ParseBundleModule(%q) accepted", src)
