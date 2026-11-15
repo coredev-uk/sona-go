@@ -168,6 +168,8 @@ The Core is hermetic:
 
 [ui-architecture.md](ui-architecture.md) ("Testing with `ui.Tester`", "Tests") has the API.
 
+The `TestInteraction…` tests (`interaction_test.go` in `kit`, `app` and each feature package) pin what a click, double-click, Enter, Shift+Enter, Space and the Play control do for each kind on each surface; [design.md](design.md#choosing-and-playing-the-interaction-table) is the table they back. A `// DEPARTS:` comment marks a pinned behaviour that breaks the rule and has an issue; change the test with the fix. A change to what choosing or playing an item does changes the table and its test together.
+
 ### Golden images
 
 Golden images are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks. Another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not.

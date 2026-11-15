@@ -17,6 +17,7 @@ This is the visual direction for Sona's interface: type, colour, shape, motion a
   - [Motion](#motion)
   - [Reduce effects](#reduce-effects)
   - [Lists](#lists)
+  - [Choosing and playing: the interaction table](#choosing-and-playing-the-interaction-table)
   - [Dates](#dates)
   - [Empty, loading and error states](#empty-loading-and-error-states)
 - Pages and surfaces
@@ -250,6 +251,209 @@ A song or album with several artists keeps the one thing Apple writes, its artis
   - No arrow is drawn on the text: a trailing chevron would either move the line when it appears or leave a gap in "Artist · Album".
 - The same control is the artist in the player bar, Now Playing, the video view's caption, a track list's artist column and a track shelf's rows, the album, song and video headers and a station's songs. In a list it is not a Tab stop (the list is one), and Shift or Ctrl click on it selects the row like any other cell.
 - The song menu's "Go to artist" is a sub-menu of the artists when there are several (a plain row for one).
+
+## Choosing and playing: the interaction table
+
+One rule governs every list, shelf, row and tile that shows an item (a song, an album, a playlist, an artist, a station, a music video, a curator, an editorial card, a link):
+
+- **Choosing an item opens it.** A click, or Enter on the focused item, goes to its page, a song's too. An item with no page of its own does what it is: a station with no page (a local broadcaster) plays, a web-only link opens the browser, and each says so in its cue.
+- **Play plays.** A Play control (the disc on a cover, the triangle on a row, the amber disc beside a best match) starts the item, and does nothing else. Nothing else starts playback except a track row (below).
+- **A track row plays.** A row of songs in a list (album, playlist, library, a shelf's rows, search's Songs) is the one place a double-click or Enter plays: it is a list of songs, not a list of pages. A single click only selects.
+- **A modifier never does something the cue doesn't hint at.** Shift, Ctrl or Cmd with a click selects where the list selects; Shift+Enter plays only where the control shows it.
+- **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
+
+The table is what the code does on `main`, from the `TestInteraction…` tests (one or more per surface, in each package's `interaction_test.go`; they are `ui.Tester` tests that click, double-click and press the keys). A test that pins a departure from the rule has a `// DEPARTS:` comment at the assertion; when the departure is fixed, the test changes with it. Each departure is an issue, listed after the tables. Right-click menus are recorded by their presence only; their contents change in their own work.
+
+Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space does nothing on a link, a double-click is two clicks, and "menu" is opened by right-click, Shift+F10 or the Menu key.
+
+### Tiles, cards, rows and lists that show items
+
+| Surface (component) | Item | Click | Double-click | Enter | Shift+Enter | Space | Play | Menu | Cue |
+|---|---|---|---|---|---|---|---|---|---|
+| Cover tile: shelf, grid, library, search tiles (`kit` `CoverShelf`, `ItemGrid`) | song, album, playlist, video, station with a page | opens | opens (twice) | opens | none | none | disc, on hover and focus | yes | link, title underlines on hover |
+|  | artist, curator, room, grouping | opens | opens | opens | none | none | none ([#433]) | artist yes, curator no | link |
+|  | upcoming album | opens | opens | opens | none | none | none, release badge in its place | yes | link, "Out 19 Nov" |
+|  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play", play mark on hover |
+|  | web link | opens the browser | twice | same | none | none | none | no | link, no arrow ([#436]) |
+|  | unrouted page | none, but underlines ([#437]) | none | none | none | none | disc | yes | group |
+|  | any with an Item, Shift/Ctrl+click | selects ([#438]) | | | | | | | |
+| Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button, no right-click ([#447]) | link |
+|  | station with no page | plays | twice | plays | plays | plays | disc, and the card plays too ([#435]) | none | button |
+|  | web link | opens the browser | twice | same | same | same | none | none | button, no arrow ([#436]) |
+| Link list tile (`LinkList`: "More to Explore") | page link | opens, no `OnOpen` ([#434]) | opens | opens | opens | none | none, even a station with a page ([#446]) | none | link |
+|  | station with no page | plays | twice | plays | plays | plays | none | none | button "X Play", no visible mark ([#435]) |
+|  | web link | opens the browser | twice | same | same | same | none | none | button with the arrow out |
+| Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing, no pause ([#446]) | none | link |
+|  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
+| Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | none ([#441]) | plays from the row, the shelf is the queue | plays | none | none | cover button | More button, no right-click ([#447]) | list item, hover fill |
+|  | artist link in the row | opens the artist | twice | n/a | n/a | n/a | n/a | n/a | underline on hover |
+| Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects ([#439]) | number-column button | yes; none on the artist/album links ([#447]) | row; link cells underline |
+|  | artist or album cell | opens | twice | n/a | n/a | n/a | n/a | n/a | link |
+|  | Shift/Ctrl+click | range / toggle | | | | | | | |
+
+### Home, Discover and Radio
+
+| Surface | Item | Click | Enter | Space | Play | Cue |
+|---|---|---|---|---|---|---|
+| Home shelves (tiles) | as the cover tile above | | | | | |
+| Home strip rows (Recently played) and lead order | song, album, playlist, video, station with a page | opens | opens | plays ([#439]) | disc | link |
+|  | artist | opens | opens | none | none ([#433]) | link |
+|  | station with no page | plays | plays | plays | the name | button |
+|  | web link | opens the browser | same | none | none | button, no arrow ([#436]) |
+| Home lead pick, hero card | album, song, playlist, video, station | opens | opens | none | disc | link |
+|  | artist, curator | opens | opens | none | lead pick: a button that does nothing, hero: none ([#433]) | link |
+|  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
+| Home local shelves (Recently added, Your playlists) | album, playlist | opens | opens | none | none ([#445]) | link |
+| Home "See all" | | opens the shelf's page | | | | link |
+| Discover lead card | album, playlist, station, video | opens | opens | none | disc | link |
+|  | artist, curator | opens | opens | none | none ([#433]) | link |
+|  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
+| Discover strip cards | any | makes it the lead, does not open ([#442]) | same | same | disc where playable | button |
+| Discover bands and room tiles | as the cover tile | | | | | |
+| Discover Top songs, Charts | song | selects | plays from the row | none | number-column button | row; "Play Top songs" queues from the first, "See all" opens `/charts/songs` |
+| Radio board lane | station with a page | opens | opens | none | disc | link |
+|  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
+|  | tuned station with no page | toggles ([#440]) | toggles | toggles | equaliser | button |
+|  | unplayable | none | not focusable | | none | disabled, reason in text |
+| Radio programme box | | opens the station page | not a Tab stop | | | link |
+
+### Library pages
+
+| Surface | Item | Click | Double-click | Enter | Play | Menu |
+|---|---|---|---|---|---|---|
+| Songs, Favourites, History | song | selects | plays from the row | plays | number-column button | yes |
+| Albums, Playlists, Recently added grids | album, playlist | opens | opens | opens | none ([#445]) | yes |
+| Videos grid | music video | opens | opens | opens | disc where the platform plays videos | none ([#447]) |
+| Artists master list | artist | chooses it: the detail beside it changes and `?artist=` follows | same | same, Enter or Shift+Enter moves the focus to the detail | none on the row; the detail has Play and Shuffle | n/a |
+| Songs page head | | "Play your songs" plays from the first song, "Shuffle" shuffles | | | | |
+
+### Search
+
+| Surface | Item | Click | Enter | Shift+Enter | Play | Cue |
+|---|---|---|---|---|---|---|
+| Suggestion list: typed completion | term | searches | searches | searches | n/a | search icon, chevron when active |
+| Suggestion list: result | song with a page, library song with a catalogue copy | opens `/song/…` | opens | **plays** ([#426]) | none | chevron |
+|  | song with no page (a library upload) | plays | plays | plays | none | play triangle when active |
+|  | album, artist, playlist, curator, video, station with a page | opens | opens | opens | none | chevron |
+|  | station with no page | plays ([#425]) | plays | plays | none | chevron |
+|  | web link | opens the browser ([#425]) | same | same | none | chevron |
+| Suggestion list: recently searched | term | searches | searches | searches | none | clock icon, chevron when active |
+|  | album, artist, song with a page | opens | opens | opens (a suggested song plays, [#426]) | none | chevron |
+|  | library song | none ([#427]) | none | none | none | chevron |
+|  | station with no page | opens a station page that is not there ([#427]) | same | same | none | chevron |
+| Best match panel | song, album, playlist, station with a page, video | opens | opens | none | amber disc beside it | link |
+|  | artist, curator | opens | opens | none | none ([#433]) | link |
+|  | song with no page, station with no page | plays | plays | none | the disc is drawn into the panel | button "X, Play" |
+|  | web link | none ([#429]) | no control | | none | plain text |
+| Compact rows beside it | song | opens | opens | none | quiet Play button on hover and focus | link |
+|  | album, playlist, station with a page, video | opens | opens | none | none ([#430]) | link |
+|  | song or station with no page | plays | plays | none | play glyph on hover | button |
+| Group shelves ("Albums", See all grid, library scope) | as the cover tile | | | | | |
+| Songs group, See all, library songs | song | selects | plays | none | number-column button | row |
+| Recent searches shelf | term, album, artist, song with a page | opens | opens | none | none | link; the X forgets it |
+|  | library song, station with no page, the other scope's entries | not listed ([#427]) | | | | |
+| Command palette | artist, album, playlist | opens | opens | opens | none | cover and "Kind · subtitle", no trailing cue |
+|  | song | **plays** ([#423]) | plays | plays | none | the same look |
+|  | "Search Apple Music for …" | searches | searches (Enter before arrowing runs this one even when library hits arrive above it, [#424]) | searches | none | search icon |
+
+### The shell: sidebar, queue, player bar, mini player
+
+| Surface | Item | Click | Double-click | Enter | Shift+Enter | Space | Play | Menu | Cue |
+|---|---|---|---|---|---|---|---|---|---|
+| Sidebar nav links | page | opens | opens once | opens | none | none | none | none | link, active fill |
+| Sidebar playlist rows | playlist | opens | opens | opens | **shuffles** ([#443]) | none | glyph over the art shuffles ([#443]) | More button, no right-click ([#447]) | link; triangle on hover |
+| Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist: shuffles; others none ([#443]) | none | playlist: the glyph | More button | link |
+|  | any, set to Play or Shuffle | plays or shuffles ([#443]) | twice | same | same | same | the glyph (playlists) | More button | button; only the screen-reader name differs |
+|  | artist, any action | opens, the action is ignored ([#444]) | | opens | none | none | none | More button | link |
+|  | album pin set to Open with no page | plays ([#444]) | | plays | | | | | button |
+| Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button | disclosure |
+| Queue rows | song, AutoPlay, music video | focuses the row | plays from the row | plays | none | none | none | yes | hover fill and grip |
+|  | the playing song | none | restarts it | restarts it | none | none | none | none ([#447]) | amber title |
+|  | video title | opens its page | | | | | | | link |
+|  | song title and artist | plain text ([#448]) | | | | | | | |
+|  | "Playing from <station>" | opens the station | | not a Tab stop ([#448]) | | | | | link |
+| Player bar | cover | opens Now Playing (a video: the video view) | | opens | none | opens | n/a | yes | button |
+|  | title | song: its album with the song marked; station: its page; video: its page | | opens | none | none | n/a | yes | link |
+|  | artist, album | opens | | opens | none | none | n/a | yes | link |
+|  | play / pause | toggles | twice | toggles | none | toggles | n/a | none | button |
+| Mini player | cover, title, artist, album line | none ([#449]) | none | no Tab stop | | | n/a | yes, but not on the album line ([#449]) | plain text |
+
+### Page headers and pages
+
+| Surface | Control | What it does |
+|---|---|---|
+| Album and playlist head | Play | plays from the first song |
+|  | Shuffle | plays from a random song with shuffle on (not on an album not out yet, whose Play says "Play the N songs out now") |
+| Artist head | Play top songs, Shuffle | plays the eight top songs, or shuffles them |
+| Artist latest-release slip | the slip | opens the album; a dead button when the page is not routed ([#437]) |
+|  | disc | plays the album |
+| Artist release rows, discography tiles | row or tile | opens (Cmd or Shift selects); no Play ([#445]) |
+| Artist library page | Play | plays the artist's library songs |
+| Song page | Play | plays the one song (queue of one); no Shuffle |
+| Music video page | Play, "Play the song", "Watch in Apple Music" | plays the video, plays the song, hands the link to the browser |
+| Album, playlist, song, video pages | artist, album, curator links | open (a song's album link carries `?song=`) |
+
+Argued departures that stay (not issues):
+
+- **A pin set to Play or Shuffle plays on click.** The user chose it in the pin's menu ("When chosen"), and the pin's name says so to assistive technology; the visible cue is the only part owed (#443).
+- **The Now playing queue row restarts the song** on Enter or double-click: it is a row of songs, and `Jump` plays its own index from 0.
+- **The Artists master list chooses instead of opening**: it is a master-detail list, and the detail is the page.
+- **A tile's Shift/Ctrl+click selects** (a list of tiles can be dragged into a playlist and acted on as a group); only the open/play cue is owed (#438).
+- **Playing one tile plays that tile alone** even with three selected: Play is a control of the tile, not of the selection.
+
+### Departures
+
+| Issue | What |
+|---|---|
+| [#423] | the palette plays a library song |
+| [#424] | the palette's Enter right after typing |
+| [#425] | the suggestion list's chevron over a station that plays and a link that leaves Sona |
+| [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
+| [#427] | recent library songs and page-less stations |
+| [#429] | a web-only item on the results page is dead |
+| [#430] | only a song's compact row has Play |
+| [#433] | artists and curators have no Play control; Home's lead pick draws a dead one |
+| [#434] | Play on a tile, link tile or station row isn't remembered |
+| [#435] | a page-less station has two controls, no cue, or replays instead of pausing |
+| [#436] | no cue for a web link on tiles, cards and rows |
+| [#437] | unrouted pages: underline, navigation, dead artist slip |
+| [#438] | modifier-click selects on some, opens on others |
+| [#439] | Space plays, selects or does nothing |
+| [#440] | a double-click acts twice |
+| [#441] | a single click on a shelf's track row does nothing |
+| [#442] | Discover's strip card makes itself the lead |
+| [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
+| [#444] | pins: artists ignore the action, unrouted albums play |
+| [#445] | local shelves, library grids and release rows have no Play |
+| [#446] | station rows: pause, menu, link tile Play |
+| [#447] | right-click and More disagree |
+| [#448] | the queue's links and Tab stop |
+| [#449] | the mini player's inert text |
+
+[#423]: https://github.com/coredev-uk/sona-go/issues/423
+[#424]: https://github.com/coredev-uk/sona-go/issues/424
+[#425]: https://github.com/coredev-uk/sona-go/issues/425
+[#426]: https://github.com/coredev-uk/sona-go/issues/426
+[#427]: https://github.com/coredev-uk/sona-go/issues/427
+[#429]: https://github.com/coredev-uk/sona-go/issues/429
+[#430]: https://github.com/coredev-uk/sona-go/issues/430
+[#433]: https://github.com/coredev-uk/sona-go/issues/433
+[#434]: https://github.com/coredev-uk/sona-go/issues/434
+[#435]: https://github.com/coredev-uk/sona-go/issues/435
+[#436]: https://github.com/coredev-uk/sona-go/issues/436
+[#437]: https://github.com/coredev-uk/sona-go/issues/437
+[#438]: https://github.com/coredev-uk/sona-go/issues/438
+[#439]: https://github.com/coredev-uk/sona-go/issues/439
+[#440]: https://github.com/coredev-uk/sona-go/issues/440
+[#441]: https://github.com/coredev-uk/sona-go/issues/441
+[#442]: https://github.com/coredev-uk/sona-go/issues/442
+[#443]: https://github.com/coredev-uk/sona-go/issues/443
+[#444]: https://github.com/coredev-uk/sona-go/issues/444
+[#445]: https://github.com/coredev-uk/sona-go/issues/445
+[#446]: https://github.com/coredev-uk/sona-go/issues/446
+[#447]: https://github.com/coredev-uk/sona-go/issues/447
+[#448]: https://github.com/coredev-uk/sona-go/issues/448
+[#449]: https://github.com/coredev-uk/sona-go/issues/449
 
 ## Dates
 
