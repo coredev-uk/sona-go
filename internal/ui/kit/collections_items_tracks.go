@@ -19,7 +19,12 @@ const (
 )
 
 // TrackShelfState is the state of a TrackShelf: the width its columns follow.
-type TrackShelfState struct{ width WidthTracker }
+type TrackShelfState struct {
+	width WidthTracker
+	// Sel is the selected rows: a click or Space selects, as a TrackList row
+	// does (Shift+click and Ctrl+click too, Ctrl+Space toggles).
+	Sel Selection
+}
 
 // TrackShelfOpts are the options of TrackShelf.
 type TrackShelfOpts struct {
@@ -35,7 +40,8 @@ type TrackShelfOpts struct {
 }
 
 // TrackShelf is songs as a compact block of rows that fills the width in
-// columns of Rows songs, reading down each column (v0.2.0's TrackShelf). Double
+// columns of Rows songs, reading down each column (v0.2.0's TrackShelf). A click
+// or Space selects the row, as in a TrackList. Double
 // click, Enter or the cover's play button plays from that song with the shelf's
 // songs as the queue, labelled by the title. A song that cannot play (or is
 // withheld from a restricted account) is dimmed and does nothing. The song
@@ -70,6 +76,8 @@ func TrackShelf(c *ui.Context, st *TrackShelfState, items []services.Item, ctx I
 			}
 			shown := songs[:min(len(songs), cols*rows)]
 			down := min(rows, len(shown))
+			st.Sel.Hold = collectionsHold(ctx.Menus, nil)
+			st.Sel.Rows(KeysOf(len(shown), func(i int) string { return shown[i].ID }), nil)
 			for i, song := range shown {
 				// Filled down each column, so Tab follows the eye.
 				play := func() {
@@ -79,18 +87,19 @@ func TrackShelf(c *ui.Context, st *TrackShelfState, items []services.Item, ctx I
 					}
 					ctx.Players.PlaySongList(all, i, o.Title)
 				}
-				trackRow(c, *song, i, play, ctx, i/down, i%down)
+				trackRow(c, &st.Sel, *song, i, play, ctx, i/down, i%down)
 			}
 			if ctx.Menus != nil && !ctx.NoPopup {
 				ctx.Menus.Popup(c)
 			}
 		})
+		st.Sel.OutsidePress(grid)
 	})
 }
 
 // trackRow is one song: a 40 DIP cover, the title with its explicit mark, the
 // artist and the song's menu. play starts the queue from it.
-func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCtx, col, rowAt int) {
+func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play func(), ctx ItemsCtx, col, rowAt int) {
 	tk := theme.Current()
 	current := SongIsCurrent(&song, ctx.Current)
 	withheld := ctx.Restricted && song.Explicit
@@ -103,6 +112,10 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 	row := ui.Row(c.Key(strconv.Itoa(i) + ":" + song.ID)).Height(trackRowH).MinWidth(0).Gap(12).PaddingX(8).
 		Radius(tk.Radius["md"]).Focusable().Role(ui.RoleListItem).Label(name).ColumnStart(col + 1).RowStart(rowAt + 1)
 	hot := HoverRow(row)
+	if run := sel.Run(i); run != RunNone {
+		row.Draw(func(p *ui.Painter, r ui.Rect) { p.Fill(r, theme.C("ink").Alpha(0.12), tk.Radius["md"]) })
+		row.Checked(true)
+	}
 	if disabled {
 		row.Opacity(0.5)
 	}
@@ -111,6 +124,10 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 	}
 	// Only the row itself takes the keys: the cover's play button and the
 	// artist link are not tab stops.
+	if row.Clicked() {
+		sel.Click(i, ModsOf(row.ClickModifiers()))
+	}
+	sel.Keys(row, i)
 	if !disabled && (row.DoubleClicked() || row.Shortcut(0, ui.KeyEnter)) {
 		play()
 	}

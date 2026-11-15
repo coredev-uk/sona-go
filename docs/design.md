@@ -270,7 +270,7 @@ One rule governs every list, shelf, row and tile that shows an item (a song, an 
 
 - **Choosing an item opens it.** A click, or Enter on the focused item, goes to its page, a song's too. An item with no page of its own does what it is: a station with no page (a local broadcaster) plays, a web-only link opens the browser, and each says so in its cue.
 - **Play plays.** A Play control (the disc on a cover, the triangle on a row, the amber disc beside a best match) starts the item, and does nothing else. Nothing else starts playback except a track row (below).
-- **A track row plays.** A row of songs in a list (album, playlist, library, a shelf's rows, search's Songs) is the one place a double-click or Enter plays: it is a list of songs, not a list of pages. A single click only selects.
+- **A track row plays.** A row of songs in a list (album, playlist, library, a shelf's rows, search's Songs) is the one place a double-click or Enter plays: it is a list of songs, not a list of pages. A track row: click selects, double-click and Enter play. Every list of songs follows it, the shelf's rows included (Shift or Ctrl+click and Ctrl+Space select more than one).
 - **A modifier never does something the cue doesn't hint at.** Shift, Ctrl or Cmd with a click selects where the list selects; Shift+Enter plays only where the control shows it.
 - **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
 
@@ -297,7 +297,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | web link | opens the browser | twice | same | same | same | none | none | button with the arrow out |
 | Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing, no pause ([#446]) | none | link |
 |  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
-| Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | none ([#441]) | plays from the row, the shelf is the queue | plays | none | none | cover button | More button, no right-click ([#447]) | list item, hover fill |
+| Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | selects | plays from the row, the shelf is the queue | plays | none | selects | cover button | More button, no right-click ([#447]) | list item, hover fill |
 |  | artist link in the row | opens the artist | twice | n/a | n/a | n/a | n/a | n/a | underline on hover |
 | Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects ([#439]) | number-column button | yes; none on the artist/album links ([#447]) | row; link cells underline |
 |  | artist or album cell | opens | twice | n/a | n/a | n/a | n/a | n/a | link |
@@ -432,7 +432,6 @@ Argued departures that stay (not issues):
 | [#438] | modifier-click selects on some, opens on others |
 | [#439] | Space plays, selects or does nothing |
 | [#440] | a double-click acts twice |
-| [#441] | a single click on a shelf's track row does nothing |
 | [#442] | Discover's strip card makes itself the lead |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
 | [#444] | pins: artists ignore the action, unrouted albums play |
@@ -457,7 +456,6 @@ Argued departures that stay (not issues):
 [#438]: https://github.com/coredev-uk/sona-go/issues/438
 [#439]: https://github.com/coredev-uk/sona-go/issues/439
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
-[#441]: https://github.com/coredev-uk/sona-go/issues/441
 [#442]: https://github.com/coredev-uk/sona-go/issues/442
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
 [#444]: https://github.com/coredev-uk/sona-go/issues/444
