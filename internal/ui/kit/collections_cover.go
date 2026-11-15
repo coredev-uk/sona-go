@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/egoist/mygo/ui"
@@ -44,12 +45,16 @@ func CoverColumns(width, min float32) (cols int, tile float32) {
 	return cols, (width - TileGapX*float32(cols-1)) / float32(cols)
 }
 
-// coverArtHeight is the height of a tile's cover: square, or 16:9.
+// coverArtHeight is the height of a tile's cover: square, or 16:9, rounded to
+// whole DIPs as ArtBox rounds a cover's. A fluid tile's width is a fraction of
+// a DIP at most window widths; the height every overlay is placed from (the
+// play disc, the play mark, the release badge) is this whole one, so each
+// keeps its 8 DIP inset from the cover's edges at 1x and 2x.
 func coverArtHeight(tile float32, video bool) float32 {
 	if video {
-		return tile * 9 / 16
+		return float32(math.Round(float64(tile * 9 / 16)))
 	}
-	return tile
+	return float32(math.Round(float64(tile)))
 }
 
 // CoverRowHeight is the height one row of a CoverGrid takes at a tile width,

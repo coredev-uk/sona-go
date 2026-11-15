@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -135,7 +136,8 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 	}
 	cover := banner != ""
 
-	fh := width / ratio
+	// Whole DIPs, so the disc's 12 DIP inset from the frame's bottom is exact.
+	fh := float32(math.Round(float64(width / ratio)))
 	// The card is a wrapper holding the opener and, beside it, the play
 	// control and the more button: a button or a link is a leaf on the
 	// accessibility tree, so controls inside it would not be on it.
