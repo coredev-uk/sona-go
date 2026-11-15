@@ -114,9 +114,9 @@ for f in "sona_${version}_amd64.deb" "sona-$version-1.x86_64.rpm" "sona-$version
   [[ -f $out/$f ]] || { echo "release: $f missing" >&2; exit 1; }
 done
 # AUR sona-bin files for this release's Arch package (attached to the
-# release; the AUR maintainer copies them into the AUR repo).
+# release; the AUR maintainer copies them, with the 0BSD LICENSE, into the AUR repo).
 bash "$root/build/linux/arch/update.sh" "$out/sona-$version-1-x86_64.pkg.tar.zst" "$out/aur"
-tar -C "$out/aur" -czf "$out/sona-bin-$version-aur.tar.gz" PKGBUILD .SRCINFO
+tar -C "$out/aur" -czf "$out/sona-bin-$version-aur.tar.gz" PKGBUILD .SRCINFO LICENSE
 (cd "$out" && sha256sum sona[-_]* >SHA256SUMS)
 ls -l "$out"
 

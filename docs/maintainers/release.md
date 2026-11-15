@@ -80,8 +80,16 @@ Merging a release:
    `gh attestation verify sona_X.Y.Z_amd64.deb --repo coredev-uk/sona-go`
    (any of the files; the attestation is the build's signed provenance, from
    the workflow's OIDC token, not from the App).
-6. Copy `aur/PKGBUILD` and `aur/.SRCINFO` from `sona-bin-<v>-aur.tar.gz` into
-   the AUR `sona-bin` repo and push there by hand.
+6. Only for a stable release (never an rc), update the AUR `sona-bin`
+   package by hand. Unpack `sona-bin-<v>-aur.tar.gz` (`PKGBUILD`, `.SRCINFO`,
+   the 0BSD `LICENSE`).
+   - First time only: `git -c init.defaultBranch=master clone ssh://aur@aur.archlinux.org/sona-bin.git`
+     (the AUR user is `coredev`), copy the three files in, `git add PKGBUILD .SRCINFO LICENSE`,
+     commit and `git push`.
+   - Later releases: copy `PKGBUILD` and `.SRCINFO` over the clone's, commit
+     (`Update to <v>`) and push.
+   The package passed namcap in the release's Arch smoke test; the
+   "may not be needed" notes it leaves are explained in the PKGBUILD.
 7. Nothing to do for Nix: `nix-branch.yml` moves the flake's `nix` branch
    (`build/linux/nix/pins.json`) to this release once its Arch package
    matched `SHA256SUMS` and its attestation and the flake built with it, and
