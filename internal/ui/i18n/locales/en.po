@@ -1666,6 +1666,7 @@ msgstr "Couldn't play “{name}”"
 #: internal/ui/account/signedin.go
 #: internal/ui/account/signin.go
 #: internal/ui/features/auth/menu.go
+#: internal/ui/features/library/videos.go
 msgid "Couldn't reach Apple"
 msgstr "Couldn't reach Apple"
 

@@ -3,7 +3,7 @@ title: Your Library
 description: Browse your songs, albums, artists and playlists, and keep them in sync with Apple Music.
 ---
 
-Sona shows your Apple Music library under Library in the sidebar. It keeps a copy on your computer, so pages open at once and work offline.
+Sona shows your Apple Music library under Library in the sidebar. It keeps a copy on your computer, so pages open at once and work offline, except Music videos, which Sona reads from Apple Music each time and which need a connection.
 
 ## Browse the library
 
@@ -12,7 +12,7 @@ The Library section lists these pages:
 - **Recently added**: the newest items in your library.
 - **Songs**, **Albums** and **Artists**: everything you added, with sort and filter controls at the top of each page.
 - **Playlists**: your playlists and folders. The sidebar lists them too.
-- **Favourite songs** and **Music videos**.
+- **Favourite songs** and **Music videos**. Music videos are not copied to your computer: with no connection the page says so, and Try again checks the connection and loads them once you're back online.
 - **History**: songs you played, grouped by day.
 
 Select an item to open it. Right-click it, or press Shift+F10 or the Menu key on a focused row, for its menu: Play next, Play last, Add to playlist, Create station and more.

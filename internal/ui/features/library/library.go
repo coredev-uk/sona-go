@@ -71,6 +71,10 @@ type library struct {
 	// library); nil without Env.Surfaces, which hides the action.
 	openAccount func()
 
+	// auth re-checks the connection (the Music videos page's Try again); nil
+	// without the core.
+	auth connectionChecker
+
 	sync syncStore
 
 	albums    albumsPage
@@ -88,6 +92,7 @@ func New(env *module.Env) module.Module {
 	l := newLibrary(env,
 		services.Service[services.LibraryService](env.Core),
 		services.Service[services.PlaybackService](env.Core))
+	l.auth = services.Service[services.AuthService](env.Core)
 	return l.module()
 }
 

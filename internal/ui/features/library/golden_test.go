@@ -87,7 +87,7 @@ func TestMusicVideosPageGolden(t *testing.T) {
 			uitest.Golden(t, r.tt.Image(), "library-videos-online-"+mode.name)
 		})
 		t.Run("offline-"+mode.name, func(t *testing.T) {
-			r, _ := newVideosRig(t, videoFixtures(4), false, mode.opts...)
+			r, _ := newVideosRig(t, nil, false, mode.opts...)
 			fakeOffline(r.l, true)
 			r.tt.Until("the offline state", r.tt.Shows("Music videos need a connection"))
 			r.tt.Settle()
