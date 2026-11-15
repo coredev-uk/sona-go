@@ -447,3 +447,36 @@ func TestMotionGroupRowsFromTheNativeReport(t *testing.T) {
 	g.tt.Until("rows", g.tt.Shows("Off while Reduce effects is on", "Hidden: videos pause", "Sona couldn't play it", "decode failed",
 		"H.264 decoding", "HEVC decoding", "System reduced motion", "Not requested"))
 }
+
+// The values of a group (the version, a path) are selectable: a triple click
+// takes the line and Ctrl/Cmd+C copies it. The labels and the notes under a
+// warning are muted type and are not part of the selection.
+func TestDiagnosticsValuesAreSelectableAndLabelsAreNot(t *testing.T) {
+	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
+	g.tt.SetSize(1132, 2600)
+	g.tt.Until("the Sona group", g.tt.Shows("Log file", "/state/sona.log", "go1.27", "1.0.0"))
+	triple := func(text string) {
+		t.Helper()
+		at, ok := g.tt.Find(text)
+		if !ok {
+			t.Fatalf("no %q among %q", text, g.tt.Texts())
+		}
+		x, y := at.X+at.W/2, at.Y+at.H/2
+		g.tt.ClickAt(x, y)
+		g.tt.ClickAt(x, y)
+		g.tt.ClickAt(x, y)
+		g.tt.Key(ui.Cmd, ui.KeyC)
+	}
+	for _, v := range []string{"/state/sona.log", "go1.27", "linux/amd64", "/cfg/settings.json"} {
+		g.tt.SetClipboard("kept")
+		triple(v)
+		if got := g.tt.Clipboard(); got != v {
+			t.Errorf("a triple click on %q copied %q", v, got)
+		}
+	}
+	g.tt.SetClipboard("kept")
+	triple("Log file")
+	if got := g.tt.Clipboard(); got != "kept" {
+		t.Errorf("the label Log file copied %q", got)
+	}
+}

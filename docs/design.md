@@ -19,6 +19,7 @@ This is the visual direction for Sona's interface: type, colour, shape, motion a
   - [Lists](#lists)
   - [Dates](#dates)
   - [Empty, loading and error states](#empty-loading-and-error-states)
+  - [Selectable text](#selectable-text)
 - Pages and surfaces
   - [Playlist page](#playlist-page)
   - [The song page: a liner card](#the-song-page-a-liner-card)
@@ -262,6 +263,32 @@ A song or album with several artists keeps the one thing Apple writes, its artis
 - An empty route keeps its frame: the h1, any column header row it will have, then one dashed-border block (1px `--line`, radius 8) holding a 16/600 sentence-case title, one sentence in the product's own words, and at most one action.
 - Loading: the final layout with flat `--hover` bars at the real text sizes; no shimmer, no layout shift when data lands.
 - Errors live inside the block that failed: what failed, when data was last good, and a Retry text button. `--danger` only on a small icon.
+
+## Selectable text
+
+Nothing is selectable by default: a page of rows, tiles and links would fight its own clicks, drags and double-click to play. Text is selectable (MyGo's `Element.Selectable()`) only where people copy it, case by case. One rule decides how:
+
+- **Values, not names.** The value text (`--ink`) is selectable; the muted name beside it, a note, a role, a heading and a picture's initials are `Unselectable()`. MyGo paints the selection (`--selection`, the spot colour at 32%) under the text and leaves the text's colour alone. `theme.Validate` keeps `--ink` at 4.5:1 on it in every theme, but the muted tier falls below that on it in most (Sona dark: `--ink-muted` is 3.5 to 4.0:1; 16 of the 22 built-in variants fall below 4.5:1 somewhere), so muted text stays out of the selection until the selection can carry it (issue #411).
+- **A container for a block of values**, so a drag runs across rows and Ctrl/Cmd+A copies the block, joined by newlines. A control inside keeps its own behaviour (MyGo does not select text inside a button or a link), so a selectable block holds no link or row that opens something.
+- **An identifier also gets a Copy button** (`kit.CopyButton`: a 24px ghost icon button, named "Copy ISRC", with a toast "ISRC copied"): it is one Tab stop beside its value, for someone at the keyboard.
+- **Roles and names are unchanged**: `Selectable()` adds no role, so a screen reader reads the same tree. Selecting never clicks the parent: a selectable block is not in a clickable parent.
+
+| Candidate | Decision | Why |
+| --- | --- | --- |
+| Song page, Details: ISRC | Selectable, with a Copy button | The identifier people paste into a form or a report; the button serves the keyboard |
+| Song page, Details: released, duration, genre, track, disc, written by | Selectable (values; the names are not) | Plain facts people quote; no clickable parent. The song has no label or ℗ line in Apple's data |
+| Song page, Credits: people's names | Selectable (one selection across all groups) | Credits get pasted into notes and forms; names are `--ink` |
+| Song page, Credits: roles, group titles, initials | No | Muted type and decoration |
+| Album page, fine print: the label, release dates, genres, writers | Selectable (values; the names are not) | Plain facts people quote, in a column no row or link surrounds |
+| Album page, fine print: the ℗ and © line | No | It is `--ink-muted`, which the selection does not carry at 4.5:1 (issue #411) |
+| Album page, fine print: UPC | Not shown | Sona does not fetch the UPC; there is nothing to select |
+| Lyrics (song page, Now Playing, the full-screen sheet) | No | Apple's Developer Program License Agreement (3.3.6 D) allows MusicKit content only as the MusicKit APIs render it and says music-related text may not be used apart from playback; two of Sona's three lyrics sources (Musixmatch, LRCLIB) are licensed by others; and the Now Playing sheet's lines seek on a click. Unclear, so left unselectable |
+| Settings, Diagnostics: values (versions, paths, ids, sizes, pid) | Selectable, one selection per group | Single values are what someone pastes into a bug report; "Copy diagnostics" still copies the redacted whole |
+| Settings, Diagnostics: labels and the notes under a warning | No | Muted type |
+| Error and notice text | No | Go's own text and its codes never reach the screen: an error shows a sentence in muted type, and a toast leaves by itself. "Copy diagnostics" carries the codes |
+| About: the version and build | Selectable | Settings, Diagnostics, "Sona" group (the version, Go, platform); Sona has no About page of its own and the OS's About panel is the OS's |
+| Concerts: venue address | No | Sona's data has the venue's name and city, not an address; its rows are links and ticket buttons |
+| Track-list rows, tiles, sidebar, the player bar's title, buttons, links | No | They click, drag, double-click to play or open a menu |
 
 ## Playlist page
 

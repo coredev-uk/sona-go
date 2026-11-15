@@ -1182,6 +1182,10 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
+#: internal/ui/features/song/page.go
+msgid "Copy ISRC"
+msgstr ""
+
 #: internal/ui/app/menubar.go
 msgid "Copy an Apple Music link first."
 msgstr ""
@@ -2826,6 +2830,10 @@ msgstr ""
 
 #: internal/ui/features/song/page.go
 msgid "ISRC"
+msgstr ""
+
+#: internal/ui/features/song/page.go
+msgid "ISRC copied"
 msgstr ""
 
 #: internal/ui/features/settings/settingsfile.go
