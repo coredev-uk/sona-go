@@ -168,6 +168,7 @@ Sona's board has a faint green-grey tint (OKLCH chroma 0.003–0.006 on the grou
 ### 12. Station page cover (#309)
 On the station page, Apple Music 1's large artwork shows thin light bars at its sides in dark mode.
 - **Change:** find out whether that comes from the source art or from the box Sona requests. Fix it if Sona's request is the cause; otherwise record it as Apple's art.
+- **Result (2026-11-15):** Sona's request. The art is 4320×1080 key art with the logo centred; Sona asked for the 4:1 strip and drew it in a square cover. Wide station art (at least 2:1) is now requested as Apple's `cc` centre square (`mapper.stationArt`); see `docs/apple-music-reference.md` §4.6.
 
 ### 13. Discover's lead advances by itself
 Reported in use: the featured lead on Discover doesn't move between slides. By design it moves every 7 s and holds while the pointer or focus is in it, a menu is open, or the window is hidden or unfocused.

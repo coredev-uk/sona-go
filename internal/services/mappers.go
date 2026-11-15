@@ -420,6 +420,18 @@ func (m mapper) amMusicVideo(v applemusic.MusicVideo) MusicVideo {
 	return out
 }
 
+// stationArt maps a station's artwork, which is shown as a square cover. A
+// live station's is often 4:1 key art (Apple Music 1: 4320×1080, pale grey
+// with the logo centred) drawn so that the centre square is its tile; asked
+// at its own shape and drawn in a square box it left light bars (#309), so
+// wide art is cut to that square by Apple's CDN, as a programme's is.
+func (m mapper) stationArt(a *applemusic.Artwork) Art {
+	if a != nil && a.Width >= 2*a.Height && a.Height > 0 {
+		return m.centreSquare(a)
+	}
+	return m.artwork(a)
+}
+
 // amStation maps a catalog station; playability comes from
 // stationPlayability (radio.go).
 func (m mapper) amStation(s applemusic.Station) Station {
@@ -431,7 +443,7 @@ func (m mapper) amStation(s applemusic.Station) Station {
 		Provider:   a.StationProviderName,
 		DurationMs: a.DurationInMillis,
 		URL:        a.URL,
-		Art:        m.artwork(a.Artwork),
+		Art:        m.stationArt(a.Artwork),
 		Motion:     m.motionOf(a.EditorialVideo),
 	}
 	if n := a.EditorialNotes; n != nil {

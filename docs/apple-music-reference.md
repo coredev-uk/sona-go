@@ -308,6 +308,8 @@ So the best a software CDM is licensed for is SD (864×486); no HD.
 
 Station ID kinds: `ra.<n>` (editorial, live, or radio episode), `ra.<artistId>` (artist station), `ra.<songId>` (song station), `ra.a-<artistId>` (artist "for you" station), `ra.u-…` (the user's personal station), `ra.q-…` (mood or discovery), `ra.cp-<songId>` (AutoPlay "continue playing" station). Data: `name`, `artwork`, `editorialArtwork`, `editorialNotes`, `isLive`, `kind`, `mediaKind`, `radioUrl`, `requiresSubscription`, `stationProviderName`, `supportedDrms`, `airTime` and `durationInMillis` (episodes), and `radio-show` (an apple-curator). The page is minimal: play and Copy Link.
 
+**Station artwork.** A live station's `artwork` is key art, not a square cover: Apple Music 1 (`ra.978194965`) lists 4320×1080 (`{w}x{h}sr.{f}`, `bgColor` `f6f6f6`): pale grey ground, the red "1" and the "Apple Music Radio" wordmark centred, so that the centre square is the tile (checked 2026-11-15). The source has no bars: `1000x1000cc.png` is a clean 1000×1000 square (45 KB) and `1000x250sr.png` the whole strip. Sona used to ask for the strip's own shape (1000×250) and draw it in a square cover, which showed light bars on the page's dark ground (#309); it now asks for the `cc` centre square when the art is at least twice as wide as high, as it does for a programme (the live-station schedule, above). Square station art is unchanged.
+
 - `GET amp-api /v1/catalog/{sf}/stations/{id}?include=radio-show&extend=editorialArtwork&art[url]=f&format[resources]=map` → **200**, MUT: no (`ra.u-…` also 200 with the MUT; it is personal).
 - `GET amp-api /v1/catalog/{sf}/stations?ids=ra.471744,ra.1122782290` → **200**. Used by "Create Station" to resolve artist and song stations.
 
