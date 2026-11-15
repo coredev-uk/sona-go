@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds Sona.app for Apple silicon (docs/release-checklist.md, "macOS").
+# Builds Sona.app for Apple silicon (docs/maintainers/release.md, "Platforms in a release").
 #
 #   build/darwin/bundle.sh OUTDIR
 #

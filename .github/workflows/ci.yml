@@ -1,8 +1,7 @@
 # Checks for every push to main and every pull request; release.yml runs the
 # Linux jobs (linux-only) before building a release. Pull requests run with `pull_request`
 # (never `pull_request_target`): a fork's run gets a read-only GITHUB_TOKEN
-# and no secrets, and no job here reads one (docs/security-review.md,
-# "Workflows").
+# and no secrets, and no job here reads one (docs/maintainers/ci-and-secrets.md).
 name: CI
 
 on:

@@ -5,7 +5,7 @@
 #   SONA_FLATPAK_BUNDLE=sona.flatpak build/linux/flatpak/build.sh
 #
 # The build is offline: Go modules come from go-sources.json (regenerate it
-# after a go.mod change, see docs/flatpak.md), the toolchain from
+# after a go.mod change, see docs/maintainers/flatpak.md), the toolchain from
 # org.freedesktop.Sdk.Extension.golang and the GNOME runtime from Flathub. Install
 # those once first:
 #

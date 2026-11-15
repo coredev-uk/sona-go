@@ -12,7 +12,7 @@
 #     (needs network; SONA_FLATPAK_SMOKE_OFFLINE=1 skips it),
 #   - org.mpris.MediaPlayer2.sona and the single-instance name are owned on the
 #     session bus, and a second `flatpak run` reaches the running instance.
-# Playback is not covered: it needs a PipeWire sink (docs/flatpak.md, "Smoke
+# Playback is not covered: it needs a PipeWire sink (docs/maintainers/flatpak.md, "Smoke
 # test").
 set -euo pipefail
 

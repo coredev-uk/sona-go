@@ -28,7 +28,7 @@ First set, the redesign's head alone:
 | 2 | 19.8 ms | 24.8 ms | 0 of 137 |
 | 3 | 17.1 ms | 17.7 ms | 0 of 145 |
 
-So the comparison that counts alternates the two builds (`bin/sona-probe-base` from b259a43, `bin/sona-probe` from this branch), five pairs, so that the same load falls on both:
+So the comparison that counts alternates the two builds (`bin/sona-probe-base` from b259a43, `bin/sona-probe` from the redesign branch), five pairs, so that the same load falls on both:
 
 | Pair | Base p95 | Base worst | Redesign p95 | Redesign worst |
 | --- | --- | --- | --- | --- |

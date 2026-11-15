@@ -1,6 +1,6 @@
 # Security review
 
-Sona's threat model and the controls behind it. The findings below (F1–F10) record each weakness found in Sona's own code, the control that closed it and the tests that keep it closed. The Widevine CDM downloader, Apple's runtime translations, lyrics from other services, the macOS and Windows sandboxes, the GitHub Actions workflows and secret scanning have their own sections. Each section lists the residual risks that remain.
+Sona's threat model and the controls behind it. The findings below (F1–F10) record each weakness found in Sona's own code, the control that closed it and the tests that keep it closed. The Widevine CDM downloader, Apple's runtime translations, lyrics from other services, the macOS and Windows sandboxes and secret scanning have their own sections. Each section lists the residual risks that remain. The CI threat model (workflows, secrets, the release bot) is maintainer documentation: [docs/maintainers/ci-and-secrets.md](maintainers/ci-and-secrets.md).
 
 Areas reviewed without findings: native Apple ID input handling, the artwork and motion artwork caches' file and path handling, parent→child cdmhost framing, single-instance `Activate` and launch URLs, the other MPRIS methods, notifications, the portal file chooser, the settings file, secret stores, the scrobble queue, the diagnostics bundle, the update check and autostart.
 
@@ -350,39 +350,6 @@ Windows has none of the Linux layers and no `sandbox-exec`. The CDM host child t
 - **Motion artwork decodes in the UI process.** The UI process (not the sandboxed child) plays the looping covers: with Media Foundation (DXVA on Direct3D 11) on Windows, AVFoundation (VideoToolbox) on macOS and libav through GStreamer on Linux, from files the motion cache fetched from Apple's CDNs only (F6): the same exposure on all three, with the user's rights and no sandbox. On Windows and macOS the decoders are the system's own (Sona packages and links no video codec there, and the package holds no video plugin, so the CDM host child's plugin scan has none to load), serviced with the OS. The files are compressed video from Apple's servers; the CDM host's decrypted media never reaches it.
 - **Self-check limits.** `NetworkDenied` is one refused connect, `FilesHidden` four folder listings; they catch a child that is not in the AppContainer, not every hole in it. Offline, with no route at all, the refused `connect()` may fail with another error than `WSAEACCES`, so the check says the network is not refused and the CDM is not loaded until the next start online [INFERENCE: not observed].
 - **Windows 10 and later only**, the AppContainer APIs and the mitigation policies it uses; `windows-2025` is the only version tested.
-
-## Workflows
-
-The repository's GitHub Actions run on GitHub-hosted runners only (a self-hosted runner reachable from a pull request was ruled out). Once the repository is public, anyone can open a pull request, so the workflows assume the pull request's code is hostile.
-
-**What there is to protect.**
-
-| Asset | Where it lives | Who can read it |
-| --- | --- | --- |
-| `MUSIC_USER_TOKEN` (a real account's Music User Token, about six months' access to its library and playback) | Proton Pass item "Apple Music User Token" in the vault "CI"; the `live` environment holds only `PROTON_PASS_PERSONAL_ACCESS_TOKEN` (token `sona-ci`, viewer on that vault alone, expires 2027-11-14) | Jobs that name `environment: live` and run from `main`: `live.yml` (weekly schedule, dispatch), `windows-playback.yml` (weekly schedule, dispatch) |
-| Last.fm API key and secret, Discord application ID (compiled into every release binary, so readable by anyone who has one; the risk is someone else's builds or abuse posing as Sona before a release), and the Ed25519 update key | Proton Pass items in the vault "CI"; the `release` environment holds only `PROTON_PASS_PERSONAL_ACCESS_TOKEN`, the same `sona-ci` token. One token reads the whole vault, so a leak of it from either environment reveals the update key, the Last.fm and Discord values and `MUSIC_USER_TOKEN` until it is revoked in Proton Pass; both environments run only from `main` (and `release` from `v*` tags) | Jobs that name `environment: release` and run from `main` or a `v*` tag: `release.yml`'s build job (not a dispatched dry run, which has no environment), `release-secrets.yml` (monthly, dispatch, prints only whether each is set) |
-| `OP_SERVICE_ACCOUNT_TOKEN` (Renovate's 1Password service account, which yields the Renovate app's key) | Repository secret, maintained with Renovate (`renovate.yaml`) | Any workflow run on a branch of this repository; never a fork's run |
-| bot-cecil GitHub App credentials (`RENOVATE_APP_CLIENT_ID`, `RENOVATE_APP_PRIVATE_KEY`; the App's token is how release-please and the release publish step write, as Renovate does) | Repository secrets | Workflows run on a branch of this repository; `release-please.yml` and the `publish` job of `release.yml` mint a job-scoped token from them (contents, pull requests, issues write for release-please; contents write to publish) |
-| `GITHUB_TOKEN` write scopes | Per job | `live` (`issues: write`, to report a failed scheduled run), `issue-labels.yml` (`issues: write`, to add labels), `release.yml`'s build job (`id-token` and `attestations: write`, for the build provenance); every other job reads only; releases are written with the App token |
-| Release assets and tags | GitHub releases | The `publish` job, after the CI checks and the build; the `release tags` ruleset keeps `v*` tags immutable |
-
-**Threats and controls.**
-
-- *A fork's pull request runs its own code in CI.* Every workflow a pull request triggers uses `pull_request`, never `pull_request_target` or `workflow_run`, so a fork's run gets a read-only `GITHUB_TOKEN` and no secrets; GitHub withholds both. None of those workflows (`ci.yml`, `pr-title.yml`) reads a secret other than `GITHUB_TOKEN`. Environment secrets stay out of reach even for a pull request from a branch of this repository: an environment deploys only to the refs in its policy (`release`: `main` and `v*` tags; `live`: `main`), and a pull request's ref is `refs/pull/<n>/merge`.
-- *A token that outlives its job.* Every checkout sets `persist-credentials: false`, so the token isn't left in `.git/config` for later steps (tests, build scripts) to read. No workflow pushes with git.
-- *Too much token scope.* Each workflow starts from `permissions: contents: read` (`pr-title.yml`: `pull-requests: read`; `release-secrets.yml`: none), and only the two jobs above widen it (`release.yml`'s build job for the provenance, `live`). The release PR, tag and release are written with a job-scoped bot-cecil App token instead. The repository's default workflow permission is read.
-- *A third-party action moves its tag.* Every action is pinned to a full commit SHA, with the version in a comment; Renovate proposes updates to the pins, which are reviewed like any other pull request.
-- *Script injection.* No `run:` step expands an attacker-controlled expression (pull request title, branch name, commit message, issue body); values reach scripts through `env:`. `issue-labels.yml` feeds an issue's body to `cmd/issuelabels`, which prints only labels from a fixed table, so what an issue says can't choose any other label or command.
-- *A malicious dependency in CI.* Go modules are checked against `go.sum`, and Go is the only toolchain the build uses (no Node, no pnpm, no package-manager install scripts). A compromised dependency still runs its code in a pull request's job, which holds nothing worth taking (above).
-- *Cache poisoning.* Caches written by a pull request's run are scoped to its ref; the default branch's caches, which every run can restore, are written only by runs on `main`. The cached Widevine CDM is reinstalled through Sona's verifying downloader (`cmd/cdmfetch`, "Widevine CDM downloader").
-- *The live token in a test.* `live.yml` runs with `SONA_PRIVATE=1`, so nothing it does reaches the account's listening history, and plays nothing. `windows-playback.yml` plays one track through the CDM host on a Windows runner, also with `SONA_PRIVATE=1` and `playspike`, which reports nothing to Apple's play-activity service; it builds `main` only (never a branch the dispatcher names), so the secret only meets reviewed code, and prints the licence verdict, never the token or the licence.
-- *Hosted-runner cost.* The macOS and Windows jobs in `ci.yml` run only when dispatched while the repository is private, and on every push and pull request once it is public.
-
-**Residual risks.**
-
-- Anyone with write access can push a `v*` tag, and with it a workflow that names `environment: release`. A tag ruleset that limits who may create `v*` tags closes that; once releases run from `main` alone, the `v*` rule can leave the environment's policy.
-- `OP_SERVICE_ACCOUNT_TOKEN` is a repository secret, readable by a workflow on any branch of this repository (not a fork's), including the branches Renovate's app pushes. Moving it into an environment limited to `main` would confine it to `renovate.yaml`'s own runs.
-- While the repository is private, forks' pull requests run no workflows at all ("Run workflows from fork pull requests" is off, and so are write tokens and secrets for them). Once it is public, a first-time contributor's pull request waits for a maintainer's approval before CI runs ("Require approval for outside contributors"); the controls above are what holds after that approval.
 
 ## Secret scanning
 

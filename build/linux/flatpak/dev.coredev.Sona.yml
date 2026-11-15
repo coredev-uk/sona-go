@@ -1,5 +1,5 @@
 # Flatpak manifest for Sona. Feasibility notes and the reason for every
-# permission: docs/flatpak.md.
+# permission: docs/maintainers/flatpak.md.
 #
 # This manifest builds Sona from the working tree in org.gnome.Sdk, with the Go
 # toolchain from org.freedesktop.Sdk.Extension.golang and every Go module
@@ -15,7 +15,7 @@
 # Google at runtime into its own data directory.
 #
 # GStreamer comes from the runtime, with the base, good, bad and libav plugin
-# sets the deb, rpm and Arch packages depend on (docs/flatpak.md, "Audio").
+# sets the deb, rpm and Arch packages depend on (docs/maintainers/flatpak.md, "Audio").
 id: dev.coredev.Sona
 runtime: org.gnome.Platform
 runtime-version: '51'
@@ -156,7 +156,7 @@ modules:
         path: ../../..
         skip: [.git, .devenv, .direnv, .task, bin, sona, build/linux/flatpak/.flatpak-builder]
       # Every Go module as a file in a GOPROXY=file:// tree, so the build needs
-      # no network. Regenerate with gosources.go (docs/flatpak.md).
+      # no network. Regenerate with gosources.go (docs/maintainers/flatpak.md).
       - go-sources.json
     build-commands:
       # The flags build/ldflags.sh prints for Linux without credentials (the

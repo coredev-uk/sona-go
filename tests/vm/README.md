@@ -2,7 +2,7 @@
 
 NixOS VMs (QEMU with KVM, headless) that log a user into a real desktop
 session, start Sona built from this checkout, and check what the desktop
-rows of `docs/release-checklist.md` ask. The VMs have no network
+rows of `docs/maintainers/release.md` ask. The VMs have no network
 (`virtualisation.restrictNetwork`): no Apple, no sign-in, no playback, no
 CDM download. Every Sona starts in private mode (`SONA_PRIVATE=1` in the
 session).
