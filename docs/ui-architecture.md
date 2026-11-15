@@ -1600,7 +1600,7 @@ Registered after video and before radio and the player. It owns:
 #### Page
 
 - Loading skeleton; error with Retry and a link back to Playlists.
-- **Header** (`header.go`; `kit.CollectionHeader` is not used): the cover beside the title, byline and description with the actions on its bottom edge, then the ledger strip. The strip has kind, songs, running time, "Created …" (the library's `dateAdded`: "Created today", "Created yesterday", else a long date; omitted for catalogue playlists) and "Updated …". Each is a tooltip tab stop with the exact date and time, and one cell when both fall on the same day. "Find in playlist" sits at its right end.
+- **Header** (`header.go`; `kit.CollectionHeader` is not used): the cover beside the title, byline and description with the actions on its bottom edge, then the ledger strip. The strip has kind, songs, running time, a dated cell and "Updated …". The dated cell is the library's `dateAdded` (omitted for catalogue playlists and for personal mixes, `pl.pm-…`): "Created …" for a playlist the user made (editable, or a collaborative one they host; `stampKindOf`), "Added …" for one they added or joined; "today", "yesterday", else a long date. "Updated …" is left out when it is on the dated cell's day or before it. Each is a tooltip tab stop with the exact date and time. "Find in playlist" sits at its right end.
 - The track list with an editable container, the empty states, the suggested-songs rows (the table's own columns), featured artists (small round tiles) and more-from-curator.
 - Links to other pages render only when `Env.HasRoute` says they exist.
 

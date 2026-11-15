@@ -176,6 +176,18 @@ msgstr "Add {songName} to {playlistName}"
 msgid "Added By"
 msgstr "Added By"
 
+#: internal/ui/features/playlist/page.go
+msgid "Added today"
+msgstr "Added today"
+
+#: internal/ui/features/playlist/page.go
+msgid "Added yesterday"
+msgstr "Added yesterday"
+
+#: internal/ui/features/playlist/page.go
+msgid "Added {date}"
+msgstr "Added {date}"
+
 #: internal/ui/features/playlist/commands.go
 #: internal/ui/features/playlist/suggestions.go
 msgid "Added {label} to “{name}”"
