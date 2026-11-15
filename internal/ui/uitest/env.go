@@ -295,11 +295,13 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	}
 	t.Cleanup(authm.Close)
 	var (
-		api *applemusic.Client
-		cat *catalog.Catalog
+		api    *applemusic.Client
+		libAPI *applemusic.Client // the library's mutations: only with a fake Apple
+		cat    *catalog.Catalog
 	)
 	if o.apple != nil {
 		api = applemusic.New(h.Network.Client(), staticDev{}, authm.UserToken)
+		libAPI = api
 		cat = catalog.New(d, api, appleStorefront(true), slog.New(slog.DiscardHandler))
 	}
 	if api == nil {
@@ -321,7 +323,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	}
 	core := services.New(services.Deps{
 		Paths:    config.Paths{Config: h.Dir, Data: h.Dir, Cache: h.Dir, Art: h.Dir, State: h.Dir},
-		Settings: settings, DB: d, Auth: authm, API: api, Catalog: cat, Storefront: appleStorefront(o.apple != nil), Library: ilib.New(d, nil), Syncer: ilib.NewSyncer(d, nil, nil, 0), Art: art, Engine: h.Engine, Coord: h.Coord,
+		Settings: settings, DB: d, Auth: authm, API: api, Catalog: cat, Storefront: appleStorefront(o.apple != nil), Library: ilib.New(d, libAPI), Syncer: ilib.NewSyncer(d, nil, nil, 0), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
 		Keyring: h.Keyring, Transport: h.Network,
 		Emit: h.Bus, OpenURL: h.open, Clipboard: h.copy, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch, Platform: plat,
