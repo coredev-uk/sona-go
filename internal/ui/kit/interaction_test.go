@@ -626,8 +626,10 @@ func TestInteractionCoverShelfTilesFollowTheirOpenPlayAndPlaysOnOpen(t *testing.
 	st := &CoverShelfState{}
 	album := AlbumItem(services.Album{ID: "1"})
 	tiles := []CoverItem{
-		{Key: "a", Title: "Openable", Subtitle: "s1", Item: &album, Open: func() { opened = append(opened, "a") },
-			Play: &CoverPlay{Label: "Openable", Run: func() { played = append(played, "a") }}},
+		{
+			Key: "a", Title: "Openable", Subtitle: "s1", Item: &album, Open: func() { opened = append(opened, "a") },
+			Play: &CoverPlay{Label: "Openable", Run: func() { played = append(played, "a") }},
+		},
 		{Key: "b", Title: "Closed", Subtitle: "s2", Item: &album},
 		{Key: "c", Title: "Plays", Subtitle: "s3", PlaysOnOpen: true, Open: func() { played = append(played, "c") }},
 		{Key: "d", Title: "No item", Subtitle: "s4", Open: func() { opened = append(opened, "d") }},
@@ -915,7 +917,7 @@ var iaWideWant = map[string]iaRow{
 		role:       "link",
 		play:       "disc",
 		more:       "button",
-		menu:       "none",
+		menu:       "opens",
 		click:      "nav=/song/1 opened=song:1",
 		double:     "nav=/song/1,/song/1 opened=song:1,song:1",
 		enter:      "nav=/song/1 opened=song:1",
@@ -926,11 +928,10 @@ var iaWideWant = map[string]iaRow{
 		playDisc:   "played=song:1",
 	},
 	"album": {
-		role: "link",
-		play: "disc",
-		more: "button",
-		// DEPARTS: the card has a more button on hover but a right-click opens no menu, which it does on a cover tile (collections_items_widerow.go:231 Menus.Trigger, never OpenFor).
-		menu:       "none",
+		role:       "link",
+		play:       "disc",
+		more:       "button",
+		menu:       "opens",
 		click:      "nav=/album/1 opened=album:1",
 		double:     "nav=/album/1,/album/1 opened=album:1,album:1",
 		enter:      "nav=/album/1 opened=album:1",
@@ -945,7 +946,7 @@ var iaWideWant = map[string]iaRow{
 		role:       "link",
 		play:       "disc",
 		more:       "button",
-		menu:       "none",
+		menu:       "opens",
 		click:      "nav=/playlist/pl1 opened=playlist:pl1",
 		double:     "nav=/playlist/pl1,/playlist/pl1 opened=playlist:pl1,playlist:pl1",
 		enter:      "nav=/playlist/pl1 opened=playlist:pl1",
@@ -960,7 +961,7 @@ var iaWideWant = map[string]iaRow{
 		// DEPARTS: no Play control for this kind while song, album, playlist, station and music video tiles have one: no player is registered for it (features/discover/players.go registerPlayers), so ItemPlayers.CanPlay is false; fix: register an artist/curator player or leave it out of the rule.
 		play:       "none",
 		more:       "button",
-		menu:       "none",
+		menu:       "opens",
 		click:      "nav=/artist/ar1 opened=artist:ar1",
 		double:     "nav=/artist/ar1,/artist/ar1 opened=artist:ar1,artist:ar1",
 		enter:      "nav=/artist/ar1 opened=artist:ar1",
@@ -974,7 +975,7 @@ var iaWideWant = map[string]iaRow{
 		role:       "link",
 		play:       "disc",
 		more:       "button",
-		menu:       "none",
+		menu:       "opens",
 		click:      "nav=/station/ra.1 opened=station:ra.1",
 		double:     "nav=/station/ra.1,/station/ra.1 opened=station:ra.1,station:ra.1",
 		enter:      "nav=/station/ra.1 opened=station:ra.1",
@@ -989,7 +990,7 @@ var iaWideWant = map[string]iaRow{
 		// DEPARTS: a page-less station card has a Play disc and the card plays on click too (two controls for one action), and the card is named "Local FM" where the cover tile, with no disc, is named "Local FM Play" (collections_items_widerow.go:174 canPlay vs PlaysWhenOpened in collections_items_cover.go).
 		play:       "disc",
 		more:       "button",
-		menu:       "none",
+		menu:       "opens",
 		click:      "opened=station:ra.1 played=station:ra.1",
 		double:     "opened=station:ra.1,station:ra.1 played=station:ra.1,station:ra.1",
 		enter:      "opened=station:ra.1 played=station:ra.1",
@@ -1003,7 +1004,7 @@ var iaWideWant = map[string]iaRow{
 		role: "button",
 		play: "none",
 		more: "button",
-		menu: "none",
+		menu: "opens",
 		// DEPARTS: leaves the app with no cue: the card is a plain button (no role link) with no external-link glyph; a cover tile of the same item is role link and LinkList draws an arrow (collections_items_widerow.go:179-181).
 		click:      "opened=station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1",
 		double:     "opened=station:ra.1,station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1,https://music.apple.com/gb/station/local-fm/ra.1",
@@ -1018,7 +1019,7 @@ var iaWideWant = map[string]iaRow{
 		role:       "link",
 		play:       "disc",
 		more:       "button",
-		menu:       "none",
+		menu:       "opens",
 		click:      "nav=/music-video/v1 opened=music-video:v1",
 		double:     "nav=/music-video/v1,/music-video/v1 opened=music-video:v1,music-video:v1",
 		enter:      "nav=/music-video/v1 opened=music-video:v1",
@@ -1047,7 +1048,7 @@ var iaWideWant = map[string]iaRow{
 		role:       "link",
 		play:       "none",
 		more:       "button",
-		menu:       "none",
+		menu:       "opens",
 		click:      "nav=/album/up1 opened=album:up1",
 		double:     "nav=/album/up1,/album/up1 opened=album:up1,album:up1",
 		enter:      "nav=/album/up1 opened=album:up1",
@@ -1090,7 +1091,7 @@ var iaWideWant = map[string]iaRow{
 		role: "link",
 		play: "disc",
 		more: "button",
-		menu: "none",
+		menu: "opens",
 		// DEPARTS: WideRow ignores ItemsCtx.HasRoute: a card whose page is not routed still navigates to it (the start page, in the app) where the cover tile builds without Open (collections_items_widerow.go:235-238 card.Clicked, ctx.nav(link)).
 		click:      "nav=/song/1 opened=song:1",
 		double:     "nav=/song/1,/song/1 opened=song:1,song:1",
@@ -1313,11 +1314,10 @@ var iaStationWant = map[string]iaRow{
 		playDisc:   "played=station:ra.1",
 	},
 	"without a page": {
-		role: "button",
-		play: "none",
-		more: "button",
-		// DEPARTS: the more button is the only way to the menu; a right-click opens none, which it does on a cover tile.
-		menu:  "none",
+		role:  "button",
+		play:  "none",
+		more:  "button",
+		menu:  "opens",
 		click: "played=station:ra.1",
 		// DEPARTS: double-click plays the station twice.
 		double:     "played=station:ra.1,station:ra.1",
@@ -1332,7 +1332,7 @@ var iaStationWant = map[string]iaRow{
 		role:  "button",
 		play:  "none",
 		more:  "button",
-		menu:  "none",
+		menu:  "opens",
 		click: "toggles=1",
 		// DEPARTS: double-click pauses and resumes it: Toggle runs per click, so the station ends as it began.
 		double:     "toggles=2",
@@ -1347,7 +1347,7 @@ var iaStationWant = map[string]iaRow{
 		role:       "button",
 		play:       "none",
 		more:       "button",
-		menu:       "none",
+		menu:       "opens",
 		click:      "toggles=1",
 		double:     "toggles=2",
 		enter:      "toggles=1",
@@ -1408,8 +1408,7 @@ var iaTrackShelfWant = map[string]iaRow{
 		role: "list item",
 		play: "disc",
 		more: "button",
-		// DEPARTS: the row has a more button on hover but a right-click opens no menu, which a TrackList row does (collections_items_tracks.go:162 Menus.Trigger, never OpenFor).
-		menu: "none",
+		menu: "opens",
 		// DEPARTS: a single click on a song silently does nothing (no select, no open) though the row takes the hover fill; a TrackList row selects and a song cover tile opens its page; the shelf only plays on double-click, Enter or the cover button.
 		click:      "nothing",
 		double:     "songs=Top Songs@Song 1/Song 1..Song 3",
@@ -1508,8 +1507,10 @@ func TestInteractionLinkListTiles(t *testing.T) {
 
 func TestInteractionStationListRows(t *testing.T) {
 	station := func(page, playable bool) services.Station {
-		return services.Station{ID: "ra.1", Name: "Local FM", Provider: "TuneIn", Kind: services.StationBroadcast, HasPage: page, Playable: playable,
-			Art: services.Art{Small: "/art/kra.1/96x96.jpg"}}
+		return services.Station{
+			ID: "ra.1", Name: "Local FM", Provider: "TuneIn", Kind: services.StationBroadcast, HasPage: page, Playable: playable,
+			Art: services.Art{Small: "/art/kra.1/96x96.jpg"},
+		}
 	}
 	current := func(playing bool) func(*ItemsCtx) {
 		return func(ctx *ItemsCtx) { ctx.Current, ctx.Playing = &services.QueueItem{ID: "ra.1"}, playing }

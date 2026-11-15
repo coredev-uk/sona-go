@@ -164,8 +164,7 @@ func TestInteractionSidebarPlaylistRows(t *testing.T) {
 			enter:      iaNav("/playlist/p.own"),
 			shiftEnter: iaJoin(iaPlay("playlist:p.own"), "shuffle on"),
 			space:      "nothing", // a link answers Enter, not Space
-			// DEPARTS: right-click on the row does nothing; the row's menu opens only from its hover "More" button (the rest of the app opens it on right-click).
-			right: "nothing",
+			right:      "menu",
 		}},
 		{"Morning Mix", iaGest{
 			click:      iaNav("/playlist/p.mix1"),
@@ -173,8 +172,7 @@ func TestInteractionSidebarPlaylistRows(t *testing.T) {
 			enter:      iaNav("/playlist/p.mix1"),
 			shiftEnter: iaJoin(iaPlay("playlist:p.mix1"), "shuffle on"),
 			space:      "nothing",
-			// DEPARTS: right-click on the row does nothing (see Road Trip).
-			right: "nothing",
+			right:      "menu",
 		}},
 	} {
 		if info, ok := e.tt.Access(c.label); !ok || info.Role != ui.RoleLink {
@@ -254,8 +252,7 @@ func TestInteractionSidebarPins(t *testing.T) {
 	link := func(label, path string, shift string) pinCase {
 		return pinCase{label, ui.RoleLink, iaGest{
 			click: iaNav(path), dbl: iaNav(path), enter: iaNav(path), shiftEnter: shift, space: "nothing",
-			// DEPARTS: right-click on a pin does nothing; its menu opens only from the hover "More" button.
-			right: "nothing",
+			right: "menu",
 		}}
 	}
 	// A button: a click plays or shuffles it, a double-click does so twice.
@@ -272,8 +269,7 @@ func TestInteractionSidebarPins(t *testing.T) {
 			enter:      iaJoin(one...),
 			shiftEnter: shift,
 			space:      iaJoin(one...), // a button answers Space, a link (above) does not
-			// DEPARTS: right-click on a pin does nothing; its menu opens only from the hover "More" button.
-			right: "nothing",
+			right:      "menu",
 		}}
 	}
 	shuffled := func(from string) string { return iaJoin(iaPlay(from), "shuffle on") }
@@ -316,7 +312,7 @@ func TestInteractionSidebarPinWithoutItsPagePlays(t *testing.T) {
 		enter:      iaPlay("album:l.b"),
 		shiftEnter: "nothing",
 		space:      iaPlay("album:l.b"),
-		right:      "nothing",
+		right:      "menu",
 	})
 }
 
@@ -349,10 +345,9 @@ func TestInteractionSidebarFolder(t *testing.T) {
 	check("Enter", true, func() { e.iaTab("Running"); e.tt.Key(0, ui.KeyEnter) })
 	check("Shift+Enter", false, func() { e.iaTab("Running"); e.tt.Key(ui.Shift, ui.KeyEnter) })
 	check("Space", true, func() { e.iaTab("Running"); e.tt.Key(0, ui.KeySpace) })
-	// DEPARTS: right-click on a folder does nothing; its menu opens only from the hover "More" button.
 	check("right-click", false, func() { e.tt.RightClickAt(x, y) })
-	if e.iaMenu() {
-		t.Error("right-click on a folder opened a menu")
+	if !e.iaMenu() {
+		t.Error("right-click on a folder opened no menu")
 	}
 }
 
