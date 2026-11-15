@@ -1,6 +1,7 @@
 package player
 
 import (
+	"net/url"
 	"strconv"
 	"time"
 
@@ -225,17 +226,17 @@ func (p *player) rowContent(c *ui.Context, r *queueRowIn, hot, movable bool) {
 	ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Justify(ui.Center).Children(func() {
 		ui.Row(c.Key("name")).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
 			if it.Video {
-				p.videoName(c, it, nameColor, false)
+				p.nameLink(c, it, nameColor, false)
 				ui.Icon(c.Key("video"), theme.Icon("clapperboard")).FontSize(14).TextColor(muted).Shrink(0).
 					Role(ui.RoleImage).Label(i18n.T("Music video"))
 				return
 			}
-			label(c.Key("name"), it.Name, "ui").TextColor(nameColor)
+			p.nameLink(c, it, nameColor, false)
 			if it.IsUpload() {
 				kit.UploadedBadge(c.Key("uploaded"))
 			}
 		})
-		label(c.Key("artist"), it.Artist, "sub").TextColor(artistColor)
+		p.rowArtist(c, it, artistColor, true)
 	})
 	if !hot {
 		label(c.Key("dur"), i18n.FormatDuration(time.Duration(it.DurationMs)*time.Millisecond), "meta").TextColor(faint).FontFeatures("tnum").Shrink(0)
@@ -267,19 +268,19 @@ func (p *player) playingRowContent(c *ui.Context, r *queueRowIn) {
 	ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Justify(ui.Center).Children(func() {
 		ui.Row(c.Key("name")).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
 			if it.Video {
-				p.videoName(c, it, theme.C("play-ink"), true)
+				p.nameLink(c, it, theme.C("play-ink"), true)
 				ui.Icon(c.Key("video"), theme.Icon("clapperboard")).FontSize(14).TextColor(theme.C("ink-muted")).Shrink(0).
 					Role(ui.RoleImage).Label(i18n.T("Music video"))
 				return
 			}
-			label(c.Key("name"), it.Name, "ui").FontWeight(600).TextColor(theme.C("play-ink"))
+			p.nameLink(c, it, theme.C("play-ink"), true)
 			if it.IsUpload() {
 				kit.UploadedBadge(c.Key("uploaded"))
 			}
 		})
-		label(c.Key("artist"), it.Artist, "sub").TextColor(theme.C("ink-muted"))
+		p.rowArtist(c, it, theme.C("ink-muted"), false)
 		if it.Album != "" && !it.Video {
-			label(c.Key("album"), it.Album, "meta").TextColor(theme.C("ink-faint"))
+			p.rowAlbum(c, it)
 		}
 	})
 	kit.EqualiserBars(c.Key("eq"), r.playing, p.env.Motion).Margin(0, 6, 0, 0)
@@ -288,20 +289,66 @@ func (p *player) playingRowContent(c *ui.Context, r *queueRowIn) {
 // queueNowArt is the cover of the playing song's row.
 const queueNowArt = 56
 
-// videoName is a music video's title: a link to its page when that page is
-// ported (a pointer shortcut: the row is the list's one Tab stop, and Enter
-// plays it), else plain text.
-func (p *player) videoName(c *ui.Context, it *services.QueueItem, col ui.Color, current bool) {
-	id := it.CatalogID
-	if id == "" {
-		id = it.ID
-	}
-	path := "/music-video/" + id
+// nameLink is a song's or music video's title: a link to its page (the song
+// in its album, the video's own page) when that page is ported, as the bar's
+// title is, else plain text. It is a pointer shortcut: the row is the list's
+// one Tab stop, and Enter plays it. A live station's row has no page to link.
+func (p *player) nameLink(c *ui.Context, it *services.QueueItem, col ui.Color, current bool) {
 	t := label(c.Key("name"), it.Name, "ui").TextColor(col)
 	if current {
 		t.FontWeight(600)
 	}
-	if !p.env.Routed(path) {
+	path := ""
+	if !it.Live {
+		path = p.titlePath(it)
+	}
+	if path == "" || !p.env.Routed(path) {
+		return
+	}
+	t.Role(ui.RoleLink).Cursor(ui.CursorPointer)
+	if t.Hovered() {
+		t.Underline()
+	}
+	if t.Clicked() {
+		p.env.Nav.Push(path)
+	}
+	if !current {
+		p.rowRightClick(t, it)
+	}
+}
+
+// rowRightClick opens the row's menu on a right-click on a link inside it,
+// which takes the pointer from the row.
+func (p *player) rowRightClick(el ui.Element, it *services.QueueItem) {
+	if el.RightClicked() {
+		x, y, _ := el.PointerPosition()
+		wx, wy := el.LocalToWindow(x, y)
+		p.openRowMenu(it.UID, wx, wy, false)
+	}
+}
+
+// rowArtist is the row's artist under the title: a link to their page, or a
+// button that opens a menu of them when the song has several (the bar's
+// artist). Static: a pointer shortcut like the title, the row being the
+// list's one Tab stop.
+func (p *player) rowArtist(c *ui.Context, it *services.QueueItem, col ui.Color, menu bool) {
+	kit.ArtistLinks(c, p.env.SongArtists.OfPlaying(it), it.Artist, col, kit.ArtistLinksOpts{
+		Open: p.env.ArtistOpener(), Static: true, Hover: theme.C("ink"),
+		Style: func(e ui.Element) { theme.StyleText(e, "sub").SingleLine().MinWidth(0).Shrink(1) },
+		Wire: func(e ui.Element) {
+			if menu {
+				p.rowRightClick(e, it)
+			}
+		},
+	})
+}
+
+// rowAlbum is the playing row's album: a link to the album when it is ported,
+// as the bar's is.
+func (p *player) rowAlbum(c *ui.Context, it *services.QueueItem) {
+	t := label(c.Key("album"), it.Album, "meta").TextColor(theme.C("ink-faint"))
+	path := "/album/" + url.PathEscape(it.AlbumID)
+	if it.AlbumID == "" || !p.env.Routed(path) {
 		return
 	}
 	t.Role(ui.RoleLink).Cursor(ui.CursorPointer)
