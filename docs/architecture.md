@@ -152,7 +152,7 @@ Integrations (`services/integrations.go`) start after first paint:
 
 - One track-change notification, replaced per track: over `org.freedesktop.Notifications` on Linux, MyGo's notifications on macOS and Windows (§9).
 - A logind `sleep` inhibitor (portal `Inhibit` fallback), held only while playing.
-- Opt-in Discord presence over the local IPC socket, with Apple's public artwork URL, never `/art/` or tokens.
+- Opt-in Discord presence over the local IPC socket (a named pipe on Windows), only when the current user owns it, with Apple's public artwork URL, never `/art/` or tokens.
 - Last.fm and ListenBrainz scrobbling (`internal/scrobble`).
 
 ### Artwork
@@ -925,6 +925,7 @@ These are MyGo's (`cmd/sona/integrations_windows.go`). Where a type is the same 
 | --- | --- |
 | Track and reminder notifications | Notification-area balloons, which Windows 10 and later show as toasts (`notify_desktop.go`): a title, a text and a click that brings Sona forward, no artwork and no Next button. They come from the tray icon, or a temporary icon with the application's when there is no tray. |
 | Start Sona when you log in | A value named `Sona` in the user's `Run` key with the executable's path and MyGo's start-at-login argument (`login_desktop.go`, shared with macOS). Task Manager's Startup apps turns it off in `StartupApproved`, which the row reads at the next start. A moved portable copy reads as off and its old entry is removed at its next start. The uninstaller deletes the installation's entry. |
+| Discord status | Sona's own client (`internal/discord/ipc_windows.go`, not MyGo's): the named pipes `\\.\pipe\discord-ipc-0` to `-9`, each used only when its server process runs as the current user (`docs/security-review.md`, F4). |
 
 #### Uninstalling
 
@@ -984,7 +985,7 @@ CI is `.github/workflows/ci.yml`. Maintainer detail: `docs/maintainers/ci-workfl
 | E2E (headless sway) | The probe build driven through MyGo's automation plugin on a synthetic fixture profile in a headless sway session, plus the AT-SPI landmark check (`e2e/`) |
 | Orca walk, UI probe (headless sway) | The Orca screen-reader walk and the UI performance probe, in headless sway |
 | macOS build and test | Build, vet and `go test -race` on macOS |
-| Windows build | After a merge to main and on dispatch: build, `go vet` with cgo on, CDM tests, the Media Foundation motion tests, and two previews played with `playspike -preview` |
+| Windows build | After a merge to main and on dispatch: build, `go vet` with cgo on, the Discord pipe tests, CDM tests, the Media Foundation motion tests, and two previews played with `playspike -preview` |
 
 The Windows previews need Apple's catalogue over the network. The job runs that step again, up to four attempts with a growing wait, when `playspike -preview` exits with status 75 (the network failed: `networkError`), and fails on any other status.
 

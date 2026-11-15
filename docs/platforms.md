@@ -85,7 +85,7 @@ Inside the tagged packages, what differs is in `_linux.go` and `_darwin.go` file
 | --- | --- | --- | --- |
 | Config paths (`internal/config`) | XDG | `~/Library/...` | `%APPDATA%`, `%LOCALAPPDATA%` |
 | Keyring backend (go-keyring) | Secret Service | Keychain | Credential Manager |
-| Discord IPC socket | Unix socket | Unix socket | Unsupported (uses a named pipe) |
+| Discord IPC | Unix socket owned by the user | Unix socket owned by the user | Named pipe `\\.\pipe\discord-ipc-N` whose server runs as the user |
 | Track notifications | `org.freedesktop.Notifications` (`internal/desktop/notify`) | MyGo: UNUserNotificationCenter, from Sona.app only | MyGo: notification-area balloons, shown as toasts |
 | Start at login | XDG autostart entry (`app.XDGAutostart`, passes `--hidden`) | MyGo: SMAppService login item, from Sona.app only | MyGo: the user's `Run` key, which Task Manager can turn off |
 | Audio sink | `pipewiresink` | `osxaudiosink` | `wasapi2sink` |
