@@ -170,6 +170,12 @@ Run it as every automated run:
 - Audio to your own PipeWire null sink. `PIPEWIRE_REMOTE` and `PULSE_SERVER` as absolute paths to the real sockets reach it from the sandboxed child; a symlink in the private runtime directory does not.
 - A copy of a real library for the Albums scrolls.
 
+### Heap returned after artwork bursts
+
+- Opening a page with many covers decodes and resizes hundreds of buffers in a burst. The Go heap's idle pages stay resident for minutes afterwards, because the runtime paces against the peak.
+- `internal/artwork` runs `debug.FreeOSMemory` once, 5 s after the last in-flight artwork operation ends. It is one collection per burst, never per frame.
+- Read it as `HeapReleased` close to `HeapIdle` in the memprobe figures a few seconds after a page has loaded.
+
 ### Make two runs comparable
 
 Three things decide whether two runs compare:
