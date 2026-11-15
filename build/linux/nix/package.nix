@@ -100,7 +100,7 @@ in
   '';
 
   meta = {
-    description = "Apple Music for the Linux desktop";
+    description = "Native Apple Music client";
     homepage = "https://github.com/coredev-uk/sona-go";
     license = lib.licenses.agpl3Only;
     mainProgram = "sona";

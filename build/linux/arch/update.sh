@@ -48,7 +48,7 @@ pkgname=sona-bin
 pkgver=$pkgver
 _ver=$ver
 pkgrel=$pkgrel
-pkgdesc='Apple Music for the Linux desktop'
+pkgdesc='Native Apple Music client'
 arch=('x86_64')
 url='https://github.com/coredev-uk/sona-go'
 license=('AGPL-3.0-only' 'BSD-3-Clause')
@@ -72,7 +72,7 @@ EOF
 
 {
   echo "pkgbase = sona-bin"
-  printf '\tpkgdesc = %s\n' 'Apple Music for the Linux desktop'
+  printf '\tpkgdesc = %s\n' 'Native Apple Music client'
   printf '\tpkgver = %s\n' "$pkgver"
   printf '\tpkgrel = %s\n' "$pkgrel"
   printf '\turl = %s\n' 'https://github.com/coredev-uk/sona-go'

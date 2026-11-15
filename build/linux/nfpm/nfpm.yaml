@@ -14,8 +14,8 @@ section: "sound"
 priority: "optional"
 maintainer: "Core <core@coredev.uk>"
 description: |
-  Apple Music for the Linux desktop.
-  A native MyGo (GTK3) client with full-track playback through the
+  Native Apple Music client.
+  Drawn on the GPU with MyGo (GTK3), with full-track playback through the
   Widevine CDM, which Sona downloads from Google at runtime (never
   bundled), GStreamer decoding and PipeWire/PulseAudio output, MPRIS
   media controls and music:// link handling.
