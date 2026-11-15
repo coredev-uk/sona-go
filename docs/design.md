@@ -349,8 +349,8 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Suggestion list: result | song with a page, library song with a catalogue copy | opens `/song/…` | opens | **plays** ([#426]) | none | chevron |
 |  | song with no page (a library upload) | plays | plays | plays | none | play triangle when active |
 |  | album, artist, playlist, curator, video, station with a page | opens | opens | opens | none | chevron |
-|  | station with no page | plays ([#425]) | plays | plays | none | chevron |
-|  | web link | opens the browser ([#425]) | same | same | none | chevron |
+|  | station with no page | plays | plays | plays | none | play triangle when active |
+|  | web link | opens the browser | same | same | none | arrow-up-right when active |
 | Suggestion list: recently searched | term | searches | searches | searches | none | clock icon, chevron when active |
 |  | album, artist, song with a page | opens | opens | opens (a suggested song plays, [#426]) | none | chevron |
 |  | library song | none ([#427]) | none | none | none | chevron |
@@ -420,7 +420,6 @@ Argued departures that stay (not issues):
 
 | Issue | What |
 |---|---|
-| [#425] | the suggestion list's chevron over a station that plays and a link that leaves Sona |
 | [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
 | [#427] | recent library songs and page-less stations |
 | [#429] | a web-only item on the results page is dead |
@@ -438,7 +437,6 @@ Argued departures that stay (not issues):
 | [#447] | right-click and More disagree |
 | [#449] | the mini player's inert text |
 
-[#425]: https://github.com/coredev-uk/sona-go/issues/425
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#427]: https://github.com/coredev-uk/sona-go/issues/427
 [#429]: https://github.com/coredev-uk/sona-go/issues/429
@@ -780,7 +778,7 @@ Results are a **card catalogue**: a 200px rail on the left lists the groups foun
 
 Loading is the same layout in `--accent` blocks (the rail, the panel, its rows, one shelf of portraits). Nothing found is a title at 24/650, one sentence and one ink button that searches the other scope; a failed search is the dashed error block with Try again; signed out, the sign-in sentence and button take the same place.
 
-The suggestion list under the top-bar field names each run with an icon and a 12/16 600 heading (Suggestions, Top results, Recently searched, In your library); an item row ends in its kind's icon, and the active row (the keyboard's or the pointer's) takes the `--active` fill, a ring and a chevron where the kind's icon was. The chevron means "Enter opens this", and it does for every kind: a song's suggestion opens its song page, and Shift+Enter plays the song instead (the sidebar's Shift+Enter, which shuffles, is the precedent). Only a song with no page of its own (an upload in the library) shows a play triangle there, because Enter plays it.
+The suggestion list under the top-bar field names each run with an icon and a 12/16 600 heading (Suggestions, Top results, Recently searched, In your library); an item row ends in its kind's icon, and the active row (the keyboard's or the pointer's) takes the `--active` fill, a ring and a glyph where the kind's icon was, and the glyph says what Enter does: a **chevron** opens a page (a song's suggestion opens its song page, and Shift+Enter plays the song instead; the sidebar's Shift+Enter, which shuffles, is the precedent), a **play triangle** plays (a song with no page of its own, an upload in the library, and a station with no page, the kit's `PlaysWhenOpened`), and an **arrow-up-right** leaves Sona for the browser (a web-only link, as the link list draws it).
 
 ## Album page
 
