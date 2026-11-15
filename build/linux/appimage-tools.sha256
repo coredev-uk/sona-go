@@ -1,0 +1,13 @@
+# The third-party tools build/linux/appimage.sh downloads and runs, each fixed
+# to an upstream release tag (or commit) and checked against the SHA-256 here
+# before it is made executable. Columns: SHA-256, file name, URL. To move to a
+# newer release, change the URL and the hash together, and run the release
+# workflow's dry run (Actions → Release → Run workflow, no prerelease) to see
+# the AppImage still builds and passes its smoke test.
+#
+# linuxdeploy 1-alpha-20251107-1; linuxdeploy-plugin-appimage
+# 1-alpha-20250213-1; linuxdeploy-plugin-gtk at commit 7a3fbc3 (it has no
+# releases).
+c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
+992d502a248e14ab185448ddf6f6e7d25558cb84d4623c354c3af350c25fccb3 linuxdeploy-plugin-appimage-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-appimage-x86_64.AppImage
+b0f4cbc684a0103a9651f0955b635eaea0096b3a66c0f5a2c2aa337960375171 linuxdeploy-plugin-gtk.sh https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/7a3fbc31a9e5075073ff8790f26effbac5f84453/linuxdeploy-plugin-gtk.sh

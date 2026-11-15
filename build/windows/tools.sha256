@@ -1,0 +1,8 @@
+# The Chocolatey packages the Windows build installs (build/windows/install-tool.sh),
+# each at a fixed version, and a hash of the files the package installed: the
+# SHA-256 of the sorted "<sha256>  <path>" lines of every file under its
+# install directory. Columns: package, version, tree hash. To move to a newer
+# version, change the version and the hash together (the script prints the
+# hash it computed when it differs).
+nsis 3.13.0 3dbc589df8383f6c36bf3705dfd8c17be18ee1fe35fee1f104d994064be4d79c
+pkgconfiglite 0.28 602e1f286274272c7a2a65b847a2a14d47c7388f20b6e48aa727d73e8d2d5db5
