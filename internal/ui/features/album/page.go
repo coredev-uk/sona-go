@@ -206,6 +206,11 @@ func (a *album) content(c *ui.Context, id, highlight string, lay layout, now tim
 	case !l.hasData:
 		a.skeleton(c, lay)
 		return
+	case l.err != nil && !l.cat && services.CodeOf(l.err) == services.CodeNotFound:
+		// The library album left the library under the open page (its last
+		// song was deleted): not an empty track list.
+		ui.Column(c).Padding(padTop, a.gr, padBottom, a.gl).Children(func() { a.leftLibrary(c, l) })
+		return
 	}
 	if !l.cat {
 		l.detail = a.release.of(l.detail, l.page, now)
@@ -273,6 +278,18 @@ func (a *album) errorBlock(c *ui.Context, l load) {
 	res := store.Result[struct{}]{Err: l.err, Fetching: l.fetching}
 	back := kit.BackAction(i18n.T("Go to Albums"), "/library/albums", true, a.push)
 	kit.DetailQueryError(c, kit.NounAlbum, a.env.Queries, res, back, a.signIn, l.key)
+}
+
+// leftLibrary is the page of a library album that is no longer in the
+// library: it says so, and offers the album's Apple Music page when it has
+// one, else the way back to Albums.
+func (a *album) leftLibrary(c *ui.Context, l load) {
+	action := kit.BackAction(i18n.T("Go to Albums"), "/library/albums", true, a.push)
+	if cid := l.detail.Album.CatalogID; cid != "" {
+		action = kit.BackAction(i18n.T("Open on Apple Music"), "/album/"+cid, true, a.push)
+	}
+	kit.EmptyState(c, i18n.T("This album is no longer in your library"),
+		i18n.T("Its last song was deleted from your library."), kit.EmptyOpts{Action: &action}).Margin(8, 0, 0, 0)
 }
 
 // skeleton is the band, head and rows at their real sizes while the album

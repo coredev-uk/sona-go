@@ -7,7 +7,14 @@ const (
 	// EventItemState carries an item's new ItemState after a change made
 	// outside the UI (`sona like`).
 	EventItemState = "library:item-state"
+	// EventLibraryChanged says the local library lost or regained items
+	// (a removal hides them before Apple answers, and puts them back when
+	// Apple refuses): the lists read it again.
+	EventLibraryChanged = "library:changed" // LibraryChanged
 )
+
+// LibraryChanged is EventLibraryChanged's payload.
+type LibraryChanged struct{}
 
 // SongPage, AlbumPage and PlaylistPage are list pages; Total
 // is the size of the whole list.

@@ -197,6 +197,30 @@ func TestNotFoundAlbumSaysSoAndGoesBack(t *testing.T) {
 	}
 }
 
+// #350: the last song of the open library album is deleted: the page says the
+// album left the library, with its Apple Music page, not an empty track list.
+func TestAlbumLeavingTheLibraryUnderTheOpenPageSaysSo(t *testing.T) {
+	r := newRig(t, "/album/l.9", 1132, 1000)
+	r.addCatalog(saltFlats())
+	r.lib.mu.Lock()
+	r.lib.albums["l.9"] = services.AlbumDetail{
+		Album:  services.Album{ID: "l.9", Source: services.SourceLibrary, CatalogID: "100", Name: "Salt Flats", Artist: "Mia Vale", ReleaseDate: "2019-03-08"},
+		Tracks: fiveTracks(), DurationMs: 1000000, InLibrary: true,
+	}
+	r.lib.mu.Unlock()
+	r.shows("Salt Flats", "Low Tide")
+	r.lib.mu.Lock()
+	delete(r.lib.albums, "l.9") // what the library answers once its last song is gone
+	r.lib.mu.Unlock()
+	r.h.Env.Queries.Invalidate(store.LibraryAlbum("l.9"))
+	r.shows("This album is no longer in your library", "Open on Apple Music")
+	r.wantNoTexts("Low Tide", "Play Salt Flats")
+	r.click("Open on Apple Music")
+	if got := r.path(); got != "/album/100" {
+		t.Errorf("went to %q", got)
+	}
+}
+
 func TestFailedLoadCanBeRetried(t *testing.T) {
 	r := newRig(t, "/album/100", 1132, 1000)
 	r.addCatalog(saltFlats())
