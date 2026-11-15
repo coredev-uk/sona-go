@@ -108,6 +108,9 @@ const (
 	GroupQueue ActionGroup = iota
 	GroupItem
 	GroupRating
+	// GroupDeveloper is the development build's own section, last in every
+	// menu (the item inspector). Release builds register nothing in it.
+	GroupDeveloper
 	groupCount
 )
 

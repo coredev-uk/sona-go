@@ -625,6 +625,15 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 - A list that shows its collection sorted or filtered gives `ActionContainer.Order` (row i is item `Order[i]`), so `Index` and `Indices` always name places in the collection. A positional action (Remove from playlist) needs that.
 - Kinds with no registered action get no trigger.
 
+### Developer actions (`features/inspect`)
+
+A development build (`-tags dev`) adds one module, `inspect` (`app/modules_dev.go`), and nothing else: a release build holds neither the module nor the service behind it.
+
+- **One action per kind** (`inspect.song`, `inspect.album`…), registered through `Module.Actions` in the `kit.GroupDeveloper` group, the last section of every menu. Every surface with an item menu (tile, row, header, card; right-click, the "more" button) lists "Inspect" with no code of its own, so right-click coverage follows the item menus (#337).
+- **The panel** is a plain `kit.Dialog` built in the module's `Layer` slot: the item's kind, ID and artwork URL, then the mapped DTO, Apple's resource as Go's catalogue cache holds it, and the SQLite row of a library item. The text is a text field whose edits are undone, so it selects, copies and scrolls. Copy as JSON, Copy ID and Copy artwork URL (the item's largest size) follow. It is not translated or designed for end users.
+- **The data** comes from `InspectService.Inspect` (`services/inspect_dev.go`, dev tag): the mapped item the UI passes, `catalog.Catalog.Raw` (`catalog/raw_dev.go`, the cache's body, never a request to Apple) and the library row. Every text passes through `logging.Redact`; no request header is ever held, and the UI still never calls Apple. An item whose page Sona has not fetched shows "not in Go's catalog cache".
+- **The release check:** `inspect`'s release test asserts `cmd/sona`'s dependencies leave the package out, and `app`'s module-list test (`devModules`) lists no extra module without the tag.
+
 **Toaster** (`ShowToast`, `ToastSuccessf`, `ToastErrorf`, `CloseToast`, `Unavailable`) is sonner's look on MyGo's toast manager.
 
 - Popover colours, success/info/warning/error/loading icons, bottom right 16 from the right and 88 from the bottom, a "Notifications" region and polite announcements. An ID replaces a toast, so a held key never stacks.

@@ -149,7 +149,7 @@ There is no inspector in the binary and MyGo runs in production mode. `build/ldf
 It then runs the tests of dev-only code:
 
 ```sh
-go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris
+go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/ui/features/inspect ./internal/ui/features/discover ./internal/app ./internal/mpris
 ```
 
 The script is not named `test` because the shell's `test` builtin would shadow it.
@@ -259,6 +259,7 @@ Separately, after the first paint a short-lived child readies GStreamer's plugin
 ## Debugging the UI
 
 - Development builds (`-tags dev`, as the `dev` script makes) start private. `SONA_INSPECTOR=1 dev` opens MyGo's inspector; F12 or Ctrl+Shift+I toggles it. Other builds never show it.
+- Development builds add **Inspect** to every item's menu (right-click a song, album, playlist, artist, station or music video). It shows the item's IDs, artwork URLs, what Sona mapped and what Apple sent as Go's cache holds it, with Copy as JSON, Copy ID and Copy artwork URL. Redacted like the logs; release builds have no such action (`docs/ui-architecture.md`, "Developer actions").
 - `bin/sona` (or `go run ./cmd/sona`) starts the app from a checkout: `SONA_PRIVATE=1 SONA_PREVIEW=1 bin/sona` plays 30-second previews without an account.
 - MyGo loads GTK3 and the GL libraries by soname. Inside devenv `LD_LIBRARY_PATH` carries them; elsewhere install GTK 3, Pango, libepoxy and a GL driver.
 - `go tool mygo vet internal/ui` finds build values kept past their frame, the usual cause of a view that updates one frame late.
