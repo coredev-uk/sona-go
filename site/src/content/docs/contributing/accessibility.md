@@ -162,8 +162,10 @@ How Sona uses each state:
   - A queue row says its place among its list: the queue, or the station's or AutoPlay's part under its heading, which is a list of its own.
   - The sidebar's pins, playlists and folders say theirs among their own list: a folder's playlists are a list inside its item, and the dashed drop row shown while dragging is not counted.
 - **`aria-live`, `role="status"`**:
-  - a status that comes with news calls `kit.AnnounceMounted` once as it is first built (a note under a filter that finds nothing, the update notice, a sign-in step's notice, the shortcut recorder's conflict);
+  - a status that comes with news calls `kit.AnnounceMounted` once as it is first built (a note under a filter that finds nothing, in Settings and the shortcut sheet, the update notice, a sign-in step's notice, the shortcut recorder's conflict);
   - what changes it afterwards is its own to read: never `c.Announce` as well, or it is said twice;
+  - a status that stays as its words change is left to MyGo then (the sign-in keyring notice going from waiting to refused or unencrypted, which keeps its retry in place);
+  - one shown for something new is keyed by it, so it appears anew and is announced once (the player bar's failure line, keyed by the item);
   - the status is the words, not the row they sit in (the updates row, the update notice: a button's label inside a status is read with it);
   - a status with siblings before it is keyed, as its ID is how MyGo tells it from the last frame's;
   - what is not read as it changes is not a status: the library sync line is a group named "Library sync" and `announceSync` says only that a sync starts, ends or fails, not the count moving;
