@@ -228,7 +228,7 @@ func (p *Palette) Show(c *ui.Context, src PaletteSource) {
 	_, h := c.Size()
 	w, _ := c.Size()
 	Dialog(c.Key("palette"), &p.open, DialogOpts{
-		Title: i18n.T("Command palette"), HideHeader: true, HideClose: true, Bare: true, Raised: true,
+		Title: i18n.T("Command Palette"), HideHeader: true, HideClose: true, Bare: true, Raised: true,
 		MaxWidth: min(600, max(w-32, 0)), Top: h * 0.14,
 	}, func() { p.body(c, src, h) })
 }

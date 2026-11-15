@@ -310,13 +310,13 @@ func TestFieldCatalogHintsFollowTheTypingAfterAPause(t *testing.T) {
 		t.Fatalf("the suggestions were asked %d times before the pause ended", n)
 	}
 	r.tt.Advance(60 * time.Millisecond)
-	r.tt.Until("the suggestions", r.tt.Shows("Top results", "Blue Band", "Blue Hour", "Blue Moon"))
+	r.tt.Until("the suggestions", r.tt.Shows("Top Results", "Blue Band", "Blue Hour", "Blue Moon"))
 	if got := r.hintTerms(); !slices.Equal(got, []string{"blu"}) {
 		t.Errorf("suggestions asked for %q, want [blu]", got)
 	}
 	// Completions first (rows named by the completion), then the items,
 	// each with "Kind · subtitle".
-	for _, want := range []string{"blue", "blue band", "Artist", "Album · Blue Band", "Song · Blue Band", "Top results"} {
+	for _, want := range []string{"blue", "blue band", "Artist", "Album · Blue Band", "Song · Blue Band", "Top Results"} {
 		if !r.tt.HasText(want) {
 			t.Errorf("the list lacks %q: %q", want, r.tt.Texts())
 		}
@@ -347,8 +347,8 @@ func TestFieldTermRowSetsTheTypedPartApart(t *testing.T) {
 func TestFieldLibraryHintsComeFromTheLibrary(t *testing.T) {
 	r := newFieldRig(t, "/search?scope=library")
 	r.focusField()
-	r.typeAndWait("blue", "In your library", "Blue Hour", "Album · Al")
-	if r.tt.HasText("Top results") {
+	r.typeAndWait("blue", "In Your Library", "Blue Hour", "Album · Al")
+	if r.tt.HasText("Top Results") {
 		t.Error("the library scope lists completions")
 	}
 	if got := r.hintTerms(); len(got) != 0 {
@@ -379,7 +379,7 @@ func TestFieldListsRecentSearchesWhenEmpty(t *testing.T) {
 	r.rememberTerm("libterm", scopeLibrary)
 	r.rememberItem(services.RecentItem{Kind: services.ItemAlbum, ID: "5", Source: services.SourceCatalog, Name: "Blue Hour", Subtitle: "Blue Band"})
 	r.focusField()
-	r.tt.Until("the recent entries", r.tt.Shows("Recently searched", "alpha", "beta", "gamma", "Blue Hour"))
+	r.tt.Until("the recent entries", r.tt.Shows("Recently Searched", "alpha", "beta", "gamma", "Blue Hour"))
 	if r.tt.HasText("libterm") {
 		t.Error("a library term is listed under the catalog scope")
 	}
@@ -411,7 +411,7 @@ func TestFieldListsAtMostSixRecentEntries(t *testing.T) {
 				shown[w] = true
 			}
 		}
-		return r.tt.HasText("Recently searched") && len(shown) > 0
+		return r.tt.HasText("Recently Searched") && len(shown) > 0
 	})
 	if len(shown) != maxRecent {
 		t.Fatalf("recent terms shown %v, want %d", shown, maxRecent)
@@ -548,9 +548,9 @@ func TestFieldEnterPicksTheActiveCompletion(t *testing.T) {
 func TestFieldEscapeClosesTheListThenBlurs(t *testing.T) {
 	r := newFieldRig(t, "/library/albums")
 	r.focusField()
-	r.typeAndWait("blu", "Top results")
+	r.typeAndWait("blu", "Top Results")
 	r.key(ui.KeyEscape)
-	if r.tt.HasText("Top results") {
+	if r.tt.HasText("Top Results") {
 		t.Error("Escape left the list open")
 	}
 	if !r.tt.Focused("Search") {
@@ -565,10 +565,10 @@ func TestFieldEscapeClosesTheListThenBlurs(t *testing.T) {
 func TestFieldTabClosesTheList(t *testing.T) {
 	r := newFieldRig(t, "/library/albums")
 	r.focusField()
-	r.typeAndWait("blu", "Top results")
+	r.typeAndWait("blu", "Top Results")
 	r.key(ui.KeyTab)
 	r.tt.Frame()
-	if r.tt.HasText("Top results") {
+	if r.tt.HasText("Top Results") {
 		t.Error("Tab left the list open")
 	}
 }

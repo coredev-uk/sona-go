@@ -45,8 +45,8 @@ func TestA11yPage(t *testing.T) {
 			build: func(t *testing.T) *pageRig {
 				return newPageRig(t, false, 1132, 1253)
 			},
-			ready:    []string{"Sky Video", "Notes", "More like this"},
-			headings: map[string]int{"Sky Video": 1, "Notes": 2, "More by Mia Rivers": 2, "More like this": 2},
+			ready:    []string{"Sky Video", "Notes", "More Like This"},
+			headings: map[string]int{"Sky Video": 1, "Notes": 2, "More by Mia Rivers": 2, "More Like This": 2},
 			present: []a11yNode{
 				{ui.RoleLink, "Mia Rivers"},
 				{ui.RoleButton, "Play Sky Video"},
@@ -56,7 +56,7 @@ func TestA11yPage(t *testing.T) {
 				{ui.RoleLink, "Sky"},
 				{ui.RoleLink, "See all"},
 				{ui.RoleTable, "More by Mia Rivers"},
-				{ui.RoleTable, "More like this"},
+				{ui.RoleTable, "More Like This"},
 				{ui.RoleLink, "Rain Video"},
 				{ui.RoleButton, "Play Rain Video"},
 				{ui.RoleMenuButton, "More for Rain Video"},

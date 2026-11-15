@@ -94,8 +94,8 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 	general := sectionTitle(secGeneral)
 	starting := i18n.T("Starting Sona")
 	window := i18n.T("Window")
-	playing := i18n.T("While music plays")
-	releases := i18n.T("New releases")
+	playing := i18n.T("While Music Plays")
+	releases := i18n.T("New Releases")
 	updates := i18n.T("Updates")
 	sound := i18n.T("Sound")
 	listening := i18n.T("Listening")
@@ -106,7 +106,7 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 	discord := i18n.T("Discord")
 	storage := sectionTitle(secStorage)
 	diagnostics := sectionTitle(secDiagnostics)
-	developerTools := i18n.T("Developer tools")
+	developerTools := i18n.T("Developer Tools")
 
 	e := []settingEntry{
 		{

@@ -114,7 +114,7 @@ func (p *playlists) coverDialog(c *ui.Context) {
 	d := &p.dialogs
 	s := d.s
 	q := p.covers(s.id)
-	title := i18n.T("Playlist cover")
+	title := i18n.T("Playlist Cover")
 	// Where the cover lives is part of the choice: a notice says it before the
 	// tiles, and the dialog is described by it, so a screen reader hears it on
 	// arrival.

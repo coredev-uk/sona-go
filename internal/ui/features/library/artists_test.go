@@ -368,7 +368,7 @@ func artistsSolo() *artistsStub {
 
 func TestArtistsWithSongsOnlyShowTheirSongs(t *testing.T) {
 	r := artistsStubRig(t, artistsSolo(), artistsAt("r.solo"), 1132, 900)
-	r.tt.Until("the songs", r.tt.Shows("Songs in your library", "Quiet Song", "Louder Song", "Artist · 2 songs"))
+	r.tt.Until("the songs", r.tt.Shows("Songs in Your Library", "Quiet Song", "Louder Song", "Artist · 2 songs"))
 	if r.tt.HasText("Singles and EPs") || r.tt.HasText("Albums by") {
 		t.Error("album sections for an artist without albums")
 	}
@@ -377,7 +377,7 @@ func TestArtistsWithSongsOnlyShowTheirSongs(t *testing.T) {
 func TestArtistsWithNothingInTheLibrarySaySo(t *testing.T) {
 	r := artistsStubRig(t, artistsSolo(), artistsAt("r.ghost"), 1132, 900)
 	r.tt.Until("the line", r.tt.Shows("Add music by Ghost to collect it here.", "Artist"))
-	if _, ok := r.tt.Find("Songs in your library"); ok {
+	if _, ok := r.tt.Find("Songs in Your Library"); ok {
 		t.Error("a songs list for no songs")
 	}
 }

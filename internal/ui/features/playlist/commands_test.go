@@ -339,7 +339,7 @@ func TestDeleteFolder(t *testing.T) {
 	p, api, _, h, _ := testPlaylists(t, "/")
 	tt := overlayView(t, h)
 	p.deleteFolder("f.a", "Old")
-	tt.Until("the question", tt.Shows("Delete the folder “Old”?", "Delete folder"))
+	tt.Until("the question", tt.Shows("Delete the Folder “Old”?", "Delete folder"))
 	if err := tt.Click("Delete folder"); err != nil {
 		t.Fatal(err)
 	}

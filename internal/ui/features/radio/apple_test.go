@@ -210,7 +210,7 @@ func TestRadioPageOverTheServices(t *testing.T) {
 	if rg.tt.HasText("Sign in to see the stations you play") {
 		t.Errorf("a signed-in account is asked to sign in: %q", rg.tt.Texts())
 	}
-	for _, want := range []string{"Live now", "Your stations", "Stations"} {
+	for _, want := range []string{"Live Now", "Your Stations", "Stations"} {
 		if !rg.tt.HasText(want) {
 			t.Errorf("no %q: %q", want, rg.tt.Texts())
 		}
@@ -279,7 +279,7 @@ func TestStationPageOverTheServices(t *testing.T) {
 
 func TestStationPageOfAStationOfSongsListsWhatItPlaysFirst(t *testing.T) {
 	rg, _ := appleRig(t, "/station/ra.mine", 1132, 1253)
-	rg.tt.Until("the page", rg.tt.Shows("My Station", "Station · Apple Music", "Plays first", "Airbag", "Paranoid Android", "OK Computer", "4:44"))
+	rg.tt.Until("the page", rg.tt.Shows("My Station", "Station · Apple Music", "Plays First", "Airbag", "Paranoid Android", "OK Computer", "4:44"))
 	// The first song leads to its album, with the song to show.
 	rg.click("Airbag")
 	if got := rg.router.Location(); got != "/album/al1?song=900" {

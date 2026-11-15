@@ -86,12 +86,12 @@ func New(env *module.Env) module.Module {
 	return module.Module{
 		ID: "home",
 		Routes: []module.Route{
-			{Pattern: homePath, Title: func(*ui.Route) string { return i18n.T("For you") }, Build: h.homePage},
+			{Pattern: homePath, Title: func(*ui.Route) string { return i18n.T("For You") }, Build: h.homePage},
 			{Pattern: shelfPattern, Title: h.shelfTitle, Build: h.shelfPage},
 		},
 		Nav: []module.NavItem{{
 			Section: module.NavPrimary,
-			Label:   func() string { return i18n.T("For you") },
+			Label:   func() string { return i18n.T("For You") },
 			Icon:    "sparkles",
 			To:      homePath,
 			Order:   10,

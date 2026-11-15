@@ -240,9 +240,9 @@ func TestModuleRoutesAndNav(t *testing.T) {
 		paths = append(paths, fmt.Sprintf("%d %s %s %s", n.Order, n.Label(), n.Icon, n.To))
 	}
 	want := []string{
-		"5 Recently added clock-3 /library/recently-added", "10 Artists mic-vocal /library/artists",
+		"5 Recently Added clock-3 /library/recently-added", "10 Artists mic-vocal /library/artists",
 		"20 Albums disc-3 /library/albums", "30 Songs music /library/songs",
-		"40 Music videos clapperboard /library/music-videos", "60 Favourite songs star /library/favourites",
+		"40 Music Videos clapperboard /library/music-videos", "60 Favourite Songs star /library/favourites",
 		"65 History history /library/history", "70 Playlists list-music /library/playlists",
 	}
 	if strings.Join(paths, "\n") != strings.Join(want, "\n") {

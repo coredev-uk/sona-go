@@ -64,15 +64,21 @@ One family: **Schibsted Grotesk** (variable TTF, SIL OFL 1.1, embedded in `inter
 | Role             | Size / line       | Weight  | Use                                        |
 | ---------------- | ----------------- | ------- | ------------------------------------------ |
 | Collection title | 32 / 36, -0.02em  | 700     | Album, artist, playlist name in its header |
-| Page title (h1)  | 24 / 30, -0.015em | 650     | For you, Songs, Settings                   |
+| Page title (h1)  | 24 / 30, -0.015em | 650     | For You, Songs, Settings                   |
 | Section          | 16 / 22           | 600     | Shelf titles, settings section titles      |
 | Body             | 14 / 20           | 400–500 | Nav, row titles, form labels               |
 | Secondary        | 13 / 18           | 400     | Artist and album columns, descriptions     |
 | Meta             | 12 / 16           | 450     | The catalogue line, durations, timestamps  |
 
 - Six sizes, three weights in practice (400, 600, 700). No uppercase labels, no letter-spaced small caps, no monospace.
+- **Wording and case.** Titles are in **Title Case** in Apple's style, and everything else is in sentence case.
+  - **Title Case** for page titles (h1), section and shelf headings, sidebar group and section names, nav items, dialog and sheet titles, tab names, settings page and group names, column headers, and the window and tray titles ("Made for You", "Top Picks for You", "Recently Added", "Songs in Your Library", "Keyboard Shortcuts", "Sona Mini Player").
+  - **Sentence case** for buttons and menu items ("Add to library", "Delete from library"), body text, descriptions, hints, toasts, error messages, empty-state titles, the catalogue line and other meta lines ("Couldn't load your recommendations", "On this computer and your other devices").
+  - **Style:** a, an, the, and, but, or, for, of, on, in, to, by and at stay lower case unless first or last; every other word has a capital ("From", "With", "Your"). A name or a word that already has capitals (EPs, DJ, ListenBrainz) keeps them.
+  - **Apple's names** (shows, stations, artists, albums, playlists, curators) are always shown exactly as Apple sends them, never re-cased.
+  - `go test ./cmd/i18ntool` (`TestUITitlesAreTitleCase`) fails on a title that is not in Title Case. It knows titles by where they are put (`titleSinks` and `titleFields` in `cmd/i18ntool/titles.go`): add a new heading helper there.
 - Every number that updates or aligns (durations, track numbers, counts, progress) uses tabular figures (`FontFeatures("tnum")`).
-- **The catalogue line**: every collection header and the now-playing bar carry one meta line in the same form: `Album · 2008 · 10 songs, 42 min`. Middle dots, sentence case, tabular figures. It is the label's catalogue number and appears in exactly this form everywhere.
+- **The catalogue line**: every collection header and the now-playing bar carry one meta line in the same form: `Album · 2008 · 10 songs, 42 min`. Middle dots, sentence case (a meta line, not a title), tabular figures. It is the label's catalogue number and appears in exactly this form everywhere.
 
 ## Colour
 
@@ -542,11 +548,11 @@ A credited person (the song page's Credits, in a grid of two or three to a row) 
 
 ## Home
 
-Home ("For you") answers one question first: what shall I play now. It is set like the A-side of a record: the lead pick is large, Apple's other picks are the running order beside it (unnumbered: Apple's order is not information a reader needs), and the shelves under it are ruled sections. It sets Apple's personal shelves (`internal/ui/features/home/plan.go`) instead of stacking them as Apple sends them, and never copies Apple's own Home.
+Home ("For You") answers one question first: what shall I play now. It is set like the A-side of a record: the lead pick is large, Apple's other picks are the running order beside it (unnumbered: Apple's order is not information a reader needs), and the shelves under it are ruled sections. It sets Apple's personal shelves (`internal/ui/features/home/plan.go`) instead of stacking them as Apple sends them, and never copies Apple's own Home.
 
 ```text
 ┌───────────────────────────────────────────────────────────┐
-│ For you  Picked for you 3 min. ago              ⟳ Refresh │  one line; wash of the lead's
+│ For You  Picked for you 3 min. ago              ⟳ Refresh │  one line; wash of the lead's
 │ Top Picks for You ───────────────────────── Show all 12 ⌄ │  cover, full bleed
 │ [ cover 280 ]     [40] Apple Music Live       New Release │
 │                   ──────────────────────────────────────  │  the running order:
@@ -566,7 +572,7 @@ Home ("For you") answers one question first: what shall I play now. It is set li
 └───────────────────────────────────────────────────────────┘
 ```
 
-- **The page's head** is one line of the lead band: "For you" at 24/650, when Home was picked (13 muted, on the title's baseline) and the ghost Refresh at the far end. Under it the first section's ruled head.
+- **The page's head** is one line of the lead band: "For You" at 24/650, when Home was picked (13 muted, on the title's baseline) and the ghost Refresh at the far end. Under it the first section's ruled head.
 - **Ruled heads**: every section of Home (`rule.go`) is its heading at 16/600, a 1px hairline (ink at 14%, so it reads on the ground and on a cover's wash) that runs to the right edge, and the section's controls on the line's end: "See all" to the section's own page, or "Show all N" / "Show fewer" in place. Sections sit 48px apart, so the page keeps a rhythm of rule, content, space.
 - **The lead**: the first "feature" shelf (Top Picks).
   - **Its first pick is large**: the cover at 280px as the left column (360px from 1400px of lead width; a 144px cover beside the name when the page is under 900px wide), then the name at 24/650, the artist or curator at 16/500, the catalogue line (`Station · Made for You`: what it is, then Apple's reason) and the amber play disc with the item's menu.
@@ -609,11 +615,11 @@ Home ("For you") answers one question first: what shall I play now. It is set li
 - Sidebar and top bar share `--surface`; the canvas is `--ground`, divided by one 1px `--line`.
 - The mark is a small amber disc with a spindle hole (a record label seen from above), next to the word "Sona" at 16/700.
 - Active nav item: `--active` fill at radius 6, label and icon in ink. Inactive items are `--ink-muted`.
-- Group label "Library" in 12px muted sentence case, 20px above its first item. Settings sits at the sidebar's foot.
-- **Playlists in the sidebar.** Below the library links the sidebar lists playlists in four sections. Each is under a 12px sentence-case heading at weight 600 in `--ink-muted`, with how many it holds beside it in `--ink-faint` (tabular), 22px above and 4 below.
-  - **Pinned**, **Made for you** (Apple's personal mixes: the library copies whose catalog ID starts `pl.pm-`), **Apple Music** (playlists the user added that they cannot edit, from Apple Music or another curator; Replay and others) and **Playlists** (the user's own, editable playlists and their folders, and every collaborative playlist, whether the user hosts it or joined it; a joined one sits in its folder like the rest, and offers no edit, move or drag-in because Apple says it is not editable).
+- Group label "Library" in 12px muted Title Case, 20px above its first item. Settings sits at the sidebar's foot.
+- **Playlists in the sidebar.** Below the library links the sidebar lists playlists in four sections. Each is under a 12px Title Case heading at weight 600 in `--ink-muted`, with how many it holds beside it in `--ink-faint` (tabular), 22px above and 4 below.
+  - **Pinned**, **Made for You** (Apple's personal mixes: the library copies whose catalog ID starts `pl.pm-`), **Apple Music** (playlists the user added that they cannot edit, from Apple Music or another curator; Replay and others) and **Playlists** (the user's own, editable playlists and their folders, and every collaborative playlist, whether the user hosts it or joined it; a joined one sits in its folder like the rest, and offers no edit, move or drag-in because Apple says it is not editable).
   - A pinned playlist shows under Pinned only, whichever section it belongs to. A section with nothing left in it is not drawn.
-  - Made for you and Apple Music are flat lists with no "New playlist" button, no folders, no drops and no rename. Their headings are buttons that fold the list shut (state kept across restarts, `config.Sidebar`), with a chevron that turns, as a folder's does. Playlists keeps the "+" menu and the drop row.
+  - Made for You and Apple Music are flat lists with no "New playlist" button, no folders, no drops and no rename. Their headings are buttons that fold the list shut (state kept across restarts, `config.Sidebar`), with a chevron that turns, as a folder's does. Playlists keeps the "+" menu and the drop row.
   - Over a playlist row's 20px cover a small play glyph fades in with the row's hover (`kit.Fade`, at once under reduced motion) on a `--ground` wash at 85%, so it reads on any cover. The glyph is `--ink`, never amber (amber marks what plays).
   - Clicking the glyph shuffles that playlist and does not open it. A playlist with no songs, or while the account needs signing in again, shows it in `--ink-faint` with the reason as its tooltip. Folders have no cover and no button.
 
@@ -798,7 +804,7 @@ The album page opens on the record: a full-bleed band in the cover's own colour 
    2  Variatio 1                            2:08      Written by · Label
    …                                                  ℗ line
    Notes (58ch)
-Other versions · Music videos · More to hear · More by · Featured in playlists · You might also like
+Other Versions · Music Videos · More to Hear · More by · Featured in Playlists · You Might Also Like
 ```
 
 - **The band is printed in the cover's colour**: a flat, square surface (no radius, no outer margin: the pane's edges cut it) in the colour Apple gives for the cover's background (`ArtworkColors.background`; Go's first dominant colour when Apple gives none).
@@ -1227,7 +1233,7 @@ Settings is a document with marginalia: the left column says what each section i
 Settings (h1)                  Playback (h2 at 24/650)
 [ Find a setting       ]       ═════════════════════════════════════ (1px ink)
 ⚙ General                                    ─────────────────────────────────
-  Opens on For you · …                       Widevine                ✓ 4.10…
+  Opens on For You · …                       Widevine                ✓ 4.10…
 ▶ Playback        ← --active   Sound         ─────────────────────────────────
   High quality · …             (16/600)      Audio quality          [High ▾]
 ☾ Appearance                                 AAC at 256 kbps, or 64 kbps…

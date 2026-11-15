@@ -17,9 +17,9 @@ func creditTitle(g services.CreditGroup) string {
 	case "performer":
 		return i18n.T("Performers")
 	case "composer-and-lyrics":
-		return i18n.T("Composition and lyrics")
+		return i18n.T("Composition and Lyrics")
 	case "production-and-engineering":
-		return i18n.T("Production and engineering")
+		return i18n.T("Production and Engineering")
 	}
 	s := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(g.Title)), "&", "and")
 	if s == "" {

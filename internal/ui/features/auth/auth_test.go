@@ -318,13 +318,13 @@ func TestSignOutAsksBeforeSigningOut(t *testing.T) {
 	r := newRig(t, signedIn)
 	r.openMenu()
 	r.click("Sign out")
-	r.tt.Want("Sign out of Apple Music?")
+	r.tt.Want("Sign Out of Apple Music?")
 	if n := r.api.count("SignOut"); n != 0 {
 		t.Fatalf("signed out %d times before the confirm", n)
 	}
 	r.click("Sign out") // the confirm's button; the menu is gone
 	r.tt.Until("SignOut", func() bool { return r.api.count("SignOut") == 1 })
-	r.tt.Until("the confirm to close", func() bool { return !r.tt.HasText("Sign out of Apple Music?") })
+	r.tt.Until("the confirm to close", func() bool { return !r.tt.HasText("Sign Out of Apple Music?") })
 }
 
 func TestSignOutCancelDoesNotSignOut(t *testing.T) {
@@ -332,7 +332,7 @@ func TestSignOutCancelDoesNotSignOut(t *testing.T) {
 	r.openMenu()
 	r.click("Sign out")
 	r.click("Cancel")
-	if r.tt.HasText("Sign out of Apple Music?") {
+	if r.tt.HasText("Sign Out of Apple Music?") {
 		t.Error("Cancel left the confirm open")
 	}
 	if n := r.api.count("SignOut"); n != 0 {

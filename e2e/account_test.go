@@ -84,7 +84,7 @@ func TestFirstRun(t *testing.T) {
 	a := startAppWith(t, "-first-run")
 	c := a.client
 	if _, err := c.Wait(startTimeout, "the first-run setup", func(tr *automation.Tree) bool {
-		return tr.HasText("Set up Sona") && tr.HasText("Welcome to Sona")
+		return tr.HasText("Set Up Sona") && tr.HasText("Welcome to Sona")
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestFirstRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := c.Wait(10*time.Second, "the setup to close over Home", func(tr *automation.Tree) bool {
-		return !tr.HasText("Set up Sona") && tr.HasText("Recommendations need Apple Music")
+		return !tr.HasText("Set Up Sona") && tr.HasText("Recommendations need Apple Music")
 	}); err != nil {
 		t.Fatal(err)
 	}

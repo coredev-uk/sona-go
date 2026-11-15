@@ -55,12 +55,12 @@ func (r *radio) onAirBoard(c *ui.Context, b *board, stations []services.Station,
 		trackW := width - whoW - whoGap
 		if trackW < 120 {
 			// The first frame measures; the next builds the lanes.
-			r.ruler(c, guide{}, i18n.T("Live now"))
+			r.ruler(c, guide{}, i18n.T("Live Now"))
 			return
 		}
 		g := newGuide(now, trackW)
-		r.ruler(c, g, i18n.T("Live now"))
-		ui.Column(c.Key("lanes")).FillWidth().Role(ui.RoleList).Label(i18n.T("Live now")).Children(func() {
+		r.ruler(c, g, i18n.T("Live Now"))
+		ui.Column(c.Key("lanes")).FillWidth().Role(ui.RoleList).Label(i18n.T("Live Now")).Children(func() {
 			for _, s := range stations {
 				var detail *services.StationDetail
 				if res := r.station(s.ID); res.HasData {
@@ -383,7 +383,7 @@ func (r *radio) onAirSkeleton(c *ui.Context, w *kit.WidthTracker) {
 	root := ui.Column(c.Key("board-skeleton")).FillWidth().Margin(0, 0, 0, -boardBleed).Role(ui.RoleStatus).Label(i18n.T("Loading"))
 	width := w.Track(c, root)
 	root.Children(func() {
-		r.ruler(c, guide{}, i18n.T("Live now"))
+		r.ruler(c, guide{}, i18n.T("Live Now"))
 		trackW := width - whoW - whoGap
 		if trackW < 120 {
 			return

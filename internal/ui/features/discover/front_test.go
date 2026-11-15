@@ -297,7 +297,7 @@ func TestFrontHoldsWhileFocusIsAnywhereInsideTheHeroAndGoesOnWhenItLeaves(t *tes
 		t.Fatalf("lead %d after focus moved to another control of the hero", r.lead())
 	}
 	// Out of the hero: the contents' first button.
-	for i := 0; i < 40 && r.tt.Focused("Featured") && !r.tt.Focused("Songs and albums"); i++ {
+	for i := 0; i < 40 && r.tt.Focused("Featured") && !r.tt.Focused("Songs and Albums"); i++ {
 		r.tt.Key(0, ui.KeyTab)
 		r.tt.Drain()
 	}

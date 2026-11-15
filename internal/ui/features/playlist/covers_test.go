@@ -48,7 +48,7 @@ func TestCoverDialogNoticeIsExposedToAssistiveTech(t *testing.T) {
 // showCover opens the cover picker of playlist p.a and waits for its options.
 func (r *dialogsRig) showCover() {
 	r.show(dialogState{kind: dialogCover, id: "p.a", name: "Road Trip"})
-	r.shows("Playlist cover", "Automatic", "None", "Done")
+	r.shows("Playlist Cover", "Automatic", "None", "Done")
 }
 
 // chosenCover is the label of the radio the tree says is checked ("" none).
@@ -310,12 +310,12 @@ func TestCoverDialogRemembersTheChoice(t *testing.T) {
 	r.tt.Until("closed", r.closed)
 
 	r.show(dialogState{kind: dialogCover, id: "p.a", name: "Road Trip"})
-	r.shows("Playlist cover", "Eclipse")
+	r.shows("Playlist Cover", "Eclipse")
 	if got := r.chosenCover(t); got != "Eclipse" {
 		t.Errorf("reopened with %q chosen, want Eclipse", got)
 	}
 	r.show(dialogState{kind: dialogCover, id: "p.b", name: "Gym"})
-	r.shows("Playlist cover")
+	r.shows("Playlist Cover")
 	r.tt.Until("another playlist starts with the automatic cover", func() bool { return r.chosenCover(t) == "Automatic" })
 }
 
@@ -359,7 +359,7 @@ func TestEditModeHasACoverButton(t *testing.T) {
 	if s := r.p.dialogs.s; !r.p.dialogs.open || s.kind != dialogCover || s.id != "p.1" || s.name != "Road Trip" {
 		t.Errorf("the cover button opened %+v (open %v)", s, r.p.dialogs.open)
 	}
-	r.shows("Playlist cover", "Automatic")
+	r.shows("Playlist Cover", "Automatic")
 }
 
 // The picker's names and states: a named dialog with a radio group of radios,
@@ -369,10 +369,10 @@ func TestA11yCoverDialog(t *testing.T) {
 	r.showCover()
 	r.tt.Settle()
 	tr := access.Read(t, r.tt.Tester)
-	if _, ok := tr.Find(ui.RoleDialog, "Playlist cover"); !ok {
+	if _, ok := tr.Find(ui.RoleDialog, "Playlist Cover"); !ok {
 		t.Fatalf("no dialog:\n%s", tr.Dump())
 	}
-	if h, ok := tr.Find(ui.RoleHeading, "Playlist cover"); !ok || h.Level != 2 {
+	if h, ok := tr.Find(ui.RoleHeading, "Playlist Cover"); !ok || h.Level != 2 {
 		t.Errorf("heading %+v", h)
 	}
 	if tr.Focus == nil || tr.Focus.Label != "Automatic" || tr.Focus.Role != ui.RoleRadio {

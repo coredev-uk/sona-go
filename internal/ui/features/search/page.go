@@ -322,7 +322,7 @@ func (s *search) opened(q, scope string) func(services.Item) {
 // browseShelf is v0.2.0's Browse: the categories of the empty search page.
 func (s *search) browseShelf(c *ui.Context, pane *kit.Pane, first bool) {
 	v := &s.pages.search
-	title := i18n.T("Browse categories")
+	title := i18n.T("Browse Categories")
 	res := s.browse()
 	kit.Shelf(c, kit.ShelfOpts{Title: title, First: first}, func() {
 		switch {

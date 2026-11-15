@@ -474,7 +474,7 @@ func TestTrackListIsAMultiselectableTableWithItsFullSize(t *testing.T) {
 	if h, ok := tr.Find(ui.RoleColumnHeader, "Title"); !ok || h.ColIndex != 2 {
 		t.Errorf("the Title header is column %d, want 2", h.ColIndex)
 	}
-	if h, ok := tr.Find(ui.RoleColumnHeader, "Added by"); !ok || h.ColIndex != 5 {
+	if h, ok := tr.Find(ui.RoleColumnHeader, "Added By"); !ok || h.ColIndex != 5 {
 		t.Errorf("the Added by header is column %d, want 5", h.ColIndex)
 	}
 	if h, ok := tr.Find(ui.RoleColumnHeader, "Actions"); !ok || h.ColIndex != 7 {

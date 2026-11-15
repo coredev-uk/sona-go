@@ -168,7 +168,7 @@ func (l *library) recentPage(c *ui.Context, r *ui.Route) {
 		subline = i18n.T("{0, plural, one {# album or playlist} other {# albums and playlists}}", "0", list.Total)
 	}
 	pg.Scroll(c, "recent", func(pane *kit.Pane, _ float32) {
-		l.pageHead(c, headOpts{title: i18n.T("Recently added"), count: subline})
+		l.pageHead(c, headOpts{title: i18n.T("Recently Added"), count: subline})
 		if l.gate(c, gateOpts{
 			total: list.Total, pending: list.Pending(), err: list.Err(), retry: list.Retry, retrying: list.Retrying(),
 			kind: kindRecent, frame: kit.FrameCovers,
@@ -180,7 +180,7 @@ func (l *library) recentPage(c *ui.Context, r *ui.Route) {
 			ui.Row(c.Key("loading-head")).Height(22).AlignItems(ui.Center).Margin(0, 0, 16, 0).Children(func() {
 				kit.Skeleton(c, 96, 16)
 			})
-			coverGrid(l, c, &pg.cover, pane, list, i18n.T("Recently added"), l.entryTile())
+			coverGrid(l, c, &pg.cover, pane, list, i18n.T("Recently Added"), l.entryTile())
 			return
 		}
 		tile := l.entryTile()

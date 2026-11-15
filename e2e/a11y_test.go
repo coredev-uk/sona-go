@@ -154,12 +154,12 @@ func TestAccessibilityPages(t *testing.T) {
 		link, heading string
 		also          []struct{ role, name string }
 	}{
-		{link: "Recently added", heading: "Recently added"},
+		{link: "Recently Added", heading: "Recently Added"},
 		{link: "Artists", heading: "Artists"},
 		{link: "Albums", heading: "Albums", also: []struct{ role, name string }{{"table", "Albums in your library"}}},
 		{link: "Songs", heading: "Songs"},
-		{link: "Music videos", heading: "Music videos"},
-		{link: "Favourite songs", heading: "Favourite songs"},
+		{link: "Music Videos", heading: "Music Videos"},
+		{link: "Favourite Songs", heading: "Favourite Songs"},
 		{link: "History", heading: "History"},
 		{link: "Playlists", heading: "Playlists"},
 		{link: "Settings", heading: "Settings"},

@@ -50,9 +50,9 @@ func stepText(step string, signedIn bool) (title, line string) {
 	case store.SetupDesktop:
 		return stepName(step), i18n.T("How Sona starts, and what it does in the background.")
 	case store.SetupDone:
-		title = i18n.T("Setup is done")
+		title = i18n.T("Setup Is Done")
 		if signedIn {
-			title = i18n.T("You're all set")
+			title = i18n.T("You're All Set")
 		}
 		return title, i18n.T("Settings has all of this, and Settings → General runs the setup again.")
 	}
@@ -144,7 +144,7 @@ func (o *onboarding) layer(c *ui.Context) {
 // askToSkip asks before Escape ends the setup; what was chosen so far is kept.
 func (o *onboarding) askToSkip() {
 	kit.Confirm(kit.ConfirmOptions{
-		Title:        i18n.T("Skip the rest of the setup?"),
+		Title:        i18n.T("Skip the Rest of the Setup?"),
 		Body:         i18n.T("What you've chosen so far is kept. Settings → General runs the setup again."),
 		ConfirmLabel: i18n.T("Skip setup"),
 	}, func(skip bool) {
@@ -178,7 +178,7 @@ func (o *onboarding) headRow(c *ui.Context, step string) {
 	ui.Row(c.Key("mark")).Size(20, 20).Shrink(0).Radius(10).Background(theme.C("amber")).Center().Children(func() {
 		ui.Box(c.Key("hole")).Size(4, 4).Radius(2).Background(theme.C("surface"))
 	})
-	theme.Text(c, i18n.T("Set up Sona"), "ui").FontWeight(600).TextColor(theme.C("ink"))
+	theme.Text(c, i18n.T("Set Up Sona"), "ui").FontWeight(600).TextColor(theme.C("ink"))
 	theme.Text(c, i18n.T("{position} of {total}", "position", stepIndex(step)+1, "total", len(setupSteps)), "meta").
 		TextColor(theme.C("ink-faint")).FontFeatures("tnum")
 	ui.Box(c.Key("spacer")).Grow(1)

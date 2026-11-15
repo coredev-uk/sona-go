@@ -131,7 +131,7 @@ func (r *rig) advance(d time.Duration) {
 
 func TestTheMiniPlayerIsIdleWithNothingPlaying(t *testing.T) {
 	r := newRig(t)
-	r.tt.Want("Sona mini player", "Not playing", "Choose music in the main window", "–:––", "Open Sona", "Close mini player")
+	r.tt.Want("Sona Mini Player", "Not playing", "Choose music in the main window", "–:––", "Open Sona", "Close mini player")
 	for _, b := range []string{"Play", "Previous", "Next"} {
 		_ = r.tt.Click(b)
 	}

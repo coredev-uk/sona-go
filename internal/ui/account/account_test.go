@@ -368,7 +368,7 @@ func TestTwoFactorWrongCodeThenRightCode(t *testing.T) {
 		return nil
 	}
 	r.signIn("a@example.com", "pw")
-	r.tt.Until("code step", r.tt.Shows("Enter the verification code"))
+	r.tt.Until("code step", r.tt.Shows("Enter the Verification Code"))
 	r.shows("Apple sent a 6-digit code to the devices signed in to this Apple Account. Enter it here to finish signing in.", "6 digits")
 	r.has("Code", "Verify", "Send a new code", "Cancel", "Apple device", "Text message", "Phone call")
 	r.lacks("No Apple device is signed in to this account, so Apple sends codes by text or call.")
@@ -387,7 +387,7 @@ func TestTwoFactorWrongCodeThenRightCode(t *testing.T) {
 		t.Errorf("submit %q", got)
 	}
 	r.tt.Until("wrong code", r.tt.Shows("That code isn't right"))
-	r.shows("Enter the verification code", "Enter the latest code you received. Older codes stop working once a new one is sent.")
+	r.shows("Enter the Verification Code", "Enter the latest code you received. Older codes stop working once a new one is sent.")
 	if r.sec.flow.code != "" || r.sec.flow.step.Kind != StepCode || r.sec.flow.step.Busy {
 		t.Errorf("after a wrong code: code %q, step %+v", r.sec.flow.code, r.sec.flow.step)
 	}
@@ -424,7 +424,7 @@ func TestNoDeviceAccountChoosesAPhoneAndGetsATextedCode(t *testing.T) {
 	r := newRig(t, signedOut)
 	r.api.onPassword = func(string, string) (*services.SecondFactor, error) { return phonesOnly, nil }
 	r.signIn("a@example.com", "pw")
-	r.tt.Until("phone choice", r.tt.Shows("Which number should Apple text?"))
+	r.tt.Until("phone choice", r.tt.Shows("Which Number Should Apple Text?"))
 	r.shows(
 		"Choose one of the trusted phone numbers on this Apple Account.", testPhones[0].Number, testPhones[1].Number,
 		"Text me", "Cancel", "No Apple device is signed in to this account, so Apple sends codes by text or call.",
@@ -438,7 +438,7 @@ func TestNoDeviceAccountChoosesAPhoneAndGetsATextedCode(t *testing.T) {
 	if got := r.api.last("phone"); got != "phone 2 sms" {
 		t.Errorf("phone call %q", got)
 	}
-	r.tt.Until("code step", r.tt.Shows("Enter the verification code"))
+	r.tt.Until("code step", r.tt.Shows("Enter the Verification Code"))
 	r.shows("Apple sent a 6-digit code to "+testPhones[1].Number+" by text message.", "Apple sent a code by text message.", "Text again", "Use another number")
 	r.typeInto("Code", "123456")
 	r.waitCalls("submit", 1)
@@ -449,12 +449,12 @@ func TestNoDeviceAccountChoosesAPhoneAndGetsATextedCode(t *testing.T) {
 
 func TestPhoneCallRouteWithoutDevices(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "signing_in", SecondFactor: phonesOnly})
-	r.shows("Which number should Apple text?")
+	r.shows("Which Number Should Apple Text?")
 	// The device route is not there for this account; the switcher stays put.
 	r.click("Apple device")
-	r.shows("Which number should Apple text?")
+	r.shows("Which Number Should Apple Text?")
 	r.click("Phone call")
-	r.shows("Which number should Apple call?", "Call me")
+	r.shows("Which Number Should Apple Call?", "Call me")
 	r.click("Call me")
 	r.waitCalls("phone", 1)
 	if got := r.api.last("phone"); got != "phone 1 voice" {
@@ -474,17 +474,17 @@ func TestPhoneChoiceSendFailureKeepsTheChoice(t *testing.T) {
 	r.api.onPhone = func(int, string) error { return &net.DNSError{Err: "no such host"} }
 	r.click("Text me")
 	r.tt.Until("network error", r.tt.Shows("Couldn't reach Apple"))
-	r.shows("Which number should Apple text?", "Check your connection and try again.")
+	r.shows("Which Number Should Apple Text?", "Check your connection and try again.")
 }
 
 func TestMethodSwitcherOfADeviceAccount(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "signing_in", SecondFactor: deviceFactor})
 	// Several numbers: choose which one.
 	r.click("Text message")
-	r.shows("Which number should Apple text?")
+	r.shows("Which Number Should Apple Text?")
 	// And back to the code already on the devices.
 	r.click("Apple device")
-	r.shows("Enter the verification code")
+	r.shows("Enter the Verification Code")
 	if r.sec.flow.step.Target.PhoneID != 0 {
 		t.Errorf("target %+v", r.sec.flow.step.Target)
 	}
@@ -516,7 +516,7 @@ func TestResendFollowsTheMethod(t *testing.T) {
 	}
 	p.tt.Until("notice", p.tt.Shows("A new code is on its way."))
 	p.click("Use another number")
-	p.shows("Which number should Apple call?")
+	p.shows("Which Number Should Apple Call?")
 }
 
 func TestResendFailureShowsTheError(t *testing.T) {
@@ -524,14 +524,14 @@ func TestResendFailureShowsTheError(t *testing.T) {
 	r.api.onResend = func() error { return &net.DNSError{Err: "no such host"} }
 	r.click("Send a new code")
 	r.tt.Until("error", r.tt.Shows("Couldn't reach Apple"))
-	r.shows("Enter the verification code")
+	r.shows("Enter the Verification Code")
 }
 
 func TestCancelInTheCodeStepReturnsToAnEmptyForm(t *testing.T) {
 	r := newRig(t, signedOut)
 	r.api.onPassword = func(string, string) (*services.SecondFactor, error) { return deviceFactor, nil }
 	r.signIn("a@example.com", "pw")
-	r.tt.Until("code step", r.tt.Shows("Enter the verification code"))
+	r.tt.Until("code step", r.tt.Shows("Enter the Verification Code"))
 	r.click("Cancel")
 	r.waitCalls("cancel", 1)
 	r.shows("Sign in to Apple Music")
@@ -544,11 +544,11 @@ func TestPendingChallengeIsRestoredAndDroppedByStatus(t *testing.T) {
 	r := newRig(t, signedOut)
 	r.shows("Sign in to Apple Music")
 	r.status(services.AuthStatus{State: "signing_in", SecondFactor: deviceFactor})
-	r.shows("Enter the verification code")
+	r.shows("Enter the Verification Code")
 	// Go dropped the attempt: back to the form with the reason.
 	r.status(services.AuthStatus{State: "signed_out", LastErrorCode: services.CodeTimeout})
 	r.shows("Sign-in timed out", "No code was entered in time, so Apple closed the attempt. Start again.", "Apple Account")
-	r.hides("Enter the verification code")
+	r.hides("Enter the Verification Code")
 }
 
 func TestBrowserSignInButtonStartsItAndShowsFailures(t *testing.T) {
@@ -568,7 +568,7 @@ func TestBrowserSignInButtonStartsItAndShowsFailures(t *testing.T) {
 func TestBrowserWaitingOffersTheLinkAndCancel(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "signing_in", BrowserSignIn: true})
 	r.shows(
-		"Finish signing in in your browser",
+		"Finish Signing in in Your Browser",
 		"Apple's sign-in page is open in your browser. Sona continues by itself when you're done.",
 		"Open the page again", "Copy link", "Cancel",
 	)
@@ -601,7 +601,7 @@ func TestBrowserWaitingOffersTheLinkAndCancel(t *testing.T) {
 
 func TestBrowserWaitingWithoutALinkOffersOnlyCancel(t *testing.T) {
 	r := newRig(t, services.AuthStatus{State: "signing_in"})
-	r.shows("Finish signing in in your browser", "Cancel")
+	r.shows("Finish Signing in in Your Browser", "Cancel")
 	r.hides("Open the page again", "Copy link")
 }
 
@@ -615,7 +615,7 @@ func TestPasswordExchangeInFlightIsNotABrowserWait(t *testing.T) {
 	r.waitCalls("password", 1)
 	// Go reports signing_in while the exchange runs.
 	r.status(services.AuthStatus{State: "signing_in"})
-	r.hides("Finish signing in in your browser")
+	r.hides("Finish Signing in in Your Browser")
 	r.shows("Signing in…")
 	close(gate)
 	r.tt.Until("done", r.tt.Shows("Checking your account with Apple…"))
@@ -983,7 +983,7 @@ func TestSignOutAsksThenSignsOut(t *testing.T) {
 		return nil
 	}
 	r.click("Sign out")
-	r.shows("Sign out of Apple Music?", "Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed.", "Cancel")
+	r.shows("Sign Out of Apple Music?", "Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed.", "Cancel")
 	if _, ok := r.tt.Find("Close"); ok {
 		t.Error("the confirm dialog has a close button")
 	}
@@ -993,9 +993,9 @@ func TestSignOutAsksThenSignsOut(t *testing.T) {
 	r.tt.Key(0, ui.KeyEnter) // the confirm button has the focus
 	r.waitCalls("signout", 1)
 	r.tt.Drain()
-	r.shows("Signing out…", "Sign out of Apple Music?")
+	r.shows("Signing out…", "Sign Out of Apple Music?")
 	close(gate)
-	r.tt.Until("signed out", func() bool { return !r.tt.HasText("Sign out of Apple Music?") && r.tt.HasText("Apple Account") })
+	r.tt.Until("signed out", func() bool { return !r.tt.HasText("Sign Out of Apple Music?") && r.tt.HasText("Apple Account") })
 	if n := r.api.count("signout"); n != 1 {
 		t.Errorf("%d sign-outs", n)
 	}
@@ -1005,10 +1005,10 @@ func TestSignOutCancelAndEscapeDoNotSignOut(t *testing.T) {
 	r := newRig(t, signedIn)
 	r.click("Sign out")
 	r.click("Cancel")
-	r.hides("Sign out of Apple Music?")
+	r.hides("Sign Out of Apple Music?")
 	r.click("Sign out")
 	r.tt.Key(0, ui.KeyEscape)
-	r.hides("Sign out of Apple Music?")
+	r.hides("Sign Out of Apple Music?")
 	r.tt.Drain()
 	if n := r.api.count("signout"); n != 0 {
 		t.Errorf("%d sign-outs", n)
@@ -1016,7 +1016,7 @@ func TestSignOutCancelAndEscapeDoNotSignOut(t *testing.T) {
 	// The menu's "Sign out" asks the same question.
 	r.sec.ConfirmSignOut()
 	r.tt.Drain()
-	r.shows("Sign out of Apple Music?")
+	r.shows("Sign Out of Apple Music?")
 }
 
 func TestSignOutFailureKeepsTheDialogAndToasts(t *testing.T) {
@@ -1027,7 +1027,7 @@ func TestSignOutFailureKeepsTheDialogAndToasts(t *testing.T) {
 	r.waitCalls("signout", 1)
 	r.tt.Until("toast", r.tt.Shows("Couldn't sign out", i18n.ErrorText(services.CodeSignOutIncomplete)))
 	// The dialog is still there, asking again, and Enter retries.
-	r.shows("Sign out of Apple Music?")
+	r.shows("Sign Out of Apple Music?")
 	r.hides("Signing out…")
 	r.api.onSignOut = nil
 	r.tt.Key(0, ui.KeyEnter)
@@ -1080,7 +1080,7 @@ func TestNoPasswordCodeOrTokenInLogsOrLinks(t *testing.T) {
 	r.sec.d.Log = newLogger(&logs)
 	r.api.onPassword = func(string, string) (*services.SecondFactor, error) { return deviceFactor, nil }
 	r.signIn("a@example.com", "pw-secret-9")
-	r.tt.Until("code step", r.tt.Shows("Enter the verification code"))
+	r.tt.Until("code step", r.tt.Shows("Enter the Verification Code"))
 	r.typeInto("Code", "424242")
 	r.waitCalls("submit", 1)
 	r.tt.Until("done", r.tt.Shows("Checking your account with Apple…"))

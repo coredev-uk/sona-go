@@ -426,13 +426,13 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 				panel := tr.MustFind(t, ui.RoleGroup, "Queue")
 				// The playing song and what follows are lists of their own, each
 				// under a heading.
-				for _, g := range []string{"Now playing", "Next"} {
+				for _, g := range []string{"Now Playing", "Next"} {
 					if h := tr.MustFind(t, ui.RoleHeading, g); h.Level != 3 {
 						t.Errorf("%s's heading is level %d", g, h.Level)
 					}
 				}
 				list := tr.MustFind(t, ui.RoleList, "Next")
-				if n := tr.Children(tr.MustFind(t, ui.RoleList, "Now playing")); len(n) != 1 || n[0].Role != ui.RoleListItem {
+				if n := tr.Children(tr.MustFind(t, ui.RoleList, "Now Playing")); len(n) != 1 || n[0].Role != ui.RoleListItem {
 					t.Errorf("the playing song's list holds %v", n)
 				}
 				if !tr.Within(list, ui.RoleGroup) || list.Index < panel.Index {

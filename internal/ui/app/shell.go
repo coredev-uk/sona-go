@@ -156,7 +156,7 @@ func (a *App) hidden() bool {
 func (a *App) newMiniWindow() native {
 	m := mygo.NewWindow(mygo.WindowOptions{
 		// translators: Title of the small always-on-top player window, read by window lists and screen readers.
-		Title:           i18n.T("Sona mini player"),
+		Title:           i18n.T("Sona Mini Player"),
 		Width:           miniWidth,
 		Height:          miniHeight,
 		MinWidth:        miniWidth,

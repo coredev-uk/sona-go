@@ -32,7 +32,7 @@ func goldenCharts(t *testing.T, name string, opts ...rigOption) {
 		t.Fatal(err)
 	}
 	r := newRig(t, "/charts", append([]rigOption{withApple(&fakeApple{t: t}), withSize(1132, 1253)}, opts...)...)
-	r.tt.Until("the charts", r.tt.Shows("Top songs", "Top albums"))
+	r.tt.Until("the charts", r.tt.Shows("Top Songs", "Top Albums"))
 	r.settle()
 	uitest.Golden(t, r.tt.Image(), name)
 }

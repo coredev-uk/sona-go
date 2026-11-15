@@ -172,12 +172,12 @@ func TestIssueHasNoFrontPageWithoutAHeroAndAnotherHeroIsASection(t *testing.T) {
 
 func TestChartTitlesAreSonasWordsForKnownKeysAndAppleTitlesForTheRest(t *testing.T) {
 	for key, want := range map[string]string{
-		"songs":                "Top songs",
-		"albums":               "Top albums",
-		"playlists":            "Top playlists",
-		"music-videos":         "Top music videos",
-		"cityCharts":           "Top 25 songs by city",
-		"dailyGlobalTopCharts": "Top 100 songs by country",
+		"songs":                "Top Songs",
+		"albums":               "Top Albums",
+		"playlists":            "Top Playlists",
+		"music-videos":         "Top Music Videos",
+		"cityCharts":           "Top 25 Songs by City",
+		"dailyGlobalTopCharts": "Top 100 Songs by Country",
 		"somethingNew":         "Apple's title",
 	} {
 		if got := chartTitle(services.Chart{Key: key, Title: "Apple's title"}); got != want {

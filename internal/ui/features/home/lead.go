@@ -100,7 +100,7 @@ func (h *home) homeLead(c *ui.Context, sec services.Section, ctx kit.ItemsCtx) {
 	first, rest := items[0], items[1:]
 	title := sec.Title
 	if title == "" {
-		title = i18n.T("Top picks")
+		title = i18n.T("Top Picks")
 	}
 	root := ui.Column(c.Key("lead")).Role(ui.RoleGroup).Label(title)
 	width := st.width.Track(c, root)

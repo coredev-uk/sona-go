@@ -80,7 +80,7 @@ func (s *settings) previousVersion(c *ui.Context) {
 // askRestore asks before going back: Sona restarts. The question stays up,
 // busy, while the restore runs.
 func (s *settings) askRestore(st *previousState, api previousAPI, version string) {
-	title := i18n.T("Go back to the previous version?")
+	title := i18n.T("Go Back to the Previous Version?")
 	body := i18n.T("Sona restarts on the previous version. Your settings, sign-in and library are kept.")
 	if version != "" {
 		title = i18n.T("Go back to {version}?", "version", version)

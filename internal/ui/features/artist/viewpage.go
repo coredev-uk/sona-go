@@ -182,7 +182,7 @@ func (a *artist) viewPage(c *ui.Context, r *ui.Route) {
 			name = res.Data.Artist.Name
 		}
 	}
-	title := i18n.T("Not found")
+	title := i18n.T("Not Found")
 	if known {
 		n := name
 		if n == "" {

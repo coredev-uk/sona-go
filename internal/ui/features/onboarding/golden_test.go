@@ -27,7 +27,7 @@ func TestGoldenWelcome(t *testing.T) {
 			// Automatic, as on a first start: with English alone there is no Language row.
 			update(r, func(s *config.Settings) { s.Language = "" })
 			r.open("welcome")
-			r.tt.Until("the step", r.tt.Shows("Welcome to Sona", "What whole songs need", "Ready, version 4.10.3112.0", "Get started"))
+			r.tt.Until("the step", r.tt.Shows("Welcome to Sona", "What Whole Songs Need", "Ready, version 4.10.3112.0", "Get started"))
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), c.name)
 		})

@@ -121,12 +121,12 @@ func (a *album) sections(c *ui.Context, m *model, now time.Time, restricted bool
 		more  func()
 	}
 	shelves := []shelf{
-		{i18n.T("Other versions"), albums(page.OtherVersions, true), false, nil},
-		{i18n.T("Music videos"), videos, true, nil},
-		{i18n.T("More to hear"), episodes, false, nil},
+		{i18n.T("Other Versions"), albums(page.OtherVersions, true), false, nil},
+		{i18n.T("Music Videos"), videos, true, nil},
+		{i18n.T("More to Hear"), episodes, false, nil},
 		{i18n.T("More by {artistName}", "artistName", al.Artist), albums(page.MoreByArtist, true), false, more},
-		{i18n.T("Featured in playlists"), playlists, false, nil},
-		{i18n.T("You might also like"), albums(page.Similar, false), false, nil},
+		{i18n.T("Featured in Playlists"), playlists, false, nil},
+		{i18n.T("You Might Also Like"), albums(page.Similar, false), false, nil},
 	}
 	first := true
 	for i, s := range shelves {

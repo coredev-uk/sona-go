@@ -80,8 +80,8 @@ func TestA11yRadioPageHasNoControlInsideAnotherAndItsListsHoldOnlyItems(t *testi
 	tr := access.Read(t, rg.tt.Tester)
 
 	for label, level := range map[string]int{
-		"Radio": 1, "Live now": 2, "Local Broadcasters": 2, "Stations": 2, "Your stations": 2, "Stations by Genre": 2,
-		"Shows and episodes": 2, "Latest Episodes": 2,
+		"Radio": 1, "Live Now": 2, "Local Broadcasters": 2, "Stations": 2, "Your Stations": 2, "Stations by Genre": 2,
+		"Shows and Episodes": 2, "Latest Episodes": 2,
 	} {
 		if h, ok := tr.Find(ui.RoleHeading, label); !ok {
 			t.Errorf("no heading %q", label)
@@ -89,13 +89,13 @@ func TestA11yRadioPageHasNoControlInsideAnotherAndItsListsHoldOnlyItems(t *testi
 			t.Errorf("heading %q is level %d, want %d", label, h.Level, level)
 		}
 	}
-	for _, label := range []string{"Live now", "Local Broadcasters", "Stations", "Shows and episodes", "Latest Episodes"} {
+	for _, label := range []string{"Live Now", "Local Broadcasters", "Stations", "Shows and Episodes", "Latest Episodes"} {
 		if _, ok := tr.Find(ui.RoleGroup, label); !ok {
 			t.Errorf("no group %q", label)
 		}
 	}
 	// The board is a list of items, each with its link, its play button and its text.
-	board, ok := tr.Find(ui.RoleList, "Live now")
+	board, ok := tr.Find(ui.RoleList, "Live Now")
 	if !ok {
 		t.Fatal("no list of the live stations")
 	}
@@ -135,7 +135,7 @@ func TestA11yRadioPageHasNoControlInsideAnotherAndItsListsHoldOnlyItems(t *testi
 		t.Errorf("the progress reads %v..%v, now %v, %q", prog.Min, prog.Max, prog.Now, prog.Value)
 	}
 	// The tiles of the user's stations are a table of rows.
-	if _, ok := tr.Find(ui.RoleTable, "Your stations"); !ok {
+	if _, ok := tr.Find(ui.RoleTable, "Your Stations"); !ok {
 		t.Error("no table of the user's stations")
 	}
 }
@@ -319,13 +319,13 @@ func TestA11yStationPageSectionsAreGroupsNamedByTheirHeadings(t *testing.T) {
 		{ID: "s2", Name: "Orphan", Artist: "Someone", Album: "Loose", DurationMs: 61000},
 	}}
 	rg := stationRig(t, d)
-	rg.tt.Until("the songs", rg.tt.Shows("Plays first", "Airbag"))
+	rg.tt.Until("the songs", rg.tt.Shows("Plays First", "Airbag"))
 	access.NoNestedControls(t, rg.tt.Tester)
 	tr := access.Read(t, rg.tt.Tester)
-	if _, ok := tr.Find(ui.RoleGroup, "Plays first"); !ok {
+	if _, ok := tr.Find(ui.RoleGroup, "Plays First"); !ok {
 		t.Error("no group Plays first")
 	}
-	list, ok := tr.Find(ui.RoleList, "Plays first")
+	list, ok := tr.Find(ui.RoleList, "Plays First")
 	if !ok {
 		t.Fatal("no list of the songs")
 	}
@@ -344,12 +344,12 @@ func TestA11yStationPageSectionsAreGroupsNamedByTheirHeadings(t *testing.T) {
 
 	// A broadcaster: the "On air" section is a group with a heading.
 	kiss := stationRig(t, services.StationDetail{Station: broadcaster("ra.kiss", "KISS")})
-	kiss.tt.Until("the section", kiss.tt.Shows("On air", "Play the station to see what is on air."))
+	kiss.tt.Until("the section", kiss.tt.Shows("On Air", "Play the station to see what is on air."))
 	ktr := access.Read(t, kiss.tt.Tester)
-	if _, ok := ktr.Find(ui.RoleGroup, "On air"); !ok {
+	if _, ok := ktr.Find(ui.RoleGroup, "On Air"); !ok {
 		t.Error("no group On air")
 	}
-	if h, ok := ktr.Find(ui.RoleHeading, "On air"); !ok || h.Level != 2 {
+	if h, ok := ktr.Find(ui.RoleHeading, "On Air"); !ok || h.Level != 2 {
 		t.Errorf("no level 2 heading On air: %v", h)
 	}
 

@@ -444,7 +444,7 @@ func (f *field) pick(o option, scope string, play bool) {
 // row (the field keeps the focus, so the row carries it for assistive
 // technology).
 func (f *field) popup(c *ui.Context, box ui.Element, opts []option, typed, scope string, h hintData) ui.Element {
-	title := i18n.T("Recently searched")
+	title := i18n.T("Recently Searched")
 	if typed != "" {
 		title = i18n.T("Suggestions")
 	}
@@ -491,9 +491,9 @@ func (f *field) popup(c *ui.Context, box ui.Element, opts []option, typed, scope
 						label, icon := i18n.T("Results"), "star"
 						switch {
 						case scope == scopeLibrary:
-							label, icon = i18n.T("In your library"), "folder-closed"
+							label, icon = i18n.T("In Your Library"), "folder-closed"
 						case hasTerms:
-							label = i18n.T("Top results")
+							label = i18n.T("Top Results")
 						}
 						f.groupLabel(c, "items", icon, label)
 					}

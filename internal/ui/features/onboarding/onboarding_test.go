@@ -402,7 +402,7 @@ func TestWidevineShortStates(t *testing.T) {
 func TestLayerIsAModalNamedByItsStepWithItsTitleFocused(t *testing.T) {
 	r := newRig(t, 900, 800)
 	r.open("playback")
-	if !r.hasAll("Set up Sona", "3 of 7", "Playback", "What plays your music and how it sounds.", "Skip setup", "Back", "Continue") {
+	if !r.hasAll("Set Up Sona", "3 of 7", "Playback", "What plays your music and how it sounds.", "Skip setup", "Back", "Continue") {
 		t.Fatalf("the layer shows %q", r.tt.Texts())
 	}
 	// Every step's name shows under its segment.
@@ -423,7 +423,7 @@ func TestLayerIsAModalNamedByItsStepWithItsTitleFocused(t *testing.T) {
 func TestLayerBuildsNothingWhileClosed(t *testing.T) {
 	r := newRig(t, 900, 800)
 	r.tt.Drain()
-	if r.tt.HasText("Set up Sona") || r.o.shown != "" {
+	if r.tt.HasText("Set Up Sona") || r.o.shown != "" {
 		t.Errorf("the closed layer shows %q", r.tt.Texts())
 	}
 }
@@ -555,7 +555,7 @@ func TestSkipSetupLeavesAtOnceAndMarksItDone(t *testing.T) {
 		t.Fatal("Skip setup left the setup open")
 	}
 	r.tt.Until("the setting saved", func() bool { return r.h.Settings.Get().Onboarding.Completed })
-	if r.tt.HasText("Set up Sona") {
+	if r.tt.HasText("Set Up Sona") {
 		t.Error("the layer is still drawn after leaving")
 	}
 }
@@ -564,11 +564,11 @@ func TestEscapeAsksBeforeSkippingTheSetup(t *testing.T) {
 	r := newRig(t, 900, 800)
 	r.open("playback")
 	r.key(0, ui.KeyEscape)
-	if !r.hasAll("Skip the rest of the setup?", "What you've chosen so far is kept. Settings → General runs the setup again.") {
+	if !r.hasAll("Skip the Rest of the Setup?", "What you've chosen so far is kept. Settings → General runs the setup again.") {
 		t.Fatalf("Escape asked nothing; texts %q", r.tt.Texts())
 	}
 	r.click("Cancel")
-	if !r.h.Env.Surfaces.SetupOpen() || r.tt.HasText("Skip the rest of the setup?") {
+	if !r.h.Env.Surfaces.SetupOpen() || r.tt.HasText("Skip the Rest of the Setup?") {
 		t.Fatalf("Cancel did not keep the setup open (open %v)", r.h.Env.Surfaces.SetupOpen())
 	}
 	if r.h.Settings.Get().Onboarding.Completed {
@@ -576,7 +576,7 @@ func TestEscapeAsksBeforeSkippingTheSetup(t *testing.T) {
 	}
 
 	r.key(0, ui.KeyEscape)
-	if !r.tt.HasText("Skip the rest of the setup?") {
+	if !r.tt.HasText("Skip the Rest of the Setup?") {
 		t.Fatal("the second Escape asked nothing")
 	}
 	// The confirming button has the focus: Enter confirms.
@@ -591,7 +591,7 @@ func TestEscapeOnTheDoneStepLeavesWithoutAsking(t *testing.T) {
 	r := newRig(t, 900, 800)
 	r.open("done")
 	r.key(0, ui.KeyEscape)
-	if r.tt.HasText("Skip the rest of the setup?") {
+	if r.tt.HasText("Skip the Rest of the Setup?") {
 		t.Error("Escape on Done asked")
 	}
 	if r.h.Env.Surfaces.SetupOpen() {
@@ -636,7 +636,7 @@ func TestWelcomeSaysWhatWholeSongsNeedAndWhereEachStands(t *testing.T) {
 		s.State, s.Version, s.Received, s.Total = "downloading", "", 25, 100
 	}))
 	r.open("welcome")
-	if !r.hasAll("What whole songs need", "Next step", "Downloading, 25%", "Widevine",
+	if !r.hasAll("What Whole Songs Need", "Next step", "Downloading, 25%", "Widevine",
 		"A subscription, signed in to Sona. Browsing works without one.") {
 		t.Fatalf("texts %q", r.tt.Texts())
 	}
@@ -783,7 +783,7 @@ func TestPlaybackOnAPlatformWithoutAnEngineOffersNothingElse(t *testing.T) {
 	if !r.hasAll("Playback isn't available on this platform yet", "Browsing Apple Music and your library works as usual.") {
 		t.Fatalf("texts %q", r.tt.Texts())
 	}
-	if !r.lacks("Audio quality", "Sound Check", "Crossfade", "Private listening", "Widevine download") {
+	if !r.lacks("Audio Quality", "Sound Check", "Crossfade", "Private listening", "Widevine download") {
 		t.Errorf("controls without playback: %q", r.tt.Texts())
 	}
 }
@@ -791,7 +791,7 @@ func TestPlaybackOnAPlatformWithoutAnEngineOffersNothingElse(t *testing.T) {
 func TestPlaybackSavesQualitySoundCheckCrossfadeAndPrivateListening(t *testing.T) {
 	r := newRig(t, 900, 1100)
 	r.open("playback")
-	r.tt.Until("the controls", r.tt.Shows("Audio quality", "High quality", "Data saver", "Sound Check", "Crossfade", "Private listening"))
+	r.tt.Until("the controls", r.tt.Shows("Audio Quality", "High quality", "Data saver", "Sound Check", "Crossfade", "Private listening"))
 	if got := r.h.Settings.Get().AudioQuality; got != 256 {
 		t.Fatalf("quality starts at %d", got)
 	}
@@ -986,7 +986,7 @@ func TestAppearanceWithoutPowerStateDoesNotPromiseToPause(t *testing.T) {
 func TestDesktopSavesStartingAtLoginAndWhatClosingTheWindowDoes(t *testing.T) {
 	r := newRig(t, 900, 800)
 	r.open("desktop")
-	r.tt.Until("the controls", r.tt.Shows("When you close the window", "Keep playing", "Quit Sona",
+	r.tt.Until("the controls", r.tt.Shows("When You Close the Window", "Keep playing", "Quit Sona",
 		"Start Sona when you log in", "Track notifications", "Stay awake while playing"))
 	if r.tt.HasText("Start in the tray") {
 		t.Error("Start in the tray shows while starting at login is off")
@@ -1063,7 +1063,7 @@ func TestDoneMarksTheSetupDoneOnceAndListsWhatIsStillToDo(t *testing.T) {
 	}))
 	r.open("done")
 	r.tt.Until("marked done", func() bool { return r.h.Settings.Get().Onboarding.Completed })
-	if !r.hasAll("Setup is done", "Still to do", "Apple Music", "Widevine", "Sign in", "Go to Playback",
+	if !r.hasAll("Setup Is Done", "Still to Do", "Apple Music", "Widevine", "Sign in", "Go to Playback",
 		"Not signed in. Signing in brings your library and plays whole songs.",
 		"Downloading, 50%. Songs play once it's ready; it carries on in the background.") {
 		t.Fatalf("texts %q", r.tt.Texts())
@@ -1109,7 +1109,7 @@ func TestDoneSaysSonaIsReadyWhenNothingIsLeftAndDoesNotSaveAgain(t *testing.T) {
 	update(r, func(s *config.Settings) { s.Onboarding.Completed = true })
 	store.Set(r.h.Env.Queries, store.KeyAuth, services.AuthStatus{State: "signed_in"})
 	r.open("done")
-	if !r.hasAll("You're all set", "Ready to play", "Your library syncs in the background.") || r.tt.HasText("Still to do") {
+	if !r.hasAll("You're All Set", "Ready to play", "Your library syncs in the background.") || r.tt.HasText("Still to Do") {
 		t.Fatalf("texts %q", r.tt.Texts())
 	}
 	r.key(0, ui.KeyEscape)
@@ -1136,8 +1136,8 @@ func TestStepsShowAFailedSettingsReadWithTryAgainAndRecover(t *testing.T) {
 		step     string
 		controls []string
 	}{
-		{"playback", []string{"Audio quality", "High quality", "Sound Check"}},
-		{"desktop", []string{"When you close the window", "Keep playing", "Quit Sona"}},
+		{"playback", []string{"Audio Quality", "High quality", "Sound Check"}},
+		{"desktop", []string{"When You Close the Window", "Keep playing", "Quit Sona"}},
 	} {
 		t.Run(c.step, func(t *testing.T) {
 			r := newRig(t, 900, 1100)

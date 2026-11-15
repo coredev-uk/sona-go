@@ -488,7 +488,7 @@ func (a *App) languageChanged() {
 	m := a.miniWin
 	a.mu.Unlock()
 	if m != nil {
-		m.SetTitle(i18n.T("Sona mini player"))
+		m.SetTitle(i18n.T("Sona Mini Player"))
 	}
 }
 

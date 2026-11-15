@@ -441,7 +441,7 @@ func TestPageFilterKeepsARowInTheTabOrder(t *testing.T) {
 	}
 }
 
-// "Added by" belongs to the song, so it follows the song to where the sort
+// "Added By" belongs to the song, so it follows the song to where the sort
 // puts it.
 func TestPageAddedByFollowsTheSongsListed(t *testing.T) {
 	songs := viewSongs()
@@ -464,7 +464,7 @@ func TestPageAddedByFollowsTheSongsListed(t *testing.T) {
 			{SongID: "cb", ProfileID: "sp.2"}, // alpha
 		},
 	}
-	r.shows("Added by", "Charlie", "Bo")
+	r.shows("Added By", "Charlie", "Bo")
 	if got := r.order("Ada", "Bo"); !slices.Equal(got, []string{"Ada", "Bo"}) {
 		t.Fatalf("who added them, in the playlist's order: %v", got)
 	}

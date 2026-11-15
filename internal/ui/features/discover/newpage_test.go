@@ -62,7 +62,7 @@ func TestNewPageShowsTheHeaderTheFrontPageTheContentsAndTheShelvesInBands(t *tes
 	r.tt.Until("the page", r.tt.Shows("On this page", "Best New Songs", "New This Week"))
 	r.d.front.paused = true
 	r.tt.Drain()
-	for _, w := range []string{"Discover", "Updated just now", "Featured", "A-List Pop", "Songs and albums", "Radio", "Browse", "Listen to Live Radio Now"} {
+	for _, w := range []string{"Discover", "Updated just now", "Featured", "A-List Pop", "Songs and Albums", "Radio", "Browse", "Listen to Live Radio Now"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("the page lacks %q", w)
 		}
@@ -82,12 +82,12 @@ func TestNewPageContentsListsTheBandsInOrderWithTheirShelves(t *testing.T) {
 	r.d.front.paused = true
 	r.tt.Drain()
 	// The contents' buttons, in order: a band, then its shelves.
-	at := firstAt(r, "On this page", "Songs and albums", "Recent Releases", "Playlists", "Updated Playlists", "Radio", "Live Radio")
+	at := firstAt(r, "On this page", "Songs and Albums", "Recent Releases", "Playlists", "Updated Playlists", "Radio", "Live Radio")
 	if slices.Contains(at, -1) || !slices.IsSorted(at) {
 		t.Errorf("contents order %v: %q", at, r.tt.Texts())
 	}
 	tr := access.Read(t, r.tt.Tester)
-	for _, band := range []string{"Songs and albums", "Playlists", "Radio"} {
+	for _, band := range []string{"Songs and Albums", "Playlists", "Radio"} {
 		b, ok := tr.Find(ui.RoleButton, band)
 		if !ok || b.Description != "1 shelf" {
 			t.Errorf("the contents' button for %q is %+v (found %v), want one described as 1 shelf", band, b, ok)

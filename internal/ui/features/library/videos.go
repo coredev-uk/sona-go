@@ -53,7 +53,7 @@ func (l *library) videosPage(c *ui.Context, r *ui.Route) {
 		subline = i18n.T("{0, plural, one {# music video} other {# music videos}}", "0", len(q.Data))
 	}
 	pg.Scroll(c, "videos", func(pane *kit.Pane, _ float32) {
-		l.pageHead(c, headOpts{title: i18n.T("Music videos"), count: subline})
+		l.pageHead(c, headOpts{title: i18n.T("Music Videos"), count: subline})
 		switch {
 		case out:
 			kit.EmptyState(c, i18n.T("Sign in to see your music videos"),

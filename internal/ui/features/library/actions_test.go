@@ -575,7 +575,7 @@ func deleteAsksFirstAndCancelDoesNothing(t *testing.T) {
 
 	del.Run(ctx)
 	r.tt.Drain()
-	if !kit.ConfirmPending() || !r.tt.Shows("Delete “Paranoid Android” from your library?", "It also leaves any playlists it's in.")() {
+	if !kit.ConfirmPending() || !r.tt.Shows("Delete “Paranoid Android” From Your Library?", "It also leaves any playlists it's in.")() {
 		t.Fatalf("no confirmation: texts %q", r.tt.Texts())
 	}
 	if len(f.removals()) != 0 {
@@ -614,7 +614,7 @@ func TestDeleteNotesPerKindAndFailureToast(t *testing.T) {
 	album := kit.AlbumItem(services.Album{ID: "l.1", Source: services.SourceLibrary, LibraryID: "l.1", Name: "OK Computer"})
 	actDef(t, r, kit.KindAlbum, "library.remove.album").Run(actContext(r, album))
 	r.tt.Drain()
-	if !r.tt.Shows("Delete “OK Computer” from your library?", "Its songs leave your library and any playlists they're in.")() {
+	if !r.tt.Shows("Delete “OK Computer” From Your Library?", "Its songs leave your library and any playlists they're in.")() {
 		t.Fatalf("album confirmation: %q", r.tt.Texts())
 	}
 	_ = r.tt.Click("Delete")
@@ -627,7 +627,7 @@ func TestDeleteNotesPerKindAndFailureToast(t *testing.T) {
 	artist := kit.ArtistItem(services.Artist{ID: "r.1", Source: services.SourceLibrary, LibraryID: "r.1", Name: "Radiohead"})
 	actDef(t, r, kit.KindArtist, "library.remove.artist").Run(actContext(r, artist))
 	r.tt.Drain()
-	if !r.tt.Shows("Delete “Radiohead” from your library?", "Their albums and songs leave your library too.")() {
+	if !r.tt.Shows("Delete “Radiohead” From Your Library?", "Their albums and songs leave your library too.")() {
 		t.Fatalf("artist confirmation: %q", r.tt.Texts())
 	}
 }
@@ -769,7 +769,7 @@ func TestBulkDeleteAsksOnceThenRemovesEachOne(t *testing.T) {
 	}
 	del.Run(ctx)
 	r.tt.Drain()
-	if !r.tt.Shows("Delete 3 songs from your library?", "They also leave any playlists they're in.")() {
+	if !r.tt.Shows("Delete 3 songs From Your Library?", "They also leave any playlists they're in.")() {
 		t.Fatalf("confirmation: %q", r.tt.Texts())
 	}
 	if len(f.removals()) != 0 {

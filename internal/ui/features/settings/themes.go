@@ -204,14 +204,14 @@ func (s *settings) themeGallery(c *ui.Context, disabled bool) ui.Element {
 				theme.Text(c, text, "label").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(4)
 			})
 		}
-		heading("sona", i18n.T("Sona's own"), true)
+		heading("sona", i18n.T("Sona's Own"), true)
 		for _, t := range all {
 			if t.Builtin && sonaThemes[t.ID] {
 				hint, only := themeHint(t)
 				card(t, hint, only, "")
 			}
 		}
-		heading("community", i18n.T("Community palettes"), false)
+		heading("community", i18n.T("Community Palettes"), false)
 		for _, t := range all {
 			if t.Builtin && !sonaThemes[t.ID] {
 				hint, only := themeHint(t)
@@ -219,7 +219,7 @@ func (s *settings) themeGallery(c *ui.Context, disabled bool) ui.Element {
 			}
 		}
 		if len(entries) > 0 {
-			heading("yours", i18n.T("Your themes"), false)
+			heading("yours", i18n.T("Your Themes"), false)
 		}
 		for _, t := range all {
 			if t.Builtin {

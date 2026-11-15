@@ -97,7 +97,7 @@ func TestA11yPages(t *testing.T) {
 		{
 			name: "recently added", build: grid(recentPath),
 			ready:    []string{"Fieldnotes", "Sunday morning"},
-			headings: []a11yHeading{{"Recently added", 1}},
+			headings: []a11yHeading{{"Recently Added", 1}},
 			present: []a11yNode{
 				{ui.RoleTable, "Recently added, Earlier"},
 				{ui.RoleLink, "Fieldnotes"},
@@ -143,7 +143,7 @@ func TestA11yPages(t *testing.T) {
 				return r.tt
 			},
 			ready:    []string{"3 music videos"},
-			headings: []a11yHeading{{"Music videos", 1}},
+			headings: []a11yHeading{{"Music Videos", 1}},
 			present: []a11yNode{
 				{ui.RoleTable, "Music videos in your library"},
 				{ui.RoleLink, "Video 0"},
@@ -184,11 +184,11 @@ func TestA11yPages(t *testing.T) {
 				return r.tt
 			},
 			ready:    []string{"2 songs", "Blue Hour song 2"},
-			headings: []a11yHeading{{"Favourite songs", 1}},
+			headings: []a11yHeading{{"Favourite Songs", 1}},
 			present: []a11yNode{
 				{ui.RoleButton, "Play your favourite songs"},
 				{ui.RoleButton, "Shuffle"},
-				{ui.RoleTable, "Favourite songs"},
+				{ui.RoleTable, "Favourite Songs"},
 				{ui.RoleButton, "Play Blue Hour song 2"},
 				{ui.RoleMenuButton, "More for Blue Hour song 2"},
 			},
@@ -272,7 +272,7 @@ func TestA11yPages(t *testing.T) {
 				return newFavouritesRig(t, nil).tt
 			},
 			ready:    []string{"No favourite songs yet"},
-			headings: []a11yHeading{{"Favourite songs", 1}, {"No favourite songs yet", 2}},
+			headings: []a11yHeading{{"Favourite Songs", 1}, {"No favourite songs yet", 2}},
 			present:  []a11yNode{{ui.RoleButton, "Play your favourite songs"}, {ui.RoleButton, "Shuffle"}},
 			tab:      []string{"Sync now"},
 		},

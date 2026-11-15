@@ -132,7 +132,7 @@ func (p *playlists) deletePlaylist(id, name string, done func(ok bool)) {
 // deleteFolder asks, then deletes an empty folder.
 func (p *playlists) deleteFolder(id, name string) {
 	kit.Confirm(kit.ConfirmOptions{
-		Title:        i18n.T("Delete the folder “{name}”?", "name", name),
+		Title:        i18n.T("Delete the Folder “{name}”?", "name", name),
 		Body:         i18n.T("The empty folder is removed on all your devices."),
 		ConfirmLabel: i18n.T("Delete folder"),
 		Destructive:  true,

@@ -64,15 +64,15 @@ func childRoles(tr access.Tree, n access.Node) []ui.Role {
 func TestA11ySidebar(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), sbPins())
 	e.router.Replace("/playlist/p.own")
-	e.shows("Made for you", "Apple Music", "Playlists", "Road Trip", "Alpha")
+	e.shows("Made for You", "Apple Music", "Playlists", "Road Trip", "Alpha")
 	stops, tr := walk(t, e.tt,
 		"Alpha", "More for Alpha", "Beta, plays", "More for Beta", "Gamma, shuffles", "More for Gamma", "Delta", "More for Delta",
-		"Made for you", "Morning Mix", "Discovery Mix", "Apple Music", "Quiet Hours",
+		"Made for You", "Morning Mix", "Discovery Mix", "Apple Music", "Quiet Hours",
 		"New playlist or folder", "Running", "More for the folder Running", "Road Trip",
 	)
 	_ = stops
 
-	for _, h := range []string{"Pinned", "Made for you", "Apple Music", "Playlists"} {
+	for _, h := range []string{"Pinned", "Made for You", "Apple Music", "Playlists"} {
 		if n, ok := tr.Find(ui.RoleHeading, h); !ok || n.Level != 2 {
 			t.Errorf("no h2 %q: %+v", h, n)
 		}
@@ -96,7 +96,7 @@ func TestA11ySidebar(t *testing.T) {
 	}{
 		{"Pinned", ui.RoleLink, "Alpha", "More for Alpha"},
 		{"Pinned", ui.RoleButton, "Beta, plays", "More for Beta"},
-		{"Made for you", ui.RoleLink, "Morning Mix", "More for Morning Mix"},
+		{"Made for You", ui.RoleLink, "Morning Mix", "More for Morning Mix"},
 		{"Playlists", ui.RoleDisclosure, "Running", "More for the folder Running"},
 		{"Playlists", ui.RoleLink, "Road Trip", "More for Road Trip"},
 	} {
@@ -124,14 +124,14 @@ func TestA11ySidebar(t *testing.T) {
 		}
 	}
 	// The folders and the foldable sections say whether they are open.
-	for name, open := range map[string]bool{"Made for you": true, "Apple Music": true, "Running": false} {
+	for name, open := range map[string]bool{"Made for You": true, "Apple Music": true, "Running": false} {
 		n, ok := tr.Find(ui.RoleDisclosure, name)
 		if !ok || n.Has(access.Expanded) != open {
 			t.Errorf("disclosure %q: %+v, want expanded %v", name, n, open)
 		}
 	}
 	// A foldable section's heading controls the list it folds, while it shows.
-	for _, name := range []string{"Made for you", "Apple Music"} {
+	for _, name := range []string{"Made for You", "Apple Music"} {
 		n, _ := tr.Find(ui.RoleDisclosure, name)
 		if got := tr.ControlledBy(n); len(got) != 1 || got[0].Role != ui.RoleList || got[0].Label != name {
 			t.Errorf("disclosure %q controls %v, want the list %q", name, got, name)
@@ -278,7 +278,7 @@ func TestA11yPlaylistPage(t *testing.T) {
 		pgSong("s1", "Sugg One", "Singer", "Album S"),
 		pgSong("s2", "Sugg Two", "Singer", "Album S"),
 	}
-	r.shows("Suggested songs", "Show suggestions")
+	r.shows("Suggested Songs", "Show suggestions")
 	if d, ok := access.Read(t, r.tt.Tester).Find(ui.RoleDisclosure, "Show suggestions"); !ok || d.Has(access.Expanded) {
 		t.Errorf("the closed shelf's disclosure: %+v", d)
 	}
@@ -299,7 +299,7 @@ func TestA11yPlaylistPage(t *testing.T) {
 	if more, ok := tr.Find(ui.RoleMenuButton, "More for Song B"); !ok || more.Has(access.Focusable) {
 		t.Errorf("More for Song B: %+v (on the tree at rest, not a stop)", more)
 	}
-	list, ok := tr.Find(ui.RoleList, "Suggested songs")
+	list, ok := tr.Find(ui.RoleList, "Suggested Songs")
 	if !ok {
 		t.Fatalf("no suggestions list:\n%s", tr.Dump())
 	}
@@ -456,7 +456,7 @@ func TestA11yCollaborators(t *testing.T) {
 		Viewer:  services.RoleListener,
 		AddedBy: []services.TrackAddedBy{{SongID: "cb", ProfileID: "sp.2"}},
 	}
-	r.shows("Collaborative playlist", "3 songs", "10 min", "Ada & 2 others", "Added by")
+	r.shows("Collaborative playlist", "3 songs", "10 min", "Ada & 2 others", "Added By")
 	stops, tr := walk(t, r.tt, "Ada & 2 others", "Play Shared mix", "Shuffle")
 	if stops[0] != "Ada & 2 others" {
 		t.Errorf("the byline is not the first stop: %q", stops)
@@ -465,7 +465,7 @@ func TestA11yCollaborators(t *testing.T) {
 	if !ok || btn.Description != "View playlist collaborators" || btn.HasPopup != ui.PopupDialog {
 		t.Fatalf("collaborators button %+v:\n%s", btn, tr.Dump())
 	}
-	if _, ok := tr.Find(ui.RoleColumnHeader, "Added by"); !ok {
+	if _, ok := tr.Find(ui.RoleColumnHeader, "Added By"); !ok {
 		t.Error("no Added by column header")
 	}
 
@@ -478,7 +478,7 @@ func TestA11yCollaborators(t *testing.T) {
 		}
 	}
 	r.tt.Key(0, ui.KeyEnter)
-	r.shows("Collaborators", "Former collaborators")
+	r.shows("Collaborators", "Former Collaborators")
 	r.tt.Advance(300 * time.Millisecond)
 	r.tt.Settle()
 	access.NoNestedControls(t, r.tt.Tester)
@@ -493,7 +493,7 @@ func TestA11yCollaborators(t *testing.T) {
 			t.Errorf("person %q: %+v", name, n)
 		}
 	}
-	for _, list := range []string{"Collaborators", "Former collaborators"} {
+	for _, list := range []string{"Collaborators", "Former Collaborators"} {
 		if _, ok := tr.Find(ui.RoleList, list); !ok {
 			t.Errorf("no list %q", list)
 		}
@@ -526,12 +526,12 @@ func TestA11yDialogs(t *testing.T) {
 		first string   // what has the focus once it is open
 		stops []string // among the Tab stops, in order
 	}{
-		{"create", dialogState{kind: dialogCreate}, "New playlist", "Name", []string{"Name", "Description", "Show on my profile", "Cancel", "Close"}},
-		{"details", dialogState{kind: dialogDetails, id: "p.a", name: "Road Trip", description: "Songs", isPublic: true}, "Edit playlist", "Name", []string{"Name", "Description", "Show on my profile", "Cancel", "Save", "Close"}},
-		{"new folder", dialogState{kind: dialogFolder}, "New folder", "Name", []string{"Name", "Cancel", "Close"}},
-		{"rename folder", dialogState{kind: dialogFolder, folder: &f}, "Rename folder", "Name", []string{"Name", "Cancel", "Rename", "Close"}},
-		{"add picker", dialogState{kind: dialogAdd, items: rigItems(), label: rigLabel}, "Add to playlist", "Find a playlist", []string{"Find a playlist", "New playlist", "Road Trip", "Close"}},
-		{"move", dialogState{kind: dialogMove, id: "p.b", name: "Gym", folderID: "pf.1"}, "Move to folder", "Top level", []string{"Top level", "Mixes", "Close"}},
+		{"create", dialogState{kind: dialogCreate}, "New Playlist", "Name", []string{"Name", "Description", "Show on my profile", "Cancel", "Close"}},
+		{"details", dialogState{kind: dialogDetails, id: "p.a", name: "Road Trip", description: "Songs", isPublic: true}, "Edit Playlist", "Name", []string{"Name", "Description", "Show on my profile", "Cancel", "Save", "Close"}},
+		{"new folder", dialogState{kind: dialogFolder}, "New Folder", "Name", []string{"Name", "Cancel", "Close"}},
+		{"rename folder", dialogState{kind: dialogFolder, folder: &f}, "Rename Folder", "Name", []string{"Name", "Cancel", "Rename", "Close"}},
+		{"add picker", dialogState{kind: dialogAdd, items: rigItems(), label: rigLabel}, "Add to Playlist", "Find a playlist", []string{"Find a playlist", "New playlist", "Road Trip", "Close"}},
+		{"move", dialogState{kind: dialogMove, id: "p.b", name: "Gym", folderID: "pf.1"}, "Move to Folder", "Top level", []string{"Top level", "Mixes", "Close"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			theme.SetMode(theme.ModeLight)
@@ -638,7 +638,7 @@ func TestA11yPickerStatusAndCurrentFolder(t *testing.T) {
 	m := newDialogsRig(t)
 	m.seedTree()
 	m.show(dialogState{kind: dialogMove, id: "p.a", name: "Road Trip", folderID: "pf.2"})
-	m.shows("Move to folder", "Mixes / Old")
+	m.shows("Move to Folder", "Mixes / Old")
 	tr = access.Read(t, m.tt.Tester)
 	for _, f := range []struct {
 		name    string
@@ -712,7 +712,7 @@ func TestA11yPlaylistFindAndSort(t *testing.T) {
 // it opens a menu before it is pressed.
 func TestA11yNewPlaylistOrFolderButtonOpensAMenu(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
-	e.shows("Made for you", "Playlists", "Road Trip")
+	e.shows("Made for You", "Playlists", "Road Trip")
 	tr := access.Read(t, e.tt.Tester)
 	n, ok := tr.Find(ui.RoleMenuButton, "New playlist or folder")
 	if !ok || n.HasPopup != ui.PopupMenu || n.Has(access.Expanded) {

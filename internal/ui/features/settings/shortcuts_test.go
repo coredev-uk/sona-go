@@ -667,19 +667,19 @@ func TestShortcutsResetAllAsksFirstAndGoesBackToDefaults(t *testing.T) {
 	}
 	// Cancel keeps them.
 	r.click("Reset all")
-	r.show("Reset every shortcut?", "All shortcuts go back to their default keys.")
+	r.show("Reset Every Shortcut?", "All shortcuts go back to their default keys.")
 	r.click("Cancel")
-	r.hidden("Reset every shortcut?")
+	r.hidden("Reset Every Shortcut?")
 	if len(r.saved()) != 2 {
 		t.Errorf("Cancel changed the bindings: %v", r.saved())
 	}
 	// Confirm (its button has the focus): every shortcut is back to its keys.
 	r.click("Reset all")
-	r.show("Reset every shortcut?")
+	r.show("Reset Every Shortcut?")
 	r.press(0, ui.KeyEnter)
 	r.awaitSaved(config.Shortcuts{})
 	r.show("test.free not set", "player.favourite F")
-	r.hidden("Reset every shortcut?", "Reset test.free")
+	r.hidden("Reset Every Shortcut?", "Reset test.free")
 	r.press(ui.Ctrl, ui.KeyJ)
 	r.press(0, ui.KeyF)
 	if got := r.ran(); got["test.free"] != 1 || got["player.favourite"] != 1 || len(got) != 2 {

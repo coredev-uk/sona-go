@@ -239,10 +239,10 @@ func (a *artist) libraryArtist(c *ui.Context, pg *pageState, d *services.ArtistD
 	}
 	a.head(c, pg, h)
 
-	a.itemShelf(c, pg, "library:albums", i18n.T("Albums in your library"), a.albumTiles(full, "year"), false, nil, false)
-	a.itemShelf(c, pg, "library:singles", i18n.T("Singles and EPs in your library"), a.albumTiles(singles, "year"), false, nil, false)
+	a.itemShelf(c, pg, "library:albums", i18n.T("Albums in Your Library"), a.albumTiles(full, "year"), false, nil, false)
+	a.itemShelf(c, pg, "library:singles", i18n.T("Singles and EPs in Your Library"), a.albumTiles(singles, "year"), false, nil, false)
 	if len(d.Songs) > 0 {
-		kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Songs in your library")}, func() {
+		kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Songs in Your Library")}, func() {
 			a.tracks(c, &pg.songs, d.Songs, len(d.Songs), i18n.T("Songs by {artistName} in your library", "artistName", art.Name), from(art.ID), pane)
 		})
 	}
@@ -305,7 +305,7 @@ func (a *artist) catalogBody(c *ui.Context, pg *pageState, page *services.Catalo
 	essential := hasEss && len(essAlbums) > 0
 
 	topShelf := func() {
-		title := i18n.T("Top songs")
+		title := i18n.T("Top Songs")
 		so := kit.ShelfOpts{Title: title, First: true}
 		if page.TopSongsMore || len(page.TopSongs) > topRows {
 			so.More = a.seeAll(art.ID, services.ViewTopSongs)

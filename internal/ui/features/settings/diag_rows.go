@@ -348,7 +348,7 @@ func diagnosticsGroups(d services.Diagnostics, live *services.CDMStatus, now tim
 	return []diagGroup{
 		{id: "playback", title: i18n.T("Playback"), rows: playbackRows},
 		{id: "credentials", title: i18n.T("Credentials"), rows: []diagRow{token}},
-		{id: "database", title: i18n.T("Library database"), rows: []diagRow{
+		{id: "database", title: i18n.T("Library Database"), rows: []diagRow{
 			{label: i18n.T("File"), value: d.Database.Path},
 			{label: i18n.T("Size"), value: i18n.FormatBytes(d.Database.SizeBytes)},
 			{label: i18n.T("Schema version"), value: strconv.FormatInt(d.Database.SchemaVersion, 10)},

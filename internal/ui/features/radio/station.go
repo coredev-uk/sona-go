@@ -291,7 +291,7 @@ func (r *radio) section(c *ui.Context, key, title string, ruled bool, body func(
 func (r *radio) broadcaster(c *ui.Context, s services.Station, ruled bool) {
 	st := r.env.Play.State()
 	tuned := st.Current != nil && st.Current.ID == s.ID
-	r.section(c, "on-air", i18n.T("On air"), ruled, func() {
+	r.section(c, "on-air", i18n.T("On Air"), ruled, func() {
 		switch {
 		case tuned && st.OnAir != nil:
 			theme.Text(c, kit.OnAirLine(*st.OnAir), "ui").TextColor(theme.C("ink"))
@@ -316,7 +316,7 @@ func (r *radio) broadcaster(c *ui.Context, s services.Station, ruled bool) {
 // holds for it, so pressing Play starts with exactly these.
 func (r *radio) upcoming(c *ui.Context, songs []services.Song, ruled bool) {
 	tk := theme.Current()
-	title := i18n.T("Plays first")
+	title := i18n.T("Plays First")
 	r.section(c, "upcoming", title, ruled, func() {
 		ui.Column(c.Key("songs")).Role(ui.RoleList).Label(title).Children(func() {
 			for i, song := range songs {

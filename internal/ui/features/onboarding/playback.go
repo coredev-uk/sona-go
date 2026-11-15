@@ -51,8 +51,8 @@ func (o *onboarding) soundControls(c *ui.Context, s config.Settings, pb services
 		privateHint = i18n.T("On in development builds; switching it here lasts until Sona quits.")
 	}
 
-	stepGroup(c, "quality", i18n.T("Audio quality"), func() {
-		choiceCards(c, "quality", i18n.T("Audio quality"), strconv.Itoa(s.AudioQuality), []choice{
+	stepGroup(c, "quality", i18n.T("Audio Quality"), func() {
+		choiceCards(c, "quality", i18n.T("Audio Quality"), strconv.Itoa(s.AudioQuality), []choice{
 			{value: "256", label: i18n.T("High quality"), hint: i18n.T("AAC at 256 kbps")},
 			{value: "64", label: i18n.T("Data saver"), hint: i18n.T("AAC at 64 kbps, for metered connections")},
 		}, false, func(v string) {

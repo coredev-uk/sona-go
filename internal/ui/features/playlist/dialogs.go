@@ -327,7 +327,7 @@ func (p *playlists) addDialog(c *ui.Context) {
 	if tree.HasData {
 		nodes = d.treeNodes(tree.Data)
 	}
-	p.picker(c, 448, i18n.T("Add to playlist"), s.label, func() {
+	p.picker(c, 448, i18n.T("Add to Playlist"), s.label, func() {
 		var find ui.Element
 		ui.Box(c.Key("find")).FillWidth().Padding(0, 20, 12, 20).Children(func() {
 			find = kit.SearchField(c.Key("query"), &d.query, kit.SearchFieldOpts{Placeholder: i18n.T("Find a playlist")})
@@ -416,10 +416,10 @@ func (p *playlists) playlistDialog(c *ui.Context) {
 	d := &p.dialogs
 	s, gen := d.s, d.gen
 	editing := s.kind == dialogDetails
-	title, description := i18n.T("New playlist"), i18n.T("Add songs from any album, playlist or search result.")
+	title, description := i18n.T("New Playlist"), i18n.T("Add Songs From Any Album, Playlist or Search Result.")
 	switch {
 	case editing:
-		title, description = i18n.T("Edit playlist"), i18n.T("Changes appear in Apple Music on all your devices.")
+		title, description = i18n.T("Edit Playlist"), i18n.T("Changes Appear in Apple Music on All Your Devices.")
 	case len(s.items) > 0:
 		description = i18n.T("With {withLabel}.", "withLabel", s.label)
 	}
@@ -529,9 +529,9 @@ func (p *playlists) folderDialog(c *ui.Context) {
 	d := &p.dialogs
 	s, gen := d.s, d.gen
 	renaming := s.folder != nil
-	title, submitLabel := i18n.T("New folder"), i18n.T("Create folder")
+	title, submitLabel := i18n.T("New Folder"), i18n.T("Create folder")
 	if renaming {
-		title, submitLabel = i18n.T("Rename folder"), i18n.T("Rename")
+		title, submitLabel = i18n.T("Rename Folder"), i18n.T("Rename")
 	}
 	description := i18n.T("Folders group playlists in the sidebar on all your devices.")
 	p.form(c, 384, title, description, func() {
@@ -617,7 +617,7 @@ func (p *playlists) moveDialog(c *ui.Context) {
 				}
 			})
 	}
-	p.picker(c, 384, i18n.T("Move to folder"), s.name, func() {
+	p.picker(c, 384, i18n.T("Move to Folder"), s.name, func() {
 		d.nav.Count = 1 + len(folders)
 		ui.Scroll(c.Key("list")).FillWidth().MaxHeight(listMaxHeight(c, 560, chrome)).Children(func() {
 			ui.Column(c.Key("options")).FillWidth().Padding(0, 12, 12, 12).Role(ui.RoleGroup).Children(func() {
