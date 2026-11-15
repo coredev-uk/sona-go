@@ -39,10 +39,10 @@ func TestOrcaWalk(t *testing.T) {
 	const side = "Sidebar"
 	n := len(o.steps)
 	sp := o.press(side, "Tab")
-	o.want(side, "Tab", sp, "Main", "For you", "link")
+	o.want(side, "Tab", sp, "Main", "For You", "link")
 	o.tabTo(side, "Tab", "Settings", 30)
-	o.wantOrder(side, n, "For you", "Discover", "Charts", "Radio", "Search", "Concerts",
-		"Recently added", "Artists", "Albums", "Songs", "Music videos", "Favourite songs", "History", "Playlists",
+	o.wantOrder(side, n, "For You", "Discover", "Charts", "Radio", "Search", "Concerts",
+		"Recently Added", "Artists", "Albums", "Songs", "Music Videos", "Favourite Songs", "History", "Playlists",
 		"New playlist or folder", "Playlists", "Focus", "Road trip", "Sunday morning", "Settings")
 	o.wantOnce(side, "Tab", o.heard(n), "Current page")
 	o.want(side, "Tab", o.heard(n), "push button menu", "List with 3 items")
@@ -200,7 +200,7 @@ func TestOrcaSetup(t *testing.T) {
 	_ = orcaBin(t)
 	a := startAppWith(t, "-first-run")
 	if _, err := a.client.Wait(startTimeout, "the first-run setup", func(tr *automation.Tree) bool {
-		return tr.HasText("Set up Sona") && tr.HasText("Welcome to Sona")
+		return tr.HasText("Set Up Sona") && tr.HasText("Welcome to Sona")
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestOrcaSetup(t *testing.T) {
 	const confirm = "Setup confirmation"
 	o.tabTo(step, "Tab", "Apple Music", 4)
 	sp = o.press(confirm, "Escape")
-	o.want(confirm, "Escape", sp, "alert", "Skip the rest of the setup?", "Skip setup", "button")
+	o.want(confirm, "Escape", sp, "alert", "Skip the Rest of the Setup?", "Skip setup", "button")
 	sp = o.press(confirm, "Tab")
 	o.want(confirm, "Tab", sp, "Cancel", "button")
 	o.press(confirm, "Escape")

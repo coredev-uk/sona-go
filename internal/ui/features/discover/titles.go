@@ -12,17 +12,17 @@ import (
 func chartTitle(c services.Chart) string {
 	switch c.Key {
 	case services.ChartSongs:
-		return i18n.T("Top songs")
+		return i18n.T("Top Songs")
 	case services.ChartAlbums:
-		return i18n.T("Top albums")
+		return i18n.T("Top Albums")
 	case services.ChartPlaylists:
-		return i18n.T("Top playlists")
+		return i18n.T("Top Playlists")
 	case services.ChartMusicVideos:
-		return i18n.T("Top music videos")
+		return i18n.T("Top Music Videos")
 	case services.ChartCities:
-		return i18n.T("Top 25 songs by city")
+		return i18n.T("Top 25 Songs by City")
 	case services.ChartDailyGlobal:
-		return i18n.T("Top 100 songs by country")
+		return i18n.T("Top 100 Songs by Country")
 	}
 	return c.Title
 }

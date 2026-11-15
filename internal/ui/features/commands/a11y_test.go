@@ -21,7 +21,7 @@ func TestA11yPaletteAndHelp(t *testing.T) {
 		tt := r.tt.Tester
 		access.NoNestedControls(t, tt)
 		tr := access.Read(t, tt)
-		if _, ok := tr.Find(ui.RoleDialog, "Command palette"); !ok {
+		if _, ok := tr.Find(ui.RoleDialog, "Command Palette"); !ok {
 			t.Fatalf("no dialog:\n%s", tr.Dump())
 		}
 		if f, ok := tr.Find(ui.RoleComboBox, "Find a page, action or music in your library"); !ok || !f.Has(access.Focusable) {
@@ -69,10 +69,10 @@ func TestA11yPaletteAndHelp(t *testing.T) {
 		tt := r.tt.Tester
 		access.NoNestedControls(t, tt)
 		tr := access.Read(t, tt)
-		if _, ok := tr.Find(ui.RoleDialog, "Keyboard shortcuts"); !ok {
+		if _, ok := tr.Find(ui.RoleDialog, "Keyboard Shortcuts"); !ok {
 			t.Fatalf("no dialog:\n%s", tr.Dump())
 		}
-		if h, ok := tr.Find(ui.RoleHeading, "Keyboard shortcuts"); !ok || h.Level != 2 {
+		if h, ok := tr.Find(ui.RoleHeading, "Keyboard Shortcuts"); !ok || h.Level != 2 {
 			t.Errorf("title heading: %+v", h)
 		}
 		if h, ok := tr.Find(ui.RoleHeading, "Playback"); !ok || h.Level != 3 {

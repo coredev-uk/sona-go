@@ -401,7 +401,7 @@ func TestTrackListExtras(t *testing.T) {
 		return nil
 	}
 	tt.Frame()
-	for _, want := range []string{"Disc 1", "Disc 2", "Work B", "Popular", "@kim", "Added by", "Artist 0"} {
+	for _, want := range []string{"Disc 1", "Disc 2", "Work B", "Popular", "@kim", "Added By", "Artist 0"} {
 		if !tt.HasText(want) {
 			t.Errorf("no %q in %q", want, tt.Texts())
 		}

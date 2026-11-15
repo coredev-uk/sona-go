@@ -166,9 +166,9 @@ func TestA11yShortcutRecordersAndResetAll(t *testing.T) {
 
 	// Reset all asks, Escape cancels, and the focus returns to the button.
 	r.click("Reset all")
-	r.show("Reset every shortcut?")
+	r.show("Reset Every Shortcut?")
 	r.press(0, ui.KeyEscape)
-	r.hidden("Reset every shortcut?")
+	r.hidden("Reset Every Shortcut?")
 	if len(r.saved()) != 1 {
 		t.Errorf("Escape reset the shortcuts: %v", r.saved())
 	}

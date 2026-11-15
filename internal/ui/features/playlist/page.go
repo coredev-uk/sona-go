@@ -490,7 +490,7 @@ func (p *playlists) featuredShelf(c *ui.Context, d services.PlaylistDetail, menu
 			items[i].Open = func() { p.env.Nav.Push("/artist/" + id) }
 		}
 	}
-	title := i18n.T("Featured artists")
+	title := i18n.T("Featured Artists")
 	p.shelf(c, &p.page.featured, title, title, featuredTile, items, menus)
 }
 
@@ -510,7 +510,7 @@ func (p *playlists) moreShelf(c *ui.Context, d services.PlaylistDetail, menus *k
 			items[i].Open = func() { p.openPlaylist(id) }
 		}
 	}
-	title := i18n.T("More like this")
+	title := i18n.T("More Like This")
 	if name := d.Curator.Name; name != "" {
 		title = i18n.T("More from {curatorName}", "curatorName", name)
 	}

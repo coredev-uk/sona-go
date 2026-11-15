@@ -89,7 +89,7 @@ func TestPlaylistsEvidence(t *testing.T) {
 				tt.Until("edit mode", tt.Shows("Done", "Name and description"))
 				shot("page-edit")
 				click("Name and description")
-				tt.Until("the details dialog", tt.Shows("Changes appear in Apple Music on all your devices."))
+				tt.Until("the details dialog", tt.Shows("Changes Appear in Apple Music on All Your Devices."))
 				shot("dialog-details")
 				tt.Key(0, ui.KeyEscape)
 				tt.Advance(300 * time.Millisecond)

@@ -123,7 +123,7 @@ func (s *Section) ConfirmSignOut() {
 		return
 	}
 	kit.Confirm(kit.ConfirmOptions{
-		Title:        i18n.T("Sign out of Apple Music?"),
+		Title:        i18n.T("Sign Out of Apple Music?"),
 		Body:         i18n.T("Sona removes your token from the keyring, stops playback and deletes the copy of your library on this computer. Your Apple Music library itself isn't changed."),
 		ConfirmLabel: i18n.T("Sign out"),
 		BusyLabel:    i18n.T("Signing out…"),

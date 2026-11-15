@@ -33,7 +33,7 @@ func TestRecentShelfListsTheTermsAndItemsOfTheScopeOnScreen(t *testing.T) {
 	r := newPageRig(t, "/search", rigOpts{})
 	seedRecent(t, r)
 	r.s.refreshRecent()
-	r.tt.Until("the catalog entries", r.tt.Shows("Recently searched", "Clear", "alpha", "Blue Band", "Catalog Song"))
+	r.tt.Until("the catalog entries", r.tt.Shows("Recently Searched", "Clear", "alpha", "Blue Band", "Catalog Song"))
 	for _, w := range []string{"beta", "Library Album", "Library Song"} {
 		if r.tt.HasText(w) {
 			t.Errorf("the catalog scope lists %q", w)
@@ -59,7 +59,7 @@ func TestRecentShelfListsTheTermsAndItemsOfTheScopeOnScreen(t *testing.T) {
 func TestRecentShelfIsHiddenWhenThereIsNothing(t *testing.T) {
 	r := newPageRig(t, "/search?scope=library", rigOpts{})
 	r.tt.Until("the page", r.tt.Shows("Search your library"))
-	if r.tt.HasText("Recently searched") || r.tt.HasText("Clear") {
+	if r.tt.HasText("Recently Searched") || r.tt.HasText("Clear") {
 		t.Error("the shelf shows with nothing remembered")
 	}
 }
@@ -133,7 +133,7 @@ func TestRecentClearForgetsEverything(t *testing.T) {
 	r.s.refreshRecent()
 	r.tt.Until("the entries", r.tt.Shows("Clear", "alpha"))
 	r.click("Clear")
-	r.tt.Until("the shelf gone", func() bool { return !r.tt.HasText("Recently searched") })
+	r.tt.Until("the shelf gone", func() bool { return !r.tt.HasText("Recently Searched") })
 	if got := r.recentKinds(); len(got) != 0 {
 		t.Errorf("after Clear the service remembers %v", got)
 	}

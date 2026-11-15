@@ -15,7 +15,7 @@ import (
 func TestCreateDialogBlankIsDisabledAndEnterSubmits(t *testing.T) {
 	r := newDialogsRig(t)
 	r.show(dialogState{kind: dialogCreate})
-	r.shows("New playlist", "Add songs from any album, playlist or search result.", "Name", "Description",
+	r.shows("New Playlist", "Add Songs From Any Album, Playlist or Search Result.", "Name", "Description",
 		"Show on my profile", "People who follow you can find and play it.", "Create playlist", "Cancel")
 
 	_ = r.tt.Click("Create playlist")
@@ -149,7 +149,7 @@ func TestDetailsDialogSavesAndRefreshesTheDetail(t *testing.T) {
 	r.tt.Until("the first read", func() bool { return r.count("Playlist p.a") == 1 })
 
 	r.show(dialogState{kind: dialogDetails, id: "p.a", name: "Road Trip", description: "Songs", isPublic: true})
-	r.shows("Edit playlist", "Changes appear in Apple Music on all your devices.", "Save")
+	r.shows("Edit Playlist", "Changes Appear in Apple Music on All Your Devices.", "Save")
 	if d := r.p.dialogs; d.name != "Road Trip" || d.description != "Songs" || !d.public {
 		t.Fatalf("the form is not prefilled: %q %q %v", d.name, d.description, d.public)
 	}
@@ -181,7 +181,7 @@ func TestDetailsDialogFailureToastsAndStaysOpen(t *testing.T) {
 func TestFolderDialogCreates(t *testing.T) {
 	r := newDialogsRig(t)
 	r.show(dialogState{kind: dialogFolder})
-	r.shows("New folder", "Folders group playlists in the sidebar on all your devices.", "Create folder")
+	r.shows("New Folder", "Folders group playlists in the sidebar on all your devices.", "Create folder")
 	_ = r.tt.Click("Create folder")
 	if r.asked("CreateFolder") {
 		t.Fatal("a blank name created a folder")
@@ -210,7 +210,7 @@ func TestFolderDialogRenames(t *testing.T) {
 	r := newDialogsRig(t)
 	f := folder("pf.1", "Old name", "", 0)
 	r.show(dialogState{kind: dialogFolder, folder: &f})
-	r.shows("Rename folder", "Rename")
+	r.shows("Rename Folder", "Rename")
 	if r.p.dialogs.name != "Old name" {
 		t.Fatalf("the name is %q, want the folder's", r.p.dialogs.name)
 	}
@@ -239,7 +239,7 @@ func TestMoveDialogMarksTheCurrentFolderAndChoosingItDoesNothing(t *testing.T) {
 	r := newDialogsRig(t)
 	r.seedTree()
 	r.show(dialogState{kind: dialogMove, id: "p.a", name: "Road Trip", folderID: "pf.2"})
-	r.shows("Move to folder", "Road Trip", "Top level", "Mixes", "Mixes / Old")
+	r.shows("Move to Folder", "Road Trip", "Top level", "Mixes", "Mixes / Old")
 	cur, ok := r.tt.Find("Current")
 	if !ok {
 		t.Fatal("no Current mark")
@@ -328,7 +328,7 @@ func TestAddPickerListsRecentFirstThenFolderGroups(t *testing.T) {
 	r := newDialogsRig(t)
 	r.seedTree()
 	r.show(dialogState{kind: dialogAdd, items: rigItems(), label: rigLabel})
-	r.shows("Add to playlist", rigLabel, "New playlist", "Recent", "Playlists", "Mixes", "Road Trip", "Roadie", "Gym", "3 songs")
+	r.shows("Add to Playlist", rigLabel, "New playlist", "Recent", "Playlists", "Mixes", "Road Trip", "Roadie", "Gym", "3 songs")
 	if r.tt.HasText("Apple Curated") {
 		t.Error("a playlist the user cannot edit is listed")
 	}
@@ -494,13 +494,13 @@ func TestShowingADialogReplacesTheOpenOne(t *testing.T) {
 	r.show(dialogState{kind: dialogAdd, items: rigItems(), label: rigLabel})
 	r.shows("Find a playlist")
 	r.show(dialogState{kind: dialogFolder})
-	r.shows("New folder")
-	if r.tt.HasText("Find a playlist") || r.tt.HasText("Add to playlist") {
+	r.shows("New Folder")
+	if r.tt.HasText("Find a playlist") || r.tt.HasText("Add to Playlist") {
 		t.Error("two dialogs are drawn")
 	}
 	r.show(dialogState{kind: dialogMove, id: "p.a", name: "Road Trip"})
-	r.shows("Move to folder")
-	if r.tt.HasText("New folder") {
+	r.shows("Move to Folder")
+	if r.tt.HasText("New Folder") {
 		t.Error("two dialogs are drawn")
 	}
 	if n := kit.TakeDialogsBuilt(); n == 0 {
@@ -513,7 +513,7 @@ func TestShowingADialogReplacesTheOpenOne(t *testing.T) {
 	}
 	r.tt.Key(0, ui.KeyEscape)
 	r.tt.Advance(300 * time.Millisecond)
-	if !r.closed() || r.tt.HasText("Move to folder") {
+	if !r.closed() || r.tt.HasText("Move to Folder") {
 		t.Error("Escape did not close the dialog")
 	}
 }
@@ -597,7 +597,7 @@ func TestDeleteFolderConfirm(t *testing.T) {
 	r := newDialogsRig(t)
 	r.p.deleteFolder("pf.1", "Mixes")
 	r.tt.Frame()
-	r.shows("Delete the folder “Mixes”?", "The empty folder is removed on all your devices.", "Delete folder", "Cancel")
+	r.shows("Delete the Folder “Mixes”?", "The empty folder is removed on all your devices.", "Delete folder", "Cancel")
 	if err := r.tt.Click("Cancel"); err != nil {
 		t.Fatal(err)
 	}

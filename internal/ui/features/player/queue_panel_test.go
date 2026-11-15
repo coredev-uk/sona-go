@@ -214,7 +214,7 @@ func TestTheQueueIsARunningOrderInGroups(t *testing.T) {
 		}
 		return b.Y, b.H
 	}
-	nowY, _ := y("Now playing") // the heading (the equaliser is below it)
+	nowY, _ := y("Now Playing") // the heading (the equaliser is below it)
 	playingY, _ := y("Song 2, Artist 2")
 	nextY, _ := y("Next")
 	firstY, _ := y("Up next: Song 3, Artist 3")

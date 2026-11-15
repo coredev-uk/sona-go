@@ -83,7 +83,7 @@ func newVideosRig(t *testing.T, videos []services.MusicVideo, canPlay bool, opts
 
 func TestMusicVideosPageShowsTheVideos(t *testing.T) {
 	r, _ := newVideosRig(t, videoFixtures(3), false)
-	r.tt.Until("the videos", r.tt.Shows("Music videos", "3 music videos", "Video 0", "Video 1", "Video 2",
+	r.tt.Until("the videos", r.tt.Shows("Music Videos", "3 music videos", "Video 0", "Video 1", "Video 2",
 		"Band 0 · 3:25", "Band 1 · 4:25", "Band 2 · 5:25"))
 	want := []string{"Video 0", "Video 1", "Video 2"}
 	if got := r.order(want...); !slices.Equal(got, want) {
@@ -118,8 +118,8 @@ func TestMusicVideosLoadingShowsNoStateYet(t *testing.T) {
 	for range 20 {
 		r.tt.Drain()
 	}
-	for _, w := range []string{"Music videos", "No music videos in your library", "Sign in to see your music videos"} {
-		if got := r.tt.HasText(w); got != (w == "Music videos") {
+	for _, w := range []string{"Music Videos", "No music videos in your library", "Sign in to see your music videos"} {
+		if got := r.tt.HasText(w); got != (w == "Music Videos") {
 			t.Errorf("while loading %q shown: %v", w, got)
 		}
 	}
@@ -289,7 +289,7 @@ func TestMusicVideosGateStates(t *testing.T) {
 			l.openAccount = func() { opened = true }
 		}, uitest.Empty())
 		r.tt.Until("the sign-in text", r.tt.Shows("Sign in to see your music videos",
-			"Music videos you add in Apple Music are listed here after you sign in.", "Music videos"))
+			"Music videos you add in Apple Music are listed here after you sign in.", "Music Videos"))
 		r.settle()
 		if err := r.tt.Click("Sign in"); err != nil {
 			t.Fatal(err)

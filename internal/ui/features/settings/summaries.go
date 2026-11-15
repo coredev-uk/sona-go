@@ -15,11 +15,11 @@ type startPage struct {
 // config.StartPages).
 func startPages() []startPage {
 	return []startPage{
-		{"/", i18n.T("For you")},
+		{"/", i18n.T("For You")},
 		{"/new", i18n.T("Discover")},
 		{"/charts", i18n.T("Charts")},
 		{"/radio", i18n.T("Radio")},
-		{"/library/recently-added", i18n.T("Recently added")},
+		{"/library/recently-added", i18n.T("Recently Added")},
 		{"/library/artists", i18n.T("Artists")},
 		{"/library/albums", i18n.T("Albums")},
 		{"/library/songs", i18n.T("Songs")},

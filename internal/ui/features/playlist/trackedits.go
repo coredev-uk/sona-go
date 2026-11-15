@@ -33,7 +33,7 @@ func (p *playlists) editTracks(id string, apply func(services.PlaylistDetail) se
 				}
 				if services.CodeOf(err) == services.CodeConflict {
 					kit.ShowToast(kit.ToastSpec{
-						Title:       i18n.T("This playlist changed on another device"),
+						Title:       i18n.T("This Playlist Changed on Another Device"),
 						Description: i18n.T("Here is its latest version. Make the change again."),
 					})
 				} else {

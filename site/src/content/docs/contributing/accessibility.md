@@ -339,7 +339,7 @@ CI runs the walk only when the CI workflow is dispatched with `only` = `orca` or
 
 What it heard, with Orca 50.2:
 
-- **Sidebar, first Tab**: "Main", "For you", "link."; then one link per Tab, the open page "Albums, link." with "Current page" (its current-page state), "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links.
+- **Sidebar, first Tab**: "Main", "For You", "link."; then one link per Tab, the open page "Albums, link." with "Current page" (its current-page state), "New playlist or folder, push button menu. opens popup", "Playlists, List with 3 items", the pins as links.
 - **Top bar**:
   - "search, Search, editable combo box.";
   - the next Tab "leaving search., Account, button. Not signed in. opens popup" (the name once; the popup is `HasPopup(ui.PopupMenu)`);

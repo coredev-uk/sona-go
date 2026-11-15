@@ -13,8 +13,8 @@ func TestCreditTitle(t *testing.T) {
 		want string
 	}{
 		{"performer", services.CreditGroup{Kind: "performer", Title: "PERFORMING ARTISTS"}, "Performers"},
-		{"composition", services.CreditGroup{Kind: "composer-and-lyrics", Title: "COMPOSITION & LYRICS"}, "Composition and lyrics"},
-		{"production", services.CreditGroup{Kind: "production-and-engineering", Title: "PRODUCTION & ENGINEERING"}, "Production and engineering"},
+		{"composition", services.CreditGroup{Kind: "composer-and-lyrics", Title: "COMPOSITION & LYRICS"}, "Composition and Lyrics"},
+		{"production", services.CreditGroup{Kind: "production-and-engineering", Title: "PRODUCTION & ENGINEERING"}, "Production and Engineering"},
 		{"unknown kinds' titles in sentence case", services.CreditGroup{Kind: "other", Title: "MIXING & MASTERING"}, "Mixing and mastering"},
 		{"trimmed", services.CreditGroup{Kind: "other", Title: "  VIDEO  "}, "Video"},
 		{"no title", services.CreditGroup{Kind: "other", Title: ""}, "Credits"},

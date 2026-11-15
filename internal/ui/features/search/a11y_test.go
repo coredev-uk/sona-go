@@ -66,13 +66,13 @@ func TestA11yPages(t *testing.T) {
 			build: func(t *testing.T) *pageRig {
 				return newPageRig(t, "/search", rigOpts{signedIn: true})
 			},
-			ready:    []string{"Browse categories", "Alternative"},
-			headings: []a11yHeading{{"Search", 1}, {"Browse categories", 2}},
+			ready:    []string{"Browse Categories", "Alternative"},
+			headings: []a11yHeading{{"Search", 1}, {"Browse Categories", 2}},
 			present: []a11yNode{
 				{ui.RoleGroup, "Search in"},
 				{ui.RoleToggleButton, "Apple Music"},
 				{ui.RoleToggleButton, "Library"},
-				{ui.RoleTable, "Browse categories"},
+				{ui.RoleTable, "Browse Categories"},
 				{ui.RoleLink, "Alternative"},
 			},
 			tab: []string{"Apple Music", "Library", "Alternative", "Ibiza"},
@@ -85,10 +85,10 @@ func TestA11yPages(t *testing.T) {
 				r.s.refreshRecent()
 				return r
 			},
-			ready:    []string{"Recently searched", "Clear", "alpha", "Blue Band", "Catalog Song"},
-			headings: []a11yHeading{{"Search", 1}, {"Recently searched", 2}},
+			ready:    []string{"Recently Searched", "Clear", "alpha", "Blue Band", "Catalog Song"},
+			headings: []a11yHeading{{"Search", 1}, {"Recently Searched", 2}},
 			present: []a11yNode{
-				{ui.RoleList, "Recently searched"},
+				{ui.RoleList, "Recently Searched"},
 				{ui.RoleButton, "Clear"},
 				{ui.RoleLink, "alpha"},
 				{ui.RoleLink, "Blue Band Artist · Rock"},
@@ -115,10 +115,10 @@ func TestA11yPages(t *testing.T) {
 			build: func(t *testing.T) *pageRig {
 				return newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
 			},
-			ready:    []string{"Top results", "Blue Mix", "Blue Song 1"},
-			headings: []a11yHeading{{"“blue”", 1}, {"Top results", 2}, {"Artists", 2}, {"Albums", 2}, {"Songs", 2}, {"Playlists", 2}},
+			ready:    []string{"Top Results", "Blue Mix", "Blue Song 1"},
+			headings: []a11yHeading{{"“blue”", 1}, {"Top Results", 2}, {"Artists", 2}, {"Albums", 2}, {"Songs", 2}, {"Playlists", 2}},
 			present: []a11yNode{
-				{ui.RoleList, "Top results for blue"},
+				{ui.RoleList, "Top Results for blue"},
 				{ui.RoleLink, "Blue Band Artist · Rock"},
 				{ui.RoleLink, "Blue Hour Album · Blue Band"},
 				{ui.RoleLink, "Blue Song 1 Song · Blue Band"},
@@ -137,7 +137,7 @@ func TestA11yPages(t *testing.T) {
 			build: func(t *testing.T) *pageRig {
 				return newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, setup: func(a *pageApple) { a.songFirst = true }})
 			},
-			ready: []string{"Top results", "Blue Mix", "Blue Song 1"},
+			ready: []string{"Top Results", "Blue Mix", "Blue Song 1"},
 			present: []a11yNode{
 				{ui.RoleLink, "Blue Song 1 Song · Blue Band"},
 				{ui.RoleButton, "Play Blue Song 1"},
@@ -229,7 +229,7 @@ func TestA11yPages(t *testing.T) {
 				return newPageRig(t, "/profile/sp.1", rigOpts{signedIn: true, setup: func(a *pageApple) { a.verified = true }})
 			},
 			ready:    []string{"Taylor Listener", "Shared Mix 1"},
-			headings: []a11yHeading{{"Taylor Listener", 1}, {"Public playlists", 2}},
+			headings: []a11yHeading{{"Taylor Listener", 1}, {"Public Playlists", 2}},
 			present:  []a11yNode{{ui.RoleImage, "Verified"}, {ui.RoleTable, "Playlists shared by Taylor Listener"}, {ui.RoleLink, "Shared Mix 1"}},
 			tab:      []string{"Shared Mix 1", "Shared Mix 2"},
 		},
@@ -283,7 +283,7 @@ func TestA11yPages(t *testing.T) {
 // (a list contains list items, nothing else).
 func TestA11yListsHoldOnlyItems(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
-	r.tt.Until("the results", r.tt.Shows("Top results", "Blue Song 1"))
+	r.tt.Until("the results", r.tt.Shows("Top Results", "Blue Song 1"))
 	tr := access.Read(t, r.tt.Tester)
 	lists := tr.Roles(ui.RoleList)
 	if len(lists) == 0 {
@@ -312,7 +312,7 @@ func TestA11ySearchingIsAStatusAndResultsAreAnnounced(t *testing.T) {
 	var heard []string
 	r.tt.Until("the results", func() bool {
 		heard = append(heard, r.tt.Announcements()...)
-		return r.tt.Shows("Top results", "Blue Song 1")()
+		return r.tt.Shows("Top Results", "Blue Song 1")()
 	})
 	r.tt.Settle()
 	heard = append(heard, r.tt.Announcements()...)
@@ -340,10 +340,10 @@ func TestA11ySearchingIsAStatusAndResultsAreAnnounced(t *testing.T) {
 	if _, ok := tr.Find(ui.RoleStatus, "Searching"); !ok {
 		t.Errorf("no busy status while the next term loads:\n%s", tr.Dump())
 	}
-	if _, ok := tr.Find(ui.RoleHeading, "Top results"); !ok {
+	if _, ok := tr.Find(ui.RoleHeading, "Top Results"); !ok {
 		t.Errorf("the last results went away while loading:\n%s", tr.Dump())
 	}
-	if head, ok := tr.Find(ui.RoleHeading, "Top results"); ok {
+	if head, ok := tr.Find(ui.RoleHeading, "Top Results"); ok {
 		if !slices.ContainsFunc(tr.Ancestors(head), func(a access.Node) bool { return a.Has(access.Busy) }) {
 			t.Errorf("the last results are not in a busy region:\n%s", tr.Dump())
 		}
@@ -444,7 +444,7 @@ func TestA11yFieldIsACombobox(t *testing.T) {
 	inOrder(t, walkLabels(t, r.tt, 10), []string{"Search"})
 
 	r.focusField()
-	r.typeAndWait("blu", "Top results")
+	r.typeAndWait("blu", "Top Results")
 	access.NoNestedControls(t, r.tt.Tester)
 	tr = access.Read(t, r.tt.Tester)
 	box, _ = tr.Find(ui.RoleComboBox, "Search")
@@ -520,9 +520,9 @@ func TestA11yFieldRecentList(t *testing.T) {
 	r := newFieldRig(t, "/library/albums")
 	r.rememberTerm("alpha", scopeCatalog)
 	r.focusField()
-	r.tt.Until("the list", r.tt.Shows("Recently searched", "alpha"))
+	r.tt.Until("the list", r.tt.Shows("Recently Searched", "alpha"))
 	tr := access.Read(t, r.tt.Tester)
-	list, ok := tr.Find(ui.RoleListBox, "Recently searched")
+	list, ok := tr.Find(ui.RoleListBox, "Recently Searched")
 	if !ok {
 		t.Fatalf("no Recently searched list:\n%s", tr.Dump())
 	}
@@ -536,7 +536,7 @@ func TestA11yFieldRecentList(t *testing.T) {
 func TestA11yFieldClearIsATabStopAfterTheField(t *testing.T) {
 	r := newFieldRig(t, "/library/albums")
 	r.focusField()
-	r.typeAndWait("blu", "Top results")
+	r.typeAndWait("blu", "Top Results")
 	r.key(ui.KeyTab)
 	r.tt.Frame()
 	if !r.tt.Focused("Clear search") {

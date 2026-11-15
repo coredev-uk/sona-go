@@ -547,7 +547,7 @@ func removeNote(kind string) string {
 // way. The question is Confirm's: the shell hosts it. Main thread only.
 func (s *ItemStates) Remove(kind string, it StateItem, name string) {
 	Confirm(ConfirmOptions{
-		Title:        i18n.T("Delete “{name}” from your library?", "name", name),
+		Title:        i18n.T("Delete “{name}” From Your Library?", "name", name),
 		Body:         removeNote(kind),
 		ConfirmLabel: i18n.T("Delete"),
 		Destructive:  true,
@@ -572,7 +572,7 @@ func (s *ItemStates) RemoveMany(items []KindedItem, what string) {
 		return
 	}
 	Confirm(ConfirmOptions{
-		Title:        i18n.T("Delete {what} from your library?", "what", what),
+		Title:        i18n.T("Delete {what} From Your Library?", "what", what),
 		Body:         i18n.T("They also leave any playlists they're in."),
 		ConfirmLabel: i18n.T("Delete"),
 		Destructive:  true,

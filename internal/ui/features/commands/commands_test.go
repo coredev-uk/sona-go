@@ -134,7 +134,7 @@ func TestCtrlKOpensThePaletteWithEveryAvailableCommandByGroup(t *testing.T) {
 		"Mute or unmute",           // its When is false
 		"Previous track",           // unavailable
 		"Navigation",               // an empty group is left out
-		"Commands", "In your library", "Apple Music",
+		"Commands", "In Your Library", "Apple Music",
 	} {
 		if r.tt.HasText(s) {
 			t.Errorf("the palette shows %q", s)
@@ -222,11 +222,11 @@ func TestPaletteFindsLibraryItemsAfterAPauseAndOpensThem(t *testing.T) {
 	r := newRig(t)
 	r.tt.Key(ui.Ctrl, ui.KeyK)
 	r.tt.Type("zebra")
-	if r.tt.HasText("In your library") {
+	if r.tt.HasText("In Your Library") {
 		t.Error("the library was asked before the typing paused")
 	}
 	r.tt.Advance(libraryDelay + 10*time.Millisecond)
-	r.tt.Until("the library section", r.tt.Shows("In your library", "Zebra Crossing", "Album · Mia"))
+	r.tt.Until("the library section", r.tt.Shows("In Your Library", "Zebra Crossing", "Album · Mia"))
 	if !r.tt.HasText("Search Apple Music for “zebra”") {
 		t.Error("the Apple Music entry is missing under the library's")
 	}
@@ -299,7 +299,7 @@ func TestQuestionMarkOpensTheHelpListingGroups(t *testing.T) {
 		t.Fatal("? did not open the shortcut help")
 	}
 	for _, s := range []string{
-		"Keyboard shortcuts", "Change any of them in", "Settings", "Playback", "View", "Pages", "General",
+		"Keyboard Shortcuts", "Change any of them in", "Settings", "Playback", "View", "Pages", "General",
 		"Play or pause", "Next track", "Show or hide the sidebar", "Library · Albums", "Open the command palette",
 		"Space", "Ctrl",
 	} {

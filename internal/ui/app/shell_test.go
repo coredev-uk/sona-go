@@ -433,7 +433,7 @@ func TestChoosingResumeSavesThePageOnScreen(t *testing.T) {
 // back to it, and only there.
 func TestPagesFadeInPlaceLeavingAndReturningToForYou(t *testing.T) {
 	a, tt := newShell(t, Options{StartPath: "/"}, pageModule("p",
-		pageDef{"/", "For you", module.NavPrimary, 1},
+		pageDef{"/", "For You", module.NavPrimary, 1},
 		pageDef{"/radio", "Radio", module.NavPrimary, 2},
 	))
 	tt.Frame()
@@ -445,8 +445,8 @@ func TestPagesFadeInPlaceLeavingAndReturningToForYou(t *testing.T) {
 		}
 		return r.X
 	}
-	at := x("page of For you")
-	for _, step := range []struct{ to, title string }{{"/radio", "Radio"}, {"/", "For you"}} {
+	at := x("page of For You")
+	for _, step := range []struct{ to, title string }{{"/radio", "Radio"}, {"/", "For You"}} {
 		a.router.Push(step.to)
 		tt.Frame()
 		tt.Advance(60 * time.Millisecond) // partway

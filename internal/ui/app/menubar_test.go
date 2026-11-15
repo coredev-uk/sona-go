@@ -69,7 +69,7 @@ func menuNav() [3][]module.NavItem {
 		return module.NavItem{To: to, Label: func() string { return label }}
 	}
 	var nav [3][]module.NavItem
-	nav[module.NavPrimary] = []module.NavItem{item("/", "For you"), item("/new", "Discover"), item("/radio", "Radio"), item("/search", "Search")}
+	nav[module.NavPrimary] = []module.NavItem{item("/", "For You"), item("/new", "Discover"), item("/radio", "Radio"), item("/search", "Search")}
 	nav[module.NavLibrary] = []module.NavItem{item("/library/songs", "Songs"), item("/library/albums", "Albums")}
 	nav[module.NavFooter] = []module.NavItem{item("/settings", "Settings")}
 	return nav
@@ -152,7 +152,7 @@ func TestMenuBarModel(t *testing.T) {
 		"Go > Back [Cmd+[]",
 		"Go > Forward [Cmd+]] disabled",
 		"Go > ---",
-		"Go > For you [Cmd+1]",
+		"Go > For You [Cmd+1]",
 		"Go > Discover [Cmd+2]",
 		"Go > Radio [Cmd+3]",
 		"Go > Search [Cmd+4]",
@@ -437,7 +437,7 @@ func TestMenuBarFollowsTheLanguage(t *testing.T) {
 	// Pages are the modules' own words (menuNav's labels are fixed text);
 	// everything else was looked up.
 	for i, e := range english {
-		if strings.Contains(e, "---") || strings.Contains(e, "For you") || strings.Contains(e, "Discover") || strings.Contains(e, "Radio") ||
+		if strings.Contains(e, "---") || strings.Contains(e, "For You") || strings.Contains(e, "Discover") || strings.Contains(e, "Radio") ||
 			strings.Contains(e, "Search") || strings.Contains(e, "Songs") || strings.Contains(e, "Albums") {
 			continue
 		}
@@ -626,7 +626,7 @@ func TestGoMenuPagesFollowTheirBindings(t *testing.T) {
 		return nil
 	}
 	if got, want := describeMenu(bar(), ""), []string{
-		"For you [Cmd+1]", "Discover [Cmd+2]", "Radio [Cmd+3]", "Search [Cmd+4]", "---", "Library", "Library > Songs", "Library > Albums",
+		"For You [Cmd+1]", "Discover [Cmd+2]", "Radio [Cmd+3]", "Search [Cmd+4]", "---", "Library", "Library > Songs", "Library > Albums",
 	}; !slices.Equal(got, want) {
 		t.Fatalf("Go menu:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}

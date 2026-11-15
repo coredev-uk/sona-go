@@ -52,7 +52,7 @@ var artistShows = func() []spec {
 
 func TestArtistConcertsShelfShowsThreeThenAll(t *testing.T) {
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900001", true) }, artistShows...)
-	r.shows("Upcoming concerts", "Show all 4", "Example Hall", "Placeholder Arena", "Faraway Stadium", "More concerts near London")
+	r.shows("Upcoming Concerts", "Show all 4", "Example Hall", "Placeholder Arena", "Faraway Stadium", "More concerts near London")
 	// The venue leads on an artist's own page, with the city under it; the
 	// name is left out, and so is a portrait and a link.
 	r.shows("London", "Watford", "Wed", "Apr")
@@ -72,7 +72,7 @@ func TestArtistConcertsNamesTheLineupOnlyWhenOthersPlay(t *testing.T) {
 	with := artistShows[0]
 	with.lineup = "Example Band with Opener Duo"
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900001", true) }, with, artistShows[1])
-	r.shows("Upcoming concerts", "Example Hall", "Example Band with Opener Duo")
+	r.shows("Upcoming Concerts", "Example Hall", "Example Band with Opener Duo")
 	r.tt.Lacks("Show all")
 	r.lacksExactly("Example Band")
 }
@@ -80,11 +80,11 @@ func TestArtistConcertsNamesTheLineupOnlyWhenOthersPlay(t *testing.T) {
 func TestArtistConcertsDrawsNothingWithNoShowsOrOnFailure(t *testing.T) {
 	r := shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900099", true) }, artistShows...)
 	answered(r, func() store.Result[services.ArtistConcerts] { return dataOf(r.h.Env).artist("900099") })
-	r.tt.Lacks("Upcoming concerts")
+	r.tt.Lacks("Upcoming Concerts")
 
 	r = shelfRig(t, 1132, true, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900001", true) }, artistShows...)
 	answered(r, func() store.Result[services.ArtistConcerts] { return dataOf(r.h.Env).artist("900001") })
-	r.tt.Lacks("Upcoming concerts")
+	r.tt.Lacks("Upcoming Concerts")
 }
 
 func TestConcertsShelfShowsTheNextSixInTwoColumns(t *testing.T) {

@@ -25,7 +25,7 @@ const (
 func groupTitle(group string) string {
 	switch group {
 	case "top":
-		return i18n.T("Top results")
+		return i18n.T("Top Results")
 	case "artist":
 		return i18n.T("Artists")
 	case "album":
@@ -35,13 +35,13 @@ func groupTitle(group string) string {
 	case "playlist":
 		return i18n.T("Playlists")
 	case "radio_show":
-		return i18n.T("Radio shows")
+		return i18n.T("Radio Shows")
 	case "radio_episode":
-		return i18n.T("Radio episodes")
+		return i18n.T("Radio Episodes")
 	case "station":
 		return i18n.T("Stations")
 	case "music_video":
-		return i18n.T("Music videos")
+		return i18n.T("Music Videos")
 	case "category":
 		return i18n.T("Categories")
 	case "curator":
@@ -51,7 +51,7 @@ func groupTitle(group string) string {
 	case "profile":
 		return i18n.T("Profiles")
 	case "shared_playlist":
-		return i18n.T("Playlists by listeners")
+		return i18n.T("Playlists by Listeners")
 	}
 	words := strings.TrimSpace(strings.Join(strings.FieldsFunc(group, func(r rune) bool { return r == '_' || r == '-' }), " "))
 	if words == "" {

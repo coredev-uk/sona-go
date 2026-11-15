@@ -166,7 +166,7 @@ func TestA11yShelvesNameTheirLists(t *testing.T) {
 		}, []string{"Concerts in London", "Example Hall"}, "Concerts in London", "See all"},
 		{"artist", func(t *testing.T) *rig {
 			return shelfRig(t, 1132, false, func(c *ui.Context, r *rig) { ArtistConcerts(c, r.h.Env, "900001", true) }, artistShows...)
-		}, []string{"Upcoming concerts", "Example Hall"}, "Upcoming concerts", "More concerts near London"},
+		}, []string{"Upcoming Concerts", "Example Hall"}, "Upcoming Concerts", "More concerts near London"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := tc.build(t)

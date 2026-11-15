@@ -15,7 +15,7 @@ import (
 
 func TestRecentlyAddedShowsAlbumsNewestFirst(t *testing.T) {
 	r := newGridRig(t, recentPath, nil, uitest.Albums(sevenAlbums...))
-	r.tt.Until("the entries", r.tt.Shows("Recently added", "7 albums and playlists", "Paper Planes", "Zebra Crossing", "Di", "Mia"))
+	r.tt.Until("the entries", r.tt.Shows("Recently Added", "7 albums and playlists", "Paper Planes", "Zebra Crossing", "Di", "Mia"))
 	want := []string{"Paper Planes", "Single Malt", "Blue Hour", "Mango Season", "Lone Wolf", "Apple Orchard", "Zebra Crossing"}
 	if got := r.order(names(sevenAlbums)...); !slices.Equal(got, want) {
 		t.Errorf("entries shown %q, want %q", got, want)
@@ -131,7 +131,7 @@ func TestRecentlyAddedGateStates(t *testing.T) {
 		r := newGridRig(t, recentPath, func(l *library, _ *gridStub) {
 			l.openAccount = func() { opened = true }
 		}, uitest.Empty())
-		r.tt.Until("the sign-in text", r.tt.Shows("Sign in to see your recent additions", "Recently added"))
+		r.tt.Until("the sign-in text", r.tt.Shows("Sign in to see your recent additions", "Recently Added"))
 		r.settle()
 		if err := r.tt.Click("Sign in"); err != nil {
 			t.Fatal(err)

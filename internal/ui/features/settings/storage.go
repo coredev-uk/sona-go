@@ -89,7 +89,7 @@ func (s *settings) storage(c *ui.Context) {
 	share := math.Min(1, float64(u.ArtworkBytes)/float64(int64(limit)<<20))
 
 	s.stack(c, func() {
-		s.group(c, "storage-usage", i18n.T("On this computer"), "", func() {
+		s.group(c, "storage-usage", i18n.T("On This Computer"), "", func() {
 			s.line(c)
 			ui.Row(c.Key("figures")).FillWidth().Gap(24).Padding(rowPadY, 0, rowPadY, 0).AlignItems(ui.Start).Children(func() {
 				s.figure(c, "art", i18n.T("Artwork cache"), artUsed, i18n.T("of {artworkLimit}", "artworkLimit", artLimit), func() {
@@ -110,7 +110,7 @@ func (s *settings) storage(c *ui.Context) {
 				})
 			})
 		})
-		s.group(c, "storage-keeping", i18n.T("Limit and cleanup"), "", func() {
+		s.group(c, "storage-keeping", i18n.T("Limit and Cleanup"), "", func() {
 			s.selectRow(c, rowOpts{
 				ID: "art-cache", Title: i18n.T("Artwork cache"),
 				Desc: i18n.T("Covers and backdrops kept on this computer so pages open without downloading them again. Above the limit, the artwork shown least recently is removed first."),

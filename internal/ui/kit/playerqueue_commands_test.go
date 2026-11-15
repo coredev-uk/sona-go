@@ -221,7 +221,7 @@ func TestReplacingALongUserQueueCanAskFirst(t *testing.T) {
 		mt.until(t, "the question", ConfirmPending)
 	}
 	ask()
-	if pendingConfirm.Title != "Replace your queue?" || pendingConfirm.ConfirmLabel != "Replace queue" {
+	if pendingConfirm.Title != "Replace Your Queue?" || pendingConfirm.ConfirmLabel != "Replace queue" {
 		t.Fatalf("the question: %+v", pendingConfirm)
 	}
 	settleConfirm(false)

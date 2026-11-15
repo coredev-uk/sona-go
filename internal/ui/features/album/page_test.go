@@ -148,7 +148,7 @@ func TestLibraryOnlyAlbumHasNoCatalogueExtras(t *testing.T) {
 		Tracks: []services.Song{track(1, "First"), track(2, "Second")}, DurationMs: 400000,
 	}
 	r.shows("Demos", "First")
-	r.wantNoTexts("Popular", "Notes", "Other versions", "More by Mia Vale", "You might also like")
+	r.wantNoTexts("Popular", "Notes", "Other Versions", "More by Mia Vale", "You Might Also Like")
 	// No catalogue page, so the byline links to the library artist.
 	r.click("Mia Vale")
 	if got := r.path(); got != "/artist/r.1" {
@@ -883,7 +883,7 @@ func TestCatalogueSections(t *testing.T) {
 		p.AppearsOn = []services.Playlist{{ID: "pl.1", Name: "Road Trip", Curator: "Apple Music Indie"}}
 		p.Similar = []services.Album{{ID: "300", Name: "Dust", Artist: "Cy Moor"}}
 	}))
-	r.shows("Other versions", "Music videos", "More to hear", "More by Mia Vale", "Featured in playlists", "You might also like")
+	r.shows("Other Versions", "Music Videos", "More to Hear", "More by Mia Vale", "Featured in Playlists", "You Might Also Like")
 	r.tt.Scroll(600, 300, 0, 2400)
 	r.tt.Settle()
 	r.wantTexts("Salt Flats (Deluxe)", "Low Tide (Video)", "Salt Flats, the story", "Record Club", "Blue Hour", "2021", "Road Trip", "Dust", "Cy Moor")

@@ -130,9 +130,9 @@ Reject a match when:
 
 ### Choose the wording
 
-Sona's English is sentence case ([design.md](design.md)) and stays so. `match` ignores case, curly quotes, ellipses and closing punctuation, so "Add to library" maps to Apple's "Add to Library". A title-case Apple string is no reason to reject a match.
+Sona's English titles are in Title Case and the rest is in sentence case ([design.md](design.md), "Wording and case"): "Made for You" as a heading, "Add to library" as a button. Write each message in the case of the place it is shown; the same words in a title and in a button are two messages. `match` ignores case, curly quotes, ellipses and closing punctuation, so Apple's "Add to Library" maps to Sona's "Add to library", and Apple's title-case "Top Picks for You" maps to a title as it is. A title-case Apple string is no reason to reject a match.
 
-**Adopt Apple's wording**, in sentence case, whenever Apple's string names the same action, concept or state in the same kind of UI place, even when the words differ:
+**Adopt Apple's wording**, in the case of the place it is shown (Title Case for a title, sentence case otherwise), whenever Apple's string names the same action, concept or state in the same kind of UI place, even when the words differ:
 
 - the verb or the articles;
 - "Back" for "Go back";

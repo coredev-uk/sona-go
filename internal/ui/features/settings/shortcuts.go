@@ -151,7 +151,7 @@ func (s *settings) shortcutTools(c *ui.Context, ss *shortcutsState, nothingToRes
 		b := kit.Button(c.Key("reset-all"), i18n.T("Reset all"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Reason: reason})
 		if b.Clicked() && !nothingToReset {
 			kit.Confirm(kit.ConfirmOptions{
-				Title:        i18n.T("Reset every shortcut?"),
+				Title:        i18n.T("Reset Every Shortcut?"),
 				Body:         i18n.T("All shortcuts go back to their default keys."),
 				ConfirmLabel: i18n.T("Reset all"),
 			}, func(ok bool) {

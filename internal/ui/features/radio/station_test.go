@@ -30,7 +30,7 @@ func TestStationPageShowsItsHeader(t *testing.T) {
 		}
 	}
 	// No schedule, no songs: nothing under the header.
-	for _, absent := range []string{"Schedule", "Plays first", "On air"} {
+	for _, absent := range []string{"Schedule", "Plays First", "On Air"} {
 		if rg.tt.HasText(absent) {
 			t.Errorf("a section %q without data", absent)
 		}
@@ -188,7 +188,7 @@ func TestStationPlayStartsTheStationAndReadsItAgain(t *testing.T) {
 	}
 	rg.click("Play Radiohead Station")
 	rg.tt.Until("the play", func() bool { return slices.Equal(rg.api.plays(), []string{"ra.78"}) })
-	// "Plays first" lists the songs after the played batch: the station is
+	// "Plays First" lists the songs after the played batch: the station is
 	// read again once it started.
 	rg.tt.Until("the station read again", func() bool { return rg.api.count("station ra.78") == 2 })
 }
@@ -237,7 +237,7 @@ func TestStationPageSaysWhyAStationCannotBePlayed(t *testing.T) {
 func TestStationPageOfABroadcasterSaysWhatIsOnAirWhileItPlays(t *testing.T) {
 	kiss := broadcaster("ra.kiss", "KISS")
 	rg := stationRig(t, services.StationDetail{Station: kiss})
-	rg.tt.Until("the section", rg.tt.Shows("On air", "Play the station to see what is on air."))
+	rg.tt.Until("the section", rg.tt.Shows("On Air", "Play the station to see what is on air."))
 	// Tuned, with nothing named: it says so.
 	rg.playState(services.PlaybackState{
 		State: "playing", Current: &services.QueueItem{ID: "ra.kiss", Live: true, Broadcast: true},
@@ -285,7 +285,7 @@ func TestStationPageListsTheSongsItPlaysFirst(t *testing.T) {
 		{ID: "s2", Name: "Orphan", Artist: "Someone", Album: "Loose", DurationMs: 61000},
 	}}
 	rg := stationRig(t, d)
-	rg.tt.Until("the songs", rg.tt.Shows("Plays first", "Airbag", "Radiohead", "OK Computer", "4:44", "Orphan", "1:01"))
+	rg.tt.Until("the songs", rg.tt.Shows("Plays First", "Airbag", "Radiohead", "OK Computer", "4:44", "Orphan", "1:01"))
 	// The song leads to its album, to the song, and the artist to theirs.
 	rg.click("Airbag")
 	if got := rg.router.Location(); got != "/album/al1?song=s1" {

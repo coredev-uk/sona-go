@@ -47,7 +47,7 @@ func ixPalette(t *testing.T) *rig {
 	r.tt.Key(ui.Ctrl, ui.KeyK)
 	r.tt.Type("zed")
 	r.tt.Advance(libraryDelay + 10*time.Millisecond)
-	r.tt.Until("the library section", r.tt.Shows("In your library", "Zed Artist", "Zed Album", "Zed Playlist", "Quartz Lantern", "Search Apple Music for “zed”"))
+	r.tt.Until("the library section", r.tt.Shows("In Your Library", "Zed Artist", "Zed Album", "Zed Playlist", "Quartz Lantern", "Search Apple Music for “zed”"))
 	r.settle() // the list takes the height of its rows a frame after they arrive
 	r.tt.Frame()
 	return r

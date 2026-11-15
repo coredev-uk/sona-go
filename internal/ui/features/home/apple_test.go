@@ -77,7 +77,7 @@ func TestHomeOverTheRealDiscoverService(t *testing.T) {
 		t.Errorf("module ID %q", m.ID)
 	}
 	if len(m.Nav) != 1 || m.Nav[0].To != "/" || m.Nav[0].Icon != "sparkles" || m.Nav[0].Order != 10 || !m.Nav[0].Exact ||
-		m.Nav[0].Section != module.NavPrimary || m.Nav[0].Label() != "For you" {
+		m.Nav[0].Section != module.NavPrimary || m.Nav[0].Label() != "For You" {
 		t.Errorf("nav %+v", m.Nav)
 	}
 	var patterns []string
@@ -103,7 +103,7 @@ func TestHomeOverTheRealDiscoverService(t *testing.T) {
 		})
 	}, 1132, 3000)
 
-	tt.Until("Home", tt.Shows("For you", "Top Picks for You", "New Music", "Grand Theft Auto VI: The Album", "Hits Station",
+	tt.Until("Home", tt.Shows("For You", "Top Picks for You", "New Music", "Grand Theft Auto VI: The Album", "Hits Station",
 		"Replay: Your Top Music", "Replay All Time", "Recently Played", "Apple Music 1", "Parachutes"))
 	// The concerts shelf is the concerts feature's: nothing stands in for it.
 	if tt.HasText("Concerts") {

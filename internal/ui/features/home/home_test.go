@@ -47,7 +47,7 @@ func TestHomeShowsTheLeadTheShelvesAndTheIndex(t *testing.T) {
 	r.until("the page", "Top Picks for You", "Because You Like Rock")
 
 	// The header: the title and when Apple picked, with Refresh.
-	requireTexts(t, r, "For you", "Picked for you 5 min. ago", "Refresh")
+	requireTexts(t, r, "For You", "Picked for you 5 min. ago", "Refresh")
 	// The lead: its first pick large with what it is, the rest as rows.
 	requireTexts(t, r, "Lead Album", "Lead Artist", "Album · New Release", "Pick 2", "Pick 9", "Show all 12")
 	requireNoTexts(t, r, "Pick 10", "Pick 12")
@@ -59,10 +59,10 @@ func TestHomeShowsTheLeadTheShelvesAndTheIndex(t *testing.T) {
 	// A caption every item shares is left off.
 	requireNoTexts(t, r, "Apple Music for You")
 	// The shelves past the third plain one are listed, not shown.
-	requireTexts(t, r, "More for you", "Fans Also Like", "3 albums · 1 playlist", "Because You Like Rock", "2 albums")
+	requireTexts(t, r, "More for You", "Fans Also Like", "3 albums · 1 playlist", "Because You Like Rock", "2 albums")
 	requireNoTexts(t, r, "Fan 1", "Rock 1")
 	// Loaded Home has no local shelves, no sign-in notice.
-	requireNoTexts(t, r, "Sign in", "Recommendations need Apple Music", "Recently added", "Your playlists")
+	requireNoTexts(t, r, "Sign in", "Recommendations need Apple Music", "Recently Added", "Your Playlists")
 	if n, _, _ := r.disc.calls(); n != 1 {
 		t.Errorf("Home asked %d times, want once", n)
 	}
@@ -76,10 +76,10 @@ func TestHomeIsSignedOutWithoutRecommendations(t *testing.T) {
 			l.playlists = []services.Playlist{{ID: "p1", Name: "Shelf Mix", TrackCount: 12}, {ID: "p2", Name: "Curated Mix", Curator: "A. Curator"}}
 		}))
 	r.until("the notice", "Recommendations need Apple Music", "Shelf Album", "Curated Mix")
-	requireTexts(t, r, "For you", "Sign in to see picks, mixes and stations chosen for you.", "Sign in",
+	requireTexts(t, r, "For You", "Sign in to see picks, mixes and stations chosen for you.", "Sign in",
 		"Shelf Album", "Shelf Artist", "Shelf Mix", "12 songs", "Curated Mix", "A. Curator")
 	// No Refresh, no Recently played (it is Apple's), and Home was not asked.
-	requireNoTexts(t, r, "Refresh", "Recently played", "Played on this computer")
+	requireNoTexts(t, r, "Refresh", "Recently Played", "Played on This Computer")
 	if n, _, _ := r.disc.calls(); n != 0 {
 		t.Errorf("signed out, Home asked %d times", n)
 	}
@@ -100,11 +100,11 @@ func TestHomeIsSignedOutWithoutRecommendations(t *testing.T) {
 
 func TestHomeWhileRestoringIsALoadingLeadNotTheSignedOutState(t *testing.T) {
 	r := newRig(t, "/", 1132, 1000, withAuth(services.AuthStatus{State: "restoring"}))
-	r.until("the header", "For you")
+	r.until("the header", "For You")
 	for range 3 {
 		r.tt.Drain()
 	}
-	requireNoTexts(t, r, "Recommendations need Apple Music", "Refresh", "Recently added")
+	requireNoTexts(t, r, "Recommendations need Apple Music", "Refresh", "Recently Added")
 	if _, ok := r.tt.Find("Loading"); !ok {
 		t.Errorf("no loading lead; texts %q", r.tt.Texts())
 	}
@@ -120,7 +120,7 @@ func TestHomeShowsOnlyItsHeaderUntilTheSignInStateIsKnown(t *testing.T) {
 	for range 4 {
 		r.tt.Drain()
 	}
-	requireTexts(t, r, "For you")
+	requireTexts(t, r, "For You")
 	requireNoTexts(t, r, "Recommendations need Apple Music", "Sign in", "Refresh", "Loading")
 }
 
@@ -134,7 +134,7 @@ func TestHomeShowsALoadingLeadWhileTheAccountsHomeIsRead(t *testing.T) {
 			close(gate)
 		}
 	})
-	r.until("the header", "For you")
+	r.until("the header", "For You")
 	for range 3 {
 		r.tt.Drain()
 	}
@@ -156,7 +156,7 @@ func TestHomeOfflineWithoutACopyHasNoRetry(t *testing.T) {
 	r.until("the offline notice", "No recommendations while offline", "Sona fetches them as soon as it reconnects.", "Shelf Album")
 	requireNoTexts(t, r, "Refresh", "Try again", "Couldn't load your recommendations")
 	// Signed in, so Apple's recently played list is read too.
-	requireTexts(t, r, "Recently played")
+	requireTexts(t, r, "Recently Played")
 }
 
 func TestHomeErrorOnlineRetries(t *testing.T) {
@@ -183,8 +183,8 @@ func TestHomeWithNothingIsHeaderAndLocalShelves(t *testing.T) {
 			l.recent = []services.Song{{ID: "s1", Name: "Heard Song", Artist: "Heard Artist", Album: "Heard Album", Playable: true}}
 		}))
 	r.until("the local shelves", "Shelf Album", "Heard Song")
-	requireTexts(t, r, "For you", "Refresh", "Recently played", "Recently added")
-	requireNoTexts(t, r, "Recommendations need Apple Music", "More for you")
+	requireTexts(t, r, "For You", "Refresh", "Recently Played", "Recently Added")
+	requireNoTexts(t, r, "Recommendations need Apple Music", "More for You")
 }
 
 func TestHomeSublineSaysWhenTheCopyIsStale(t *testing.T) {
@@ -334,7 +334,7 @@ func TestLeadStacksUnderNineHundredDIPsAndTitlesItselfTopPicksWithoutATitle(t *t
 	page := samplePage()
 	page.Sections[0].Title = ""
 	r := newRig(t, "/", 760, 1253, withHome(page))
-	r.until("the page", "Top picks", "Lead Album", "Pick 2")
+	r.until("the page", "Top Picks", "Lead Album", "Pick 2")
 	// Stacked, the picks sit under the lead pick.
 	lead, _ := r.tt.Find("Lead Album")
 	pick, _ := r.tt.Find("Pick 2")

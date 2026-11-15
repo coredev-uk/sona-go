@@ -21,7 +21,7 @@ func (o *onboarding) welcomeStep(c *ui.Context) {
 		theme.Text(c, i18n.T("A few short steps sign you in and set how it plays, looks and starts. Each can be skipped and changed later in Settings."), "ui").
 			TextColor(theme.C("ink")).MaxWidth(480)
 		o.languageRow(c)
-		stepGroup(c, "needs", i18n.T("What whole songs need"), func() {
+		stepGroup(c, "needs", i18n.T("What Whole Songs Need"), func() {
 			state := i18n.T("Next step")
 			if signedIn {
 				state = i18n.T("Signed in")

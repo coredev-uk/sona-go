@@ -127,7 +127,7 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 			out = append(out, kit.PaletteSection{Title: i18n.T("Commands"), Entries: entries})
 		}
 		if items := m.libraryEntries(c, q); len(items) > 0 {
-			out = append(out, kit.PaletteSection{Title: i18n.T("In your library"), Entries: items})
+			out = append(out, kit.PaletteSection{Title: i18n.T("In Your Library"), Entries: items})
 		}
 		if m.env.Routed("/search") {
 			out = append(out, kit.PaletteSection{Title: i18n.T("Apple Music"), Entries: []kit.PaletteEntry{{

@@ -80,7 +80,7 @@ func New(env *module.Env) module.Module {
 		ID: "onboarding",
 		Routes: []module.Route{{
 			Pattern: welcomePath,
-			Title:   func(*ui.Route) string { return i18n.T("Set up Sona") },
+			Title:   func(*ui.Route) string { return i18n.T("Set Up Sona") },
 			Build:   o.welcome,
 		}},
 		Slots: module.Slots{Layer: o.layer, LayerOpen: env.Surfaces.SetupOpen},

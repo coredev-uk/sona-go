@@ -1260,12 +1260,12 @@ Eight pages under the sidebar's Library section, the sync mirror and its sidebar
 
 | Page | Order | Icon |
 | --- | --- | --- |
-| Recently added | 5 | `clock-3` |
+| Recently Added | 5 | `clock-3` |
 | Artists | 10 | `mic-vocal` |
 | Albums | 20 | `disc-3` |
 | Songs | 30 | `music` |
-| Music videos | 40 | `clapperboard` |
-| Favourite songs | 60 | `star` |
+| Music Videos | 40 | `clapperboard` |
+| Favourite Songs | 60 | `star` |
 | History | 65 | `history` |
 | Playlists | 70 | `list-music` |
 
@@ -1568,11 +1568,11 @@ Registered after video and before radio and the player. It owns:
 
 - Folders come before playlists at every level, by Apple's position then name. Unknown parents go at the top.
 - Pinned and non-editable playlists are left out of the folder tree (their folders count them), except collaborative ones (`TreePlaylist.Collaborative`, stored by the sync), which are the user's own whether hosted or joined and stay in their folder.
-- Sections: Made for you (`pl.pm-` catalogue IDs), Apple Music (the rest the user cannot edit) and own (editable, or collaborative). A joined collaborative playlist is not editable (`CanEdit` false), so the edit, move and drop-in actions stay off it; Delete and Change cover stay.
+- Sections: Made for You (`pl.pm-` catalogue IDs), Apple Music (the rest the user cannot edit) and own (editable, or collaborative). A joined collaborative playlist is not editable (`CanEdit` false), so the edit, move and drop-in actions stay off it; Delete and Change cover stay.
 
 #### Sidebar
 
-- Sections: Pinned, Made for you, Apple Music, Playlists. They wait for pins and tree so a pinned playlist never flashes in its section.
+- Sections: Pinned, Made for You, Apple Music, Playlists. They wait for pins and tree so a pinned playlist never flashes in its section.
 - Open folders and folded sections persist in `config.Settings.Sidebar` (`OpenFolders`, `FoldedSections`). They are read at start and saved through `SystemService.SetSidebar` (one save at a time, newest state last; it changes nothing else in the settings). Settings exports leave the key out: it describes this computer's library view.
 - Playlist rows and pinned editable playlists are `kit.DropOn` targets that accept any payload whose items hold songs, albums or playlists (a queue row's payload carries its song and an `Origin`, which is ignored here). They describe the drop ("Add to …") and add through `PlaylistsService.Add`.
 - The Pinned section and the "New playlist" row are targets that exist while a matching drag is on. A drag resting on a closed folder opens it after 600 ms.
@@ -1703,7 +1703,7 @@ Data is `store.Use` with keys such as `["discover","home"]`, `["discover","page"
 
 #### Home
 
-`/` ("For you", Sparkles, order 10, exact); `/for-you/{id}` shows one shelf in full.
+`/` ("For You", Sparkles, order 10, exact); `/for-you/{id}` shows one shelf in full.
 
 - **The plan** (`plan.go`): the lead is the first `feature` shelf with items; three plain shelves stay open; the rest go to the "More for you" index. Recently Played, station-only shelves, features and heroes never do.
 - **The lead band** is a `kit.Backdrop` over the lead cover's pre-blurred backdrop: the page header as one line, a ruled head, the lead pick with its cover large, and Apple's other picks as one unnumbered running order of eight rows beside it (a row of cover and name over the order below 900 DIPs).

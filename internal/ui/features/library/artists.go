@@ -899,8 +899,8 @@ func (v *artistsView) songsOnly(c *ui.Context, e services.ArtistEntry, group int
 	opts.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Album: true}
 	opts.OnPlay = func(i int) { l.env.Queue.PlaySongs(songs, i, from) }
 	opts.Pane = &kit.Pane{Pos: &pg.detailPos, Bounds: sc.Bounds}
-	ui.Column(c.Key("songs")).FillWidth().Role(ui.RoleGroup).Label(i18n.T("Songs in your library")).Children(func() {
-		theme.Text(c, i18n.T("Songs in your library"), "heading").TextColor(theme.C("ink")).Margin(0, 0, 16, 0).
+	ui.Column(c.Key("songs")).FillWidth().Role(ui.RoleGroup).Label(i18n.T("Songs in Your Library")).Children(func() {
+		theme.Text(c, i18n.T("Songs in Your Library"), "heading").TextColor(theme.C("ink")).Margin(0, 0, 16, 0).
 			Role(ui.RoleHeading).Level(group)
 		kit.TrackList(c, &pg.songs, len(songs), func(i int) *services.Song { return &songs[i] }, opts)
 	})

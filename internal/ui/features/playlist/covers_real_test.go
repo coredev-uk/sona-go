@@ -139,7 +139,7 @@ func (r *realRig) cover(t *testing.T) map[string]string {
 func (r *realRig) open(t *testing.T) {
 	t.Helper()
 	r.p.changeCover(r.id, "Road trip")
-	r.tt.Until("the picker", r.tt.Shows("Playlist cover", "Automatic", "Bars", "Choose an image…"))
+	r.tt.Until("the picker", r.tt.Shows("Playlist Cover", "Automatic", "Bars", "Choose an image…"))
 }
 
 func (r *realRig) chosen(t *testing.T) string {

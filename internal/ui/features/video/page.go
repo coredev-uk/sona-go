@@ -217,7 +217,7 @@ func (v *video) body(c *ui.Context, d services.CatalogVideo, w widths) {
 	}
 	by := kit.CoverShelfOpts{CoverOpts: v.coverOpts(), More: seeAll}
 	v.shelf(c, &v.byline, i18n.T("More by {artistName}", "artistName", vid.Artist), d.MoreByArtist, true, by)
-	v.shelf(c, &v.more, i18n.T("More like this"), d.MoreInGenre, false, kit.CoverShelfOpts{CoverOpts: v.coverOpts()})
+	v.shelf(c, &v.more, i18n.T("More Like This"), d.MoreInGenre, false, kit.CoverShelfOpts{CoverOpts: v.coverOpts()})
 	if vid.ReleaseDate != "" {
 		date := longDate(vid.ReleaseDate)
 		meta := theme.Current().Type["meta"]

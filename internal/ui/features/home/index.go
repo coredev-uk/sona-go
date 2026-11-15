@@ -72,7 +72,7 @@ func (h *home) indexState(id string) *indexLine {
 // line opens its shelf in place. Twelve shelves take one screen instead of
 // four, and their full-size covers load only when asked for.
 func (h *home) shelfIndex(c *ui.Context, sections []services.Section, ctx kit.ItemsCtx) {
-	ruledShelf(c, ruledOpts{Title: i18n.T("More for you")}, func() {
+	ruledShelf(c, ruledOpts{Title: i18n.T("More for You")}, func() {
 		ui.Column(c.Key("list")).Role(ui.RoleList).Children(func() {
 			for i := range sections {
 				h.indexLine(c, sections[i], ctx)

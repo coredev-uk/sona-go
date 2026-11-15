@@ -257,10 +257,10 @@ func TestEndToEndPasswordSignInAndSignOut(t *testing.T) {
 
 	// Sign out: the question, then the form again, the keyring empty.
 	e.click("Sign out")
-	e.shows("Sign out of Apple Music?")
+	e.shows("Sign Out of Apple Music?")
 	e.tt.Key(0, ui.KeyEnter)
 	e.tt.Until("the form", func() bool {
-		return e.tt.HasText("Use the Apple Account with your Apple Music subscription.") && !e.tt.HasText("Sign out of Apple Music?")
+		return e.tt.HasText("Use the Apple Account with your Apple Music subscription.") && !e.tt.HasText("Sign Out of Apple Music?")
 	})
 	if mem.token() != "" {
 		t.Error("the token is still in the keyring")
@@ -292,13 +292,13 @@ func TestEndToEndTwoFactorWrongCodeThenRightCode(t *testing.T) {
 	e.typeInto("Apple Account", "a@example.com")
 	e.typeInto("Password", "pw-secret-3")
 	e.click("Sign in")
-	e.tt.Until("the code step", e.tt.Shows("Enter the verification code"))
+	e.tt.Until("the code step", e.tt.Shows("Enter the Verification Code"))
 	e.shows("Apple sent a 6-digit code to the devices signed in to this Apple Account. Enter it here to finish signing in.")
 
 	// A wrong code: the step stays, the field clears, Apple's attempt stays open.
 	e.typeInto("Code", "999999")
 	e.tt.Until("the wrong code", e.tt.Shows("That code isn't right"))
-	e.shows("Enter the verification code")
+	e.shows("Enter the Verification Code")
 	if e.sec.flow.code != "" || e.mem.token() != "" {
 		t.Errorf("code %q kept, token %q stored", e.sec.flow.code, e.mem.token())
 	}
@@ -320,12 +320,12 @@ func TestEndToEndNoDeviceAccountGetsACallOnTheChosenNumber(t *testing.T) {
 	e.typeInto("Apple Account", "a@example.com")
 	e.typeInto("Password", "pw-secret-4")
 	e.click("Sign in")
-	e.tt.Until("the phone choice", e.tt.Shows("Which number should Apple text?"))
+	e.tt.Until("the phone choice", e.tt.Shows("Which Number Should Apple Text?"))
 	e.shows("No Apple device is signed in to this account, so Apple sends codes by text or call.")
 	e.has("+44 ••••• ••••12", "+1 (•••) •••-••34")
 
 	e.click("Phone call")
-	e.shows("Which number should Apple call?")
+	e.shows("Which Number Should Apple Call?")
 	e.click("+1 (•••) •••-••34")
 	e.click("Call me")
 	e.tt.Until("the code step", e.tt.Shows("Apple is calling +1 (•••) •••-••34 with a 6-digit code."))
@@ -373,7 +373,7 @@ func TestEndToEndBrowserFallbackThroughTheLoopback(t *testing.T) {
 	e.ready()
 	e.click("Sign in with your browser")
 	e.tt.Until("the page opened", func() bool { return len(e.h.Opened()) == 1 })
-	e.tt.Until("the waiting view", e.tt.Shows("Finish signing in in your browser", "Open the page again", "Copy link"))
+	e.tt.Until("the waiting view", e.tt.Shows("Finish Signing in in Your Browser", "Open the page again", "Copy link"))
 	e.lacks("Sign in with your browser")
 	first := e.h.Opened()[0]
 	if !strings.HasPrefix(first, "http://127.0.0.1:") || !strings.Contains(first, "/auth/") {
@@ -406,10 +406,10 @@ func TestEndToEndBrowserFallbackCancel(t *testing.T) {
 	e := newE2E(t, appleidtest.Config{Account: "a@example.com", Password: "pw", MUT: goodMUT}, mem)
 	e.ready()
 	e.click("Sign in with your browser")
-	e.tt.Until("the waiting view", e.tt.Shows("Finish signing in in your browser"))
+	e.tt.Until("the waiting view", e.tt.Shows("Finish Signing in in Your Browser"))
 	e.click("Cancel")
 	e.tt.Until("the form", e.tt.Shows("Use the Apple Account with your Apple Music subscription."))
-	e.lacks("Finish signing in in your browser")
+	e.lacks("Finish Signing in in Your Browser")
 	if mem.token() != "" {
 		t.Error("a cancelled sign-in stored a token")
 	}

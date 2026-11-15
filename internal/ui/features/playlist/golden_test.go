@@ -125,7 +125,7 @@ func TestPlaylistSidebarGolden(t *testing.T) {
 			goldenFont(t)
 			e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.own"))
 			theme.SetMode(tc.mode)
-			e.shows("Pinned", "Made for you", "Apple Music", "Playlists", "Running")
+			e.shows("Pinned", "Made for You", "Apple Music", "Playlists", "Running")
 			// An open folder: its contents hang from a hairline.
 			if err := e.tt.Click("Running"); err != nil {
 				t.Fatal(err)
@@ -179,7 +179,7 @@ func TestPlaylistPageStatesGolden(t *testing.T) {
 				pgSong("s3", "Salt Air", "Wren", "Coast"),
 			}
 		}, func(r *pageRig) {
-			r.shows("This playlist is empty", "Suggested songs", "Show suggestions")
+			r.shows("This playlist is empty", "Suggested Songs", "Show suggestions")
 			r.click("Show suggestions")
 			r.shows("Salt Air")
 		})
@@ -189,7 +189,7 @@ func TestPlaylistPageStatesGolden(t *testing.T) {
 		d.Curator = services.PlaylistCurator{Name: "Apple Music Pop"}
 		d.FeaturedArtists = []services.Artist{{ID: "a1", Name: "Mia"}, {ID: "a2", Name: "Di Lemma"}, {ID: "a3", Name: "Al"}}
 		d.MoreByCurator = []services.Playlist{{ID: "pl.2", Name: "Another Mix", Curator: "Apple Music Pop"}}
-		golden(t, "playlist-featured-dark", 1132, theme.ModeDark, d, nil, func(r *pageRig) { r.shows("Featured artists", "Another Mix") })
+		golden(t, "playlist-featured-dark", 1132, theme.ModeDark, d, nil, func(r *pageRig) { r.shows("Featured Artists", "Another Mix") })
 	})
 }
 
@@ -212,7 +212,7 @@ func TestPlaylistSuggestionsGolden(t *testing.T) {
 		t.Run("collapsed-"+m.suffix, func(t *testing.T) {
 			golden(t, "playlist-suggestions-collapsed-"+m.suffix, 1132, m.mode, goldenDetail(), func(a *fakeAPI) {
 				a.suggestions["p.1"] = goldenSuggestions()
-			}, func(r *pageRig) { r.shows("Suggested songs", "Show suggestions") })
+			}, func(r *pageRig) { r.shows("Suggested Songs", "Show suggestions") })
 		})
 		t.Run("open-"+m.suffix, func(t *testing.T) {
 			golden(t, "playlist-suggestions-open-"+m.suffix, 1132, m.mode, goldenDetail(), func(a *fakeAPI) {

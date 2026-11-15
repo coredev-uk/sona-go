@@ -32,7 +32,7 @@ type band struct {
 func bandTitle(id bandID) string {
 	switch id {
 	case bandMusic:
-		return i18n.T("Songs and albums")
+		return i18n.T("Songs and Albums")
 	case bandPlaylists:
 		return i18n.T("Playlists")
 	case bandRadio:

@@ -172,7 +172,7 @@ func newConfirmApp(t *testing.T) (*confirmApp, *ui.Tester) {
 	theme.SetMode(theme.ModeLight)
 	t.Cleanup(func() { theme.SetMode(theme.ModeSystem); pendingConfirm = nil })
 	a := &confirmApp{o: ConfirmOptions{
-		Title: "Delete “OK Computer” from your library?", Body: "It also leaves any playlists it's in.",
+		Title: "Delete “OK Computer” From Your Library?", Body: "It also leaves any playlists it's in.",
 		ConfirmLabel: "Delete", Destructive: true,
 	}}
 	return a, ui.NewTester(a.view, 640, 480)

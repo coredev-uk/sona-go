@@ -384,7 +384,7 @@ func TestCatalogueArtistPageHasTheHeaderTheLeadAndTheBandsInOrder(t *testing.T) 
 		t.Error("the biography's second paragraph is in the header")
 	}
 	// Top songs beside the essential albums, ahead of the bands.
-	for _, w := range []string{"Top songs", "Top songs by Radiohead", "Essential albums by Radiohead", "Song 1", "Song 6"} {
+	for _, w := range []string{"Top Songs", "Top songs by Radiohead", "Essential albums by Radiohead", "Song 1", "Song 6"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("page lacks %q; texts %q", w, r.tt.Texts())
 		}
@@ -442,7 +442,7 @@ func TestPageAsksTheCatalogueOnceAndShowsSeeAllWhereThereIsMore(t *testing.T) {
 
 func TestSeeAllOpensTheViewPage(t *testing.T) {
 	r := catalogRig(t, nil)
-	r.shows("Top songs")
+	r.shows("Top Songs")
 	r.tt.Drain()
 	if err := r.tt.Click("See all"); err != nil {
 		t.Fatal(err)
@@ -468,7 +468,7 @@ func TestOneReleaseGivesTheCountAndIsNotRepeatedInTheHeader(t *testing.T) {
 	if !r.tt.HasText("Am Sorry") {
 		t.Error("the release is not in the discography")
 	}
-	for _, w := range []string{"About Radiohead", "Read more", "Top songs"} {
+	for _, w := range []string{"About Radiohead", "Read more", "Top Songs"} {
 		if r.tt.HasText(w) {
 			t.Errorf("page has %q", w)
 		}
@@ -580,7 +580,7 @@ func TestPlayIsDisabledWhenNoTopSongCanPlay(t *testing.T) {
 func TestNoPlayButtonsWithoutTopSongs(t *testing.T) {
 	r := catalogRig(t, func(p *services.CatalogArtist) { p.TopSongs = nil })
 	r.shows("Discography")
-	if r.tt.HasText("Shuffle") || r.tt.HasText("Top songs") {
+	if r.tt.HasText("Shuffle") || r.tt.HasText("Top Songs") {
 		t.Errorf("Play buttons or top songs without songs; texts %q", r.tt.Texts())
 	}
 }
@@ -869,10 +869,10 @@ func libraryRig(t *testing.T, withCatalogue bool) *rig {
 
 func TestLibraryArtistShowsWhatIsInTheLibraryFirst(t *testing.T) {
 	r := libraryRig(t, false)
-	r.shows("Mia", "Albums in your library", "Songs in your library")
+	r.shows("Mia", "Albums in Your Library", "Songs in Your Library")
 	for _, w := range []string{
-		"Artist · 3 albums, 3 songs in your library", "Albums in your library", "Own Album", "Second Album",
-		"Singles and EPs in your library", "Short One", "Songs in your library", "Songs by Mia in your library", "Mine 1", "Mine 3",
+		"Artist · 3 albums, 3 songs in your library", "Albums in Your Library", "Own Album", "Second Album",
+		"Singles and EPs in Your Library", "Short One", "Songs in Your Library", "Songs by Mia in your library", "Mine 1", "Mine 3",
 		"Play Mia",
 	} {
 		if !r.tt.HasText(w) {
@@ -887,7 +887,7 @@ func TestLibraryArtistShowsWhatIsInTheLibraryFirst(t *testing.T) {
 			t.Errorf("page has %q without a catalogue page", w)
 		}
 	}
-	if r.y("Albums in your library") > r.y("Singles and EPs in your library") || r.y("Singles and EPs in your library") > r.y("Songs in your library") {
+	if r.y("Albums in Your Library") > r.y("Singles and EPs in Your Library") || r.y("Singles and EPs in Your Library") > r.y("Songs in Your Library") {
 		t.Error("shelves out of order")
 	}
 }
@@ -918,7 +918,7 @@ func TestLibraryArtistWithACataloguePageAddsItsLeadAndBands(t *testing.T) {
 	r.shows("Mia", "Discography", "Related")
 	for _, w := range []string{
 		"Artist · Pop · 3 albums, 3 songs in your library", "More than a band.", "Read more",
-		"Latest release", "Favourite Mia", "More for Mia", "Top songs", "Essential albums by Mia",
+		"Latest release", "Favourite Mia", "More for Mia", "Top Songs", "Essential albums by Mia",
 	} {
 		if !r.tt.HasText(w) {
 			t.Errorf("page lacks %q; texts %q", w, r.tt.Texts())
@@ -927,7 +927,7 @@ func TestLibraryArtistWithACataloguePageAddsItsLeadAndBands(t *testing.T) {
 	if got := r.cat.asked(); !slices.Equal(got, []string{"artist 55"}) {
 		t.Errorf("asked %q", got)
 	}
-	if r.y("Songs in your library") > r.y("Top songs") {
+	if r.y("Songs in Your Library") > r.y("Top Songs") {
 		t.Error("the catalogue body is above the library's songs")
 	}
 	// Library Play keeps the artist's name (the catalogue page's is "top songs").
@@ -1209,7 +1209,7 @@ func TestViewPageEmptyList(t *testing.T) {
 
 func TestViewPageUnknownView(t *testing.T) {
 	r := viewRig(t, "nonsense", nil)
-	r.shows("Not found", "There's no such list", "This artist page doesn't have a list called “nonsense”.", "Go to Artists")
+	r.shows("Not Found", "There's no such list", "This artist page doesn't have a list called “nonsense”.", "Go to Artists")
 	for _, c := range r.cat.asked() {
 		if strings.HasPrefix(c, "view") {
 			t.Errorf("an unknown view was fetched: %q", c)

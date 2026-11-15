@@ -172,7 +172,7 @@ func TestSignOutConfirmKeyboard(t *testing.T) {
 	r.click("Sign out")
 	r.tt.Frame()
 	tr := access.Read(t, r.tt.Tester)
-	if _, ok := tr.Find(ui.RoleAlertDialog, "Sign out of Apple Music?"); !ok {
+	if _, ok := tr.Find(ui.RoleAlertDialog, "Sign Out of Apple Music?"); !ok {
 		t.Fatalf("no alert dialog:\n%s", tr.Dump())
 	}
 	access.NoNestedControls(t, r.tt.Tester)
@@ -182,7 +182,7 @@ func TestSignOutConfirmKeyboard(t *testing.T) {
 	r.tt.Key(0, ui.KeyEscape)
 	r.tt.Advance(300 * time.Millisecond)
 	r.settle()
-	if r.tt.HasText("Sign out of Apple Music?") || r.api.count("SignOut") != 0 {
+	if r.tt.HasText("Sign Out of Apple Music?") || r.api.count("SignOut") != 0 {
 		t.Error("Escape did not cancel the confirm")
 	}
 }

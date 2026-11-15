@@ -396,7 +396,7 @@ func TestInteractionFieldSuggestionRowsPerKind(t *testing.T) {
 			want := []string{tc.click, tc.enter, tc.shiftEnter}[i]
 			t.Run(tc.kind+"/"+g.name, func(t *testing.T) {
 				x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-				x.ixTyped("Top results")
+				x.ixTyped("Top Results")
 				g.do(x, tc.row)
 				if got := x.settled(want); got != want {
 					t.Errorf("%s on the %s suggestion: %s, want %s", g.name, tc.kind, got, want)
@@ -414,7 +414,7 @@ func TestInteractionFieldSongWithoutAPagePlays(t *testing.T) {
 		t.Run("catalogue song, no song page/"+g.name, func(t *testing.T) {
 			x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
 			x.h.Env.HasRoute = func(p string) bool { return ixAllRoutes(p) && !strings.HasPrefix(p, "/song/") }
-			x.ixTyped("Top results")
+			x.ixTyped("Top Results")
 			g.do(x, "Song Alpha")
 			// A click, Enter and Shift+Enter all play it: the cue (play) says so.
 			want := "queue s1; wrote item:song:s1"
@@ -427,7 +427,7 @@ func TestInteractionFieldSongWithoutAPagePlays(t *testing.T) {
 	for _, g := range ixGestures {
 		t.Run("library upload/"+g.name, func(t *testing.T) {
 			x := newIxField(t, "/search?scope=library", lib)
-			x.ixTyped("In your library")
+			x.ixTyped("In Your Library")
 			g.do(x, kit.UploadedLabel("Upload Kappa")) // an upload's row says so (#398)
 			// Played; a library song is never remembered.
 			want := "queue u1"
@@ -437,7 +437,7 @@ func TestInteractionFieldSongWithoutAPagePlays(t *testing.T) {
 		})
 		t.Run("library song with a catalogue copy/"+g.name, func(t *testing.T) {
 			x := newIxField(t, "/search?scope=library", lib)
-			x.ixTyped("In your library")
+			x.ixTyped("In Your Library")
 			g.do(x, "Library Lambda")
 			// Opens its catalogue copy's page; Shift+Enter plays it.
 			want := "nav /song/c.2"
@@ -467,7 +467,7 @@ func TestInteractionFieldLibraryScopeKinds(t *testing.T) {
 		for _, g := range ixGestures {
 			t.Run(tc.row+"/"+g.name, func(t *testing.T) {
 				x := newIxField(t, "/search?scope=library", lib)
-				x.ixTyped("In your library")
+				x.ixTyped("In Your Library")
 				g.do(x, tc.row)
 				want := "nav " + tc.path
 				if got := x.settled(want); !strings.HasPrefix(got, want) || strings.Contains(got, "queue") {
@@ -512,12 +512,12 @@ func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 	// The references: the active completion shows the chevron; the active
 	// library upload shows the play triangle.
 	ref := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-	ref.ixTyped("Top results")
+	ref.ixTyped("Top Results")
 	ref.activate("blue band")
 	chevron := ref.ixGlyph("blue band")
 
 	lib := newIxField(t, "/search?scope=library", &ixAPI{lib: services.LibrarySearch{Songs: []services.Song{*ixItems()["song-upload"].Song}}})
-	lib.ixTyped("In your library")
+	lib.ixTyped("In Your Library")
 	lib.activate(kit.UploadedLabel("Upload Kappa"))
 	play := lib.ixGlyph(kit.UploadedLabel("Upload Kappa"))
 	if chevron == play {
@@ -543,7 +543,7 @@ func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.row, func(t *testing.T) {
 			x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-			x.ixTyped("Top results")
+			x.ixTyped("Top Results")
 			x.activate(tc.row)
 			got := "other"
 			switch x.ixGlyph(tc.row) {
@@ -560,7 +560,7 @@ func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 	t.Run("a song with no page", func(t *testing.T) {
 		x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
 		x.h.Env.HasRoute = func(p string) bool { return ixAllRoutes(p) && !strings.HasPrefix(p, "/song/") }
-		x.ixTyped("Top results")
+		x.ixTyped("Top Results")
 		x.activate("Song Alpha")
 		if got := x.ixGlyph("Song Alpha"); got != play {
 			t.Errorf("a song with no page: the active cue is not the play triangle")
@@ -572,7 +572,7 @@ func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 // suggestion is not a choice.
 func TestInteractionFieldRightClickOnASuggestionDoesNotPick(t *testing.T) {
 	x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-	x.ixTyped("Top results")
+	x.ixTyped("Top Results")
 	if err := x.tt.RightClick("Album Beta"); err != nil {
 		t.Fatal(err)
 	}
@@ -585,7 +585,7 @@ func TestInteractionFieldRightClickOnASuggestionDoesNotPick(t *testing.T) {
 // of its own: it is text.
 func TestInteractionFieldSpaceTypesAndDoesNotChoose(t *testing.T) {
 	x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-	x.ixTyped("Top results")
+	x.ixTyped("Top Results")
 	x.activate("Album Beta")
 	x.tt.Key(0, ui.KeySpace)
 	if got := x.settled("nothing"); got != "nothing" {
@@ -605,7 +605,7 @@ func ixRecent() []services.RecentSearch {
 	}
 }
 
-// TestInteractionFieldRecentRows: the "Recently searched" rows of the empty
+// TestInteractionFieldRecentRows: the "Recently Searched" rows of the empty
 // field, by click, Enter and Shift+Enter.
 func TestInteractionFieldRecentRows(t *testing.T) {
 	cases := []struct {
@@ -649,7 +649,7 @@ func TestInteractionFieldRecentRows(t *testing.T) {
 			t.Run(tc.row+"/"+g.name, func(t *testing.T) {
 				x := newIxField(t, "/library/albums", &ixAPI{recent: ixRecent()})
 				x.focusField()
-				x.tt.Until("the recent entries", x.tt.Shows("Recently searched", tc.row))
+				x.tt.Until("the recent entries", x.tt.Shows("Recently Searched", tc.row))
 				g.do(x, tc.row)
 				if got := x.settled(want); got != want {
 					t.Errorf("%s on %q: %s, want %s", g.name, tc.row, got, want)
@@ -664,7 +664,7 @@ func TestInteractionFieldRecentRows(t *testing.T) {
 func TestInteractionFieldRecentCue(t *testing.T) {
 	ref := newIxField(t, "/library/albums", &ixAPI{recent: ixRecent()})
 	ref.focusField()
-	ref.tt.Until("the recent entries", ref.tt.Shows("Recently searched", "Recent Album"))
+	ref.tt.Until("the recent entries", ref.tt.Shows("Recently Searched", "Recent Album"))
 	ref.activate("Recent Album")
 	chevron := ref.ixGlyph("Recent Album")
 	ref.activate("Recent Upload")
@@ -1326,12 +1326,12 @@ func ixRecentAll() []services.RecentSearch {
 	}
 }
 
-// TestInteractionResultsRecentShelf: the "Recently searched" shelf of the
+// TestInteractionResultsRecentShelf: the "Recently Searched" shelf of the
 // empty search page: which entries show, and what a click, Enter, Shift+Enter,
 // Space and the X do to each.
 func TestInteractionResultsRecentShelf(t *testing.T) {
 	x := newIxPage(t, "/search", &ixAPI{recent: ixRecentAll()}, nil)
-	x.show("Recently searched", "Recent Album")
+	x.show("Recently Searched", "Recent Album")
 	// The catalogue scope lists its own terms and the catalogue's items; the
 	// library's terms and items, and every library song, are left out.
 	for _, hidden := range []string{"Recent Upload", "library term", "Recent Lib Album"} {
@@ -1396,7 +1396,7 @@ func TestInteractionResultsRecentShelf(t *testing.T) {
 	})
 	t.Run("library scope", func(t *testing.T) {
 		l := newIxPage(t, "/search?scope=library", &ixAPI{recent: ixRecentAll()}, nil)
-		l.show("Recently searched", "library term", "Recent Lib Album")
+		l.show("Recently Searched", "library term", "Recent Lib Album")
 		for _, name := range []string{"alpha term", "Recent Album", "Recent Upload"} {
 			if l.r.tt.HasText(name) {
 				t.Errorf("the library scope's shelf shows %q", name)
@@ -1408,7 +1408,7 @@ func TestInteractionResultsRecentShelf(t *testing.T) {
 	})
 	t.Run("pages that are not ported", func(t *testing.T) {
 		u := newIxPage(t, "/search", &ixAPI{recent: ixRecentAll()}, func(p string) bool { return p == "/search" || strings.HasPrefix(p, "/search?") })
-		u.show("Recently searched", "Recent Album")
+		u.show("Recently Searched", "Recent Album")
 		// An entry of a page that is not ported is plain text with its X: a click does nothing.
 		u.mark()
 		u.r.clickText("Recent Album")

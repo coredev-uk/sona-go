@@ -278,7 +278,7 @@ func TestPageEditModeSwapsPlayForDoneAndReturnsFocus(t *testing.T) {
 	r.shows("Songs in Road Trip")
 	r.click("Edit")
 	r.shows("Done", "Name and description", "Edit the songs in Road Trip")
-	for _, gone := range []string{"Play Road Trip", "Shuffle", "Songs in Road Trip", "Suggested songs"} {
+	for _, gone := range []string{"Play Road Trip", "Shuffle", "Songs in Road Trip", "Suggested Songs"} {
 		if r.tt.HasText(gone) {
 			t.Errorf("edit mode still shows %q", gone)
 		}
@@ -314,7 +314,7 @@ func TestPageEditModeWithNoSongsSaysNothingIsLeft(t *testing.T) {
 // openSuggestions opens the collapsed shelf.
 func (r *pageRig) openSuggestions() {
 	r.t.Helper()
-	r.shows("Suggested songs", "Show suggestions")
+	r.shows("Suggested Songs", "Show suggestions")
 	r.click("Show suggestions")
 	r.shows("Hide suggestions")
 }
@@ -331,7 +331,7 @@ func suggestionPair() []services.Song {
 func TestPageSuggestionsStartCollapsedAndFetchWhenOpened(t *testing.T) {
 	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
 	r.api.suggestions["p.1"] = suggestionPair()
-	r.shows("Song A", "Suggested songs", "Show suggestions")
+	r.shows("Song A", "Suggested Songs", "Show suggestions")
 	for range 10 {
 		r.tt.Drain()
 	}
@@ -467,10 +467,10 @@ func TestPageSuggestionsHiddenWhileEditingAndEmptyWhenNoneCame(t *testing.T) {
 
 	r = newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
 	r.api.suggestions["p.1"] = []services.Song{pgSong("s1", "Sugg One", "Singer", "Album S")}
-	r.shows("Suggested songs")
+	r.shows("Suggested Songs")
 	r.click("Edit")
 	r.shows("Done")
-	if r.tt.HasText("Suggested songs") {
+	if r.tt.HasText("Suggested Songs") {
 		t.Error("the suggestions show while editing")
 	}
 }
@@ -495,13 +495,13 @@ func TestPageCollaborativePlaylistShowsTheStackDialogAndAddedBy(t *testing.T) {
 		Viewer:  services.RoleListener,
 		AddedBy: []services.TrackAddedBy{{SongID: "cb", ProfileID: "sp.2"}},
 	}
-	r.shows("Collaborative playlist", "3 songs", "10 min", "Ada & 2 others", "Added by", "Song B")
+	r.shows("Collaborative playlist", "3 songs", "10 min", "Ada & 2 others", "Added By", "Song B")
 	if !r.tt.HasText("Bo") {
 		t.Errorf("no adder in the Added by column: %q", r.tt.Texts())
 	}
 
 	r.click("Ada & 2 others")
-	r.shows("Collaborators", "3 people can add songs to this playlist.", "Former collaborators", "Dee", "@ada", "Owner")
+	r.shows("Collaborators", "3 people can add songs to this playlist.", "Former Collaborators", "Dee", "@ada", "Owner")
 	// A person opens their profile and the dialog goes.
 	r.click("Cy")
 	if got := r.router.Path(); got != "/profile/sp.3" {
@@ -564,7 +564,7 @@ func shelfDetail() services.PlaylistDetail {
 
 func TestPageShelvesLinkToArtistsAndPlaylists(t *testing.T) {
 	r := newPageRig(t, "pl.1", shelfDetail())
-	r.shows("Featured artists", "Zed", "More from Cur", "Other mix")
+	r.shows("Featured Artists", "Zed", "More from Cur", "Other mix")
 	r.click("Zed")
 	if got := r.router.Path(); got != "/artist/ar.1" {
 		t.Errorf("an artist tile went to %q", got)
@@ -593,7 +593,7 @@ func TestPageMoreLikeThisWithNoCurator(t *testing.T) {
 	d.Curator = services.PlaylistCurator{}
 	d.Playlist.Curator = ""
 	r := newPageRig(t, "pl.1", d)
-	r.shows("More like this", "Other mix")
+	r.shows("More Like This", "Other mix")
 	if r.tt.HasText("More from") {
 		t.Error("a curator-less shelf names a curator")
 	}

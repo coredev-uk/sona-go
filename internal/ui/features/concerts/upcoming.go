@@ -59,7 +59,7 @@ func ArtistConcerts(c *ui.Context, env *module.Env, artistID string, first bool)
 	host := ui.Column(c.Key("concerts.artist." + artistID))
 	all := ui.Local(host, "all", func() bool { return false })
 	host.Children(func() {
-		kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Upcoming concerts"), First: first, Actions: func() {
+		kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Upcoming Concerts"), First: first, Actions: func() {
 			if len(shows) <= artistRows {
 				return
 			}
@@ -75,7 +75,7 @@ func ArtistConcerts(c *ui.Context, env *module.Env, artistID string, first bool)
 			if !*all && len(list) > artistRows {
 				list = list[:artistRows]
 			}
-			rows(c, env, list, 1, true, i18n.T("Upcoming concerts"))
+			rows(c, env, list, 1, true, i18n.T("Upcoming Concerts"))
 			if env.Routed(concertsPath) {
 				more := ui.Link(c.Key("more"), "", "").Margin(8, 0, 0, 0)
 				more.Children(func() {

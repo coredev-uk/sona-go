@@ -147,7 +147,7 @@ func (s *Section) codeForm(c *ui.Context, f *flow) {
 	submitted := false
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		ui.Column(c.Key("head")).FillWidth().Children(func() {
-			flowTitle(c, i18n.T("Enter the verification code"))
+			flowTitle(c, i18n.T("Enter the Verification Code"))
 			text(c, where, "body", "ink-muted").Margin(4, 0, 0, 0)
 		})
 		picked = s.methodSwitcher(c.Key("methods"), step.Factor, currentMethod(step), step.Busy)
@@ -227,9 +227,9 @@ func (s *Section) phoneChoice(c *ui.Context, f *flow) {
 	var picked CodeMethod
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
 		ui.Column(c.Key("head")).FillWidth().Children(func() {
-			title := i18n.T("Which number should Apple text?")
+			title := i18n.T("Which Number Should Apple Text?")
 			if mode == ModeVoice {
-				title = i18n.T("Which number should Apple call?")
+				title = i18n.T("Which Number Should Apple Call?")
 			}
 			flowTitle(c, title)
 			text(c, i18n.T("Choose one of the trusted phone numbers on this Apple Account."), "body", "ink-muted").Margin(4, 0, 0, 0)

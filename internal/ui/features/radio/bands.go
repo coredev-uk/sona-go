@@ -43,7 +43,7 @@ func bandTitle(id bandID) string {
 	case bandStations:
 		return i18n.T("Stations")
 	case bandShows:
-		return i18n.T("Shows and episodes")
+		return i18n.T("Shows and Episodes")
 	}
 	return i18n.T("Browse")
 }

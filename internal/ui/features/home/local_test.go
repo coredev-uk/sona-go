@@ -31,9 +31,9 @@ func heardSongs(n int, prefix string) []services.Song {
 
 func TestRecentlyPlayedListsAppleSongsAndPlaysFromTheRow(t *testing.T) {
 	r := newRig(t, "/", 1132, 1253, emptyHome(), withLib(func(l *fakeLib) { l.recent = heardSongs(3, "Heard") }))
-	r.until("the songs", "Recently played", "Heard 1", "Heard 3")
+	r.until("the songs", "Recently Played", "Heard 1", "Heard 3")
 	requireTexts(t, r, "Heard Artist", "Heard Album")
-	requireNoTexts(t, r, "Played on this computer")
+	requireNoTexts(t, r, "Played on This Computer")
 	if _, ok := r.tt.Find("Recently played songs"); !ok {
 		t.Error("the table has no name")
 	}
@@ -55,7 +55,7 @@ func TestRecentlyPlayedListsAppleSongsAndPlaysFromTheRow(t *testing.T) {
 func TestRecentlyPlayedShowsLoadingRowsWhileItReads(t *testing.T) {
 	gate := make(chan struct{})
 	r := newRig(t, "/", 1132, 1253, emptyHome(), withLib(func(l *fakeLib) { l.recentGate = gate }))
-	r.until("the shelf", "Recently played")
+	r.until("the shelf", "Recently Played")
 	if _, ok := r.tt.Find("Loading"); !ok {
 		t.Errorf("no loading rows; texts %q", r.tt.Texts())
 	}
@@ -72,10 +72,10 @@ func TestRecentlyPlayedFallsBackToThisComputersHistory(t *testing.T) {
 			{Day: 1, Entries: entries(heardSongs(6, "Older"))},
 		}
 	}))
-	r.until("this computer's songs", "Played on this computer", "Newer 1")
+	r.until("this computer's songs", "Played on This Computer", "Newer 1")
 	// Ten of them, newest first, from the last 30 days.
 	requireTexts(t, r, "Newer 6", "Older 4")
-	requireNoTexts(t, r, "Older 5", "Recently played")
+	requireNoTexts(t, r, "Older 5", "Recently Played")
 	if n := r.lib.count("history 30"); n != 1 {
 		t.Errorf("History(30) asked %d times", n)
 	}
@@ -92,17 +92,17 @@ func entries(songs []services.Song) []services.HistoryEntry {
 func TestRecentlyPlayedEmptyStatesNameTheirSource(t *testing.T) {
 	r := newRig(t, "/", 1132, 1253, emptyHome(), withLib(func(l *fakeLib) { l.recent = []services.Song{} }))
 	r.until("the empty state", "Nothing played yet", "Songs you play in Sona or Apple Music on any device appear here.")
-	requireTexts(t, r, "Recently played")
+	requireTexts(t, r, "Recently Played")
 
 	// With Apple unreachable and nothing played here either.
 	off := newRig(t, "/", 1132, 1253, emptyHome(), withLib(func(l *fakeLib) { l.recentErr = errDown }))
-	off.until("the offline empty state", "Played on this computer", "Nothing played yet", "Songs you play in Sona appear here.")
+	off.until("the offline empty state", "Played on This Computer", "Nothing played yet", "Songs you play in Sona appear here.")
 	requireNoTexts(t, off, "Songs you play in Sona or Apple Music on any device appear here.")
 }
 
 func TestRecentlyPlayedErrorWithNoFallbackRetries(t *testing.T) {
 	r := newRig(t, "/", 1132, 1253, emptyHome(), withLib(func(l *fakeLib) { l.recentErr, l.historyErr = errDown, errDown }))
-	r.until("the error", "Recently played", "Couldn't load what you played recently", "Try again")
+	r.until("the error", "Recently Played", "Couldn't load what you played recently", "Try again")
 	r.lib.mu.Lock()
 	r.lib.recentErr, r.lib.recent = nil, heardSongs(2, "Back")
 	r.lib.mu.Unlock()
@@ -117,7 +117,7 @@ func TestRecentlyAddedListsTheNewestTwelveAlbumsAndLinksToTheLibrary(t *testing.
 			l.albums = append(l.albums, services.Album{ID: fmt.Sprintf("a%d", i), Name: fmt.Sprintf("Added %d", i), Artist: "Adder"})
 		}
 	}))
-	r.until("the shelf", "Recently added", "Added 1")
+	r.until("the shelf", "Recently Added", "Added 1")
 	if n := r.lib.count("albums dateAdded true \"\" 0 12"); n != 1 {
 		t.Errorf("Albums asked %d times with the shelf's query; asked %q", n, r.lib.asked)
 	}
@@ -136,8 +136,8 @@ func TestRecentlyAddedIsHiddenWhenEmptyAndShowsItsErrorWithRetry(t *testing.T) {
 	r := newRig(t, "/", 1132, 1253, signedOut(), withLib(func(l *fakeLib) {
 		l.playlists = []services.Playlist{{ID: "p1", Name: "Only Playlist", TrackCount: 1}}
 	}))
-	r.until("the playlists", "Your playlists", "Only Playlist", "1 song")
-	requireNoTexts(t, r, "Recently added")
+	r.until("the playlists", "Your Playlists", "Only Playlist", "1 song")
+	requireNoTexts(t, r, "Recently Added")
 
 	e := newRig(t, "/", 1132, 1253, signedOut(), withLib(func(l *fakeLib) { l.albumsErr = errDown }))
 	e.until("the error", "Couldn't read your albums", "Try again")
@@ -156,12 +156,12 @@ func TestYourPlaylistsAreHiddenOnAnErrorAndLinkToTheLibrary(t *testing.T) {
 	}))
 	r.until("the albums", "Found Album")
 	r.tt.Drain()
-	requireNoTexts(t, r, "Your playlists", "Couldn't read your playlists")
+	requireNoTexts(t, r, "Your Playlists", "Couldn't read your playlists")
 
 	p := newRig(t, "/", 1132, 1253, signedOut(), withLib(func(l *fakeLib) {
 		l.playlists = []services.Playlist{{ID: "p1", Name: "Mix One", TrackCount: 3}, {ID: "p2", Name: "Mix Two", Curator: "Some Curator"}}
 	}))
-	p.until("the playlists", "Your playlists", "Mix One", "3 songs", "Mix Two", "Some Curator")
+	p.until("the playlists", "Your Playlists", "Mix One", "3 songs", "Mix Two", "Some Curator")
 	if _, ok := p.tt.Find("Recently updated playlists"); !ok {
 		t.Error("the row has no name")
 	}

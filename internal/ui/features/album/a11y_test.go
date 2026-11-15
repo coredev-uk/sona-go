@@ -76,7 +76,7 @@ func TestA11yCatalogueAlbum(t *testing.T) {
 		p.AppearsOn = []services.Playlist{{ID: "pl.1", Name: "Road Trip", Curator: "Apple Music Indie"}}
 		p.Similar = []services.Album{{ID: "300", Name: "Dust", Artist: "Cy Moor"}}
 	}))
-	r.shows("Other versions", "Music videos", "More to hear")
+	r.shows("Other Versions", "Music Videos", "More to Hear")
 	tr := r.walk(
 		"Mia Vale", "Play Salt Flats", "Shuffle", "Add", "Favourite Salt Flats", "Suggest less like Salt Flats", "More for Salt Flats",
 		"Salt Flats", // the first song's row
@@ -115,7 +115,7 @@ func TestA11yCatalogueAlbum(t *testing.T) {
 	if len(tr.Children(table)) < 6 {
 		t.Errorf("the table holds %d children, want its header and five songs", len(tr.Children(table)))
 	}
-	for _, shelf := range []string{"Other versions", "Music videos", "More to hear", "More by Mia Vale", "Featured in playlists", "You might also like"} {
+	for _, shelf := range []string{"Other Versions", "Music Videos", "More to Hear", "More by Mia Vale", "Featured in Playlists", "You Might Also Like"} {
 		if h, ok := tr.Find(ui.RoleHeading, shelf); !ok || h.Level != 2 {
 			t.Errorf("shelf %q has no h2: %+v", shelf, h)
 		}

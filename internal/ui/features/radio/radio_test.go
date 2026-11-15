@@ -59,14 +59,14 @@ func radioFixture(rg *rig) {
 
 // radioHeadings are the headings of the page, in page order.
 var radioHeadings = []string{
-	"Radio", "Live now", "Local Broadcasters", "Stations", "Your stations", "Stations by Genre",
-	"Shows and episodes", "Latest Episodes", "Browse",
+	"Radio", "Live Now", "Local Broadcasters", "Stations", "Your Stations", "Stations by Genre",
+	"Shows and Episodes", "Latest Episodes", "Browse",
 }
 
 func TestRadioPageLeadsWithTheLiveBoardAndTheLocalBroadcastersThenTheBands(t *testing.T) {
 	rg := newRig(t, radioPath, 1132, 1253, radioFixture)
 	rg.tt.Until("the page", rg.tt.Shows("Local Broadcasters", "Latest Episodes", "Apple Music 1"))
-	want := []string{"Radio", "Live now", "Local Broadcasters", "Stations", "Your stations", "Stations by Genre", "Shows and episodes", "Latest Episodes"}
+	want := []string{"Radio", "Live Now", "Local Broadcasters", "Stations", "Your Stations", "Stations by Genre", "Shows and Episodes", "Latest Episodes"}
 	if got := rg.order(radioHeadings...); !slices.Equal(got, want) {
 		t.Errorf("headings %q, want %q", got, want)
 	}
@@ -95,8 +95,8 @@ func TestRadioPagePutsTheUsersStationsFirstInTheStationsBandWhenSignedIn(t *test
 	rg := newRig(t, radioPath, 1132, 1253, radioFixture, signedIn,
 		fake(func(f *fakeRadio) { f.recent = []services.Station{trackStation("ra.mine", "My Station")} }))
 	rg.tt.Until("the shelf", rg.tt.Shows("My Station", "Stations by Genre"))
-	got := rg.order("Stations", "Your stations", "Stations by Genre")
-	if want := []string{"Stations", "Your stations", "Stations by Genre"}; !slices.Equal(got, want) {
+	got := rg.order("Stations", "Your Stations", "Stations by Genre")
+	if want := []string{"Stations", "Your Stations", "Stations by Genre"}; !slices.Equal(got, want) {
 		t.Errorf("order %q, want %q", got, want)
 	}
 	if rg.tt.HasText("Sign in") {
@@ -115,7 +115,7 @@ func TestRadioPageKeepsApplesLiveShelvesWhenSonaCouldNotListTheLiveStations(t *t
 func TestRadioPageSaysOnceThatNothingLoaded(t *testing.T) {
 	rg := newRig(t, radioPath, 1132, 1253, fake(func(f *fakeRadio) { f.liveErr, f.groupingErr = errors.New("offline"), errors.New("offline") }))
 	rg.tt.Until("the block", rg.tt.Shows("Couldn't load Apple Music's radio"))
-	if rg.tt.HasText("Couldn't load the live stations") || rg.tt.HasText("Live now") {
+	if rg.tt.HasText("Couldn't load the live stations") || rg.tt.HasText("Live Now") {
 		t.Errorf("a part of the page shows beside the whole-page block: %q", rg.tt.Texts())
 	}
 	if n := rg.count("Try again"); n != 1 {
@@ -138,7 +138,7 @@ func TestRadioPageShowsTheUsersStationsAboveAGroupingThatFailed(t *testing.T) {
 		f.recent = []services.Station{trackStation("ra.mine", "My Station")}
 	}))
 	rg.tt.Until("the page", rg.tt.Shows("Couldn't load Apple Music's radio page", "My Station", "Apple Music 1"))
-	if got := rg.order("Your stations", "Couldn't load Apple Music's radio page"); !slices.Equal(got, []string{"Your stations", "Couldn't load Apple Music's radio page"}) {
+	if got := rg.order("Your Stations", "Couldn't load Apple Music's radio page"); !slices.Equal(got, []string{"Your Stations", "Couldn't load Apple Music's radio page"}) {
 		t.Errorf("order %q", got)
 	}
 	if rg.tt.HasText("Couldn't load Apple Music's radio") && !rg.tt.HasText("Couldn't load Apple Music's radio page") {
@@ -170,7 +170,7 @@ func TestRadioPageShowsFramesWhileItLoads(t *testing.T) {
 	if rg.count("Loading") < 2 {
 		t.Errorf("loading frames: %d, want one for the board and one for the bands (%q)", rg.count("Loading"), rg.tt.Texts())
 	}
-	if !rg.tt.HasText("Live now") || !rg.tt.HasText("Radio") {
+	if !rg.tt.HasText("Live Now") || !rg.tt.HasText("Radio") {
 		t.Errorf("the headings wait for the data: %q", rg.tt.Texts())
 	}
 	close(hold)

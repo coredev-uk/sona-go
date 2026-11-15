@@ -232,7 +232,7 @@ func TestA11yDiscoverReadsAsHeadingsGroupsAndListsOfItems(t *testing.T) {
 	tr := access.Read(t, r.tt.Tester)
 
 	for label, level := range map[string]int{
-		"Discover": 1, "On this page": 2, "Songs and albums": 2, "Best New Songs": 2, "New This Week": 2, "Radio": 2, "Browse": 2,
+		"Discover": 1, "On this page": 2, "Songs and Albums": 2, "Best New Songs": 2, "New This Week": 2, "Radio": 2, "Browse": 2,
 	} {
 		if h, ok := tr.Find(ui.RoleHeading, label); !ok {
 			t.Errorf("no heading %q", label)
@@ -240,13 +240,13 @@ func TestA11yDiscoverReadsAsHeadingsGroupsAndListsOfItems(t *testing.T) {
 			t.Errorf("heading %q is level %d, want %d", label, h.Level, level)
 		}
 	}
-	for _, label := range []string{"Featured", "On this page", "Songs and albums", "Radio", "Browse", "Best New Songs"} {
+	for _, label := range []string{"Featured", "On this page", "Songs and Albums", "Radio", "Browse", "Best New Songs"} {
 		if _, ok := tr.Find(ui.RoleGroup, label); !ok {
 			t.Errorf("no group %q", label)
 		}
 	}
 	// The contents: a button per band, and a list of items, each named by its shelf, per band.
-	contents, ok := tr.Find(ui.RoleList, "Songs and albums")
+	contents, ok := tr.Find(ui.RoleList, "Songs and Albums")
 	if !ok {
 		t.Fatal("no list of the shelves of Songs and albums")
 	}
@@ -257,7 +257,7 @@ func TestA11yDiscoverReadsAsHeadingsGroupsAndListsOfItems(t *testing.T) {
 	if want := []string{"Best New Songs", "New This Week"}; !slices.Equal(names, want) {
 		t.Errorf("the shelves of Songs and albums are %q, want %q", names, want)
 	}
-	if b, ok := tr.Find(ui.RoleButton, "Songs and albums"); !ok {
+	if b, ok := tr.Find(ui.RoleButton, "Songs and Albums"); !ok {
 		t.Error("no button jumping to the band")
 	} else if b.Description != "2 shelves" {
 		t.Errorf("the band's button is described %q, want its two shelves", b.Description)
@@ -278,7 +278,7 @@ func TestA11yDiscoverReadsAsHeadingsGroupsAndListsOfItems(t *testing.T) {
 
 	inOrder(t, walk(t, r),
 		"Pause featured rotation",
-		"Songs and albums", "Best New Songs", "New This Week", "Radio", "Listen to Live Radio Now", "Browse", "New for October",
+		"Songs and Albums", "Best New Songs", "New This Week", "Radio", "Listen to Live Radio Now", "Browse", "New for October",
 		"See all", "Sessions")
 }
 
@@ -342,9 +342,9 @@ func TestA11yPagesHaveNoControlInsideAnotherAndAWalkInReadingOrder(t *testing.T)
 				r, _ := newCharts(t, "/charts", chartsFixture())
 				return r
 			},
-			ready:    []string{"Charts", "Top songs", "Song 9", "Genre"},
-			headings: map[string]int{"Charts": 1, "Top songs": 2, "Top albums": 2},
-			stops:    []string{"Genre", "Play Top songs", "Shuffle", "See all", "Song 0", "See all", "See all", "Album 0"},
+			ready:    []string{"Charts", "Top Songs", "Song 9", "Genre"},
+			headings: map[string]int{"Charts": 1, "Top Songs": 2, "Top Albums": 2},
+			stops:    []string{"Genre", "Play Top Songs", "Shuffle", "See all", "Song 0", "See all", "See all", "Album 0"},
 		},
 		{
 			name: "a chart in full",
@@ -352,9 +352,9 @@ func TestA11yPagesHaveNoControlInsideAnotherAndAWalkInReadingOrder(t *testing.T)
 				r, _ := newCharts(t, "/charts/songs", chartsFixture())
 				return r
 			},
-			ready:    []string{"Top songs", "Song 9", "Genre"},
-			headings: map[string]int{"Top songs": 1},
-			stops:    []string{"Play Top songs", "Shuffle", "Genre", "Song 0"},
+			ready:    []string{"Top Songs", "Song 9", "Genre"},
+			headings: map[string]int{"Top Songs": 1},
+			stops:    []string{"Play Top Songs", "Shuffle", "Genre", "Song 0"},
 		},
 		{
 			name: "a curator",

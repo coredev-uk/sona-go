@@ -17,11 +17,11 @@ import (
 
 func TestSidebarListsTheSectionsInOrder(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
-	e.shows("Made for you", "Apple Music", "Playlists", "Road Trip")
+	e.shows("Made for You", "Apple Music", "Playlists", "Road Trip")
 	if e.tt.HasText("Pinned") {
 		t.Error("Pinned shows with no pins")
 	}
-	e.above("Made for you", "Morning Mix")
+	e.above("Made for You", "Morning Mix")
 	e.above("Morning Mix", "Discovery Mix")
 	e.above("Discovery Mix", "Apple Music")
 	e.above("Apple Music", "Quiet Hours")
@@ -63,7 +63,7 @@ func TestSidebarOmitsEmptySections(t *testing.T) {
 	tree.Playlists = []services.TreePlaylist{treePlaylist("p.own", "Road Trip", "", 0, true)}
 	e := sbSetup(t, tree, nil)
 	e.shows("Road Trip")
-	for _, h := range []string{"Made for you", "Apple Music", "Pinned"} {
+	for _, h := range []string{"Made for You", "Apple Music", "Pinned"} {
 		if e.tt.HasText(h) {
 			t.Errorf("%q shows with nothing in it", h)
 		}
@@ -74,7 +74,7 @@ func TestSidebarWaitsForThePinsBeforeListing(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.mix1", "p.mix2", "p.ed"))
 	// The first frame has no answer yet: no list, no empty message.
 	e.tt.Frame()
-	for _, s := range []string{"Morning Mix", "Made for you", "Your playlists appear here.", "Road Trip"} {
+	for _, s := range []string{"Morning Mix", "Made for You", "Your playlists appear here.", "Road Trip"} {
 		if e.tt.HasText(s) {
 			t.Fatalf("%q shows before the tree and pins arrived", s)
 		}
@@ -98,7 +98,7 @@ func sidebarDoesNotFlashAPinnedPlaylistInItsSection(t *testing.T) {
 	close(gate)
 	e.shows("Pinned", "Road Trip")
 	e.above("Pinned", "Morning Mix")
-	e.above("Morning Mix", "Made for you")
+	e.above("Morning Mix", "Made for You")
 }
 
 // sbSlowPins holds the pins back until gate is closed.
@@ -116,7 +116,7 @@ func TestSidebarShowsAPinnedPlaylistUnderPinnedOnly(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.mix1", "p.mix2", "p.ed"))
 	e.shows("Pinned", "Playlists", "Road Trip")
 	// Every mix and the Apple Music playlist are pinned: their sections go.
-	for _, h := range []string{"Made for you", "Apple Music"} {
+	for _, h := range []string{"Made for You", "Apple Music"} {
 		if e.tt.HasText(h) {
 			t.Errorf("%q shows with all its playlists pinned", h)
 		}
@@ -126,10 +126,10 @@ func TestSidebarShowsAPinnedPlaylistUnderPinnedOnly(t *testing.T) {
 
 func TestSidebarKeepsTheUnpinnedOnesOfASection(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), []services.Pin{{Kind: "playlist", ID: "p.mix1", Name: "Morning Mix", Action: "drillIn"}})
-	e.shows("Pinned", "Made for you", "Apple Music", "Playlists", "Discovery Mix")
+	e.shows("Pinned", "Made for You", "Apple Music", "Playlists", "Discovery Mix")
 	e.above("Pinned", "Morning Mix")
-	e.above("Morning Mix", "Made for you")
-	e.above("Made for you", "Discovery Mix")
+	e.above("Morning Mix", "Made for You")
+	e.above("Made for You", "Discovery Mix")
 }
 
 func TestSidebarOwnSectionMessages(t *testing.T) {
@@ -148,7 +148,7 @@ func TestSidebarOwnSectionMessages(t *testing.T) {
 
 func TestSidebarNewPlaylistOrFolderIsOnTheOwnSectionOnly(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
-	e.shows("Made for you", "Playlists", "Road Trip")
+	e.shows("Made for You", "Playlists", "Road Trip")
 	// One button, level with the Playlists heading.
 	r, ok := e.tt.Find("New playlist or folder")
 	if !ok {
@@ -157,7 +157,7 @@ func TestSidebarNewPlaylistOrFolderIsOnTheOwnSectionOnly(t *testing.T) {
 	if h := e.y("Playlists"); r.Y < h-10 || r.Y > h+10 {
 		t.Errorf("the button is at y=%v, the Playlists heading at %v", r.Y, h)
 	}
-	if e.y("Made for you") > e.y("Playlists") {
+	if e.y("Made for You") > e.y("Playlists") {
 		t.Fatal("sections out of order")
 	}
 
@@ -272,7 +272,7 @@ func TestSidebarFolderMenuAndItsDisabledDelete(t *testing.T) {
 	}
 	_ = e.tt.Click("Delete (move its playlists out first)")
 	e.settle()
-	if e.tt.HasText("Delete the folder") {
+	if e.tt.HasText("Delete the Folder") {
 		t.Error("the disabled Delete asked for confirmation")
 	}
 	e.tt.Key(0, ui.KeyEscape)
@@ -297,7 +297,7 @@ func TestSidebarFolderMenuAndItsDisabledDelete(t *testing.T) {
 	// An empty folder can go, after the question.
 	e.more("Nothing", "More for the folder Nothing")
 	e.choose("Delete…")
-	e.shows("Delete the folder “Nothing”?")
+	e.shows("Delete the Folder “Nothing”?")
 	if err := e.tt.Click("Delete folder"); err != nil {
 		t.Fatal(err)
 	}
@@ -640,7 +640,7 @@ func TestAPinnedEditablePlaylistTakesDrops(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), []services.Pin{{Kind: "playlist", ID: "p.own", Name: "Road Trip", Action: "drillIn"}})
 	// The pins list a row before the tree says whether it can be edited:
 	// wait for a section only the tree gives, or the row has no drop yet.
-	e.shows("Pinned", "Road Trip", "Made for you")
+	e.shows("Pinned", "Road Trip", "Made for You")
 	e.grab(sbSongPayload(song("s1", "Airbag", "Radiohead")))
 	e.over("Road Trip")
 	if !e.tt.HasText("Add to “Road Trip”") {

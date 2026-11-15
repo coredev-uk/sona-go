@@ -30,7 +30,7 @@ func (h *home) shelfTitle(r *ui.Route) string {
 	if t := h.titles[r.Param("id")]; t != "" {
 		return t
 	}
-	return i18n.T("For you")
+	return i18n.T("For You")
 }
 
 // shelfPage is HomeShelfPage: a Home shelf in full (up to 100 items) as a

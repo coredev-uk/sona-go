@@ -28,7 +28,7 @@ Follow these rules:
 - The message and its context must be string literals (or literals joined with `+`). A variable or `fmt.Sprintf` result can't reach the catalogue.
 - Put the whole sentence in one message, with `{name}` arguments and ICU plurals. Never build a sentence from pieces: translators can't reorder words they never see together.
 - Changing an English message's wording makes it a new message and drops its translations.
-- Write sentence case.
+- Write titles (page and section headings, nav items, dialog titles, tab, settings group and column names) in Title Case, Apple's style: "Made for You", "Songs in Your Library". Write buttons, menu items, body text, hints and errors in sentence case: "Add to library".
 
 `extract -check` fails, with the changes, when the catalogue is stale. `check` and `go test ./cmd/i18ntool` run it.
 

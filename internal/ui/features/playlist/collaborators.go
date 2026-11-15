@@ -122,9 +122,9 @@ func (p *playlists) collaboratorsDialog(c *ui.Context, collab services.PlaylistC
 		if len(collab.Former) > 0 {
 			ui.Column(c.Key("former")).Gap(8).Role(ui.RoleGroup).Children(func() {
 				tk := theme.Current()
-				ui.Text(c, i18n.T("Former collaborators")).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
+				ui.Text(c, i18n.T("Former Collaborators")).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
 					FontWeight(600).TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleHeading).Level(3)
-				p.peopleList(c, "former-people", i18n.T("Former collaborators"), collab.Former, "")
+				p.peopleList(c, "former-people", i18n.T("Former Collaborators"), collab.Former, "")
 			})
 		}
 	})

@@ -151,7 +151,7 @@ func (p *playlists) sidebarSection(c *ui.Context) {
 		d = &derived{}
 	}
 	p.pinsSection(c, pins.Data, d.editable)
-	p.readOnlySection(c, "made-for-you", i18n.T("Made for you"), d.lists.MadeForYou)
+	p.readOnlySection(c, "made-for-you", i18n.T("Made for You"), d.lists.MadeForYou)
 	p.readOnlySection(c, "apple-music", i18n.T("Apple Music"), d.lists.Apple)
 	p.ownSection(c, d.lists.Own, treePending || pinsPending, d.anyEdit)
 	if am := p.sidebarActions(); am != nil {

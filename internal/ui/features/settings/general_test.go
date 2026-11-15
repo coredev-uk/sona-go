@@ -207,7 +207,7 @@ func (g *generalRig) until(what string, ok func() bool) {
 
 func TestGeneralShowsEveryGroupAndRowInOrder(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Desktop.Autostart = false })
-	g.tt.Until("rows", g.tt.Shows("Starting Sona", "Window", "While music plays", "Updates", "Start Sona when you log in",
+	g.tt.Until("rows", g.tt.Shows("Starting Sona", "Window", "While Music Plays", "Updates", "Start Sona when you log in",
 		"Open on", "First-run setup", "When the window is closed", "Title bar", "Window size", "Track notifications",
 		"Stay awake while playing", "New releases", "Track new releases from favourite artists", "Also show a desktop notification",
 		"Check for updates when Sona starts"))

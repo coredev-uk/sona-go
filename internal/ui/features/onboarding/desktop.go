@@ -51,8 +51,8 @@ func (o *onboarding) desktopStep(c *ui.Context) {
 
 	ui.Column(c.Key("desktop")).FillWidth().Gap(20).Children(func() {
 		if cp.Tray {
-			stepGroup(c, "close", i18n.T("When you close the window"), func() {
-				choiceCards(c, "close", i18n.T("When you close the window"), d.CloseAction, []choice{
+			stepGroup(c, "close", i18n.T("When You Close the Window"), func() {
+				choiceCards(c, "close", i18n.T("When You Close the Window"), d.CloseAction, []choice{
 					{value: config.CloseToBackground, label: i18n.T("Keep playing"), hint: i18n.T("Sona stays in the system tray.")},
 					{value: config.CloseQuits, label: i18n.T("Quit Sona"), hint: i18n.T("The music stops with it.")},
 				}, false, func(v string) {
