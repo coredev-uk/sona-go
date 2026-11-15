@@ -38,8 +38,11 @@ var (
 		"relate": {"catalog,artists"}, "include": {"catalog"}, "fields[albums]": {"isSingle,releaseDate,isPrerelease"},
 		"sort": {"-dateAdded"}, "platform": {"web"},
 	}
-	libraryArtistsQuery   = url.Values{"include": {"catalog"}, "fields[artists]": {"name,artwork,url"}}
-	libraryPlaylistsQuery = url.Values{"relate": {"catalog"}}
+	libraryArtistsQuery = url.Values{"include": {"catalog"}, "fields[artists]": {"name,artwork,url"}}
+	// Playlists with their catalog playlist's lastModifiedDate and nothing
+	// else of it: a personal mix's library copy keeps its first stamp for
+	// years, so Playlist.Modified reads the catalog copy's.
+	libraryPlaylistsQuery = url.Values{"include": {"catalog"}, "fields[playlists]": {"lastModifiedDate"}}
 )
 
 // LibrarySongs walks the user's library songs, newest added first, with

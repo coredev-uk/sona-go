@@ -748,7 +748,7 @@ func (s *Syncer) syncPlaylists(ctx context.Context) (int, bool, error) {
 			var id int64
 			if old, ok := stored[it.ID]; ok {
 				seen++
-				if old.LastModified != "" && old.LastModified == it.Attributes.LastModifiedDate {
+				if old.LastModified != "" && old.LastModified == it.Modified() {
 					id = old.ID
 				}
 			}
@@ -946,7 +946,7 @@ func libraryPlaylistParams(it applemusic.Playlist, now int64) dbq.UpsertLibraryP
 		LibraryID: db.NullString(it.ID), CatalogID: db.NullString(it.CatalogID()),
 		Name: a.Name, Description: a.Description.Text(), CuratorName: a.CuratorName,
 		ArtworkTemplate: a.Artwork.Template(), CanEdit: db.Bool(a.CanEdit), IsPublic: db.Bool(a.IsPublic),
-		LastModified: a.LastModifiedDate, UpdatedAt: now,
+		LastModified: it.Modified(), UpdatedAt: now,
 	}
 }
 

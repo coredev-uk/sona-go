@@ -288,6 +288,21 @@ type Playlist struct {
 	} `json:"relationships"`
 }
 
+// Modified is the stamp that says when p's tracks last changed. It is the
+// playlist's own lastModifiedDate, except for a personal mix: Apple
+// regenerates a mix in its catalog copy and leaves the library copy's stamp
+// where it was (years old), so a mix takes the stamp of its catalog copy
+// when one came with it (the include=catalog of the library queries), and
+// the library copy's stamp otherwise.
+func (p Playlist) Modified() string {
+	if IsPersonalMix(p.CatalogID()) {
+		if c := p.Relationships.Catalog.Data; len(c) > 0 && c[0].Attributes.LastModifiedDate != "" {
+			return c[0].Attributes.LastModifiedDate
+		}
+	}
+	return p.Attributes.LastModifiedDate
+}
+
 // CatalogID returns the catalog playlist ID (playParams.globalId for library
 // playlists, "" for private ones).
 func (p Playlist) CatalogID() string {

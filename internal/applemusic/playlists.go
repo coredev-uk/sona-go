@@ -397,7 +397,7 @@ func (c *Client) LibraryPlaylistEntries(ctx context.Context, id string) ([]Song,
 // LibraryPlaylist fetches library playlist id's attributes.
 func (c *Client) LibraryPlaylist(ctx context.Context, id string) (Playlist, error) {
 	var out Page[Playlist]
-	q := url.Values{"extend[library-playlists]": {"tags"}, "relate": {"catalog"}}
+	q := url.Values{"extend[library-playlists]": {"tags"}, "include": {"catalog"}, "fields[playlists]": {"lastModifiedDate"}}
 	if err := c.amp(ctx, http.MethodGet, playlistPath(id), q, nil, &out); err != nil {
 		return Playlist{}, err
 	}

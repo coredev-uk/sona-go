@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth"
@@ -23,9 +24,10 @@ type PlaylistsService struct {
 	e *Env
 	m mapper
 
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex // per playlist: edits apply one at a time
-	me    string                 // the user's profile ID, once asked (Collaboration)
+	mu      sync.Mutex
+	locks   map[string]*sync.Mutex // per playlist: edits apply one at a time
+	mixSeen map[string]time.Time   // personal mix library ID → when opening it last asked Apple
+	me      string                 // the user's profile ID, once asked (Collaboration)
 }
 
 // newPlaylistsService also refreshes the pins once the network opens and
@@ -80,7 +82,11 @@ func requireLibraryPlaylist(id string) error {
 // from Apple through the catalog cache, with every track.
 func (s *PlaylistsService) Playlist(ctx context.Context, id string) (PlaylistDetail, error) {
 	if applemusic.IsLibraryPlaylistID(id) {
-		return s.libraryDetail(ctx, id)
+		d, err := s.libraryDetail(ctx, id)
+		if err == nil && applemusic.IsPersonalMix(d.Playlist.CatalogID) {
+			s.checkMixSoon(id)
+		}
+		return d, err
 	}
 	cp, err := s.e.Catalog.Playlist(ctx, id)
 	if err != nil {
@@ -168,6 +174,70 @@ func (s *PlaylistsService) libraryDetail(ctx context.Context, id string) (Playli
 		d.URL = "https://music.apple.com/" + s.e.Storefront() + "/playlist/" + p.CatalogID
 	}
 	return d, nil
+}
+
+// mixCheckEvery is how long after asking Apple about a personal mix that
+// opening it asks again.
+const mixCheckEvery = 5 * time.Minute
+
+// checkMixSoon refreshes the personal mix with library ID id in the
+// background if Apple regenerated it since the last sync (see refreshMix),
+// at most once per mixCheckEvery. The page opens from SQLite at once and
+// reloads on "playlists:changed" when the mix moved.
+func (s *PlaylistsService) checkMixSoon(id string) {
+	if s.e.Auth.Status().State != auth.StateSignedIn {
+		return
+	}
+	now := s.e.Now()
+	s.mu.Lock()
+	if last, ok := s.mixSeen[id]; ok && now.Sub(last) < mixCheckEvery {
+		s.mu.Unlock()
+		return
+	}
+	if s.mixSeen == nil {
+		s.mixSeen = map[string]time.Time{}
+	}
+	s.mixSeen[id] = now
+	s.mu.Unlock()
+	s.e.Go("playlists: check mix", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if _, err := s.refreshMix(ctx, id); err != nil {
+			s.e.Logger.Warn("playlists: check mix", "err", err)
+		}
+	})
+}
+
+// refreshMix compares personal mix id's modification stamp on Apple, the
+// one of its catalog copy (applemusic.Playlist.Modified), with the stored
+// one, and when it moved, or its tracks were not stored under it, stores
+// the stamp and the mix's current tracks and emits "playlists:changed". It
+// reports whether it stored them. Apple regenerates a mix without touching
+// its library copy's stamp, so the sync alone would not see it until its
+// next full run.
+func (s *PlaylistsService) refreshMix(ctx context.Context, id string) (bool, error) {
+	defer s.lock(id)()
+	p, err := s.e.API.LibraryPlaylist(ctx, id)
+	if err != nil {
+		return false, s.e.Fail(err)
+	}
+	mod := p.Modified()
+	row, err := s.e.DB.RQ.GetPlaylistByLibraryID(ctx, db.NullString(id))
+	if err != nil {
+		return false, fmt.Errorf("playlist %s: %w", id, err)
+	}
+	if mod == "" || (row.LastModified == mod && row.TracksModified == mod) {
+		return false, nil
+	}
+	tracks, err := s.e.API.LibraryPlaylistTracks(ctx, id, applemusic.PageOptions{Parallel: 2})
+	if err != nil {
+		return false, s.e.Fail(err)
+	}
+	if err := s.e.Library.StorePlaylistTracks(ctx, id, mod, tracks); err != nil {
+		return false, err
+	}
+	s.changed(PlaylistsChanged{IDs: []string{id}})
+	return true, nil
 }
 
 // Suggestions returns songs Apple suggests adding to library playlist id.
@@ -339,7 +409,7 @@ func (s *PlaylistsService) Update(ctx context.Context, id string, in PlaylistInp
 	}
 	modified := s.e.Now().UTC().Format("2006-01-02T15:04:05Z")
 	if p, err := s.e.API.LibraryPlaylist(ctx, id); err == nil {
-		modified = p.Attributes.LastModifiedDate
+		modified = p.Modified()
 	}
 	if err := s.e.Library.UpdatePlaylistDetails(ctx, id, attrs.Name, attrs.Description, attrs.IsPublic, modified); err != nil {
 		return err
@@ -452,7 +522,7 @@ func (s *PlaylistsService) stored(ctx context.Context, id string, entries []appl
 func (s *PlaylistsService) storeTracks(ctx context.Context, id string, entries []applemusic.Song) error {
 	modified := ""
 	if p, err := s.e.API.LibraryPlaylist(ctx, id); err == nil {
-		modified = p.Attributes.LastModifiedDate
+		modified = p.Modified()
 	} else {
 		s.e.Report(err)
 	}
