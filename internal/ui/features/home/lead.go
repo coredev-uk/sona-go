@@ -261,10 +261,15 @@ func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string) (
 			}
 		})
 	}
-	// One line, clipped: the full text is its tooltip. A line that only
-	// repeats the name is left out.
-	if !kit.Repeats(it.Name, it.Subtitle) {
-		theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0).Tooltip(it.Subtitle)
+	// One line, clipped: the full text is its tooltip. A hero card's line is
+	// Apple's line about it (Description); otherwise the artist or curator.
+	// A line that only repeats the name is left out.
+	line := it.Subtitle
+	if it.Description != "" {
+		line = it.Description
+	}
+	if !kit.Repeats(it.Name, line) {
+		theme.Text(c, line, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0).Tooltip(line)
 	}
 	if meta := catalogueLine(it); meta != "" {
 		theme.Text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)

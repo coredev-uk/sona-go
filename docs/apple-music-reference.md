@@ -109,6 +109,18 @@ API:
 
 What it shows: one editorial grouping. Its `tabs[0].children` are `editorial-elements` sections, each with `name`, `editorialElementKind` and a `contents` relationship. Observed sections: hero carousel (kind `316`, nested editorial-elements linking to albums, playlists, music videos and stations), Best New Songs (`327`, songs), New This Week / Recent Releases / Only on Apple Music / Latest DJ Mixes / Coming Soon (`326`, albums), Updated Playlists / New in Music / Now on Tour (playlists), "New for October" (`385`, brick of editorial-elements), Trending Songs, Everyone's Listening To, Daily Top 100 and City Charts (playlists, which link to Charts), Listen to Live Radio Now and New Radio Episodes (stations), Watch Interviews and New Music Videos (music-videos), and More to Explore (`391`, links to groupings and rooms).
 
+**The hero card** (checked on music.apple.com/gb/new and against the groupings response, 2026-11-15). Each card shows:
+
+| Shown | Where it comes from |
+| --- | --- |
+| Badge over the title ("UPDATED PLAYLIST", "NEW DELUXE EDITION + TRACK BY TRACK INTERVIEW") | the card element's `designBadge` |
+| Title | the content's `name` |
+| Subtitle | the content's curator (`curatorName`) or artist (`artistName`) |
+| One line, set over the picture ("Don Toliver just wants to “Party with the Boys”.") | the content's `plainEditorialNotes.short` (`editorialNotes` is absent here) |
+| Picture | the content's `editorialArtwork.subscriptionHero`, cropped `sr` to 1060:608 |
+
+A card of kind `320` (its own `artwork` and `designTag`) shows only the badge and the `designTag` as its title, over its own picture. Sona keeps the content's name and artist there and shows the `designTag` as the card's one line (`services.Item.Description`).
+
 Actions: open or play items, "See All" (opens the section's `room`), and context menus.
 
 | Call | Status | MUT | Response types |

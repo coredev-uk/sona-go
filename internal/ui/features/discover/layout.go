@@ -27,9 +27,11 @@ const (
 	// takes, and leadMinHeight the least it is cut to by that.
 	leadShare     = 0.45
 	leadMinHeight = 280
-	// leadCaption is the lead's caption under its art: a 12 gap, a 30 title
-	// line and an 18 line.
-	leadCaption = 60
+	// leadCaptionGap is the room between the lead's art and its caption,
+	// whose rows are a 30 title, Apple's one line (leadLine, 2 below it)
+	// and an 18 byline.
+	leadCaptionGap = 12
+	leadLine       = 20
 	// moreReserve is the room the caption keeps at its end, beside the
 	// pager's, for the card's menu button.
 	moreReserve = 28

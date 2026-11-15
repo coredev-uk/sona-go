@@ -318,6 +318,10 @@ type Item struct {
 	// Caption is Apple's reason or editorial badge in sentence case ("Made
 	// for you", "New album"), "" when none.
 	Caption string `json:"caption"`
+	// Description is the one line Apple writes for the item on an editorial
+	// hero card: the content's notes ("Don Toliver just wants to …"), or the
+	// card's own tagline. "" when none, and on other cards.
+	Description string `json:"description"`
 	// Art is the item's own artwork: square, round for artists, 16:9 for
 	// videos.
 	Art Art `json:"art"`
