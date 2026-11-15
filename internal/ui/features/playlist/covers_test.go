@@ -25,11 +25,12 @@ const noDesigns = "Apple Music's designs show once it makes this playlist's cove
 // lives.
 const coverNotice = "Only in Sona: Apple Music can't keep covers set here."
 
-// The limitation is a status at the top of the dialog (read where it stands
-// when it opens) and the dialog's own description, so a screen reader hears
-// it with the dialog's name; it is not a second announcement.
+// The limitation is a status at the top of the dialog and the dialog's own
+// description, so a screen reader hears it with the dialog's name as the
+// focus enters; with a screen reader on, nothing announces it a second time.
 func TestCoverDialogNoticeIsExposedToAssistiveTech(t *testing.T) {
 	r := newDialogsRig(t)
+	r.tt.UseScreenReader()
 	r.showCover()
 	tr := access.Read(t, r.tt.Tester)
 	if _, ok := tr.Find(ui.RoleStatus, coverNotice); !ok {
