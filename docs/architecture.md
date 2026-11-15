@@ -368,7 +368,7 @@ What Go shows outside the UI packages is a typed `l10n.Message` in Go's own gett
 
 ### Settings export and import
 
-`config.Export` and `ParseExport`: Go asks for the file through the platform's file chooser (xdg-desktop-portal on Linux) and reads or writes it itself.
+`config.Export` and `ParseExport`: Go asks for the file through the platform's file chooser (xdg-desktop-portal on Linux, MyGo's `Dialog` on macOS and Windows) and reads or writes it itself.
 
 - The document leaves out what belongs to one computer or session (volume, diagnostics, scrobbling accounts, window, autostart, last route, output device, the sidebar's open folders) and never holds secrets.
 - Import rejects anything that isn't an export, a newer version or a wrongly typed value. It applies the rest through `Store.Update`, so values are normalised and observers run.
@@ -945,6 +945,7 @@ These are MyGo's (`cmd/sona/integrations_windows.go`). Where a type is the same 
 | Discord status | Sona's own client (`internal/discord/ipc_windows.go`, not MyGo's): the named pipes `\\.\pipe\discord-ipc-0` to `-9`, each used only when its server process runs as the current user (`docs/security-review.md`, F4). |
 | Stay awake while playing | `Power.KeepAwake`: a power request with `SystemRequired` that `powercfg /requests` lists under SYSTEM while music plays (`inhibit_desktop.go`, shared with macOS). The display may still sleep. |
 | Power source for motion artwork | `Power.IsOnBattery` (the AC line of `GetSystemPowerStatus`), polled and read again on resume and screen unlock (`power_desktop.go`, `internal/power.Poller`). |
+| File chooser for settings export and import | `Dialog`: the shell's IFileOpenDialog and IFileSaveDialog, owned by the main window while it shows (`files_desktop.go`, shared with macOS). Filters are by extension (`*.json`). |
 | Throttling while hidden | Not handled: MyGo's `Power.KeepRunning` does nothing on Windows yet (power throttling and EcoQoS stay on), so `Platform.KeepRunning` is nil there. Audio plays in the CDM host child. |
 
 #### Uninstalling

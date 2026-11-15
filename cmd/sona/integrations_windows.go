@@ -20,13 +20,17 @@ import (
 //     inhibit_desktop.go), and the power source for motion artwork is
 //     Power.IsOnBattery, polled and read again on resume and unlock
 //     (power_desktop.go); both shared with macOS.
+//   - The file chooser for the settings export and import is the shell's
+//     file dialogs, owned by the main window while it shows
+//     (files_desktop.go, shared with macOS).
 //   - KeepRunning stays nil: MyGo's Power.KeepRunning does nothing on
 //     Windows yet (power throttling and EcoQoS stay on), so nothing reports
 //     a hold that isn't there.
-func desktopIntegrations(out *services.Platform, _ *uiapp.Windows) {
+func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
 	out.Notifications = openNotifier
 	out.PlainNotifications = true
 	out.Autostart = desktopLogin{}
 	out.Inhibitor = func(why func() string) services.SleepInhibitor { return newDesktopInhibitor(why) }
 	out.Power = openDesktopPower
+	out.Files = newDesktopFiles(windows.Main)
 }
