@@ -603,8 +603,8 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 				theme.Text(c.Key("meta"), itemMeta(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			})
 			enter := "chevron-right"
-			if o.kind == optItem && !f.opensPage(it) {
-				enter = "play"
+			if o.kind == optItem {
+				enter = f.enterGlyph(it)
 			}
 			f.kindMark(c, kindIcon(it), enter, active)
 		}
@@ -617,7 +617,8 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 
 // kindMark is the row's trailing glyph: its kind's icon, faint, and on the
 // active row the glyph that says what Enter does: the chevron where it
-// opens something, the play triangle where it plays (a song with no page).
+// opens a page, the play triangle where it plays, the arrow out where it
+// leaves Sona (see enterGlyph).
 // An empty icon with the row not active builds nothing.
 func (f *field) kindMark(c *ui.Context, icon, enter string, active bool) {
 	switch {
@@ -626,6 +627,21 @@ func (f *field) kindMark(c *ui.Context, icon, enter string, active bool) {
 	case icon != "":
 		theme.Glyph(c.Key("kind"), icon, 14, theme.GlyphOpts{Color: theme.C("ink-faint")}).Shrink(0).Margin(0, 4, 0, 0)
 	}
+}
+
+// enterGlyph is the glyph that says what Enter does on a result: the play
+// triangle where it plays (a song with no page, a station with no page), the
+// arrow out where it leaves Sona for the browser, the chevron where it opens
+// a page.
+func (f *field) enterGlyph(it services.Item) string {
+	ctx := f.s.env.ItemsCtx(nil)
+	switch {
+	case !f.opensPage(it), kit.PlaysWhenOpened(it, ctx.Players):
+		return "play"
+	case itemPath(it) == "" && it.URL != "" && ctx.OpenURL != nil:
+		return "arrow-up-right"
+	}
+	return "chevron-right"
 }
 
 // opensPage reports whether choosing a top result opens its page; a song
