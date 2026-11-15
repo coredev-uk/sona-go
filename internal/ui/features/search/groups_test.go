@@ -202,7 +202,7 @@ func TestAccessibleNameSaysUploadedForUploadsOnly(t *testing.T) {
 		it   services.Item
 		want string
 	}{
-		{"upload", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceLibrary}}, "Demo, uploaded"},
+		{"upload", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceLibrary, Playable: true}}, "Demo, uploaded"},
 		{"library song with a catalogue copy", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceLibrary, CatalogID: "44"}}, "Demo"},
 		{"catalogue song", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceCatalog}}, "Demo"},
 		{"album", services.Item{Kind: services.ItemAlbum, Name: "Demo"}, "Demo"},
