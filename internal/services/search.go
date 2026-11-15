@@ -227,6 +227,14 @@ func (s *SearchService) Recent(ctx context.Context) ([]RecentSearch, error) {
 	out := make([]RecentSearch, len(rows))
 	for i, r := range rows {
 		out[i] = recentDTO(r)
+		// A library playlist's cover is read now, not as it was when the
+		// search was remembered: Apple gave it none (a mosaic) or the user
+		// changed it since.
+		if r.Kind == ItemPlaylist && out[i].Source == SourceLibrary {
+			if t, ok := s.e.playlistCover(ctx, r.ItemID); ok {
+				out[i].Art = s.m.smallOf(t)
+			}
+		}
 	}
 	return out, nil
 }

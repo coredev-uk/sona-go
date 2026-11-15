@@ -1643,7 +1643,7 @@ A combobox input over `kit.Input` named "Search" (max 520 DIP).
 
 #### Recent searches
 
-They live in Go (`SearchService.Recent`, `RememberTerm`, `RememberItem`, `ForgetRecent`, `ClearRecent`). A remembered song opens its song page again (a library song is never remembered). Remembering is best-effort and never delays opening.
+They live in Go (`SearchService.Recent`, `RememberTerm`, `RememberItem`, `ForgetRecent`, `ClearRecent`). A remembered song opens its song page again (a library song is never remembered). Remembering is best-effort and never delays opening. `Recent` resolves a remembered library playlist's cover when the list is read (`Env.playlistCover`: the user's choice, else Apple's artwork or the mosaic), not from the artwork stored when it was remembered, so a mosaic playlist shows its mosaic and a changed cover shows at once.
 
 ### Concerts (`features/concerts`)
 

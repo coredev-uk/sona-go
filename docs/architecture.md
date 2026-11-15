@@ -187,7 +187,7 @@ A user's choice for a library playlist beats both a mosaic and Apple's cover. Th
 | `cover:<32 hex>` | An image the user chose from a file. `artwork.SaveCover` crops the centre square, scales to at most 1024 px and stores a JPEG in `<data>/covers/`. This is user data and is never evicted with the cache. |
 
 - Apple's generated cover (`…/gen/1200x1200AM.PDCXS1n.jpg?c1…c4&t=<name>&signature…`) becomes a `{w}x{h}` template in `applemusic.Artwork.Template`, since its CDN fills any size. The design is outside the signature.
-- A library playlist outside the library's own lists (a card in For you's Recently Played, which Apple sends with its own artwork or none) gets the same cover when the page is built: `Env.playlistCover` takes the choice (`chosenPlaylistCover`, which pins use too), else `library.AutoCover` (Apple's artwork or the mosaic). The shelf maps on every read, so a changed choice shows the next time Home is read.
+- A library playlist outside the library's own lists (a card in For you's Recently Played, which Apple sends with its own artwork or none; a recent search, which stored the artwork it showed when remembered) gets the same cover when the page is built: `Env.playlistCover` takes the choice (`chosenPlaylistCover`, which pins use too), else `library.AutoCover` (Apple's artwork or the mosaic). Both resolve on every read, so a changed choice shows the next time the list is read.
 - Sign-out and a playlist's removal delete the cover files. Sign-out also removes every cached generated cover in any design, which carry playlist names (`Cache.RemovePatterns`).
 
 ### Private mode
