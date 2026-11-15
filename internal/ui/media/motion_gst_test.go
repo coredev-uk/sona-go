@@ -8,8 +8,27 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 )
+
+// firstPicture is d.Next for the first picture of a clip just opened. Next
+// gives up on a pipeline that has shown nothing for 5 s, and a machine busy
+// enough to start GStreamer's elements later than that has a decoder that is
+// slow to start, not a broken one: it is asked again, for up to a minute, while
+// that is the answer. The pictures after it, and those after a rewind, are
+// asked once, so a stall in them still fails.
+func firstPicture(d ui.VideoDecoder) (ui.VideoFrame, error) {
+	for range 11 {
+		f, err := d.Next()
+		if err == nil || !strings.Contains(err.Error(), "no picture within") {
+			return f, err
+		}
+	}
+	return d.Next()
+}
 
 func TestMotionDecoderPlaysAndLoops(t *testing.T) {
 	path := fixtureClip(t, 12)
@@ -19,9 +38,11 @@ func TestMotionDecoderPlaysAndLoops(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = d.(io.Closer).Close() })
 
+	next := func() (ui.VideoFrame, error) { return firstPicture(d) } // the clip's first picture only
 	count := func() (n int) {
 		for {
-			f, err := d.Next()
+			f, err := next()
+			next = d.Next
 			if errors.Is(err, io.EOF) {
 				return n
 			}
@@ -58,7 +79,7 @@ func TestMotionDecoderPicturesAreNotBlank(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = d.(io.Closer).Close() })
-	f, err := d.Next()
+	f, err := firstPicture(d)
 	if err != nil {
 		t.Fatal(err)
 	}

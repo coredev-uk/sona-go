@@ -197,6 +197,8 @@ A failing run keeps the picture and a diff in the test's artifact directory:
 
 Tests get the directory from `internal/ui/uitest/artifacts`, and only when they fail, because `go test` never caches a run that uses `-artifacts`.
 
+Run a golden's test binary inside `devenv shell` (`devenv shell -- go test …`, or `devenv shell -- /path/to/pkg.test`). MyGo draws Linux text with Pango, which it finds through the shell's `LD_LIBRARY_PATH`. A binary started outside it has no text engine: registering the font fails with "this system has no text engine to add fonts to" (the kit's goldens report it on every test), and a picture drawn anyway has boxes, icons and fills but no text at all.
+
 On a Mac, or any machine whose text differs from CI's, update goldens in the CI image:
 
 ```sh

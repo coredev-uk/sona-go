@@ -15,6 +15,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/artifacts"
 )
 
 // The shared Golden helper arrives with PR 0.3 (internal/ui/uitest); until
@@ -29,17 +30,18 @@ func init() {
 	}
 }
 
-// collectionsFonts registers Sona's interface font once, before any text is
-// laid out: otherwise the pictures use whatever sans the machine has, and
-// depend on the order the tests run in. It shares controlsFont's Once, as
-// the font registers once per process.
+// collectionsFonts registers Sona's interface font before any text is laid
+// out: otherwise the pictures use whatever sans the machine has, and depend
+// on the order the tests run in. theme.RegisterFonts registers once per
+// process and returns that first result on every call, so a machine without a
+// text engine (a test binary run outside `devenv shell`, with no libpango on
+// the library path) fails every golden with its cause, not only the first;
+// the pictures after it would otherwise be drawn without any text.
 func collectionsFonts(t *testing.T) {
 	t.Helper()
-	controlsFont.Do(func() {
-		if err := theme.RegisterFonts(); err != nil {
-			t.Fatal(err)
-		}
-	})
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func collectionsUpdate() bool { return flag.Lookup("update").Value.String() == "true" }
@@ -104,6 +106,11 @@ func collectionsGolden(t *testing.T, name string, img *image.RGBA) {
 		}
 	}
 	if limit := b.Dx() * b.Dy() / 200; bad > limit {
+		// Keep the picture (SONA_TEST_ARTIFACTS): a golden that fails on a
+		// loaded machine and passes alone is diagnosed from what it drew.
+		if err := collectionsWritePNG(filepath.Join(artifacts.Dir(t), "collections-"+name+".png"), img); err == nil {
+			t.Logf("picture kept in %s", artifacts.Dir(t))
+		}
 		t.Errorf("%s: %d pixels differ (limit %d); run `go test -update` if the change is intended", name, bad, limit)
 	}
 }
@@ -214,6 +221,14 @@ func TestCollectionsGolden(t *testing.T) {
 		t.Skip("golden images are compared on Linux only: macOS and Windows draw text differently")
 	}
 	collectionsFonts(t)
+	// The theme's switches are process-wide, and a test before this one may
+	// have left one on: start from the state the goldens were drawn in.
+	theme.SetReducedMotion(false)
+	theme.SetReduceEffects(false)
+	t.Cleanup(func() {
+		theme.SetReducedMotion(false)
+		theme.SetReduceEffects(false)
+	})
 	for _, sc := range collectionsScenes {
 		for _, dark := range []bool{false, true} {
 			mode := "light"

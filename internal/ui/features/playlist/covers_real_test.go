@@ -147,6 +147,15 @@ func (r *realRig) chosen(t *testing.T) string {
 	return (&dialogsRig{tt: r.tt}).chosenCover(t)
 }
 
+// answered waits until the service has answered the dialog's last call. A
+// choice shows in the picker at once, and its controls stay off while the
+// call runs (the button reads "Preparing your image…"): the services have the
+// choice, and the picture is at rest, only after it.
+func (r *realRig) answered() {
+	r.tt.T.Helper()
+	r.tt.Until("the cover call is answered", func() bool { return !r.p.dialogs.busy })
+}
+
 // writeImage writes a w×h picture of one colour as a PNG file.
 func writeImage(t *testing.T, w, h int, c color.RGBA) string {
 	t.Helper()
@@ -232,6 +241,7 @@ func TestRealCoverChoicesReachEverySurface(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Until("Bars is chosen", func() bool { return r.chosen(t) == "Bars" })
+	r.answered()
 	preset := agree(t, before, r.cover(t))
 	if !strings.HasPrefix(preset, "/art/") {
 		t.Fatalf("cover %q", preset)
@@ -246,6 +256,7 @@ func TestRealCoverChoicesReachEverySurface(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Until("None is chosen", func() bool { return r.chosen(t) == "None" })
+	r.answered()
 	for surface, got := range r.cover(t) {
 		if got != "" {
 			t.Errorf("%s shows %q for none", surface, got)
@@ -257,6 +268,7 @@ func TestRealCoverChoicesReachEverySurface(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Until("the image is chosen", func() bool { return r.chosen(t) == "Your image" })
+	r.answered()
 	upload := agree(t, map[string]string{}, r.cover(t))
 	if upload == preset || !strings.HasPrefix(upload, "/art/") {
 		t.Fatalf("uploaded cover %q (preset %q)", upload, preset)
@@ -277,6 +289,7 @@ func TestRealCoverChoicesReachEverySurface(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Until("Automatic is chosen", func() bool { return r.chosen(t) == "Automatic" })
+	r.answered()
 	for surface, got := range r.cover(t) {
 		if got != before[surface] {
 			t.Errorf("%s shows %q after Automatic, was %q", surface, got, before[surface])
@@ -334,6 +347,7 @@ func TestCoverPickerGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			r.tt.Until("Dots is chosen", func() bool { return r.chosen(t) == "Dots" })
+			r.answered()
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), c.name)
 		})
@@ -355,6 +369,7 @@ func TestCoverPickerScrollsInTheSmallestWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Until("Bars is chosen", func() bool { return r.chosen(t) == "Bars" })
+	r.answered()
 	r.tt.Key(0, ui.KeyEnd)
 	r.tt.Until("the last cover has the focus", func() bool { return r.tt.Focused("Haze") })
 	r.tt.Settle()

@@ -99,10 +99,11 @@ func TestA11yThemeGalleryIsOneRadioGroup(t *testing.T) {
 	})
 	r.tt.Key(0, ui.KeyLeft)
 	r.saved("graphite again", func(s config.Settings) bool { return s.ThemeID == "graphite" })
-	tr = access.Read(t, r.tt.Tester)
-	if n, _ := tr.Find(ui.RoleRadio, "Graphite"); !n.Has(access.Checked) {
-		t.Error("the chosen card is not checked")
-	}
+	// The same for the last card: the store has it, the view may not yet.
+	r.tt.Until("graphite checked", func() bool {
+		n, _ := access.Read(t, r.tt.Tester).Find(ui.RoleRadio, "Graphite")
+		return n.Has(access.Checked)
+	})
 }
 
 func TestChoosingAThemeAppliesItAtOnceAndSaves(t *testing.T) {
