@@ -31,7 +31,7 @@ func (st *TrackListState) headingHeight(o *TrackListOpts, i int, at func(i int) 
 		prev = at(i - 1)
 	}
 	var h float32
-	disc := multiDisc && (i == 0 || prev == nil || prev.DiscNumber != s.DiscNumber)
+	disc := startsDisc(multiDisc, prev, s)
 	if disc {
 		top := float32(20)
 		if i == 0 {

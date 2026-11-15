@@ -100,6 +100,21 @@ func ExplicitMark(c *ui.Context) ui.Element {
 	return controlsTooltip(c, e, i18n.T("Explicit"), false)
 }
 
+// UploadedBadge reads "Uploaded" beside a song the user uploaded (one with no
+// catalogue copy), where its row sits among catalogue songs: a quiet outline
+// pill with the upload glyph, so it never competes with the title. Give it a
+// key where its row builds other children without one.
+func UploadedBadge(c *ui.Context) ui.Element {
+	return Badge(c, i18n.T("Uploaded"), BadgeOpts{Variant: BadgeOutline, Icon: "upload"})
+}
+
+// UploadedLabel is a row's accessible name with the upload badge's meaning
+// after it ("Demo, uploaded"), so assistive technology hears what the badge
+// shows.
+func UploadedLabel(label string) string {
+	return i18n.T("{label}, uploaded", "label", label)
+}
+
 // Tag is a small bordered label, 20px high (Badges.tsx). title is its
 // tooltip, and what assistive technology reads as its description.
 func Tag(c *ui.Context, text, title string) ui.Element {

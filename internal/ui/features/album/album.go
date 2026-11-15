@@ -22,10 +22,15 @@ type disc struct {
 }
 
 // discsOf is the album's discs in list order, or none when the songs sit on
-// one disc (a single disc needs no index).
+// one disc (a single disc needs no index). A song with no disc number (an
+// upload; DiscNumber 0) is on no disc: it never opens "Disc 0" and the discs
+// don't count it.
 func discsOf(songs []services.Song) []disc {
 	var discs []disc
 	for i, s := range songs {
+		if s.DiscNumber <= 0 {
+			continue
+		}
 		if n := len(discs); n > 0 && discs[n-1].number == s.DiscNumber {
 			discs[n-1].songs++
 			discs[n-1].durationMs += s.DurationMs
@@ -37,6 +42,36 @@ func discsOf(songs []services.Song) []disc {
 		return discs
 	}
 	return nil
+}
+
+// discLessLast puts the songs with no disc number (uploads: DiscNumber 0, which
+// Apple's order would put before disc 1) after the last disc, each group in
+// its own order. The list is returned as it came when no song has a disc or
+// none lacks one, or when they already follow the discs.
+func discLessLast(songs []services.Song) []services.Song {
+	first, withDisc := -1, 0
+	late := true // every song without a disc comes after every song with one
+	for i, s := range songs {
+		switch {
+		case s.DiscNumber > 0:
+			withDisc++
+			late = late && first < 0
+		case first < 0:
+			first = i
+		}
+	}
+	if first < 0 || withDisc == 0 || late {
+		return songs
+	}
+	sorted := make([]services.Song, 0, len(songs))
+	for _, onDisc := range []bool{true, false} {
+		for _, s := range songs {
+			if (s.DiscNumber > 0) == onDisc {
+				sorted = append(sorted, s)
+			}
+		}
+	}
+	return sorted
 }
 
 // isCompilation: whether the songs are credited to many artists (a

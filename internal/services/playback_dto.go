@@ -46,6 +46,12 @@ type QueueItem struct {
 	Video bool `json:"video"`
 }
 
+// IsUpload reports whether the slot is a song the user uploaded: in the
+// library with no catalogue copy (Song.IsUpload).
+func (q QueueItem) IsUpload() bool {
+	return !q.Video && !q.Live && q.Source == SourceLibrary && q.CatalogID == ""
+}
+
 // PlayFrom names where PlayItems' songs come from. Kind is "album",
 // "playlist" or "artist" for an Apple collection (ID its catalog or
 // library ID; plays are reported with it), "" for anything else (ID is

@@ -241,3 +241,22 @@ func TestTrackShelfWithheldSongIsDescribedWithTheReason(t *testing.T) {
 		}
 	}
 }
+
+// A song the user uploaded (in the library, no catalogue copy) is badged
+// "Uploaded" and named "…, uploaded"; the catalogue songs beside it are not.
+func TestTrackShelfMarksAnUploadAndNamesItSo(t *testing.T) {
+	items := trackItems(3)
+	up := items[1].Song
+	up.Source, up.CatalogID = services.SourceLibrary, ""
+	_, tt := trackApp(t, items, "", nil)
+	if n := countText(tt, "Uploaded"); n != 1 {
+		t.Errorf("%d Uploaded badges, want 1: %q", n, tt.Texts())
+	}
+	var names []string
+	for _, it := range access.Read(t, tt).Roles(ui.RoleListItem) {
+		names = append(names, it.Label)
+	}
+	if want := []string{"Song 1", "Song 2, uploaded", "Song 3"}; !slices.Equal(names, want) {
+		t.Errorf("rows %q, want %q", names, want)
+	}
+}

@@ -223,6 +223,9 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 					if it.Explicit {
 						kit.ExplicitMark(c).Shrink(0)
 					}
+					if it.IsUpload() {
+						kit.UploadedBadge(c.Key("uploaded"))
+					}
 				})
 				if meta := itemMeta(it); meta != "" {
 					theme.Text(c, meta, "body").TextColor(theme.C("ink-muted")).SingleLine().Role(ui.RoleNone)
@@ -235,10 +238,10 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 			main := ui.ButtonBase(c.Key("open")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Radius(tk.Radius["md"]).Role(role)
 			if role == ui.RoleButton {
 				// Named by its visible text (WCAG 2.5.3), with the action after it.
-				main.Label(it.Name + ", " + i18n.T("Play"))
+				main.Label(accessibleName(it) + ", " + i18n.T("Play"))
 				main.Description(itemMeta(it))
 			} else {
-				main.Label(strings.TrimSpace(it.Name + " " + itemMeta(it)))
+				main.Label(strings.TrimSpace(accessibleName(it) + " " + itemMeta(it)))
 			}
 			main.Children(func() {
 				body()

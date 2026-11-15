@@ -96,8 +96,12 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 	withheld := ctx.Restricted && song.Explicit
 	disabled := !song.Playable || withheld
 
+	name := song.Name
+	if song.IsUpload() {
+		name = UploadedLabel(name)
+	}
 	row := ui.Row(c.Key(strconv.Itoa(i) + ":" + song.ID)).Height(trackRowH).MinWidth(0).Gap(12).PaddingX(8).
-		Radius(tk.Radius["md"]).Focusable().Role(ui.RoleListItem).Label(song.Name).ColumnStart(col + 1).RowStart(rowAt + 1)
+		Radius(tk.Radius["md"]).Focusable().Role(ui.RoleListItem).Label(name).ColumnStart(col + 1).RowStart(rowAt + 1)
 	hot := HoverRow(row)
 	if disabled {
 		row.Opacity(0.5)
@@ -144,6 +148,9 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 					TextColor(ink).SingleLine().Shrink(1).MinWidth(0)
 				if song.Explicit {
 					ExplicitMark(c.Key("explicit"))
+				}
+				if song.IsUpload() {
+					UploadedBadge(c.Key("uploaded"))
 				}
 			})
 			var open func(id string)

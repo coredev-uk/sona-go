@@ -75,6 +75,9 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 					if it.Explicit {
 						kit.ExplicitMark(c).Shrink(0)
 					}
+					if it.IsUpload() {
+						kit.UploadedBadge(c.Key("uploaded"))
+					}
 				})
 				if meta := itemMeta(it); meta != "" {
 					theme.Text(c, meta, "secondary").TextColor(theme.C("ink-muted")).SingleLine()
@@ -88,7 +91,7 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 				Radius(tk.Radius["md"]).Role(role)
 			if role == ui.RoleButton {
 				// Named by its visible text (WCAG 2.5.3), with the action after it.
-				main.Label(it.Name + ", " + i18n.T("Play"))
+				main.Label(accessibleName(it) + ", " + i18n.T("Play"))
 			}
 			main.Children(func() {
 				body()

@@ -278,3 +278,25 @@ func TestGoldenUpcomingAlbumPageDone(t *testing.T) {
 	r.tt.Until("both done", r.tt.Shows("Sunday, 22 November 2026 · Pre-added · Reminder set"))
 	settleGolden(t, r, "album-upcoming-done-light")
 }
+
+// A library album with uploads among Apple's songs: the uploads follow the
+// record, each badged, and the same-name pair is two rows told apart.
+func TestGoldenAlbumPageWithUploads(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		opts []uitest.Option
+	}{
+		{"album-uploads-light", nil},
+		{"album-uploads-dark", []uitest.Option{uitest.Dark()}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			goldenRegional(t)
+			r := newRig(t, "/album/l.7", 899, 700, c.opts...)
+			r.addMixedAlbum()
+			r.shows("Salt Flats", "Paper Moon", "Demo")
+			r.tt.Art = append(r.tt.Art, r.h.Env.Art)
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), c.name)
+		})
+	}
+}

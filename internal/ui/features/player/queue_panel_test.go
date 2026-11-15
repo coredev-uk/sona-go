@@ -779,3 +779,33 @@ func TestCloseQueueReturnsTheFocusToTheToggle(t *testing.T) {
 		t.Error("the focus did not return to the queue toggle")
 	}
 }
+
+// A song the user uploaded (in the library, no catalogue copy) is badged
+// "Uploaded" in the queue and named "…, uploaded", so the pair of a catalogue
+// song and its upload of the same name can be told apart.
+func TestUploadedSongsAreMarkedInTheQueue(t *testing.T) {
+	r := newQueueRig(t, false)
+	r.seed(4, 0, func(s *services.PlaybackState, q *services.QueueState) {
+		q.Items[1].Source, q.Items[1].CatalogID, q.Items[1].LibraryID = services.SourceLibrary, "", "i.up"
+		q.Items[2].Source, q.Items[2].CatalogID, q.Items[2].Name = services.SourceLibrary, "c3", q.Items[1].Name
+	})
+	if !r.has("Up next: Song 2, Artist 2, uploaded") {
+		t.Fatalf("the upload's row is not named so: %q", r.tt.Texts())
+	}
+	if !r.has("Song 2, Artist 3") {
+		t.Errorf("the library song with a catalogue copy was renamed: %q", r.tt.Texts())
+	}
+	if n := countTexts(r.tt.Texts(), "Uploaded"); n != 1 {
+		t.Errorf("%d Uploaded badges, want 1: %q", n, r.tt.Texts())
+	}
+}
+
+func countTexts(texts []string, want string) int {
+	n := 0
+	for _, t := range texts {
+		if t == want {
+			n++
+		}
+	}
+	return n
+}

@@ -193,3 +193,22 @@ func TestItemSourceAndLibraryCards(t *testing.T) {
 		t.Error("an untyped item is not the catalog's")
 	}
 }
+
+// A result is an upload when it is a library song with no catalogue copy:
+// only then does its name say so, and it has no song page.
+func TestAccessibleNameSaysUploadedForUploadsOnly(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		it   services.Item
+		want string
+	}{
+		{"upload", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceLibrary}}, "Demo, uploaded"},
+		{"library song with a catalogue copy", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceLibrary, CatalogID: "44"}}, "Demo"},
+		{"catalogue song", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceCatalog}}, "Demo"},
+		{"album", services.Item{Kind: services.ItemAlbum, Name: "Demo"}, "Demo"},
+	} {
+		if got := accessibleName(c.it); got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
+	}
+}

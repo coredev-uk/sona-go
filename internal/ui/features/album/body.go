@@ -81,7 +81,7 @@ func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account
 		size, line = 40, 44
 	}
 	ui.Column(c.Key("head-body")).MinWidth(0).Children(func() {
-		theme.Text(c, m.album.Name, "display").FontSize(size).FixedLineHeight(line).LetterSpacing(-size/50).
+		theme.Text(c, m.album.Name, "display").FontSize(size).FixedLineHeight(line).LetterSpacing(-size / 50).
 			TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
 		ui.Row(c.Key("byline")).Margin(6, 0, 0, 0).MinWidth(0).TextColor(theme.C("ink")).
 			FontSize(tk.Type["heading"].Size).FontWeight(500).Children(func() { a.byline(c, m, k) })
@@ -248,6 +248,7 @@ func (a *album) songs(c *ui.Context, m *model, highlight string, now time.Time, 
 	o.Label = i18n.T("Songs on {albumName}", "albumName", m.album.Name)
 	o.Columns = kit.TrackColumns{Artist: m.compilation}
 	o.Discs = !m.mixed
+	o.HideUploadMark = m.uploads == len(m.list)
 	o.Highlight = highlight
 	o.Popular = m.popular
 	o.Subline = func(s *services.Song) string { return subline(*s) }
