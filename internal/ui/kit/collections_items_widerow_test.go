@@ -61,7 +61,7 @@ func frameOf(tt *ui.Tester) (w, h int) {
 
 // wideApp is a one-column wide row: the page is 240 DIPs wide at the row's
 // minimum, so cards are 240 wide.
-func wideApp(t *testing.T, fake *fakeArt, items []services.Item, ratio float32, crop bool) (*itemsApp, *ui.Tester, *WideRowState) {
+func wideApp(t *testing.T, fake *fakeArt, items []services.Item, ratio float32) (*itemsApp, *ui.Tester, *WideRowState) {
 	t.Helper()
 	st := &WideRowState{}
 	var src artSource
@@ -69,56 +69,61 @@ func wideApp(t *testing.T, fake *fakeArt, items []services.Item, ratio float32, 
 		src = fake
 	}
 	a, tt := newItemsApp(t, 240+48, 400, src, func(c *ui.Context, ctx ItemsCtx) {
-		WideRow(c, st, items, ctx, WideRowOpts{Title: "Row", Min: 240, Ratio: ratio, Crop: crop, First: true})
+		WideRow(c, st, items, ctx, WideRowOpts{Title: "Row", Min: 240, Ratio: ratio, First: true})
 	})
 	return a, tt, st
 }
 
-func TestWideRowFramesARowOf4To1BannersAt4To1RequestedAtThatShape(t *testing.T) {
-	a, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", artPath("1", 1000, 250), ""), wideItem("2", artPath("2", 1000, 250), "")}, 2, false)
-	a.load(t, tt, 1)
-	// The art's own edge line takes a pixel of the frame on each side.
-	if w, h := frameOf(tt); w < 238 || w > 240 || h < 58 || h > 60 {
-		t.Errorf("frame %d×%d, want 240×60", w, h)
-	}
-	if got := a.fake.requests(); !slices.Equal(got, [][2]int{{240, 60}}) {
-		t.Errorf("requests %v, want [240 60]", got)
+func TestWideRowFillsEveryFrameAtTheRatioWhateverTheBannersShape(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		banner string
+		ratio  float32
+		want   [2]int
+	}{
+		// A 4:1 banner is not letterboxed in a 2:1 row, nor does the row take
+		// its shape: Apple's CDN is asked for the frame.
+		{"4:1", artPath("1", 1000, 250), 2, [2]int{240, 120}},
+		{"2.4:1", artPath("2", 1000, 417), 2, [2]int{240, 120}},
+		// A square banner (a curator with only a square flavour) is cut to
+		// the frame, not shown as a small block between flat bands.
+		{"square", artPath("3", 400, 400), 2, [2]int{240, 120}},
+		{"square, 2.4 row", artPath("4", 400, 400), 2.4, [2]int{240, 100}},
+	} {
+		a, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", c.banner, "")}, c.ratio)
+		a.load(t, tt, 1)
+		// The art's own edge line takes a pixel of the frame on each side.
+		if w, h := frameOf(tt); w < c.want[0]-2 || w > c.want[0] || h < c.want[1]-2 || h > c.want[1] {
+			t.Errorf("%s: frame %d×%d, want %d×%d", c.name, w, h, c.want[0], c.want[1])
+		}
+		if got := a.fake.requests(); !slices.Equal(got, [][2]int{c.want}) {
+			t.Errorf("%s: requests %v, want %v", c.name, got, c.want)
+		}
+		// No flat band: the picture reaches the frame's edges.
+		img := tt.Image()
+		r := box(img, isFrame)
+		for _, at := range [][2]int{{r.Min.X + 6, r.Min.Y + r.Dy()/2}, {r.Max.X - 7, r.Min.Y + r.Dy()/2}, {r.Min.X + r.Dx()/2, r.Min.Y + 6}} {
+			if got := img.RGBAAt(at[0], at[1]); !closeTo(got, fakeRed) {
+				t.Errorf("%s: %v at %v, want the picture to fill the frame", c.name, got, at)
+			}
+		}
 	}
 }
 
-func TestWideRowKeepsTheTallestBannersFrameInAMixedRowAndLetterboxesTheWiderOne(t *testing.T) {
-	a, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", artPath("1", 1000, 250), ""), wideItem("2", artPath("2", 1000, 417), "")}, 2, false)
+func TestWideRowMixedBannersShareOneFrame(t *testing.T) {
+	st := &WideRowState{}
+	items := []services.Item{wideItem("1", artPath("1", 1000, 250), ""), wideItem("2", artPath("2", 400, 400), "")}
+	a, tt := newItemsApp(t, 2*240+24+48, 400, nil, func(c *ui.Context, ctx ItemsCtx) {
+		WideRow(c, st, items, ctx, WideRowOpts{Title: "Row", Min: 240, Ratio: 2, First: true})
+	})
 	a.load(t, tt, 1)
-	w, h := frameOf(tt)
-	if got := float64(w) / float64(h); got < 2.39 || got > 2.41 {
-		t.Errorf("frame %d×%d is %.3f, want 2.4", w, h, got)
-	}
-	// The 4:1 banner is bound by the frame's width, not squeezed or cropped.
-	if got := a.fake.requests(); !slices.Equal(got, [][2]int{{240, 60}}) {
-		t.Errorf("requests %v, want [240 60]", got)
-	}
-	// It sits whole in the middle with the item colour above and below.
-	img := tt.Image()
-	r := box(img, isFrame)
-	mid := r.Min.X + r.Dx()/2
-	if !closeTo(img.RGBAAt(mid, r.Min.Y+1), itemColour) || !closeTo(img.RGBAAt(mid, r.Min.Y+r.Dy()/2), fakeRed) || !closeTo(img.RGBAAt(mid, r.Max.Y-2), itemColour) {
-		t.Errorf("not letterboxed: top %v, middle %v, bottom %v", img.RGBAAt(mid, r.Min.Y+1), img.RGBAAt(mid, r.Min.Y+r.Dy()/2), img.RGBAAt(mid, r.Max.Y-2))
-	}
-}
-
-func TestWideRowNeverFramesTallerThanItsRatioEvenForASquareBanner(t *testing.T) {
-	a, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", artPath("1", 400, 400), "")}, 2.4, false)
-	a.load(t, tt, 1)
-	if w, h := frameOf(tt); w < 238 || w > 240 || h < 98 || h > 100 {
-		t.Errorf("frame %d×%d, want 240×100", w, h)
-	}
-	if got := a.fake.requests(); !slices.Equal(got, [][2]int{{100, 100}}) {
-		t.Errorf("requests %v, want [100 100]", got)
+	if got := a.fake.requests(); !slices.Equal(got, [][2]int{{240, 120}, {240, 120}}) {
+		t.Errorf("requests %v, want the one 240×120 box for each card", got)
 	}
 }
 
 func TestWideRowShowsACardWithoutABannerByItsWholeCoverInsideTheFrame(t *testing.T) {
-	a, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", "", artPath("1", 1000, 250))}, 2.4, false)
+	a, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", "", artPath("1", 1000, 250))}, 2.4)
 	a.load(t, tt, 1)
 	if w, h := frameOf(tt); w < 238 || w > 240 || h < 98 || h > 100 {
 		t.Errorf("frame %d×%d, want 240×100", w, h)
@@ -143,7 +148,7 @@ func TestWideRowCropsBannersToACroppingRowsFrameAndKeepsCoversWhole(t *testing.T
 		// A cover with no banner stays whole on the item colour.
 		{"cover", wideItem("3", "", artPath("3", 400, 400)), [2]int{137, 137}, false, 1.75, false},
 	} {
-		a, tt, _ := wideApp(t, nil, []services.Item{c.item}, 1.75, true)
+		a, tt, _ := wideApp(t, nil, []services.Item{c.item}, 1.75)
 		a.load(t, tt, 1)
 		w, h := frameOf(tt)
 		if got := float64(w) / float64(h); got < c.wantRatio-0.02 || got > c.wantRatio+0.02 {
@@ -165,7 +170,7 @@ func TestWideRowCropsBannersToACroppingRowsFrameAndKeepsCoversWhole(t *testing.T
 }
 
 func TestWideRowBannerThatFailsToLoadLeavesTheItemColour(t *testing.T) {
-	a, tt, _ := wideApp(t, &fakeArt{fail: 1}, []services.Item{wideItem("1", artPath("1", 1000, 250), "")}, 2, false)
+	a, tt, _ := wideApp(t, &fakeArt{fail: 1}, []services.Item{wideItem("1", artPath("1", 1000, 250), "")}, 2)
 	a.load(t, tt, 1)
 	img := tt.Image()
 	r := box(img, isFrame)
@@ -308,7 +313,7 @@ func TestWideRowCardPlaysOpensAndOffersItsMenu(t *testing.T) {
 }
 
 func TestWideRowPlayButtonShowsOnHoverAtTheBannersBottomLeft(t *testing.T) {
-	a, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", artPath("1", 1000, 250), "")}, 2, false)
+	a, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", artPath("1", 1000, 250), "")}, 2)
 	a.load(t, tt, 1)
 	play, ok := tt.Find("Play Item 1")
 	if !ok {

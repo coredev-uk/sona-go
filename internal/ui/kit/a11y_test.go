@@ -121,7 +121,7 @@ func TestItemComponentsHaveEveryControlOnTheTree(t *testing.T) {
 		},
 		{
 			"wide row", func(t *testing.T) *ui.Tester {
-				_, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", "", "")}, 4, false)
+				_, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", "", "")}, 4)
 				tt.Frame()
 				return tt
 			},
@@ -207,7 +207,7 @@ func TestCoverShelfTilesSayTheirPlaceAmongTheTilesTheShelfShows(t *testing.T) {
 func TestWideCardsMoreButtonAndSubtitleAreReadBesideTheLink(t *testing.T) {
 	it := wideItem("1", "", "")
 	it.Subtitle = "Artist One"
-	_, tt, _ := wideApp(t, nil, []services.Item{it}, 4, false)
+	_, tt, _ := wideApp(t, nil, []services.Item{it}, 4)
 	tt.Frame()
 	tr := access.Read(t, tt)
 	link, ok := tr.Find(ui.RoleLink, "Item 1")
