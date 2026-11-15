@@ -116,10 +116,15 @@ func stationSkeleton(c *ui.Context, split bool, column float32) {
 			})
 		}
 	}
-	root := ui.Row(c.Key("loading")).FillWidth().Gap(identityGap).AlignItems(ui.Start).Role(ui.RoleStatus).Label(i18n.T("Loading"))
-	if !split {
-		root = ui.Column(c.Key("loading")).FillWidth().Gap(32).Role(ui.RoleStatus).Label(i18n.T("Loading"))
+	// One root per frame: building the Row and then a Column under the same
+	// key put two "loading" elements under one parent at narrow widths.
+	var root ui.Element
+	if split {
+		root = ui.Row(c.Key("loading")).FillWidth().Gap(identityGap).AlignItems(ui.Start)
+	} else {
+		root = ui.Column(c.Key("loading")).FillWidth().Gap(32)
 	}
+	root = root.Role(ui.RoleStatus).Label(i18n.T("Loading"))
 	root.Children(func() {
 		if split {
 			ui.Column(c.Key("identity")).Width(column).Shrink(0).Children(func() {
