@@ -391,10 +391,6 @@ msgstr ""
 msgid "Apple Music asked Sona to sign in again. Your library is still here."
 msgstr ""
 
-#: internal/ui/features/playlist/covers.go
-msgid "Apple Music can't keep a playlist cover from here, so your choice stays on this computer and shows in Sona only."
-msgstr ""
-
 #: internal/ui/features/song/page.go
 msgid "Apple Music has no credits or lyrics for this song."
 msgstr ""
@@ -4288,6 +4284,11 @@ msgstr ""
 
 #: internal/ui/features/settings/releases.go
 msgid "One notification for each new release, or one summary when several arrive together. Click it to open the release."
+msgstr ""
+
+#. Notice at the top of the playlist cover picker: the chosen cover is kept on this computer only; Apple Music and the user's other devices do not get it.
+#: internal/ui/features/playlist/covers.go
+msgid "Only in Sona: Apple Music can't keep covers set here."
 msgstr ""
 
 #: internal/ui/features/settings/linkhandler.go
