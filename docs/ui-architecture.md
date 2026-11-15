@@ -1676,7 +1676,7 @@ Data is `store.Use` with keys such as `["discover","home"]`, `["discover","page"
 - **Shelf heads** are the local ruled head (`rule.go`: heading, hairline, "See all" or "Show all"), which replaces `kit.Shelf` on Home.
 - **Shelf kinds**:
   - `HeroCard` shows a hero shelf of one item.
-  - `itemRows` (roving focus, Space plays, Enter opens, selection, menus) draws the running order (`Inline`: name and reason side by side, one column, hairlines, no rank), the station shelves (rows, two deep) and Recently Played (`Tile`: a strip of covers in one row).
+  - `itemRows` (roving focus, Space plays, Enter opens, selection, menus) draws the running order (`Inline`: name and reason side by side, one column, hairlines, no rank), the station shelves (rows, two deep) and Recently Played (`Tile`: a strip of covers in one row). A library playlist in that strip arrives with the cover it has in Library → Playlists (mosaic, Apple's or the user's choice), resolved by the service (`DiscoverService.libraryCover`); the UI draws `Item.Art` as for any card.
   - Cover shelves are `kit.CoverRow` under the ruled head.
   - `ShelfIndex` is the ledger of the rest with a strip of thumbnails.
 - **The header** says when the page was fetched ("Picked for you…", "Couldn't refresh · from…") and has the Refresh button (`RefreshHome`, spinner unless motion is reduced).
