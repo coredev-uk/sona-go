@@ -128,6 +128,18 @@ func TestItemPresentation(t *testing.T) {
 	if got := ItemSubtitle(itemT(nil)); got != "" {
 		t.Errorf("neither: %q", got)
 	}
+	// A part that only repeats the title says nothing (#372: an episode's
+	// promo sentence was both its title and its line).
+	promo := "Hear the very special episode and see some of the best moments."
+	if got := ItemSubtitle(itemT(func(i *services.Item) { i.Name, i.Caption, i.Subtitle = promo, "We Recommend", promo })); got != "We Recommend" {
+		t.Errorf("subtitle equal to the title: %q", got)
+	}
+	if got := ItemSubtitle(itemT(func(i *services.Item) { i.Name, i.Subtitle = "Chill Mix", " chill mix " })); got != "" {
+		t.Errorf("subtitle repeating the title in another case: %q", got)
+	}
+	if got := ItemSubtitle(itemT(func(i *services.Item) { i.Name, i.Caption, i.Subtitle = "Relax", "Mood for You", "Soothing sounds" })); got != "Mood for You · Soothing sounds" {
+		t.Errorf("distinct parts: %q", got)
+	}
 	for kind, round := range map[string]bool{
 		services.ItemArtist: true, services.ItemProfile: true, services.ItemPlaylist: false,
 		services.ItemAlbum: false, services.ItemMusicVideo: false, services.ItemStation: false,
