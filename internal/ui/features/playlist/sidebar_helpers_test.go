@@ -41,7 +41,13 @@ func sbSetup(t *testing.T, tree services.PlaylistTree, pins []services.Pin) *sbE
 // and the fake before the first frame asks for anything.
 func sbSetupAPI(t *testing.T, tree services.PlaylistTree, pins []services.Pin, wrap func(*fakeAPI) playlistsAPI) *sbEnv {
 	t.Helper()
-	p, api, play, h, router := testPlaylists(t, "/library/albums")
+	return sbSetupWith(t, tree, pins, wrap, uitest.Bare())
+}
+
+// sbSetupWith is sbSetupAPI over a harness built with opts.
+func sbSetupWith(t *testing.T, tree services.PlaylistTree, pins []services.Pin, wrap func(*fakeAPI) playlistsAPI, opts ...uitest.Option) *sbEnv {
+	t.Helper()
+	p, api, play, h, router := testPlaylistsWith(t, "/library/albums", opts...)
 	if wrap != nil {
 		p.api = wrap(api)
 	}
@@ -53,6 +59,7 @@ func sbSetupAPI(t *testing.T, tree services.PlaylistTree, pins []services.Pin, w
 	e := &sbEnv{t: t, p: p, api: api, play: play, h: h, router: router}
 	t.Cleanup(kit.CancelConfirm)
 	e.tt = h.Tester(t, e.view, 520, 900)
+	e.tt.Art = append(e.tt.Art, h.Env.Art)
 	return e
 }
 

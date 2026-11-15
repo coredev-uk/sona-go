@@ -262,8 +262,8 @@ func TestTrackListPlayingGlyphAnimatesWithoutRebuildingTheList(t *testing.T) {
 	}
 	builds, whole = 0, 0
 	prev, changes := append([]byte(nil), tt.Image().Pix...), 0
-	for range 60 { // two seconds
-		tt.Advance(33 * time.Millisecond)
+	for range 120 { // two seconds at 60 Hz
+		tt.Advance(time.Second / 60)
 		if cur := tt.Image().Pix; !bytes.Equal(cur, prev) {
 			changes++
 			prev = append(prev[:0], cur...)
@@ -272,8 +272,11 @@ func TestTrackListPlayingGlyphAnimatesWithoutRebuildingTheList(t *testing.T) {
 	if builds != 0 || whole != 0 {
 		t.Errorf("a playing glyph rebuilt the page %d times and painted it whole %d times in two seconds, want 0 and 0", builds, whole)
 	}
-	if changes < 12 {
-		t.Errorf("the glyph changed the picture %d times in two seconds, want a smooth movement", changes)
+	// A frame in which the glyph does not change the picture is a frame it
+	// stutters: the bars' tops move by fractions of a pixel, so nearly every
+	// frame shows a new picture.
+	if changes < 100 {
+		t.Errorf("the glyph changed the picture in %d of 120 frames in two seconds, want a smooth movement", changes)
 	}
 }
 
@@ -298,6 +301,78 @@ func TestTrackListPlayButtonAndLinks(t *testing.T) {
 	}
 	if a.st.Sel.Len() != 0 {
 		t.Errorf("a link click selected %v", a.st.Sel.State().Keys())
+	}
+}
+
+// A song with several artists shows Apple's artist string in its artist cell as
+// a menu button, not a link: a click opens a menu of the artists, each opens
+// its page, and a click with a modifier still selects the row. A song with one
+// keeps its plain link.
+func TestTrackListSeveralArtistsOpenAChooser(t *testing.T) {
+	a, tt := newCollTrackApp(t, 6, 1000, 500, func(a *collTrackApp) {
+		two := collSong(2)
+		two.Artist, two.ArtistID, two.Artists = "The Kid LAROI & Justin Bieber", "1435848034", twoArtists
+		a.songs[2] = two
+	})
+	tt.Frame()
+	tr := access.Read(t, tt)
+	btn, ok := tr.Find(ui.RoleMenuButton, "The Kid LAROI & Justin Bieber")
+	if !ok || btn.HasPopup != ui.PopupMenu || btn.Has(access.Focusable) {
+		t.Fatalf("want an unfocusable menu button with a popup in the artist cell:\n%s", tr.Dump())
+	}
+	if _, ok := tr.Find(ui.RoleLink, "Artist 4"); !ok {
+		t.Errorf("a one-artist song lost its link:\n%s", tr.Dump())
+	}
+	ax, ay := collPos(t, tt, "The Kid LAROI & Justin Bieber")
+	a.st.Sel.Reset()
+	tt.ClickAtWith(ui.Cmd, ax, ay)
+	if a.st.Sel.Len() != 1 || tt.HasText("Choose an artist") || len(a.artists) != 0 {
+		t.Fatalf("a Ctrl+click: selected %v, menu %v, opened %v", a.st.Sel.State().Keys(), tt.HasText("Choose an artist"), a.artists)
+	}
+	a.st.Sel.Reset()
+	tt.ClickAt(ax, ay)
+	if a.st.Sel.Len() != 0 || len(a.artists) != 0 {
+		t.Fatalf("opening the chooser selected %v or opened %v", a.st.Sel.State().Keys(), a.artists)
+	}
+	tr = access.Read(t, tt)
+	for _, name := range []string{"The Kid LAROI", "Justin Bieber"} {
+		if _, ok := tr.Find(ui.RoleMenuItem, name); !ok {
+			t.Fatalf("no menu item %q:\n%s", name, tr.Dump())
+		}
+	}
+	if err := tt.Click("Justin Bieber"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(50e6)
+	tt.Frame()
+	if len(a.artists) != 1 || a.artists[0] != "320569549" {
+		t.Errorf("the chooser opened %v, want the second artist", a.artists)
+	}
+}
+
+// A library song knows only its library artist: its row asks the catalogue
+// copy and then offers every artist.
+func TestTrackListOffersALibrarySongsCatalogueArtists(t *testing.T) {
+	f := &fakeSongArtists{by: map[string][]services.Artist{"c1": twoArtists}}
+	_, tt := newCollTrackApp(t, 3, 1000, 400, func(a *collTrackApp) {
+		lib := collSong(1)
+		lib.Source, lib.ID, lib.LibraryID = services.SourceLibrary, "i.1", "i.1"
+		lib.Artist, lib.ArtistID = "The Kid LAROI & Justin Bieber", "r.9"
+		a.songs[1] = lib
+		a.opts.Artists = newSongArtists(f)
+		a.opts.Artists.wait = 100 * time.Millisecond
+	})
+	tt.Frame()
+	if _, ok := access.Read(t, tt).Find(ui.RoleLink, "The Kid LAROI & Justin Bieber"); !ok {
+		t.Fatal("before the lookup the library artist is a link")
+	}
+	eventually(t, "the chooser", func() bool {
+		tt.Frame()
+		_, ok := access.Read(t, tt).Find(ui.RoleMenuButton, "The Kid LAROI & Justin Bieber")
+		return ok
+	})
+	if reqs := f.requests(); len(reqs) != 1 || len(reqs[0]) != 1 || reqs[0][0] != "c1" {
+		t.Errorf("lookups %v, want the one catalogue song", reqs)
 	}
 }
 

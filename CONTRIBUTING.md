@@ -6,9 +6,54 @@ the doc for the area you touch. Everyone taking part follows the
 [Code of Conduct](CODE_OF_CONDUCT.md); security problems go through
 [SECURITY.md](SECURITY.md), not public issues.
 
-Bugs and feature ideas: open an issue with the matching form. For anything
-larger than a fix, open an issue before writing code, so the design can be
-agreed first.
+Bugs and feature ideas: open an issue with the matching form (see
+[Reporting bugs](#reporting-bugs)). For anything larger than a fix, open an
+issue before writing code, so the design can be agreed first.
+
+## Reporting bugs
+
+The bug report form does the first triage, so a report reaches the right
+place without a round of questions. Pick your **Platform** (Linux, macOS or
+Windows), say how you installed Sona, and pick the closest **Area**; "Not
+sure" is fine. Paste the diagnostics bundle (Settings → Diagnostics → Copy
+diagnostics: versions, devices and recent log lines, with tokens and secrets
+redacted; look it over before posting), tick the three boxes (searched the
+existing issues, on the latest release or release candidate, personal data
+removed) and say how often it happens.
+
+The form labels the issue `bug` and `needs-triage`. When it is opened (or
+edited), the `issue-labels` workflow adds the `platform/*` label of the
+Platform answer and the `area/*` label of the Area answer
+(`cmd/issuelabels`). It only ever adds a label, and never to a kind
+(platform or area) that already has one, so a maintainer's triage stands.
+The feature request form takes the same Area (and an optional Platform) and
+labels the issue `enhancement` and `needs-triage`. A change to the dropdowns
+goes in the form and in `cmd/issuelabels`' tables together; its test fails
+when they differ.
+
+| Label | Means |
+| --- | --- |
+| `bug`, `enhancement`, `question`, `documentation` | What kind of issue it is |
+| `needs-triage` | Nobody has looked yet; a maintainer removes it |
+| `decision` | A design choice to settle before any code |
+| `needs-hardware` | Reproducing or fixing it needs a device or setup we don't have |
+| `upstream` | The cause is in Apple's service, Google's CDM or a dependency |
+| `platform/linux`, `platform/macos`, `platform/windows` | Where it happens |
+| `area/playback` | Playback, the queue, audio output |
+| `area/library` | Songs, albums, artists, playlists in your library |
+| `area/search` | Search |
+| `area/ui` | Pages, menus, windows, how Sona looks |
+| `area/themes` | Themes |
+| `area/add-ons` | Add-ons (plugins) |
+| `area/updates` | Installing or updating Sona: self-update and the release packages |
+| `area/sign-in` | Signing in to Apple Music |
+| `area/integrations` | Last.fm, Discord, media keys, the desktop |
+| `area/accessibility` | Screen reader, keyboard, contrast |
+| `area/ci-release` | CI, the release workflow and its secrets (maintainers; not a form option) |
+
+The bots' labels (`state/*`, `verdict/*`, `kind/*`, `type/*`, `clarence:*`,
+`autorelease:*`, `dependencies`, `go`, `update-goldens`) are theirs; leave
+them alone.
 
 ## Environment
 
@@ -23,6 +68,11 @@ devenv shell -- <command>        # one command
 # which may carry an older devenv.
 nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv -- shell
 ```
+
+With [direnv](https://direnv.net), the checked-in `.envrc` loads the same
+environment whenever you `cd` into the checkout or a worktree: run
+`direnv allow` once in each, and `go`, `dev`, `check` and the other scripts
+work without the `devenv shell --` prefix.
 
 It sets `CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5`, the GStreamer plugin
 path (core, base, good, bad, libav and, on Linux, PipeWire; never the host's
@@ -416,6 +466,9 @@ pushes runs none of it and pushes only the tree the build checked),
 each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
 `workflow_run` job that checks out and runs nothing from the repository),
 `pr-title.yml` (Conventional Commits title),
+`issue-labels.yml` (on an issue opened or edited: adds the `platform/*` and
+`area/*` labels its form's answers name, with `cmd/issuelabels`; only adds,
+and never over a label of that kind already there; `issues: write` only),
 `live.yml` (weekly Apple Music contract tests, private mode),
 `release-please.yml` (the release PR and tag, as bot-cecil), `release.yml`
 (builds, smoke-tests, attests and publishes the Linux, macOS and Windows

@@ -31,7 +31,8 @@ func (s *search) itemRun(it services.Item) (run func(), role ui.Role) {
 	switch {
 	case path != "" && s.env.Routed(path):
 		run = func() { s.env.Nav.Push(path) }
-	case path == "" && it.Kind == services.ItemSong && it.Song != nil && it.Song.Playable:
+	case it.Kind == services.ItemSong && s.playable(it):
+		// A song without a page here (an upload, or no song page): it plays.
 		role = ui.RoleButton
 		run = func() { s.playSong(it) }
 	case path == "" && it.Kind != services.ItemSong && s.env.Players != nil && kit.PlaysWhenOpened(it, s.env.Players):
@@ -42,11 +43,12 @@ func (s *search) itemRun(it services.Item) (run func(), role ui.Role) {
 }
 
 // itemRow is v0.2.0's ItemRow: one result of any kind as a list row:
-// artwork, name with the explicit mark, "Kind · subtitle". Songs play in
-// place (the play glyph shows on hover and focus); every other kind opens
-// its page; one that has no page (a web-only item) or whose page is not
-// ported is not interactive. The more-menu shows on hover, focus and while
-// open, for the kinds with registered actions.
+// artwork, name with the explicit mark, "Kind · subtitle". Every kind opens
+// its page, a song included, which also has a Play button of its own (shown
+// on hover and focus); one that has no page (a web-only item, a library
+// upload, which plays in place) or whose page is not ported is not
+// interactive. The more-menu shows on hover, focus and while open, for the
+// kinds with registered actions.
 func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 	size := o.size
 	if size == 0 {
@@ -111,6 +113,23 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 					o.onOpen(it)
 				}
 				run()
+			}
+		}
+		// A song opens its page, so playing it is a control of its own, shown
+		// with the row's other actions.
+		if role == ui.RoleLink && run != nil && it.Kind == services.ItemSong && s.playable(it) {
+			play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
+				Variant: kit.Ghost, Size: kit.SizeSM, Icon: "play", Muted: true,
+				A11yLabel: i18n.T("Play {label}", "label", it.Name),
+			})
+			if !shown {
+				play.Opacity(0)
+			}
+			if play.Clicked() {
+				if o.onOpen != nil {
+					o.onOpen(it)
+				}
+				s.playSong(it)
 			}
 		}
 		if hasTarget {

@@ -2,6 +2,7 @@ package playlist
 
 import (
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -98,7 +99,7 @@ func TestViewOrderDoesNotTouchTheTracksAndHandlesNone(t *testing.T) {
 	songs := viewSongs()
 	want := slices.Clone(songs)
 	viewOrder(songs, kit.SortTitle, true, "a")
-	if !slices.Equal(songs, want) {
+	if !reflect.DeepEqual(songs, want) {
 		t.Error("viewOrder changed the tracks")
 	}
 	if got := viewOrder(nil, kit.SortTitle, false, "x"); len(got) != 0 {

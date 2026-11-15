@@ -179,9 +179,6 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 			}
 			ic := theme.Glyph(c, o.Icon, size, theme.GlyphOpts{Color: fg, Inherit: true, Filled: o.Filled, SolidOnly: true})
 			theme.Spin(ic, o.Spin)
-			if o.Variant == Play && o.Icon == "play" {
-				ic.Margin(0, 0, 0, 1) // the triangle's weight sits left of its box
-			}
 		}
 		if !o.IconAfter {
 			icon()
@@ -271,6 +268,17 @@ func IconButton(c *ui.Context, icon, label string, o ButtonOpts) ui.Element {
 	return Button(c, "", o)
 }
 
+// PlayGlyph is the solid play triangle, size DIPs, drawn centred in a control
+// (a Play disc, a hover button): the one optical rule for it. Lucide's
+// triangle already sits right in its viewBox (its tip at 21 of 24, its base
+// at 5): centred as it is, its box is size/24 right of the control's middle
+// and its mass about as far left, so it reads centred. A nudge on top, as
+// the discs once had, pushes it right: add none.
+func PlayGlyph(c *ui.Context, size float32, o theme.GlyphOpts) ui.Element {
+	o.Filled = true
+	return theme.Glyph(c, "play", size, o)
+}
+
 // PlayButton is the round amber disc that starts playback ("amber means
 // playing"): size DIPs across with a solid play triangle, named by label
 // ("Play OK Computer"). Click it as MyGo's: Clicked. The caller decides when
@@ -284,8 +292,7 @@ func PlayButton(c *ui.Context, label string, size float32) ui.Element {
 	e.Background(bg).TextColor(theme.C("on-play"))
 	theme.Fade(e, "feedback")
 	e.Children(func() {
-		theme.Glyph(c, "play", max(size*0.45, 12), theme.GlyphOpts{Color: theme.C("on-play"), Inherit: true, Filled: true}).
-			Margin(0, 0, 0, 1)
+		PlayGlyph(c, max(size*0.45, 12), theme.GlyphOpts{Color: theme.C("on-play"), Inherit: true})
 	})
 	return e
 }

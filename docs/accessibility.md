@@ -64,6 +64,11 @@ shapes the rules below.
   by `ActiveDescendant` on the field, which keeps the keyboard focus: the
   arrows move the option, as in MyGo's `ComboboxBase`, and the field reads as
   a combo box with its list shown (`Expanded`).
+- In the search field Enter or a click on a song suggestion opens its song
+  page, like every other result (the chevron on the active row says so);
+  Shift+Enter plays the active song. An option holds no control, so the
+  keyboard modifier is the field's way to play; the results page has the
+  Play buttons (the best match's disc, a song row's button) and the menu.
 - Landmarks are few and named for what they hold: the shell's search field is
   a `RoleSearch` (no name: it is the one global search, and the field in it is
   already "Search"); the Albums page's type and sort are a `RoleSearch` named
@@ -76,10 +81,7 @@ shapes the rules below.
   same name, and a region's own heading or list may repeat its name: a
   heading and a list are not landmarks.
 - A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles, each named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`). The chosen tile says so with a ring, a check mark and a heavier name, never by colour alone. A choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as an alert, with the limits it broke in view.
-- A text with links in it is not itself on the tree (`kit.ArtistLinks` is a
-  `RoleNone` rich text, so its links sit beside its separators): Orca reads
-  the enclosing text before a focused link, so a link inside an artist's
-  text was read twice ("Ines Calder, Ines Calder, link").
+- The artist of a song (`kit.ArtistLinks`) is one element, never a text with links in it (Orca read the enclosing text before a focused link, so a link inside an artist's text was read twice: "Ines Calder, Ines Calder, link"): a link for one artist; for several a menu button named by Apple's artist string, with `haspopup` menu, `expanded` while open and the description "Choose an artist", opening a menu whose rows are `menuitem`s named by the artists.
 - A tooltip whose first line is the control's name (the account button's)
   describes the control by the rest (`kit.TooltipDescribed`): by itself it
   is the description, and the name is read twice.
@@ -219,6 +221,11 @@ live region on Windows) and every toast.
 | Reorder the queue | Alt+↑ / Alt+↓ on a focused queue row (Delete removes, Enter plays), or "Play next" and "Move to end" in the row's menu (Shift+F10 or the Menu key); each move is announced with the song's new place. Only the user's songs move, and they stay before the station's or AutoPlay's songs |
 | Reorder a playlist in the editor | Alt+↑ / Alt+↓ on a focused row, announced |
 | Reorder pins in the sidebar | "Move up" in the pin's menu |
+
+Scrolling over the volume (a mouse wheel, a trackpad's swipe; `kit.VolumeWheel`)
+changes it too, as a convenience for the pointer only: the wrapper it sits on is
+not a stop and has no role, and the slider keeps its arrows, Page Up and Page
+Down, Home and End, with Ctrl+↑ and Ctrl+↓ (5% each) and M (mute) anywhere.
 
 ### Reduced motion
 

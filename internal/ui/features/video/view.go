@@ -441,17 +441,20 @@ func (v *video) caption(c *ui.Context, cur *services.QueueItem, pr *problem, sta
 			}
 		})
 		ui.Row(c).Gap(12).AlignItems(ui.Center).MinWidth(0).Children(func() {
-			if path := "/artist/" + cur.ArtistID; cur.ArtistID != "" && v.env.Routed(path) {
-				l := ui.Link(c.Key("artist"), "", "").Shrink(1).MinWidth(0)
-				l.Children(func() { text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")) })
-				control(l, focusVisible)
-				if l.Clicked() {
+			open := v.env.ArtistOpener()
+			if open != nil {
+				// The view closes as it goes, like the title's link.
+				page := open
+				open = func(id string) {
 					v.env.Video.Close()
-					v.env.Nav.Push(path)
+					page(id)
 				}
-			} else {
-				text(c, cur.Artist, "sub").TextColor(theme.C("ink-muted")).Shrink(1)
 			}
+			kit.ArtistLinks(c, v.env.SongArtists.OfPlaying(cur), cur.Artist, theme.C("ink-muted"), kit.ArtistLinksOpts{
+				Open: open, Hover: theme.C("ink"),
+				Style: func(e ui.Element) { theme.StyleText(e, "sub").SingleLine().MinWidth(0) },
+				Wire:  func(e ui.Element) { control(e, focusVisible) },
+			})
 			// A status reads its text when that changes; the frame the
 			// view opens in, which builds it with its first text, says it.
 			row := ui.Row(c.Key("status")).Shrink(0).AlignItems(ui.Center).Role(ui.RoleStatus)
@@ -627,18 +630,24 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 	st.seek.Tick(c, playing)
 }
 
-// volume is the mute button and the volume slider.
+// volume is the mute button and the volume slider; the wheel and a
+// trackpad's swipe over them change the volume (kit.VolumeWheel), and bring
+// the faded controls back.
 func (v *video) volume(c *ui.Context, s services.PlaybackState, focusVisible *bool) {
-	icon, name := kit.VolumeIcon(s.Volume)
-	if control(kit.IconButton(c.Key("mute"), icon, name, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}), focusVisible).Clicked() {
-		v.tr.ToggleMute()
-	}
-	pct := s.Volume * 100
-	sl := kit.Slider(c.Key("volume"), &pct, 0, 100, kit.SliderOpts{
-		A11yLabel: i18n.T("Volume"), Width: 96, Range: theme.C("ink-muted"), // 0 to 100: no value text, which would say the number a third time
+	vol := ui.Row(c.Key("volume-control")).Gap(4).AlignItems(ui.Center)
+	v.wheel.Attach(c, vol, v.tr)
+	vol.Children(func() {
+		icon, name := kit.VolumeIcon(s.Volume)
+		if control(kit.IconButton(c.Key("mute"), icon, name, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}), focusVisible).Clicked() {
+			v.tr.ToggleMute()
+		}
+		pct := s.Volume * 100
+		sl := kit.Slider(c.Key("volume"), &pct, 0, 100, kit.SliderOpts{
+			A11yLabel: i18n.T("Volume"), Width: 96, Range: theme.C("ink-muted"), // 0 to 100: no value text, which would say the number a third time
+		})
+		control(v.owns(sl), focusVisible)
+		if sl.Changed() {
+			v.tr.SetVolume(pct / 100)
+		}
 	})
-	control(v.owns(sl), focusVisible)
-	if sl.Changed() {
-		v.tr.SetVolume(pct / 100)
-	}
 }

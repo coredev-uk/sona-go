@@ -10,10 +10,14 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // routed makes every page a registered one, or none.
@@ -32,7 +36,8 @@ func TestTitleAndArtistLinkToPagesThatExist(t *testing.T) {
 	})
 	r.tt.MustClick("Song Title")
 	r.tt.MustClick("The Artist")
-	if want := []string{"/album/al.9?song=i.1", "/artist/ar.7"}; !slices.Equal(nav.Pushed, want) {
+	r.tt.MustClick("The Album")
+	if want := []string{"/album/al.9?song=i.1", "/artist/ar.7", "/album/al.9"}; !slices.Equal(nav.Pushed, want) {
 		t.Errorf("pushed %q, want %q", nav.Pushed, want)
 	}
 	if !r.tt.HasText("The Album") {
@@ -386,5 +391,199 @@ func TestAPausedOrRestoredVideoDoesNotOpenTheVideoView(t *testing.T) {
 	r.h.Main.Drain()
 	if !r.env.Video.IsOpen() {
 		t.Error("a loading video did not open the view")
+	}
+}
+
+func TestAlbumLinkIsIndependentOfTheArtist(t *testing.T) {
+	r := newRig(t, true)
+	nav := routed(r, true)
+	r.seed(func(s *services.PlaybackState) { s.Current.AlbumID = "al.9" })
+	r.tt.MustClick("The Album")
+	if want := []string{"/album/al.9"}; !slices.Equal(nav.Pushed, want) {
+		t.Errorf("pushed %q, want %q", nav.Pushed, want)
+	}
+	if !r.tt.HasText("The Artist") {
+		t.Errorf("the artist is missing: %q", r.tt.Texts())
+	}
+}
+
+func TestNoAlbumLinkWithoutAnIDOrRoute(t *testing.T) {
+	r := newRig(t, true)
+	nav := routed(r, true)
+	r.seed(func(s *services.PlaybackState) { s.Current.ArtistID = "ar.7" })
+	_ = r.tt.Click("The Album")
+	if len(nav.Pushed) != 0 {
+		t.Errorf("pushed %q for an album with no id", nav.Pushed)
+	}
+}
+
+// stayArtists are the artists of "STAY", whose credit Apple writes
+// "The Kid LAROI & Justin Bieber".
+var stayArtists = []services.Artist{{ID: "1435848034", Name: "The Kid LAROI"}, {ID: "320569549", Name: "Justin Bieber"}}
+
+const stayCredit = "The Kid LAROI & Justin Bieber"
+
+// A song of several artists shows Apple's artist string in the bar as a menu
+// button; choosing it lists the artists, and each opens its own page, with
+// the album link beside it unchanged.
+func TestSeveralArtistsInTheBarOpenAChooserThatNavigates(t *testing.T) {
+	r := newRig(t, true)
+	nav := routed(r, true)
+	r.seed(func(s *services.PlaybackState) {
+		s.Current.Artist, s.Current.ArtistID, s.Current.Artists = stayCredit, "1435848034", stayArtists
+		s.Current.AlbumID = "al.9"
+	})
+	tr := access.Read(t, r.tt.Tester)
+	btn, ok := tr.Find(ui.RoleMenuButton, stayCredit)
+	if !ok || btn.HasPopup != ui.PopupMenu || !btn.Has(access.Focusable) {
+		t.Fatalf("no menu button for the credit:\n%s", tr.Dump())
+	}
+	if _, ok := tr.Find(ui.RoleLink, "The Album"); !ok {
+		t.Errorf("the album link is gone:\n%s", tr.Dump())
+	}
+	r.tt.MustClick(stayCredit)
+	if len(nav.Pushed) != 0 {
+		t.Fatalf("opening the chooser went to %q", nav.Pushed)
+	}
+	tr = access.Read(t, r.tt.Tester)
+	for _, name := range []string{"The Kid LAROI", "Justin Bieber"} {
+		if _, ok := tr.Find(ui.RoleMenuItem, name); !ok {
+			t.Fatalf("no menu item %q:\n%s", name, tr.Dump())
+		}
+	}
+	r.tt.MustClick("Justin Bieber")
+	r.tt.Pump(3, 50*time.Millisecond)
+	if want := []string{"/artist/320569549"}; !slices.Equal(nav.Pushed, want) {
+		t.Errorf("pushed %q, want %q", nav.Pushed, want)
+	}
+}
+
+// One artist stays the plain link it was, even when Apple's list names it.
+func TestOneArtistInTheBarStaysALink(t *testing.T) {
+	r := newRig(t, true)
+	nav := routed(r, true)
+	r.seed(func(s *services.PlaybackState) {
+		s.Current.ArtistID, s.Current.Artists = "3296287", []services.Artist{{ID: "3296287", Name: "The Artist"}}
+	})
+	tr := access.Read(t, r.tt.Tester)
+	if _, ok := tr.Find(ui.RoleLink, "The Artist"); !ok {
+		t.Fatalf("the artist is not a link:\n%s", tr.Dump())
+	}
+	if _, ok := tr.Find(ui.RoleMenuButton, "The Artist"); ok {
+		t.Error("one artist has a menu button")
+	}
+	r.tt.MustClick("The Artist")
+	if want := []string{"/artist/3296287"}; !slices.Equal(nav.Pushed, want) {
+		t.Errorf("pushed %q, want %q", nav.Pushed, want)
+	}
+}
+
+type fakeCatalogArtists struct{ ids chan []string }
+
+func (f fakeCatalogArtists) SongArtists(_ context.Context, ids []string) (map[string][]services.Artist, error) {
+	f.ids <- ids
+	return map[string][]services.Artist{"1001": stayArtists}, nil
+}
+
+// A song played from the library knows its library artist only: the bar looks
+// up the catalogue copy and then offers every artist.
+func TestALibrarySongInTheBarGetsItsCataloguesArtists(t *testing.T) {
+	r := newRig(t, true)
+	routed(r, true)
+	f := fakeCatalogArtists{ids: make(chan []string, 4)}
+	r.env.SongArtists = kit.NewSongArtists(f, r.env.Post)
+	r.seed(func(s *services.PlaybackState) {
+		s.Current.CatalogID, s.Current.Artist, s.Current.ArtistID = "1001", stayCredit, "r.7"
+	})
+	if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleLink, stayCredit); !ok {
+		t.Fatal("before the lookup the library artist is a link")
+	}
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		r.h.Main.Drain()
+		r.tt.Frame()
+		if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleMenuButton, stayCredit); ok {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the chooser never came:\n%s", access.Read(t, r.tt.Tester).Dump())
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if got := <-f.ids; !slices.Equal(got, []string{"1001"}) {
+		t.Errorf("looked up %v, want the catalogue song", got)
+	}
+}
+
+// The bar's chooser open over a collaboration, light and dark: the menu opens
+// above the bar, its start under the credit.
+func TestBarChooserGolden(t *testing.T) {
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		opts []uitest.Option
+	}{
+		{"player-chooser-light", nil},
+		{"player-chooser-dark", []uitest.Option{uitest.Dark()}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newRigOptions(t, true, 1132, nil, tc.opts...)
+			routed(r, true)
+			r.seed(func(s *services.PlaybackState) {
+				s.State = store.StatePaused
+				s.Current.Artist, s.Current.ArtistID, s.Current.Artists = stayCredit, "1435848034", stayArtists
+				s.Current.AlbumID = "al.9"
+			})
+			r.tt.MustClick(stayCredit)
+			r.tt.Pump(8, 50*time.Millisecond)
+			uitest.Golden(t, r.tt.Image(), tc.name)
+		})
+	}
+}
+
+// The artist and the album give way to each other (each ellipsised) but the
+// " · " between them never does: it keeps its whole width, with its spaces,
+// between the two, whether the artist is a link or a chooser, at the bar's
+// normal width and a narrow one.
+func TestBarSeparatorStaysWholeBetweenArtistAndAlbum(t *testing.T) {
+	var natural float32
+	measure := func(c *ui.Context) {
+		sub := theme.Current().Type["sub"]
+		w := func(s string) float32 {
+			v, _ := c.MeasureText(0, ui.Span{Text: s, Font: theme.FontFamily, Size: sub.Size, Weight: int(sub.Weight)})
+			return v
+		}
+		natural = w("x · x") - 2*w("x") // the spaces count: a bare measure drops them
+	}
+	for name, artists := range map[string]func(*services.QueueItem){
+		"link":    func(q *services.QueueItem) { q.Artist, q.ArtistID = stayCredit, "1435848034" },
+		"chooser": func(q *services.QueueItem) { q.Artist, q.ArtistID, q.Artists = stayCredit, "1435848034", stayArtists },
+	} {
+		for _, width := range []int{1132, 700, 560} {
+			r := newRigSized(t, true, width, measure)
+			routed(r, true)
+			r.seed(func(s *services.PlaybackState) {
+				artists(s.Current)
+				s.Current.Album, s.Current.AlbumID = "A Rather Long Album Title", "al.9"
+			})
+			a, okA := r.tt.Find(stayCredit)
+			sep, okS := r.tt.Find(" · ")
+			al, okL := r.tt.Find("A Rather Long Album Title")
+			if !okA || !okS || !okL {
+				t.Fatalf("%s at %d: artist %v, separator %v, album %v in %q", name, width, okA, okS, okL, r.tt.Texts())
+			}
+			if natural < 8 {
+				t.Fatalf("measured a separator of %v wide", natural)
+			}
+			// The text rects are trimmed to their ink: what lies between the
+			// artist's and the album's is the separator's whole box.
+			if gap := al.X - (a.X + a.W); gap < natural-0.5 {
+				t.Errorf("%s at %d: %.1f between the artist and the album, the separator's text %.1f: it was shrunk and clips its dot", name, width, gap, natural)
+			}
+			if a.X+a.W > sep.X+0.5 || sep.X+sep.W > al.X+0.5 || a.W < 20 || al.W < 20 {
+				t.Errorf("%s at %d: artist %v, separator %v, album %v are not in a row, each with room", name, width, a, sep, al)
+			}
+		}
 	}
 }

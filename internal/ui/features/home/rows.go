@@ -301,7 +301,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 				kit.Fade(play, hover)
 				play.Children(func() {
-					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
+					kit.PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink")})
 				})
 				if play.Clicked() {
 					ctx.Players.PlayItem(it)
@@ -333,7 +333,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 				kit.Fade(mark, hot)
 				mark.Children(func() {
-					theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true}).Margin(0, 0, 0, 1)
+					kit.PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink")})
 				})
 			}
 		})

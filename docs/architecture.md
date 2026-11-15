@@ -188,6 +188,7 @@ cmd/
   authspike/                 native (-native) or loopback sign-in + MUT validation
   cdmfetch/                  downloads and verifies the CDM by hand
   rcnotes/                   a prerelease's changelog: the changes since the previous tag, from the commit subjects
+  issuelabels/               the platform/* and area/* labels an issue form's answers name (issue-labels.yml)
   typecheck/                 cross-platform type-check (darwin from Linux)
   pathcase/                  fails on tracked paths that differ only by case
   i18ntool/                  extracts the catalogue; maps Sona's messages to Apple's string keys; converts Apple's translations for review

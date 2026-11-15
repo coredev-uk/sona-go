@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -419,4 +420,44 @@ func TestLive(t *testing.T) {
 		}
 		t.Logf("junk challenge → licence status %d", le.Status)
 	})
+}
+
+// TestLiveSongsNameTheirArtists checks what the multi-artist chooser rests
+// on: a song's artists relationship lists every artist artistName joins, in
+// its order, and carries their names when the songs are asked for with
+// include=artists (Client.Song and the batched Client.Songs); a "feat." artist
+// stays in the title (docs/apple-music-reference.md §4.4).
+func TestLiveSongsNameTheirArtists(t *testing.T) {
+	l := liveClient(t)
+	const (
+		stay      = "1574968888" // "The Kid LAROI & Justin Bieber"
+		getLucky  = "617154366"  // "Daft Punk, Pharrell Williams & Nile Rodgers"
+		fortnight = "1736268194" // "Fortnight (feat. Post Malone)" by Taylor Swift
+	)
+	songs, err := l.api.Songs(liveCtx(t), l.sf, []string{stay, getLucky, fortnight})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string][]string{}
+	for _, s := range songs {
+		for _, a := range s.Relationships.Artists.Data {
+			names[s.ID] = append(names[s.ID], a.Attributes.Name)
+		}
+	}
+	for id, want := range map[string][]string{
+		stay:      {"The Kid LAROI", "Justin Bieber"},
+		getLucky:  {"Daft Punk", "Pharrell Williams", "Nile Rodgers"},
+		fortnight: {"Taylor Swift"},
+	} {
+		if got := names[id]; !slices.Equal(got, want) {
+			t.Errorf("song %s artists = %q, want %q", id, got, want)
+		}
+	}
+	one, err := l.api.Song(liveCtx(t), l.sf, stay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := one.Relationships.Artists.Data; len(d) != 2 || d[1].Attributes.Name != "Justin Bieber" {
+		t.Errorf("Song artists = %+v, want both named", d)
+	}
 }

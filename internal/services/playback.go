@@ -24,6 +24,10 @@ type trackMeta struct {
 	source                   Source
 	id, catalogID, libraryID string
 	albumID, artistID        string
+	// artists are every credited artist where the song came from the
+	// catalogue with them named (a fetched song, a station's); a stored row
+	// keeps only the first artist's ID.
+	artists []Artist
 }
 
 // PlaybackService controls the play queue (internal/playback/coordinator).
@@ -260,7 +264,7 @@ func (s *PlaybackService) item(uid uint64, it coordinator.Item) QueueItem {
 	}
 	return QueueItem{
 		UID: uid, ID: m.id, Source: m.source, CatalogID: m.catalogID, LibraryID: m.libraryID,
-		Name: it.Title, Artist: it.Artist, Album: it.Album, AlbumID: m.albumID, ArtistID: m.artistID,
+		Name: it.Title, Artist: it.Artist, Album: it.Album, AlbumID: m.albumID, ArtistID: m.artistID, Artists: m.artists,
 		DurationMs: it.Duration.Milliseconds(), Art: s.m.artOf(it.Artwork),
 		Live:      it.Live(),
 		Broadcast: it.Broadcast,
@@ -388,12 +392,12 @@ func (s *PlaybackService) fetchSongs(ctx context.Context, refs []TrackRef, slots
 			slots[i] = resolved{err: fmt.Errorf("song %s: %w", r.ID, applemusic.ErrNotFound)}
 			continue
 		}
-		if err := s.released(so.Attributes.ReleaseDate, func() string { return songAlbumDate(so) }); err != nil {
+		if err := s.released(so.Attributes.ReleaseDate, so.Attributes.PlayParams != nil, func() string { return songAlbumDate(so) }); err != nil {
 			slots[i] = resolved{err: fmt.Errorf("track %s/%s: %w", r.Source, r.ID, err)}
 			continue
 		}
 		dto := s.m.amSong(so)
-		slots[i] = resolved{item: songItem(so), meta: trackMeta{source: SourceCatalog, id: r.ID, catalogID: r.ID, albumID: dto.AlbumID, artistID: dto.ArtistID}}
+		slots[i] = resolved{item: songItem(so), meta: trackMeta{source: SourceCatalog, id: r.ID, catalogID: r.ID, albumID: dto.AlbumID, artistID: dto.ArtistID, artists: dto.Artists}}
 	}
 	return nil
 }
@@ -460,16 +464,20 @@ func (s *PlaybackService) resolveVideo(ctx context.Context, r TrackRef) (coordin
 	m := trackMeta{source: SourceCatalog, id: id, catalogID: id}
 	if ar := v.Relationships.Artists.Data; len(ar) > 0 {
 		m.artistID = ar[0].ID
+		m.artists = s.m.amArtists(ar)
 	}
 	return itemOf(playback.VideoID(id), a.Name, a.ArtistName, "", a.DurationInMillis, a.Artwork.Template(), a.ContentRating == "explicit"), m, nil
 }
 
 // released fails with ErrNotReleased for a song released on date that
-// isn't out yet; a song without a date (Apple dates only the songs of a
-// pre-release album already out) goes by its album's date (album, asked
-// only then).
-func (s *PlaybackService) released(date string, album func() string) error {
+// isn't out yet. A song without a date is out when Apple gave it playParams
+// (some singles of a pre-release album carry none: Flower In A Hurricane),
+// and otherwise goes by its album's date (album, asked only then).
+func (s *PlaybackService) released(date string, hasPlayParams bool, album func() string) error {
 	if date == "" {
+		if hasPlayParams {
+			return nil
+		}
 		date = album()
 	}
 	if upcoming(date, false, s.m.clock()) {
@@ -479,14 +487,14 @@ func (s *PlaybackService) released(date string, album func() string) error {
 }
 
 // storedReleased is released for a stored song. One without a date of its
-// own goes by its album: a library album's date and Apple's flag are the
-// ones its catalog album gave (libraryRelease), a pre-added album having
-// no releaseDate of its own.
+// own and without playParams goes by its album: a library album's date and
+// Apple's flag are the ones its catalog album gave (libraryRelease), a
+// pre-added album having no releaseDate of its own.
 func (s *PlaybackService) storedReleased(ctx context.Context, t dbq.Track) error {
 	if upcoming(t.ReleaseDate, false, s.m.clock()) {
 		return ErrNotReleased
 	}
-	if t.ReleaseDate != "" {
+	if t.ReleaseDate != "" || t.NoPlayParams == 0 {
 		return nil
 	}
 	if t.AlbumLibraryID.Valid {
@@ -497,7 +505,7 @@ func (s *PlaybackService) storedReleased(ctx context.Context, t dbq.Track) error
 			return nil
 		}
 	}
-	return s.released("", func() string { return s.catalogAlbumDate(ctx, t) })
+	return s.released("", false, func() string { return s.catalogAlbumDate(ctx, t) })
 }
 
 // catalogAlbumDate is the release date of a stored song's catalog album

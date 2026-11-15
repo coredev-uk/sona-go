@@ -664,13 +664,48 @@ func TestFieldPickingAnItemOpensItsPageAndRemembersIt(t *testing.T) {
 	}
 }
 
-func TestFieldPickingASongPlaysItInsteadOfNavigating(t *testing.T) {
+func TestFieldPickingASongOpensItsPageAndDoesNotPlay(t *testing.T) {
 	r := newFieldRig(t, "/library/albums")
 	r.focusField()
 	r.typeAndWait("blu", "Blue Moon")
 	if err := r.tt.Click("Blue Moon"); err != nil {
 		t.Fatal(err)
 	}
+	if got := r.router.Location(); got != "/song/1" {
+		t.Fatalf("picking the song went to %q, want its page", got)
+	}
+	r.untilRecent("song:Blue Moon")
+	r.tt.Advance(100 * time.Millisecond)
+	if got := r.play.played(); len(got) != 0 {
+		t.Errorf("opening a song played %+v", got)
+	}
+}
+
+func TestFieldEnterOnASongOpensItsPage(t *testing.T) {
+	r := newFieldRig(t, "/library/albums")
+	r.focusField()
+	r.typeAndWait("blu", "Blue Moon")
+	for range 5 {
+		r.key(ui.KeyDown) // two completions, the artist, the album, the song
+	}
+	r.key(ui.KeyEnter)
+	if got := r.router.Location(); got != "/song/1" {
+		t.Fatalf("Enter on the song went to %q", got)
+	}
+	r.untilRecent("song:Blue Moon")
+	if got := r.play.played(); len(got) != 0 {
+		t.Errorf("Enter on a song played %+v", got)
+	}
+}
+
+func TestFieldShiftEnterPlaysTheActiveSong(t *testing.T) {
+	r := newFieldRig(t, "/library/albums")
+	r.focusField()
+	r.typeAndWait("blu", "Blue Moon")
+	for range 5 {
+		r.key(ui.KeyDown)
+	}
+	r.tt.Key(ui.Shift, ui.KeyEnter)
 	r.tt.Until("playback", func() bool { return len(r.play.played()) == 1 })
 	got := r.play.played()[0]
 	if len(got) != 1 || got[0].ID != "1" {
@@ -680,6 +715,36 @@ func TestFieldPickingASongPlaysItInsteadOfNavigating(t *testing.T) {
 		t.Errorf("playing a song navigated to %q", loc)
 	}
 	r.untilRecent("song:Blue Moon")
+}
+
+func TestFieldShiftEnterOnAnAlbumStillOpensIt(t *testing.T) {
+	r := newFieldRig(t, "/library/albums")
+	r.focusField()
+	r.typeAndWait("blu", "Blue Hour")
+	for range 4 {
+		r.key(ui.KeyDown) // two completions, the artist, the album
+	}
+	r.tt.Key(ui.Shift, ui.KeyEnter)
+	if got := r.router.Location(); got != "/album/5" {
+		t.Errorf("Shift+Enter on the album went to %q", got)
+	}
+	if got := r.play.played(); len(got) != 0 {
+		t.Errorf("Shift+Enter on an album played %+v", got)
+	}
+}
+
+func TestFieldASongWithNoSongPagePlaysWhenPicked(t *testing.T) {
+	r := newFieldRig(t, "/library/albums")
+	r.h.Env.HasRoute = func(p string) bool { return strings.HasPrefix(p, "/album/") }
+	r.focusField()
+	r.typeAndWait("blu", "Blue Moon")
+	if err := r.tt.Click("Blue Moon"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("playback", func() bool { return len(r.play.played()) == 1 })
+	if loc := r.router.Location(); loc != "/library/albums" {
+		t.Errorf("playing a song navigated to %q", loc)
+	}
 }
 
 func TestFieldPickingAPageThatIsNotPortedOpensNothing(t *testing.T) {
@@ -781,6 +846,28 @@ func TestFieldGoldens(t *testing.T) {
 			r.typeAndWait("blu", "Blue Hour", "Blue Moon")
 			for range 3 {
 				r.key(ui.KeyDown) // the active row: an item, with its chevron
+			}
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), name)
+		})
+	}
+}
+
+// TestFieldSongGoldens: the active row is a song, whose chevron says Enter
+// opens its page.
+func TestFieldSongGoldens(t *testing.T) {
+	for _, dark := range []bool{false, true} {
+		name := "field_song_light"
+		var opts []uitest.Option
+		if dark {
+			name, opts = "field_song_dark", []uitest.Option{uitest.Dark()}
+		}
+		t.Run(name, func(t *testing.T) {
+			r := newFieldRig(t, "/search", opts...)
+			r.focusField()
+			r.typeAndWait("blu", "Blue Hour", "Blue Moon")
+			for range 5 {
+				r.key(ui.KeyDown) // two completions, the artist, the album, the song
 			}
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), name)

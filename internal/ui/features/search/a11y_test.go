@@ -121,14 +121,32 @@ func TestA11yPages(t *testing.T) {
 				{ui.RoleList, "Top results for blue"},
 				{ui.RoleLink, "Blue Band Artist · Rock"},
 				{ui.RoleLink, "Blue Hour Album · Blue Band"},
-				{ui.RoleButton, "Blue Song 1, Play"},
+				{ui.RoleLink, "Blue Song 1 Song · Blue Band"},
+				{ui.RoleButton, "Play Blue Song 1"},
 				{ui.RoleLink, "See all"},
 				{ui.RoleTable, "Songs matching blue"},
-				{ui.RoleButton, "Play Blue Song 1"},
 			},
+			absent: []a11yNode{{ui.RoleButton, "Blue Song 1, Play"}},
 			tab: []string{
-				"Apple Music", "Library", "Blue Band Artist · Rock", "Blue Hour Album · Blue Band", "Blue Song 1, Play",
-				"Blue Band", "Blue Hour", "See all", "Blue Song 1",
+				"Apple Music", "Library", "Blue Band Artist · Rock", "Blue Hour Album · Blue Band", "Blue Song 1 Song · Blue Band",
+				"Play Blue Song 1", "Blue Band", "Blue Hour", "See all", "Blue Song 1",
+			},
+		},
+		{
+			name: "catalogue results with a song as the best match",
+			build: func(t *testing.T) *pageRig {
+				return newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, setup: func(a *pageApple) { a.songFirst = true }})
+			},
+			ready: []string{"Top results", "Blue Mix", "Blue Song 1"},
+			present: []a11yNode{
+				{ui.RoleLink, "Blue Song 1 Song · Blue Band"},
+				{ui.RoleButton, "Play Blue Song 1"},
+				{ui.RoleLink, "Blue Band Artist · Rock"},
+			},
+			absent: []a11yNode{{ui.RoleButton, "Blue Song 1, Play"}},
+			tab: []string{
+				"Apple Music", "Library", "Blue Song 1 Song · Blue Band", "Play Blue Song 1",
+				"Blue Band Artist · Rock", "Blue Hour Album · Blue Band",
 			},
 		},
 		{

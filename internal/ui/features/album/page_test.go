@@ -14,6 +14,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 func (r *rig) wantTexts(texts ...string) {
@@ -381,7 +382,8 @@ func TestUnreleasedAlbumCountsDownToTheMinute(t *testing.T) {
 // A pre-added album's library entry has no releaseDate and no isPrerelease
 // (the library may not have synced them yet): opened by its library ID the
 // page takes the release state of the linked catalogue album when that is
-// not out, and the songs the library does not date are not playable.
+// not out, and the songs the catalogue page says are not out are not
+// playable, whatever the library thinks of them.
 func TestLibraryAlbumTakesTheLinkedCatalogueAlbumsReleaseState(t *testing.T) {
 	r := newRig(t, "/album/l.9", 1132, 1000)
 	release := r.now.Add(5*time.Hour + 12*time.Minute)
@@ -394,19 +396,24 @@ func TestLibraryAlbumTakesTheLinkedCatalogueAlbumsReleaseState(t *testing.T) {
 
 // addPreAddedLibraryAlbum puts in place library album l.9 as a library that
 // has not synced its release yet shows it (no release date, no flag, every
-// song playable; two are dated) beside its linked catalogue album, which
-// comes out at release.
+// song playable; one is dated, one out without a date) beside its linked
+// catalogue album, which comes out at release and knows that only the first
+// two songs are out (the rest have no playParams).
 func (r *rig) addPreAddedLibraryAlbum(release time.Time) {
 	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
 		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), release.Format("2006-01-02")
+		for i := 2; i < len(p.Tracks); i++ {
+			p.Tracks[i].Playable = false
+		}
 	}))
 	libTracks := fiveTracks()
 	for i := range libTracks {
 		libTracks[i].ID, libTracks[i].Source, libTracks[i].Playable = fmt.Sprintf("i.%d", i), services.SourceLibrary, true
-		if i < 2 { // two songs are out, with a date; Apple dates no others
+		// Two songs are out: one dated, one with playParams and no date (a
+		// single can carry none); the others are not.
+		libTracks[i].ReleaseDate = ""
+		if i == 0 {
 			libTracks[i].ReleaseDate = "2026-09-17"
-		} else {
-			libTracks[i].ReleaseDate = ""
 		}
 	}
 	r.lib.albums["l.9"] = services.AlbumDetail{
@@ -1046,4 +1053,41 @@ func countTexts(texts []string, want string) int {
 		}
 	}
 	return n
+}
+
+// A split album names Apple's artist string in the byline as a menu button;
+// each artist in its menu opens their page. A compilation that Apple credits
+// to no artist is plain text: never a "Various Artists" page.
+func TestSplitAlbumBylineChoosesBetweenItsArtists(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 1000)
+	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Artist = "Mia Vale & Zed Cole"
+		p.Artists = []services.Artist{{ID: "a1", Name: "Mia Vale"}, {ID: "a2", Name: "Zed Cole"}}
+	}))
+	r.shows("Mia Vale & Zed Cole")
+	tr := access.Read(t, r.tt.Tester)
+	btn, ok := tr.Find(ui.RoleMenuButton, "Mia Vale & Zed Cole")
+	if !ok || btn.HasPopup != ui.PopupMenu || !btn.Has(access.Focusable) {
+		t.Fatalf("no menu button for the byline:\n%s", tr.Dump())
+	}
+	r.click("Mia Vale & Zed Cole")
+	if p := r.router.Path(); p != "/album/100" {
+		t.Fatalf("opening the chooser went to %q", p)
+	}
+	r.click("Zed Cole")
+	r.tt.Until("the artist page", func() bool { return r.router.Path() == "/artist/a2" })
+}
+
+func TestCompilationBylineIsTextNotAVariousArtistsPage(t *testing.T) {
+	r := newRig(t, "/album/100", 1132, 1000)
+	r.addCatalog(saltFlats(func(p *services.CatalogAlbum) {
+		p.Album.Artist, p.Album.ArtistID, p.Artists = "Various Artists", "", nil
+	}))
+	r.shows("Various Artists")
+	tr := access.Read(t, r.tt.Tester)
+	for _, role := range []ui.Role{ui.RoleLink, ui.RoleMenuButton} {
+		if _, ok := tr.Find(role, "Various Artists"); ok {
+			t.Errorf("Various Artists is a %v:\n%s", role, tr.Dump())
+		}
+	}
 }

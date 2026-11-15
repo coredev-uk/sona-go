@@ -322,11 +322,10 @@ func (r *radio) upcoming(c *ui.Context, songs []services.Song, ruled bool) {
 						} else {
 							theme.Text(c, song.Name, "ui").TextColor(ink).SingleLine()
 						}
-						if song.ArtistID != "" {
-							r.songLink(c, song.Artist, "/artist/"+url.PathEscape(song.ArtistID), "sub", muted)
-						} else {
-							theme.Text(c, song.Artist, "sub").TextColor(muted).SingleLine()
-						}
+						kit.ArtistLinks(c, r.env.SongArtists.OfSong(song), song.Artist, muted, kit.ArtistLinksOpts{
+							Open:  r.env.ArtistOpener(),
+							Style: func(e ui.Element) { theme.StyleText(e, "sub").SingleLine().AlignSelf(ui.Start) },
+						})
 					})
 					theme.Text(c, song.Album, "sub").TextColor(theme.C("ink-muted")).Grow(0.8).Basis(0).MinWidth(0).SingleLine().TextAlign(ui.Start)
 					theme.Text(c, i18n.FormatDuration(time.Duration(song.DurationMs)*time.Millisecond), "meta").TextColor(theme.C("ink-muted")).Shrink(0)
@@ -508,14 +507,26 @@ func (r *radio) seedLine(c *ui.Context, seed services.StationSeed) {
 		page = "/album/"
 	}
 	ink, muted := theme.C("ink"), theme.C("ink-muted")
-	ui.RichText(c).Children(func() {
+	artists := seed.Artists
+	if len(artists) == 0 && seed.ArtistID != "" {
+		artists = []services.Artist{{ID: seed.ArtistID, Name: seed.Subtitle}}
+	}
+	// Several artists are a button that opens a menu of them, which text
+	// cannot hold: the line is then a row of its parts, wrapping between them.
+	line := func(children func()) ui.Element { return ui.RichText(c).Children(children) }
+	if open := r.env.ArtistOpener(); open != nil && len(artists) > 1 {
+		line = func(children func()) ui.Element { return ui.Row(c).Wrap().AlignItems(ui.Center).Children(children) }
+	}
+	line(func() {
 		for i, part := range seedParts(msg) {
 			key := c.Key(i)
 			switch part.mark {
 			case nameMark:
 				r.link(key, seed.Name, page+url.PathEscape(seed.ID), ink)
 			case byMark:
-				if seed.ArtistID != "" {
+				if len(artists) > 1 && r.env.ArtistOpener() != nil {
+					kit.ArtistLinks(key, artists, seed.Subtitle, ink, kit.ArtistLinksOpts{Open: r.env.ArtistOpener()})
+				} else if seed.ArtistID != "" {
 					r.link(key, seed.Subtitle, "/artist/"+url.PathEscape(seed.ArtistID), ink)
 				} else {
 					ui.Text(key, seed.Subtitle).TextColor(ink)

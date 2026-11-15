@@ -265,10 +265,11 @@ func (s *song) lead(c *ui.Context, page services.CatalogSong, sh shape) {
 	})
 }
 
-// byline is the artists as links (their names when Apple credits none), and
-// under them the album, linking to it with this song marked.
+// byline is the artist (a link, or a chooser of every credited artist; the
+// credit as plain text when Apple names none), and under it the album, linking
+// to it with this song marked.
 func (s *song) byline(c *ui.Context, page services.CatalogSong) {
-	kit.ArtistLinks(c.Key("artists"), page.Artists, page.Song.Artist, ui.Color{}, kit.ArtistLinksOpts{HasRoute: s.env.Routed}).
+	kit.ArtistLinks(c.Key("artists"), page.Artists, page.Song.Artist, ui.Color{}, kit.ArtistLinksOpts{Open: s.env.ArtistOpener()}).
 		AlignSelf(ui.Start)
 	al := page.Album
 	if al == nil {

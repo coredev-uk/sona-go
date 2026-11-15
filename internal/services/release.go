@@ -12,9 +12,12 @@ import (
 // (singles) playable and the rest without play parameters. Until the
 // release Album.Prerelease is set, songs not out yet are not playable and
 // PlaybackService refuses them (ErrNotReleased), and the album page counts
-// down to Album.ReleaseAt. Apple releases at midnight in the storefront's
-// time zone; Sona takes the computer's, which is the storefront's for
-// nearly everyone.
+// down to Album.ReleaseAt. A song follows itself, never its album: its own
+// playParams say it is out (some singles carry no releaseDate of their own,
+// Flower In A Hurricane on the GTA VI album among them), a releaseDate still
+// ahead says it is not, and only a song with neither falls back to its
+// album's date. Apple releases at midnight in the storefront's time zone;
+// Sona takes the computer's, which is the storefront's for nearly everyone.
 
 // ErrNotReleased is a play of a song that isn't out yet (code
 // "not_released").
@@ -51,26 +54,19 @@ func libraryRelease(date, catalogDate string, flagged bool, now time.Time) (stri
 }
 
 // songUnreleased reports whether library song s is not out at now: by its
-// own date when it has one (Apple dates only the songs of a pre-added album
-// already out), else by its album's release state, which Library.Songs
-// loads with the song (libraryRelease). It is the rule PlaybackService
-// applies to stored songs (storedReleased), so a song listed as playable
-// plays and one listed as unplayable is refused.
+// own date when it has one, else out when Apple gave it playParams (a
+// single of a pre-added album can have no date of its own), else by its
+// album's release state, which Library.Songs loads with the song
+// (libraryRelease). It is the rule PlaybackService applies to stored songs
+// (storedReleased), so a song listed as playable plays and one listed as
+// unplayable is refused.
 func songUnreleased(s library.Song, now time.Time) bool {
-	if s.ReleaseDate != "" {
+	switch {
+	case s.ReleaseDate != "":
 		return upcoming(s.ReleaseDate, false, now)
+	case !s.NoPlayParams:
+		return false
 	}
 	_, up := libraryRelease(s.Album.Date, s.Album.CatalogDate, s.Album.Prerelease, now)
 	return up
-}
-
-// markUnreleased makes the tracks of the pre-release album not out yet
-// unplayable: those whose own release date is still ahead or, without
-// one, every track (Apple dates only the songs already out).
-func markUnreleased(tracks []Song, now time.Time) {
-	for i := range tracks {
-		if tracks[i].ReleaseDate == "" || upcoming(tracks[i].ReleaseDate, false, now) {
-			tracks[i].Playable = false
-		}
-	}
 }

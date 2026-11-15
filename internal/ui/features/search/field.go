@@ -105,6 +105,9 @@ type field struct {
 	// resultsReq: Down was pressed with the list closed on /search, this
 	// frame: the page moves the focus into its first result.
 	resultsReq bool
+	// playKey: the Enter that submits the field came with Shift, which
+	// plays the active song instead of opening its page.
+	playKey bool
 }
 
 func newField(s *search) *field { return &field{s: s, active: -1} }
@@ -164,6 +167,7 @@ func (f *field) build(c *ui.Context) {
 				if k.Key == ui.KeyTab {
 					f.close() // Tab closes the list and the focus moves on
 				}
+				f.playKey = k.Key == ui.KeyEnter && k.Mods&ui.Shift != 0
 				return false
 			})
 		if in.Changed() {
@@ -220,8 +224,10 @@ func (f *field) build(c *ui.Context) {
 		}
 	}
 	if in.Submitted() {
+		play := f.playKey
+		f.playKey = false
 		if f.active >= 0 && f.active < len(opts) {
-			f.pick(opts[f.active], scope)
+			f.pick(opts[f.active], scope, play)
 		} else {
 			f.search(f.text, scope)
 		}
@@ -393,14 +399,15 @@ func (f *field) visit(path string) {
 }
 
 // openItem opens a top result: the field loses the focus, the item is
-// remembered, and its page opens; a song, or anything without a page,
-// plays or opens as it does elsewhere.
-func (f *field) openItem(it services.Item) {
+// remembered, and its page opens, a song's too. play (Shift+Enter) plays a
+// song instead; a song with no page here plays, and anything else without a
+// page opens as it does elsewhere.
+func (f *field) openItem(it services.Item, play bool) {
 	f.close()
 	f.blur = 3
 	f.s.rememberItem(it, itemSource(it))
 	switch p := itemPath(it); {
-	case it.Kind == services.ItemSong:
+	case it.Kind == services.ItemSong && ((play && f.s.playable(it)) || !f.opensPage(it)):
 		f.s.playSong(it)
 	case p != "":
 		f.visit(p)
@@ -409,13 +416,14 @@ func (f *field) openItem(it services.Item) {
 	}
 }
 
-// pick chooses a row (v0.2.0's pick).
-func (f *field) pick(o option, scope string) {
+// pick chooses a row (v0.2.0's pick). play is Shift+Enter: a song result
+// plays instead of opening its page.
+func (f *field) pick(o option, scope string, play bool) {
 	switch o.kind {
 	case optTerm:
 		f.search(o.term, scope)
 	case optItem:
-		f.openItem(o.item)
+		f.openItem(o.item, play)
 	default:
 		r := o.entry
 		if r.Kind == services.RecentTerm {
@@ -512,7 +520,7 @@ func (f *field) popup(c *ui.Context, box ui.Element, opts []option, typed, scope
 	}
 	f.moved = false
 	if pick >= 0 {
-		f.pick(opts[pick], scope)
+		f.pick(opts[pick], scope, false) // a click opens; playing is Shift+Enter
 	}
 	return activeRow
 }
@@ -589,25 +597,37 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 				theme.Text(c.Key("name"), it.Name, "body").TextColor(theme.C("ink")).SingleLine()
 				theme.Text(c.Key("meta"), itemMeta(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			})
-			f.kindMark(c, kindIcon(it), active)
+			enter := "chevron-right"
+			if o.kind == optItem && !f.opensPage(it) {
+				enter = "play"
+			}
+			f.kindMark(c, kindIcon(it), enter, active)
 		}
 		if active && (o.kind == optTerm || (o.kind == optRecent && o.entry.Kind == services.RecentTerm)) {
-			f.kindMark(c, "", true)
+			f.kindMark(c, "", "chevron-right", true)
 		}
 	})
 	return row
 }
 
 // kindMark is the row's trailing glyph: its kind's icon, faint, and on the
-// active row the chevron that says Enter opens it. An empty icon with the
-// row not active builds nothing.
-func (f *field) kindMark(c *ui.Context, icon string, active bool) {
+// active row the glyph that says what Enter does: the chevron where it
+// opens something, the play triangle where it plays (a song with no page).
+// An empty icon with the row not active builds nothing.
+func (f *field) kindMark(c *ui.Context, icon, enter string, active bool) {
 	switch {
 	case active:
-		theme.Glyph(c.Key("go"), "chevron-right", 16, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0).Margin(0, 4, 0, 0)
+		theme.Glyph(c.Key("go"), enter, 16, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0).Margin(0, 4, 0, 0)
 	case icon != "":
 		theme.Glyph(c.Key("kind"), icon, 14, theme.GlyphOpts{Color: theme.C("ink-faint")}).Shrink(0).Margin(0, 4, 0, 0)
 	}
+}
+
+// opensPage reports whether choosing a top result opens its page; a song
+// without one (a library upload) plays instead.
+func (f *field) opensPage(it services.Item) bool {
+	p := itemPath(it)
+	return it.Kind != services.ItemSong || (p != "" && f.s.env.Routed(p))
 }
 
 func (f *field) icon(c *ui.Context, name string) {

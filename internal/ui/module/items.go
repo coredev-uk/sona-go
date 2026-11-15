@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"net/url"
 	"strings"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -23,6 +24,7 @@ func (e *Env) ItemsCtx(menus *kit.ActionMenus) kit.ItemsCtx {
 		Art:      e.Art,
 		Menus:    menus,
 		Motion:   e.Motion,
+		Artists:  e.SongArtists,
 	}
 	if e.Core != nil {
 		ctx.Restricted = services.Service[services.AuthService](e.Core).Status().Restricted
@@ -61,3 +63,13 @@ func (e *Env) ItemsCtx(menus *kit.ActionMenus) kit.ItemsCtx {
 // Routed reports whether a module serves path: HasRoute, false in a hand-built
 // Env. A feature links to a page only when this is true.
 func (e *Env) Routed(path string) bool { return e.HasRoute != nil && e.HasRoute(path) }
+
+// ArtistOpener opens an artist's page by the artist's ID, in the main window's
+// router; nil where the artist page is not ported, which is what
+// kit.ArtistLinks takes for "not a link".
+func (e *Env) ArtistOpener() func(id string) {
+	if !e.Routed("/artist/x") {
+		return nil
+	}
+	return func(id string) { e.Nav.Push("/artist/" + url.PathEscape(id)) }
+}

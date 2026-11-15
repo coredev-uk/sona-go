@@ -33,7 +33,7 @@ func PlayingItem(cur *services.QueueItem) Item {
 	}
 	return SongItem(services.Song{
 		ID: cur.ID, Source: cur.Source, CatalogID: cur.CatalogID, LibraryID: cur.LibraryID, Name: cur.Name,
-		Artist: cur.Artist, Album: cur.Album, AlbumID: cur.AlbumID, ArtistID: cur.ArtistID,
+		Artist: cur.Artist, Album: cur.Album, AlbumID: cur.AlbumID, ArtistID: cur.ArtistID, Artists: cur.Artists,
 		DurationMs: cur.DurationMs, Explicit: cur.Explicit, Playable: true, Art: cur.Art,
 	})
 }

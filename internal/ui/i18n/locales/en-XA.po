@@ -931,6 +931,10 @@ msgstr ""
 msgid "Choose a song, album or playlist to start"
 msgstr ""
 
+#: internal/ui/kit/artist_links.go
+msgid "Choose an artist"
+msgstr ""
+
 #: internal/ui/features/playlist/covers.go
 msgid "Choose an image…"
 msgstr ""
@@ -1849,6 +1853,18 @@ msgstr ""
 
 #: internal/ui/features/radio/radio.go
 msgid "Create station"
+msgstr ""
+
+#: internal/ui/features/playlist/page.go
+msgid "Created today"
+msgstr ""
+
+#: internal/ui/features/playlist/page.go
+msgid "Created yesterday"
+msgstr ""
+
+#: internal/ui/features/playlist/page.go
+msgid "Created {date}"
 msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
@@ -2788,6 +2804,10 @@ msgstr ""
 
 #: internal/ui/features/settings/crossfade.go
 msgid "How long the end of one song overlaps the start of the next. Applies from the next song."
+msgstr ""
+
+#: internal/ui/features/settings/connections.go
+msgid "How scrobbling counts"
 msgstr ""
 
 #: internal/ui/account/code.go
@@ -4515,6 +4535,7 @@ msgid "Play {artistName}'s top songs"
 msgstr ""
 
 #: internal/ui/features/artist/head.go
+#: internal/ui/features/search/itemrow.go
 #: internal/ui/features/search/results.go
 #: internal/ui/kit/button.go
 msgid "Play {label}"
@@ -6385,14 +6406,6 @@ msgstr ""
 #: internal/ui/features/onboarding/status.go
 #: internal/ui/features/onboarding/widevine.go
 msgid "Starting…"
-msgstr ""
-
-#: internal/ui/features/playlist/editor.go
-msgid "Starts"
-msgstr ""
-
-#: internal/ui/features/playlist/page.go
-msgid "Starts at {time}"
 msgstr ""
 
 #: internal/ui/features/home/catalogue.go

@@ -289,6 +289,22 @@ func (m mapper) amSong(s applemusic.Song) Song {
 	}
 	if d := s.Relationships.Artists.Data; len(d) > 0 {
 		out.ArtistID = d[0].ID
+		out.Artists = m.amArtists(d)
+	}
+	return out
+}
+
+// amArtists maps an artists relationship: every artist in Apple's order. It
+// is nil unless each came as a catalogue artist with its name: without
+// include=artists Apple sends the IDs alone, and a library song's artists are
+// library artists, which a catalogue artist page can't open.
+func (m mapper) amArtists(rel []applemusic.Artist) []Artist {
+	out := make([]Artist, 0, len(rel))
+	for _, a := range rel {
+		if isLibraryType(a.Type) || a.Attributes.Name == "" {
+			return nil
+		}
+		out = append(out, m.amArtist(a))
 	}
 	return out
 }
@@ -316,6 +332,7 @@ func (m mapper) amAlbum(a applemusic.Album) Album {
 	}
 	if d := a.Relationships.Artists.Data; len(d) > 0 {
 		out.ArtistID = d[0].ID
+		out.Artists = m.amArtists(d)
 	}
 	m.release(&out, at.IsPrerelease)
 	return out

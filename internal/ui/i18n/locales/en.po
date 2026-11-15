@@ -931,6 +931,10 @@ msgstr "Choose Favourite on any song, here or in Apple Music, and it is kept her
 msgid "Choose a song, album or playlist to start"
 msgstr "Choose a song, album or playlist to start"
 
+#: internal/ui/kit/artist_links.go
+msgid "Choose an artist"
+msgstr "Choose an artist"
+
 #: internal/ui/features/playlist/covers.go
 msgid "Choose an image…"
 msgstr "Choose an image…"
@@ -1850,6 +1854,18 @@ msgstr "Create playlist"
 #: internal/ui/features/radio/radio.go
 msgid "Create station"
 msgstr "Create station"
+
+#: internal/ui/features/playlist/page.go
+msgid "Created today"
+msgstr "Created today"
+
+#: internal/ui/features/playlist/page.go
+msgid "Created yesterday"
+msgstr "Created yesterday"
+
+#: internal/ui/features/playlist/page.go
+msgid "Created {date}"
+msgstr "Created {date}"
 
 #: internal/ui/features/playlist/dialogs.go
 msgid "Creating…"
@@ -2789,6 +2805,10 @@ msgstr "How Sona starts, and what it does in the background."
 #: internal/ui/features/settings/crossfade.go
 msgid "How long the end of one song overlaps the start of the next. Applies from the next song."
 msgstr "How long the end of one song overlaps the start of the next. Applies from the next song."
+
+#: internal/ui/features/settings/connections.go
+msgid "How scrobbling counts"
+msgstr "How scrobbling counts"
 
 #: internal/ui/account/code.go
 msgid "How to get the code"
@@ -4515,6 +4535,7 @@ msgid "Play {artistName}'s top songs"
 msgstr "Play {artistName}'s top songs"
 
 #: internal/ui/features/artist/head.go
+#: internal/ui/features/search/itemrow.go
 #: internal/ui/features/search/results.go
 #: internal/ui/kit/button.go
 msgid "Play {label}"
@@ -6386,14 +6407,6 @@ msgstr "Starting Widevine's download…"
 #: internal/ui/features/onboarding/widevine.go
 msgid "Starting…"
 msgstr "Starting…"
-
-#: internal/ui/features/playlist/editor.go
-msgid "Starts"
-msgstr "Starts"
-
-#: internal/ui/features/playlist/page.go
-msgid "Starts at {time}"
-msgstr "Starts at {time}"
 
 #: internal/ui/features/home/catalogue.go
 #: internal/ui/features/radio/radio.go

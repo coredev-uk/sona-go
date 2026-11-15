@@ -158,6 +158,43 @@ func (p *player) link(c *ui.Context, key, text, path, style string, color ui.Col
 	p.playingRow(l, p.env.Play.State().Current, &p.menus.bar)
 }
 
+// separator is " · " between the artist and the album: as wide as its text
+// and never shrunk, so the artist and the album give way to each other and
+// it stays whole between them (a single-line text asked to shrink by even a
+// pixel would clip its dot).
+func (p *player) separator(c *ui.Context, style string) {
+	t := theme.Current().Type[style]
+	// Measured between two letters: a text's measure drops its edge spaces.
+	span := func(text string) float32 {
+		w, _ := c.MeasureText(0, ui.Span{Text: text, Font: theme.FontFamily, Size: t.Size, Weight: int(t.Weight)})
+		return w
+	}
+	w := float32(math.Ceil(float64(span("x · x")-2*span("x")))) + 1
+	theme.Text(c, " · ", style).TextColor(theme.C("ink-muted")).SingleLine().Width(w).MinWidth(w).Shrink(0).TextAlign(ui.Center)
+}
+
+// artist is the song's artist in the type style given: a link to their page,
+// or a button that opens a menu of them when the song has several, plain text
+// where that page is not ported.
+func (p *player) artist(c *ui.Context, cur *services.QueueItem, style string, color ui.Color) {
+	kit.ArtistLinks(c, p.env.SongArtists.OfPlaying(cur), cur.Artist, color, kit.ArtistLinksOpts{
+		Open:  p.env.ArtistOpener(),
+		Style: func(e ui.Element) { theme.StyleText(e, style).SingleLine().MinWidth(0).Shrink(1) },
+		// The link takes the pointer from the song around it: it opens the menu itself.
+		Wire: func(e ui.Element) { p.playingRow(e, cur, &p.menus.bar) },
+	})
+}
+
+func (p *player) artistRouted(cur *services.QueueItem) bool {
+	return cur.ArtistID != "" && p.env.Routed("/artist/"+url.PathEscape(cur.ArtistID))
+}
+
+// albumRouted: the album link opens the album itself (the title's link is the
+// one that marks the song).
+func (p *player) albumRouted(cur *services.QueueItem) bool {
+	return cur.Album != "" && cur.AlbumID != "" && p.env.Routed("/album/"+url.PathEscape(cur.AlbumID))
+}
+
 // subline is the line under the title: what needs the user, what failed,
 // or the artist and album.
 func (p *player) subline(c *ui.Context, s services.PlaybackState) {
@@ -196,12 +233,25 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 		p.live(c, s)
 	case cur.Artist == "" && cur.Album == "":
 		// A broadcaster names no provider: its name stands alone.
-	case cur.ArtistID != "" && p.env.Routed("/artist/"+url.PathEscape(cur.ArtistID)):
+	case p.artistRouted(cur) || p.albumRouted(cur):
+		// Artist, " · ", album: each a link when its page is ported, else
+		// text, so a routed album links beside an artist that does not. Several
+		// artists are one button that opens a menu of them.
 		ui.Row(c).MinWidth(0).Shrink(1).AlignItems(ui.Center).Children(func() {
-			p.link(c, "artist", cur.Artist, "/artist/"+url.PathEscape(cur.ArtistID), "sub", theme.C("ink-muted"))
-			if cur.Album != "" {
-				label(c, " · "+cur.Album, "sub").TextColor(theme.C("ink-muted"))
+			if cur.Artist != "" {
+				p.artist(c, cur, "sub", theme.C("ink-muted"))
 			}
+			if cur.Album == "" {
+				return
+			}
+			if cur.Artist != "" {
+				p.separator(c, "sub")
+			}
+			alp := ""
+			if p.albumRouted(cur) {
+				alp = "/album/" + url.PathEscape(cur.AlbumID)
+			}
+			p.link(c, "album", cur.Album, alp, "sub", theme.C("ink-muted"))
 		})
 	default:
 		line := cur.Artist
@@ -461,19 +511,26 @@ func (p *player) volumeControls(c *ui.Context, s services.PlaybackState) {
 		if !p.volume() {
 			return
 		}
-		icon, name := kit.VolumeIcon(s.Volume)
-		if p.iconButton(c, "mute", icon, name, false, "", nil) {
-			p.tr.ToggleMute()
-		}
-		v := s.Volume * 100
-		// v0.2.0's w-24 shrink-0.
-		sl := kit.Slider(c.Key("volume"), &v, 0, 100, kit.SliderOpts{A11yLabel: i18n.T("Volume"), Range: theme.C("ink-muted"), Width: volumeWidth})
-		// No description: its range is 0 to 100, so a screen reader already
-		// says the value and the percentage ("80, 80 percent"); "80%" again
-		// would be a third time.
-		if sl.Changed() {
-			p.tr.SetVolume(v / 100)
-		}
+		// The mute button and the slider are one control to the wheel and a
+		// trackpad's swipe: over either, or the gap between, they change the
+		// volume the way dragging the slider does.
+		vol := ui.Row(c.Key("volume-control")).Gap(4).AlignItems(ui.Center)
+		p.volWheel.Attach(c, vol, p.tr)
+		vol.Children(func() {
+			icon, name := kit.VolumeIcon(s.Volume)
+			if p.iconButton(c, "mute", icon, name, false, "", nil) {
+				p.tr.ToggleMute()
+			}
+			v := s.Volume * 100
+			// v0.2.0's w-24 shrink-0.
+			sl := kit.Slider(c.Key("volume"), &v, 0, 100, kit.SliderOpts{A11yLabel: i18n.T("Volume"), Range: theme.C("ink-muted"), Width: volumeWidth})
+			// No description: its range is 0 to 100, so a screen reader already
+			// says the value and the percentage ("80, 80 percent"); "80%" again
+			// would be a third time.
+			if sl.Changed() {
+				p.tr.SetVolume(v / 100)
+			}
+		})
 	})
 	if w := group.Bounds().W; w != p.rightW {
 		p.rightW = w

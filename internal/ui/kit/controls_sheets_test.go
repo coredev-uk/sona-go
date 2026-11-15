@@ -165,7 +165,9 @@ func TestGoldenStates(t *testing.T) {
 		ui.Row(c.Key("misc")).Gap(24).Children(func() {
 			Notes(c.Key("notes"), notes, 3)
 			ui.Text(c.Key("by"), "").Width(0)
-			ui.Row(c.Key("al")).Children(func() { ArtistLinks(c, artists, "Daft Punk", ui.Color{}) })
+			ui.Row(c.Key("al")).Children(func() {
+				ArtistLinks(c, artists, "Daft Punk, Pharrell Williams & Nile Rodgers", ui.Color{}, ArtistLinksOpts{Open: func(string) {}})
+			})
 		})
 		DetailSkeleton(c, false)
 	}, nil)
@@ -228,7 +230,7 @@ func TestGoldenCollectionHeader(t *testing.T) {
 		CollectionHeader(c, CollectionHeaderOpts{
 			Title:  "OK Computer",
 			Loader: l,
-			Byline: func() { ArtistLinks(c, artists, "Radiohead", ui.Color{}) },
+			Byline: func() { ArtistLinks(c, artists, "Radiohead", ui.Color{}, ArtistLinksOpts{Open: func(string) {}}) },
 			Meta:   "Album · 1997 · 12 songs, 53 min",
 			Badges: func() { Badges(c, BadgesOpts{Explicit: true, Traits: services.Traits{Lossless: true}}) },
 			Description: "Radiohead's third album, recorded in an Oxfordshire mansion and released in 1997, turned a band known for guitars " +
