@@ -50,8 +50,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # How the work is spread (docs/maintainers/ci-workflows.md, "CI workflows"): every check
-# still runs, including the golden images; a pull request runs -race on the
-# packages that start goroutines, main and the nightly on all of them. Each
+# still runs, including the golden images; a pull request and a push to main run
+# -race on the packages that start goroutines, the nightly, a release and a
+# dispatch with only=all on all of them. Each
 # test runs once and the jobs run side by side. The test jobs take their packages from
 # .github/ci/shard.sh (packed by measured time, .github/ci/timings.txt); Go's
 # build and test caches come from the last run on main; the system packages'
@@ -77,6 +78,7 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           ONLY: ${{ inputs.only }}
+          RELEASE: ${{ inputs.linux-only }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
@@ -97,17 +99,17 @@ jobs:
           echo "heavy=$heavy" >>"$GITHUB_OUTPUT"
           echo "heavy: $heavy"
           # The UI shards (shard.sh pools: ui-race holds the packages that
-          # start goroutines, ui the rest). A pull request runs ui without
-          # -race and ui-race with it; main and the nightly run everything
-          # under -race, and ui also without it, which keeps the caches the
-          # pull requests restore warm. The same pool, shard count and mode
-          # make the same cache flavor, so a pull request restores what main
-          # saved. The -race run of ui has three shards: with two, the heavier
-          # one took 8–9 min of its 10 and was cancelled at the limit on
-          # 293aa54 (2026-11-07), which reverted a change that never touched
-          # the UI.
+          # start goroutines, ui the rest). A pull request and a push to main
+          # run ui without -race and ui-race with it, a couple of minutes per
+          # shard: main's merge commit gets the same check its pull request
+          # passed, so Clarence's one-at-a-time queue isn't paced by the full
+          # pass. The nightly, a release (release.yml calls this with
+          # linux-only) and a dispatch with only=all also run all of ui under
+          # -race, in three shards; that full pass is 4-10 min a shard, too
+          # long for every merge. The same pool, shard count and mode make the
+          # same cache flavour, so a pull request restores what main saved.
           ui='{"pool":"ui","index":1,"count":2,"race":"0"},{"pool":"ui","index":2,"count":2,"race":"0"},{"pool":"ui-race","index":1,"count":1,"race":"1"}'
-          if [ "$EVENT" != pull_request ] && [ "$ONLY" != pr ]; then
+          if [ "$EVENT" = schedule ] || [ "$RELEASE" = true ] || { [ "$EVENT" = workflow_dispatch ] && { [ -z "$ONLY" ] || [ "$ONLY" = all ]; }; }; then
             ui="$ui"',{"pool":"ui","index":1,"count":3,"race":"1"},{"pool":"ui","index":2,"count":3,"race":"1"},{"pool":"ui","index":3,"count":3,"race":"1"}'
           fi
           echo "ui-matrix=[$ui]" >>"$GITHUB_OUTPUT"
@@ -212,10 +214,11 @@ jobs:
           path: ${{ steps.setup.outputs.cache-path }}
           key: ${{ steps.setup.outputs.cache-key }}
 
-  # The tests, split into shards of packages (shard.sh). A pull request runs
-  # the goroutine-heavy packages under -race and the rest without; main and
-  # the nightly run everything under -race (the `race` of each matrix row; the
-  # rows come from the changes job).
+  # The tests, split into shards of packages (shard.sh). A pull request and a
+  # push to main run the goroutine-heavy packages under -race and the rest
+  # without; the nightly, a release and a dispatch with only=all run
+  # everything under -race (the `race` of each matrix row; the rows come from
+  # the changes job).
   #
   # The native UI's tests: the ui.Tester tests of internal/ui, which include the
   # golden images (the shell and Albums, light and dark;

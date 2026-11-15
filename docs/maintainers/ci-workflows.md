@@ -10,10 +10,14 @@ probe builds, and the macOS and Windows type-checks); the Linux tests, in
 pools that `.github/ci/shard.sh` packs by measured time (`timings.txt`):
 core, playback, and the native UI's, split into `ui-race` (`ui/store`,
 `ui/kit`, `ui/lyricsync`, which start goroutines) and `ui` (the page and app
-packages). A pull request runs `-race` on core, playback and `ui-race` and
-none on `ui`; main and the nightly run every pool under `-race` (the nightly
-with `-count=1`, so the test cache can't hide what changed outside the code)
-and `ui` without it too, which keeps the caches pull requests restore warm.
+packages). A pull request and a push to main run `-race` on core, playback
+and `ui-race` and none on `ui`, a couple of minutes a job, so Clarence's
+check of each merge commit is the same check its pull request passed. The
+nightly, a release (`release.yml`'s call) and a dispatch with `only=all` also
+run every `ui` package under `-race`, in three shards of 4–10 min each, which
+is too slow for every merge (the nightly with `-count=1`, so the test cache
+can't hide what changed outside the code). A release or nightly build skips
+its checks only when the nightly's full pass already passed on that commit.
 The required checks keep their names: "Go vet and test (-race)" gathers vet,
 core and playback, "UI tests (goldens)" the UI shards; plus the end-to-end
 smoke in headless sway, "E2E (headless sway)". macOS: a pull request that

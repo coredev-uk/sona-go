@@ -206,8 +206,11 @@ jobs:
           if [ "$SKIP" = true ]; then
             checks=false
           elif [ -n "$TAG" ] || [ "$NIGHTLY" = true ]; then
+            # A push to main runs only the pull-request check set; the full
+            # -race pass of the UI runs in the nightly schedule. Skip only
+            # when this commit already passed that full pass.
             sha=$(git rev-parse HEAD)
-            n=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&status=success" --jq .total_count || echo 0)
+            n=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$sha&event=schedule&status=success" --jq .total_count || echo 0)
             if [ "${n:-0}" -eq 0 ]; then checks=true; fi
           elif [ "$CHECKS" = true ]; then
             checks=true
@@ -216,8 +219,8 @@ jobs:
           echo "Run the checks: $checks"
 
   # The Linux CI jobs, in parallel with the builds below; publish waits for
-  # them. A release or nightly whose commit already passed CI on main skips
-  # them; a dry run runs them only when asked.
+  # them. A release or nightly whose commit already passed the nightly's full
+  # CI on main skips them; a dry run runs them only when asked.
   checks:
     needs: plan
     if: ${{ needs.plan.outputs.checks == 'true' }}
