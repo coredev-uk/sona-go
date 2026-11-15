@@ -313,11 +313,33 @@ func (m mapper) items(res applemusic.Resources, refs []applemusic.Ref) []Item {
 			continue
 		}
 		if it, ok := m.amItem(n); ok {
-			it.Caption = cmp.Or(sentenceCase(ref.Reason()), it.Caption)
+			reason := ref.Reason()
+			if reason != "" && it.Kind == ItemStation {
+				recommendedStation(&it, n)
+			}
+			it.Caption = cmp.Or(sentenceCase(reason), it.Caption)
 			out = append(out, it)
 		}
 	}
 	return out
+}
+
+// recommendedStation gives a station or episode Apple recommends the fields
+// Apple's own pick shows: the short editorial name over the resource's name
+// (which can be a long promo sentence) and the one-line description
+// (editorial notes' short) as the line under it, rather than the tagline,
+// which is a label there ("Only on Apple Music").
+func recommendedStation(it *Item, n applemusic.Node) {
+	v, err := applemusic.As[applemusic.Station](n)
+	if err != nil {
+		return
+	}
+	notes := v.Attributes.Notes()
+	if notes == nil {
+		return
+	}
+	it.Name = cmp.Or(strings.TrimSpace(notes.Name), it.Name)
+	it.Subtitle = cmp.Or(strings.TrimSpace(notes.Short), it.Subtitle)
 }
 
 // heroCard maps a hero card (317: its content's editorial art; 320: its own

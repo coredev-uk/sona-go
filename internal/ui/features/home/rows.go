@@ -351,7 +351,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			nameRow.Children(func() {
 				label := tk.Type["label"]
 				t := ui.Text(c, name).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).FontWeight(int(label.Weight)).
-					TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).TextAlign(ui.Start)
+					TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).TextAlign(ui.Start).Tooltip(name) // clipped: the full name
 				if w.Hovered() && canOpen {
 					t.Underline()
 				}
@@ -360,7 +360,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 			})
 			if subtitle != "" {
-				sub := theme.Text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+				sub := theme.Text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start).Tooltip(subtitle)
 				if inline {
 					sub.Grow(1).Basis(0).MinWidth(0)
 				}

@@ -58,9 +58,13 @@ type AirTime struct {
 
 // StationAttributes are the station attributes Sona uses.
 type StationAttributes struct {
-	Name                 string             `json:"name"`
-	Artwork              *Artwork           `json:"artwork"`
-	EditorialNotes       *StationNotes      `json:"editorialNotes"`
+	Name           string        `json:"name"`
+	Artwork        *Artwork      `json:"artwork"`
+	EditorialNotes *StationNotes `json:"editorialNotes"`
+	// PlainEditorialNotes are the same notes without markup: what Home and
+	// the editorial shelves get (extend=plainEditorialNotes), in place of
+	// EditorialNotes.
+	PlainEditorialNotes  *StationNotes      `json:"plainEditorialNotes"`
 	IsLive               bool               `json:"isLive"`
 	Kind                 string             `json:"kind"`
 	MediaKind            string             `json:"mediaKind"`
@@ -74,6 +78,15 @@ type StationAttributes struct {
 	// Motion artwork (station page and editorial shelves,
 	// extend=editorialVideo; Apple's own live stations).
 	EditorialVideo EditorialVideo `json:"editorialVideo,omitempty"`
+}
+
+// Notes are the station's editorial notes, plain or not; nil when Apple
+// sent neither.
+func (a StationAttributes) Notes() *StationNotes {
+	if a.EditorialNotes != nil {
+		return a.EditorialNotes
+	}
+	return a.PlainEditorialNotes
 }
 
 // StationShowAttributes are a radio show's attributes (an apple-curator

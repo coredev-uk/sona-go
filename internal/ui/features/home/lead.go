@@ -261,8 +261,10 @@ func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string) (
 			}
 		})
 	}
-	if it.Subtitle != "" {
-		theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
+	// One line, clipped: the full text is its tooltip. A line that only
+	// repeats the name is left out.
+	if !kit.Repeats(it.Name, it.Subtitle) {
+		theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0).Tooltip(it.Subtitle)
 	}
 	if meta := catalogueLine(it); meta != "" {
 		theme.Text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)

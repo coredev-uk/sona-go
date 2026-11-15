@@ -447,7 +447,7 @@ func (m mapper) amStation(s applemusic.Station) Station {
 		Art:        m.stationArt(a.Artwork),
 		Motion:     m.motionOf(a.EditorialVideo),
 	}
-	if n := a.EditorialNotes; n != nil {
+	if n := a.Notes(); n != nil {
 		// Short is a label ("Live Station") when a tagline exists, else
 		// the one-line description (mood stations).
 		out.Tagline = cmp.Or(n.Tagline, n.Short)

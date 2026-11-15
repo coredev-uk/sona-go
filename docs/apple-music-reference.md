@@ -78,7 +78,7 @@ What it shows is an ordered list of personal-recommendation shelves. Their title
 
 | Shelf (title from API) | `attributes.kind` | `display.kind` | Content types |
 |---|---|---|---|
-| Top Picks for You | `music-recommendations` | `MusicNotesHeroShelf` | albums, playlists, stations (each item carries a reason label, e.g. "New Release" or "Made for You") |
+| Top Picks for You | `music-recommendations` | `MusicNotesHeroShelf` | albums, playlists, stations (each item carries a reason label in `meta.reason.stringForDisplay`, e.g. "We Recommend", "Listen Again", "New Release", "Made for You", "Mood for You"; editorial picks also `meta.editorialCard`). A station or episode pick's fields are in `plainEditorialNotes`, not `editorialNotes` (null here): `name` the short editorial name Apple's pick shows, `short` its one-line description, `tagline` a label ("Only on Apple Music"). Checked 2026-11-15: an episode pick read `name` "His Majesty The King", `short` "King Charles joins Elton John for a “musical voyage”.". Its `radio-show` relationship is a bare reference in the map format, with no name |
 | Recently Played | `recently-played` | `MusicCoverShelf` | albums, library-playlists, playlists, stations. `hasSeeAll: true` |
 | New Releases for You | `music-recommendations` | `MusicCoverShelf` | albums. `hasSeeAll: true` |
 | Genre shelves ("Pop", "R&B", "Country", "Dance", "2010s", …) | `music-recommendations` | `MusicCoverShelf` | albums, playlists |
