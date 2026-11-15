@@ -15,7 +15,7 @@ import (
 // TestOrcaWalk is a person's walk with Orca, by keyboard, through the
 // sidebar, the account menu and dialog, the Albums page, an album, the queue,
 // Now Playing and the player bar's Seek slider, with what Orca says for each
-// key checked against docs/accessibility.md (E2E_ORCA=1, `orca-walk`).
+// key checked against site/src/content/docs/contributing/accessibility.md (E2E_ORCA=1, `orca-walk`).
 //
 // Two things are checked on every key (orca.press): nothing is said twice in
 // a row (a name and the text it is made of), and no key is answered with a
@@ -172,7 +172,7 @@ func TestOrcaWalk(t *testing.T) {
 		t.Error(err)
 	}
 	if o.focus != "DEAD" {
-		// Known gap (docs/accessibility.md): a view a key opened has no opener.
+		// Known gap (site/src/content/docs/contributing/accessibility.md): a view a key opened has no opener.
 		t.Logf("the focus after Escape is [%s]: a key-opened Now Playing now gives it back; update the docs' Known gaps", o.focus)
 	}
 
@@ -234,7 +234,7 @@ func TestOrcaSetup(t *testing.T) {
 	sp = o.press(confirm, "Tab")
 	o.want(confirm, "Tab", sp, "Cancel", "button")
 	o.press(confirm, "Escape")
-	// Known gap (docs/accessibility.md): the focus returns to the setup's
+	// Known gap (site/src/content/docs/contributing/accessibility.md): the focus returns to the setup's
 	// first control, not to what asked.
 	t.Logf("the focus after cancelling the confirmation is [%s]", o.focus)
 }

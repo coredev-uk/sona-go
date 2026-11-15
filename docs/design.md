@@ -98,7 +98,7 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 - Sona's own board is neutral grey (OKLCH chroma 0), so no tint competes with a cover. No cream, no navy, no violet: that is Sona's own themes' rule, not the community palettes' (Themes, below).
 - The primary button is ink-filled (near-black on light, near-white on dark), not amber.
 - Focus ring: 2px `--ink` at 60% (the `ring` token, MyGo's keyboard-focus ring) outside the control, everywhere (≥ 3:1 on every background tone). Selection is amber at 32% (the `selection` token); the caret is `--amber-ink`.
-- Contrast floors (WCAG AA, `docs/accessibility.md`): text tokens ≥ 4.5:1 on every background up to `--active` (selected rows), `--control-line` and the focus ring ≥ 3:1. Slider thumbs are always shown: the thumb, not the fill colour, marks the value.
+- Contrast floors (WCAG AA, `site/src/content/docs/contributing/accessibility.md`): text tokens ≥ 4.5:1 on every background up to `--active` (selected rows), `--control-line` and the focus ring ≥ 3:1. Slider thumbs are always shown: the thumb, not the fill colour, marks the value.
 - The kit's role names (`background`, `primary`, `muted`, `ring`, …) are tokens in `tokens.json` too, mapped onto these, so MyGo's widgets and Sona's components read one palette without per-component overrides.
 
 ### Themes

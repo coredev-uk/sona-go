@@ -174,7 +174,7 @@ The script is not named `test` because the shell's `test` builtin would shadow i
 E2E_ORCA=1 E2E_ORCA_BIN=<orca> headless -- go test -tags e2e -count=1 -v -run '^TestOrca' ./e2e/
 ```
 
-Orca is built from the pinned nixpkgs on first use; it is not in the dev shell. What it says is written to `bin/orca-out` (`E2E_OUT`); see [accessibility.md](accessibility.md), "Listening with Orca". It is not part of `e2e` or `tests`: it only runs when asked.
+Orca is built from the pinned nixpkgs on first use; it is not in the dev shell. What it says is written to `bin/orca-out` (`E2E_OUT`); see [the accessibility rules](../site/src/content/docs/contributing/accessibility.md), "Listening with Orca". It is not part of `e2e` or `tests`: it only runs when asked.
 
 ### probe
 

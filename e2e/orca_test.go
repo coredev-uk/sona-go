@@ -183,7 +183,7 @@ func (l *orcaLog) count(line []byte, now time.Time) {
 func orcaBin(t *testing.T) string {
 	t.Helper()
 	if os.Getenv("E2E_ORCA") != "1" {
-		t.Skip("E2E_ORCA=1 runs the Orca walk (docs/accessibility.md, \"Listening with Orca\")")
+		t.Skip("E2E_ORCA=1 runs the Orca walk (site/src/content/docs/contributing/accessibility.md, \"Listening with Orca\")")
 	}
 	if os.Getenv("WAYLAND_DISPLAY") == "" {
 		t.Skip("no Wayland display: run through `headless -- go test -tags e2e ./e2e/...`")

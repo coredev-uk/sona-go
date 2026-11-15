@@ -44,6 +44,7 @@ export default defineConfig({
             { slug: 'contributing/test' },
             { slug: 'contributing/architecture' },
             { slug: 'contributing/ui-conventions' },
+            { slug: 'contributing/accessibility' },
             { slug: 'contributing/add-a-feature' },
             { slug: 'contributing/translations' },
             { slug: 'contributing/pull-requests' },
