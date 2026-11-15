@@ -450,9 +450,10 @@ jobs:
       # the CDM shim DLL built with MSVC.
       - uses: ./.github/actions/setup-windows
 
+      # The version and file hash build/windows/tools.sha256 pins.
       - name: Install NSIS
         run: |
-          choco install nsis --yes --no-progress
+          build/windows/install-tool.sh nsis
           echo "C:\\Program Files (x86)\\NSIS" >>"$GITHUB_PATH"
 
       - name: Choose the output directory

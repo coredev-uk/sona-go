@@ -158,11 +158,13 @@ and Windows development builds in ci.yml never hold a release up), then the
   CI never sets it).
 - **Windows:** Go, the runner's MinGW-w64 gcc (cgo links GStreamer and
   `go-sqlite3`; MinGW's `objdump` finds the DLLs to copy), NSIS from
-  Chocolatey and, from `.github/actions/setup-windows`, the official GStreamer
+  Chocolatey (version and installed-file hash pinned in
+  `build/windows/tools.sha256`, `build/windows/install-tool.sh`) and, from
+  `.github/actions/setup-windows`, the official GStreamer
   MinGW package (version and installer hash pinned in
   `build/windows/gstreamer.sha256`, same 1.28 minor as macOS and devenv;
-  `build/windows/install-gstreamer.sh`), pkg-config-lite and the CDM shim DLL
-  (`build/windows/build-shim.sh`, MSVC). `package.sh` links `sona.exe` against
+  `build/windows/install-gstreamer.sh`), pkg-config-lite (pinned the same
+  way) and the CDM shim DLL (`build/windows/build-shim.sh`, MSVC). `package.sh` links `sona.exe` against
   that GStreamer and puts into every artefact `sona.exe`,
   `sona_cdm_shim.dll`, the GStreamer DLLs that `sona.exe`, the kept plugins
   and the plugin scanner import (a closure over `objdump -p`'s import lists,

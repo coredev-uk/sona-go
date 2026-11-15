@@ -36,14 +36,15 @@ runs:
         key: gstreamer-pkg-windows-${{ hashFiles('build/windows/gstreamer.sha256') }}
 
     # The runner's pkg-config (Strawberry Perl's script) is not one cgo should
-    # depend on: pkg-config-lite's executable, which Chocolatey shims.
+    # depend on: pkg-config-lite's executable, which Chocolatey shims
+    # (the package at the version and file hash build/windows/tools.sha256 pins).
     - name: Install GStreamer and pkg-config
       id: gstreamer
       shell: bash
       env:
         GSTREAMER_PKG_CACHE: ${{ runner.temp }}/gstreamer-pkg
       run: |
-        choco install pkgconfiglite --yes --no-progress
+        build/windows/install-tool.sh pkgconfiglite
         pkgconfig=/c/ProgramData/chocolatey/bin/pkg-config.exe
         "$pkgconfig" --version
         out=$(build/windows/install-gstreamer.sh "$RUNNER_TEMP/gstreamer" | tail -n 2)
