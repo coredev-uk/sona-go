@@ -217,10 +217,10 @@ func TestInteractionSidebarShuffleGlyph(t *testing.T) {
 	}
 }
 
-// Pins: a pin whose action is "drill in" (or an artist's, whatever its action)
-// is a link, so choosing it opens its page; one that plays or shuffles is a
-// button whose only cue is the words a screen reader adds (", plays",
-// ", shuffles"): it looks the same as a row that opens.
+// Pins: a pin set to Open is a link, so choosing it opens its page (an
+// artist's does so whatever its action: there is no artist player); one that
+// plays or shuffles is a button whose only cue is the words a screen reader
+// adds (", plays", ", shuffles"): it looks the same as a row that opens.
 func TestInteractionSidebarPins(t *testing.T) {
 	pins := []services.Pin{
 		{Kind: "playlist", ID: "p.drill", Name: "PL open", Action: "drillIn"},
@@ -232,7 +232,7 @@ func TestInteractionSidebarPins(t *testing.T) {
 		{Kind: "song", ID: "i.drill", Name: "SG open", Action: "drillIn", AlbumID: "l.cc"},
 		{Kind: "song", ID: "i.play", Name: "SG play", Action: "play", AlbumID: "l.cc"},
 		{Kind: "song", ID: "i.shuf", Name: "SG shuffle", Action: "shuffle", AlbumID: "l.cc"},
-		{Kind: "song", ID: "i.lone", Name: "SG lone", Action: "drillIn"}, // no album: nothing to open
+		{Kind: "song", ID: "i.lone", Name: "SG lone", Action: "play"}, // no album: nothing to open
 		{Kind: "artist", ID: "r.drill", Name: "AR open", Action: "drillIn"},
 		{Kind: "artist", ID: "r.play", Name: "AR play", Action: "play"},
 		{Kind: "artist", ID: "r.shuf", Name: "AR shuffle", Action: "shuffle"},
@@ -283,11 +283,13 @@ func TestInteractionSidebarPins(t *testing.T) {
 		link("SG open", "/album/l.cc", "nothing"),                       // a song opens its album; DEPARTS: Shift+Enter does nothing on a song pin
 		button("SG play, plays", ":i.play", false, "nothing"),           // DEPARTS: Shift+Enter does nothing on a song pin
 		button("SG shuffle, shuffles", ":i.shuf", true, "nothing"),      // DEPARTS: Shift+Enter does nothing on a song pin that shuffles on a click
-		// A song with no album page to open is a button, whatever its action.
+		// A song with no album page to open is a button that plays.
 		button("SG lone, plays", ":i.lone", false, "nothing"),
+		// An artist pin opens whatever its action says; its menu does not
+		// offer Play or Shuffle.
 		link("AR open", "/artist/r.drill", "nothing"),
-		link("AR play", "/artist/r.play", "nothing"),    // DEPARTS: an artist pin opens whatever its action says; the pin's menu still checks Play
-		link("AR shuffle", "/artist/r.shuf", "nothing"), // DEPARTS: an artist pin opens whatever its action says; the pin's menu still checks Shuffle
+		link("AR play", "/artist/r.play", "nothing"),
+		link("AR shuffle", "/artist/r.shuf", "nothing"),
 	} {
 		info, ok := e.tt.Access(c.label)
 		if !ok || info.Role != c.role {
@@ -298,22 +300,33 @@ func TestInteractionSidebarPins(t *testing.T) {
 	}
 }
 
-// A pin of an album whose page Sona does not have is a button that plays it,
-// even when its action is to open (a click would have nowhere to go).
-func TestInteractionSidebarPinWithoutItsPagePlays(t *testing.T) {
-	e := sbSetup(t, sbLibrary(), []services.Pin{{Kind: "album", ID: "l.b", Name: "Beta", Action: "drillIn"}})
-	e.h.Env.HasRoute = func(path string) bool { return !strings.HasPrefix(path, "/album/") }
-	e.api.pinTracks["l.b"] = []services.Song{song("s1", "One", "A"), song("s2", "Two", "A")}
-	e.shows("Beta, plays")
-	// DEPARTS: the pin was pinned to open, but with no page it plays on a click, a surprise the row's look does not hint at.
-	iaWant(t, "Beta", e.iaGestures("Beta, plays"), iaGest{
-		click:      iaPlay("album:l.b"),
-		dbl:        iaJoin(iaPlay("album:l.b"), iaPlay("album:l.b")),
-		enter:      iaPlay("album:l.b"),
-		shiftEnter: "nothing",
-		space:      iaPlay("album:l.b"),
-		right:      "menu",
+// A pin set to Open whose page Sona does not have does nothing when chosen,
+// whatever its kind: it never plays instead, and it is not a link.
+func TestInteractionSidebarPinWithoutItsPageDoesNothing(t *testing.T) {
+	e := sbSetup(t, sbLibrary(), []services.Pin{
+		{Kind: "album", ID: "l.b", Name: "Beta", Action: "drillIn"},
+		{Kind: "song", ID: "i.s", Name: "Lone", Action: "drillIn"},
+		{Kind: "artist", ID: "r.a", Name: "Nova", Action: "drillIn"},
 	})
+	e.h.Env.HasRoute = func(path string) bool {
+		return !strings.HasPrefix(path, "/album/") && !strings.HasPrefix(path, "/artist/")
+	}
+	for _, id := range []string{"l.b", "i.s", "r.a"} {
+		e.api.pinTracks[id] = []services.Song{song("s1", "One", "A"), song("s2", "Two", "A")}
+	}
+	e.shows("Beta", "Lone", "Nova")
+	for _, label := range []string{"Beta", "Lone", "Nova"} {
+		e.iaReset()
+		x, y := e.center(label)
+		e.tt.ClickAt(x, y)
+		e.tt.ClickAt(x, y)
+		if got := e.iaFx(); got != "nothing" {
+			t.Errorf("%s: a pin set to Open with no page did %s", label, got)
+		}
+		if info, ok := e.tt.Access(label); !ok || info.Role == ui.RoleLink {
+			t.Errorf("%s: role %v (found %v), want a row that is not a link", label, info.Role, ok)
+		}
+	}
 }
 
 // A folder is a disclosure button: choosing it opens or closes it, and it never
