@@ -366,7 +366,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | library song, station with no page, the other scope's entries | not listed ([#427]) | | | | |
 | Command palette | artist, album, playlist | opens | opens | opens | none | cover and "Kind · subtitle", no trailing cue |
 |  | song | **plays** ([#423]) | plays | plays | none | the same look |
-|  | "Search Apple Music for …" | searches | searches (Enter before arrowing runs this one even when library hits arrive above it, [#424]) | searches | none | search icon |
+|  | "Search Apple Music for …" | searches | searches (the first entry is active until the user moves, so Enter right after typing runs what the list shows first, a library hit when there is one) | searches | none | search icon |
 
 ### The shell: sidebar, queue, player bar, mini player
 
@@ -418,7 +418,6 @@ Argued departures that stay (not issues):
 | Issue | What |
 |---|---|
 | [#423] | the palette plays a library song |
-| [#424] | the palette's Enter right after typing |
 | [#425] | the suggestion list's chevron over a station that plays and a link that leaves Sona |
 | [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
 | [#427] | recent library songs and page-less stations |
@@ -443,7 +442,6 @@ Argued departures that stay (not issues):
 | [#449] | the mini player's inert text |
 
 [#423]: https://github.com/coredev-uk/sona-go/issues/423
-[#424]: https://github.com/coredev-uk/sona-go/issues/424
 [#425]: https://github.com/coredev-uk/sona-go/issues/425
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#427]: https://github.com/coredev-uk/sona-go/issues/427

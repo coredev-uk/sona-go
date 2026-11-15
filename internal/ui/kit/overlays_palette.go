@@ -188,6 +188,10 @@ type Palette struct {
 	// make a row active; a pointer resting under a re-laid-out list must
 	// not take the choice from the keys).
 	moved bool
+	// steered: the user moved the highlight (arrow keys or pointer) since
+	// the query last changed. Until then the first entry is the active one,
+	// whatever arrives above it, so Enter runs what the list shows first.
+	steered bool
 	// reveal scrolls the active row into view, once, after the keys moved it.
 	reveal bool
 }
@@ -197,7 +201,7 @@ func (p *Palette) IsOpen() bool { return p.open }
 
 // Open shows the palette with an empty query.
 func (p *Palette) Open() {
-	p.open, p.query, p.last, p.active, p.moved, p.reveal = true, "", "", "", false, false
+	p.open, p.query, p.last, p.active, p.moved, p.steered, p.reveal = true, "", "", "", false, false, false
 }
 
 // Close hides it.
@@ -255,7 +259,10 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 		flat = append(flat, s.Entries...)
 	}
 	if p.query != p.last {
-		p.last, p.active = p.query, ""
+		p.last, p.active, p.steered = p.query, "", false
+	}
+	if !p.steered && len(flat) > 0 && flat[0].Key != p.active {
+		p.active, p.reveal = flat[0].Key, true
 	}
 	at := -1
 	for i := range flat {
@@ -283,9 +290,9 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 		n := len(flat)
 		switch {
 		case n > 0 && field.Shortcut(0, ui.KeyDown):
-			p.active, p.reveal = flat[(at+1)%n].Key, true
+			p.active, p.reveal, p.steered = flat[(at+1)%n].Key, true, true
 		case n > 0 && field.Shortcut(0, ui.KeyUp):
-			p.active, p.reveal = flat[(at-1+n)%n].Key, true
+			p.active, p.reveal, p.steered = flat[(at-1+n)%n].Key, true, true
 		case n > 0 && field.Submitted():
 			pick(flat[at])
 		}
@@ -328,7 +335,7 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 	})
 	p.reveal = false
 	if p.moved && hovered != "" {
-		p.active = hovered // any real move over a row, as onMouseMove
+		p.active, p.steered = hovered, true // any real move over a row, as onMouseMove
 	}
 	p.moved = false
 	if flat != nil {
