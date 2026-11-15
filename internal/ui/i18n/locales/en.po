@@ -4540,6 +4540,10 @@ msgstr "Pause"
 msgid "Pause featured rotation"
 msgstr "Pause featured rotation"
 
+#: internal/ui/kit/collections_items_stations.go
+msgid "Pause {name}"
+msgstr "Pause {name}"
+
 #: internal/ui/kit/media_equaliser.go
 msgid "Paused"
 msgstr "Paused"

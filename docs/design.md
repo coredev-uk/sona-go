@@ -307,10 +307,10 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button, no right-click ([#447]) | link |
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button, no right-click ([#447]) | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | none | none | none | none | link, arrow out, named "X Opens in your browser" |
-| Link list tile (`LinkList`: "More to Explore") | page link | opens, remembered (`OnOpen`) | opens | opens | opens | none | none, even a station with a page ([#446]) | none | link |
+| Link list tile (`LinkList`: "More to Explore") | page link | opens, remembered (`OnOpen`) | opens | opens | opens | none | none: a link tile is a plain link, even for a station with a page (its cover tile, card and row have the Play control) | none | link |
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none | none | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | same | none | none | none | link with the arrow out, named "X Opens in your browser" |
-| Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing, no pause ([#446]) | none | link |
+| Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing and is the pause and resume button, "Pause X" | More button, no right-click ([#447]) | link |
 |  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
 | Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | selects | plays from the row, the shelf is the queue | plays | none | selects | cover button | More button, no right-click ([#447]) | list item, hover fill |
 |  | artist link in the row | opens the artist | twice | n/a | n/a | n/a | n/a | n/a | underline on hover |
@@ -444,7 +444,6 @@ Argued departures that stay (not issues):
 | [#440] | a double-click acts twice |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
 | [#445] | local shelves, library grids and release rows have no Play |
-| [#446] | station rows: pause, menu, link tile Play |
 | [#447] | right-click and More disagree |
 | [#449] | the mini player's inert text |
 
@@ -458,7 +457,6 @@ Argued departures that stay (not issues):
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
 [#445]: https://github.com/coredev-uk/sona-go/issues/445
-[#446]: https://github.com/coredev-uk/sona-go/issues/446
 [#447]: https://github.com/coredev-uk/sona-go/issues/447
 [#449]: https://github.com/coredev-uk/sona-go/issues/449
 
