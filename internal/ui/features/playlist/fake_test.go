@@ -42,6 +42,10 @@ type fakeAPI struct {
 	err       error
 	failReads bool
 	calls     []string
+	// remote is what CheckRemote does for a playlist changed on another
+	// device: it changes the playlist as Apple holds it and reports whether
+	// it did (nil: nothing changed).
+	remote func(id string) bool
 	// gate, when set, blocks Add/MoveTrack/RemoveTracks until it is closed
 	// (to keep an edit in flight).
 	gate chan struct{}
@@ -120,6 +124,17 @@ func (f *fakeAPI) Collaboration(_ context.Context, id string) (services.Playlist
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.collab[id], nil
+}
+
+func (f *fakeAPI) CheckRemote(_ context.Context, id string) (bool, error) {
+	f.note("CheckRemote %s", id)
+	f.mu.Lock()
+	fn := f.remote
+	f.mu.Unlock()
+	if fn == nil {
+		return false, nil
+	}
+	return fn(id), nil
 }
 
 func (f *fakeAPI) Suggestions(_ context.Context, id string) ([]services.Song, error) {

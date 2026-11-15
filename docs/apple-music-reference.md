@@ -215,6 +215,25 @@ Issue #359: the New Music Mix showed "Updated in 2019" and its songs looked stal
 
 What Sona does with it: `applemusic.Playlist.Modified` is the stamp a library playlist is judged by. It is the catalog copy's for a personal mix (`applemusic.IsPersonalMix`, the same `pl.pm-` test as the sidebar's Made for you section) and the library copy's for every other playlist. The playlists sync, the stored "Updated" date and the track refetch all read it, and opening a mix's page asks Apple for its stamp (one request) and refetches the mix when it moved.
 
+### 3.4 Change signals: is there a cheap way to see a change made on another device? (checked 2026-11-15)
+
+Checked live (`SONA_PRIVATE=1`, read-only GETs through the web player's developer token and a Music User Token, about 40 requests, 400 ms apart) against a library of about 1,000 songs, 650 albums, 400 artists and 24 playlists. Nothing was changed in the library, so "the stamp moves on an edit" is not re-measured here: it rests on Sona's own edits, which store the stamp Apple answers with and are seen as unchanged by the next incremental run. Apple's web player's own traffic after a change on another device was not watched.
+
+| Signal | Request | Result | Detects | Misses |
+|---|---|---|---|---|
+| Playlists sorted by modification | `GET /v1/me/library/playlists?sort=-lastModifiedDate&limit=1` (also `lastModifiedDate`, `-dateModified`) | **400** "Provided sort=… not supported". `meta=sorts` lists only `name`, `dateAdded`, `kind` for playlists (`name`, `dateAdded` for songs and albums; `sort=-lastModifiedDate` on songs is 400 too) | nothing: no sorted head | everything |
+| Playlist list with stamps | `GET /v1/me/library/playlists?limit=100` | 200, one request for up to 100 playlists (24 playlists: about 16 KB, 0.8 to 0.9 s). Every playlist carries `lastModifiedDate` | any playlist edit, reorder, rename, add, removal (the stamp Sona's incremental run compares), and removals by absence | playlists that are in a folder move (unverified: needs a second device); personal mixes only through the catalog stamp the list includes (3.3) |
+| One playlist | `GET /v1/me/library/playlists/{id}` (amp-api) | 200 (Sona asks it after every edit; not re-measured in this probe), the playlist's own `lastModifiedDate` | one playlist's change, in one small request | all others |
+| Counts | `GET /v1/me/library/{songs,albums,artists,playlists,music-videos}?limit=1` | 200, `meta.total` present, 0.8 to 1.0 s each | an add or a removal per domain | an add plus a removal in one window; any edit that keeps the count (metadata, ratings); each is a request, five for all |
+| Recently added | `GET /v1/me/library/recently-added?limit=1` | 200, `data` and `next`, **no `meta`** | the newest addition | removals, edits |
+| Folder tree | `GET /v1/me/library/playlist-folders/p.playlistsroot/children?limit=100` (14 entries: folders and playlists) | 200, `meta.total`. A folder has only `name` and `dateAdded`: **no stamp**. `GET /v1/me/library/playlist-folders?limit=5` has no ETag | the set of entries | folder renames and moves between folders show only by comparing the whole tree |
+| `ETag` | any of the above | The library endpoints send a stable `ETag` (`"…--gzip"`) and `Cache-Control: max-age=0, no-cache, private`; the same request twice gives the same tag and body | n/a | n/a |
+| Conditional request | the same list with `If-None-Match: <etag>` | **200**, full body again: the tag is ignored | nothing | everything: a full list cannot be had for free |
+| `If-Modified-Since` | the same list | 304 for "now" and **200 for a date in 2000**; no `Last-Modified` is sent. Meaningless as a signal | nothing | everything |
+| Ratings | `GET /v1/me/ratings/library-songs` needs `ids`; `GET /v1/me/ratings` is 404; `GET /v1/me/library?limit=1` is 400 without `ids[...]` | no listing and no stamp | nothing | ratings changed elsewhere wait for a full run (as before) |
+
+Chosen for Sona: the playlist list is the check. It is the only call with a change stamp for something that users edit on other devices, it costs one request per 100 playlists, and the library's other domains have only counts, which cost five more requests and hide an add plus a removal. So a shallow check is the incremental playlists run (list, then tracks and folder tree only for playlists whose stamp moved), and opening a playlist asks for that playlist alone. Albums, songs, artists and ratings keep waiting for the full run.
+
 ## 4. Detail pages
 
 ### 4.1 Album (`/{sf}/album/{slug}/{id}`; `?i={songId}` highlights a track)

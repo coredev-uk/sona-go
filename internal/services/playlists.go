@@ -3,6 +3,7 @@ package services
 import (
 	"cmp"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -28,12 +29,16 @@ type PlaylistsService struct {
 	locks   map[string]*sync.Mutex // per playlist: edits apply one at a time
 	mixSeen map[string]time.Time   // personal mix library ID → when opening it last asked Apple
 	me      string                 // the user's profile ID, once asked (Collaboration)
+	// checked is when CheckRemote last asked Apple about a playlist.
+	checked map[string]time.Time
+	// reachable reports whether Apple can be asked: signed in and online.
+	reachable func() bool
 }
 
 // newPlaylistsService also refreshes the pins once the network opens and
 // on sign-in.
 func newPlaylistsService(e *Env) *PlaylistsService {
-	s := &PlaylistsService{e: e, m: e.m, locks: map[string]*sync.Mutex{}}
+	s := &PlaylistsService{e: e, m: e.m, locks: map[string]*sync.Mutex{}, checked: map[string]time.Time{}, reachable: e.reachable}
 	e.OnNetwork(func() { go s.refreshPinsQuietly() })
 	prev := e.Auth.Status().State
 	e.Auth.OnChange(func(st auth.Status) {
@@ -133,6 +138,72 @@ func (s *PlaylistsService) playlistSongs(in []applemusic.Song) []Song {
 		}
 	}
 	return out
+}
+
+// remotePlaylistGap is the least time between two asks to Apple about one
+// playlist (CheckRemote).
+const remotePlaylistGap = 30 * time.Second
+
+// CheckRemote asks Apple whether library playlist id changed on another
+// device since it was stored, and if so replaces its stored copy (details
+// and tracks) and emits "playlists:changed" for it; the open page swaps to
+// the new copy then. It costs one request for the playlist's attributes,
+// and one for its tracks when its stamp moved, and returns whether the copy
+// changed. It does nothing signed out or offline, or within
+// remotePlaylistGap of the last ask. The page calls it as it opens, never
+// while it has edits of the playlist pending; it waits for an edit in
+// flight, so it cannot overwrite one.
+func (s *PlaylistsService) CheckRemote(ctx context.Context, id string) (bool, error) {
+	if err := requireLibraryPlaylist(id); err != nil {
+		return false, err
+	}
+	if !s.reachable() {
+		return false, nil
+	}
+	now := s.e.Now()
+	s.mu.Lock()
+	if last, ok := s.checked[id]; ok && now.Sub(last) < remotePlaylistGap {
+		s.mu.Unlock()
+		return false, nil
+	}
+	s.checked[id] = now
+	s.mu.Unlock()
+
+	defer s.lock(id)()
+	row, err := s.e.DB.RQ.GetPlaylistByLibraryID(ctx, db.NullString(id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("playlist %s: %w", id, err)
+	}
+	p, err := s.e.API.LibraryPlaylist(ctx, id)
+	if errors.Is(err, applemusic.ErrNotFound) {
+		return false, nil // deleted elsewhere: the next sync removes it
+	}
+	if err != nil {
+		return false, s.e.Fail(err)
+	}
+	stamp := p.Attributes.LastModifiedDate
+	if stamp == "" || (stamp == row.LastModified && stamp == row.TracksModified) {
+		return false, nil
+	}
+	entries, err := s.e.API.LibraryPlaylistEntries(ctx, id)
+	if err != nil {
+		return false, s.e.Fail(err)
+	}
+	if entries == nil {
+		entries = []applemusic.Song{}
+	}
+	if err := s.e.Library.StorePlaylist(ctx, p, "", entries); err != nil {
+		return false, err
+	}
+	s.e.Logger.Debug("playlists: changed elsewhere", "id", id, "tracks", len(entries))
+	s.changed(PlaylistsChanged{
+		IDs:  []string{id},
+		Tree: p.Attributes.Name != row.Name || int64(len(entries)) != row.TrackCount,
+	})
+	return true, nil
 }
 
 func (s *PlaylistsService) libraryDetail(ctx context.Context, id string) (PlaylistDetail, error) {

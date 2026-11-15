@@ -726,7 +726,20 @@ The code is in `internal/library`.
   - On sign-in.
   - After an add to the library made in Sona (only the domains it touches; favouriting a song adds it).
   - On "Sync now".
-  - Nothing syncs on a timer while Sona stays open.
+  - Shallow checks while Sona stays open (next section).
+
+### Checks for changes made on other devices
+
+Apple has no change feed and no cheap change signal (`docs/apple-music-reference.md` §3.4: no sort by modification, `ETag` ignored on a conditional request). The one stamp that users edit elsewhere is a playlist's `lastModifiedDate`, which comes with the playlist list, so a check is the playlists part of an incremental sync and nothing more.
+
+- **Periodic**: every 5 minutes (`remoteCheckEvery`) while the main window is shown and focused. The period is a few small requests an hour and shows a change made on a phone within minutes. Hidden or minimised, nothing runs.
+- **On focus gained**: when the window gains the focus and keeps it for 2 seconds, since that is when someone comes back from another device.
+- **On opening a library playlist**: the page shows the stored copy, then asks Apple for that playlist's attributes (`PlaylistsService.CheckRemote`, one request). If its stamp moved it refetches the tracks, stores them and the page swaps to the new order with no spinner. Not asked again within 30 seconds, and not while edits made here are still on their way (the UI skips it; the service waits for an edit in flight).
+- **Cost**: the check reads the playlist list (one request per 100 playlists) and, for each playlist whose stamp moved, its tracks, plus the folder tree if anything changed. Any two checks are at least 2 minutes apart (`remoteCheckGap`), whatever started them.
+- **What it will not do**: it never runs before first paint or before the library has had its first complete sync, never signed out or offline, and never while a sync runs (it skips and tries at the next trigger). It runs off the main thread through `Syncer.Sync` with the playlists domains (`startSync`'s quiet mode).
+- **What it shows**: no progress and no sync result. It compares the stored playlists before and after and emits `playlists:changed` for the ones that changed (and the tree only when a name, place or count changed), so only those pages and lists refetch.
+- **What it misses**: albums, songs, artists and ratings (no stamp: they wait for the next sync), and folder renames and moves that leave every playlist's stamp alone. A personal mix is judged by its catalogue copy's stamp, which the list includes (§3.3 of the reference, #359), so its weekly refresh shows.
+- **Logs**: each check logs at debug level: reason, duration, playlists seen and changed.
 
 ### Pre-added (unreleased) albums
 
@@ -737,10 +750,10 @@ The code is in `internal/library`.
 
 ### How stale a delete made elsewhere can be
 
-- **A playlist** leaves at the next sync: the incremental run reads the whole playlist list and removes what it no longer lists.
+- **A playlist** leaves at the next sync or shallow check: the incremental run reads the whole playlist list and removes what it no longer lists.
 - **An album or song** does too, as long as the removal shows in the counts. The incremental run takes the new items first, so a removal leaves the local count above Apple's and the domain runs fully in the same sync.
 - **A removal the counts don't show** waits for the next full run (the first sync more than 72 hours after the last full one, or "Sync now"). That covers an artist, which is only counted, and an album or song offset by an add the newest-first walk stops before.
-- **So** Recently added, Albums, Songs and Playlists are as old as the last sync: at most 6 hours old after launch, with no bound while the app stays open. Apple has no change feed to follow, and "Sync now" refreshes everything on demand. A periodic sync while open would bound it and is not done yet.
+- **So** Recently added, Albums, Songs and Artists are as old as the last sync: at most 6 hours old after launch, with no bound while the app stays open. Playlists are at most a few minutes old while the window is focused, and current when a playlist opens (the checks above). Apple has no change feed to follow, and "Sync now" refreshes everything on demand.
 - **A delete made in Sona** leaves at once (`Library.DropPlaylist`, `Library.Remove`, and the UI's invalidations).
 
 ### Albums and songs
