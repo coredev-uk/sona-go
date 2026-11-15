@@ -222,12 +222,13 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 
 	open := func() { h.open(it, ctx) }
 	for _, e := range [...]ui.Element{src, opener} {
-		if !e.Clicked() {
+		clicked, again := kit.ClickRun(e)
+		if !clicked {
 			continue
 		}
 		if mods := kit.ModsOf(e.ClickModifiers()); (mods.Range || mods.Toggle) && selectable {
 			st.sel.Click(0, mods)
-		} else {
+		} else if !again {
 			open()
 		}
 	}

@@ -235,7 +235,7 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 		inner.Children(func() {
 			ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 				opener = h.titleBlock(c, it, "page", link)
-				if opener.Clicked() {
+				if kit.ClickOnce(opener) {
 					h.open(it, ctx)
 				}
 				ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
