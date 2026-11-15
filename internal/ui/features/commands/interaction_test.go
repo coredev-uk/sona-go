@@ -2,6 +2,8 @@ package commands
 
 import (
 	"context"
+	"hash/fnv"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -43,6 +45,7 @@ func ixPalette(t *testing.T) *rig {
 	if err != nil || len(songs.Songs) == 0 {
 		t.Fatalf("the fixture library has no Quartz Lantern: %v", err)
 	}
+	r.songPage = "/song/" + songs.Songs[0].CatalogID
 	r.m.lib = ixLib{songs: songs.Songs}
 	r.tt.Key(ui.Ctrl, ui.KeyK)
 	r.tt.Type("zed")
@@ -96,8 +99,9 @@ func (r *rig) activate(name string) {
 }
 
 // TestInteractionPaletteLibraryEntriesPerKind: Enter, a click and Shift+Enter
-// on a library entry of each kind. The artist, album and playlist open their
-// pages; a song plays at once.
+// on a library entry of each kind. Choosing opens the page; Shift+Enter plays
+// a song that has one (the foot says so); a song with no page here (an
+// upload) plays instead.
 func TestInteractionPaletteLibraryEntriesPerKind(t *testing.T) {
 	type gesture struct {
 		name string
@@ -109,27 +113,51 @@ func TestInteractionPaletteLibraryEntriesPerKind(t *testing.T) {
 		{"Shift+Enter", func(r *rig, row string) { r.activate(row); r.tt.Key(ui.Shift, ui.KeyEnter) }},
 	}
 	cases := []struct {
-		row, kind, want string
+		row, kind string
+		want      func(r *rig, g string) string
 	}{
-		{"Zed Artist", "artist", "nav /artist/l.ar1"},
-		{"Zed Album", "album", "nav /album/l.al1"},
-		{"Zed Playlist", "playlist", "nav /playlist/p.pl1"},
-		// DEPARTS: an artist, album or playlist entry opens its page but a song entry plays at once, with the same look (cover, name, "Kind · artist") and no glyph to tell them apart.
-		{"Quartz Lantern", "song", "queue Quartz Lantern"},
+		{"Zed Artist", "artist", func(*rig, string) string { return "nav /artist/l.ar1" }},
+		{"Zed Album", "album", func(*rig, string) string { return "nav /album/l.al1" }},
+		{"Zed Playlist", "playlist", func(*rig, string) string { return "nav /playlist/p.pl1" }},
+		{"Quartz Lantern", "song", func(r *rig, g string) string {
+			if g == "Shift+Enter" {
+				return "queue Quartz Lantern"
+			}
+			return "nav " + r.songPage
+		}},
+		{"Quartz Lantern", "song with no page", func(*rig, string) string { return "queue Quartz Lantern" }},
 	}
 	for _, tc := range cases {
 		for _, g := range gestures {
 			t.Run(tc.kind+"/"+g.name, func(t *testing.T) {
 				r := ixPalette(t)
+				if tc.kind == "song with no page" {
+					r.routes = slices.DeleteFunc(r.routes, func(p string) bool { return p == "/song/" })
+				}
 				start := r.router.Location()
 				g.do(r, tc.row)
-				// Shift+Enter is Enter: the palette has no modifier of its own.
-				want := tc.want
-				if got := r.outcome(start); got != want {
+				if got, want := r.outcome(start), tc.want(r, g.name); got != want {
 					t.Errorf("%s on the %s entry: %s, want %s", g.name, tc.kind, got, want)
 				}
 			})
 		}
+	}
+}
+
+// TestInteractionPaletteShiftEnterIsHinted: the foot names Shift+Enter only
+// while the active entry is a song with a page, the one entry it does
+// something for.
+func TestInteractionPaletteShiftEnterIsHinted(t *testing.T) {
+	r := ixPalette(t)
+	r.activate("Zed Album")
+	r.tt.Frame()
+	if slices.Contains(r.tt.Texts(), "Play") {
+		t.Error("the foot hints Shift+Enter on an album entry, where it does nothing more than Enter")
+	}
+	r.activate("Quartz Lantern")
+	r.tt.Frame()
+	if !slices.Contains(r.tt.Texts(), "Play") {
+		t.Errorf("the foot does not name Shift+Enter on a song entry; texts %q", r.tt.Texts())
 	}
 }
 
@@ -197,16 +225,45 @@ func (r *rig) ixBlankTail(name string) bool {
 	return true
 }
 
-// TestInteractionPaletteEntriesHaveNoTrailingCue: no library entry draws a
-// chevron or a play glyph at its end, active or not (commands draw their keys
-// there), so the row does not say whether choosing it opens or plays.
-func TestInteractionPaletteEntriesHaveNoTrailingCue(t *testing.T) {
+// TestInteractionPaletteEntriesCueWhatEnterDoes: the active library entry
+// ends in a glyph that says what Enter does, a chevron where it opens a page
+// and a play triangle where it plays (an upload); an inactive row ends blank.
+// The pixel hashes of the three states differ, and a command row draws its
+// keys there instead.
+func TestInteractionPaletteEntriesCueWhatEnterDoes(t *testing.T) {
 	r := ixPalette(t)
-	for _, row := range []string{"Zed Artist", "Zed Album", "Zed Playlist", "Quartz Lantern", "Search Apple Music for “zed”"} {
+	hash := func(row string) uint64 {
 		r.activate(row)
-		// DEPARTS: the song entry plays and the artist, album and playlist entries open, yet every row ends blank: no chevron, no play glyph, on the active row or off it.
-		if !r.ixBlankTail(row) {
-			t.Errorf("%s draws something at its end", row)
+		r.tt.Frame()
+		return r.ixTailHash(row)
+	}
+	blank := func(row string) bool {
+		r.activate("Zed Artist")
+		if row == "Zed Artist" {
+			r.activate("Zed Album")
+		}
+		r.tt.Frame()
+		return r.ixBlankTail(row)
+	}
+	opens := hash("Zed Album")
+	for _, row := range []string{"Zed Artist", "Zed Playlist", "Quartz Lantern", "Search Apple Music for “zed”"} {
+		if got := hash(row); got != opens {
+			t.Errorf("%s: the active cue differs from the open chevron", row)
+		}
+	}
+	// With no song page routed the song entry plays, and says so.
+	r.routes = slices.DeleteFunc(r.routes, func(p string) bool { return p == "/song/" })
+	r.tt.Frame()
+	plays := hash("Quartz Lantern")
+	if plays == opens {
+		t.Error("a song with no page has the open chevron, not a play cue")
+	}
+	if r.ixBlankTail("Quartz Lantern") {
+		t.Error("the active song entry with no page draws no cue")
+	}
+	for _, row := range []string{"Zed Album", "Quartz Lantern"} {
+		if !blank(row) {
+			t.Errorf("%s draws a cue while not active", row)
 		}
 	}
 	// The check can tell: a command row draws its keys there.
@@ -218,6 +275,27 @@ func TestInteractionPaletteEntriesHaveNoTrailingCue(t *testing.T) {
 	if r.ixBlankTail("Next track") {
 		t.Error("the tail check cannot tell a row with keys from a blank one")
 	}
+}
+
+// ixTailHash is a hash of the pixels at the right end of the named row.
+func (r *rig) ixTailHash(name string) uint64 {
+	r.t.Helper()
+	info, ok := r.tt.Access(name)
+	if !ok {
+		r.t.Fatalf("no row %q", name)
+	}
+	img := r.tt.Image()
+	scale := float32(img.Bounds().Dx()) / 1132
+	b := info.Bounds
+	cy := b.Y + b.H/2
+	h := fnv.New64a()
+	for y := int((cy - 8) * scale); y < int((cy+8)*scale); y++ {
+		for x := int((b.X + b.W - 48) * scale); x < int((b.X+b.W-14)*scale); x++ {
+			cr, cg, cb, ca := img.At(x, y).RGBA()
+			_, _ = h.Write([]byte{byte(cr >> 8), byte(cg >> 8), byte(cb >> 8), byte(ca >> 8)})
+		}
+	}
+	return h.Sum64()
 }
 
 // TestInteractionPaletteEnterBeforeArrowingRunsTheFirstEntry: the first entry

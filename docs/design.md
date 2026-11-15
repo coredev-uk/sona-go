@@ -366,9 +366,10 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Songs group, See all, library songs | song | selects | plays | none | number-column button | row |
 | Recent searches shelf | term, album, artist, song with a page | opens | opens | none | none | link; the X forgets it |
 |  | library song, station with no page, the other scope's entries | not listed ([#427]) | | | | |
-| Command palette | artist, album, playlist | opens | opens | opens | none | cover and "Kind · subtitle", no trailing cue |
-|  | song | **plays** ([#423]) | plays | plays | none | the same look |
-|  | "Search Apple Music for …" | searches | searches (the first entry is active until the user moves, so Enter right after typing runs what the list shows first, a library hit when there is one) | searches | none | search icon |
+| Command palette | artist, album, playlist | opens | opens | opens | none | cover and "Kind · subtitle"; the active row ends in a chevron |
+|  | song | opens its page | opens | opens, Shift+Enter plays (the foot names "Shift+Enter Play" while it is active) | none | the same look, chevron |
+|  | song with no page here (an upload) | plays | plays | plays | none | the same look, play triangle on the active row |
+|  | "Search Apple Music for …" | searches | searches (the first entry is active until the user moves, so Enter right after typing runs what the list shows first, a library hit when there is one) | searches | none | search icon, chevron on the active row |
 
 ### The shell: sidebar, queue, player bar, mini player
 
@@ -419,7 +420,6 @@ Argued departures that stay (not issues):
 
 | Issue | What |
 |---|---|
-| [#423] | the palette plays a library song |
 | [#425] | the suggestion list's chevron over a station that plays and a link that leaves Sona |
 | [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
 | [#427] | recent library songs and page-less stations |
@@ -439,7 +439,6 @@ Argued departures that stay (not issues):
 | [#447] | right-click and More disagree |
 | [#449] | the mini player's inert text |
 
-[#423]: https://github.com/coredev-uk/sona-go/issues/423
 [#425]: https://github.com/coredev-uk/sona-go/issues/425
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#427]: https://github.com/coredev-uk/sona-go/issues/427
@@ -1270,6 +1269,7 @@ Settings (h1)                  Playback (h2 at 24/650)
 
 Both are launcher surfaces: raised panels over the scrim, one field at the top, one list, a foot that names the keys. Nothing in them is amber.
 
+- **The palette follows the rule: choosing opens, Play plays.** A library song opens its song page and Shift+Enter plays it; an upload, which has no page, plays. The active row ends in the glyph that says which (a chevron opens, a play triangle plays; a command shows its keys), and the foot names Shift+Enter only while the active entry is a song with a page.
 - **The palette's rows** are 36px at least with a 32px tile at the left: the command's icon at 16 in `--ink-muted` on `--surface`, radius 6, the same width as a library item's cover so a result list keeps one leading column. The label is 14/400 in ink and the keycaps end the row. A ranked command carries its group ("Playback") as a 13px muted second line, since no heading says it. With nothing typed the places to go (Pages) come first, then Playback, View, Navigation and General, so Enter on opening goes somewhere rather than pausing the music.
 - **The sheet** is 820px wide, 10% from the top. The title at 16/600 and a 268px filter field share the head; a hairline, then the groups in two columns. A group is its title at 14/600 over a 1px `--line`, then rows of 32px: the label in ink, and at the right the keycaps (or "Not set" at 12 in `--ink-faint`) in a column whose width is the group's widest chord, so the caps of a group start on one edge. The foot, under another hairline, carries "Change any of them in Settings." at the left and ↓ Browse and Esc Close at the right, at 12 in `--ink-faint`.
 - **Filtering** narrows by words in the label, keywords, group or keys; empty groups leave with their rows, and a filter that leaves nothing says "No shortcuts match" with one line of advice. The panel keeps its place and a minimum height while the list shortens.
