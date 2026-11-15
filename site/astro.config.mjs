@@ -23,10 +23,18 @@ export default defineConfig({
           items: [
             { slug: 'guide/install' },
             { slug: 'guide/first-run' },
+            { slug: 'guide/library' },
+            { slug: 'guide/playback' },
+            { slug: 'guide/keyboard-shortcuts' },
+            { slug: 'guide/scrobbling-and-discord' },
+            { slug: 'guide/private-listening' },
             { slug: 'guide/themes' },
             { slug: 'guide/cli' },
+            { slug: 'guide/troubleshooting' },
           ],
         },
+        { slug: 'accessibility' },
+        { slug: 'privacy-and-security' },
         {
           label: 'Contributing',
           items: [{ slug: 'contributing/documentation' }],
