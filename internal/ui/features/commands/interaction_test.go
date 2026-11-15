@@ -220,19 +220,33 @@ func TestInteractionPaletteEntriesHaveNoTrailingCue(t *testing.T) {
 	}
 }
 
-// TestInteractionPaletteEnterBeforeArrowingRunsTheAppleMusicSearch: the entry
-// that is active when the library's hits arrive is the one that was active
-// before them, the Apple Music search, so Enter right after typing runs it
-// and not the library hit shown above it.
-func TestInteractionPaletteEnterBeforeArrowingRunsTheAppleMusicSearch(t *testing.T) {
+// TestInteractionPaletteEnterBeforeArrowingRunsTheFirstEntry: the first entry
+// is the active one until the user moves, so Enter right after typing runs
+// what the list shows first (a library hit), not the Apple Music search that
+// was alone in the list before the hits arrived.
+func TestInteractionPaletteEnterBeforeArrowingRunsTheFirstEntry(t *testing.T) {
 	r := ixPalette(t)
 	start := r.router.Location()
-	// DEPARTS: the highlight stays on the last entry (the web search) when the library's hits arrive above it, so Enter does not open the first hit.
-	if info, ok := r.tt.Access("Search Apple Music for “zed”"); !ok || !info.Selected {
-		t.Fatal("the Apple Music search is not the active entry")
+	if info, ok := r.tt.Access("Zed Artist"); !ok || !info.Selected {
+		t.Fatal("the first library hit is not the active entry")
+	}
+	if info, ok := r.tt.Access("Search Apple Music for “zed”"); !ok || info.Selected {
+		t.Fatal("the Apple Music search is active before the user moved")
 	}
 	r.tt.Key(0, ui.KeyEnter)
-	if got, want := r.outcome(start), "nav /search?q=zed"; got != want {
+	if got, want := r.outcome(start), "nav /artist/l.ar1"; got != want {
 		t.Errorf("Enter after typing: %s, want %s", got, want)
+	}
+}
+
+// TestInteractionPaletteArrowedChoiceSurvivesNewHits: once the user has moved
+// the highlight, hits arriving for the same query do not take it back.
+func TestInteractionPaletteArrowedChoiceSurvivesNewHits(t *testing.T) {
+	r := ixPalette(t)
+	r.tt.Key(0, ui.KeyDown)
+	r.settle()
+	r.tt.Frame()
+	if info, ok := r.tt.Access("Zed Album"); !ok || !info.Selected {
+		t.Fatal("Down did not move to the second entry")
 	}
 }
