@@ -178,10 +178,14 @@ func (p *playlists) dialogHost(c *ui.Context) {
 
 // dialogHeader is a dialog's title (16 semibold) and the muted line under
 // it (v0.2.0's gap-1 DialogHeader with text-heading and text-sub); oneLine
-// keeps a long description (a playlist's name) to one line.
+// keeps a long description (a playlist's name) to one line. A dialog that
+// says its line elsewhere passes none.
 func dialogHeader(c *ui.Context, title, description string, oneLine bool) {
 	ui.Column(c.Key("header")).Gap(4).FillWidth().MinWidth(0).Children(func() {
 		theme.Text(c.Key("title"), title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+		if description == "" {
+			return
+		}
 		d := theme.Text(c.Key("description"), description, "secondary").TextColor(theme.C("ink-muted"))
 		if oneLine {
 			d.SingleLine()

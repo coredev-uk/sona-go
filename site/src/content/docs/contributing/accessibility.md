@@ -99,6 +99,7 @@ Controls are never nested in an opener. MyGo reads a button, link, tab, column h
 - A choice made among pictures (the playlist cover picker) is a `radio group` of `radio` tiles:
   - each tile is named by the label drawn under it (2.5.3), described in a line of its own ("No picture"), and `Checked` while chosen, with arrow keys over the grid (`kit.GridNav`);
   - the chosen tile says so with a ring, a check mark and a heavier name, never by colour alone;
+  - where the cover lives ("Only in Sona: Apple Music can't keep covers set here.") is a status at the top of the dialog (`kit.InfoLine`) and the dialog's description, read with its name as the focus enters and not announced again;
   - a choice that applies at once announces its result ("Cover: Bars"), and a failure stays beside the control as an alert, with the limits it broke in view.
 - The artist of a song is `kit.ArtistLinks`: a link for one artist. For several it is a menu button named by Apple's artist string, with `haspopup` menu, `expanded` while open and the description "Choose an artist", opening a menu whose rows are `menuitem`s named by the artists.
 - `kit.TooltipDescribed` takes the control's name as the first line of the tooltip and describes the control by the rest (the account button's).

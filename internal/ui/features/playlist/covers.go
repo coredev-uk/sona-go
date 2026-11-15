@@ -20,7 +20,7 @@ const (
 	coverFrame   = 4 // the ring a chosen tile draws around its cover, and the room for it
 	coverGapPx   = 16
 	coverColumns = 4
-	// coverChrome is what the dialog holds besides the grid: header, upload
+	// coverChrome is what the dialog holds besides the grid: header, notice, upload
 	// row and limits, footer and padding.
 	coverChrome = 330
 	// coverRing is the room the scroll area leaves round the grid for the focus ring.
@@ -115,9 +115,16 @@ func (p *playlists) coverDialog(c *ui.Context) {
 	s := d.s
 	q := p.covers(s.id)
 	title := i18n.T("Playlist cover")
-	// Where the cover lives is part of the choice: said where it is made.
-	description := i18n.T("Apple Music can't keep a playlist cover from here, so your choice stays on this computer and shows in Sona only.")
-	p.form(c, coverDialogW, title, description, func() {
+	// Where the cover lives is part of the choice: a notice says it before the
+	// tiles, and the dialog is described by it, so a screen reader hears it on
+	// arrival.
+	// translators: Notice at the top of the playlist cover picker: the chosen cover is kept on this computer only; Apple Music and the user's other devices do not get it.
+	notice := i18n.T("Only in Sona: Apple Music can't keep covers set here.")
+	kit.Dialog(c.Key("playlist-dialog"), &d.open, kit.DialogOpts{
+		Title: title, Description: notice, HideHeader: true, MaxWidth: coverDialogW, Padding: 24, Gap: 20,
+	}, func() {
+		dialogHeader(c, title, "", false)
+		kit.InfoLine(c.Key("only-in-sona"), notice)
 		switch {
 		case q.HasData:
 			p.coverChoices(c, q.Data)
