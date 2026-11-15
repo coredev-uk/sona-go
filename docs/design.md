@@ -376,8 +376,8 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Sidebar playlist rows | playlist | opens | opens | opens | **shuffles** ([#443]) | none | glyph over the art shuffles ([#443]) | More button, no right-click ([#447]) | link; triangle on hover |
 | Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist: shuffles; others none ([#443]) | none | playlist: the glyph | More button | link |
 |  | any, set to Play or Shuffle | plays or shuffles ([#443]) | twice | same | same | same | the glyph (playlists) | More button | button; only the screen-reader name differs |
-|  | artist, any action | opens, the action is ignored ([#444]) | | opens | none | none | none | More button | link |
-|  | album pin set to Open with no page | plays ([#444]) | | plays | | | | | button |
+|  | artist, any action | opens | | opens | none | none | none | More button; no Play or Shuffle choice | link |
+|  | any, set to Open with no page | nothing | | nothing | | | | same as its kind; Open checked and off | plain row, disabled to assistive technology |
 | Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button | disclosure |
 | Queue rows | song, AutoPlay, music video | focuses the row | plays from the row | plays | none | none | none | yes | hover fill and grip |
 |  | the playing song | none | restarts it | restarts it | none | none | none | none ([#447]) | amber title |
@@ -433,7 +433,6 @@ Argued departures that stay (not issues):
 | [#440] | a double-click acts twice |
 | [#442] | Discover's strip card makes itself the lead |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
-| [#444] | pins: artists ignore the action, unrouted albums play |
 | [#445] | local shelves, library grids and release rows have no Play |
 | [#446] | station rows: pause, menu, link tile Play |
 | [#447] | right-click and More disagree |
@@ -456,7 +455,6 @@ Argued departures that stay (not issues):
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
 [#442]: https://github.com/coredev-uk/sona-go/issues/442
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
-[#444]: https://github.com/coredev-uk/sona-go/issues/444
 [#445]: https://github.com/coredev-uk/sona-go/issues/445
 [#446]: https://github.com/coredev-uk/sona-go/issues/446
 [#447]: https://github.com/coredev-uk/sona-go/issues/447
@@ -620,6 +618,7 @@ Home ("For You") answers one question first: what shall I play now. It is set li
   - Apple Music is a flat list with no "New playlist" button, no folders, no drops and no rename. The mixes and the added playlists share one list with no divider or sub-label: the mixes are named for what they are and the order says the rest. Its heading is a button that folds the list shut (state kept across restarts, `config.Sidebar`), with a chevron that turns, as a folder's does. Playlists keeps the "+" menu and the drop row.
   - Over a playlist row's 20px cover a small play glyph fades in with the row's hover (`kit.Fade`, at once under reduced motion) on a `--ground` wash at 85%, so it reads on any cover. The glyph is `--ink`, never amber (amber marks what plays).
   - Clicking the glyph shuffles that playlist and does not open it. A playlist with no songs, or while the account needs signing in again, shows it in `--ink-faint` with the reason as its tooltip. Folders have no cover and no button.
+  - **Pins.** A pin set to Open with no page of its own (an album or song whose page is not ported) does nothing when chosen, never plays. The pin's menu offers what its kind does: Play, Shuffle and Open for a playlist, album or song (Open is off, and checked when that is the setting, while there is no page), and no "When chosen" group for an artist, which only opens (there is no artist player yet).
 
 ### Top bar and account
 

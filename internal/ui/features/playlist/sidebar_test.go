@@ -3,7 +3,6 @@ package playlist
 import (
 	"context"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -414,20 +413,6 @@ func TestPinsOpenOrPlayPerTheirAction(t *testing.T) {
 	}
 }
 
-func TestAPinWithNoRouteForItsPageIsAButton(t *testing.T) {
-	e := sbSetup(t, sbLibrary(), []services.Pin{{Kind: "album", ID: "l.b", Name: "Beta", Action: "drillIn"}})
-	e.h.Env.HasRoute = func(path string) bool { return !strings.HasPrefix(path, "/album/") }
-	e.api.pinTracks["l.b"] = []services.Song{song("s1", "One", "A")}
-	e.shows("Beta, plays")
-	if err := e.tt.Click("Beta, plays"); err != nil {
-		t.Fatal(err)
-	}
-	e.did("PinTracks l.b")
-	if got := e.router.Path(); got != "/library/albums" {
-		t.Errorf("a pin whose page is not ported navigated to %q", got)
-	}
-}
-
 func TestPinMenuChoosesWhatAPinDoes(t *testing.T) { inBubble(t, pinMenuChoosesWhatAPinDoes) }
 
 func pinMenuChoosesWhatAPinDoes(t *testing.T) {
@@ -821,8 +806,8 @@ func aFolderIsNotADropTarget(t *testing.T) {
 	}
 }
 
-// A pin set to Open whose page is not ported plays when chosen, and its menu
-// says so: Open is off and Play is the checked row.
+// A pin set to Open whose page is not ported does nothing when chosen, and its
+// menu says so: Open is checked and off, and Play is not the checked row.
 func TestPinMenuDoesNotOfferOpenForAPinWithoutAPage(t *testing.T) {
 	p, _, _, _, _ := testPlaylists(t, "/")
 	pin := services.Pin{Kind: "album", ID: "l.1", Name: "Album", Action: "drillIn"}
@@ -836,11 +821,11 @@ func TestPinMenuDoesNotOfferOpenForAPinWithoutAPage(t *testing.T) {
 		return kit.MenuItem{}
 	}
 	items := p.pinMenu(pin, "", false, "", false)
-	if open := row(items, "drillIn"); open.Checked || !open.Disabled {
+	if open := row(items, "drillIn"); !open.Checked || !open.Disabled {
 		t.Errorf("Open: checked=%v disabled=%v without a page", open.Checked, open.Disabled)
 	}
-	if !row(items, "play").Checked {
-		t.Error("Play is not the checked row of a pin that plays")
+	if row(items, "play").Checked {
+		t.Error("Play is checked for a pin set to Open that does nothing")
 	}
 	items = p.pinMenu(pin, "/album/l.1", true, "", false)
 	if open := row(items, "drillIn"); !open.Checked || open.Disabled {
