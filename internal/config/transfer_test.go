@@ -37,6 +37,7 @@ func custom() Settings {
 	s.Concerts.City = "gb-manchester"
 	s.Sidebar = Sidebar{OpenFolders: []string{"f.1"}, FoldedSections: []string{"apple"}}
 	s.LyricsView = LyricsView{Translation: true, Pronunciation: true}
+	s.Addons = Addons{"demo": {Enabled: true, Granted: []string{"playback.read"}}}
 	return s.Normalized()
 }
 
@@ -50,6 +51,7 @@ func local(dst, src Settings) Settings {
 	dst.Concerts = src.Concerts
 	dst.Sidebar = src.Sidebar
 	dst.LyricsView = src.LyricsView
+	dst.Addons = src.Addons
 	return dst
 }
 

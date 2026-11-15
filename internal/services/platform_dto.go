@@ -46,6 +46,9 @@ type Capabilities struct {
 	// DiscordPresence: Sona can reach the Discord app on this OS (the
 	// build also needs a client ID: integrations:status discord.configured).
 	DiscordPresence bool `json:"discordPresence"`
+	// Addons: Sona can run add-ons here, ending their processes with it
+	// (docs/addons.md). Where false no add-on starts.
+	Addons bool `json:"addons"`
 	// DeveloperTools: MyGo's inspector is on for this run (a development
 	// build started with SONA_INSPECTOR=1); DesktopService.OpenDeveloperTools
 	// shows it.

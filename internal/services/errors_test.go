@@ -105,6 +105,7 @@ func TestEveryCodeIsClassified(t *testing.T) {
 		CodeSettingsWrite:       ErrSettingsWrite,
 		CodeNoRendition:         motion.ErrNoRendition,
 		CodeConflict:            ErrConflict,
+		CodeAddonUnavailable:    ErrAddonUnavailable,
 		CodePinsFull:            applemusic.ErrPinsFull,
 		CodeNotConfigured:       scrobble.ErrNotConfigured,
 		CodePrivateForced:       privatemode.ErrForced,
@@ -174,7 +175,7 @@ func TestNoGoTextReachesTheUI(t *testing.T) {
 		"motion": newMotionService, "desktop": newDesktopService, "scrobble": newScrobbleService,
 		"audio": newAudioService, "storage": newStorageService, "private": newPrivateService,
 		"platform": newPlatformService, "reminders": newRemindersService, "artisttracker": newArtistTrackerService, "translations": newTranslationsService,
-		"lyrics": newLyricsService, "concerts": newConcertsService, "themes": newThemesService,
+		"lyrics": newLyricsService, "concerts": newConcertsService, "themes": newThemesService, "addons": newAddonsService,
 	}
 	var roots []reflect.Type
 	for _, f := range features {
@@ -253,6 +254,8 @@ func eventPayloads(t *testing.T) []reflect.Type {
 		"EventRemindersChanged":      reflect.TypeFor[[]Reminder](),
 		"EventArtistReleasesChanged": reflect.TypeFor[NewReleases](),
 		"EventThemesChanged":         reflect.TypeFor[[]ThemeFile](),
+		"EventAddonsChanged":         reflect.TypeFor[[]AddonInfo](),
+		"EventAddonsNotice":          reflect.TypeFor[AddonNotice](),
 		"EventScrobbleChanged":       reflect.TypeFor[ScrobbleStatus](),
 		"EventSettingsChanged":       reflect.TypeFor[config.Settings](),
 		"EventAppleTranslations":     reflect.TypeFor[AppleTranslations](),

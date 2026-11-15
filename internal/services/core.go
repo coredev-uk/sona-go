@@ -138,6 +138,7 @@ func New(d Deps) *Core {
 		return d.DB.WipeUserData(ctx)
 	})
 	c.commands = newCommandServer(env, c.open, c.services)
+	instance[AddonsService](c.services).attach(c.commands.addon)
 	return c
 }
 

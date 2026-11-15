@@ -84,6 +84,8 @@ func ErrorText(code services.ErrorCode) string {
 		return T("Apple doesn't offer this video in a format Sona can play.")
 	case services.CodeConflict:
 		return T("It changed elsewhere since Sona read it. Reload and try again.")
+	case services.CodeAddonUnavailable:
+		return T("That add-on isn't running.")
 	case services.CodePinsFull:
 		return T("You have six pins. Unpin one to make room.")
 	case services.CodeNotConfigured:

@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/coredev-uk/sona-go/internal/addons"
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/discord"
@@ -24,7 +25,7 @@ func TestCapabilitiesWithoutPlatformSupport(t *testing.T) {
 	t.Cleanup(func() { _ = eng.Close() })
 	got := newPlatformService(&Env{Deps: Deps{Engine: eng, Settings: testSettings(t)}}).Capabilities()
 	want := Capabilities{
-		OS: runtime.GOOS, DiscordPresence: discord.Supported,
+		OS: runtime.GOOS, DiscordPresence: discord.Supported, Addons: addons.Supported(),
 		WindowControls: WindowControls{Style: config.TitleBarAuto, Start: []string{}, End: []string{}},
 	}
 	if !reflect.DeepEqual(got, want) {

@@ -38,6 +38,7 @@ var localKeys = []string{
 	"concerts",           // where this person is: not something to hand to another computer's file
 	"sidebar",            // which folders of this library are open
 	"lyricsView",         // how this person reads lyrics on this computer
+	"addons",             // which add-ons run on this computer and what they may do: code is approved per computer, never imported
 }
 
 // keepLocal copies the localKeys fields from src into dst.
@@ -50,6 +51,7 @@ func keepLocal(dst *Settings, src Settings) {
 	dst.Concerts = src.Concerts
 	dst.Sidebar = src.Sidebar
 	dst.LyricsView = src.LyricsView
+	dst.Addons = src.Addons
 }
 
 // Import errors, worded for the person who picked the file.

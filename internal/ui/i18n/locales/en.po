@@ -6789,6 +6789,10 @@ msgstr "Text message"
 msgid "That Apple Account or password isn't right"
 msgstr "That Apple Account or password isn't right"
 
+#: internal/ui/i18n/errors.go
+msgid "That add-on isn't running."
+msgstr "That add-on isn't running."
+
 #: internal/ui/account/signin.go
 msgid "That code isn't right"
 msgstr "That code isn't right"

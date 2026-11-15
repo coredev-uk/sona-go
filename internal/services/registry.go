@@ -42,4 +42,5 @@ var features = []feature{
 	{"lyrics", svc(newLyricsService)},
 	{"concerts", svc(newConcertsService)},
 	{"themes", svc(newThemesService)},
+	{"addons", svc(newAddonsService)},
 }
