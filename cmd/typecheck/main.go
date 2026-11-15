@@ -1,6 +1,6 @@
 // Command typecheck type-checks every Sona package, tests included, for
 // another OS from source with cgo off, so a macOS or Windows break shows
-// up on Linux (CI runs it; see docs/platforms.md, "Platforms").
+// up on Linux (CI runs it; see docs/platforms.md, "Type-check and cross-build").
 //
 // `GOOS=windows CGO_ENABLED=0 go vet ./...` covers Windows; typecheck does
 // the same for macOS, where go vet would stop at the first dependency that

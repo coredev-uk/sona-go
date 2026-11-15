@@ -1,28 +1,139 @@
 # Performance and memory
 
-How to measure the UI's frame cost, start-up and memory. Run every measurement headless and private (see `docs/development.md`).
+How to measure the UI's frame cost, start-up and memory. Run every measurement headless and private (see [development.md](development.md)).
 
-## Measuring UI performance
+## Contents
 
-MyGo draws every frame itself, so frame cost is measured in the process, not in a browser. `MYGO_FRAME_STATS=all` makes MyGo log one line per presented frame (`mygo: frame N took … ms: build …, layout …, paint …, present …`); `MYGO_FRAME_STATS=8` only the frames slower than 8 ms, which a scroll through Albums or Home should not log on a desktop GPU. `SONA_INSPECTOR=1` opens MyGo's inspector beside the content (element boxes, styles, frame times). `startup: first paint` in `<state>/sona.log` is the time from process start to the first presented frame; compare several starts, not one.
+- [Measure UI performance](#measure-ui-performance)
+  - [Read frame times](#read-frame-times)
+  - [Build the probe](#build-the-probe)
+  - [What the scroll does](#what-the-scroll-does)
+  - [Run the probe](#run-the-probe)
+  - [Compare runs](#compare-runs)
+- [Measure memory](#measure-memory)
+  - [Read the diagnostics bundle](#read-the-diagnostics-bundle)
+  - [Script a run with memprobe](#script-a-run-with-memprobe)
+  - [Make two runs comparable](#make-two-runs-comparable)
 
-**The probe build.** `go build -tags probe,sqlite_fts5 -o bin/sona-probe ./cmd/sona` links MyGo's automation plugin (`cmd/sona/automation_probe.go`; never a release build, and never with `mygo_noinspector`, which drops it). It listens only when `MYGO_AUTOMATION=<socket path>` is set, and drives the app through its accessibility tree and input events, as a touchpad or a screen reader would. Two tools use it and print the same table:
+## Measure UI performance
 
-- `bin/sona-probe -probe [-speed 2000] [-max 20000] [-runs 3] [-idle 10s] [-interval ms]` measures the Albums scroll in the app's own process and quits; `-startup` quits once the covers are on screen. The probe starts the app again with `MYGO_FRAME_STATS=all` and a private automation socket (MyGo reads both while its packages initialise), takes the frame lines off the log, and scrolls through wheel events over that socket.
-- `go run ./cmd/uiprobe -socket $MYGO_AUTOMATION -log $XDG_STATE_HOME/sona/sona.log` does the same from outside against a probe build you started with `MYGO_AUTOMATION=… MYGO_FRAME_STATS=all` (the frame lines are then in `sona.log`; the pid and the process start come from the log's `startup: process start` line). `uiprobe -firstpaint run1/sona.log run2/sona.log …` summarises `startup: first paint` over several starts (min, median, max). Home, New and the motion artwork scenarios of v0.2.0's uiprobe come back once those pages exist.
+MyGo draws every frame itself, so frame cost is measured in the process, not in a browser.
 
-What the scroll does (`internal/ui/probe/measure`): wait until the tiles in view show pictures (the probe samples the window's capture at the top left of each tile (a cell taller than wide inside the page's scroll container): a decoded cover has far more colours than the placeholder; that is the start-up line's "covers on screen"), wait until no frame has been drawn for 500 ms and the process tree is idle, take the display's frame interval (`-interval`, else the refresh rate of the output the window is on, asked of sway over `SWAYSOCK`, else measured from idle frames: the pointer moving on and off a sidebar link draws one small frame per refresh; never from frames that redraw the grid, which would stretch it and hide dropped frames; a value more than 10% from 16.67 ms is warned about; wlroots' headless output reports a refresh of 0 until the sway config sets a mode with one, `output HEADLESS-1 mode --custom 2560x1440@60Hz`, so without it the probe measures), scroll down and back up at `-speed` DIPs per second over `-max` DIPs (the page's end if nearer), `-runs` times, then watch the process at rest for `-idle`. A frame exists only when something changed, so a gap of more than 1.5 intervals between two frames counts the intervals it spans as dropped frames, as v0.2.0's probe did for `requestAnimationFrame`. The table has the gap p50 and p95, dropped frames, frames over 50 ms, the CPU of the process and its children while scrolling and at rest, MyGo's CPU time per frame (build, layout and paint) and present time, and RSS and PSS at rest. The first row is a control: the same wheel stream over the top bar, where nothing scrolls, which is what the input path costs. Per-pass lines go to stderr; the median of the passes is the table. The probe always ends: if the covers are not drawn within 60 s (offline, an empty artwork cache) it prints what it has and fails with status 1 without scrolling; an unanswered automation request times out after a minute; the whole probe has an overall limit; and an app that does not shut down within 15 s of the probe is stopped with status 1. `uiprobe` fails the same way.
+### Read frame times
 
-Run it headless, as every automated run (private XDG dirs, `dbus-run-session`, `SONA_PRIVATE=1`; the `headless` script wraps the compositor), on a sway headless output with the window floated at the size the baseline used, `swaymsg '[app_id="dev.coredev.Sona"] floating enable, resize set 1132 1253, move position 0 0'` (or a `for_window` rule in the sway config). A library of the size you compare against matters: the scroll covers `min(-max, the page)` DIPs, and the frames per pass follow from it.
+| Setting | Effect |
+| --- | --- |
+| `MYGO_FRAME_STATS=all` | MyGo logs one line per presented frame: `mygo: frame N took … ms: build …, layout …, paint …, present …`. |
+| `MYGO_FRAME_STATS=8` | Logs only the frames slower than 8 ms. A scroll through Albums or Home should not log any on a desktop GPU. |
+| `SONA_INSPECTOR=1` | Opens MyGo's inspector beside the content (element boxes, styles, frame times). |
 
-- Compare before and after on the same machine, with the same library (about 650 albums makes a useful grid), the same window size and the same `-speed`, and confirm on a desktop session: the headless session draws on the CPU (llvmpipe, `frames: drawn in memory` in the output), so its CPU figures are not a desktop GPU's and its frame times only show relative change. `MYGO_FRAME_STATS=all` itself costs a log line and a few counters per frame.
+`startup: first paint` in `<state>/sona.log` is the time from process start to the first presented frame. Compare several starts, not one.
+
+### Build the probe
+
+```sh
+go build -tags probe,sqlite_fts5 -o bin/sona-probe ./cmd/sona
+```
+
+The probe build links MyGo's automation plugin (`cmd/sona/automation_probe.go`). It is never a release build, and never built with `mygo_noinspector`, which drops the plugin.
+
+The plugin listens only when `MYGO_AUTOMATION=<socket path>` is set. It drives the app through its accessibility tree and input events, as a touchpad or a screen reader would.
+
+Two tools use it and print the same table:
+
+- **`-probe`** measures the Albums scroll in the app's own process and quits:
+
+  ```sh
+  bin/sona-probe -probe [-speed 2000] [-max 20000] [-runs 3] [-idle 10s] [-interval ms]
+  ```
+
+  `-startup` quits once the covers are on screen. The probe starts the app again with `MYGO_FRAME_STATS=all` and a private automation socket (MyGo reads both while its packages initialise), takes the frame lines off the log, and scrolls through wheel events over that socket.
+- **`uiprobe`** does the same from outside, against a probe build you started with `MYGO_AUTOMATION=… MYGO_FRAME_STATS=all`:
+
+  ```sh
+  go run ./cmd/uiprobe -socket $MYGO_AUTOMATION -log $XDG_STATE_HOME/sona/sona.log
+  ```
+
+  The frame lines are then in `sona.log`; the pid and the process start come from the log's `startup: process start` line.
+  `uiprobe -firstpaint run1/sona.log run2/sona.log …` summarises `startup: first paint` over several starts (min, median, max).
+  Home, New and the motion artwork scenarios of v0.2.0's uiprobe come back once those pages exist.
+
+### What the scroll does
+
+The measurement lives in `internal/ui/probe/measure`. It runs these steps:
+
+1. Wait until the tiles in view show pictures. The probe samples the window's capture at the top left of each tile (a cell taller than wide inside the page's scroll container): a decoded cover has far more colours than the placeholder. This is the start-up line's "covers on screen".
+2. Wait until no frame has been drawn for 500 ms and the process tree is idle.
+3. Take the display's frame interval (below).
+4. Scroll down and back up at `-speed` DIPs per second over `-max` DIPs (the page's end if nearer), `-runs` times.
+5. Watch the process at rest for `-idle`.
+
+The frame interval comes from the first source that answers:
+
+- `-interval`.
+- The refresh rate of the output the window is on, asked of sway over `SWAYSOCK`. wlroots' headless output reports a refresh of 0 until the sway config sets a mode with one, `output HEADLESS-1 mode --custom 2560x1440@60Hz`, so without it the probe measures.
+- A measurement from idle frames: the pointer moving on and off a sidebar link draws one small frame per refresh. Never from frames that redraw the grid, which would stretch the interval and hide dropped frames.
+
+A value more than 10% from 16.67 ms is warned about.
+
+A frame exists only when something changed, so a gap of more than 1.5 intervals between two frames counts the intervals it spans as dropped frames, as v0.2.0's probe did for `requestAnimationFrame`.
+
+The table has:
+
+- the gap p50 and p95, dropped frames and frames over 50 ms;
+- the CPU of the process and its children while scrolling and at rest;
+- MyGo's CPU time per frame (build, layout and paint) and present time;
+- RSS and PSS at rest.
+
+The first row is a control: the same wheel stream over the top bar, where nothing scrolls, which is what the input path costs. Per-pass lines go to stderr; the median of the passes is the table.
+
+The probe always ends:
+
+- If the covers are not drawn within 60 s (offline, an empty artwork cache) it prints what it has and fails with status 1 without scrolling.
+- An unanswered automation request times out after a minute, and the whole probe has an overall limit.
+- An app that does not shut down within 15 s of the probe is stopped with status 1.
+
+`uiprobe` fails the same way.
+
+### Run the probe
+
+Run it headless, as every automated run: private XDG dirs, `dbus-run-session` and `SONA_PRIVATE=1`. The `headless` script wraps the compositor.
+
+Use a sway headless output with the window floated at the size the baseline used:
+
+```sh
+swaymsg '[app_id="dev.coredev.Sona"] floating enable, resize set 1132 1253, move position 0 0'
+```
+
+A `for_window` rule in the sway config does the same. A library of the size you compare against matters: the scroll covers `min(-max, the page)` DIPs, and the frames per pass follow from it.
+
+### Compare runs
+
+- Compare before and after on the same machine, with the same library (about 650 albums makes a useful grid), the same window size and the same `-speed`.
+- Confirm on a desktop session. The headless session draws on the CPU (llvmpipe, `frames: drawn in memory` in the output), so its CPU figures are not a desktop GPU's and its frame times only show relative change.
+- `MYGO_FRAME_STATS=all` itself costs a log line and a few counters per frame.
 - `-probe` counts its own wheel driver in the CPU figures; `uiprobe` does not (its driver is another process).
 
-## Measuring memory
+## Measure memory
 
-Memory is measured per process, never as one figure: the app and the playback host child (the Widevine CDM, GStreamer) are two rows in Activity Monitor and in `top`, and "400 MB" means different fixes depending on which holds it. Settings → Diagnostics → Copy diagnostics has a **Memory** section for exactly this (`internal/services/system_memory.go`, `internal/procmem`): for the app and the running host, the resident size and the footprint the platform's own tools show (macOS: `proc_pid_rusage`'s physical footprint, Activity Monitor's Memory column; Linux: the proportional set size), and the Go runtime's account of the app (heap in use, idle and returned to the OS). A report from a Mac that pastes this section tells which process holds the memory, and whether it is Go's heap (Sona can shrink it) or native memory (the GPU's buffers, GStreamer, the CDM).
+Memory is measured per process, never as one figure. The app and the playback host child (the Widevine CDM, GStreamer) are two rows in Activity Monitor and in `top`, and "400 MB" means different fixes depending on which holds it.
 
-`cmd/memprobe` measures the same on Linux, with a scripted run against a probe build. The probe build writes the Go heap profile and the runtime's figures into `SONA_MEMPROFILE_DIR` on `SIGUSR1` (`internal/memprobe`; the host child, which cannot write files, logs its figures into `sona.log`), and memprobe signals the whole process tree, reads each process's `/proc/<pid>/smaps` (RSS, PSS, anonymous memory, the mappings that hold the most) and prints one JSON line per process:
+### Read the diagnostics bundle
+
+Settings → Diagnostics → Copy diagnostics has a **Memory** section for exactly this (`internal/services/system_memory.go`, `internal/procmem`). For the app and the running host it shows:
+
+- the resident size and the footprint the platform's own tools show (macOS: `proc_pid_rusage`'s physical footprint, Activity Monitor's Memory column; Linux: the proportional set size);
+- the Go runtime's account of the app: heap in use, idle and returned to the OS.
+
+A report from a Mac that pastes this section tells which process holds the memory, and whether it is Go's heap (Sona can shrink it) or native memory (the GPU's buffers, GStreamer, the CDM).
+
+### Script a run with memprobe
+
+`cmd/memprobe` measures the same on Linux, with a scripted run against a probe build.
+
+The probe build writes the Go heap profile and the runtime's figures into `SONA_MEMPROFILE_DIR` on `SIGUSR1` (`internal/memprobe`). The host child cannot write files, so it logs its figures into `sona.log`.
+
+memprobe signals the whole process tree, reads each process's `/proc/<pid>/smaps` (RSS, PSS, anonymous memory, the mappings that hold the most) and prints one JSON line per process:
 
 ```sh
 SONA_MEMPROFILE_DIR=$PWD/prof MYGO_AUTOMATION=$PWD/a.sock SONA_PREVIEW=1 SONA_PRIVATE=1 bin/sona-probe &
@@ -31,8 +142,30 @@ go run ./cmd/memprobe -pid $! -socket $PWD/a.sock -dir $PWD/prof -o $PWD/keep \
 go tool pprof -sample_index=inuse_space -top bin/sona-probe keep/now-playing/<pid>.heap.pb.gz
 ```
 
-Steps are `wait:<duration>`, `link:`/`button:`/`toggle:`/`tab:`/`press:<label>` (through the accessibility tree), `wheel:<dy>`, `scroll:<n>x<dy>`, `measure:<name>`, `dump` (the tree's labels) and `shot:<file>`. Run it as every automated run: `headless -- …`, private XDG dirs, `SONA_PRIVATE=1`, audio to your own PipeWire null sink (`PIPEWIRE_REMOTE`/`PULSE_SERVER` as absolute paths to the real sockets reach it from the sandboxed child: a symlink in the private runtime directory does not), a copy of a real library for the Albums scrolls. Three things decide whether two runs compare:
+Steps:
 
-- **The GL driver.** libglvnd picks NVIDIA's EGL on some runs and Mesa's on others (NVIDIA's mapped 60 to 70 MB more); pin Mesa's with `__EGL_VENDOR_LIBRARY_FILENAMES=…/50_mesa.json GALLIUM_DRIVER=llvmpipe MYGO_GPU=1` (the headless session draws on llvmpipe, whose textures are ordinary process memory, a stand-in for a unified-memory GPU), and run each scenario three times: PSS moves by ±15 MB from run to run with what Mesa touched.
-- **The scale.** The headless output is 1x; `swaymsg output HEADLESS-1 scale 2` before starting the app gives the 2x of a Retina Mac, where a cover is four times the bytes.
-- **Linux is not macOS.** Mesa's libraries (50 MB), GTK and the GL texture cache are Linux-only costs; on macOS MyGo draws with Metal, drops every image texture once the window has been idle for 2 s and keeps up to three window-sized frames while it animates. What carries over to macOS is Go's heap, the artwork and bitmap caches, the GStreamer pipelines and the CDM host; the rest needs a Mac, and the Diagnostics section above is how to get its numbers.
+- `wait:<duration>`
+- `link:`, `button:`, `toggle:`, `tab:` and `press:<label>`, through the accessibility tree
+- `wheel:<dy>` and `scroll:<n>x<dy>`
+- `measure:<name>`
+- `dump` (the tree's labels)
+- `shot:<file>`
+
+Run it as every automated run:
+
+- `headless -- …` with private XDG dirs and `SONA_PRIVATE=1`.
+- Audio to your own PipeWire null sink. `PIPEWIRE_REMOTE` and `PULSE_SERVER` as absolute paths to the real sockets reach it from the sandboxed child; a symlink in the private runtime directory does not.
+- A copy of a real library for the Albums scrolls.
+
+### Make two runs comparable
+
+Three things decide whether two runs compare:
+
+- **The GL driver.** libglvnd picks NVIDIA's EGL on some runs and Mesa's on others (NVIDIA's mapped 60 to 70 MB more).
+  - Pin Mesa's with `__EGL_VENDOR_LIBRARY_FILENAMES=…/50_mesa.json GALLIUM_DRIVER=llvmpipe MYGO_GPU=1`. The headless session draws on llvmpipe, whose textures are ordinary process memory, a stand-in for a unified-memory GPU.
+  - Run each scenario three times: PSS moves by ±15 MB from run to run with what Mesa touched.
+- **The scale.** The headless output is 1x. `swaymsg output HEADLESS-1 scale 2` before starting the app gives the 2x of a Retina Mac, where a cover is four times the bytes.
+- **Linux is not macOS.** Mesa's libraries (50 MB), GTK and the GL texture cache are Linux-only costs.
+  - On macOS MyGo draws with Metal, drops every image texture once the window has been idle for 2 s and keeps up to three window-sized frames while it animates.
+  - What carries over to macOS is Go's heap, the artwork and bitmap caches, the GStreamer pipelines and the CDM host.
+  - The rest needs a Mac, and the diagnostics bundle above is how to get its numbers.

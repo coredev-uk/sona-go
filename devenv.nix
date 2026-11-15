@@ -150,14 +150,14 @@ in
       go vet -tags dev,sqlite_fts5 ./...
       go vet -tags probe,sqlite_fts5 ./...
       # Every package must still type-check on the other platforms
-      # (docs/platforms.md, "Platforms").
+      # (docs/platforms.md, "Type-check and cross-build").
       GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
       go run ./cmd/typecheck -os darwin -arch arm64 ./...
       golangci-lint run --new-from-rev=origin/main ./...
       # Build values kept past their frame (MyGo's lifetime check).
       go tool mygo vet internal/ui
       # Both message catalogues match the source (docs/translations.md,
-      # "Strings and translations").
+      # "Add or change a UI string").
       go run ./cmd/i18ntool extract -check
       go run ./cmd/pathcase
     '';
@@ -186,7 +186,7 @@ in
       E2E_ORCA=1 E2E_ORCA_BIN=$orca E2E_OUT=''${E2E_OUT:-$PWD/bin/orca-out} headless -- go test -tags e2e -count=1 -v -run '^TestOrca' ./e2e/ "$@"
     '';
     # The Albums scroll probe in the app's own process (docs/performance.md,
-    # "Measuring UI performance"), in `headless` on a profile whose covers
+    # "Measure UI performance"), in `headless` on a profile whose covers
     # are cached or reachable (the e2e fixture's are not, outside e2e).
     probe.exec = ''
       set -e

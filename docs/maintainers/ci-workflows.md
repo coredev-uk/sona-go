@@ -81,5 +81,4 @@ anything else is fixed in the job's setup. Go's caches are restored by the key
 they were saved under (the CI image's digest, or the runner image's version on
 the bare runner, is part of the Linux key, so an image update never serves a
 cached pass), and `test.sh` leaves out
-`-artifacts` so unchanged packages report `(cached)`. 
-
+`-artifacts` so unchanged packages report `(cached)`.

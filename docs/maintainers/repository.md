@@ -35,7 +35,6 @@ release.yml --ref <branch>`): it builds and smoke-tests every platform and
 publishes nothing (`-f prerelease=rc.1` publishes a test prerelease instead).
 The release steps are maintainer documentation: `docs/maintainers/release.md`.
 
-
 ## Self-updates (macOS and Windows)
 
 `internal/update` and `UpdatesService` update a macOS `.app` or a Windows
@@ -93,4 +92,3 @@ Actions (MyGo's are always left for review), and a review bot checks and merges 
 are bumped by hand (see "Pinned inputs" above). You
 don't need to update dependencies yourself; a change that needs a newer
 dependency bumps it in the same PR.
-
