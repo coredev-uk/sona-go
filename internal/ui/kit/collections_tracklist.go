@@ -851,6 +851,9 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 				}
 			})
 		})
+		// The links inside the row take the pointer, so they pass a right-click
+		// on to the row's menu (Trigger's also).
+		var links []ui.Element
 		if cols.Artist {
 			o.cell(ui.Row(c.Key("artist")).Role(ui.RoleCell).AlignItems(ui.Center), cellArtist).Children(func() {
 				typ := tk.Type["sub"]
@@ -858,6 +861,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 					Open: o.OpenArtist, Static: true, Hover: theme.C("ink"),
 					Style: func(e ui.Element) {
 						e.FontSize(typ.Size).FixedLineHeight(typ.LineHeight).SingleLine().MinWidth(0)
+						links = append(links, e)
 					},
 					Click: func(m ClickMods) bool {
 						if m.Range || m.Toggle {
@@ -871,7 +875,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 		}
 		if cols.Album {
 			o.cell(ui.Row(c.Key("album")).Role(ui.RoleCell).AlignItems(ui.Center), cellAlbum).Children(func() {
-				trackLink(c, w, s.Album, s.AlbumID, muted, o.OpenAlbum, selectRow)
+				links = trackLink(c, w, s.Album, s.AlbumID, muted, o.OpenAlbum, selectRow, links)
 			})
 		}
 		if o.AddedBy != nil {
@@ -882,7 +886,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 						name = "@" + p.Handle
 					}
 					Artwork(c, o.Art, p.Art.Small, 20, ArtOpts{Round: true})
-					trackLink(c, w, name, p.ID, muted, o.OpenProfile, selectRow)
+					links = trackLink(c, w, name, p.ID, muted, o.OpenProfile, selectRow, links)
 				}
 			})
 		}
@@ -902,7 +906,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 		})
 		o.cell(ui.Row(c.Key("act")).Role(ui.RoleCell).Justify(ui.End).AlignItems(ui.Center), cellActions).Children(func() {
 			if o.Menus != nil {
-				o.Menus.Trigger(c.Key("more"), src, target, TriggerOpts{Visible: hot, Select: &st.Sel, Index: i})
+				o.Menus.Trigger(c.Key("more"), src, target, TriggerOpts{Visible: hot, Select: &st.Sel, Index: i}, links...)
 			}
 		})
 	})
@@ -929,13 +933,15 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 
 // trackLink is an artist or album cell: a link to the page when the song
 // names one (underlined while hovered; a click opens it without selecting
-// the row), plain text otherwise.
-func trackLink(c *ui.Context, row ui.Element, text, id string, col ui.Color, open func(id string), selectRow func(ClickMods)) {
+// the row), plain text otherwise. A link is added to links, so that its
+// right-click reaches the row's menu.
+func trackLink(c *ui.Context, row ui.Element, text, id string, col ui.Color, open func(id string), selectRow func(ClickMods), links []ui.Element) []ui.Element {
 	tk := theme.Current()
 	t := ui.Text(c, text).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).TextColor(col).SingleLine().MinWidth(0)
 	if id == "" || open == nil {
-		return
+		return links
 	}
+	links = append(links, t)
 	t.Role(ui.RoleLink)
 	if t.Hovered() {
 		t.Underline().TextColor(theme.C("ink")).Cursor(ui.CursorPointer)
@@ -943,10 +949,11 @@ func trackLink(c *ui.Context, row ui.Element, text, id string, col ui.Color, ope
 	if t.Clicked() {
 		if m := ModsOf(t.ClickModifiers()); m.Range || m.Toggle {
 			selectRow(m)
-			return
+			return links
 		}
 		open(id)
 	}
+	return links
 }
 
 // skeletonRow is a row whose page is still loading: flat bars where the

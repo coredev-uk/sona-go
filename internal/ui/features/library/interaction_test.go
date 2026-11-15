@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -223,6 +224,11 @@ func surfaces() []surface {
 		}},
 		{"videos", false, map[string]string{"video": "Video 0"}, func(t *testing.T) *iaCtx {
 			r, plays := newVideosRig(t, videoFixtures(3), true)
+			// The player module's actions for a music video (the app registers them beside the library's).
+			r.h.Env.Actions.Register(kit.ActionDef{
+				ID: "test.play-next.video", Target: kit.KindMusicVideo, Group: kit.GroupQueue, Order: 10,
+				Label: func(*kit.ActionContext) string { return "Play next" }, Run: func(*kit.ActionContext) {},
+			})
 			r.tt.Until("the videos", r.tt.Shows("3 music videos", "Video 0"))
 			return &iaCtx{r: r.pageRig, start: videosPath, played: func() string {
 				if n := plays.played(); n > 0 {
@@ -366,7 +372,7 @@ var libraryWant = map[string]map[string]outcomes{
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "play 1 video queue",
-			menu:       "no menu",
+			menu:       "menu",
 			cue:        "link",
 		},
 	},
