@@ -53,7 +53,12 @@ Sona updates itself: Settings → General → Updates → "Install and restart".
 
 Sona updates itself: Settings → General → Updates.
 
-The uninstaller removes Sona's playback sandbox. If you delete a portable folder instead, quit Sona and run `sona.exe --remove-sandbox` from that folder first. Your data stays.
+The uninstaller removes Sona's playback sandbox and its start-at-login entry. If you delete a portable folder instead:
+
+1. Turn off Settings → General → Start Sona when you log in, if it's on.
+2. Quit Sona and run `sona.exe --remove-sandbox` from that folder.
+
+Your data stays. A portable folder you move keeps working; turn Start Sona when you log in on again from the new place.
 
 ## Next
 

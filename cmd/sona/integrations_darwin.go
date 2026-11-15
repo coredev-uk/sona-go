@@ -31,6 +31,6 @@ func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
 	}
 	out.Notifications = openNotifier
 	out.PlainNotifications = true
-	out.Autostart = macLogin{}
+	out.Autostart = desktopLogin{}
 	out.LinkHandler = macLinks{}
 }

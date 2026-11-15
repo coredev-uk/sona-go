@@ -63,8 +63,11 @@ func (o *onboarding) desktopStep(c *ui.Context) {
 		var rows []func()
 		if cp.Autostart {
 			desc := i18n.T("Adds Sona to your desktop's startup applications.")
-			if cp.OS == "darwin" {
+			switch cp.OS {
+			case "darwin":
 				desc = i18n.T("Adds Sona to the login items in System Settings → General.")
+			case "windows":
+				desc = i18n.T("Adds Sona to the startup apps in Task Manager.")
 			}
 			rows = append(rows, func() {
 				switchRow(c, "autostart", i18n.T("Start Sona when you log in"), desc,
