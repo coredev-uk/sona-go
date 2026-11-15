@@ -314,7 +314,7 @@ func TestPageEditModeWithNoSongsSaysNothingIsLeft(t *testing.T) {
 // openSuggestions opens the collapsed shelf.
 func (r *pageRig) openSuggestions() {
 	r.t.Helper()
-	r.shows("Suggested songs", "Show suggestions")
+	r.shows("Suggested Songs", "Show suggestions")
 	r.click("Show suggestions")
 	r.shows("Hide suggestions")
 }

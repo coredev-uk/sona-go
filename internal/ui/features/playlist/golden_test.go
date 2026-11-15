@@ -212,7 +212,7 @@ func TestPlaylistSuggestionsGolden(t *testing.T) {
 		t.Run("collapsed-"+m.suffix, func(t *testing.T) {
 			golden(t, "playlist-suggestions-collapsed-"+m.suffix, 1132, m.mode, goldenDetail(), func(a *fakeAPI) {
 				a.suggestions["p.1"] = goldenSuggestions()
-			}, func(r *pageRig) { r.shows("Suggested songs", "Show suggestions") })
+			}, func(r *pageRig) { r.shows("Suggested Songs", "Show suggestions") })
 		})
 		t.Run("open-"+m.suffix, func(t *testing.T) {
 			golden(t, "playlist-suggestions-open-"+m.suffix, 1132, m.mode, goldenDetail(), func(a *fakeAPI) {

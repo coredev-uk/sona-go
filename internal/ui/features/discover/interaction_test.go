@@ -251,7 +251,7 @@ func surfaces() []surface {
 			page := services.ChartsPage{Charts: []services.Chart{{Key: services.ChartSongs, Title: "Songs", Items: songItems(0, 3)}}}
 			r, _ := newCharts(t, "/charts", page)
 			rec := iaPlayers(r)
-			r.tt.Until("the chart", r.tt.Shows("Top songs", "Song 0"))
+			r.tt.Until("the chart", r.tt.Shows("Top Songs", "Song 0"))
 			return &iaCtx{r: r, rec: rec, start: "/charts"}
 		}},
 	}
@@ -540,17 +540,17 @@ func TestInteractionDiscoverGestures(t *testing.T) {
 	}
 }
 
-// The Top songs chart's own controls: Play queues the chart from its first
+// The Top Songs chart's own controls: Play queues the chart from its first
 // song, See all opens the whole chart.
 func TestInteractionDiscoverTopSongsControls(t *testing.T) {
 	for name, want := range map[string]string{
-		"Play Top songs": "queue 3 songs from 0",
+		"Play Top Songs": "queue 3 songs from 0",
 		"See all":        "nav /charts/songs",
 	} {
 		page := services.ChartsPage{Charts: []services.Chart{{Key: services.ChartSongs, Title: "Songs", Items: songItems(0, 3)}}}
 		r, _ := newCharts(t, "/charts", page)
 		x := &iaCtx{r: r, rec: iaPlayers(r), start: "/charts"}
-		r.tt.Until("the chart", r.tt.Shows("Top songs", "Song 0"))
+		r.tt.Until("the chart", r.tt.Shows("Top Songs", "Song 0"))
 		if got := x.do(gClick, name, false); got != want {
 			t.Errorf("click on %q did %q, want %q", name, got, want)
 		}
