@@ -159,7 +159,7 @@ func (a *artist) catalogArtist(c *ui.Context, pg *pageState, page *services.Cata
 	if releases == 1 {
 		h.latest = nil
 	}
-	h.actions = func() {
+	h.actions = func(text ui.Element) func(ui.Element) {
 		if len(page.TopSongs) > 0 {
 			play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{
 				PlayLabel: i18n.T("Play {artistName}'s top songs", "artistName", art.Name),
@@ -173,7 +173,7 @@ func (a *artist) catalogArtist(c *ui.Context, pg *pageState, page *services.Cata
 				a.env.Queue.ShuffleSongs(page.TopSongs, from(art.ID))
 			}
 		}
-		a.headerActions(c, pg, page.Artist)
+		return a.headerActions(c, text, pg, page.Artist)
 	}
 	a.head(c, pg, h)
 	a.catalogBody(c, pg, page, pane, false)
@@ -181,11 +181,13 @@ func (a *artist) catalogArtist(c *ui.Context, pg *pageState, page *services.Cata
 
 // headerActions are the rating buttons and the header's item menu of an
 // artist the catalogue knows.
-func (a *artist) headerActions(c *ui.Context, pg *pageState, art services.Artist) {
+func (a *artist) headerActions(c *ui.Context, head ui.Element, pg *pageState, art services.Artist) func(ui.Element) {
 	a.env.ItemStates.RatingButtons(c, kit.StateArtists, kit.StateItem{ID: art.ID, Source: art.Source, CatalogID: art.CatalogID, LibraryID: art.LibraryID}, art.Name)
-	head := kit.MenusIn(&pg.head, a.env.Actions, nil)
-	head.Trigger(c.Key("more"), kit.ActionTarget{Item: kit.ArtistItem(art), Name: art.Name}, kit.TriggerOpts{Header: true})
-	head.Popup(c)
+	menus := kit.MenusIn(&pg.head, a.env.Actions, nil)
+	target := kit.ActionTarget{Item: kit.ArtistItem(art), Name: art.Name}
+	menus.Trigger(c.Key("more"), head, target, kit.TriggerOpts{Header: true})
+	menus.Popup(c)
+	return func(portrait ui.Element) { menus.Row(portrait, target) }
 }
 
 // libraryArtist is LibraryArtistPage: the albums and songs in the library
@@ -220,7 +222,7 @@ func (a *artist) libraryArtist(c *ui.Context, pg *pageState, d *services.ArtistD
 		h.latest = page.LatestRelease
 	}
 	h.line, h.lead = artistLine(genre, "", 0, libraryLine), lead
-	h.actions = func() {
+	h.actions = func(text ui.Element) func(ui.Element) {
 		if len(d.Songs) > 0 {
 			play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: art.Name, Shuffle: true, Disabled: !anyPlayable(d.Songs)})
 			if play {
@@ -231,8 +233,9 @@ func (a *artist) libraryArtist(c *ui.Context, pg *pageState, d *services.ArtistD
 			}
 		}
 		if page != nil {
-			a.headerActions(c, pg, page.Artist)
+			return a.headerActions(c, text, pg, page.Artist)
 		}
+		return nil
 	}
 	a.head(c, pg, h)
 

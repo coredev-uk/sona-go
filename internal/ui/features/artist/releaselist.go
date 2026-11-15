@@ -212,7 +212,7 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 			},
 			After: func(w, s ui.Element) {
 				hot := w.Hovered() || w.FocusWithin()
-				st.menus.Trigger(c.Key("more"), target, kit.TriggerOpts{Visible: hot}).
+				st.menus.Trigger(c.Key("more"), s, target, kit.TriggerOpts{Visible: hot, Select: &st.sel, Index: i}).
 					Absolute().Right(releasePadX).Top((releaseRowH - releaseMore) / 2)
 			},
 		}, func(w, s ui.Element) {
@@ -247,7 +247,4 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 	if !st.nav.Keys(src, i, &st.sel) {
 		st.sel.Keys(src, i)
 	}
-	// The item's menu: right-click, Shift+F10 or the Menu key; an item
-	// outside the selection is selected alone first.
-	st.menus.OpenFor(&st.sel, src, src, target, i)
 }

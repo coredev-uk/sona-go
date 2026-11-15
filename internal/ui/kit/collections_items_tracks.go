@@ -159,7 +159,7 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 		})
 
 		if ctx.Menus != nil {
-			ctx.Menus.Trigger(c.Key("more"), ActionTarget{Item: SongItem(song), Name: song.Name}, TriggerOpts{Visible: hot})
+			ctx.Menus.Trigger(c.Key("more"), row, ActionTarget{Item: SongItem(song), Name: song.Name}, TriggerOpts{Visible: hot})
 		}
 	})
 }

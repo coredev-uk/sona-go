@@ -228,7 +228,7 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 			}
 		}
 		if more {
-			ctx.Menus.Trigger(c.Key("more"), ActionTarget{Item: target, Name: it.Name}, TriggerOpts{Visible: hot}).
+			ctx.Menus.Trigger(c.Key("more"), card, ActionTarget{Item: target, Name: it.Name}, TriggerOpts{Visible: hot}).
 				Absolute().Right(0).Top(fh + 6)
 		}
 	})

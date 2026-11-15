@@ -186,7 +186,7 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 	if !inEdit && len(d.Tracks) > 0 {
 		find = func() { p.songFinder(c, d.Tracks) }
 	}
-	p.header(c, d, byline, p.ledger(d, collab, stamps...), func() { p.headerActions(c, id, d, editable, inEdit, menus) }, find)
+	p.header(c, d, byline, p.ledger(d, collab, stamps...), func(head ui.Element) { p.headerActions(c, head, id, d, editable, inEdit, menus) }, find)
 
 	switch {
 	case inEdit && len(d.Tracks) > 0:
@@ -304,7 +304,7 @@ func createdText(t, now time.Time) string {
 // headerActions are the header's controls: Play and Shuffle, the library
 // button of a catalogue playlist, the ratings, Edit and the item menu; in edit
 // mode Done and "Name and description" replace them.
-func (p *playlists) headerActions(c *ui.Context, id string, d services.PlaylistDetail, editable, inEdit bool, menus *kit.ActionMenus) {
+func (p *playlists) headerActions(c *ui.Context, head ui.Element, id string, d services.PlaylistDetail, editable, inEdit bool, menus *kit.ActionMenus) {
 	pg := &p.page
 	pl := d.Playlist
 	if inEdit {
@@ -358,7 +358,7 @@ func (p *playlists) headerActions(c *ui.Context, id string, d services.PlaylistD
 		}
 	}
 	if menus != nil {
-		menus.Trigger(c, kit.ActionTarget{Item: kit.PlaylistItem(pl), Name: pl.Name}, kit.TriggerOpts{Header: true})
+		menus.Trigger(c, head, kit.ActionTarget{Item: kit.PlaylistItem(pl), Name: pl.Name}, kit.TriggerOpts{Header: true})
 	}
 }
 

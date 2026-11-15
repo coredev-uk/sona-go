@@ -308,7 +308,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 			}
 			if menu {
-				more := st.menus.Trigger(c.Key("more"), target, kit.TriggerOpts{Visible: hover || src.FocusWithin()}).
+				more := st.menus.Trigger(c.Key("more"), src, target, kit.TriggerOpts{Visible: hover || src.FocusWithin(), Select: &st.sel, Index: i}).
 					Absolute().Right(rowPadX).Top((rowH - 24) / 2)
 				if o.Tile {
 					more.Right(tilePad + 6).Top(tilePad + 6)
@@ -399,9 +399,6 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 		case src.Shortcut(0, ui.KeyEnter):
 			h.open(it, ctx)
 		}
-	}
-	if selectable {
-		st.menus.OpenFor(&st.sel, src, src, target, i)
 	}
 }
 

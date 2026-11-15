@@ -225,11 +225,13 @@ func (p *playlists) rowContent(c *ui.Context, art string, round bool, name strin
 	}
 }
 
-// moreMenu is a row's "more" trigger, at its end: invisible until the row is
+// moreMenu is the "more" trigger of row, at its end (a right-click on the row
+// and Shift+F10 open the same menu): invisible until the row is
 // hovered or has the focus within, and shown while its menu is open, and the
 // menu of items (kit.Menu, 192 wide).
-func (p *playlists) moreMenu(c *ui.Context, key, label string, hot bool, items func() []kit.MenuItem) {
+func (p *playlists) moreMenu(c *ui.Context, row ui.Element, key, label string, hot bool, items func() []kit.MenuItem) {
 	m := p.side.menu(key)
+	m.OpenOn(row) // a right-click on the row opens it too
 	ui.Box(c.Key("more:" + key)).Absolute().Top(4).Right(4).Children(func() {
 		btn := kit.Button(c.Key("btn"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS, Icon: "ellipsis", A11yLabel: label})
 		btn.Role(ui.RoleMenuButton).HasPopup(ui.PopupMenu).Expanded(m.IsOpen())
@@ -370,7 +372,7 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAft
 			p.shuffleButton(c, pin.ID, pin.Name, -1, rowArtLeft(0), hot)
 		}
 
-		p.moreMenu(c, "pin:"+pin.ID, i18n.T("More for {pinName}", "pinName", pin.Name), hot, func() []kit.MenuItem {
+		p.moreMenu(c, row, "pin:"+pin.ID, i18n.T("More for {pinName}", "pinName", pin.Name), hot, func() []kit.MenuItem {
 			return p.pinMenu(pin, path, opens, upAfter, canUp)
 		})
 	})
@@ -445,7 +447,7 @@ func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth
 		p.shuffleButton(c, pl.ID, pl.Name, pl.TrackCount, rowArtLeft(depth), hot)
 		if am := p.sidebarActions(); am != nil {
 			ui.Box(c.Key("more")).Absolute().Top(4).Right(4).Children(func() {
-				am.Trigger(c, kit.ActionTarget{
+				am.Trigger(c, row, kit.ActionTarget{
 					Item: kit.PlaylistItem(pl), Name: pl.Name, Key: pl.ID,
 					Container: &kit.ActionContainer{Kind: sidebarContainer, ID: pl.ID},
 				}, kit.TriggerOpts{Visible: hot})
@@ -679,7 +681,7 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 				ui.Box(c).Grow(1)
 				theme.Glyph(c, chevron, 14, theme.GlyphOpts{Color: theme.C("ink-faint")})
 			})
-			p.moreMenu(c, "folder:"+f.ID, i18n.T("More for the folder {folderName}", "folderName", f.Name), hot, func() []kit.MenuItem {
+			p.moreMenu(c, row, "folder:"+f.ID, i18n.T("More for the folder {folderName}", "folderName", f.Name), hot, func() []kit.MenuItem {
 				return p.folderMenu(f, len(n.Children)+n.Hidden > 0)
 			})
 		})

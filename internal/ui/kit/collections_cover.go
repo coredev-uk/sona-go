@@ -286,8 +286,8 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 			hot := w.Hovered() || w.FocusWithin()
 			st.playControl(c, it, artH, hot, withheld)
 			if it.Item != nil && o.Menus != nil {
-				o.Menus.Trigger(c.Key("more"), ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key},
-					TriggerOpts{Visible: hot}).Absolute().Right(0).Top(artH + 6)
+				o.Menus.Trigger(c.Key("more"), s, ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key},
+					TriggerOpts{Visible: hot, Select: &st.Sel, Index: i}).Absolute().Right(0).Top(artH + 6)
 			}
 		},
 		Source: func(s ui.Element) {
@@ -337,9 +337,6 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 	}
 	if !st.nav.Keys(s, i, &st.Sel) {
 		st.Sel.Keys(s, i)
-	}
-	if selectable && o.Menus != nil {
-		o.Menus.OpenFor(&st.Sel, s, s, ActionTarget{Item: *it.Item, Name: it.Title, Container: o.Container, Key: it.Key}, i)
 	}
 }
 

@@ -257,6 +257,14 @@ func (v *video) songLine(c *ui.Context, s services.Song) {
 // at the left, the actions at the right. Under stackBelow the actions go
 // under the title block.
 func (v *video) hero(c *ui.Context, d services.CatalogVideo, videoPlays bool, w widths) {
+	head := ui.Column(c.Key("hero")).FillWidth()
+	head.Children(func() { v.heroBody(c, head, d, videoPlays, w) })
+}
+
+// heroBody is the hero's picture and caption. head is the box around them: a
+// right-click on the picture or the title opens the video's menu, as its button
+// does.
+func (v *video) heroBody(c *ui.Context, head ui.Element, d services.CatalogVideo, videoPlays bool, w widths) {
 	vid := d.Video
 	picture := func() {
 		kit.Artwork(c, v.env.Art, vid.Art.Large, w.picW, kit.ArtOpts{Aspect: w.picW / w.picH, Edge: true}).Shrink(0)
@@ -306,7 +314,7 @@ func (v *video) hero(c *ui.Context, d services.CatalogVideo, videoPlays bool, w 
 			}
 		}
 		if videoPlays && v.menus != nil {
-			v.menus.Trigger(c, kit.ActionTarget{Item: kit.MusicVideoItem(vid), Name: vid.Name}, kit.TriggerOpts{Header: true})
+			v.menus.Trigger(c, head, kit.ActionTarget{Item: kit.MusicVideoItem(vid), Name: vid.Name}, kit.TriggerOpts{Header: true})
 		}
 	}
 	if w.content < stackBelow {

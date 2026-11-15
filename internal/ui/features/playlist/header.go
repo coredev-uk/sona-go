@@ -107,7 +107,7 @@ func ledgerStrip(c *ui.Context, cells []ledgerCell) {
 // cover's bottom edge, and under both the ledger strip, with the song
 // finder (find, when the page has one) at its right end. It bleeds to the
 // content edges by the page's gutter.
-func (p *playlists) header(c *ui.Context, d services.PlaylistDetail, byline func(), cells []ledgerCell, actions, find func()) {
+func (p *playlists) header(c *ui.Context, d services.PlaylistDetail, byline func(), cells []ledgerCell, actions func(head ui.Element), find func()) {
 	tk := theme.Current()
 	ww, _ := c.Size()
 	gutter, art := tk.Metric["gutter"], headArt(ww)
@@ -120,7 +120,8 @@ func (p *playlists) header(c *ui.Context, d services.PlaylistDetail, byline func
 		colour = hd.Colors[0]
 	}
 	body := func() {
-		ui.Row(c.Key("row")).FillWidth().Gap(32).AlignItems(ui.Stretch).Children(func() {
+		head := ui.Row(c.Key("row")).FillWidth().Gap(32).AlignItems(ui.Stretch)
+		head.Children(func() {
 			if hd.Motion != "" {
 				kit.MotionCover(c, p.env.Motion, p.env.Art, pl.Art.Large, hd.Motion, art, kit.MotionOpts{VideoSize: headCoverLarge})
 			} else {
@@ -141,7 +142,7 @@ func (p *playlists) header(c *ui.Context, d services.PlaylistDetail, byline func
 							TextColor(theme.C("ink-muted")).MaxLines(2).MaxWidth(560).Margin(10, 0, 0, 0)
 					}
 				})
-				ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Children(actions)
+				ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Children(func() { actions(head) })
 			})
 		})
 		ui.Row(c.Key("band")).FillWidth().MinHeight(headBandH).Margin(24, 0, 0, 0).Gap(16).Wrap().AlignItems(ui.Center).Children(func() {

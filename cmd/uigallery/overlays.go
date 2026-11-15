@@ -171,10 +171,9 @@ func overlaysActions(c *ui.Context, _ *gallery) {
 			if row.Hovered() {
 				row.Background(theme.C("hover"))
 			}
-			s.am.Row(row, t)
 			row.Children(func() {
 				text(c, name, "body").TextColor(theme.C("ink")).Grow(1)
-				s.am.Trigger(c, t, kit.TriggerOpts{Visible: row.Hovered() || row.FocusWithin()})
+				s.am.Trigger(c, row, t, kit.TriggerOpts{Visible: row.Hovered() || row.FocusWithin()})
 			})
 		}
 		s.am.Popup(c)

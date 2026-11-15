@@ -32,8 +32,9 @@ func TestA11yReminderActionNamesItsStateAndOutcomesAreAnnounced(t *testing.T) {
 		reg.SetPoster(h.Env.Post)
 		menus := kit.NewActionMenus(reg, nil)
 		tt := h.Tester(t, func(c *ui.Context) {
-			ui.Column(c).Fill().Padding(20).AlignItems(ui.Start).Children(func() {
-				menus.Trigger(c, kit.ActionTarget{Item: kit.AlbumItem(album), Name: album.Name, Key: "a"}, kit.TriggerOpts{Visible: true})
+			head := ui.Column(c).Fill().Padding(20).AlignItems(ui.Start)
+			head.Children(func() {
+				menus.Trigger(c, head, kit.ActionTarget{Item: kit.AlbumItem(album), Name: album.Name, Key: "a"}, kit.TriggerOpts{Visible: true})
 			})
 			menus.Popup(c)
 		}, 400, 400)
