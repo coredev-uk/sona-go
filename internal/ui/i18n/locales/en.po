@@ -2570,10 +2570,6 @@ msgstr "Free memory when idle"
 msgid "From"
 msgstr "From"
 
-#: internal/ui/features/library/videos.go
-msgid "From Apple Music: needs a connection"
-msgstr "From Apple Music: needs a connection"
-
 #: internal/ui/features/library/artists.go
 msgid "Full artist page"
 msgstr "Full artist page"
@@ -3529,6 +3525,10 @@ msgstr "Music videos don't play here"
 #: internal/ui/features/library/videos.go
 msgid "Music videos in your library"
 msgstr "Music videos in your library"
+
+#: internal/ui/features/library/videos.go
+msgid "Music videos need a connection"
+msgstr "Music videos need a connection"
 
 #: internal/ui/features/library/videos.go
 msgid "Music videos you add in Apple Music are listed here after you sign in."
@@ -6161,6 +6161,10 @@ msgstr "Sona plays music videos in standard definition: Apple allows HD only on 
 msgid "Sona quits: it can't stay in the system tray on {platform} yet."
 msgstr "Sona quits: it can't stay in the system tray on {platform} yet."
 
+#: internal/ui/features/library/videos.go
+msgid "Sona reads your music videos from Apple Music, so they appear once you're back online."
+msgstr "Sona reads your music videos from Apple Music, so they appear once you're back online."
+
 #: internal/ui/account/section.go
 msgid "Sona refetches its developer token by itself; if this persists, Apple changed its web player."
 msgstr "Sona refetches its developer token by itself; if this persists, Apple changed its web player."
@@ -7096,6 +7100,7 @@ msgstr "Trusted phone number"
 #: internal/ui/account/keyring.go
 #: internal/ui/features/auth/menu.go
 #: internal/ui/features/library/sync.go
+#: internal/ui/features/library/videos.go
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go

@@ -28,6 +28,9 @@ type videosPage struct {
 	kit.PageFrame
 	cover kit.CoverState
 	menus *kit.ActionMenus
+	// wasOffline is the app's network state at the last build: coming back
+	// online reloads the videos, which are read live and kept nowhere.
+	wasOffline bool
 }
 
 // videosPage is MusicVideosPage: Apple's music videos of the library (they
@@ -37,19 +40,32 @@ func (l *library) videosPage(c *ui.Context, r *ui.Route) {
 	q := store.Use(l.env.Queries, keyMusicVideos, l.musicVideos, store.Options{Stale: 10 * time.Minute})
 	auth := l.authStatus()
 	out := auth.HasData && account.IsSignedOut(auth.Data.State)
+	offline := auth.HasData && auth.Data.Offline
+	if pg.wasOffline && !offline {
+		l.env.Queries.Invalidate(keyMusicVideos)
+	}
+	pg.wasOffline = offline
+	reload := func() { l.env.Queries.Invalidate(keyMusicVideos) }
 
 	subline := ""
-	if q.HasData && len(q.Data) > 0 {
+	if !offline && q.HasData && len(q.Data) > 0 {
 		// translators: {0} is the number of music videos.
 		subline = i18n.T("{0, plural, one {# music video} other {# music videos}}", "0", len(q.Data))
 	}
 	pg.Scroll(c, "videos", func(pane *kit.Pane, _ float32) {
-		l.pageHead(c, headOpts{title: i18n.T("Music videos"), count: subline, note: i18n.T("From Apple Music: needs a connection")})
+		l.pageHead(c, headOpts{title: i18n.T("Music videos"), count: subline})
 		switch {
 		case out:
 			kit.EmptyState(c, i18n.T("Sign in to see your music videos"),
 				i18n.T("Music videos you add in Apple Music are listed here after you sign in."),
 				kit.EmptyOpts{Frame: kit.FrameBox, Action: l.signIn()})
+			return
+		case offline || (!q.HasData && q.Err != nil && services.CodeOf(q.Err) == services.CodeNetwork):
+			// The videos are read live from Apple: with no connection there is
+			// nothing to show in their place.
+			kit.EmptyState(c, i18n.T("Music videos need a connection"),
+				i18n.T("Sona reads your music videos from Apple Music, so they appear once you're back online."),
+				kit.EmptyOpts{Frame: kit.FrameBox, Action: &kit.EmptyAction{Label: i18n.T("Try again"), Run: reload}})
 			return
 		case q.Err != nil:
 			kit.QueryError(c, l.env.Queries, i18n.T("Couldn't load your music videos from Apple Music"), q, keyMusicVideos)

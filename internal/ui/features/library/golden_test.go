@@ -70,3 +70,28 @@ func TestLibraryGroupedPagesGolden(t *testing.T) {
 		})
 	}
 }
+
+// Music videos online and, with no connection, the offline state.
+func TestMusicVideosPageGolden(t *testing.T) {
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []struct {
+		name string
+		opts []uitest.Option
+	}{{"light", nil}, {"dark", []uitest.Option{uitest.Dark()}}} {
+		t.Run("online-"+mode.name, func(t *testing.T) {
+			r, _ := newVideosRig(t, videoFixtures(4), false, mode.opts...)
+			r.tt.Until("the videos", r.tt.Shows("4 music videos", "Video 3"))
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), "library-videos-online-"+mode.name)
+		})
+		t.Run("offline-"+mode.name, func(t *testing.T) {
+			r, _ := newVideosRig(t, videoFixtures(4), false, mode.opts...)
+			fakeOffline(r.l, true)
+			r.tt.Until("the offline state", r.tt.Shows("Music videos need a connection"))
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), "library-videos-offline-"+mode.name)
+		})
+	}
+}
