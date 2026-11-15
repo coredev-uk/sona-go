@@ -81,7 +81,7 @@ stdenv.mkDerivation {
   '';
 
   meta = {
-    description = "Apple Music for the Linux desktop";
+    description = "Native Apple Music client";
     homepage = "https://github.com/coredev-uk/sona-go";
     changelog = "https://github.com/coredev-uk/sona-go/releases/tag/v${pin.version}";
     license = lib.licenses.agpl3Only;
