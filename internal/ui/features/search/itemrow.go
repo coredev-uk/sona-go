@@ -24,7 +24,8 @@ type rowOpts struct {
 }
 
 // itemRun is what opening a result does and the role that says so: nil for
-// one that is not interactive (a web-only item, a page that is not ported).
+// one that is not interactive (a page that is not ported). A web-only item
+// opens the system browser.
 func (s *search) itemRun(it services.Item) (run func(), role ui.Role) {
 	path := itemPath(it)
 	role = ui.RoleLink
@@ -38,16 +39,34 @@ func (s *search) itemRun(it services.Item) (run func(), role ui.Role) {
 	case path == "" && it.Kind != services.ItemSong && s.env.Players != nil && kit.PlaysWhenOpened(it, s.env.Players):
 		role = ui.RoleButton
 		run = func() { s.env.Players.PlayItem(it) }
+	case s.leavesSona(it):
+		ctx := s.env.ItemsCtx(nil)
+		run = func() { kit.OpenWithoutPage(it, ctx) }
 	}
 	return run, role
+}
+
+// leavesSona reports whether opening a result opens the system browser: a
+// web-only item (an interview, a concert listing, an Apple link) with a URL
+// and nothing of Sona's to show it in.
+func (s *search) leavesSona(it services.Item) bool {
+	return itemPath(it) == "" && it.URL != "" && it.Kind != services.ItemSong && s.env.ItemsCtx(nil).OpenURL != nil &&
+		(s.env.Players == nil || !kit.PlaysWhenOpened(it, s.env.Players))
+}
+
+// outCue is the arrow out a web-only result ends in, as the link list draws
+// it: it says the result opens in the browser.
+func outCue(c *ui.Context) {
+	ui.Row(c.Key("out")).Size(16, 16).Shrink(0).Center().Role(ui.RoleImage).Label(i18n.T("Opens in your browser")).
+		TextColor(theme.C("ink-muted")).Children(func() { ui.Icon(c, theme.Icon("arrow-up-right")).FontSize(16) })
 }
 
 // itemRow is v0.2.0's ItemRow: one result of any kind as a list row:
 // artwork, name with the explicit mark, "Kind · subtitle". Every kind opens
 // its page, a song included, which also has a Play button of its own (shown
-// on hover and focus); one that has no page (a web-only item, a library
-// upload, which plays in place) or whose page is not ported is not
-// interactive. The more-menu shows on hover, focus and while open, for the
+// on hover and focus); one that has no page and no URL (a library
+// upload plays in place; a web-only item opens the browser, under an arrow out)
+// or whose page is not ported is not interactive. The more-menu shows on hover, focus and while open, for the
 // kinds with registered actions.
 func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 	size := o.size
@@ -96,6 +115,9 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			}
 			main.Children(func() {
 				body()
+				if s.leavesSona(it) {
+					outCue(c)
+				}
 				if role == ui.RoleButton {
 					glyph := kit.PlayGlyph(c, 14, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
 					if !main.Hovered() && !main.FocusVisible() {

@@ -358,10 +358,11 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Best match panel | song, album, playlist, station with a page, video | opens | opens | none | amber disc beside it | link |
 |  | artist, curator | opens | opens | none | none ([#433]) | link |
 |  | song with no page, station with no page | plays | plays | none | the disc is drawn into the panel | button "X, Play" |
-|  | web link | none ([#429]) | no control | | none | plain text |
+|  | web link | opens the browser | same | none | none | link, arrow-up-right at its end |
 | Compact rows beside it | song | opens | opens | none | quiet Play button on hover and focus | link |
 |  | album, playlist, station with a page, video | opens | opens | none | none ([#430]) | link |
 |  | song or station with no page | plays | plays | none | play glyph on hover | button |
+|  | web link | opens the browser | same | none | none | link, arrow-up-right at its end |
 | Group shelves ("Albums", See all grid, library scope) | as the cover tile | | | | | |
 | Songs group, See all, library songs | song | selects | plays | none | number-column button | row |
 | Recent searches shelf | term, album, artist, song with a page | opens | opens | none | none | link; the X forgets it |
@@ -422,7 +423,6 @@ Argued departures that stay (not issues):
 |---|---|
 | [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
 | [#427] | recent library songs and page-less stations |
-| [#429] | a web-only item on the results page is dead |
 | [#430] | only a song's compact row has Play |
 | [#433] | artists and curators have no Play control; Home's lead pick draws a dead one |
 | [#434] | Play on a tile, link tile or station row isn't remembered |
@@ -439,7 +439,6 @@ Argued departures that stay (not issues):
 
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#427]: https://github.com/coredev-uk/sona-go/issues/427
-[#429]: https://github.com/coredev-uk/sona-go/issues/429
 [#430]: https://github.com/coredev-uk/sona-go/issues/430
 [#433]: https://github.com/coredev-uk/sona-go/issues/433
 [#434]: https://github.com/coredev-uk/sona-go/issues/434
