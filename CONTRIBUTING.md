@@ -1,6 +1,6 @@
 # Contributing to Sona
 
-Thanks for helping. Sona is a native Apple Music client for the desktop, built first for Linux. It wants fast, correct, keyboard-friendly changes that follow [the architecture](docs/architecture.md).
+Thanks for helping. Sona is a native Apple Music client for Linux, macOS and Windows. It wants fast, correct, keyboard-friendly changes that follow [the architecture](docs/architecture.md).
 
 For anything larger than a fix, open an issue first so the design can be agreed before you write code. Report bugs and ideas with the matching issue form. Report security problems through [SECURITY.md](SECURITY.md), never a public issue.
 

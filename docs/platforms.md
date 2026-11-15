@@ -282,4 +282,3 @@ grep -E 'widevine:|audio stack' ~/Library/Application\ Support/Sona/State/sona.l
 The log shows `widevine: downloading`, `package verified`, `load check
 passed` with its `took` (the CDM alone), `installed`, and separately
 `playback: audio stack ready` with the plugin scan's `took`.
-

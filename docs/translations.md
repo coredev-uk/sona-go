@@ -191,4 +191,3 @@ an empty `msgstr`); `go test ./internal/i18n/l10n/extract` and the devenv
 filled in (fuzzy entries are skipped), embedded in the binary and picked
 for the Language setting, else the system's languages, as the UI
 picks its catalogue.
-
