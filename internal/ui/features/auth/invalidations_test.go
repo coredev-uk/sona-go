@@ -52,7 +52,7 @@ func staleKeys(t *testing.T, cl *store.Client, cached []store.Key, log *fetchLog
 			return 2, nil
 		}, store.Options{Stale: store.Forever})
 	}
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); ; time.Sleep(time.Millisecond) {
 		if pump != nil {
 			pump()
 		}

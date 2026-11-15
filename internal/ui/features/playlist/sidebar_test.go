@@ -65,6 +65,10 @@ func TestSidebarWaitsForThePinsBeforeListing(t *testing.T) {
 }
 
 func TestSidebarDoesNotFlashAPinnedPlaylistInItsSection(t *testing.T) {
+	inBubble(t, sidebarDoesNotFlashAPinnedPlaylistInItsSection)
+}
+
+func sidebarDoesNotFlashAPinnedPlaylistInItsSection(t *testing.T) {
 	gate := make(chan struct{})
 	e := sbSetupAPI(t, sbLibrary(), []services.Pin{{Kind: "playlist", ID: "p.mix1", Name: "Morning Mix", Action: "drillIn"}},
 		func(api *fakeAPI) playlistsAPI { return &sbSlowPins{fakeAPI: api, gate: gate} })
@@ -387,7 +391,9 @@ func TestAPinWithNoRouteForItsPageIsAButton(t *testing.T) {
 	}
 }
 
-func TestPinMenuChoosesWhatAPinDoes(t *testing.T) {
+func TestPinMenuChoosesWhatAPinDoes(t *testing.T) { inBubble(t, pinMenuChoosesWhatAPinDoes) }
+
+func pinMenuChoosesWhatAPinDoes(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), sbPins())
 	e.shows("Beta, plays")
 	e.more("Beta, plays", "More for Beta")
@@ -507,6 +513,10 @@ func TestDroppingAQueueRowOnAPlaylistAddsItsSong(t *testing.T) {
 // A queue row of a music video (the queue's payload carries it as a video
 // item) is nothing a playlist takes.
 func TestDroppingAQueueVideoRowOnAPlaylistAddsNothing(t *testing.T) {
+	inBubble(t, droppingAQueueVideoRowOnAPlaylistAddsNothing)
+}
+
+func droppingAQueueVideoRowOnAPlaylistAddsNothing(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
 	e.shows("Road Trip")
 	e.grab(&kit.DragPayload{
@@ -534,6 +544,10 @@ func TestDroppingAnAlbumAndSeveralItems(t *testing.T) {
 }
 
 func TestAPlaylistThatCannotBeEditedTakesNoDrop(t *testing.T) {
+	inBubble(t, aPlaylistThatCannotBeEditedTakesNoDrop)
+}
+
+func aPlaylistThatCannotBeEditedTakesNoDrop(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
 	e.shows("Quiet Hours")
 	e.grab(sbSongPayload(song("s1", "Airbag", "Radiohead")))
@@ -548,7 +562,9 @@ func TestAPlaylistThatCannotBeEditedTakesNoDrop(t *testing.T) {
 	}
 }
 
-func TestAPlaylistDoesNotTakeItself(t *testing.T) {
+func TestAPlaylistDoesNotTakeItself(t *testing.T) { inBubble(t, aPlaylistDoesNotTakeItself) }
+
+func aPlaylistDoesNotTakeItself(t *testing.T) {
 	tree := sbLibrary()
 	tree.Playlists = append(tree.Playlists, treePlaylist("p.two", "Commute", "", 5, true))
 	e := sbSetup(t, tree, nil)
@@ -573,6 +589,10 @@ func TestAPlaylistDoesNotTakeItself(t *testing.T) {
 }
 
 func TestAPayloadWithNothingAddableIsDeclined(t *testing.T) {
+	inBubble(t, aPayloadWithNothingAddableIsDeclined)
+}
+
+func aPayloadWithNothingAddableIsDeclined(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
 	e.shows("Road Trip")
 	station := services.Station{ID: "ra.1", Name: "Station"}
@@ -745,7 +765,9 @@ func TestLeavingAFolderCancelsItsOpening(t *testing.T) {
 	e.drop()
 }
 
-func TestAFolderIsNotADropTarget(t *testing.T) {
+func TestAFolderIsNotADropTarget(t *testing.T) { inBubble(t, aFolderIsNotADropTarget) }
+
+func aFolderIsNotADropTarget(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
 	e.shows("Running")
 	e.grab(sbSongPayload(song("s1", "Airbag", "R")))

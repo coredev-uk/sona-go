@@ -46,7 +46,7 @@ Each row is a trust boundary. The sections below give the detail.
 | Local files and settings | The user's own data | Imported settings cannot name a library or a local key. The child cannot read or write Sona's folders. Files are written atomically |
 | Secrets and tokens | The keyring, with a 0600 file fallback | Tokens never reach URLs, errors or logs. Build credentials are redacted from logs and diagnostics ([F10](#f10-development-builds-logged-the-build-credentials)). Secret scanning guards the repository ([Secret scanning](#secret-scanning)) |
 | Loopback sign-in server | Apple's sign-in redirect on `127.0.0.1` | The owner uid of each connection, single-use start links and a cookie ([F7](#f7-another-local-user-could-complete-the-loopback-sign-in)) |
-| Other local users | Nothing | Discord IPC socket ownership checks ([F4](#f4-discord-ipc-trusted-any-users-socket)); the loopback checks above |
+| Other local users | Nothing | Discord IPC socket and named pipe ownership checks ([F4](#f4-discord-ipc-trusted-any-users-socket)); the loopback checks above |
 | Third-party services | Apple, Google, Mozilla, Musixmatch, LRCLIB, NetEase, TuneIn | Trusted for what their text says, not for code. The Widevine package needs two Google signatures. Lyrics sources can be switched off in Settings → Playback → Lyrics |
 
 ## Components
@@ -554,7 +554,7 @@ Each finding has an issue, its impact, the fix and the test that keeps it fixed.
 | F1 | Settings import could set the CDM path | Medium | Fixed | `internal/config/transfer.go` |
 | F2 | CDM child sandbox blocked only inet sockets | Medium | Fixed (residual risks listed) | `internal/playback/cdmhost/sandbox_linux.go`, `sandbox_fs_linux.go`, `host.go` |
 | F3 | Sandbox failed open | Low | Fixed | `server.open`, `Sandbox.loadsCDM`, `cdmhost.ErrSandbox` |
-| F4 | Discord IPC trusted any user's socket | Low | Fixed | `internal/discord/discord.go` |
+| F4 | Discord IPC trusted any user's socket | Low | Fixed (Unix sockets and Windows named pipes) | `internal/discord/ipc_unix.go`, `ipc_windows.go` |
 | F5 | NaN/Inf MPRIS volume | Low | Fixed | `playback.ClampVolume`, MPRIS `Set Volume`, `config.Settings.Normalized` |
 | F6 | Motion artwork followed redirects anywhere | Low | Fixed | `internal/motion/motion.go` |
 | F7 | Loopback sign-in could be completed by another local user | Low | Fixed (residual risks listed) | `internal/auth/mut/loopback.go`, `peer.go`, `peer_linux.go`, `internal/auth/manager.go` |
@@ -625,13 +625,21 @@ Severity: Low. Status: fixed.
 
 **Impact.** Another local user could create `/tmp/discord-ipc-0` and receive the now-playing track.
 
-**Fix** (`internal/discord/discord.go`):
+**Fix on Unix** (`internal/discord/ipc_unix.go`):
 
 - Candidates are `Lstat`ed and must be sockets (not symlinks) owned by `getuid()`.
 - The parent directory must be owned by the user, or be a root-owned directory that is not group/world-writable or is sticky (`/tmp`).
 - The temp directories are probed only when `XDG_RUNTIME_DIR` is unset.
 
-**Test.** `TestIgnoresUntrustedSockets` covers a regular file, a symlink, another uid's socket, temp sockets while a runtime directory exists, and the fallback when it does not.
+**Fix on Windows** (`internal/discord/ipc_windows.go`). Discord listens on `\\.\pipe\discord-ipc-0` to `-9`, and pipe names are global to the computer, so any user's process may create one first:
+
+- Each pipe is opened with `SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION`, so its server can identify Sona but never impersonate it.
+- Before anything is written, `GetNamedPipeServerProcessId` gives the server's process, and its token's user SID must equal Sona's. A server process Sona may not query counts as another user's. A pipe that fails is closed and the next one tried.
+
+**Tests.**
+
+- Unix: `TestIgnoresUntrustedSockets` covers a regular file, a symlink, another uid's socket, temp sockets while a runtime directory exists, and the fallback when it does not.
+- Windows (the Windows job's "Discord pipe tests"): `TestRefusesAnotherUsersPipe` checks a pipe whose server is another user (LocalSystem) is refused before a byte reaches it; `TestSetActivityOverOwnPipe` and `TestProcessUserIsTheCurrentUser` cover the user's own pipe.
 
 ### F5. NaN or infinite MPRIS volume
 

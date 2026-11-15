@@ -186,7 +186,7 @@ func TestTimelineKeepsTheNewestAndOffersTheShelfItCutShort(t *testing.T) {
 	for i := range timelineMax + 3 {
 		albums = append(albums, services.Album{ID: fmt.Sprint(i), Name: "R", ReleaseDate: fmt.Sprintf("%d-01-01", 2000+i)})
 	}
-	years, more := buildTimeline([]services.ArtistShelf{{View: services.ViewFullAlbums, Albums: albums}}, time.Now())
+	years, more := buildTimeline([]services.ArtistShelf{{View: services.ViewFullAlbums, Albums: albums}}, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 	n := 0
 	for _, y := range years {
 		n += len(y.albums)

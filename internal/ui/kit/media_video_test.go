@@ -37,7 +37,7 @@ func (a *mediaVideoApp) view(c *ui.Context) {
 // until runs frames and posted funcs until ok holds.
 func mediaUntil(t *testing.T, tt *ui.Tester, mt *mainThread, what string, ok func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for {
 		tt.Frame()
 		mt.run(t, 0)

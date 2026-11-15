@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
 )
@@ -114,7 +113,7 @@ func TestSharedMirrorsAreEmptyWithoutServices(t *testing.T) {
 }
 
 func TestSetSupersedesAFetchInFlight(t *testing.T) {
-	cl, _ := newTestClient()
+	cl, clk := newTestClient()
 	release := make(chan struct{})
 	started := make(chan struct{}, 1)
 	fetch := func(ctx context.Context) (int, error) {
@@ -126,7 +125,7 @@ func TestSetSupersedesAFetchInFlight(t *testing.T) {
 	<-started
 	Set(cl, Key{"n"}, 2)
 	close(release)
-	time.Sleep(20 * time.Millisecond) // the fetch's answer has been posted (the client's poster runs at once)
+	clk.awaitPosts(t, 1) // the fetch's late answer has been published and dropped
 	r := Use(cl, Key{"n"}, fetch)
 	if !r.HasData || r.Data != 2 || r.Fetching {
 		t.Errorf("after the write and the late answer: %+v, want 2 and no fetch", r)

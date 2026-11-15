@@ -10,10 +10,9 @@
 #   SONA_RELEASE_CACHE=~/.cache/sona-release build/linux/release/release.sh
 #
 # The build image is named by the hash of the Containerfile. It is taken from
-# the local store if it is there, else pulled from
-# ghcr.io/coredev-uk/sona-release:<hash> (.github/workflows/images.yml
-# publishes it when the Containerfile changes; SONA_RELEASE_IMAGE_REGISTRY
-# changes or empties the repository), and built here only if neither has it.
+# the local store if it is there and built here (about three minutes) if not;
+# it is never pulled from a registry, so what the release runs in is what the
+# checked-out Containerfile says.
 #
 # The Go module and build caches live in the podman/docker
 # volume sona-release-cache, or in the directory SONA_RELEASE_CACHE names
@@ -40,7 +39,6 @@ else
   cfhash=$(shasum -a 256 "$here/Containerfile" | cut -c1-16)
 fi
 image=localhost/sona-release:ubuntu24.04-$cfhash
-registry=${SONA_RELEASE_IMAGE_REGISTRY-ghcr.io/coredev-uk/sona-release}
 version=$(<"$root/VERSION")
 
 if command -v podman >/dev/null 2>&1; then
@@ -75,10 +73,8 @@ fi
 
 if "${engine[@]}" image inspect "$image" >/dev/null 2>&1; then
   echo "release: build image $image is in the local store"
-elif [[ -n $registry ]] && pull "$registry:$cfhash"; then
-  "${engine[@]}" tag "$registry:$cfhash" "$image"
 else
-  echo "release: building $image (no published image for this Containerfile)"
+  echo "release: building $image"
   pull docker.io/library/ubuntu:24.04
   "${engine[@]}" build "${policy[@]}" --pull=never -t "$image" -f "$here/Containerfile" "$here"
 fi
@@ -114,9 +110,9 @@ for f in "sona_${version}_amd64.deb" "sona-$version-1.x86_64.rpm" "sona-$version
   [[ -f $out/$f ]] || { echo "release: $f missing" >&2; exit 1; }
 done
 # AUR sona-bin files for this release's Arch package (attached to the
-# release; the AUR maintainer copies them into the AUR repo).
+# release; the AUR maintainer copies them, with the 0BSD LICENSE, into the AUR repo).
 bash "$root/build/linux/arch/update.sh" "$out/sona-$version-1-x86_64.pkg.tar.zst" "$out/aur"
-tar -C "$out/aur" -czf "$out/sona-bin-$version-aur.tar.gz" PKGBUILD .SRCINFO
+tar -C "$out/aur" -czf "$out/sona-bin-$version-aur.tar.gz" PKGBUILD .SRCINFO LICENSE
 (cd "$out" && sha256sum sona[-_]* >SHA256SUMS)
 ls -l "$out"
 

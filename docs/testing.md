@@ -6,6 +6,7 @@ The detail behind the [Test Your Change](https://sona.coredev.uk/contributing/te
 
 - [Checks](#checks)
   - [Real-CDM tests](#real-cdm-tests)
+- [Timing in tests](#timing-in-tests)
 - [Preview playback](#preview-playback)
   - [Run checks that play music](#run-checks-that-play-music)
   - [Run the app privately](#run-the-app-privately)
@@ -18,6 +19,7 @@ The detail behind the [Test Your Change](https://sona.coredev.uk/contributing/te
 - [UI tests and the end-to-end smoke](#ui-tests-and-the-end-to-end-smoke)
   - [ui.Tester tests](#uitester-tests)
   - [Golden images](#golden-images)
+  - [Overlay checks and the marks contact sheet](#overlay-checks-and-the-marks-contact-sheet)
   - [The end-to-end smoke](#the-end-to-end-smoke)
   - [The Orca walk](#the-orca-walk)
 - [Desktop VM tests](#desktop-vm-tests)
@@ -58,6 +60,18 @@ CI (the `.github/actions/setup-cdm` action):
 3. Fills a miss with `go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine`, and exports `SONA_CDM_CACHE`.
 
 The job sets `SONA_CDM_REQUIRE=1`. The playback shard then runs the tests like any test, and `skips.sh` fails the job if one of them skipped (the CDM tests are in no allow-list).
+
+## Timing in tests
+
+CI runners are shared, run everything under `-race`, and so does `tests` on a busy workstation. A test therefore waits for the state it checks, never for an amount of time ([architecture.md](architecture.md), "Timing"). The check that this holds: `devenv shell -- tests` passes five times in a row while another `go test -race ./...` runs beside it.
+
+- **Wait on what the test checks.** An event, a channel the fake closes, a post to the main thread (`uitest.MainThread.Wait` and `Drain`, `uitest.Session.Until`), the artwork loader's `Pending()` (the kit's `mainThread.settle`), a text on screen. Never `time.Sleep(20 * time.Millisecond)` to let a goroutine finish.
+- **Move a clock the test owns.** The `ui.Tester`'s clock stands still until `Advance`; the harness has `Clock`; stores and loaders take a `now`. Goroutines with timers of their own (the item states' 16 ms batch, the playback coordinator, the probe) run under `testing/synctest`: fake time moves only when every goroutine in the bubble waits, and `synctest.Wait` (`Session.Quiesce`) is the barrier for "everything that was going to happen has happened". A test that a thing did not happen ends in such a barrier, or in an operation ordered after what would have happened, not in a sleep.
+- **A deadline is a hang guard, not a speed limit.** It is `uitest.HangGuard` (30 s; `hangGuard` in a package that cannot import `uitest`, such as `kit`) and only turns a lost wake-up into a failure. A test never asserts that something took less than some milliseconds: it asserts what would make it slow (a request count, a plan with no table scanned per row). `Session.Settle` is bounded by frames and by progress, not by its own run time, and `devenv shell -- tests` gives each package 30 minutes (`-timeout 30m`, where `go test`'s default is 10) because a UI package under load takes several times its idle run.
+- **The tester's clock starts at the wall clock.** What is drawn from the clock modulo a period (the skeleton's pulse, the equaliser's bars) depends on when the test began. Line the clock up with `tt.Now()` and `Advance`, or pin the state, as `TestSkeletonPulsesUnlessMotionIsReduced` does.
+- **A timer in the code under test needs a seam.** Where a batch waits on a real timer (`SongArtists`), the test sets a wait too long to fire and calls the flush itself, or runs in a bubble.
+- **Settle after the data.** `Session.Settle` knows covers and posts only. `Until` the page's own text first, or the golden is a picture of the loading state.
+- **Leave no process-wide switch behind.** `theme.SetReducedMotion`, `SetReduceEffects` and `SetMode` are process-wide: a test that sets one restores it in `t.Cleanup`, or a later test draws something else.
 
 ## Preview playback
 
@@ -131,7 +145,7 @@ A test binary alone honours `SONA_CDMHOST_ALLOW_UNSANDBOXED=1` to load the CDM o
 
 ### Linux packages
 
-`bash build/linux/release/release.sh` is the packaging check. It builds every package on Ubuntu 24.04 and smoke-tests it on clean Ubuntu, Fedora and Arch containers, plus the AppImage on Fedora. It needs podman or docker and takes a while, so CI runs it.
+`bash build/linux/release/release.sh` is the packaging check. It builds every package on Ubuntu 24.04 and smoke-tests it on clean Ubuntu, Fedora and Arch containers, plus the AppImage on Fedora. On Arch the smoke also runs `namcap` on the AUR PKGBUILD and the built package, and fails on any error or warning except the run-time dependencies MyGo and GStreamer load by soname (listed by name in `smoke.sh`). It needs podman or docker and takes a while, so CI runs it.
 
 `task package` packages your local build for a look at the files. A devenv build links `/nix/store` and is not a release. Before a release, work through [maintainers/release.md](maintainers/release.md).
 
@@ -170,7 +184,7 @@ The Core is hermetic:
 
 ### Golden images
 
-Golden images are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks. Another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not.
+Golden images are few: the shell with Albums, light and dark, at 1132×1253, and the marks contact sheet (below), all in `internal/ui/app/testdata/golden/`. `uitest.Golden` compares by the mean colour of 8×8-pixel blocks. Another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not.
 
 When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`. Commit the new PNGs and say in the pull request why. You can also ask a maintainer to regenerate them on your pull request.
 
@@ -188,6 +202,34 @@ podman run --rm -v "$PWD":/src -w /src -e MYGO_GPU=0 ghcr.io/coredev-uk/sona-ci:
 ```
 
 The image is amd64 and arm64. An arm64 machine (Apple silicon, through Podman's VM) may draw text a hair differently from CI's amd64 runners. CI is the reference, so push and check the run.
+
+### Overlay checks and the marks contact sheet
+
+A flat fixture tile and a golden compared in 8×8 blocks hide a mark that sits one pixel off its cover, so the small marks have two checks of their own.
+
+**`uitest/overlay`.** `internal/ui/uitest/overlay` (beside `uitest`, as `uitest/access` is, so the kit's own tests can use it) asserts where one mark lies against what it sits on. Rectangles are a `ui.Tester`'s (`Find`), in DIPs, and every check allows 1/100 DIP:
+
+- `Same(t, what, overlay, target)`: the overlay's bounds equal its target's ("this wash covers exactly that artwork").
+- `OnArtwork(t, what, img, scale, r)`: the same, but the target is found in the picture: the box of the cover's saturated pixels. The fixture's covers are gradients between two hues and the ground, the washes and the glyphs are grey, so the cover is where its colour is, whatever the layout says. Measure with the mark at rest. `ArtBounds` is the box itself.
+- `Inside`, `InsetBottomLeft`, `Centred`: a disc inside its cover, 8 DIPs from the corner, in the middle of a button.
+- `WholePixels(t, what, r, scale)`: every edge of `r` falls on a device pixel at that scale.
+
+Every overlay that sits on artwork has a test that runs them at scale 1 and 2:
+
+| Overlay | Test |
+| --- | --- |
+| a track row's play wash and the playing glyph | `kit` `TestTrackRowOverlaysLieOnTheirCover` |
+| a tile's play disc | `kit` `TestTilePlayDiscSitsInItsCoversCorner` |
+| a home row's play wash and a home tile's play disc | `home` `TestRowOverlaysLieOnTheirCover` |
+| the sidebar's shuffle button | `playlist` `TestShuffleButtonLiesOnTheArtworkAndItsGlyphIsCentred` |
+
+A new overlay on artwork gets a case in the test of its package. Covers for these tests are the fixture's or the kit's evidence palette (`paletteArt`), never a flat colour.
+
+**The contact sheet.** `internal/ui/app/testdata/golden/marks-contact-sheet.png` is every small mark that sits on or beside artwork, cropped from the shell over the synthetic library and magnified so one DIP is 4 pixels, with no smoothing, so a half-pixel offset, a lopsided glyph or a corner that does not match its cover shows. Each row is a mark: a tile's play disc (hover and keyboard focus), its release badge, a station's play mark, the Explicit mark, a track row's play wash, playing glyph and focus ring, a select's chevron, the check beside the chosen theme, the player bar's disc and its tooltip, and the sidebar's shuffle button. The columns are light and dark at 1x and 2x (1x is magnified four times, 2x twice). Look at it when you add or change a mark, and review a change to it as you review a golden.
+
+- `go test ./internal/ui/app -run MarksContactSheet` draws it and compares it like a golden; `-update` redraws it after a change on purpose. It runs with reduced motion on, so the playing glyph rests and the picture settles.
+- A mark is one entry in `sheetRoutes` (`internal/ui/app/marks_sheet_test.go`): the page it is on (the shell's, or a view of the kit's components over the shell's `Env` for what needs Apple's data, such as a catalogue tile), the state to show (hover, focus) and where to crop.
+- It is a golden: Linux only, compared in blocks, so another machine's text antialiasing passes.
 
 ### The end-to-end smoke
 

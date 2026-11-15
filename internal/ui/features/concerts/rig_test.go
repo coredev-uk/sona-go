@@ -252,6 +252,12 @@ func newRigAmp(t *testing.T, amp *fakeApple, at string, w, h int, opts []uitest.
 // clock (the fixtures' shows are in 2027).
 var today = time.Date(2027, 2, 10, 12, 0, 0, 0, time.UTC)
 
+// hangGuard is how long a test waits for what it knows will happen before it
+// gives up. It only stops a hang from running to the test binary's own
+// timeout: nothing waits for it to pass, and a shared runner under -race can
+// be slow.
+const hangGuard = 30 * time.Second
+
 // newRigOver is newRig over a harness of the caller's; wrap, when set,
 // puts a stand-in in front of the service before the first frame.
 func newRigOver(t *testing.T, hn *uitest.Harness, amp *fakeApple, at string, w, h int, wrap func(concertsAPI) concertsAPI) *rig {
@@ -266,7 +272,7 @@ func newRigOver(t *testing.T, hn *uitest.Harness, amp *fakeApple, at string, w, 
 	// a test (a change of account refetches the listing, dropping the one
 	// held or in flight).
 	acct := services.Service[services.AuthService](hn.Core)
-	for deadline := time.Now().Add(10 * time.Second); acct.Status().State != "signed_in"; time.Sleep(time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); acct.Status().State != "signed_in"; time.Sleep(time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatalf("the fake account never signed in: %q", acct.Status().State)
 		}

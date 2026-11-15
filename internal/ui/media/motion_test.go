@@ -29,16 +29,16 @@ func shown(p *ui.VideoPlayer) *ui.Tester {
 	return ui.NewTester(func(c *ui.Context) { ui.Video(c, p).Size(96, 64) }, 96, 64)
 }
 
-// until builds frames of tt until cond holds, which fails the test after d.
-func until(t *testing.T, tt *ui.Tester, what string, d time.Duration, cond func() bool) {
+// until builds frames of tt until cond holds. The deadline only guards a hang.
+func until(t *testing.T, tt *ui.Tester, what string, cond func() bool) {
 	t.Helper()
-	for end := time.Now().Add(d); ; time.Sleep(3 * time.Millisecond) {
+	for end := time.Now().Add(hangGuard); ; time.Sleep(3 * time.Millisecond) {
 		tt.Frame()
 		if cond() {
 			return
 		}
 		if time.Now().After(end) {
-			t.Fatalf("no %s within %v", what, d)
+			t.Fatalf("no %s within %v", what, hangGuard)
 		}
 	}
 }
@@ -68,7 +68,7 @@ func TestOpenMotion(t *testing.T) {
 	}
 	// Ready once the first picture came (at once with GStreamer's decoder,
 	// after a build of its video with the system's).
-	until(t, shown(p), "first picture", 20*time.Second, func() bool {
+	until(t, shown(p), "first picture", func() bool {
 		if err := p.Err(); err != nil {
 			t.Fatal(err)
 		}
@@ -100,7 +100,7 @@ func TestOpenMotionOfAFileThatIsNotAVideo(t *testing.T) {
 		}
 	} else {
 		defer p.Close()
-		until(t, shown(p), "error of the junk file", 20*time.Second, func() bool { return p.Err() != nil })
+		until(t, shown(p), "error of the junk file", func() bool { return p.Err() != nil })
 		if p.Ready() {
 			t.Error("a junk file is Ready")
 		}
@@ -139,7 +139,7 @@ func TestMotionFileOfTheCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	until(t, shown(p), "first picture", 20*time.Second, func() bool {
+	until(t, shown(p), "first picture", func() bool {
 		if err := p.Err(); err != nil {
 			t.Fatal(err)
 		}

@@ -129,7 +129,7 @@ func (s *DiscoverService) Home(ctx context.Context) (HomePage, error) {
 		return HomePage{}, err
 	}
 	if ok {
-		page := s.homePage(r, fetched)
+		page := s.homePage(ctx, r, fetched)
 		s.e.Logger.Info("home served from cache", "shelves", len(page.Sections), "took", time.Since(start).String(), "network", s.e.Gate.IsOpen())
 		if s.e.Gate.IsOpen() {
 			s.background("home refresh", s.refreshHomeIfDue)
@@ -151,7 +151,7 @@ func (s *DiscoverService) RefreshHome(ctx context.Context) (HomePage, error) {
 	now := s.e.Now()
 	s.putHome(ctx, r, now)
 	s.e.Logger.Info("home fetched", "shelves", len(r.Data))
-	return s.homePage(r, now.UnixMilli()), nil
+	return s.homePage(ctx, r, now.UnixMilli()), nil
 }
 
 func (s *DiscoverService) putHome(ctx context.Context, r applemusic.MapResponse, now time.Time) {
@@ -247,7 +247,7 @@ func (s *DiscoverService) refreshHomeIfDue(ctx context.Context) {
 	}
 	s.putHome(ctx, r, now)
 	s.e.Logger.Info("home shelves refreshed", "shelves", len(due))
-	s.e.Emit.Emit(EventHome, s.homePage(r, now.UnixMilli()))
+	s.e.Emit.Emit(EventHome, s.homePage(ctx, r, now.UnixMilli()))
 }
 
 // mergeShelf puts a refreshed shelf (and the resources it brought) into
@@ -269,7 +269,7 @@ func (s *DiscoverService) RefreshHomeShelf(ctx context.Context, id string) (Sect
 		mergeShelf(&r, fresh)
 		s.putHome(ctx, r, s.e.Now())
 	}
-	for _, sec := range s.homeSections(fresh) {
+	for _, sec := range s.homeSections(ctx, fresh) {
 		return sec, nil
 	}
 	return Section{}, fmt.Errorf("%w: shelf %s", applemusic.ErrNotFound, id)
@@ -284,23 +284,36 @@ func (s *DiscoverService) HomeShelf(ctx context.Context, id string) (Section, er
 	if err != nil {
 		return Section{}, err
 	}
-	for _, sec := range s.homeSections(r) {
+	for _, sec := range s.homeSections(ctx, r) {
 		sec.Kind = SectionShelf
 		return sec, nil
 	}
 	return Section{}, fmt.Errorf("%w: shelf %s", applemusic.ErrNotFound, id)
 }
 
-func (s *DiscoverService) homePage(r applemusic.MapResponse, fetched int64) HomePage {
-	p := HomePage{Sections: s.homeSections(r), FetchedAt: fetched}
+func (s *DiscoverService) homePage(ctx context.Context, r applemusic.MapResponse, fetched int64) HomePage {
+	p := HomePage{Sections: s.homeSections(ctx, r), FetchedAt: fetched}
 	p.Stale = s.e.Gate.IsOpen() && len(dueShelves(r, time.UnixMilli(fetched), s.e.Now())) > homeShelfRefreshMax
 	return p
+}
+
+// libraryCover gives a library playlist the cover it has in Library →
+// Playlists (Apple's recently played carries Apple's artwork, none for a
+// playlist whose cover is the mosaic, and not the user's choice).
+func (s *DiscoverService) libraryCover(ctx context.Context, it *Item) {
+	if it.Kind != ItemPlaylist || it.Playlist == nil || it.Playlist.LibraryID == "" {
+		return
+	}
+	if t, ok := s.e.playlistCover(ctx, it.Playlist.LibraryID); ok {
+		it.Art = s.m.artOf(t)
+		it.Playlist.Art = it.Art
+	}
 }
 
 // homeSections maps Home shelves; web-only cards are left out, and
 // Apple's concerts shelf (a prompt to set a location on the web) becomes a
 // SectionConcerts the UI fills from ConcertsService.
-func (s *DiscoverService) homeSections(r applemusic.MapResponse) []Section {
+func (s *DiscoverService) homeSections(ctx context.Context, r applemusic.MapResponse) []Section {
 	out := []Section{}
 	for _, shelf := range r.Primary() {
 		var a applemusic.RecommendationAttributes
@@ -320,6 +333,7 @@ func (s *DiscoverService) homeSections(r applemusic.MapResponse) []Section {
 		}
 		for _, it := range s.m.items(r.Resources, shelf.Rel("contents")) {
 			if it.Kind != ItemLink {
+				s.libraryCover(ctx, &it)
 				sec.Items = append(sec.Items, it)
 			}
 		}

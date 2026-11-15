@@ -41,11 +41,14 @@ jobs:
   main:
     name: Renovate
     runs-on: ubuntu-latest
-    # Renovate acts through the bot-cecil App token, not GITHUB_TOKEN
+    # Renovate acts through the bot-cecil App token, not GITHUB_TOKEN. The
+    # App's key is a secret of the bot-cecil environment, which only main
+    # and v* tags deploy to.
+    environment: bot-cecil
     permissions: {}
     steps:
-      # bot-cecil's App credentials are repository secrets (RENOVATE_APP_CLIENT_ID,
-      # RENOVATE_APP_PRIVATE_KEY).
+      # bot-cecil's App credentials are secrets of the bot-cecil environment
+      # (RENOVATE_APP_CLIENT_ID, RENOVATE_APP_PRIVATE_KEY).
       - name: Generate Token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token

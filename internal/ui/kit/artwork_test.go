@@ -120,11 +120,10 @@ func newMainThread() *mainThread { return &mainThread{q: make(chan func(), 256)}
 
 func (m *mainThread) post(fn func()) { m.q <- fn }
 
-// run runs what has been posted, waiting up to a few seconds for at least n
-// funcs when n > 0.
+// run runs what has been posted, waiting for at least n funcs when n > 0.
 func (m *mainThread) run(t *testing.T, n int) {
 	t.Helper()
-	deadline := time.After(5 * time.Second)
+	deadline := time.After(hangGuard)
 	for ran := 0; ; {
 		if ran >= n {
 			select {
@@ -142,6 +141,25 @@ func (m *mainThread) run(t *testing.T, n int) {
 			ran++
 		case <-deadline:
 			t.Fatalf("waited for %d posts, got %d", n, ran)
+		}
+	}
+}
+
+// settle runs what the workers post until none of l's covers is queued or in
+// flight: it waits on their answers, which are posts, not on a time.
+func (m *mainThread) settle(t *testing.T, l *ArtLoader) {
+	t.Helper()
+	deadline := time.After(hangGuard)
+	for {
+		m.run(t, 0)
+		if l.Pending() == 0 {
+			return
+		}
+		select {
+		case fn := <-m.q:
+			fn()
+		case <-deadline:
+			t.Fatalf("%d covers still queued or in flight", l.Pending())
 		}
 	}
 }
@@ -227,9 +245,7 @@ func TestArtworkDecodesAtTheExactDevicePixels(t *testing.T) {
 	tt.SetScale(2)
 	for range 3 { // paint learns the scale, the redraw asks, the worker answers
 		tt.Frame()
-		mt.run(t, 0)
-		time.Sleep(20 * time.Millisecond)
-		mt.run(t, 0)
+		mt.settle(t, a.l)
 	}
 	tt.Frame()
 	cv := a.l.covers[artKey{"/art/k1/300x300.jpg", 200, 200}]
@@ -375,9 +391,7 @@ func TestArtworkRetriesAFailedCoverTwiceThenLeavesIt(t *testing.T) {
 
 	step := func() {
 		tt.Frame()
-		mt.run(t, 0)
-		time.Sleep(20 * time.Millisecond) // the worker's Get
-		mt.run(t, 0)
+		mt.settle(t, a.l) // the worker's Get and its answer
 		tt.Frame()
 	}
 	step()
@@ -607,9 +621,9 @@ func TestArtworkIsDecodedForEachWindowsOwnScale(t *testing.T) {
 			mt.run(t, 0)
 		}
 	}
-	for range 40 { // each window asks, learns its scale from painting, asks again, and the workers answer
+	for range 3 { // each window asks, learns its scale from painting, asks again, and every answer is waited for
 		draw()
-		time.Sleep(10 * time.Millisecond)
+		mt.settle(t, l)
 	}
 	draw()
 	draw()

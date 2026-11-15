@@ -144,6 +144,10 @@ func TestPlaylistMenuShufflesFromTheSidebar(t *testing.T) {
 // A playlist with no songs, or one the user cannot play now, has its button
 // off with the reason, and nothing plays.
 func TestShuffleButtonSaysWhyItCannotPlay(t *testing.T) {
+	inBubble(t, shuffleButtonSaysWhyItCannotPlay)
+}
+
+func shuffleButtonSaysWhyItCannotPlay(t *testing.T) {
 	tree := sbLibrary()
 	tree.Playlists[0].Playlist.TrackCount = 0 // Road Trip
 	e := sbSetup(t, tree, nil)

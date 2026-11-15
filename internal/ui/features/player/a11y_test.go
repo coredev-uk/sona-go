@@ -3,7 +3,6 @@ package player
 import (
 	"errors"
 	"fmt"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -673,12 +672,11 @@ func TestQueueEditsAreAnnouncedWithTheSongsNewPlace(t *testing.T) {
 		t.Fatal("the move was not pending before Go answered")
 	}
 	// The failure is posted to the main thread after the call returns.
-	for i := 0; r.p.queue.moved != nil; i++ {
-		if i > 1_000_000 {
+	for deadline := time.Now().Add(hangGuard); r.p.queue.moved != nil; r.h.Main.Wait(5 * time.Millisecond) {
+		if time.Now().After(deadline) {
 			t.Fatal("a move that failed is still waiting to be announced")
 		}
 		r.h.Main.Drain()
-		runtime.Gosched()
 	}
 	r.tt.Frame()
 	items = slices.Clone(r.h.Env.Play.Queue().Items)

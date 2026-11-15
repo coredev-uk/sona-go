@@ -353,7 +353,7 @@ func TestTwoFingerSwipeFollowsTheSystemSetting(t *testing.T) {
 	settle := func(want bool) {
 		t.Helper()
 		r.a.refreshSwipe()
-		for deadline := time.After(10 * time.Second); r.a.swipe.Enabled != want; {
+		for deadline := time.After(hangGuard); r.a.swipe.Enabled != want; {
 			select {
 			case fn := <-posts:
 				fn()

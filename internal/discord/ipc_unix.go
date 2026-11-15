@@ -3,7 +3,9 @@
 package discord
 
 import (
+	"context"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,6 +14,12 @@ import (
 
 // Supported: Discord listens on a Unix socket here, which the client dials.
 const Supported = true
+
+// dial connects to the socket at p, which socketPaths found trusted.
+func dial(ctx context.Context, p string) (ipcConn, error) {
+	var d net.Dialer
+	return d.DialContext(ctx, "unix", p)
+}
 
 // socketPaths lists the candidate IPC sockets: discord-ipc-0…9 in the
 // runtime directory, and in the Flatpak and Snap sandboxes' runtime

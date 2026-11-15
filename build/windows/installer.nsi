@@ -42,6 +42,8 @@ VIAddVersionKey "LegalCopyright" "Sona contributors"
 !insertmacro MUI_LANGUAGE "English"
 
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sona"
+!define RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
+!define APPROVED_KEY "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
 
 !macro UrlScheme scheme
   WriteRegStr HKCU "Software\Classes\${scheme}" "" "URL:${scheme} (Sona)"
@@ -89,6 +91,15 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\Sona.lnk"
   DeleteRegKey HKCU "Software\Classes\music"
   DeleteRegKey HKCU "Software\Classes\itms"
+  ; Start at login (Settings → General): MyGo writes a value named after the
+  ; app in the user's Run key, and Task Manager's switch for it in
+  ; StartupApproved (cmd/sona/login_desktop.go). Only this installation's
+  ; entry goes: a portable copy may own the value (StrCmp ignores case).
+  ReadRegStr $1 HKCU "${RUN_KEY}" "Sona"
+  StrCmp $1 '"$INSTDIR\sona.exe" --mygo-opened-at-login' 0 logindone
+  DeleteRegValue HKCU "${RUN_KEY}" "Sona"
+  DeleteRegValue HKCU "${APPROVED_KEY}" "Sona"
+  logindone:
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "Software\Sona"
   ; The folder holds only what the installer put there, plus what the

@@ -192,6 +192,12 @@ for scheme in music itms; do
   reg query "HKCU\\Software\\Classes\\$scheme\\shell\\open\\command" >/dev/null || fail "no $scheme: URL handler"
 done
 reg query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Sona' >/dev/null || fail "not listed under Apps"
+# Start at login as MyGo writes it for this installation (the Run value and
+# Task Manager's "disabled" mark), for the uninstaller to remove.
+run_key='HKCU\Software\Microsoft\Windows\CurrentVersion\Run'
+approved_key='HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
+reg add "$run_key" /v Sona /t REG_SZ /d "\"$(cygpath -w "$dest")\\sona.exe\" --mygo-opened-at-login" /f >/dev/null
+reg add "$approved_key" /v Sona /t REG_BINARY /d 030000000000000000000000 /f >/dev/null
 
 # 5. The uninstaller removes the folder, the keys and the CDM host's
 # AppContainer profile. It copies itself to a temporary folder to delete its
@@ -217,6 +223,8 @@ done
 for scheme in music itms; do
   ! reg query "HKCU\\Software\\Classes\\$scheme" >/dev/null 2>&1 || fail "uninstall left the $scheme: keys"
 done
+! reg query "$run_key" /v Sona >/dev/null 2>&1 || fail "uninstall left the start-at-login entry"
+! reg query "$approved_key" /v Sona >/dev/null 2>&1 || fail "uninstall left Task Manager's start-up entry"
 # The profile goes before the files (the uninstaller runs
 # `sona.exe --remove-sandbox` first), so it is gone with the folder.
 [[ -z $(sandbox_sid) ]] || fail "uninstall left the AppContainer profile ($sandbox_name)"

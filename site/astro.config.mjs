@@ -25,6 +25,7 @@ export default defineConfig({
             { slug: 'guide/first-run' },
             { slug: 'guide/library' },
             { slug: 'guide/playback' },
+            { slug: 'guide/settings' },
             { slug: 'guide/keyboard-shortcuts' },
             { slug: 'guide/scrobbling-and-discord' },
             { slug: 'guide/private-listening' },

@@ -10,8 +10,9 @@
 # release-please acts as the bot-cecil GitHub App (the identity Renovate uses),
 # not as GITHUB_TOKEN: events caused by GITHUB_TOKEN start no workflow, so the
 # release PR would never get its required checks. The App's token is minted in
-# the job from the repository secrets RENOVATE_APP_CLIENT_ID and
-# RENOVATE_APP_PRIVATE_KEY and lives for that job only. The tag it creates
+# the job from the secrets RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY
+# of the bot-cecil environment (the release job's build and publish jobs read
+# them from the release environment) and lives for that job only. The tag it creates
 # still triggers no release by itself: the build is a reusable-workflow call
 # below, not a tag push.
 name: Release Please
@@ -33,7 +34,9 @@ jobs:
     concurrency:
       group: release-please
       cancel-in-progress: false
-    # Everything goes through the App token below.
+    # Everything goes through the App token below, minted from the bot-cecil
+    # environment's secrets (main and v* tags only).
+    environment: bot-cecil
     permissions: {}
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -84,5 +87,6 @@ jobs:
     # Proton Pass), which a called workflow sees only when the caller
     # inherits its secrets. With the two App secrets passed by name, v0.3.0
     # was built without the credentials and published without update
-    # manifests (run 42482812544).
+    # manifests (run 42482812544). The App's secrets are in the release
+    # environment too, which the publish job reads.
     secrets: inherit

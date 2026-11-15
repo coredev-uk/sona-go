@@ -141,7 +141,7 @@ The shell lives in `internal/ui/app` and `services/desktop.go`.
 - **Closing the window**: keeps Sona playing in the background with its tray icon (Settings → General). Without a tray it quits.
 - **Tray**: libayatana-appindicator3 on Linux, a menu bar item on macOS. It shows the current song, the transport, private listening, Show Sona, the mini player and Quit.
 - **Mini player**: a second, fixed-size, always-on-top window shown in the main window's place.
-- **Start hidden**: `--hidden` (the autostart's "Start in the tray") starts with no window, when there is a tray. Autostart is an opt-in XDG entry.
+- **Start hidden**: `--hidden` (the XDG autostart entry's "Start in the tray") starts with no window, when there is a tray. Autostart is opt-in: an XDG entry on Linux, MyGo's login item on macOS and Windows, where the settings say whether a start at login opens in the tray (`cmd/sona/login_desktop.go`, §9).
 - **Bringing the window forward**: MPRIS `Raise`, the tray and a second launch do it. Apple Music links (`music://`, `itms://`, music.apple.com) open their page.
 - **Title bar**: the system's inset buttons on macOS. On stacking Linux desktops and Windows, a hidden title bar under Sona's top bar with MyGo's buttons in the desktop's layout (`internal/windowchrome` decides; `docs/platforms.md`, "Title bar and window controls").
 - **Session end**: on macOS and Windows the OS ends the process as soon as the quit listeners return, and `Run` never does. An `OnWillQuit` listener (`cmd/sona/sessionend.go`) therefore saves the queue and position, ends the play and delivers its play activity within 3 s. Linux has no such signal: a SIGTERM quits as usual and `Run` returns.
@@ -150,9 +150,9 @@ The shell lives in `internal/ui/app` and `services/desktop.go`.
 
 Integrations (`services/integrations.go`) start after first paint:
 
-- One track-change notification, replaced per track, over `org.freedesktop.Notifications`.
+- One track-change notification, replaced per track: over `org.freedesktop.Notifications` on Linux, MyGo's notifications on macOS and Windows (§9).
 - A logind `sleep` inhibitor (portal `Inhibit` fallback), held only while playing.
-- Opt-in Discord presence over the local IPC socket, with Apple's public artwork URL, never `/art/` or tokens.
+- Opt-in Discord presence over the local IPC socket (a named pipe on Windows), only when the current user owns it, with Apple's public artwork URL, never `/art/` or tokens.
 - Last.fm and ListenBrainz scrobbling (`internal/scrobble`).
 
 ### Artwork
@@ -163,6 +163,7 @@ Integrations (`services/integrations.go`) start after first paint:
 
 - A template (Apple's `{w}x{h}` URL) is addressed by the hash of its text.
 - An artwork key at a size is derived from the nearest cached source at the exact box, and `backdrop.jpg` from the 64 px source.
+- Sources are fetched at 64, 256, 512, 1200 or 2048 px (`artwork.Sizes`), the smallest that covers the box; a request between two is scaled down from the larger source. The CDN already holds the first four for most artwork. Any other size is drawn by an origin on its first request (250 ms to 2 s against 10 to 25 ms), which is why 128 and 1024 are not in the list ([Measure artwork fetch times](performance.md#measure-artwork-fetch-times)).
 - Downloads send `Accept: image/jpeg,image/png;q=0.9,*/*;q=0.8`. Apple's generated covers (`gen/`) are drawn on a CDN miss by an origin that answers 406 to an `Accept` without `*/*`.
 
 #### Playlist mosaics
@@ -187,6 +188,7 @@ A user's choice for a library playlist beats both a mosaic and Apple's cover. Th
 | `cover:<32 hex>` | An image the user chose from a file. `artwork.SaveCover` crops the centre square, scales to at most 1024 px and stores a JPEG in `<data>/covers/`. This is user data and is never evicted with the cache. |
 
 - Apple's generated cover (`…/gen/1200x1200AM.PDCXS1n.jpg?c1…c4&t=<name>&signature…`) becomes a `{w}x{h}` template in `applemusic.Artwork.Template`, since its CDN fills any size. The design is outside the signature.
+- A library playlist outside the library's own lists (a card in For you's Recently Played, which Apple sends with its own artwork or none; a recent search, which stored the artwork it showed when remembered) gets the same cover when the page is built: `Env.playlistCover` takes the choice (`chosenPlaylistCover`, which pins use too), else `library.AutoCover` (Apple's artwork or the mosaic). Both resolve on every read, so a changed choice shows the next time the list is read.
 - Sign-out and a playlist's removal delete the cover files. Sign-out also removes every cached generated cover in any design, which carry playlist names (`Cache.RemovePatterns`).
 
 ### Private mode
@@ -714,7 +716,8 @@ The code is in `internal/library`.
 - **Incremental sync** (`library.Incremental`) runs at start-up and after edits, with the domains in parallel:
   - Songs and albums newest-added first (`sort=-dateAdded`), up to the first stored item.
   - The artist count.
-  - The playlist list (tracks and folders only for playlists whose `lastModifiedDate` moved).
+  - The playlist list (tracks and folders only for playlists whose `lastModifiedDate` moved). The list is read with `include=catalog`: a personal mix (`pl.pm-…`) takes its stamp from its catalogue copy (`applemusic.Playlist.Modified`), because Apple regenerates a mix there and never moves the library copy's stamp (`docs/apple-music-reference.md` §3.3). The stamp is also the playlist's "Updated" date.
+  - Opening a personal mix's page checks its catalogue stamp once (at most every 5 minutes) and refetches the mix's tracks if it moved, so a mix is current without waiting for a sync.
   - Ratings only for items stored since the last ratings run.
   - A domain whose local count then differs from Apple's runs fully at once.
 - **Full run** (removals, metadata edits, ratings changed elsewhere): on "Sync now" and every 72 hours (`library.FullSyncEvery`).
@@ -854,7 +857,7 @@ Other per-OS conventions are the Discord IPC socket and the CDM library name abo
 
 ### Linux
 
-- **Packages**: `task package` packages the local build. The AUR `sona-bin` PKGBUILD is `build/linux/arch/update.sh`. Flatpak is documented in `docs/maintainers/flatpak.md`.
+- **Packages**: `task package` packages the local build. The Linux release binary is a PIE with full RELRO (`-buildmode=pie`, `-Wl,-z,relro,-z,now`; `build/linux/Taskfile.yml`). The AUR `sona-bin` PKGBUILD is `build/linux/arch/update.sh`, shipped with a 0BSD `LICENSE`; the Arch dependencies there and in `nfpm.yaml` are kept in step. Flatpak is documented in `docs/maintainers/flatpak.md`.
 - **Apple Music links**: the desktop file claims `music`, `musics`, `itms` and `itmss`. Settings → General → **Open Apple Music links in Sona** makes Sona their default with `xdg-mime default dev.coredev.Sona.desktop x-scheme-handler/<scheme>` (read with `xdg-mime query default`; `app.XDGLinkHandler`). It says it can't where the desktop file isn't installed (an AppImage that isn't integrated, a source build) or inside a Flatpak.
 
 ### macOS
@@ -916,6 +919,16 @@ The CDM host child inherits all of it.
 - Apple's licence server licenses this host (checked on windows-2025 with `windows-playback.yml`, weekly and on dispatch).
 - The UI, media keys and Now Playing run, and so does motion artwork, played by Media Foundation through MyGo's `ui/video` in the UI process with no GStreamer involved (§8, "Motion artwork"). The windows job of `ci.yml` plays a generated clip through it, since a package has nothing of it to smoke-test.
 
+#### Desktop integrations
+
+These are MyGo's (`cmd/sona/integrations_windows.go`). Where a type is the same as macOS's, the file is shared with a `darwin || windows` build tag.
+
+| Integration | How |
+| --- | --- |
+| Track and reminder notifications | Notification-area balloons, which Windows 10 and later show as toasts (`notify_desktop.go`): a title, a text and a click that brings Sona forward, no artwork and no Next button. They come from the tray icon, or a temporary icon with the application's when there is no tray. |
+| Start Sona when you log in | A value named `Sona` in the user's `Run` key with the executable's path and MyGo's start-at-login argument (`login_desktop.go`, shared with macOS). Task Manager's Startup apps turns it off in `StartupApproved`, which the row reads at the next start. A moved portable copy reads as off and its old entry is removed at its next start. The uninstaller deletes the installation's entry. |
+| Discord status | Sona's own client (`internal/discord/ipc_windows.go`, not MyGo's): the named pipes `\\.\pipe\discord-ipc-0` to `-9`, each used only when its server process runs as the current user (`docs/security-review.md`, F4). |
+
 #### Uninstalling
 
 Uninstalling keeps the user's data (settings, library, sign-in, the downloaded CDM) but not the sandbox the CDM host ran in (§4.4). The uninstaller runs `sona.exe --remove-sandbox` before it deletes the files. That deletes the AppContainer profile and takes its SID's entries off the program, GStreamer and Widevine folders. The portable `.zip` has no uninstaller, so its user runs `sona.exe --remove-sandbox` before deleting the folder (`site/src/content/docs/reference/cli.md`).
@@ -935,7 +948,7 @@ The commands and the detail are in `docs/testing.md`. This section records what 
 
 ### Timing
 
-CI runners are shared and run everything under `-race`. Tests therefore wait for what they check (an event, a channel, a fake clock, `testing/synctest`), not for a sleep. A performance test checks what makes the code slow rather than its wall time: the large-library test (`internal/library`) checks each UI query's statement count, the rows it reads and its plan (`EXPLAIN QUERY PLAN`: no table scanned once per row of another). `BenchmarkSongsPage` and `BenchmarkSearch` measure the time.
+CI runners are shared and run everything under `-race`, and so does a workstation running `tests` beside other work. Tests therefore wait for what they check (an event, a channel, a post to the main thread, a fake clock, `testing/synctest`), not for a sleep, and a deadline in a test only guards against a hang (30 s), never limits speed. `docs/testing.md`, "Timing in tests", has the rules. A performance test checks what makes the code slow rather than its wall time: the large-library test (`internal/library`) checks each UI query's statement count, the rows it reads and its plan (`EXPLAIN QUERY PLAN`: no table scanned once per row of another). `BenchmarkSongsPage` and `BenchmarkSearch` measure the time.
 
 ### DRM path regression
 
@@ -956,7 +969,7 @@ Every package, tests included, type-checks for `windows/amd64` and `darwin/arm64
 ### Packaging
 
 - `task package` builds the `.deb`, `.rpm`, Arch package (nfpm; GTK3, the tray's `libayatana-appindicator3` and GStreamer as dependencies) and the AppImage of the local build.
-- `build/linux/release/release.sh` builds them on Ubuntu 24.04 and smoke-tests them: `.deb` on Ubuntu, `.rpm` and the AppImage on Fedora, Arch package on Arch. The smoke checks `sona --version`, first paint under Xvfb, the GStreamer plugins, and no WebKitGTK or GTK4 linked.
+- `build/linux/release/release.sh` builds them on Ubuntu 24.04 and smoke-tests them: `.deb` on Ubuntu, `.rpm` and the AppImage on Fedora, Arch package on Arch. The smoke checks `sona --version`, first paint under Xvfb, the GStreamer plugins, and no WebKitGTK or GTK4 linked. On Arch it also runs `namcap` on the PKGBUILD and the built package and fails on anything but the run-time dependencies namcap can't see (`smoke.sh`, `namcap_allowed`).
 - `build/darwin/smoke.sh` and `build/windows/smoke.sh` do the same for the macOS app and the Windows zip and installer. The Windows one also silently uninstalls the installer and checks that the sandbox's AppContainer profile is gone, and runs the zip's `sona.exe --remove-sandbox`.
 
 ### Manual release checks
@@ -974,7 +987,7 @@ CI is `.github/workflows/ci.yml`. Maintainer detail: `docs/maintainers/ci-workfl
 | E2E (headless sway) | The probe build driven through MyGo's automation plugin on a synthetic fixture profile in a headless sway session, plus the AT-SPI landmark check (`e2e/`) |
 | Orca walk, UI probe (headless sway) | The Orca screen-reader walk and the UI performance probe, in headless sway |
 | macOS build and test | Build, vet and `go test -race` on macOS |
-| Windows build | After a merge to main and on dispatch: build, `go vet` with cgo on, CDM tests, the Media Foundation motion tests, and two previews played with `playspike -preview` |
+| Windows build | After a merge to main and on dispatch: build, `go vet` with cgo on, the Discord pipe tests, CDM tests, the Media Foundation motion tests, and two previews played with `playspike -preview` |
 
 The Windows previews need Apple's catalogue over the network. The job runs that step again, up to four attempts with a growing wait, when `playspike -preview` exits with status 75 (the network failed: `networkError`), and fails on any other status.
 

@@ -21,9 +21,9 @@ type Capabilities struct {
 	SleepInhibit bool `json:"sleepInhibit"`
 	// PowerState: the on-battery state ("power:changed") is followed.
 	PowerState bool `json:"powerState"`
-	// MotionArtwork: motion covers can be decoded here (a video decoder
-	// for Apple's H.264 motion artwork: GStreamer on Linux and macOS).
-	// False on Windows until its decoder lands: covers show their stills.
+	// MotionArtwork: motion covers can be decoded here (Apple's H.264
+	// motion artwork: GStreamer on Linux, the platform decoder on macOS
+	// and Windows; internal/ui/media). Where false, covers show stills.
 	MotionArtwork bool `json:"motionArtwork"`
 	// FileChooser: the native file dialog (settings import and export).
 	FileChooser bool `json:"fileChooser"`
@@ -37,7 +37,8 @@ type Capabilities struct {
 	// to run Sona.app. False everywhere else.
 	NeedsAppBundle bool `json:"needsAppBundle"`
 	// PlainNotifications: the track notification is the title and text and
-	// a click that opens Sona, with no artwork and no Next button (macOS).
+	// a click that opens Sona, with no artwork and no Next button (macOS,
+	// Windows).
 	PlainNotifications bool `json:"plainNotifications"`
 	// CLI: `sona <command>` reaches the running instance, and a second
 	// launch hands its links to it.

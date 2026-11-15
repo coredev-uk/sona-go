@@ -244,7 +244,7 @@ func TestMediaMotionGoldens(t *testing.T) {
 			tt.SetDark(mode.m == theme.ModeDark)
 			surface.Show(160, 90, 0, mediaPicture(160, 90))
 			tt.Frame()
-			deadline := time.Now().Add(10 * time.Second)
+			deadline := time.Now().Add(hangGuard)
 			for {
 				tt.Frame()
 				mt.run(t, 0)
@@ -267,7 +267,7 @@ func TestMediaMotionGoldens(t *testing.T) {
 			}
 			tt.Frame()
 			tt.Advance(motionFade + 100*time.Millisecond)
-			for until := time.Now().Add(5 * time.Second); !feed.picture; time.Sleep(2 * time.Millisecond) {
+			for until := time.Now().Add(hangGuard); !feed.picture; time.Sleep(2 * time.Millisecond) {
 				tt.Frame()
 				mt.run(t, 0)
 				if time.Now().After(until) {

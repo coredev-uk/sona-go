@@ -56,28 +56,13 @@ func TestVideoViewKeysDoNotAlsoRunThePlayersShortcut(t *testing.T) {
 		a.env.Video.Open()
 		tt.Frame()
 	}
-	quiet := func() { // the engine's start-up events have all arrived
-		for still := 0; still < 10; time.Sleep(10 * time.Millisecond) {
-			p := h.Main.Pending()
-			tt.Drain()
-			if p {
-				still = 0
-			} else {
-				still++
-			}
-		}
-	}
-	quiet()
+	tt.Until("the engine's start-up events", startedPlaying(a))
 	showVideo()
 	tt.Until("the view", tt.Shows("Close video"))
 	before := len(h.Engine.Calls())
 
 	tt.Key(0, ui.KeySpace)
-	deadline := time.Now().Add(5 * time.Second)
-	for len(h.Engine.Calls()) == before && time.Now().Before(deadline) {
-		h.Main.Drain()
-		time.Sleep(5 * time.Millisecond)
-	}
+	tt.Until("Space to toggle playback", func() bool { return len(h.Engine.Calls()) > before })
 	time.Sleep(50 * time.Millisecond) // a second toggle, if there were one
 	got := h.Engine.Calls()[before:]
 	toggles := 0

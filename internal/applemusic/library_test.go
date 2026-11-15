@@ -77,3 +77,32 @@ func TestLibraryByIDAsksForTheItemsAndNothingElse(t *testing.T) {
 		t.Fatal("101 IDs in one request")
 	}
 }
+
+func TestPlaylistModifiedFollowsTheCatalogCopyOfAPersonalMix(t *testing.T) {
+	mk := func(globalID, libStamp, catStamp string) Playlist {
+		p := Playlist{Resource: Resource[PlaylistAttributes]{
+			ID: "p.1", Type: TypeLibraryPlaylists,
+			Attributes: PlaylistAttributes{LastModifiedDate: libStamp, PlayParams: &PlayParams{GlobalID: globalID}},
+		}}
+		if catStamp != "" {
+			p.Relationships.Catalog.Data = []Playlist{{Resource: Resource[PlaylistAttributes]{
+				ID: globalID, Type: TypePlaylists, Attributes: PlaylistAttributes{LastModifiedDate: catStamp},
+			}}}
+		}
+		return p
+	}
+	for _, c := range []struct {
+		name string
+		p    Playlist
+		want string
+	}{
+		{"a mix takes its catalog copy's stamp", mk("pl.pm-1", "2019", "2026"), "2026"},
+		{"a mix without a catalog copy keeps its own", mk("pl.pm-1", "2019", ""), "2019"},
+		{"another playlist keeps its own", mk("pl.u-1", "2019", "2026"), "2019"},
+		{"a private playlist keeps its own", mk("", "2019", ""), "2019"},
+	} {
+		if got := c.p.Modified(); got != c.want {
+			t.Errorf("%s: Modified = %q, want %q", c.name, got, c.want)
+		}
+	}
+}

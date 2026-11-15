@@ -20,6 +20,12 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
+// hangGuard is how long a test waits for what it knows will happen (a
+// goroutine's post, a fetch) before it gives up. It only stops a hang from
+// running to the test binary's own timeout: nothing waits for it to pass, and
+// a shared runner under -race can be slow.
+const hangGuard = 30 * time.Second
+
 // fakeAPI is the AuthService the views talk to: it answers with a status the
 // test sets and counts the calls a menu or the dialog makes. The calls a test
 // never reaches panic on the nil interface.
@@ -89,7 +95,7 @@ func newRig(t *testing.T, st services.AuthStatus, opts ...uitest.Option) *rig {
 	real := services.Service[services.AuthService](h.Core)
 	delivered := false
 	off := store.On(h.Bus, services.EventAuthChanged, func(st services.AuthStatus) { delivered = delivered || st.State == "signed_out" })
-	for deadline := time.Now().Add(5 * time.Second); !delivered; time.Sleep(5 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); !delivered; h.Main.Wait(5 * time.Millisecond) {
 		h.Main.Drain()
 		if time.Now().After(deadline) {
 			t.Fatalf("the harness's auth manager never settled (%s)", real.Status().State)

@@ -12,10 +12,15 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
+// hangGuard is how long a test waits for state before it calls the wait
+// hung. It is no part of what a test checks, so it is far longer than a
+// loaded machine needs.
+const hangGuard = 30 * time.Second
+
 // waitDid waits for a call the feature makes off the main thread.
 func waitDid(t *testing.T, api *fakeAPI, call string) {
 	t.Helper()
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
 		if api.did(call) {
 			return
 		}

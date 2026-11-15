@@ -691,7 +691,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 - Views take what they need from a struct (the feature's state), so a test builds the struct and drives `tt` against its view. Call `theme.Apply(c)` first, and `theme.SetMode` for light or dark.
 - Off the main thread, tests give `store.Client`, `store.Bus` and `kit.ArtLoader` a Poster that queues funcs and run them on the test goroutine, as the app runs them on the main thread (`-race` is part of `tests`). Store tests move a fake clock (`Client.now`) instead of sleeping.
-- A test never sleeps for the UI: it advances the tester's clock. Fetch goroutines are the exception: poll with a deadline.
+- A test never sleeps for the UI: it advances the tester's clock, which stands still until `Advance` but starts at the wall clock (line a pulse up with `tt.Now()`). Goroutines are waited for, not slept for: a post (`MainThread.Wait`, `Until`), a channel the fake closes, `ArtLoader.Pending()`, or a `testing/synctest` bubble with `Session.Quiesce`. Deadlines only guard against a hang (`docs/testing.md`, "Timing in tests").
 
 ### `uitest`
 
@@ -706,7 +706,7 @@ Options: `Albums(...)` for a library of your own, `Empty()`, `Bare()` (no servic
 
 `h.Tester(t, view, w, h)` (or `uitest.Tester(t, env, view, w, h)`) is a `ui.Tester` plus:
 
-- `Until(what, cond)`: drains and draws frames until the goroutines delivered, 10 s at most.
+- `Until(what, cond)`: drains and draws frames until the goroutines delivered, `uitest.HangGuard` (30 s) at most.
 - `Shows(texts...)`, `Drain()`, and `Settle()` (frames until the picture stops changing).
 
 Other helpers: `uitest.Transport` (a recording fake of the playback commands, over `uitest.Recorder`), `uitest.Nav`, `Harness.Play` (a playing song seeded into the mirror), and the `Session` helpers `MustClick`, `Want`, `Lacks`, `Emit`, `Hover` and `Pump`. The Tester's own `Click` tries every control of the name.
@@ -720,6 +720,10 @@ Other helpers: `uitest.Transport` (a recording fake of the playback commands, ov
 - `access.InOrder`, `access.StopLabels` and `Tree.MustFind` serve the checks every feature repeats.
 - Each feature package keeps its pages' tree, Tab-order, Escape and announcement checks in `a11y_test.go` (`docs/accessibility.md`).
 
+### `uitest/overlay`
+
+`internal/ui/uitest/overlay` asserts where one mark lies against what it sits on, beside `uitest` for the same reason as `access`. `overlay.Same(t, what, overlay, target)` fails unless the overlay's bounds equal its target's; `OnArtwork` finds the target in the picture (the box of the fixture cover's saturated pixels) instead of the layout; `Inside`, `InsetBottomLeft`, `Centred` and `WholePixels` check a disc in its corner, a glyph in its button and every edge on a device pixel. Each overlay that sits on artwork (a track row's wash, a tile's play disc, a home row's wash, the sidebar's shuffle button) has a test running them at scale 1 and 2; `docs/testing.md`, "Overlay checks and the marks contact sheet", lists them and the contact sheet of 4× crops of every small mark.
+
 ### Golden images
 
 `go test ./internal/ui/...` takes seconds. Golden images are few. `uitest.Golden(t, tt.Image(), name)` compares with `testdata/golden/<name>.png` beside the test.
@@ -728,7 +732,7 @@ Other helpers: `uitest.Transport` (a recording fake of the playback commands, ov
 - `go test ./internal/ui/app -update` rewrites them when a change is on purpose.
 - A failure saves the picture and a diff (differing blocks red) in the test's artifact directory: `$SONA_TEST_ARTIFACTS/<test name>` when that variable is set (as in CI, which uploads it), else `t.ArtifactDir()` (see `go test -artifacts -outputdir DIR`). Tests ask `internal/ui/uitest/artifacts` for it, and only when they fail, so passing runs stay cacheable.
 - Golden images are compared on Linux only. Pango shapes the text there; Core Text and DirectWrite place glyphs differently, which a tolerance should not hide. Elsewhere `Golden` skips the test with that reason, after the test's behaviour assertions have run.
-- Today the app's golden is the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden`).
+- Today the app's goldens are the shell with Albums, light and dark, at 1132×1253, and the marks contact sheet (`internal/ui/app/testdata/golden`).
 
 ## The development loop
 
@@ -1643,7 +1647,7 @@ A combobox input over `kit.Input` named "Search" (max 520 DIP).
 
 #### Recent searches
 
-They live in Go (`SearchService.Recent`, `RememberTerm`, `RememberItem`, `ForgetRecent`, `ClearRecent`). A remembered song opens its song page again (a library song is never remembered). Remembering is best-effort and never delays opening.
+They live in Go (`SearchService.Recent`, `RememberTerm`, `RememberItem`, `ForgetRecent`, `ClearRecent`). A remembered song opens its song page again (a library song is never remembered). Remembering is best-effort and never delays opening. `Recent` resolves a remembered library playlist's cover when the list is read (`Env.playlistCover`: the user's choice, else Apple's artwork or the mosaic), not from the artwork stored when it was remembered, so a mosaic playlist shows its mosaic and a changed cover shows at once.
 
 ### Concerts (`features/concerts`)
 
@@ -1676,7 +1680,7 @@ Data is `store.Use` with keys such as `["discover","home"]`, `["discover","page"
 - **Shelf heads** are the local ruled head (`rule.go`: heading, hairline, "See all" or "Show all"), which replaces `kit.Shelf` on Home.
 - **Shelf kinds**:
   - `HeroCard` shows a hero shelf of one item.
-  - `itemRows` (roving focus, Space plays, Enter opens, selection, menus) draws the running order (`Inline`: name and reason side by side, one column, hairlines, no rank), the station shelves (rows, two deep) and Recently Played (`Tile`: a strip of covers in one row).
+  - `itemRows` (roving focus, Space plays, Enter opens, selection, menus) draws the running order (`Inline`: name and reason side by side, one column, hairlines, no rank), the station shelves (rows, two deep) and Recently Played (`Tile`: a strip of covers in one row). A library playlist in that strip arrives with the cover it has in Library → Playlists (mosaic, Apple's or the user's choice), resolved by the service (`DiscoverService.libraryCover`); the UI draws `Item.Art` as for any card.
   - Cover shelves are `kit.CoverRow` under the ruled head.
   - `ShelfIndex` is the ledger of the rest with a strip of thumbnails.
 - **The header** says when the page was fetched ("Picked for you…", "Couldn't refresh · from…") and has the Refresh button (`RefreshHome`, spinner unless motion is reduced).

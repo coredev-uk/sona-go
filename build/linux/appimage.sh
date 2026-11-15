@@ -23,7 +23,7 @@
 #
 # Run it on the release baseline (build/linux/release/Containerfile), not on
 # NixOS: it bundles the build machine's libraries. Needs network on first
-# use (linuxdeploy, its GTK and AppImage plugins).
+# use (the pinned linuxdeploy, its GTK and AppImage plugins).
 set -euo pipefail
 
 bin=$(realpath "$1")
@@ -38,11 +38,21 @@ tools="$work/tools"
 rm -rf "$work"
 mkdir -p "$tools" "$appdir/usr/bin" "$appdir/usr/share/applications" "$out"
 
-# linuxdeploy, its AppImage plugin (must sit next to it) and the GTK plugin.
-dl() { curl -fsSL --retry 3 -o "$tools/$2" "$1" && chmod +x "$tools/$2"; }
-dl "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$arch.AppImage" "linuxdeploy-$arch.AppImage"
-dl "https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-$arch.AppImage" "linuxdeploy-plugin-appimage-$arch.AppImage"
-dl "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh" "linuxdeploy-plugin-gtk.sh"
+# linuxdeploy, its AppImage plugin (must sit next to it) and the GTK plugin:
+# the releases and commit appimage-tools.sha256 names, each checked against
+# its SHA-256 before it may run (it runs as root in the release container,
+# next to the packages it could otherwise change).
+pins="$root/build/linux/appimage-tools.sha256"
+while read -r sum name url; do
+  case $sum in '' | '#'*) continue ;; esac
+  curl -fsSL --retry 3 -o "$tools/$name" "$url"
+  got=$(sha256sum <"$tools/$name" | awk '{print $1}')
+  [[ $got == "$sum" ]] || { echo "appimage.sh: $name sha256 $got, want $sum ($pins)" >&2; exit 1; }
+  chmod +x "$tools/$name"
+done <"$pins"
+for t in "linuxdeploy-$arch.AppImage" "linuxdeploy-plugin-appimage-$arch.AppImage" linuxdeploy-plugin-gtk.sh; do
+  [[ -x $tools/$t ]] || { echo "appimage.sh: $t is not pinned in $pins" >&2; exit 1; }
+done
 export APPIMAGE_EXTRACT_AND_RUN=1 # no FUSE in containers
 
 cp "$bin" "$appdir/usr/bin/sona"

@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image/jpeg"
 	"log/slog"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -87,10 +89,15 @@ func TestCoverSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-	start := time.Now()
-	if _, err := src.Get(ctx, coverURL(1, time.Minute, false, 0), 10, 10); err == nil || time.Since(start) > 5*time.Second {
-		t.Fatalf("a delayed cover must stop with its context: %v", err)
-	}
+	// A delayed cover stops with its context. The bubble's clock runs the
+	// minute's delay against the 50 ms deadline, so the deadline wins on a
+	// loaded machine as on an idle one.
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		if _, err := src.Get(ctx, coverURL(1, time.Minute, false, 0), 10, 10); !errors.Is(err, context.DeadlineExceeded) || time.Since(start) >= time.Minute {
+			t.Fatalf("a delayed cover must stop with its context: %v", err)
+		}
+	})
 }
