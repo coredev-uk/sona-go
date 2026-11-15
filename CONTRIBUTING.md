@@ -603,7 +603,7 @@ CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request a
 
 ## Documentation site
 
-The public docs are an [Astro Starlight](https://starlight.astro.build) site in `site/`, published to https://sona.coredev.uk by `.github/workflows/pages.yml`. Pages are Markdown in `site/src/content/docs/`. Preview with `devenv shell -- docs`, and run `npm run lint` and `npm run build` in `site/` before you push (a broken internal link fails the build). `docs/` holds the contributor and agent references: architecture, design, UI architecture and the rest. The writing rules are on the site's "Write Docs" page.
+The public docs are an [Astro Starlight](https://starlight.astro.build) site in `site/`, published to https://sona.coredev.uk by `.github/workflows/pages.yml`. Pages are Markdown in `site/src/content/docs/`. Preview with `devenv shell -- docs`, and run `npm run lint` and `npm run build` in `site/` before you push (a broken internal link fails the build). `docs/` holds the contributor and agent references: architecture, design, UI architecture and the rest. The writing rules are on the site's "Writing docs" page.
 
 ## Branches and pull requests
 

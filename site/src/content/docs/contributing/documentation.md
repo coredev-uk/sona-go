@@ -1,5 +1,5 @@
 ---
-title: Write Docs
+title: Writing docs
 description: Where the documentation lives, how to preview it, and the rules for writing pages.
 ---
 

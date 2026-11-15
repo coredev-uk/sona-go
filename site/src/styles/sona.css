@@ -242,3 +242,30 @@ nav.sidebar summary .large {
     transition: none !important;
   }
 }
+
+/* Heading anchors show on hover or focus only, in ink-faint */
+.sl-markdown-content .sl-anchor-link {
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+}
+.sl-markdown-content .sl-anchor-link svg {
+  color: var(--sl-color-gray-3);
+}
+.sl-heading-wrapper:hover .sl-anchor-link,
+.sl-anchor-link:focus-visible {
+  opacity: 1;
+}
+
+/* One rhythm above every h2, on the splash too */
+.sl-markdown-content .sl-heading-wrapper.level-h2 {
+  margin-top: 2.75rem;
+}
+.sona-split .sl-heading-wrapper.level-h2 {
+  margin-top: 0;
+}
+.sl-markdown-content .sona-split {
+  margin-top: 2.75rem;
+}
+.sl-markdown-content .sona-shot ~ p {
+  margin-top: 1.75rem;
+}
