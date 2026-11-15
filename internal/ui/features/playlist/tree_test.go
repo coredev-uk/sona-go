@@ -165,8 +165,8 @@ func TestPlaylistSection(t *testing.T) {
 		collab    bool
 		want      section
 	}{
-		{"personal mix, not editable", "pl.pm-4c1f", false, false, sectionMadeForYou},
-		{"personal mix, editable", "pl.pm-4c1f", true, false, sectionMadeForYou},
+		{"personal mix, not editable", "pl.pm-4c1f", false, false, sectionApple},
+		{"personal mix, editable", "pl.pm-4c1f", true, false, sectionApple},
 		{"editorial", "pl.f4d106fe", false, false, sectionApple},
 		{"someone's shared playlist", "pl.u-8aZ", false, false, sectionApple},
 		{"Replay is not a mix", "pl.rp-1", false, false, sectionApple},
@@ -198,8 +198,8 @@ func TestSidebarPlaylistsKeepsCollaborativeOnesWithTheOwn(t *testing.T) {
 	if got := outline(s.Own, true); got != "Running[Joined],Hosted" {
 		t.Errorf("own %q", got)
 	}
-	if len(s.Apple) != 1 || s.Apple[0].Playlist.Name != "Editorial" || len(s.MadeForYou) != 0 {
-		t.Errorf("apple %+v, made for you %+v", s.Apple, s.MadeForYou)
+	if len(s.Apple) != 1 || s.Apple[0].Playlist.Name != "Editorial" {
+		t.Errorf("apple %+v", s.Apple)
 	}
 }
 
@@ -222,24 +222,30 @@ func TestSidebarPlaylists(t *testing.T) {
 		}
 		return strings.Join(s, ",")
 	}
-	t.Run("three sections", func(t *testing.T) {
+	t.Run("two sections", func(t *testing.T) {
 		s := sidebarPlaylists(library, nil)
-		if got := names(s.MadeForYou); got != "New Music Mix,Favourites Mix" {
-			t.Errorf("made for you %q (Apple's order)", got)
-		}
-		if got := names(s.Apple); got != "Alt Rock,Zen" {
-			t.Errorf("apple %q (by name)", got)
+		if got := names(s.Apple); got != "New Music Mix,Favourites Mix,Alt Rock,Zen" {
+			t.Errorf("apple %q (mixes in Apple's order, then the others by name)", got)
 		}
 		if got := outline(s.Own, true); got != "Running+1[Tempo],Mine" {
 			t.Errorf("own %q", got)
 		}
 	})
+	t.Run("mixes stay ahead of added playlists whatever the names and positions", func(t *testing.T) {
+		tree := services.PlaylistTree{Playlists: []services.TreePlaylist{
+			treePL("p.a", "Aardvark", "", 0, false, "pl.f4d"),
+			treePL("p.m2", "Zed Mix", "", 9, false, "pl.pm-2"),
+			treePL("p.b", "Bravo", "", 1, false, ""),
+			treePL("p.m1", "Alpha Mix", "", 4, false, "pl.pm-1"),
+			treePL("p.m3", "Beta Mix", "", 4, false, "pl.pm-3"),
+		}}
+		if got := names(sidebarPlaylists(tree, nil).Apple); got != "Alpha Mix,Beta Mix,Zed Mix,Aardvark,Bravo" {
+			t.Errorf("apple %q", got)
+		}
+	})
 	t.Run("pinned is in no section", func(t *testing.T) {
 		s := sidebarPlaylists(library, set("p.fav", "p.zed", "p.own", "p.tempo"))
-		if got := names(s.MadeForYou); got != "New Music Mix" {
-			t.Errorf("made for you %q", got)
-		}
-		if got := names(s.Apple); got != "Alt Rock" {
+		if got := names(s.Apple); got != "New Music Mix,Alt Rock" {
 			t.Errorf("apple %q", got)
 		}
 		if got := outline(s.Own, true); got != "Running+2[]" {
@@ -247,16 +253,16 @@ func TestSidebarPlaylists(t *testing.T) {
 		}
 	})
 	t.Run("unpinned is back", func(t *testing.T) {
-		if got := names(sidebarPlaylists(library, set("p.fav")).MadeForYou); got != "New Music Mix" {
+		if got := names(sidebarPlaylists(library, set("p.fav")).Apple); got != "New Music Mix,Alt Rock,Zen" {
 			t.Errorf("pinned: %q", got)
 		}
-		if got := names(sidebarPlaylists(library, set()).MadeForYou); got != "New Music Mix,Favourites Mix" {
+		if got := names(sidebarPlaylists(library, set()).Apple); got != "New Music Mix,Favourites Mix,Alt Rock,Zen" {
 			t.Errorf("unpinned: %q", got)
 		}
 	})
 	t.Run("empty sections", func(t *testing.T) {
 		s := sidebarPlaylists(services.PlaylistTree{Playlists: []services.TreePlaylist{ownPL("p.own", "Mine", "", 0)}}, nil)
-		if len(s.MadeForYou) != 0 || len(s.Apple) != 0 || outline(s.Own, true) != "Mine" {
+		if len(s.Apple) != 0 || outline(s.Own, true) != "Mine" {
 			t.Errorf("got %+v", s)
 		}
 	})
@@ -319,4 +325,28 @@ func TestAddTargets(t *testing.T) {
 			t.Errorf("got %v %v", recent, groups)
 		}
 	})
+}
+
+// The personal-mix test stands on its own: it does not say where the
+// sidebar lists a playlist, and it does not read CanEdit.
+func TestIsPersonalMix(t *testing.T) {
+	for _, c := range []struct {
+		name      string
+		catalogID string
+		canEdit   bool
+		want      bool
+	}{
+		{"personal mix", "pl.pm-4c1f", false, true},
+		{"personal mix the user can edit", "pl.pm-4c1f", true, true},
+		{"editorial", "pl.f4d106fe", false, false},
+		{"Replay is not a mix", "pl.rp-1", false, false},
+		{"no catalogue ID", "", false, false},
+		{"own", "", true, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := isPersonalMix(services.Playlist{CatalogID: c.catalogID, CanEdit: c.canEdit}); got != c.want {
+				t.Errorf("got %v, want %v", got, c.want)
+			}
+		})
+	}
 }

@@ -63,3 +63,33 @@ func TestWebViewPreferencesAreDeviceLocal(t *testing.T) {
 		t.Errorf("import changed them: %+v %+v", got.Sidebar, got.LyricsView)
 	}
 }
+
+// Made for you and Apple Music became one section: a user who folded either
+// finds the merged one folded, and the old ID does not outlive the next save.
+func TestSidebarFoldedMadeForYouBecomesAppleMusic(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"made for you folded", []string{"made-for-you"}, []string{"apple-music"}},
+		{"apple music folded", []string{"apple-music"}, []string{"apple-music"}},
+		{"both folded", []string{"made-for-you", "apple-music"}, []string{"apple-music"}},
+		{"neither", nil, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := Sidebar{FoldedSections: tc.in}
+			got := in.normalized().FoldedSections
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+			if !slices.Equal(in.FoldedSections, tc.in) {
+				t.Errorf("the input changed: %q", in.FoldedSections)
+			}
+		})
+	}
+	s := Settings{Sidebar: Sidebar{FoldedSections: []string{"made-for-you"}}}
+	if got := s.Normalized().Sidebar.FoldedSections; !slices.Equal(got, []string{SidebarAppleSection}) {
+		t.Errorf("settings normalised to %q", got)
+	}
+}

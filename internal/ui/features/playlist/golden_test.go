@@ -125,7 +125,7 @@ func TestPlaylistSidebarGolden(t *testing.T) {
 			goldenFont(t)
 			e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.own"))
 			theme.SetMode(tc.mode)
-			e.shows("Pinned", "Made for You", "Apple Music", "Playlists", "Running")
+			e.shows("Pinned", "Apple Music", "Playlists", "Running")
 			// An open folder: its contents hang from a hairline.
 			if err := e.tt.Click("Running"); err != nil {
 				t.Fatal(err)
