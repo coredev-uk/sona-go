@@ -370,6 +370,7 @@ still need the hand check for what the VM can't show.
 | D13 | Sleep inhibit | While playing, the session does not suspend on idle (`systemd-inhibit --list` shows Sona); paused, it does | Manual |
 | D14 | Restart persistence | Quit and relaunch: signed in, library from cache before any network, last route/queue restored per settings | Part: the saved queue is restored after each start. The rest manual |
 | D15 | Uninstall | Removing the package leaves no launcher entry; user data stays in XDG dirs | Manual (NixOS installs declaratively) |
+| D19 | AppArmor profile on Ubuntu | On Ubuntu 24.04 (default `kernel.apparmor_restrict_unprivileged_userns=1`): after `sudo apt install ./sona_*.deb`, `sudo aa-status` lists `sona`; Settings → Diagnostics → Host sandbox says "Sandboxed", not "Not fully sandboxed". `sudo apt remove sona` unloads it (`aa-status` no longer lists it) and `sudo apt purge sona` deletes `/etc/apparmor.d/sona`. The AppImage on the same machine shows "Not fully sandboxed" with the sockets sentence | Manual (the VM tests are NixOS) |
 
 ## 3. Results
 

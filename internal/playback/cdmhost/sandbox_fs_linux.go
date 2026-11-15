@@ -318,6 +318,10 @@ func readOnly(dir string) error {
 	return unix.Mount("", dir, "", flags, "")
 }
 
+// landlockUnixABI is the first Landlock ABI that handles connect() to path
+// Unix sockets (LANDLOCK_ACCESS_FS_RESOLVE_UNIX).
+const landlockUnixABI = 9
+
 // llWrite are the Landlock filesystem rights that write, from ABI 1; each
 // handled right is denied unless a rule allows it.
 const llWrite = unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_REMOVE_DIR | unix.LANDLOCK_ACCESS_FS_REMOVE_FILE |
@@ -350,7 +354,7 @@ func restrictLandlock(privateTmp bool) (int, error) {
 	if abi >= 6 {
 		attr.Scoped = unix.LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET | unix.LANDLOCK_SCOPE_SIGNAL
 	}
-	if abi >= 9 {
+	if abi >= landlockUnixABI {
 		attr.Handled_access_fs |= unix.LANDLOCK_ACCESS_FS_RESOLVE_UNIX
 	}
 	if abi >= 10 {
@@ -388,7 +392,7 @@ func restrictLandlock(privateTmp bool) (int, error) {
 			return 0, err
 		}
 	}
-	if abi >= 9 {
+	if abi >= landlockUnixABI {
 		for _, s := range layout().sockets {
 			if err := allow(s, unix.LANDLOCK_ACCESS_FS_RESOLVE_UNIX); err != nil {
 				return 0, err

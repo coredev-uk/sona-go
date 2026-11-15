@@ -97,6 +97,8 @@ Inside the tagged packages, what differs is in `_linux`, `_darwin` and `_windows
 | Audio sink | `pipewiresink` | `osxaudiosink` | `wasapi2sink` |
 | CDM library | `libwidevinecdm.so` | `libwidevinecdm.dylib` | `widevinecdm.dll` |
 
+On Linux, the `.deb` and `.rpm` (not the Arch package or the AppImage) install an AppArmor profile, `/etc/apparmor.d/sona` (`build/linux/apparmor/sona`), that lets `/usr/bin/sona` create the user namespaces the playback host's sandbox needs; Ubuntu 23.10 and later refuse them otherwise (`kernel.apparmor_restrict_unprivileged_userns=1`). `postinstall.sh` loads it and `preremove.sh` unloads it. An AppImage cannot carry a profile (its mount point changes), so on Ubuntu its playback host lacks the private filesystem view and, below Landlock ABI 9, can reach the session bus: Diagnostics says so ([security-review.md](security-review.md#f11-on-ubuntu-the-cdm-host-child-could-reach-the-session-bus)).
+
 ## Type-check and cross-build
 
 ### Type-check every package
