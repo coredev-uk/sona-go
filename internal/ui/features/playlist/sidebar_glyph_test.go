@@ -1,7 +1,6 @@
 package playlist
 
 import (
-	"fmt"
 	"image"
 	"math"
 	"strings"
@@ -12,12 +11,28 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
-	"github.com/coredev-uk/sona-go/internal/ui/uitest/overlay"
 )
 
 func fixtureArt(n int) services.Art {
 	u := strings.NewReplacer("{w}", "96", "{h}", "96").Replace(fixture.Template(n))
 	return services.Art{Small: u, Medium: u, Large: u}
+}
+
+// coverBounds is the box, in DIPs, of the cover's saturated pixels near r:
+// where the artwork really is, found in the picture and not in the layout.
+func coverBounds(im *image.RGBA, sc float32, r ui.Rect) ui.Rect {
+	x0, y0 := int((r.X-6)*sc), int((r.Y-6)*sc)
+	x1, y1 := int((r.X+r.W+6)*sc), int((r.Y+r.H+6)*sc)
+	minx, miny, maxx, maxy := math.MaxInt, math.MaxInt, -1, -1
+	for y := y0; y < y1; y++ {
+		for x := x0; x < x1; x++ {
+			c := im.RGBAAt(x, y)
+			if max(c.R, c.G, c.B)-min(c.R, c.G, c.B) > 60 {
+				minx, miny, maxx, maxy = min(minx, x), min(miny, y), max(maxx, x), max(maxy, y)
+			}
+		}
+	}
+	return ui.Rect{X: float32(minx) / sc, Y: float32(miny) / sc, W: float32(maxx+1-minx) / sc, H: float32(maxy+1-miny) / sc}
 }
 
 // glyphCentres are the middle of the dark triangle's box and its centre of
@@ -74,8 +89,11 @@ func TestShuffleButtonLiesOnTheArtworkAndItsGlyphIsCentred(t *testing.T) {
 			if !ok {
 				t.Fatalf("no button for %s", name)
 			}
-			overlay.OnArtwork(t, fmt.Sprintf("scale %v, %s: the shuffle button", sc, name), rest, sc, btn)
-			overlay.WholePixels(t, fmt.Sprintf("scale %v, %s: the shuffle button", sc, name), btn, sc)
+			art := coverBounds(rest, sc, btn)
+			if art.W == 0 || math.Abs(float64(art.X-btn.X)) > 0.01 || math.Abs(float64(art.Y-btn.Y)) > 0.01 ||
+				art.W != btn.W || art.H != btn.H {
+				t.Errorf("scale %v, %s: button %v, artwork %v", sc, name, btn, art)
+			}
 
 			e.hover(name)
 			e.tt.Settle()
