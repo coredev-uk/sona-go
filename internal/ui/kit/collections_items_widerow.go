@@ -208,9 +208,7 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 		})
 		if canPlay {
 			play := PlayButton(c.Key("play"), i18n.T("Play {name}", "name", it.Name), 40).Absolute().Left(12).Top(fh - 12 - 40)
-			if !hot && !play.Focused() {
-				play.Opacity(0)
-			}
+			Fade(play, hot || play.Focused())
 			if play.Clicked() {
 				ctx.Players.PlayItem(it)
 			}
