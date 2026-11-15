@@ -5724,6 +5724,14 @@ msgstr ""
 msgid "Show fewer"
 msgstr ""
 
+#: internal/ui/features/discover/front.go
+msgid "Show in lead"
+msgstr ""
+
+#: internal/ui/features/discover/front.go
+msgid "Show in lead: {name}"
+msgstr ""
+
 #: internal/ui/features/song/page.go
 #: internal/ui/kit/controls_states.go
 msgid "Show less"

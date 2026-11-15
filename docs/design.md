@@ -319,10 +319,10 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
 | Home local shelves (Recently added, Your playlists) | album, playlist | opens | opens | none | none ([#445]) | link |
 | Home "See all" | | opens the shelf's page | | | | link |
-| Discover lead card | album, playlist, station, video | opens | opens | none | disc | link |
+| Discover lead card, queue tiles | album, playlist, station, video | opens | opens | none | disc | link |
 |  | artist, curator | opens | opens | none | none ([#433]) | link |
 |  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
-| Discover strip cards | any | makes it the lead, does not open ([#442]) | same | same | disc where playable | button |
+| Discover "Show in lead" (on a queue tile) | any | makes it the lead, the keyboard's focus going with it | same | same | | button |
 | Discover bands and room tiles | as the cover tile | | | | | |
 | Discover Top songs, Charts | song | selects | plays from the row | none | number-column button | row; "Play Top songs" queues from the first, "See all" opens `/charts/songs` |
 | Radio board lane | station with a page | opens | opens | none | disc | link |
@@ -432,7 +432,6 @@ Argued departures that stay (not issues):
 | [#437] | unrouted pages: underline, navigation, dead artist slip |
 | [#438] | modifier-click selects on some, opens on others |
 | [#440] | a double-click acts twice |
-| [#442] | Discover's strip card makes itself the lead |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
 | [#445] | local shelves, library grids and release rows have no Play |
 | [#446] | station rows: pause, menu, link tile Play |
@@ -451,7 +450,6 @@ Argued departures that stay (not issues):
 [#437]: https://github.com/coredev-uk/sona-go/issues/437
 [#438]: https://github.com/coredev-uk/sona-go/issues/438
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
-[#442]: https://github.com/coredev-uk/sona-go/issues/442
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
 [#445]: https://github.com/coredev-uk/sona-go/issues/445
 [#446]: https://github.com/coredev-uk/sona-go/issues/446
@@ -708,19 +706,20 @@ The setup is a modal over the live app, not a page of its own: the sidebar, top 
 
 ## Discover
 
-Discover (`/new`) sets Apple's editorial front page as Sona's own issue: a masthead, the front page (the featured cards as one large lead with a strip of the rest), the contents, then the shelves grouped by what they hold, each band with its name in a margin. It is the one long page in the app (twenty-odd shelves), so it gets a lead to start from and a way to reach any band without scrolling or tabbing through the rest. Charts and the room, curator, multiroom and grouping pages share its masthead.
+Discover (`/new`) sets Apple's editorial front page as Sona's own issue: a masthead, the front page (the featured cards as one large lead with a queue of them beside it), the contents, then the shelves grouped by what they hold, each band with its name in a margin. It is the one long page in the app (twenty-odd shelves), so it gets a lead to start from and a way to reach any band without scrolling or tabbing through the rest. Charts and the room, curator, multiroom and grouping pages share its masthead.
 
 ```text
 ┌──────────────────────────────────────────────────────────┐
 │ Discover  Updated 12 min ago                  (controls) │
-│ ┌──────────────────────────────────────────────────────┐ │
-│ │                                                      │ │
-│ │        lead: the column's width, 1060:608            │ │
-│ │                                                      │ │
-│ └──────────────────────────────────────────────────────┘ │
-│ Lead title                                  ⏸  1 of 4 ‹ › │
-│ Caption · curator                                        │
-│ ▭ Title    ▭ Title    ▭ Title    ▭ Title   (the strip)   │
+│ ┌────────────────────────────────┐  ┌────────┐ ┌────────┐ │
+│ │                                │  │ (lead) │ │        │ │
+│ │   lead: 60% of the column      │  └────────┘ └────────┘ │
+│ │                                │  Title      Title      │
+│ └────────────────────────────────┘  Byline     Byline     │
+│ ━━━━━━━━ ━━━━──── ──────── ────────  ┌────────┐ ┌────────┐ │
+│ Lead title              ⏸  ‹ 2 of 6 › │        │ │        │ │
+│ Apple's one line                     └────────┘ └────────┘ │
+│ Badge · curator                      Title      Title      │
 │                                                          │
 │ On this page                                             │
 │ [Songs and albums 3]  [Playlists 2]  [Radio 1]           │
@@ -734,13 +733,16 @@ Discover (`/new`) sets Apple's editorial front page as Sona's own issue: a masth
 
 - **Masthead.** The page title at 32/36 (the display size) and, on its baseline 16px after it, the issue line at 13 muted (when the data was fetched, or the stale-copy sentence); the page's controls (Charts' Genre, a room's Order and Play) sit at the row's end, centred on it. In a narrow window the line wraps under the title rather than being cut. Loading: a bar holds the line's place.
 - **Front page.** One featured card is the lead, the first to start with.
-  - **The lead** is the whole width of the content column, in the hero card shape until that would be taller than 540px. From there the box keeps 540px and widens, towards the banner's own 4:1 and never past it (Apple crops the centre of the 4:1 subscriptionHero art to the box, where its title and subject are), so the lead spans any window without running a screen tall. The picture is requested at that exact box, with Apple's picture, a play button on hover and focus and the item's menu.
-  - **The caption** sits under it as a row: the title at 24/30, Apple's one line about the card at 14/20 in ink below it, the byline at 13 muted under that, and at the row's end the pager: the pause control, "1 of 4" and 28px chevrons.
+  - **The spread.** From 900px of content the lead and the queue share the row: the queue takes 40% of the column as two rows of two tiles, 16px apart across and 20px down, 24px from the lead, and the lead takes the rest. The lead's picture is as tall as makes the lead (picture, progress and caption) end with the queue's second row, kept between the banner's own 4:1 and the hero card's shape. Narrower, the lead takes the whole column (the hero card's shape until 540px or 45% of the visible height, wider from there, never past 4:1) and the queue is one row of four under it, 12px apart, two from 560px down.
+  - **The lead** shows Apple's picture centre-cropped to its box (requested at that exact box), with a play button on hover and focus and the item's menu.
+  - **The progress** sits 12px under the picture: a 3px segment a card across the lead's width, 4px apart. The segments before the lead are `--ink`, those after it `--line`; the lead's own fills with `--ink` over its `--line` as its interval runs, so the wait between slides is in view. While the rotation holds or is paused, and under reduced motion, the lead's segment is a whole `--ink-muted` mark of where it is. It moves in frames that only paint it (30 a second, no build and no layout), and it is drawn, not read: the pager's count says the same.
+  - **The caption** sits 12px under the progress as a row: the title at 24/30, Apple's one line about the card at 14/20 in ink below it, the byline at 13 muted under that, and at the row's end the pager: the pause control, then the previous chevron, "2 of 6" and the next chevron, 28px each.
     - What it says is what Apple's hero card says: Apple's badge, the name, the artist or curator, and its one line (on music.apple.com the line sits over the picture). The line is the card's own tagline on a card with its own art (320), else the content's short editorial note. The badge is folded into the byline ("Updated playlist · Apple Music Pop"), never set as a label over the title.
-    - The line's row is kept for a card without one, so the strip does not move as the lead rotates. Clipped, it shows whole as a tooltip, and the lead's opener is described by the line and the byline.
-  - **The strip**: under the caption the featured cards are a strip, four to a page in one row (two rows of two under 880px of content). Each card is 72px high with the item's 64px square cover, the title at 14/500 and the line at 13 muted, and a `--hover` fill at radius 6 on hover. The lead's card is on `--active` (described to assistive technology as the current one), the mark of what is selected, never amber. The strip reaches 8px past the lead's edges so that the covers and the text inside the cards line up with the lead's.
-  - **Art that is not square is never cropped to fill the square.** A wide picture, such as a station's 4:1 key art or the banner of a card that has no cover, is shown at the hero card's shape across the slot's width, Apple's centre crop of it as the lead shows it, in miniature. A tall one fits the slot's whole height. The picture is decoded at the box it shows in, centred in the 64px slot.
-  - **Choosing** a card makes it the lead (the card's page opens from the lead's title). The strip turns to the page the lead is on whenever the lead changes. The pager turns the strip only (until the lead changes) and wraps round, so a focused chevron is never disabled under the keyboard.
+    - The line's row is kept for a card without one, so nothing under the lead moves as it rotates. Clipped, it shows whole as a tooltip, and the lead's opener is described by the line and the byline.
+    - The chevrons bring the card before or after into the lead, wrapping round, so a focused chevron is never disabled under the keyboard.
+  - **The queue** is a still set of four featured cards in Apple's order, the lead among them. A tile is the card's picture in the hero card's shape (Apple's centre crop, as the lead shows it, in miniature, or the cover whole on the item's colour for a card with no banner), radius 4, then 8px down the title at 14/500 (underlined on hover) and the byline at 13 muted.
+    - **The tiles do not move as the lead rotates.** The lead's tile is marked where it stands: an `--active` fill reaching 6px past it at radius 6 (the mark of what is selected, never amber; described to assistive technology as the current one), with the lead's progress as a 2px line along its bottom. As the lead moves on, the mark moves from tile to tile (its fill fades over 400ms). Only when the lead leaves the four does the set move on, to start at the lead (wrapping round), as one 400ms cross-fade of the whole queue.
+    - A tile opens its card, as the lead does and as every other tile does ([#442]). On hover and focus it shows a 32px play disc at the picture's bottom left and, but on the lead's tile, a "Show in lead" button at its top right ("Show in lead: {name}" to assistive technology); the button makes the card the lead, and when the keyboard pressed it the focus goes on to the lead's title, since the button goes.
   - Play controls appear on hover and focus as on every tile; a right-click, Shift+F10 or the Menu key opens the item's menu.
   - What the front page shows is left out of the cover shelves below it (a shelf it would empty stays whole), so one album isn't met four times on the way down.
 - **The lead rotates.** Every 7 s the lead gives way to the next featured card, wrapping round.
@@ -748,15 +750,15 @@ Discover (`/new`) sets Apple's editorial front page as Sona's own issue: a masth
   - The next card's picture is fetched and decoded while the lead is read, so it fades in as a picture. The interval restarts whenever the lead changes, however it did, so a chosen card is read for as long as any.
   - **It holds** (and starts a whole interval after) while the pointer is over the hero or the keyboard has put focus anywhere in it, while the window is hidden or unfocused, and while the hero is scrolled off screen or covered (by Now Playing, lyrics or a modal). Focus a click left on a control (the pause button or the pager) does not hold: the pointer has gone and nothing would end the hold.
   - A tick that finds a menu open, or a video playing in the lead (motion artwork is left to play), waits a whole interval more.
-  - Under Reduce effects or the desktop's reduced motion it does not run: the lead is still, the pause control is not shown, and the strip is the way to change the lead.
-- **Pause and play** (WCAG 2.2.2): a 28px ghost button at the start of the pager, with the pause glyph while the lead rotates and the play glyph while it is paused, named "Pause featured rotation" or "Play featured rotation". It is in the Tab order after the lead's own controls and before the strip, and reflects only the user's choice, not the temporary holds. Pressing it, and turning the strip's page, are said once through one polite announcement ("Rotation paused", "2 of 4"); the lead's own changes are never announced, and the lead's outgoing card is an inert copy outside the accessibility tree while it fades.
+  - Under Reduce effects or the desktop's reduced motion it does not run: the lead is still, the pause control is not shown, and the queue's "Show in lead" and the chevrons are the way to change the lead.
+- **Pause and play** (WCAG 2.2.2): a 28px ghost button at the start of the pager, with the pause glyph while the lead rotates and the play glyph while it is paused, named "Pause featured rotation" or "Play featured rotation". It is in the Tab order after the lead's own controls and before the queue, and reflects only the user's choice, not the temporary holds. Pressing it, and the chevrons, are said once through one polite announcement ("Rotation paused", "2 of 6"); the lead's own changes are never announced, and the lead's outgoing card is an inert copy outside the accessibility tree while it fades.
 - **Contents** ("On this page"). Under its name (16/600) a row of columns, wrapping when the width runs out, one 216px column for each band: its 32px button on `--hover` at radius 6 (`--active` on hover), the band's name at 14/500 in ink and the number of its titled shelves at 13 muted (described as "3 shelves"), over a button for each titled shelf at 13 muted (ink and underlined while hovered). Every button jumps to its place (no smooth scroll) and moves focus there, so the next Tab is that band's or shelf's first control: any shelf is one jump away. A page of one band has no contents.
 - **Bands.** The shelves are grouped by what they hold, in this order: Songs and albums, Playlists, Radio, Videos, Browse (category bricks and links).
   - Apple's order holds inside each band. A shelf of mixed items goes by most of them (the first item breaks a tie), and a paragraph stays with the shelf after it.
   - Each band opens with one 1px `--line` across the column, 56px below the band before.
   - From a page 1100px wide the band's name stands in a 200px margin column at the left, 24px under the line, at 24/30 (it wraps in the margin). The shelves fill the column beside it, 32px away, their first title set 6px lower so the two baselines meet. Narrower, the name stands above the shelves, 24px under the line.
   - There is no numbering: the order of the bands is not information. Inside, shelves keep their usual 40px pitch.
-- **Loading.** The masthead's line holds a bar; the front page's own frame (the lead's block and caption bars, the strip's covers and lines at their card height), the contents' buttons and the first band's line and heading (in the margin at the wide size) stand where they will land, then bars for the shelves.
+- **Loading.** The masthead's line holds a bar; the front page's own frame (the lead's block, its progress and caption bars, the queue's pictures and lines at their tile size), the contents' buttons and the first band's line and heading (in the margin at the wide size) stand where they will land, then bars for the shelves.
 
 ## Charts
 

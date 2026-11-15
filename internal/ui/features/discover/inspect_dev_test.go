@@ -23,7 +23,7 @@ func TestFrontCardMenuOffersInspectInADevelopmentBuild(t *testing.T) {
 	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
 	r.tt.Until("the front page", r.tt.Shows("Featured"))
 	r.d.front.paused = true
-	x, y := r.rowCentre(1)
+	x, y := r.tileCentre("List 2")
 	r.tt.RightClickAt(x, y)
 	r.tt.Drain()
 	if !r.d.front.menus.IsOpen() || !r.tt.HasText("Inspect") {

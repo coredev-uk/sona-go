@@ -5724,6 +5724,14 @@ msgstr "Show earlier days"
 msgid "Show fewer"
 msgstr "Show fewer"
 
+#: internal/ui/features/discover/front.go
+msgid "Show in lead"
+msgstr "Show in lead"
+
+#: internal/ui/features/discover/front.go
+msgid "Show in lead: {name}"
+msgstr "Show in lead: {name}"
+
 #: internal/ui/features/song/page.go
 #: internal/ui/kit/controls_states.go
 msgid "Show less"
