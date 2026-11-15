@@ -387,6 +387,7 @@ func TestParseAppleLink(t *testing.T) {
 func TestSentenceCase(t *testing.T) {
 	for in, want := range map[string]string{
 		"NEW ALBUM": "New album", "ONLY ON APPLE MUSIC": "Only on Apple Music", "NEW DJ MIX": "New DJ mix",
+		"UPCOMING LIVESTREAM": "Upcoming livestream", "UPDATED PLAYLIST": "Updated playlist", "WATCH NOW": "Watch now",
 		"Made for You": "Made for You", "": "",
 		// Names keep their case, whatever it is.
 		"HIS MAJESTY THE KING ON ROCKET HOUR": "HIS MAJESTY THE KING ON ROCKET HOUR",

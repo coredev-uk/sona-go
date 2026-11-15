@@ -638,6 +638,8 @@ var badgeWords = map[string]bool{
 	"the": true, "this": true, "to": true, "top": true, "trending": true, "uk": true, "updated": true,
 	"us": true, "video": true, "videos": true, "watch": true, "we": true, "week": true, "weekly": true,
 	"with": true, "you": true,
+	"documentary": true, "festival": true, "film": true, "livestream": true, "original": true, "originals": true,
+	"podcast": true, "podcasts": true, "trailer": true, "upcoming": true,
 }
 
 // sentenceCase turns Apple's generic upper-case badges ("NEW ALBUM", "ONLY
