@@ -150,7 +150,7 @@ The shell lives in `internal/ui/app` and `services/desktop.go`.
 
 Integrations (`services/integrations.go`) start after first paint:
 
-- One track-change notification, replaced per track, over `org.freedesktop.Notifications`.
+- One track-change notification, replaced per track: over `org.freedesktop.Notifications` on Linux, MyGo's notifications on macOS and Windows (§9).
 - A logind `sleep` inhibitor (portal `Inhibit` fallback), held only while playing.
 - Opt-in Discord presence over the local IPC socket, with Apple's public artwork URL, never `/art/` or tokens.
 - Last.fm and ListenBrainz scrobbling (`internal/scrobble`).
@@ -915,6 +915,14 @@ The CDM host child inherits all of it.
 - Google's CDM is built with the MSVC C++ ABI, which cgo's MinGW cannot speak. The shim (`internal/playback/widevine/shim.cc`) is therefore built with MSVC into `sona_cdm_shim.dll` (`build/windows/build-shim.sh`, static CRT) beside `sona.exe`. `shim_windows.c` gives cgo the same C API as thunks over its exports.
 - Apple's licence server licenses this host (checked on windows-2025 with `windows-playback.yml`, weekly and on dispatch).
 - The UI, media keys and Now Playing run, and so does motion artwork, played by Media Foundation through MyGo's `ui/video` in the UI process with no GStreamer involved (§8, "Motion artwork"). The windows job of `ci.yml` plays a generated clip through it, since a package has nothing of it to smoke-test.
+
+#### Desktop integrations
+
+These are MyGo's (`cmd/sona/integrations_windows.go`). Where a type is the same as macOS's, the file is shared with a `darwin || windows` build tag.
+
+| Integration | How |
+| --- | --- |
+| Track and reminder notifications | Notification-area balloons, which Windows 10 and later show as toasts (`notify_desktop.go`): a title, a text and a click that brings Sona forward, no artwork and no Next button. They come from the tray icon, or a temporary icon with the application's when there is no tray. |
 
 #### Uninstalling
 

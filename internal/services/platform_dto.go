@@ -37,7 +37,8 @@ type Capabilities struct {
 	// to run Sona.app. False everywhere else.
 	NeedsAppBundle bool `json:"needsAppBundle"`
 	// PlainNotifications: the track notification is the title and text and
-	// a click that opens Sona, with no artwork and no Next button (macOS).
+	// a click that opens Sona, with no artwork and no Next button (macOS,
+	// Windows).
 	PlainNotifications bool `json:"plainNotifications"`
 	// CLI: `sona <command>` reaches the running instance, and a second
 	// launch hands its links to it.

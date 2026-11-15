@@ -20,7 +20,7 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | When the window is closed | Keeps playing in the background or quits Sona. In the background, Sona stays in the system tray. | Without a tray icon Sona quits. |
 | Title bar | Chooses Automatic, Sona's title bar with or without window buttons, or the desktop's. Applies the next time Sona starts. | _Linux_ _Windows_ |
 | Window size | Shows the size Sona opens at. Reset size puts it back to the default. | |
-| Track notifications | Shows the song and artist, with artwork and a Next button, when a track starts. Not shown while Sona's window is in front. | _macOS_ shows the song and artist only, and needs Sona.app. _Linux_ needs a notification service. Not on _Windows_ yet. |
+| Track notifications | Shows the song and artist, with artwork and a Next button, when a track starts. Not shown while Sona's window is in front. | _macOS_ and _Windows_ show the song and artist only, and a click opens Sona. _macOS_ needs Sona.app. _Linux_ needs a notification service. |
 | Stay awake while playing | Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. | Not on _Windows_ yet. On _Linux_ needs logind or the desktop portal. |
 
 ### Updates
