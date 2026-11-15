@@ -10,6 +10,7 @@ A native Apple Music client for Linux, macOS and Windows.
 
 [Download](https://github.com/coredev-uk/sona-go/releases) •
 [Documentation](https://sona.coredev.uk) •
+[Discussions](https://github.com/coredev-uk/sona-go/discussions) •
 [Release notes](https://github.com/coredev-uk/sona-go/releases/latest)
 
 <br clear="left">
