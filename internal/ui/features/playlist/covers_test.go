@@ -36,7 +36,7 @@ func TestCoverDialogNoticeIsExposedToAssistiveTech(t *testing.T) {
 	if _, ok := tr.Find(ui.RoleStatus, coverNotice); !ok {
 		t.Fatalf("no status says %q", coverNotice)
 	}
-	dlg, ok := tr.Find(ui.RoleDialog, "Playlist cover")
+	dlg, ok := tr.Find(ui.RoleDialog, "Playlist Cover")
 	if !ok || dlg.Description != coverNotice {
 		t.Fatalf("dialog = %+v, want it described by the notice", dlg)
 	}
