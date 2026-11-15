@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 
@@ -77,9 +76,9 @@ type field struct {
 	// and picking a result blur it).
 	focus      int
 	wasFocused bool
-	// selectReq selects the field's text once the focus the shortcut asked
-	// for has arrived.
-	selectReq bool
+	// input is the text input's handle: the search.focus shortcut selects
+	// its query through it (Handle.SelectAll), so typing replaces it.
+	input ui.Handle
 	// blur counts the builds until the field gives up the focus: picking a
 	// result blurs it, but the list's overlay hands the focus back to the
 	// field as it goes, so the blur waits for the overlay to be gone (a
@@ -113,7 +112,7 @@ func newField(s *search) *field { return &field{s: s, active: -1} }
 // its text (field.ts's focusSearchField).
 func (f *field) focusAndSelect() {
 	f.focus = 1
-	f.selectReq = true
+	f.input.SelectAll()
 }
 
 // takeResultsFocus reports, in the frame Down was pressed with the field's
@@ -159,7 +158,7 @@ func (f *field) build(c *ui.Context) {
 		in = ui.TextInputBase(c.Key("input"), &f.text).Role(ui.RoleComboBox).Grow(1).MinWidth(0).
 			FontSize(t.Size).FixedLineHeight(t.LineHeight).
 			Placeholder(placeholder).PlaceholderColor(theme.C("ink-faint")).TextColor(theme.C("ink")).
-			Label(i18n.T("Search")).FocusRing(false).FocusBind(&f.focus, 1).
+			Label(i18n.T("Search")).FocusRing(false).FocusBind(&f.focus, 1).Bind(&f.input).
 			OnTextKey(func(k ui.TextKey) bool {
 				if k.Key == ui.KeyTab {
 					f.close() // Tab closes the list and the focus moves on
@@ -182,10 +181,6 @@ func (f *field) build(c *ui.Context) {
 	f.wasFocused = focused
 	if in.Clicked() {
 		f.open = true
-	}
-	if f.selectReq && focused {
-		in.SetTextSelection(0, utf8.RuneCountInString(f.text))
-		f.selectReq = false
 	}
 
 	typed := strings.TrimSpace(f.text)
