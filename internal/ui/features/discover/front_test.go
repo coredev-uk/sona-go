@@ -897,3 +897,39 @@ func abs(n int) int {
 	}
 	return n
 }
+
+// The lead's caption carries what Apple's hero card does: the name, Apple's
+// one line about the card (Description) and the byline. The line's row is
+// kept for a card without one, so the strip under it does not move as the
+// lead rotates.
+func TestFrontLeadShowsApplesLineAndKeepsItsRowForACardWithout(t *testing.T) {
+	api := &fakeAPI{}
+	r := newRig(t, "/new", withAPI(api), wideWindow())
+	cards := heroCards(5)
+	cards[0].Description = "Remi Wolf drowns her sorrows in “Champagne”."
+	cards[0].Caption, cards[0].Subtitle = "Updated playlist", "Apple Music Pop"
+	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
+	r.tt.Until("the front page", r.tt.Shows("Featured", "Remi Wolf drowns her sorrows in “Champagne”.", "Updated playlist · Apple Music Pop"))
+	r.d.front.paused = true
+	r.tt.Drain()
+	lead, ok := access.Read(t, r.tt.Tester).Find(ui.RoleLink, "Card 1")
+	if !ok || !strings.HasPrefix(lead.Description, "Remi Wolf drowns her sorrows") {
+		t.Errorf("the lead's description %q does not start with Apple's line", lead.Description)
+	}
+	// Card 3's strip card: it never leads here, so its title is only in the
+	// strip.
+	strip := func() float32 {
+		_, y := r.rowCentre(2)
+		return y
+	}
+	before := strip()
+	r.d.front.choose(1) // a card with no line
+	r.tt.Drain()
+	r.tt.Drain()
+	if r.tt.HasText("Remi Wolf drowns her sorrows in “Champagne”.") {
+		t.Error("the line of the card before stayed")
+	}
+	if after := strip(); after != before {
+		t.Errorf("the strip moved from y=%v to y=%v when the lead had no line", before, after)
+	}
+}

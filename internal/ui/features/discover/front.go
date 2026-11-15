@@ -2,6 +2,7 @@ package discover
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 
@@ -255,7 +256,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
 	artH := lay.artHeight()
 	pager := pg.reserve()
-	captionTop := artH + leadCaption - 48 // the caption's first line
+	captionTop := artH + leadCaptionGap // the caption's first line
 
 	wrap := ui.Column(c.Key("wrap")).AlignItems(ui.Start).Width(lay.lead)
 	hot := wrap.Hovered() || wrap.FocusWithin()
@@ -266,8 +267,9 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			if link {
 				card.Role(ui.RoleLink)
 			}
-			if sub := kit.ItemSubtitle(it); sub != "" {
-				card.Description(sub) // inside the opener, the line is its description
+			// Inside the opener, Apple's line and the byline are its description.
+			if desc := leadDescription(it); desc != "" {
+				card.Description(desc)
 			}
 		} else {
 			card = ui.Column(c.Key("card")).AlignItems(ui.Start).Label(name)
@@ -289,11 +291,18 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 					})
 				}
 			})
-			ui.Row(c.Key("caption")).Width(lay.lead).Margin(12, 0, 0, 0).Children(func() {
+			// Headline, Apple's one line about the card, then the byline
+			// (badge · artist or curator). The line's row is kept when a card
+			// has none, so the strip does not jump as the lead rotates.
+			ui.Row(c.Key("caption")).Width(lay.lead).Margin(leadCaptionGap, 0, 0, 0).Children(func() {
 				ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
 					t := theme.Text(c, name, "title").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
 					if wrap.Hovered() && open != nil {
 						t.Underline()
+					}
+					line := theme.Text(c, it.Description, "body").TextColor(theme.C("ink")).SingleLine().Height(leadLine).Margin(2, 0, 0, 0).TextAlign(ui.Start)
+					if it.Description != "" {
+						line.Tooltip(it.Description) // clipped: the whole line
 					}
 					theme.Text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Height(18).TextAlign(ui.Start)
 				})
@@ -323,6 +332,18 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			open()
 		}
 	})
+}
+
+// leadDescription is what the lead's opener is described by for assistive
+// technology: Apple's line about the card, then its byline.
+func leadDescription(it services.Item) string {
+	var parts []string
+	for _, s := range []string{it.Description, kit.ItemSubtitle(it)} {
+		if s = strings.TrimSpace(s); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, ". ")
 }
 
 // strip is the featured cards under the lead: one page of them, in a row of
@@ -483,7 +504,8 @@ func (d *discover) frontSkeleton(c *ui.Context, m *kit.WidthTracker) {
 		}
 		ui.Column(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
 			ui.Box(c).Size(lay.lead, lay.artHeight()).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
-			ui.Row(c).Height(30).Margin(12, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/3, 20) })
+			ui.Row(c).Height(30).Margin(leadCaptionGap, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/3, 20) })
+			ui.Row(c).Height(leadLine).Margin(2, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/2, 14) })
 			ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/4, 12) })
 		})
 		ui.Column(c.Key("list")).Width(lay.lead+16).Margin(20, -8, 0, -8).Gap(stripGap / 2).Children(func() {

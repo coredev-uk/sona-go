@@ -2,6 +2,7 @@ package kit
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 
@@ -178,14 +179,30 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 					ui.Box(c.Key("more-room")).Size(24, 1).Shrink(0) // where the more button sits
 				}
 			})
-			if sub := ItemSubtitle(it); sub != "" {
-				sec := tk.Type["sub"]
+			sub := ItemSubtitle(it)
+			sec := tk.Type["sub"]
+			switch {
+			case it.Description != "":
+				// A hero card: the byline on one line, then Apple's line
+				// about the card in ink, as on music.apple.com.
+				parts := []string{}
+				if sub != "" {
+					ui.Text(c, sub).FontSize(sec.Size).FixedLineHeight(sec.LineHeight).TextColor(theme.C("ink-muted")).
+						SingleLine().TextAlign(ui.Start)
+					parts = append(parts, sub)
+				}
+				ui.Text(c, it.Description).FontSize(sec.Size).FixedLineHeight(sec.LineHeight).TextColor(theme.C("ink")).
+					MaxLines(2).TextAlign(ui.Start).Margin(2, 0, 0, 0)
+				// Inside the opener, read as one piece named by its label:
+				// the lines are its description.
+				card.Description(strings.Join(append(parts, it.Description), ". "))
+			case sub != "":
 				ui.Text(c, sub).FontSize(sec.Size).FixedLineHeight(sec.LineHeight).TextColor(theme.C("ink-muted")).
 					MaxLines(2).TextAlign(ui.Start)
 				// The subtitle is drawn inside the opener, which is read as
 				// one piece named by its label: it is its description.
 				card.Description(sub)
-			} else {
+			default:
 				ui.Box(c).Height(18)
 			}
 		})

@@ -226,6 +226,25 @@ func TestWideCardsMoreButtonAndSubtitleAreReadBesideTheLink(t *testing.T) {
 	}
 }
 
+func TestWideCardShowsAppleLineUnderTheBylineAndReadsBoth(t *testing.T) {
+	it := wideItem("1", "", "")
+	it.Caption, it.Subtitle = "Upcoming livestream", "Curator"
+	it.Description = "Hear Overmono at 12 am GMT."
+	_, tt, _ := wideApp(t, nil, []services.Item{it}, 4)
+	tt.Frame()
+	if countText(tt, "Upcoming livestream · Curator") != 1 || countText(tt, it.Description) != 1 {
+		t.Errorf("the card shows %q, want the byline and Apple's line", tt.Texts())
+	}
+	tr := access.Read(t, tt)
+	link, ok := tr.Find(ui.RoleLink, "Item 1")
+	if !ok {
+		t.Fatalf("no link:\n%s", tr.Dump())
+	}
+	if want := "Upcoming livestream · Curator. Hear Overmono at 12 am GMT."; link.Description != want {
+		t.Errorf("the link is described %q, want %q", link.Description, want)
+	}
+}
+
 // TestTrackListControlsAreOnTheTreeAtRest is the list the kit builds every
 // song list from: the play button of a row, the artist and album links and
 // the sort buttons are elements of their own, found without the pointer.
