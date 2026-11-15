@@ -186,6 +186,8 @@ type listOpts struct {
 	placeholders, near int
 	min                float32
 	menus              *kit.ActionMenus
+	// ranked numbers the songs as chart positions (the big rank numerals).
+	ranked bool
 }
 
 // itemList is a room's or a chart's items: a track list with the row numbers,
@@ -217,7 +219,12 @@ func (d *discover) itemList(c *ui.Context, st *listState, pane *kit.Pane, pages 
 	songRange := func(_, end int) { onRange(0, end+pages.count-len(songs)) }
 	opts := d.env.TrackOpts(o.menus, ctx.Restricted)
 	opts.Label = o.title
-	opts.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true}
+	opts.Columns = kit.TrackColumns{Artwork: true, Artist: true, Album: true}
+	if o.ranked {
+		opts.Rank = &kit.TrackRank{}
+	} else {
+		opts.Columns.RowNumbers = true
+	}
 	opts.OnPlay = func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: o.title}) }
 	opts.OnRange = songRange
 	opts.Pane = pane

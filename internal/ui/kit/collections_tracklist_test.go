@@ -628,3 +628,87 @@ func TestTrackListBlankDurationLeavesNoDashForASongWithoutLength(t *testing.T) {
 		t.Errorf("a song with a length lost it: %q", tt.Texts())
 	}
 }
+
+// A ranked list shows the rank numerals, the host's extra column, and keeps
+// sorting, multi-select and drag; the numerals travel with the songs when the
+// host passes Of, else they follow the shown order.
+func TestTrackListRankAndExtraColumnsKeepSortSelectAndDrag(t *testing.T) {
+	var chart map[string]int
+	a, tt := newCollTrackApp(t, 12, 1200, 700, func(a *collTrackApp) {
+		a.opts.Columns.Extra = &TrackExtra{Title: "Plays", Text: func(i int, s *services.Song) string { return "n" + s.ID }}
+		a.opts.Rank = &TrackRank{Of: func(i int) int { return chart[a.songs[i].ID] }}
+	})
+	chart = map[string]int{}
+	for i, s := range a.songs {
+		chart[s.ID] = i + 1
+	}
+	var dropped []*DragPayload
+	a.target = func(c *ui.Context) {
+		box := ui.Box(c.Key("drop")).Width(200).FillHeight()
+		DropOn(box, "queue", DropTarget{
+			Describe: func(p *DragPayload) string { return "Add to queue" },
+			Drop:     func(p *DragPayload, at DragPoint) { dropped = append(dropped, p) },
+		})
+		box.Children(func() { ui.Text(c, "Queue target") })
+	}
+	tt.Frame()
+	for _, want := range []string{"Plays", "ns3", "12", "Title"} {
+		if !tt.HasText(want) {
+			t.Errorf("no %q in %q", want, tt.Texts())
+		}
+	}
+	if !tt.HasText("#") {
+		t.Error("the rank column lost its # header")
+	}
+	// Sorting: the header calls back; the host reorders and the ranks stay with the songs.
+	ax, _ := collRowPos(t, tt, "Artist 3")
+	tt.ClickAt(ax-100+10, 28+16)
+	if len(a.sorted) != 1 || a.sorted[0] != SortArtist {
+		t.Errorf("sorted %v", a.sorted)
+	}
+	slices.Reverse(a.songs)
+	tt.Frame()
+	if y0, y11 := collRowPos2(t, tt, "Song 0"), collRowPos2(t, tt, "Song 11"); y11 >= y0 {
+		t.Fatalf("not reversed: %v %v", y11, y0)
+	}
+	// Shift/Ctrl selection and drag.
+	x, y := collRowPos(t, tt, "Song 5")
+	tt.ClickAt(x, y)
+	x2, y2 := collRowPos(t, tt, "Song 3")
+	tt.ClickAtWith(ui.Shift, x2, y2)
+	if a.st.Sel.Len() != 3 {
+		t.Errorf("shift selected %v", a.st.Sel.State().Keys())
+	}
+	x1, y1 := collRowPos(t, tt, "Song 8")
+	tt.ClickAtWith(ui.Cmd, x1, y1)
+	if a.st.Sel.Len() != 4 {
+		t.Errorf("ctrl selected %v", a.st.Sel.State().Keys())
+	}
+	tx, ty := collPos(t, tt, "Queue target")
+	tt.Press(x, y)
+	tt.Move(x, y+10)
+	tt.Move(x, y+20)
+	tt.Move(tx, ty)
+	tt.Move(tx+1, ty)
+	tt.Release(tx+1, ty)
+	if len(dropped) != 1 || len(dropped[0].Items) != 4 {
+		t.Fatalf("dropped %+v", dropped)
+	}
+}
+
+// TestTrackListRankWithoutOfNumbersTheShownOrder: with no Of the numerals are
+// the row positions, so a re-sorted list is numbered afresh.
+func TestTrackListRankWithoutOfNumbersTheShownOrder(t *testing.T) {
+	a, tt := newCollTrackApp(t, 3, 1000, 400, func(a *collTrackApp) { a.opts.Rank = &TrackRank{} })
+	tt.Frame()
+	if !tt.HasText("3") {
+		t.Errorf("no rank 3 in %q", tt.Texts())
+	}
+	_ = a
+}
+
+func collRowPos2(t *testing.T, tt *ui.Tester, label string) float32 {
+	t.Helper()
+	_, y := collRowPos(t, tt, label)
+	return y
+}

@@ -21,6 +21,8 @@ const (
 	trackPadX         = 8
 	trackGap          = 16
 	trackNumberW      = 40
+	trackRankW        = 56
+	trackExtraW       = 96
 	trackDurationW    = 56
 	trackActionsW     = 32
 	// trackOverscan is how many rows beyond the ones showing are built.
@@ -43,6 +45,29 @@ type TrackColumns struct {
 	Artwork    bool
 	Artist     bool
 	Album      bool
+	// Extra is one more column, after Album and Added by (nil: none).
+	Extra *TrackExtra
+}
+
+// TrackExtra is a list's one extra column: a title and the text of a row.
+// The column is a fixed 96 DIPs, right-aligned, in tabular figures (a play
+// count, a movement), not sortable.
+type TrackExtra struct {
+	// Title is the column header.
+	Title string
+	// Text is the cell of row i (the row's index in the list as given).
+	Text func(i int, s *services.Song) string
+}
+
+// TrackRank turns the leading "#" column into big rank numerals (a chart's
+// positions): the title type style (24), in tabular figures, aligned right.
+// The play button still replaces the numeral on a hovered row.
+type TrackRank struct {
+	// Of is the rank of row i. nil: i+1, the position in the list as given.
+	// A host that sorts the rows itself passes the song's chart position here
+	// so the numerals travel with the songs; with nil they follow the shown
+	// order, so a re-sorted list is numbered afresh.
+	Of func(i int) int
 }
 
 // TrackSortState is the list's order, for the sortable headers (Title,
@@ -86,6 +111,9 @@ type TrackListOpts struct {
 	// Label names the table: "Songs in OK Computer".
 	Label   string
 	Columns TrackColumns
+	// Rank gives the leading column's numbers the rank style (nil: the
+	// small row or track numbers). RowNumbers is ignored when it is set.
+	Rank *TrackRank
 	// Hold keeps a press outside the list from clearing the selection (a
 	// feature's own dialog); open menus and a pending confirmation always do.
 	Hold func() bool
@@ -460,7 +488,12 @@ func (o *TrackListOpts) cell(e ui.Element, kind int) ui.Element {
 	e = e.ColumnIndex(o.columnIndex(kind))
 	switch kind {
 	case cellNumber:
+		if o.Rank != nil {
+			return e.Width(trackRankW).Shrink(0)
+		}
 		return e.Width(trackNumberW).Shrink(0)
+	case cellExtra:
+		return e.Width(trackExtraW).Shrink(0)
 	case cellTitle:
 		return e.Grow(2).Basis(0).MinWidth(0)
 	case cellArtist, cellAlbum:
@@ -482,6 +515,8 @@ func (o *TrackListOpts) hasColumn(kind int) bool {
 		return o.Columns.Album
 	case cellAddedBy:
 		return o.AddedBy != nil
+	case cellExtra:
+		return o.Columns.Extra != nil
 	}
 	return true
 }
@@ -508,6 +543,7 @@ const (
 	cellArtist
 	cellAlbum
 	cellAddedBy
+	cellExtra
 	cellDuration
 	cellActions
 )
@@ -535,6 +571,9 @@ func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Toke
 		}
 		if o.AddedBy != nil {
 			st.headerCell(c, o, cellAddedBy, i18n.T("Added by"), "", meta)
+		}
+		if x := o.Columns.Extra; x != nil {
+			o.cell(ui.Row(c.Key("h-extra")).Role(ui.RoleColumnHeader).Justify(ui.End), cellExtra).Children(func() { label(ui.Text(c, x.Title)) })
 		}
 		st.durationHeader(c, o)
 		o.cell(ui.Box(c.Key("h-act")).Role(ui.RoleColumnHeader).Label(i18n.T("Actions")), cellActions).Height(1)
@@ -665,7 +704,12 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 	highlighted := i == st.hlIndex && o.Highlight != ""
 	key := st.rows.Key(i)
 	number := i + 1
-	if !cols.RowNumbers && s.TrackNumber > 0 {
+	switch {
+	case o.Rank != nil:
+		if o.Rank.Of != nil {
+			number = o.Rank.Of(i)
+		}
+	case !cols.RowNumbers && s.TrackNumber > 0:
 		number = s.TrackNumber
 	}
 	sub := ""
@@ -773,6 +817,10 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 				}
 			}
 			if !shown {
+				if o.Rank != nil {
+					theme.StyleText(ui.Text(c, strconv.Itoa(number)), "title").TextColor(ink).FontFeatures("tnum").SingleLine()
+					return
+				}
 				ui.Text(c, strconv.Itoa(number)).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
 					TextColor(faint).FontFeatures("tnum")
 			}
@@ -834,6 +882,17 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 					}
 					Artwork(c, o.Art, p.Art.Small, 20, ArtOpts{Round: true})
 					trackLink(c, w, name, p.ID, muted, o.OpenProfile, selectRow)
+				}
+			})
+		}
+		if x := o.Columns.Extra; x != nil {
+			o.cell(ui.Row(c.Key("extra")).Role(ui.RoleCell).Justify(ui.End).AlignItems(ui.Center), cellExtra).Children(func() {
+				if x.Text == nil {
+					return
+				}
+				if text := x.Text(i, s); text != "" {
+					ui.Text(c, text).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).TextColor(muted).
+						FontFeatures("tnum").SingleLine()
 				}
 			})
 		}
@@ -928,6 +987,9 @@ func (st *TrackListState) skeletonRow(c *ui.Context, o *TrackListOpts, i int, ho
 		}
 		if o.AddedBy != nil {
 			bar(cellAddedBy)
+		}
+		if o.Columns.Extra != nil {
+			bar(cellExtra)
 		}
 		o.cell(ui.Box(c), cellDuration).Height(1)
 		o.cell(ui.Box(c), cellActions).Height(1)

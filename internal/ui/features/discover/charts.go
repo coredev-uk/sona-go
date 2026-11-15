@@ -130,7 +130,8 @@ func (d *discover) topSongs(c *ui.Context, ch services.Chart, more string, ctx k
 		shown := songs[:min(len(songs), topSongs)]
 		opts := d.env.TrackOpts(st.menus, ctx.Restricted)
 		opts.Label = title
-		opts.Columns = kit.TrackColumns{RowNumbers: true, Artwork: true, Artist: true, Album: true}
+		opts.Columns = kit.TrackColumns{Artwork: true, Artist: true, Album: true}
+		opts.Rank = &kit.TrackRank{}
 		opts.OnPlay = func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) }
 		opts.NoPopup = true
 		kit.TrackList(c, &st.tracks, len(shown), func(i int) *services.Song { return &shown[i] }, opts)
@@ -222,5 +223,5 @@ func (d *discover) chartContent(c *ui.Context, r *ui.Route, pane *kit.Pane, key,
 	if key == services.ChartMusicVideos {
 		minTile = 240
 	}
-	d.itemList(c, &st.list, pane, &pages, list, ctx, listOpts{title: title, songs: songs, placeholders: 6, near: 12, min: minTile, menus: st.menus})
+	d.itemList(c, &st.list, pane, &pages, list, ctx, listOpts{title: title, songs: songs, placeholders: 6, near: 12, min: minTile, menus: st.menus, ranked: true})
 }

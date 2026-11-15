@@ -41,3 +41,13 @@ func TestGoldenChartsLight(t *testing.T) {
 func TestGoldenDiscoverNarrow(t *testing.T) {
 	goldenNew(t, "discover-new-narrow-light", withSize(708, 1253))
 }
+
+func TestGoldenChartsDark(t *testing.T) {
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
+	r := newRig(t, "/charts", withApple(&fakeApple{t: t}), withSize(1132, 1253), withDark())
+	r.tt.Until("the charts", r.tt.Shows("Top songs", "Top albums"))
+	r.settle()
+	uitest.Golden(t, r.tt.Image(), "discover-charts-dark")
+}
