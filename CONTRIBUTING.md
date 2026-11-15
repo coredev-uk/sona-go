@@ -21,11 +21,8 @@ redacted; look it over before posting), tick the three boxes (searched the
 existing issues, on the latest release or release candidate, personal data
 removed) and say how often it happens.
 
-The form labels the issue `bug` and `needs-triage`. When it is opened (or
-edited), the `issue-labels` workflow adds the `platform/*` label of the
-Platform answer and the `area/*` label of the Area answer
-(`cmd/issuelabels`). It only ever adds a label, and never to a kind
-(platform or area) that already has one, so a maintainer's triage stands.
+The form labels the issue `bug` and `needs-triage`, and adds the
+`platform/*` and `area/*` labels your answers name (`cmd/issuelabels`).
 The feature request form takes the same Area (and an optional Platform) and
 labels the issue `enhancement` and `needs-triage`. A change to the dropdowns
 goes in the form and in `cmd/issuelabels`' tables together; its test fails
@@ -51,9 +48,7 @@ when they differ.
 | `area/accessibility` | Screen reader, keyboard, contrast |
 | `area/ci-release` | CI, the release workflow and its secrets (maintainers; not a form option) |
 
-The bots' labels (`state/*`, `verdict/*`, `kind/*`, `type/*`, `clarence:*`,
-`autorelease:*`, `dependencies`, `go`, `update-goldens`) are theirs; leave
-them alone.
+The bots manage their own labels; leave them alone (`docs/maintainers/`).
 
 ## Environment
 
@@ -425,13 +420,13 @@ containers, plus the AppImage on Fedora) is the packaging check; it needs
 podman or docker and takes a while, so CI runs it. `task package` packages
 your local build for a look at the files (a devenv build links `/nix/store`
 and is not a release). Before a release, work through
-`docs/release-checklist.md`.
+`docs/maintainers/release.md`.
 
 Flatpak changes (`build/linux/flatpak`, `go.mod`): `bash build/linux/flatpak/build.sh`
 builds the Flatpak offline from the working tree and installs it `--user`, and
 `devenv shell -- bash build/linux/flatpak/smoke.sh` runs it in the headless
 session. Both need flatpak-builder with the GNOME 51 runtime, SDK and Go
-extension from Flathub (`docs/flatpak.md`, "Build and test"). After a `go.mod`
+extension from Flathub (`docs/maintainers/flatpak.md`, "Build and test"). After a `go.mod`
 change, regenerate `build/linux/flatpak/go-sources.json` with
 `go run build/linux/flatpak/gosources.go > build/linux/flatpak/go-sources.json`;
 the dispatch-only `Flatpak` workflow builds it in CI.
@@ -439,7 +434,7 @@ the dispatch-only `Flatpak` workflow builds it in CI.
 ### UI tests and the end-to-end smoke
 
 - **`ui.Tester` tests** (`go test ./internal/ui/...`, no display) run over `internal/ui/uitest`: `uitest.Env(t)` is a `module.Env` over real services on a temporary SQLite library seeded with a synthetic fixture (`internal/ui/uitest/fixture`: invented artists, albums, songs and playlists, generated covers; never Apple's data), a fake playback engine, a fake artwork CDN, a Poster the test drains and a fake clock. The Core is hermetic: an empty in-memory keyring, an HTTP transport that fails any host the test does not serve (`Harness.Network.Serve` adds one), and home, XDG and D-Bus environment under the test's temporary directory, so a test never sees your Last.fm session, GitHub or your session bus. `docs/ui-architecture.md` ("Testing with `ui.Tester`", "Tests") has the API.
-- **Golden images** are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks (another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not). When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`; commit the new PNGs and say in the PR why. A failing run keeps the picture and a diff in the test's artifact directory: `$SONA_TEST_ARTIFACTS/<test name>` when that variable is set (CI's `.github/ci/test.sh` sets it and uploads the directory), else the test's `t.ArtifactDir()` (`go test -artifacts -outputdir DIR`). Or ask CI: a maintainer adds the `update-goldens` label to the pull request and the bot commits the new images (`golden-update.yml`). On a Mac (or any machine whose text differs from CI's), update goldens in the CI image: `podman run --rm -v "$PWD":/src -w /src -e MYGO_GPU=0 ghcr.io/coredev-uk/sona-ci:$(build/ci/tag.sh) go test ./internal/ui/... -update`. The image is amd64 and arm64: an arm64 machine (Apple silicon, through Podman's VM) may draw text a hair differently from CI's amd64 runners, and CI is the reference, so push and check the run. Tests get the directory from `internal/ui/uitest/artifacts` and only when they fail, because `go test` never caches a run that uses `-artifacts`.
+- **Golden images** are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks (another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not). When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`; commit the new PNGs and say in the PR why. A failing run keeps the picture and a diff in the test's artifact directory: `$SONA_TEST_ARTIFACTS/<test name>` when that variable is set (CI's `.github/ci/test.sh` sets it and uploads the directory), else the test's `t.ArtifactDir()` (`go test -artifacts -outputdir DIR`). Or ask a maintainer to regenerate them on your pull request. On a Mac (or any machine whose text differs from CI's), update goldens in the CI image: `podman run --rm -v "$PWD":/src -w /src -e MYGO_GPU=0 ghcr.io/coredev-uk/sona-ci:$(build/ci/tag.sh) go test ./internal/ui/... -update`. The image is amd64 and arm64: an arm64 machine (Apple silicon, through Podman's VM) may draw text a hair differently from CI's amd64 runners, and CI is the reference, so push and check the run. Tests get the directory from `internal/ui/uitest/artifacts` and only when they fail, because `go test` never caches a run that uses `-artifacts`.
 - **The end-to-end smoke** (`e2e/`, build tag `e2e`) drives the built app from outside: `e2e` script, or `headless -- go test -tags e2e ./e2e/...`. It builds `bin/sona-e2e` with `-tags probe,sqlite_fts5` (MyGo's automation plugin and a seam that exists only in probe builds: `SONA_E2E=1` swaps in the fake playback engine and `SONA_E2E_CDN=host:port` sends all the app's HTTP to a local server of the fixture's covers, so nothing reaches Apple), starts it on the fixture profile (`go run ./e2e/profile` writes the same profile into private XDG directories), and checks first paint, Albums, playing an album, Space, a capture and, from the AT-SPI bus, the shell's landmarks by role and name. `E2E_OUT=<dir>` keeps the capture (`smoke.png`) and the app's stderr; `E2E_BIN=<path>` runs an existing binary. `headless` needs `sway`, `wtype` and `at-spi2-core` (devenv has them; elsewhere install them with your package manager). Never run a probe build outside tests: it can be driven by anything that opens its socket.
 - **The Orca walk** (`e2e/orca_test.go`, `e2e/orca_walk_test.go`; `orca-walk` script) runs a real Orca beside the app in the same headless session and presses keys with `wtype`, as a keyboard does: Tab and the arrows through the sidebar, the Albums page, an album, the queue, Now Playing, the Seek slider, the account dialog and the first-run setup. Orca writes every utterance to its debug file (`--debug-file`) whether or not a speech server is there, so the run needs no audio and no speech-dispatcher; a private `orca-customizations.py` makes that file line-buffered, which Orca does not (8 KB blocks). The test checks what it said against `docs/accessibility.md`; `E2E_OUT` keeps `orca-walk.md` and `orca-setup.md` (what each key was answered with, and where Orca put the focus) and Orca's whole log. It needs `E2E_ORCA=1` (otherwise it skips) and Orca (`E2E_ORCA_BIN`, else `orca` on the PATH). CI runs it only when dispatched (`orca` or `all`), never on a pull request, and it is not a required check: its words and timing are Orca's, so a new Orca can move them. The CI job runs in the CI image with Orca (and procps) installed on top, its .debs cached per image, and restores the e2e job's Go caches (it saves none). The harness reads Orca's log as it grows (only the new bytes, each entry parsed once; `e2e/orca_log_test.go` tests that reader, in the e2e job) and takes a key's answer as complete when Orca's event queue is empty and it has said or queued nothing but a slider's value tick for 0.6 s (the longest quiet inside an answer on CI was 0.22 s), so each of the walk's 97 keys costs under a second.
 
@@ -468,40 +463,24 @@ push leaves room for the rest. Main also runs
 `windows-playback.yml` (weekly and on dispatch, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host; a failing weekly run opens an issue),
 `build-deps.yml` (on a push to main that changes `build/windows/gstreamer.sha256` or `build/darwin/gstreamer.sha256`, and on dispatch: mirrors the pinned GStreamer packages as assets of the `build-deps` prerelease, which never becomes "latest" and has no v* tag. A Windows and a macOS job restore them from the setup actions' Actions cache entry, falling back to gstreamer.freedesktop.org on a miss, check each against its pin, and upload it. `build/gstreamer-fetch.sh` downloads from the mirror first and falls back to upstream. GitHub serves the 1 GB Windows installer in seconds and keeps it. freedesktop.org is slow and behind a bot check, and has timed a release out; the cache drops an entry 7 days after its last use, sooner near the 10 GB cap. After bumping GStreamer, let this run on main before a release, or dispatch it),
 `images.yml` (also builds the CI image, below),
-`golden-update.yml` (the `update-goldens` label on a pull request of this
-repository: regenerates the golden images of the failing golden tests in the CI
-image, commits them to the branch as bot-cecil and removes the label; the
-branch's code runs without secrets, the commit job runs none of it; needs the
-`golden-update` environment's App secrets),
-`nix-vendor-hash.yml` ("Nix vendorHash": builds the Go modules of
-`build/linux/nix/package.nix` on pushes to main and on pull requests that touch
-`go.mod`, `go.sum`, the flake or the package; on a mismatch in a pull request of
-this repository, as from a Renovate bump, commits the hash Nix reported to the
-branch as bot-cecil, once; the branch's code runs without secrets, the commit job
-runs none of it),
-`nix-branch.yml` ("Nix branch": on every published release and prerelease,
-each night and on dispatch, keeps the flake's `nix` branch, main plus
-`build/linux/nix/pins.json`, on the latest release and the newest published
-build with no pull request: checks both Arch packages against their
-`SHA256SUMS` and attestations, merges main into the branch, builds the
-flake's `sona` and `sona-nightly` with the new pins and pushes the result as
-bot-cecil, never force-pushing; the build runs without secrets, the job that
-pushes runs none of it and pushes only the tree the build checked),
+`golden-update.yml`, `nix-vendor-hash.yml` ("Nix vendorHash": builds the Go
+modules of `build/linux/nix/package.nix` on pushes to main and on pull requests
+that touch `go.mod`, `go.sum`, the flake or the package) and `nix-branch.yml`
+(the flake's `nix` branch) commit as the bot-cecil App; how they work is
+maintainer documentation (`docs/maintainers/ci-and-secrets.md`),
 `cache-prune.yml` (after each CI run on main: keeps the newest Go cache of
 each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
 `workflow_run` job that checks out and runs nothing from the repository),
 `pr-title.yml` (Conventional Commits title),
-`issue-labels.yml` (on an issue opened or edited: adds the `platform/*` and
-`area/*` labels its form's answers name, with `cmd/issuelabels`; only adds,
-and never over a label of that kind already there; `issues: write` only),
+`issue-labels.yml` (the issue forms' `platform/*` and `area/*` labels, with
+`cmd/issuelabels`),
 `live.yml` (weekly Apple Music contract tests, private mode),
-`release-please.yml` (the release PR and tag, as bot-cecil), `release.yml`
+`release-please.yml` (the release PR and tag), `release.yml`
 (builds, smoke-tests, attests and publishes the Linux, macOS and Windows
 releases; nightly, the rc of main as a prerelease; dispatch = dry run, a
 prerelease with `-f prerelease=rc.1`, or the nightly now with `-f nightly=true`),
-`release-secrets.yml` (dispatch: checks the `release`
-environment's secrets are set, publishes nothing), `renovate.yaml`
-(dependency updates; maintained with Renovate).
+`release-secrets.yml` (maintainers: checks the release secrets resolve),
+`renovate.yaml` (dependency updates; maintained with Renovate).
 
 **The CI image.** The Linux vet, type-check, core, UI and end-to-end jobs (and
 the dispatch-only probe and Orca walk) run
@@ -524,13 +503,9 @@ read` and widen per job only where needed; pin every action to a full commit
 SHA with the version in a comment (`uses: actions/checkout@<sha> # v7.0.1`;
 Renovate keeps pins current); `persist-credentials: false` on every checkout
 that doesn't push; pass expressions to scripts through `env:`, never inline
-in `run:`; secrets live in Proton Pass and are read with Proton's
-`protonpass/load-secret-action`; the `release` environment (main and `v*`
-tags) and the `live` environment (main only) each hold one secret,
-`PROTON_PASS_PERSONAL_ACCESS_TOKEN`, a viewer-only token for the vault "CI"
-(the update key, the Last.fm key and secret, the Discord ID and
-`MUSIC_USER_TOKEN`), so no pull request run can read
-them. Run `actionlint` on changed
+in `run:`; the secrets are in environments that only `main` (and release
+tags) deploy to, so no pull request run can read them
+(`docs/maintainers/ci-and-secrets.md`). Run `actionlint` on changed
 workflows. The test jobs run `.github/ci/test.sh` (gotestsum: a failing test
 is rerun twice; one that passes on a rerun passes the job and is listed in the
 job summary as flaky) and then `.github/ci/skips.sh` (the `finish-tests`
@@ -542,7 +517,7 @@ anything else is fixed in the job's setup. Go's caches are restored by the key
 they were saved under (the CI image's digest, or the runner image's version on
 the bare runner, is part of the Linux key, so an image update never serves a
 cached pass), and `test.sh` leaves out
-`-artifacts` so unchanged packages report `(cached)`. Threat model: `docs/security-review.md`, "Workflows".
+`-artifacts` so unchanged packages report `(cached)`. 
 
 ### Desktop VM tests
 
@@ -617,7 +592,7 @@ The public docs are an [Astro Starlight](https://starlight.astro.build) site in 
   non-conforming title; PRs are squash-merged under that title.
 - Never commit or push on `main`: `devenv shell` sets `core.hooksPath` to
   `.githooks/`, whose hooks refuse both. The maintainer merges pull requests
-  through the project's review bot once CI passes; don't merge them yourself.
+  through the project's review bot once CI passes (`docs/maintainers/`); don't merge them yourself.
 - `main` is protected by a ruleset: changes land only through a pull request,
   squash-merged (linear history), with these checks green: "Go vet and test
   (-race)", "Conventional
@@ -650,13 +625,11 @@ it, which tags `v<VERSION>` and runs `release.yml`: the Linux packages
 GStreamer bundled, ad-hoc signed; `build/darwin`) and the Windows x64
 installer and portable zip (`build/windows`), each smoke-tested, then the
 signed update manifests, one `SHA256SUMS` and build attestations, published
-with the release. release-please and the publish step act
-as the bot-cecil GitHub App, so its release PR gets the same checks as yours.
-Never edit `VERSION` or `CHANGELOG.md` by hand. Changing the packaging or
+with the release. Never edit `VERSION` or `CHANGELOG.md` by hand. Changing the packaging or
 `release.yml`? Dispatch `release.yml` on your branch (`gh workflow run
 release.yml --ref <branch>`): it builds and smoke-tests every platform and
-publishes nothing (`-f prerelease=rc.1` publishes a test prerelease instead). Steps, dry run and the App's permissions:
-`docs/release-checklist.md`, "Releasing".
+publishes nothing (`-f prerelease=rc.1` publishes a test prerelease instead).
+The release steps are maintainer documentation: `docs/maintainers/release.md`.
 
 ### Self-updates (macOS and Windows)
 
@@ -665,10 +638,8 @@ folder in place (design: `docs/architecture.md`, "Updates"). What a release
 needs:
 
 - The public key is `internal/update/update.pub` (embedded; empty means
-  updates are off). The private key is the `SONA_UPDATE_KEY` item of the Proton
-  Pass vault "CI" (the `release` environment's token reads it; a
-  master copy is in Development → Sona Update Signing Key), from `go tool mygo
-  keygen`; losing it strands the
+  updates are off). The private key is the maintainer's, from `go tool mygo
+  keygen` (`docs/maintainers/ci-and-secrets.md`); losing it strands the
   installs that exist. Never print it or commit it.
 - Release builds link MyGo's updater with `-ldflags "-X
   github.com/egoist/mygo.packageUpdateFeed=https://github.com/coredev-uk/sona-go/releases/latest/download/update-<target>.json
@@ -689,7 +660,7 @@ needs:
   last, after the archives are uploaded.
 - A prerelease's notes (and its manifests' notes) are `go run ./cmd/rcnotes
   -exclude <tag>`: the changes since the previous `v*` tag, by Conventional
-  Commit type (`docs/release-checklist.md`, "Prerelease notes").
+  Commit type (`docs/maintainers/release.md`, "Prerelease notes").
 - Tests run against an `httptest` fake release server (`internal/update`,
   `internal/services/updates_self_test.go`): the check, a bad signature
   refused, no key (off), a development build never checking, the rollback

@@ -17,7 +17,7 @@
 # push to a fork, and a fork's code must not get at the secrets) and only the
 # label's event run it.
 #
-# Maintainer setup (docs/release-checklist.md, "bot-cecil App permissions"):
+# Maintainer setup (docs/maintainers/ci-and-secrets.md, "bot-cecil App permissions"):
 # the `golden-update` environment needs the secrets RENOVATE_APP_CLIENT_ID and
 # RENOVATE_APP_PRIVATE_KEY (bot-cecil's, as release-please.yml uses; the
 # repository-level secrets of the same names work until the environment has
@@ -114,7 +114,7 @@ jobs:
     permissions: {}
     steps:
       # bot-cecil's installation permissions must include these three
-      # (docs/release-checklist.md, "bot-cecil App permissions").
+      # (docs/maintainers/ci-and-secrets.md, "bot-cecil App permissions").
       - name: Generate bot-cecil token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
