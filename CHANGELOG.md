@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.5.0](https://github.com/coredev-uk/sona-go/compare/v0.4.0...v0.5.0) (2026-11-15)
+
+
+### Features
+
+* **album:** a band in the cover's colour replaces the sleeve column ([#287](https://github.com/coredev-uk/sona-go/issues/287)) ([dbb2c9d](https://github.com/coredev-uk/sona-go/commit/dbb2c9d1dda111a22dcdb34c600d3ccfee1e1f26))
+* **media:** motion artwork through the OS's own video engine on macOS and Windows ([#264](https://github.com/coredev-uk/sona-go/issues/264)) ([386db0c](https://github.com/coredev-uk/sona-go/commit/386db0cfd1be6cfc49b0d74138f62a896c768582))
+* **player:** scroll over the volume to change it ([#329](https://github.com/coredev-uk/sona-go/issues/329)) ([f606b0d](https://github.com/coredev-uk/sona-go/commit/f606b0dee3eef10ab627c5c5321dbb6a84452b95))
+* **player:** the album in the player bar opens its page ([#346](https://github.com/coredev-uk/sona-go/issues/346)) ([cdbeec1](https://github.com/coredev-uk/sona-go/commit/cdbeec144bb9d86fff34ec784b93f3729633eb78))
+* **playlist:** show when a playlist was created, beside updated ([#352](https://github.com/coredev-uk/sona-go/issues/352)) ([821f28d](https://github.com/coredev-uk/sona-go/commit/821f28dbe1997443b9440c486e1cb17d1dfc4f92))
+* **theme:** a neutral board and a play colour at 3:1 in light themes ([#282](https://github.com/coredev-uk/sona-go/issues/282)) ([1e0e09d](https://github.com/coredev-uk/sona-go/commit/1e0e09d3598073d8f7ba77524a0a001b04147602))
+* **theme:** an accent selector for Sona's own themes, OLED in blue ([#286](https://github.com/coredev-uk/sona-go/issues/286)) ([378a5e5](https://github.com/coredev-uk/sona-go/commit/378a5e5e751ce7ad997efc46da89a65859a0785c))
+* **ui:** choose which artist to open when a song or album has several ([#353](https://github.com/coredev-uk/sona-go/issues/353)) ([7ec77c2](https://github.com/coredev-uk/sona-go/commit/7ec77c2e2c30de041ac7fb96b63bee19eaba19ed))
+* **ui:** redesign every page, add themes and sidebar shuffle ([#277](https://github.com/coredev-uk/sona-go/issues/277)) ([6710eea](https://github.com/coredev-uk/sona-go/commit/6710eea90bef1689932ea034a335e4429db5d581))
+* use MyGo v0.9.0's session-end quit, KeepRunning, DefaultApp and GPU YUV ([#263](https://github.com/coredev-uk/sona-go/issues/263)) ([bd792ad](https://github.com/coredev-uk/sona-go/commit/bd792ad3bbfc507e1d13d6561ad3bb7f8b8fdd31))
+
+
+### Bug Fixes
+
+* **album:** a released song on an upcoming album plays, by its own playParams ([#292](https://github.com/coredev-uk/sona-go/issues/292)) ([ab2a7bb](https://github.com/coredev-uk/sona-go/commit/ab2a7bb87fd93274a55ca8453e4268a22409c6f3))
+* **ci:** pin Proton's secrets action to the commit that ships its build ([#290](https://github.com/coredev-uk/sona-go/issues/290)) ([f52508f](https://github.com/coredev-uk/sona-go/commit/f52508f6da57206772f250be07e5bc0048cf8136))
+* **deps:** update module github.com/pressly/goose/v3 to v3.30.1 ([#275](https://github.com/coredev-uk/sona-go/issues/275)) ([ce10f8a](https://github.com/coredev-uk/sona-go/commit/ce10f8aec506de051c7358031c4644677a1e2b0e))
+* **deps:** update module golang.org/x/mod to v0.43.0 ([#274](https://github.com/coredev-uk/sona-go/issues/274)) ([dfe6336](https://github.com/coredev-uk/sona-go/commit/dfe633613a27f11236d4b97ad0f6f0d1636e578e))
+* **deps:** update MyGo to v0.9.0 ([#262](https://github.com/coredev-uk/sona-go/issues/262)) ([0a33597](https://github.com/coredev-uk/sona-go/commit/0a3359718ac7da259566795e2be11195167923bd))
+* **discover:** a click in the lead no longer stops it advancing ([#281](https://github.com/coredev-uk/sona-go/issues/281)) ([2730944](https://github.com/coredev-uk/sona-go/commit/2730944f8613c893917d99a5a5705c70eed3681d))
+* **i18n:** reject JS \u{} escapes past U+10FFFF ([#364](https://github.com/coredev-uk/sona-go/issues/364)) ([151fd3e](https://github.com/coredev-uk/sona-go/commit/151fd3e22e27fb130aa845c8e1428e52ea83f2b8))
+* **playback:** a skip supersedes a slow load instead of queueing behind it ([#260](https://github.com/coredev-uk/sona-go/issues/260)) ([289065b](https://github.com/coredev-uk/sona-go/commit/289065b6bf5accdf32a6925410dfc68d31e42260))
+* **player:** the volume wheel moves 2% a notch, on every kind of wheel ([#351](https://github.com/coredev-uk/sona-go/issues/351)) ([386ab00](https://github.com/coredev-uk/sona-go/commit/386ab004f73c0cd8b0bd5d7d88d564874addfc93))
+* **search:** choosing a song opens its page; Play plays it ([#332](https://github.com/coredev-uk/sona-go/issues/332)) ([dec31e2](https://github.com/coredev-uk/sona-go/commit/dec31e27291b337e8a99be9d8ee4b5f7bdfcb442))
+* **ui:** centre the play triangle by one rule, sidebar and Play discs ([#331](https://github.com/coredev-uk/sona-go/issues/331)) ([f5b5682](https://github.com/coredev-uk/sona-go/commit/f5b5682a57f22d73a3635731bd4930deefaefc7d))
+* **ui:** no eyebrow in Search's best match, no rank numbers on Home ([#280](https://github.com/coredev-uk/sona-go/issues/280)) ([12767c9](https://github.com/coredev-uk/sona-go/commit/12767c938960de64e94f8ec7f2b5466a040d2a3e))
+* **update:** Windows updates install: no './' in the archive, the host let go, the sandbox re-granted ([#285](https://github.com/coredev-uk/sona-go/issues/285)) ([6796209](https://github.com/coredev-uk/sona-go/commit/6796209626782e1a682f1f65d4b48f48e7891456))
+
+
+### Performance
+
+* **playback:** fetch a queue's unstored catalogue songs in one batched request ([#284](https://github.com/coredev-uk/sona-go/issues/284)) ([1d29a60](https://github.com/coredev-uk/sona-go/commit/1d29a607ec82184c0b2e5f837bc397c7bcce6db5))
+* **ui:** the playing glyph moves in sub-pixel steps at the display's rate ([#296](https://github.com/coredev-uk/sona-go/issues/296)) ([6fb55ab](https://github.com/coredev-uk/sona-go/commit/6fb55ab1331f442c9b179b0992fd0b3f26d6b80f))
+* **ui:** the playing glyph moves smoothly instead of stepping three times a second ([#283](https://github.com/coredev-uk/sona-go/issues/283)) ([bed4160](https://github.com/coredev-uk/sona-go/commit/bed4160c60e7782e4c5712600d753e04737c8ccb))
+
 ## [0.4.0](https://github.com/coredev-uk/sona-go/compare/v0.3.2...v0.4.0) (2026-11-11)
 
 
