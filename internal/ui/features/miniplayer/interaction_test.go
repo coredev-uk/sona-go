@@ -9,6 +9,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
@@ -145,11 +146,12 @@ func (m *iaMini) at(label string) (float32, float32) {
 	return r.X + r.W/2, r.Y + r.H/2
 }
 
-// The mini player's cover, title, artist and album line are not controls: a
-// click or a double-click does nothing (a press on them drags the window),
-// none is a Tab stop, and a right-click opens the playing item's menu, of its
-// kind. There is no link to the song, its album or its artist from here: the
-// player bar's title and artist are links, and the mini player's are text.
+// The mini player is a remote: its cover, title, artist and album line are not
+// controls. A click or a double-click does nothing (a press on them drags the
+// window), none is a Tab stop, and a right-click on any of them opens the
+// playing item's menu, of its kind. There is no link to the song, its album or
+// its artist from here: the player bar's title and artist are links, and the
+// mini player's are text.
 func TestInteractionMiniPlayerSongText(t *testing.T) {
 	for _, c := range []struct {
 		kind   string
@@ -165,18 +167,15 @@ func TestInteractionMiniPlayerSongText(t *testing.T) {
 		m := iaMiniRig(t, c.mutate...)
 		nothing := iaGest{click: "nothing", dbl: "nothing", enter: "n/a", shiftEnter: "n/a", space: "n/a", right: "menu"}
 		x, y := m.at(c.title)
-		// DEPARTS: the title is text here: it opens nothing, though the same song's title links to its album in the player bar (and a station's to its page).
+		// A remote: the title is text (the player bar's links, and Open Sona, reach the pages).
 		iaWant(t, "the title of "+c.kind, m.gestures(x, y, ""), nothing)
 		if c.artist != "" {
 			x, y = m.at(c.artist)
-			// DEPARTS: the artist is text here: it opens nothing, though the bar's artist links to their page.
 			iaWant(t, "the artist of "+c.kind, m.gestures(x, y, ""), nothing)
 		}
 		x, y = m.at(c.other)
-		// DEPARTS: right-click on the line under the artist opens no menu, though the title and the artist above it (and the cover) open the playing item's.
-		iaWant(t, "the line under the artist of "+c.kind, m.gestures(x, y, ""), iaGest{
-			click: "nothing", dbl: "nothing", enter: "n/a", shiftEnter: "n/a", space: "n/a", right: "nothing",
-		})
+		// The line under the artist opens the playing item's menu too, as every line of text does.
+		iaWant(t, "the line under the artist of "+c.kind, m.gestures(x, y, ""), nothing)
 		// The cover fills the window's leading edge.
 		iaWant(t, "the cover of "+c.kind, m.gestures(coverSize/2, 40, ""), nothing)
 
@@ -189,6 +188,28 @@ func TestInteractionMiniPlayerSongText(t *testing.T) {
 					t.Errorf("Tab stops at %q in the mini player of %s", tr.Focus.Label, c.kind)
 				}
 			}
+		}
+	}
+}
+
+// The third line's every state is part of the text block: what needs the user
+// or what failed (a message in place of the album) opens the menu on a
+// right-click as the title above it does.
+func TestInteractionMiniPlayerMenuCoversTheMessageLines(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		mutate func(*services.PlaybackState)
+		line   string
+	}{
+		{"a failed song", func(s *services.PlaybackState) { s.State, s.Error = store.StateError, "boom" }, "Couldn't play this song. Press play to try again."},
+		{"a sign-in needed", func(s *services.PlaybackState) { s.AuthRequired = true }, "Sign in again in Sona to keep playing"},
+	} {
+		m := iaMiniRig(t, c.mutate)
+		x, y := m.at(c.line)
+		m.reset()
+		m.r.tt.RightClickAt(x, y)
+		if got := m.fx(); got != "menu" {
+			t.Errorf("right-click on the line of %s: %s, want the playing item's menu", c.name, got)
 		}
 	}
 }

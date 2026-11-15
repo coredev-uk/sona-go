@@ -168,7 +168,8 @@ func (m *mini) third(c *ui.Context, s services.PlaybackState) {
 	case cur != nil && cur.Live:
 		line = i18n.T("Live radio")
 	}
-	ui.Column(c.Key("third")).FillWidth().Grow(1).Basis(0).MinHeight(18).Margin(2, 0, 0, 0).Children(func() {
+	third := ui.Column(c.Key("third")).FillWidth().Grow(1).Basis(0).MinHeight(18).Margin(2, 0, 0, 0)
+	third.Children(func() {
 		switch msg := m.noticeText(c); {
 		case msg != "":
 			ui.Row(c.Key("notice")).FillWidth().Gap(6).AlignItems(ui.Center).Tooltip(msg).Children(func() {
@@ -181,6 +182,7 @@ func (m *mini) third(c *ui.Context, s services.PlaybackState) {
 			quiet(c.Key("line"), line).TextColor(theme.C("ink-faint"))
 		}
 	})
+	m.playingRow(third, cur)
 }
 
 // controls is the foot of the text block: the time left (a live station has
