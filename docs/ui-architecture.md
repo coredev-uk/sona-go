@@ -466,7 +466,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 *Marks and tooltips*
 
 - `Tooltip(c, anchor, text)` is an ink bubble with an arrow over MyGo's `TooltipBase` (hover or keyboard focus; Escape hides it first). The delay is 400 ms, the `tooltip` motion token set as `Theme.TooltipDelay` by `theme.Apply` (MyGo's default is 0.6 s).
-- `Badge` (six variants, `Interactive` for an anchor), `ExplicitMark`, `Tag`, `PreviewMark`, `SDMark`, `Badges` (Explicit, Apple's audio labels from `TraitLabels`, extras), `Separator`, `Skeleton` (pulses unless motion is reduced).
+- `Badge` (six variants, `Interactive` for an anchor), `ExplicitMark`, `Tag`, `PreviewMark`, `SDMark`, `UploadedBadge` (an upload among catalogue songs; `UploadedLabel` adds ", uploaded" to its row's accessible name), `Badges` (Explicit, Apple's audio labels from `TraitLabels`, extras), `Separator`, `Skeleton` (pulses unless motion is reduced).
 
 *Fields*
 
@@ -642,6 +642,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 - The header has sortable Title/Artist/Album, and Duration when `TrackSortState.Duration` is set (a list that sorts itself). `TrackSortState.Toggle` is the click's cycle for such a list: ascending, descending, then none, the list's own order.
 - Rows are 44 DIP. It also has disc and work headings, `Popular`, "Added by", the current-song mark, skeleton rows, and highlight and scroll to it.
+- `TrackListOpts.HideUploadMark` leaves the "Uploaded" badge and the ", uploaded" name off uploaded rows (a list made only of uploads); the row's Play button carries the same name.
 - One Tab stop (only the focused row is focusable). Arrows, Page Up/Down, Home/End move it; Enter and double-click play; Ctrl+click/Shift+click/Shift+arrows/Ctrl+A select; selected runs draw as one block.
 - More than 200 rows in a `Pane` are built by row (12 beyond).
 - `TrackListState.BlockTop` and `ScrollToBlock` give the album's disc index its jump (work headings are measured from the last frame, so wrapped ones count).

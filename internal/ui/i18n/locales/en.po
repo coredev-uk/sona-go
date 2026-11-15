@@ -7276,6 +7276,7 @@ msgid "Updating the songs"
 msgstr "Updating the songs"
 
 #: internal/ui/kit/controls_badge.go
+msgctxt "a song the user uploaded, as a badge"
 msgid "Uploaded"
 msgstr "Uploaded"
 

@@ -105,7 +105,7 @@ func ExplicitMark(c *ui.Context) ui.Element {
 // pill with the upload glyph, so it never competes with the title. Give it a
 // key where its row builds other children without one.
 func UploadedBadge(c *ui.Context) ui.Element {
-	return Badge(c, i18n.T("Uploaded"), BadgeOpts{Variant: BadgeOutline, Icon: "upload"})
+	return Badge(c, i18n.TC("a song the user uploaded, as a badge", "Uploaded"), BadgeOpts{Variant: BadgeOutline, Icon: "upload"})
 }
 
 // UploadedLabel is a row's accessible name with the upload badge's meaning

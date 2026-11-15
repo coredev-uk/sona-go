@@ -780,7 +780,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 			// (the pointer and Tab ignore it until the row is hovered).
 			shown := w.Hovered() && !disabled
 			if !disabled {
-				play := ui.ButtonBase(c.Key("play")).Width(24).FillHeight().Label(i18n.T("Play {name}", "name", s.Name))
+				play := ui.ButtonBase(c.Key("play")).Width(24).FillHeight().Label(i18n.T("Play {name}", "name", rowName))
 				if !shown {
 					play.Absolute().Right(0).Top(0).Bottom(0).IgnoreInput(true).Opacity(0)
 				}

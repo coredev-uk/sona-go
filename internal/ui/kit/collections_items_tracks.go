@@ -125,7 +125,7 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 					Background(wash).IgnoreInput(true).Children(func() { EqualiserBars(c, ctx.Playing, ctx.Motion) })
 			case !disabled:
 				btn := ui.Row(c.Key("play")).Absolute().Left(0).Top(0).Size(trackArt, trackArt).Center().Radius(tk.Radius["sm"]).
-					Background(wash).TextColor(theme.C("ink")).Role(ui.RoleButton).Label(i18n.T("Play {name}", "name", song.Name)).
+					Background(wash).TextColor(theme.C("ink")).Role(ui.RoleButton).Label(i18n.T("Play {name}", "name", name)).
 					Cursor(ui.CursorPointer)
 				if !row.Hovered() {
 					btn.Opacity(0)

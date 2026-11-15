@@ -35,14 +35,15 @@ func uploadTrack(id, name string) services.Song {
 }
 
 // addMixedAlbum puts library album l.7 in place: Apple's five songs, and two
-// uploads Apple files under it, listed first as an order by disc puts a song
-// with disc 0. One upload shares a name with a catalogue song.
+// uploads Apple files under it, listed last as the store orders a song with
+// no disc. One upload shares a name with a catalogue song.
 func (r *rig) addMixedAlbum() {
 	r.addCatalog(saltFlats())
-	tracks := []services.Song{uploadTrack("i.up1", "Low Tide"), uploadTrack("i.up2", "Demo")}
+	var tracks []services.Song
 	for n, name := range []string{"Salt Flats", "Low Tide", "Glass Houses", "Evening Bus", "Paper Moon"} {
 		tracks = append(tracks, libraryTrack(n+1, name))
 	}
+	tracks = append(tracks, uploadTrack("i.up1", "Low Tide"), uploadTrack("i.up2", "Demo"))
 	r.lib.albums["l.7"] = services.AlbumDetail{
 		Album:  services.Album{ID: "l.7", Source: services.SourceLibrary, CatalogID: "100", Name: "Salt Flats", Artist: "Mia Vale", ArtistID: "r.1", ReleaseDate: "2019-03-08"},
 		Tracks: tracks, DurationMs: 5*200000 + 2*180000, InLibrary: true,
@@ -60,16 +61,6 @@ func (r *rig) rowLabels() []string {
 		}
 	}
 	return out
-}
-
-func count(texts []string, want string) int {
-	n := 0
-	for _, t := range texts {
-		if t == want {
-			n++
-		}
-	}
-	return n
 }
 
 func TestDiscsOfSkipsSongsWithNoDisc(t *testing.T) {
@@ -101,35 +92,6 @@ func TestDiscsOfSkipsSongsWithNoDisc(t *testing.T) {
 	}
 }
 
-func TestSongsWithNoDiscComeAfterTheLastDisc(t *testing.T) {
-	named := func(name string, disc int) services.Song {
-		return song(func(s *services.Song) { s.Name, s.DiscNumber = name, disc })
-	}
-	names := func(l []services.Song) string {
-		var out []string
-		for _, s := range l {
-			out = append(out, s.Name)
-		}
-		return strings.Join(out, ",")
-	}
-	// An order by disc puts disc 0 first: it moves after the last disc, each
-	// group in its own order.
-	got := discLessLast([]services.Song{named("u1", 0), named("a", 1), named("b", 1), named("u2", 0), named("c", 2)})
-	if names(got) != "a,b,c,u1,u2" {
-		t.Errorf("discLessLast = %s", names(got))
-	}
-	// Left as they were: none without a disc, all without one, already last.
-	for _, l := range [][]services.Song{
-		{named("a", 1), named("b", 2)},
-		{named("u1", 0), named("u2", 0)},
-		{named("a", 1), named("u", 0)},
-	} {
-		if got := discLessLast(l); &got[0] != &l[0] {
-			t.Errorf("%s was copied", names(l))
-		}
-	}
-}
-
 // An upload among Apple's songs is marked where it sits, and only it: the
 // badge reads "Uploaded", and the row's name says "uploaded" after the title.
 // No "Disc 0", and the upload follows the songs of the record. A catalogue
@@ -139,7 +101,7 @@ func TestUploadAmongCatalogueSongsIsMarked(t *testing.T) {
 	r.addMixedAlbum()
 	r.shows("Paper Moon", "Demo")
 
-	if got := count(r.tt.Texts(), "Uploaded"); got != 2 {
+	if got := countTexts(r.tt.Texts(), "Uploaded"); got != 2 {
 		t.Errorf("%d Uploaded badges, want 2 (one per upload): %q", got, r.tt.Texts())
 	}
 	r.wantNoTexts("Disc 0", "Disc 1")
@@ -150,13 +112,40 @@ func TestUploadAmongCatalogueSongsIsMarked(t *testing.T) {
 	}
 }
 
-// The header counts the songs that play: Apple's five and the two uploads,
-// and their running time.
+// The header counts the record against the library (3 of Apple's 5), the
+// uploads among the songs that play, and their running time.
 func TestAlbumHeaderCountsUploads(t *testing.T) {
 	r := newRig(t, "/album/l.7", 1132, 1000)
+	r.addCatalog(saltFlats())
+	tracks := []services.Song{libraryTrack(1, "Salt Flats"), libraryTrack(2, "Low Tide"), libraryTrack(3, "Glass Houses"), uploadTrack("i.up2", "Demo")}
+	r.lib.albums["l.7"] = services.AlbumDetail{
+		Album:  services.Album{ID: "l.7", Source: services.SourceLibrary, CatalogID: "100", Name: "Salt Flats", Artist: "Mia Vale", ArtistID: "r.1", ReleaseDate: "2019-03-08"},
+		Tracks: tracks, DurationMs: 3*200000 + 180000, InLibrary: true,
+	}
+	r.states.inLib["l.7"] = true
+	r.shows("Demo", "Show complete album")
+	// Apple's 1000000 ms plus the upload's 180000: 19.7 min.
+	r.wantTexts("3 of 5 songs in your library · ", "Album · 2019 · 6 songs, 20 min")
+}
+
+// Enter on the upload's row plays from it; the header's Play puts the
+// uploads after Apple's songs.
+func TestUploadsPlayLast(t *testing.T) {
+	r := newRig(t, "/album/l.7", 1132, 1000)
 	r.addMixedAlbum()
-	r.shows("Paper Moon")
-	r.wantTexts("Album · 2019 · 7 songs, 23 min")
+	r.shows("Demo, uploaded")
+	r.click("Demo, uploaded")
+	r.tt.Key(0, ui.KeyEnter)
+	r.tt.Drain()
+	got := r.played()
+	if want := []string{"i.1", "i.2", "i.3", "i.4", "i.5", "i.up1", "i.up2"}; !slices.Equal(got.ids, want) || got.start != 6 {
+		t.Errorf("played %v from %d, want %v from 6", got.ids, got.start, want)
+	}
+	r.click("Play Salt Flats")
+	got = r.played()
+	if n := len(got.ids); n != 7 || got.ids[5] != "i.up1" || got.ids[6] != "i.up2" {
+		t.Errorf("header Play played %v", got.ids)
+	}
 }
 
 // An album of uploads only has nothing to tell apart: no badge on any row,
@@ -181,19 +170,20 @@ func TestAlbumOfOnlyUploadsHasNoBadges(t *testing.T) {
 func TestUploadOnAMultiDiscAlbumFollowsTheLastDisc(t *testing.T) {
 	r := newRig(t, "/album/l.7", 1132, 1000)
 	r.addCatalog(saltFlats())
-	tracks := []services.Song{uploadTrack("i.up1", "Demo")}
+	var tracks []services.Song
 	for n, name := range []string{"Salt Flats", "Low Tide", "Glass Houses", "Evening Bus"} {
 		s := libraryTrack(n+1, name)
 		s.DiscNumber, s.TrackNumber = n/2+1, n%2+1
 		tracks = append(tracks, s)
 	}
+	tracks = append(tracks, uploadTrack("i.up1", "Demo"))
 	r.lib.albums["l.7"] = services.AlbumDetail{
 		Album:  services.Album{ID: "l.7", Source: services.SourceLibrary, CatalogID: "100", Name: "Salt Flats", Artist: "Mia Vale", ArtistID: "r.1"},
 		Tracks: tracks, InLibrary: true,
 	}
 	r.shows("Evening Bus", "Demo", "Disc 2")
 	r.wantNoTexts("Disc 0")
-	if got := count(r.tt.Texts(), "Disc 1"); got != 2 { // the heading and the index
+	if got := countTexts(r.tt.Texts(), "Disc 1"); got != 2 { // the heading and the index
 		t.Errorf("Disc 1 shown %d times: %q", got, r.tt.Texts())
 	}
 	if got := r.rowLabels(); got[len(got)-1] != "Demo, uploaded" {

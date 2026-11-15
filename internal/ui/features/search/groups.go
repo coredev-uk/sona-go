@@ -201,14 +201,11 @@ func itemPath(it services.Item) string {
 // songPath is a song result's page: /song/{id} takes a catalogue ID, so a
 // library song opens the page of its catalogue copy; "" for one with none.
 func songPath(it services.Item) string {
-	if it.IsUpload() {
-		return ""
-	}
 	id := it.ID
 	if s := it.Song; s != nil && s.Source == services.SourceLibrary {
 		id = s.CatalogID
 	}
-	if id == "" {
+	if it.IsUpload() || id == "" {
 		return ""
 	}
 	return kit.ItemLink(services.Item{Kind: services.ItemSong, ID: id})

@@ -305,7 +305,7 @@ func (q *Queries) LibraryAlbumKnown(ctx context.Context, libraryID sql.NullStrin
 const libraryAlbumTracks = `-- name: LibraryAlbumTracks :many
 SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at, no_play_params FROM tracks
 WHERE album_library_id = ?
-ORDER BY disc_number, track_number, name COLLATE NOCASE
+ORDER BY disc_number = 0, disc_number, track_number, name COLLATE NOCASE
 `
 
 func (q *Queries) LibraryAlbumTracks(ctx context.Context, albumLibraryID sql.NullString) ([]Track, error) {
