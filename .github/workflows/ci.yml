@@ -825,7 +825,7 @@ jobs:
 
       - name: Build sona.exe
         run: |
-          go build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false \
+          go build -tags mygo_noinspector,mygo_nowebview,sqlite_fts5 -trimpath -buildvcs=false \
             -ldflags "$(build/ldflags.sh --goos windows --no-credentials)" -o bin/sona.exe ./cmd/sona
           ls -l bin/sona.exe
 
