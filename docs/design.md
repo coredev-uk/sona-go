@@ -283,6 +283,7 @@ One rule governs every list, shelf, row and tile that shows an item (a song, an 
 - **Choosing or playing from a result is remembered.** A tile's Play, a link tile, a station row and a track shelf's artist link call `OnOpen` as opening does, so search's "Recently searched" fills the same way however the item was chosen.
 - **A modifier never does something the cue doesn't hint at.** Shift, Ctrl or Cmd with a click selects where the list selects; Shift+Enter plays only where the control shows it.
 - **Artists and curators open only.** No player is registered for them, so no tile, card, row, best match or lead pick draws a Play control for them, and no surface draws a disabled one. Chosen over an artist player because "play an artist" has no single meaning (top songs? shuffle?) and the artist page already offers Play top songs, Shuffle and Play library songs. A Play control exists exactly where `ItemPlayers.CanPlay` is true; a withheld explicit item shows it disabled.
+- **A page that is not routed is plain.** A tile keeps no underline; a wide card, link tile and the artist's latest-release slip are not built as a button at all (no tab stop, pointer, hover or navigation).
 - **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
 
 The table is what the code does on `main`.
@@ -303,7 +304,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | upcoming album | opens | opens | opens | none | none | none, release badge in its place | yes | link, "Out 19 Nov" |
 |  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play" ("X Pause" while it plays and a press pauses), play (pause) mark on hover |
 |  | web link | opens the browser | twice | same | none | none | none | no | link, arrow out, named "X Opens in your browser" |
-|  | unrouted page | none, but underlines ([#437]) | none | none | none | none | disc | yes | group |
+|  | unrouted page | none, no underline | none | none | none | none | disc | yes | group |
 |  | any with an Item, Shift/Ctrl+click | selects ([#438]) | | | | | | | |
 | Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button, no right-click ([#447]) | link |
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button, no right-click ([#447]) | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
@@ -415,7 +416,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Album and playlist head | Play | plays from the first song |
 |  | Shuffle | plays from a random song with shuffle on (not on an album not out yet, whose Play says "Play the N songs out now") |
 | Artist head | Play top songs, Shuffle | plays the eight top songs, or shuffles them |
-| Artist latest-release slip | the slip | opens the album; a dead button when the page is not routed ([#437]) |
+| Artist latest-release slip | the slip | opens the album; plain (no button, tab stop or underline) when the page is not routed |
 |  | disc | plays the album |
 | Artist release rows, discography tiles | row or tile | opens (Cmd or Shift selects); no Play ([#445]) |
 | Artist library page | Play | plays the artist's library songs |
@@ -440,7 +441,6 @@ Argued departures that stay (not issues):
 | [#427] | recent library songs and page-less stations |
 | [#435] | a page-less station has two controls, no cue, or replays instead of pausing: Discover's lead and strip cards still have a second disc ([#442]) |
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
-| [#437] | unrouted pages: underline, navigation, dead artist slip |
 | [#438] | modifier-click selects on some, opens on others |
 | [#440] | a double-click acts twice |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
@@ -451,7 +451,6 @@ Argued departures that stay (not issues):
 [#427]: https://github.com/coredev-uk/sona-go/issues/427
 [#435]: https://github.com/coredev-uk/sona-go/issues/435
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
-[#437]: https://github.com/coredev-uk/sona-go/issues/437
 [#438]: https://github.com/coredev-uk/sona-go/issues/438
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
 [#443]: https://github.com/coredev-uk/sona-go/issues/443

@@ -581,9 +581,9 @@ func TestInteractionCoverTilesSelectOnlyWithModifiersAndKeys(t *testing.T) {
 	})
 }
 
-// A tile's title underlines under the pointer, and nothing else tells a tile
-// that opens from one that does nothing.
-func TestInteractionCoverTitlesUnderlineUnderThePointerWhetherOrNotTheTileOpens(t *testing.T) {
+// A tile's title underlines under the pointer when the tile opens, and not
+// when its page is not routed.
+func TestInteractionCoverTitlesUnderlineUnderThePointerOnlyWhenTheTileOpens(t *testing.T) {
 	kinds := iaKinds()
 	for _, k := range kinds {
 		if !iaUnderlined(t, iaCoverShelf(k.item, k.cover, "", nil)) {
@@ -591,9 +591,10 @@ func TestInteractionCoverTitlesUnderlineUnderThePointerWhetherOrNotTheTileOpens(
 		}
 	}
 	song := kinds[0]
-	// DEPARTS: a tile whose page is not routed has no Open and is a plain group, yet its title underlines under the pointer like a link.
-	if !iaUnderlined(t, iaCoverShelf(song.item, song.cover, "", iaNoRoute)) {
-		t.Errorf("a tile with no route is not underlined")
+	// A tile whose page is not routed has no Open and is a plain group: its
+	// title does not promise a link.
+	if iaUnderlined(t, iaCoverShelf(song.item, song.cover, "", iaNoRoute)) {
+		t.Errorf("a tile with no route is underlined under the pointer")
 	}
 }
 
@@ -891,11 +892,10 @@ var iaCoverWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"song without a route": {
-		role: "group",
-		play: "disc",
-		more: "button",
-		menu: "opens",
-		// DEPARTS: with no route for its page the tile still looks like a link (title underlines on hover, focusable) but a click and Enter do nothing and it is a plain group; its Play disc stays (collections_items_cover.go:118-123: no Open when HasRoute says no).
+		role:       "group",
+		play:       "disc",
+		more:       "button",
+		menu:       "opens",
 		click:      "nothing",
 		double:     "nothing",
 		enter:      "nothing",
@@ -1081,18 +1081,17 @@ var iaWideWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"song without a route": {
-		role: "link",
-		play: "disc",
-		more: "button",
-		menu: "opens",
-		// DEPARTS: WideRow ignores ItemsCtx.HasRoute: a card whose page is not routed still navigates to it (the start page, in the app) where the cover tile builds without Open (collections_items_widerow.go:235-238 card.Clicked, ctx.nav(link)).
-		click:      "nav=/song/1 opened=song:1",
-		double:     "nav=/song/1 opened=song:1",
-		enter:      "nav=/song/1 opened=song:1",
-		shiftEnter: "nothing",
-		space:      "nothing",
-		shiftClick: "nav=/song/1 opened=song:1",
-		ctrlClick:  "nav=/song/1 opened=song:1",
+		role:       "group",
+		play:       "disc",
+		more:       "button",
+		menu:       "opens",
+		click:      "nothing",
+		double:     "nothing",
+		enter:      "not focusable",
+		shiftEnter: "not focusable",
+		space:      "not focusable",
+		shiftClick: "nothing",
+		ctrlClick:  "nothing",
 		playDisc:   "played=song:1",
 	},
 }
@@ -1270,18 +1269,17 @@ var iaLinkWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"room without a route": {
-		role: "link",
-		play: "none",
-		more: "none",
-		menu: "none",
-		// DEPARTS: LinkList ignores ItemsCtx.HasRoute: a link to a page that is not routed navigates to it (the start page, in the app); cover tiles build without Open (collections_items_linklist.go:104-109).
-		click:      "nav=/room/r1 opened=room:r1",
-		double:     "nav=/room/r1 opened=room:r1",
-		enter:      "nav=/room/r1 opened=room:r1",
-		shiftEnter: "nothing",
-		space:      "nothing",
-		shiftClick: "nav=/room/r1 opened=room:r1",
-		ctrlClick:  "nav=/room/r1 opened=room:r1",
+		role:       "list item",
+		play:       "none",
+		more:       "none",
+		menu:       "none",
+		click:      "nothing",
+		double:     "nothing",
+		enter:      "not focusable",
+		shiftEnter: "not focusable",
+		space:      "not focusable",
+		shiftClick: "nothing",
+		ctrlClick:  "nothing",
 		playDisc:   "no control",
 	},
 }
