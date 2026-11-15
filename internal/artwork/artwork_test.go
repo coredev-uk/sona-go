@@ -233,8 +233,8 @@ func TestVariantReuse(t *testing.T) {
 	if _, err := c.Get(ctx, tmpl, 700, 700); err != nil {
 		t.Fatal(err)
 	}
-	if s.count(host, pathFor("a", 1024)) != 1 || s.total() != 2 {
-		t.Fatalf("700 px should fetch the 1024 source once; hits %v", s.hits)
+	if s.count(host, pathFor("a", 1200)) != 1 || s.total() != 2 {
+		t.Fatalf("700 px should fetch the 1200 source once; hits %v", s.hits)
 	}
 
 	// A small request on a fresh template fetches the nearest standard size.
@@ -639,8 +639,8 @@ func TestWideTemplateKeepsAspect(t *testing.T) {
 	if got := bounds(t, b); got.Dx() != 1000 || got.Dy() != 417 {
 		t.Fatalf("variant is %v, want 1000x417", got)
 	}
-	if n := s.count(host, dir+"1024x427sr.jpg"); n != 1 || s.total() != 1 {
-		t.Fatalf("want one 1024x427sr fetch; hits %v", s.hits)
+	if n := s.count(host, dir+"1200x500sr.jpg"); n != 1 || s.total() != 1 {
+		t.Fatalf("want one 1200x500sr fetch; hits %v", s.hits)
 	}
 	// Another 2.4:1 box (rounded differently) reuses the source.
 	b, err = c.Get(t.Context(), tmpl, 480, 200)
@@ -966,4 +966,53 @@ func BenchmarkURLs(b *testing.B) {
 			_ = c.URLs(tmpl, 1, 1, [3]int{96, 400, 1000})
 		}
 	})
+}
+
+// Apple's image CDN holds artwork at a few sizes already; any other is drawn
+// by an origin on the first request, 250 ms to 2 s instead of 10 to 25 ms
+// (measured, see Sizes). Every source Sona asks for is one of them.
+func TestSourcesAreFetchedAtCachedSizes(t *testing.T) {
+	for _, tc := range []struct{ want, source int }{
+		{16, 64},
+		{64, 64},
+		{65, 256},
+		{100, 256},
+		{128, 256},
+		{256, 256},
+		{257, 512},
+		{300, 512},
+		{512, 512},
+		{513, 1200},
+		{600, 1200},
+		{1024, 1200},
+		{1200, 1200},
+		{1201, 2048},
+		{2048, 2048},
+	} {
+		if got := sourceDims(dims{tc.want, tc.want}); got != (dims{tc.source, tc.source}) {
+			t.Errorf("a %d px box is fetched at %v, want %d", tc.want, got, tc.source)
+		}
+	}
+}
+
+// A generated playlist cover's sidebar row (about 40 px), grid tile and page
+// header (about 300 px at 2x) each fetch a size the CDN holds, and one fetch
+// serves every smaller request.
+func TestGeneratedCoverFetchesCachedSizes(t *testing.T) {
+	s := newImageServer(t)
+	c := newCache(t, s, "", 0)
+	tmpl := "https://" + host + "/image/thumb/gen/{w}x{h}AM.PDCXS11.jpg?c1=F2DE9D&t=U29uYQ"
+	for _, size := range []int{48, 96, 128, 600} {
+		if _, err := c.Get(t.Context(), tmpl, size, size); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for url := range s.hits {
+		if !strings.Contains(url, "/64x64AM.") && !strings.Contains(url, "/256x256AM.") && !strings.Contains(url, "/1200x1200AM.") {
+			t.Errorf("fetched %s", url)
+		}
+	}
+	if s.total() != 3 {
+		t.Errorf("fetches = %d, want 3 (64, 256 and 1200)", s.total())
+	}
 }
