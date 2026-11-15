@@ -180,8 +180,11 @@
 // the library walk stored them (library.Album.CatalogReleaseDate,
 // Prerelease). A song follows itself, not its album: a dated one by its
 // date, playParams or not, one with playParams and no date is out, and
-// only one with neither goes by its album (songUnreleased,
-// PlaybackService). Reminders (reminders.go, table release_reminders)
+// only one with neither goes by its album: that rule is the library's
+// (library/release.go, in SQL, as of the clock the library is given), so
+// Songs, its count, an artist's songs, favourites and the library search
+// leave such songs out and only their album lists them (Song.Playable false,
+// no artist while Apple's stand-in is "unknown"). Reminders (reminders.go, table release_reminders)
 // give one desktop notification when such an album comes out, or after
 // the first paint of the next start when Sona wasn't running then; the
 // notification's words come from the UI, and without

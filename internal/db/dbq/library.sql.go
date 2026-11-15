@@ -19,38 +19,6 @@ func (q *Queries) ClearSearchIndex(ctx context.Context) error {
 	return err
 }
 
-const countLibraryItems = `-- name: CountLibraryItems :many
-SELECT kind, count(*) AS n FROM library_items GROUP BY kind
-`
-
-type CountLibraryItemsRow struct {
-	Kind string
-	N    int64
-}
-
-func (q *Queries) CountLibraryItems(ctx context.Context) ([]CountLibraryItemsRow, error) {
-	rows, err := q.db.QueryContext(ctx, countLibraryItems)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CountLibraryItemsRow{}
-	for rows.Next() {
-		var i CountLibraryItemsRow
-		if err := rows.Scan(&i.Kind, &i.N); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const countLibraryKind = `-- name: CountLibraryKind :one
 SELECT count(*) FROM library_items WHERE kind = ?
 `
@@ -302,111 +270,6 @@ func (q *Queries) LibraryAlbumKnown(ctx context.Context, libraryID sql.NullStrin
 	return exists, err
 }
 
-const libraryAlbumTracks = `-- name: LibraryAlbumTracks :many
-SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at, no_play_params FROM tracks
-WHERE album_library_id = ?
-ORDER BY disc_number = 0, disc_number, track_number, name COLLATE NOCASE
-`
-
-func (q *Queries) LibraryAlbumTracks(ctx context.Context, albumLibraryID sql.NullString) ([]Track, error) {
-	rows, err := q.db.QueryContext(ctx, libraryAlbumTracks, albumLibraryID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Track{}
-	for rows.Next() {
-		var i Track
-		if err := rows.Scan(
-			&i.ID,
-			&i.LibraryID,
-			&i.CatalogID,
-			&i.Name,
-			&i.ArtistName,
-			&i.AlbumName,
-			&i.AlbumLibraryID,
-			&i.AlbumCatalogID,
-			&i.ArtistLibraryID,
-			&i.ArtistCatalogID,
-			&i.ArtworkTemplate,
-			&i.DurationMs,
-			&i.TrackNumber,
-			&i.DiscNumber,
-			&i.ReleaseDate,
-			&i.Genre,
-			&i.ContentRating,
-			&i.HasLyrics,
-			&i.Isrc,
-			&i.Composer,
-			&i.UpdatedAt,
-			&i.NoPlayParams,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const libraryArtistTracks = `-- name: LibraryArtistTracks :many
-SELECT t.id, t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name, t.album_library_id, t.album_catalog_id, t.artist_library_id, t.artist_catalog_id, t.artwork_template, t.duration_ms, t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.isrc, t.composer, t.updated_at, t.no_play_params FROM tracks t
-JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
-WHERE t.artist_library_id = ?
-ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number
-`
-
-func (q *Queries) LibraryArtistTracks(ctx context.Context, artistLibraryID sql.NullString) ([]Track, error) {
-	rows, err := q.db.QueryContext(ctx, libraryArtistTracks, artistLibraryID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Track{}
-	for rows.Next() {
-		var i Track
-		if err := rows.Scan(
-			&i.ID,
-			&i.LibraryID,
-			&i.CatalogID,
-			&i.Name,
-			&i.ArtistName,
-			&i.AlbumName,
-			&i.AlbumLibraryID,
-			&i.AlbumCatalogID,
-			&i.ArtistLibraryID,
-			&i.ArtistCatalogID,
-			&i.ArtworkTemplate,
-			&i.DurationMs,
-			&i.TrackNumber,
-			&i.DiscNumber,
-			&i.ReleaseDate,
-			&i.Genre,
-			&i.ContentRating,
-			&i.HasLyrics,
-			&i.Isrc,
-			&i.Composer,
-			&i.UpdatedAt,
-			&i.NoPlayParams,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const libraryPlaylistIDsSince = `-- name: LibraryPlaylistIDsSince :many
 SELECT p.library_id
 FROM playlists p
@@ -627,18 +490,19 @@ func (q *Queries) SetPlaylistTracksSynced(ctx context.Context, arg SetPlaylistTr
 	return err
 }
 
-const unplayableUpcomingLibrarySongs = `-- name: UnplayableUpcomingLibrarySongs :many
+const unplayableLibrarySongs = `-- name: UnplayableLibrarySongs :many
 SELECT t.library_id
 FROM tracks t
 JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
-JOIN albums a ON a.library_id = t.album_library_id
 WHERE t.library_id IS NOT NULL AND t.no_play_params = 1
-  AND (a.is_prerelease = 1 OR a.release_date > ?1 OR a.catalog_release_date > ?1)
 `
 
-// The songs of those albums that Apple gave no playParams yet.
-func (q *Queries) UnplayableUpcomingLibrarySongs(ctx context.Context, releaseDate string) ([]sql.NullString, error) {
-	rows, err := q.db.QueryContext(ctx, unplayableUpcomingLibrarySongs, releaseDate)
+// The songs Apple gave no playParams yet, whatever their album's state now:
+// a song is asked for until it has them, so one still a placeholder when its
+// album's flag clears (the albums and songs domains run side by side) is not
+// left behind with its stand-in name.
+func (q *Queries) UnplayableLibrarySongs(ctx context.Context) ([]sql.NullString, error) {
+	rows, err := q.db.QueryContext(ctx, unplayableLibrarySongs)
 	if err != nil {
 		return nil, err
 	}

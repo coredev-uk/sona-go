@@ -100,19 +100,21 @@ func anys(ids []string) []any {
 // sync mirrors every library song's rating as library-songs).
 const favoriteSongsFrom = ` FROM tracks t
 	JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
-	JOIN favorites f ON f.kind = 'library-songs' AND f.apple_id = t.library_id AND f.value = 1`
+	JOIN favorites f ON f.kind = 'library-songs' AND f.apple_id = t.library_id AND f.value = 1` + withAlbum
 
-// FavoriteSongs lists the library songs rated Favourite, most recently
+// FavoriteSongs lists the library songs that are out and rated Favourite, most recently
 // rated first (then most recently added), and the size of the whole list.
 func (l *Library) FavoriteSongs(ctx context.Context, o ListOptions) ([]Song, int, error) {
 	limit, offset := o.page()
-	songs, err := query(ctx, l, `SELECT `+trackColumns+favoriteSongsFrom+`
+	today := l.today()
+	songs, err := query(ctx, l, `SELECT `+trackColumns(today)+favoriteSongsFrom+`
+		WHERE `+out(today)+`
 		ORDER BY f.updated_at DESC, li.added_rank, t.id LIMIT ? OFFSET ?`, scanSong, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
 	var total sql.NullInt64
-	if err := l.db.R.QueryRowContext(ctx, `SELECT count(*)`+favoriteSongsFrom).Scan(&total); err != nil {
+	if err := l.db.R.QueryRowContext(ctx, `SELECT count(*)`+favoriteSongsFrom+` WHERE `+out(today)).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("library: favourite songs: %w", err)
 	}
 	return songs, int(total.Int64), nil

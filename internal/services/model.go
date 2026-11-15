@@ -98,8 +98,12 @@ type Song struct {
 }
 
 // IsUpload reports whether the song is one the user uploaded: in the library
-// with no catalogue copy. It has no song page and plays in place.
-func (s Song) IsUpload() bool { return s.Source == SourceLibrary && s.CatalogID == "" }
+// with no catalogue copy. It has no song page and plays in place. A
+// pre-added album's song not out yet has no catalogue copy either, but it
+// doesn't play: it is Apple's, not an upload.
+func (s Song) IsUpload() bool {
+	return s.Source == SourceLibrary && s.CatalogID == "" && s.Playable
+}
 
 // Album is an album from the library or the catalog.
 type Album struct {

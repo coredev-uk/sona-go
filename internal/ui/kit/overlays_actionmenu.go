@@ -236,7 +236,7 @@ func (a *ActionMenus) menuItems() []MenuItem {
 	}
 	var avail []*ActionDef
 	for _, d := range a.actions() {
-		if d.Available == nil || d.Available(ctx) {
+		if !d.refusedBy(ctx) && (d.Available == nil || d.Available(ctx)) {
 			avail = append(avail, d)
 		}
 	}

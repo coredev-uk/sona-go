@@ -261,3 +261,32 @@ func TestMetaIsCommandOnMacOnly(t *testing.T) {
 		t.Errorf("ChordParts elsewhere = %q", got)
 	}
 }
+
+// A song not out yet (a placeholder of a pre-added album) gets none of the
+// actions that need a released song, alone or in a selection.
+func TestActionsNeedingAReleasedSongSkipSongsNotOut(t *testing.T) {
+	out := services.Song{ID: "i.1", Source: services.SourceLibrary, Name: "Out", Playable: true}
+	notOut := services.Song{ID: "i.2", Source: services.SourceLibrary, Name: "Track 3"}
+	loose := services.Song{ID: "9", Source: services.SourceCatalog, Name: "Unavailable"}
+	if SongNotOut(out) || !SongNotOut(notOut) || SongNotOut(loose) {
+		t.Fatalf("SongNotOut: out %v, not out %v, a catalogue song that does not play %v", SongNotOut(out), SongNotOut(notOut), SongNotOut(loose))
+	}
+	needs, plain := &ActionDef{NeedsRelease: true}, &ActionDef{}
+	reg := NewActionRegistry()
+	for _, tc := range []struct {
+		name  string
+		items []Item
+		def   *ActionDef
+		want  bool // refused
+	}{
+		{"a song out", []Item{SongItem(out)}, needs, false},
+		{"a song not out", []Item{SongItem(notOut)}, needs, true},
+		{"a song not out, an action that doesn't need a release", []Item{SongItem(notOut)}, plain, false},
+		{"a selection holding one", []Item{SongItem(out), SongItem(notOut)}, needs, true},
+		{"an album", []Item{AlbumItem(services.Album{ID: "l.1"})}, needs, false},
+	} {
+		if got := tc.def.refusedBy(reg.Context(tc.items, nil, nil)); got != tc.want {
+			t.Errorf("%s: refused %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

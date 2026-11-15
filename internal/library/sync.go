@@ -392,7 +392,7 @@ func (s *Syncer) syncNewest(ctx context.Context, d Domain, progress func(Progres
 		if err != nil || !ok {
 			return 0, false, false, err
 		}
-		fresh, moved, err := s.refreshUpcomingSongs(ctx, songs)
+		fresh, moved, err := s.refreshUnplayableSongs(ctx, songs)
 		if err != nil {
 			return 0, false, false, err
 		}
@@ -475,12 +475,16 @@ func (s *Syncer) refreshUpcomingAlbums(ctx context.Context, skip []applemusic.Al
 	return fresh, changed, nil
 }
 
-// refreshUpcomingSongs is refreshUpcomingAlbums for the songs of those
-// albums that Apple gave no playParams yet: a song comes out before its
-// album, and the song walk stops at the first song it has too. It returns
-// the songs for storing and how many gained playParams.
-func (s *Syncer) refreshUpcomingSongs(ctx context.Context, skip []applemusic.Song) (fresh []applemusic.Song, changed int, err error) {
-	rows, err := s.db.RQ.UnplayableUpcomingLibrarySongs(ctx, s.now().Format(time.DateOnly))
+// refreshUnplayableSongs is refreshUpcomingAlbums for the songs Apple gave
+// no playParams yet (the placeholders of a pre-added album): a song comes out
+// before its album, and the song walk stops at the first song it has too. A
+// song is asked for until it has them, not while its album is ahead: the
+// albums domain runs beside this one and may have cleared the album's flag
+// already, and a placeholder left behind would be listed by its stand-in name
+// once its album's day has come. It returns the songs for storing and how
+// many gained playParams.
+func (s *Syncer) refreshUnplayableSongs(ctx context.Context, skip []applemusic.Song) (fresh []applemusic.Song, changed int, err error) {
+	rows, err := s.db.RQ.UnplayableLibrarySongs(ctx)
 	if err != nil {
 		return nil, 0, err
 	}

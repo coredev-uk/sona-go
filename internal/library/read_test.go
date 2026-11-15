@@ -545,11 +545,17 @@ func TestAllPagesCollectsEveryRow(t *testing.T) {
 }
 
 // TestAlbumTracksListSongsWithNoDiscLast: an upload has no disc (0), and an
-// order by disc alone would put it before disc 1. Every source of an album's
-// songs (the page, a queue, a playlist) gets Apple's songs first.
+// order by disc alone would put it before disc 1. The album page gets
+// Apple's songs first.
 func TestAlbumTracksListSongsWithNoDiscLast(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
+	if _, err := e.db.W.ExecContext(ctx, `INSERT INTO albums (id, library_id, name, updated_at) VALUES (1, 'l.1', 'Record', 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.W.ExecContext(ctx, `INSERT INTO library_items (kind, ref, generation) VALUES ('album', 1, 1)`); err != nil {
+		t.Fatal(err)
+	}
 	for _, r := range []struct {
 		id        string
 		disc, num int
@@ -566,13 +572,13 @@ func TestAlbumTracksListSongsWithNoDiscLast(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	rows, err := e.db.RQ.LibraryAlbumTracks(ctx, db.NullString("l.1"))
+	_, songs, err := e.lib.Album(ctx, "l.1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got []string
-	for _, r := range rows {
-		got = append(got, r.Name)
+	for _, s := range songs {
+		got = append(got, s.Name)
 	}
 	if want := "First, Second, Disc two, alpha demo, Zed demo"; strings.Join(got, ", ") != want {
 		t.Errorf("album tracks %q, want %q", got, want)
