@@ -7280,6 +7280,11 @@ msgstr ""
 msgid "Updating the songs"
 msgstr ""
 
+#: internal/ui/kit/controls_badge.go
+msgctxt "a song the user uploaded, as a badge"
+msgid "Uploaded"
+msgstr ""
+
 #: internal/ui/account/section.go
 msgid "Use a passkey (Touch ID or your Mac's password), a security key or a browser you're already signed in to:"
 msgstr ""
@@ -8343,6 +8348,10 @@ msgstr ""
 
 #: internal/ui/features/settings/shortcuts.go
 msgid "{key} moves between controls. Choose another key."
+msgstr ""
+
+#: internal/ui/kit/controls_badge.go
+msgid "{label}, uploaded"
 msgstr ""
 
 #: internal/ui/kit/controls_badge.go

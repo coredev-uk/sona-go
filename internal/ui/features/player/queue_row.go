@@ -56,6 +56,9 @@ func rowLabel(r *queueRowIn) string {
 	default:
 		l = i18n.T("{name}, {artist}", "name", it.Name, "artist", it.Artist)
 	}
+	if it.IsUpload() {
+		l = kit.UploadedLabel(l)
+	}
 	if r.upNext {
 		return i18n.T("Up next: {label}", "label", l)
 	}
@@ -228,6 +231,9 @@ func (p *player) rowContent(c *ui.Context, r *queueRowIn, hot, movable bool) {
 				return
 			}
 			label(c.Key("name"), it.Name, "ui").TextColor(nameColor)
+			if it.IsUpload() {
+				kit.UploadedBadge(c.Key("uploaded"))
+			}
 		})
 		label(c.Key("artist"), it.Artist, "sub").TextColor(artistColor)
 	})
@@ -267,6 +273,9 @@ func (p *player) playingRowContent(c *ui.Context, r *queueRowIn) {
 				return
 			}
 			label(c.Key("name"), it.Name, "ui").FontWeight(600).TextColor(theme.C("play-ink"))
+			if it.IsUpload() {
+				kit.UploadedBadge(c.Key("uploaded"))
+			}
 		})
 		label(c.Key("artist"), it.Artist, "sub").TextColor(theme.C("ink-muted"))
 		if it.Album != "" && !it.Video {

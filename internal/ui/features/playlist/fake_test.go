@@ -425,7 +425,7 @@ func testPlaylistsWith(t *testing.T, start string, opts ...uitest.Option) (*play
 
 // song, treePlaylist and folder build test data.
 func song(id, name, artist string) services.Song {
-	return services.Song{ID: id, Source: services.SourceLibrary, Name: name, Artist: artist, DurationMs: 200_000, Playable: true}
+	return services.Song{ID: id, Source: services.SourceLibrary, CatalogID: "c" + id, Name: name, Artist: artist, DurationMs: 200_000, Playable: true}
 }
 
 func treePlaylist(id, name, folder string, position int, canEdit bool) services.TreePlaylist {

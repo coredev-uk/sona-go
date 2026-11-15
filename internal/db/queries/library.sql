@@ -201,7 +201,7 @@ SELECT * FROM playlists WHERE library_id = ?;
 -- name: LibraryAlbumTracks :many
 SELECT * FROM tracks
 WHERE album_library_id = ?
-ORDER BY disc_number, track_number, name COLLATE NOCASE;
+ORDER BY disc_number = 0, disc_number, track_number, name COLLATE NOCASE;
 
 -- name: LibraryArtistTracks :many
 SELECT t.* FROM tracks t

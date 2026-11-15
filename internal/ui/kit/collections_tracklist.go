@@ -95,6 +95,10 @@ type TrackListOpts struct {
 	Sort *TrackSortState
 	// Discs groups album tracks under "Disc n" when there is more than one.
 	Discs bool
+	// HideUploadMark leaves the "Uploaded" badge off the rows of uploaded
+	// songs: for a list that holds only uploads, where it would mark every
+	// row and tell none apart.
+	HideUploadMark bool
 	// Highlight is a song (ID or catalogue ID) to mark and scroll to
 	// (from a shared link).
 	Highlight string
@@ -376,20 +380,27 @@ func (st *TrackListState) highlight(c *ui.Context, o *TrackListOpts, count int, 
 	}
 }
 
+// multiDisc: the songs sit on more than one disc. A song with no disc number
+// (an upload; DiscNumber 0) is on none.
 func (st *TrackListState) multiDisc(count int, at func(i int) *services.Song) bool {
-	if count == 0 {
-		return false
-	}
-	first := at(0)
-	if first == nil {
-		return false
-	}
-	for i := 1; i < count; i++ {
-		if s := at(i); s != nil && s.DiscNumber != first.DiscNumber {
+	first := 0
+	for i := range count {
+		s := at(i)
+		switch {
+		case s == nil || s.DiscNumber <= 0:
+		case first == 0:
+			first = s.DiscNumber
+		case s.DiscNumber != first:
 			return true
 		}
 	}
 	return false
+}
+
+// startsDisc: row s, after prev, opens a disc that gets a heading. A song
+// with no disc number never does.
+func startsDisc(multiDisc bool, prev, s *services.Song) bool {
+	return multiDisc && s.DiscNumber > 0 && (prev == nil || prev.DiscNumber != s.DiscNumber)
 }
 
 // report tells OnRange which rows are built, when that changed.
@@ -418,7 +429,7 @@ func (st *TrackListState) headings(c *ui.Context, o *TrackListOpts, i int, s *se
 	if i > 0 {
 		prev = at(i - 1)
 	}
-	disc := multiDisc && (i == 0 || prev == nil || prev.DiscNumber != s.DiscNumber)
+	disc := startsDisc(multiDisc, prev, s)
 	if disc {
 		top := float32(20)
 		if i == 0 {
@@ -679,6 +690,12 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 	if o.Title != nil {
 		title = o.Title(s)
 	}
+	// An upload among catalogue songs says so, in the row and in its name.
+	uploaded := s.IsUpload() && !o.HideUploadMark
+	rowName := s.Name
+	if uploaded {
+		rowName = UploadedLabel(rowName)
+	}
 	target := ActionTarget{Item: SongItem(*s), Name: s.Name, Key: key}
 	if o.Container != nil {
 		cont := *o.Container
@@ -736,7 +753,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 			})
 		},
 		Source: func(e ui.Element) {
-			e.PaddingX(trackPadX).Gap(trackGap).Radius(tk.Radius["md"]).Role(ui.RoleRow).RowIndex(i + 2).Label(s.Name).Checked(run != RunNone)
+			e.PaddingX(trackPadX).Gap(trackGap).Radius(tk.Radius["md"]).Role(ui.RoleRow).RowIndex(i + 2).Label(rowName).Checked(run != RunNone)
 			if withheld {
 				// Unavailable but still focusable, with the reason as its description.
 				e.AccessDisabled(true).Description(i18n.T("Explicit content is restricted on this account"))
@@ -763,7 +780,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 			// (the pointer and Tab ignore it until the row is hovered).
 			shown := w.Hovered() && !disabled
 			if !disabled {
-				play := ui.ButtonBase(c.Key("play")).Width(24).FillHeight().Label(i18n.T("Play {name}", "name", s.Name))
+				play := ui.ButtonBase(c.Key("play")).Width(24).FillHeight().Label(i18n.T("Play {name}", "name", rowName))
 				if !shown {
 					play.Absolute().Right(0).Top(0).Bottom(0).IgnoreInput(true).Opacity(0)
 				}
@@ -790,6 +807,9 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 					}
 					if s.Explicit {
 						ExplicitMark(c.Key("explicit"))
+					}
+					if uploaded {
+						UploadedBadge(c.Key("uploaded"))
 					}
 					if s.CatalogID != "" && o.Popular[s.CatalogID] {
 						ui.Text(c, i18n.T("Popular")).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).

@@ -250,6 +250,7 @@ func (a *album) songs(c *ui.Context, m *model, highlight string, now time.Time, 
 	o.Label = i18n.T("Songs on {albumName}", "albumName", m.album.Name)
 	o.Columns = kit.TrackColumns{Artist: m.compilation}
 	o.Discs = !m.mixed
+	o.HideUploadMark = m.uploads == len(m.list)
 	o.Highlight = highlight
 	o.Popular = m.popular
 	o.Subline = func(s *services.Song) string { return subline(*s) }

@@ -566,7 +566,7 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 		it := recentItem(o.entry)
 		label, detail = it.Name, itemMeta(it)
 	default:
-		label, detail = o.item.Name, itemMeta(o.item)
+		label, detail = accessibleName(o.item), itemMeta(o.item)
 	}
 	row := ui.Row(c.Key("opt:"+o.key)).MinHeight(36).FillWidth().Padding(4, 8).Gap(12).AlignItems(ui.Center).
 		Radius(theme.Current().Radius["md"]).Role(ui.RoleOption).Label(label).Selected(active).Cursor(ui.CursorPointer)
@@ -594,7 +594,12 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 			}
 			kit.Artwork(c.Key("art"), f.s.env.Art, it.Art.Small, 32, kit.ArtOpts{Round: kit.ItemRound(it)})
 			ui.Column(c.Key("txt")).Grow(1).MinWidth(0).Children(func() {
-				theme.Text(c.Key("name"), it.Name, "body").TextColor(theme.C("ink")).SingleLine()
+				ui.Row(c.Key("title")).Gap(6).AlignItems(ui.Center).MinWidth(0).Children(func() {
+					theme.Text(c.Key("name"), it.Name, "body").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0)
+					if it.IsUpload() {
+						kit.UploadedBadge(c.Key("uploaded"))
+					}
+				})
 				theme.Text(c.Key("meta"), itemMeta(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			})
 			enter := "chevron-right"

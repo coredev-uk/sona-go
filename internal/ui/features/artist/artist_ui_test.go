@@ -844,7 +844,7 @@ func libraryDetail() services.ArtistDetail {
 		return services.Album{ID: id, Name: name, Artist: "Mia", ArtistID: "r.1", ReleaseDate: "2020-01-01", Single: single, Art: art, Source: services.SourceLibrary, LibraryID: id}
 	}
 	s := func(i int, playable bool) services.Song {
-		return services.Song{ID: fmt.Sprint("i.", i), Source: services.SourceLibrary, LibraryID: fmt.Sprint("i.", i), Name: fmt.Sprint("Mine ", i), Artist: "Mia", Album: "Own Album", AlbumID: "l.1", DurationMs: 200000, Playable: playable, Art: art}
+		return services.Song{ID: fmt.Sprint("i.", i), Source: services.SourceLibrary, LibraryID: fmt.Sprint("i.", i), CatalogID: fmt.Sprint("c", i), Name: fmt.Sprint("Mine ", i), Artist: "Mia", Album: "Own Album", AlbumID: "l.1", DurationMs: 200000, Playable: playable, Art: art}
 	}
 	return services.ArtistDetail{
 		Artist: services.Artist{ID: "r.1", Name: "Mia", Source: services.SourceLibrary, LibraryID: "r.1", CatalogID: "55", Art: art},

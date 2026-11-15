@@ -205,8 +205,17 @@ func songPath(it services.Item) string {
 	if s := it.Song; s != nil && s.Source == services.SourceLibrary {
 		id = s.CatalogID
 	}
-	if id == "" {
+	if it.IsUpload() || id == "" {
 		return ""
 	}
 	return kit.ItemLink(services.Item{Kind: services.ItemSong, ID: id})
+}
+
+// accessibleName is a result's name for assistive technology: its own, with
+// "uploaded" after it for a song the user uploaded, as its badge says.
+func accessibleName(it services.Item) string {
+	if it.IsUpload() {
+		return kit.UploadedLabel(it.Name)
+	}
+	return it.Name
 }

@@ -42,7 +42,11 @@ type model struct {
 	// mixed: some of a headed album's songs are out and some are not. The
 	// list is then in two groups, the songs out now first, each group in
 	// the record's order, and has no disc headings or disc index.
-	mixed       bool
+	mixed bool
+	// uploads is how many of the list's songs the user uploaded (no
+	// catalogue copy), uploadMs their running time.
+	uploads     int
+	uploadMs    int64
 	popular     map[string]bool
 	compilation bool
 	writers     []string
@@ -150,6 +154,12 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 	if m.headed {
 		m.list, m.mixed = outNowFirst(m.list)
 	}
+	for _, s := range m.list {
+		if s.IsUpload() {
+			m.uploads++
+			m.uploadMs += s.DurationMs
+		}
+	}
 
 	// "Popular" marks a song to play: never one that can't be.
 	m.popular = map[string]bool{}
@@ -198,7 +208,8 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 		if page != nil {
 			tracks = len(page.Tracks)
 		}
-		m.share = libraryShare(len(m.list), tracks)
+		// The share is of the record: the uploads among its songs aren't part of it.
+		m.share = libraryShare(len(m.list)-m.uploads, tracks)
 	}
 
 	// The catalogue line describes the record: a partial library album counts
@@ -208,10 +219,11 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 	running := detail.DurationMs
 	switch {
 	case m.share != nil:
-		songs = m.share.total
-		running = 0
+		// The record's own count, plus the uploads that sit among its songs.
+		songs = m.share.total + m.uploads
+		running = m.uploadMs
 		if page != nil {
-			running = page.DurationMs
+			running += page.DurationMs
 		}
 	case (m.upcoming || m.justOut) && anyWithoutDuration(m.list):
 		running = 0
