@@ -40,7 +40,11 @@ func (s *settings) playingRows(c *ui.Context, cfg config.Settings, caps services
 	}
 	desc := i18n.T("Stops the computer from suspending on its own while music plays. The screen can still lock and turn off.")
 	if on.InhibitSleep && status.Inhibit == "unavailable" {
-		desc = i18n.T("Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. Neither logind nor the desktop portal answered, so sleep can't be blocked.")
+		if caps.OS == "linux" {
+			desc = i18n.T("Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. Neither logind nor the desktop portal answered, so sleep can't be blocked.")
+		} else {
+			desc = i18n.T("Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. {platform} refused the request, so sleep can't be blocked.", "platform", s.platformName())
+		}
 	}
 	s.switchRow(c, rowOpts{ID: "inhibit-sleep", Title: title, Desc: desc}, on.InhibitSleep, false, func(v bool) {
 		s.save(func(st *config.Settings) { st.Integrations.InhibitSleep = v })

@@ -9,7 +9,7 @@ import "github.com/egoist/mygo"
 // macOS does not nap with the parent; the parent's timers (preload, scrobble,
 // the queue) and its media-key handling are what a hidden window's nap would
 // throttle. MyGo's Power.KeepRunning stops that without keeping the computer
-// awake, so it is independent of the sleep inhibitor (inhibit_darwin.go),
+// awake, so it is independent of the sleep inhibitor (inhibit_desktop.go),
 // which is a setting.
 type macKeeper struct{ holder }
 

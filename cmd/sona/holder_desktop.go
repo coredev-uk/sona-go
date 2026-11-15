@@ -1,12 +1,12 @@
-//go:build darwin
+//go:build darwin || windows
 
 package main
 
 import "sync"
 
 // holder takes a power-management hold lazily and drops it again: the shape
-// of the sleep inhibitor (inhibit_darwin.go) and the App Nap keeper
-// (keeprunning_darwin.go).
+// of the sleep inhibitor (inhibit_desktop.go) and the macOS App Nap keeper
+// (keeprunning_darwin.go). A take that returns no release holds nothing.
 type holder struct {
 	// why is the reason the system lists, read when the hold is taken.
 	why func() string
