@@ -1304,6 +1304,7 @@ A master and detail page.
 
 - IDs: `library.favorite.*`, `library.suggest-less.*`, `library.copy-link.*`, `library.add.*` and `library.remove.*` for songs, albums, artists and playlists; `library.copy-link.station`; and the bulk `library.favorite.many`, `library.add.many`, `library.remove.many`.
 - Labels and availability read the item's state from `Env.ItemStates`, which a menu loads once for every item in it as one `LibraryService.States` call.
+- Delete from library is offered for an item in the library. An item that names its library copy (`Source` library, or a `LibraryID`) is in the library whatever Apple's catalogue `inLibrary` says (Apple reports a partly added or just added album as not in it, and a library answer can leave an ID out), until the user's own removal says otherwise: `LibraryService.States` answers so, and before a state loads the single and bulk actions read the item the same way, so every album under Library, the album page's header menu included, offers it.
 - A change shows at once and is undone when Go refuses it. Delete asks first (`kit.Confirm`) and every outcome toasts.
 - Playing and queueing go through `Env.Queue` (`kit.QueueCommands`).
 

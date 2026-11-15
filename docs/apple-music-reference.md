@@ -55,6 +55,8 @@ After any page with catalog items loads, the web app batches two follow-up calls
 - `GET amp-api /v1/me/library?ids[library-songs]=…&ids[library-playlists]=…&ids[library-albums]=…&ids[library-artists]=…&fields[<type>]=personalRating&relate=library`
   → **200**. Note: an empty `ids[library-playlist-folders]=` makes it return 400. Skip empty keys.
 
+Sona does not trust a `false` from these answers for an item it already knows is in the library: an item that names its library copy (a library album, or a catalogue album with a library ID) is in the library whatever `inLibrary` says, and a library ID left out of the second call's answer is not "removed". Both answers are what Apple says about the catalogue resource or the ID asked, not about the user's library rows, and Sona's sync is the authority on which library rows exist (2026-11-15: from reading the code, no account probe; before this, a library album whose catalogue `inLibrary` came back `false` lost its Delete from library item).
+
 ### App-shell calls (made on every page)
 
 | Purpose | Call | Status | MUT |

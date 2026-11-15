@@ -275,3 +275,49 @@ func TestRemoveRetriesWhenAppleKeepsTheItem(t *testing.T) {
 		t.Fatalf("state after removal = %+v", states[0])
 	}
 }
+
+// An album that names its library copy is in the library whatever Apple's
+// catalogue answers (it reports a partly added or just added album as not
+// in the library) and whether or not its library answer lists the ID; the
+// same album found through the catalogue is as Apple says. Only the user's
+// own removal takes it out.
+func TestStatesOfLibraryAlbumsAreInTheLibrary(t *testing.T) {
+	s, _, _, _ := newStateService(t)
+	ctx := t.Context()
+	// Catalogue album 200 reports inLibrary:false; l.5 is left out of the
+	// library answer.
+	partial := ItemRef{Kind: "albums", ID: "l.4", Source: SourceLibrary, CatalogID: "200", LibraryID: "l.4"}
+	absent := ItemRef{Kind: "albums", ID: "l.5", Source: SourceLibrary, LibraryID: "l.5"}
+	bare := ItemRef{Kind: "albums", ID: "l.6", Source: SourceLibrary}
+	catalogue := ItemRef{Kind: "albums", ID: "200", Source: SourceCatalog}
+	got, err := s.states(ctx, []ItemRef{partial, absent, bare, catalogue}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ItemState{
+		{Kind: "albums", ID: "l.4", InLibrary: true, LibraryID: "l.4"},
+		{Kind: "albums", ID: "l.5", InLibrary: true, LibraryID: "l.5"},
+		{Kind: "albums", ID: "l.6", InLibrary: true, LibraryID: "l.6"},
+		{Kind: "albums", ID: "200"},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("states:\n got %+v\nwant %+v", got, want)
+	}
+	// Removing one is the user's word: it is out of the library, and stays
+	// out while Apple's answer lags.
+	if st, err := s.Remove(ctx, absent); err != nil || st.InLibrary {
+		t.Fatalf("remove = %+v, %v", st, err)
+	}
+	got, _ = s.states(ctx, []ItemRef{absent, partial}, true)
+	if got[0].InLibrary || !got[1].InLibrary {
+		t.Fatalf("after removing l.5: %+v", got)
+	}
+	// Rating a library album does not take it out of the library.
+	if _, err := s.Favorite(ctx, partial, true); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = s.states(ctx, []ItemRef{partial}, true)
+	if !got[0].InLibrary || got[0].Rating != 1 {
+		t.Fatalf("after favouriting: %+v", got[0])
+	}
+}
