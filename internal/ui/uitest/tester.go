@@ -120,30 +120,47 @@ func (tt *Session) artPending() int {
 // Settle draws frames, running what is posted, until the picture no longer
 // changes (a run of quiet frames with nothing queued and no cover still
 // being decoded): the covers drawn, the animations done. For a golden image.
-// It allows HangGuard: a full-window frame of the CPU renderer under -race
-// takes most of a second, and twice that while the rest of the suite runs.
+//
+// It is bounded by what happens, not by how long it takes: a full-window frame
+// of the CPU renderer under -race takes most of a second, and several while
+// the rest of the suite runs, so a time limit would fail a picture that is
+// settling. It fails after settleFrames frames still changing (an animation
+// that never ends), or when for HangGuard nothing was posted, drawn
+// differently or settled further (a cover or a call that never comes).
+//
 // It knows only of the covers and the posts: wait (Until) for the page's own
 // data before settling, or a golden is taken of the loading state.
 func (tt *Session) Settle() {
 	tt.T.Helper()
 	const quiet = 8
+	const settleFrames = 200
 	var last []byte
 	same := 0
-	for deadline := time.Now().Add(HangGuard); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
-		tt.H.Main.Drain()
+	moved := time.Now() // when something last happened
+	for range settleFrames {
+		posted := tt.H.Main.Drain()
 		tt.Frame()
 		tt.Advance(time.Second) // animations and toasts
 		img := tt.Image()
-		if last != nil && bytes.Equal(last, img.Pix) && !tt.H.Main.Pending() && tt.artPending() == 0 {
+		changed := last == nil || !bytes.Equal(last, img.Pix)
+		if !changed && !tt.H.Main.Pending() && tt.artPending() == 0 {
 			if same++; same >= quiet {
 				return
 			}
+			moved = time.Now()
 		} else {
 			same = 0
+			if changed || posted > 0 {
+				moved = time.Now()
+			}
+		}
+		if time.Since(moved) > HangGuard {
+			tt.T.Fatalf("the picture did not settle: for %v nothing was posted or drawn differently, with %d covers still in flight", HangGuard, tt.artPending())
 		}
 		last = append(last[:0], img.Pix...)
+		tt.H.Main.Wait(10 * time.Millisecond) // a post from a goroutine ends the wait
 	}
-	tt.T.Fatal("the picture never settled")
+	tt.T.Fatalf("the picture was still changing after %d frames", settleFrames)
 }
 
 // registerFonts registers the interface font (Schibsted Grotesk; once per
