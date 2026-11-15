@@ -2,7 +2,7 @@
 // (the event bus, cached queries, the playback mirror, the artwork loader),
 // the modules registered in modules.go, the router, and the main window
 // with its sidebar, top bar, page column and the slots modules build into
-// (docs/ui-architecture.md, "The app shell").
+// (docs/ui-architecture.md, "The app shell (`internal/ui/app`)").
 package app
 
 import (

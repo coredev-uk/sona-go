@@ -49,7 +49,7 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# How the work is spread (docs/maintainers/ci-workflows.md, "CI and workflows"): every check
+# How the work is spread (docs/maintainers/ci-workflows.md, "CI workflows"): every check
 # still runs, including the golden images; a pull request runs -race on the
 # packages that start goroutines, main and the nightly on all of them. Each
 # test runs once and the jobs run side by side. The test jobs take their packages from

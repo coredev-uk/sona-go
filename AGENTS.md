@@ -38,7 +38,7 @@ Run everything as `devenv shell -- <cmd>` (devenv 2.4+; it sets `CGO_ENABLED`, `
 - `docs/auth.md` sign-in; `docs/apple-music-reference.md` Apple endpoints (functionality only); `docs/security-review.md` threat model; `docs/development.md` setup and scripts; `docs/testing.md` checks and tests; `docs/platforms.md`; `docs/translations.md` strings; `docs/maintainers/ci-workflows.md` CI; `CONTRIBUTING.md` and `site/src/content/docs/contributing/` the contributor pages.
 - A new page is a service (`internal/services/<feature>.go`, `<feature>_dto.go`, one `registry.go` line) plus a UI package (`internal/ui/features/<name>`, one `internal/ui/app/modules.go` line).
 - Design every page fresh with `skill://impeccable` and `skill://design-taste-frontend`; never copy Apple's layouts.
-- Work comes from the project board (https://github.com/users/coredev-uk/projects/3) and its issues. Labels: `area/*` and `platform/*` say where; `decision` needs the maintainer's call, `needs-hardware` a real machine, `upstream` MyGo or Apple; `needs-triage` is a new report. `state/*`, `verdict/*`, `kind/*`, `type/*` and `clarence:*` are the bots'; leave them.
+- Work comes from the project board (<https://github.com/users/coredev-uk/projects/3>) and its issues. Labels: `area/*` and `platform/*` say where; `decision` needs the maintainer's call, `needs-hardware` a real machine, `upstream` MyGo or Apple; `needs-triage` is a new report. `state/*`, `verdict/*`, `kind/*`, `type/*` and `clarence:*` are the bots'; leave them.
 - Reference only: [vibez](https://github.com/simonepelosi/vibez) (MIT) hosts the CDM the same way; never copy it wholesale.
 
 ## Hard rules
@@ -55,7 +55,7 @@ Rationale: `docs/architecture.md`.
 - Write a file Sona replaces in place with `fsutil.WriteFileAtomic`, never hand-rolled temp-and-rename.
 - Performance: MyGo draws on the GPU, so no layout, text shaping or image work per frame; narrow invalidation; `Scroll` virtualises lists.
 - Decode artwork at its shown size, off the main thread, cached. Pre-blur backdrops in Go, never live. Cold start reads SQLite only; network and playback host start after first paint.
-- Platforms: OS-specific code goes behind the seams (`platform_<os>.go`, `services.Platform`, `docs/platforms.md`). Where a platform lacks a feature, report it (`errors.ErrUnsupported`, `PlatformService.Capabilities`) and hide or explain the control; never a stub that pretends.
+- Platforms: OS-specific code goes behind the seams (`cmd/sona/platform_*.go`, `services.Platform`, `docs/platforms.md`). Where a platform lacks a feature, report it (`errors.ErrUnsupported`, `PlatformService.Capabilities`) and hide or explain the control; never a stub that pretends.
 
 ## Process
 

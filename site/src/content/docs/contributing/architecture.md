@@ -3,7 +3,7 @@ title: Architecture Overview
 description: How Sona is put together, and the rules every change keeps.
 ---
 
-Sona is a desktop Apple Music client written in Go. [MyGo](https://github.com/egoist/mygo) draws the interface natively on the GPU, in the same process that holds the services, the library and the playback coordinator. Linux is the primary platform. The full design, with the reasons, is [docs/architecture.md](https://github.com/coredev-uk/sona-go/blob/main/docs/architecture.md).
+Sona is a desktop Apple Music client written in Go, for Linux, macOS and Windows. [MyGo](https://github.com/egoist/mygo) draws the interface natively on the GPU, in the same process that holds the services, the library and the playback coordinator. The full design, with the reasons, is [docs/architecture.md](https://github.com/coredev-uk/sona-go/blob/main/docs/architecture.md).
 
 ## The three parts
 
@@ -19,7 +19,7 @@ The parent fetches everything and passes bytes to the child. Decrypted audio nev
 
 | Path | Holds |
 | --- | --- |
-| `cmd/sona` | The app. `main.go` is portable; `platform_<os>.go` holds what differs per OS. |
+| `cmd/sona` | The app. `main.go` is portable; `platform_*.go` holds what differs per OS. |
 | `internal/services` | Services, DTOs and events. The contract is in `doc.go`. |
 | `internal/applemusic` | The only Apple Music client. |
 | `internal/db` | SQLite, goose migrations and sqlc queries (`dbq` is generated). |
@@ -35,7 +35,7 @@ The parent fetches everything and passes bytes to the child. Decrypted audio nev
 - Protected playback runs only in the CDM host. Sona never bundles, redistributes or patches the CDM, and never extracts keys.
 - Cold start reads SQLite only. The network and the playback host start after the first paint.
 - MyGo draws on the GPU: no layout, text shaping or image work per frame. Decode artwork at its shown size, off the main thread. Pre-blurred backdrops come from Go.
-- OS-specific code sits behind the platform seams (`platform_<os>.go`, `services.Platform`). Where a platform lacks a feature, report it with `errors.ErrUnsupported` and hide or explain the control. Never write a stub that pretends.
+- OS-specific code sits behind the platform seams (`platform_*.go`, `services.Platform`). Where a platform lacks a feature, report it with `errors.ErrUnsupported` and hide or explain the control. Never write a stub that pretends.
 - Go's MPRIS name is the only Sona player on D-Bus.
 
 ## Go further

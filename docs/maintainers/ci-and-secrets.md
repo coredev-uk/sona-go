@@ -1,6 +1,6 @@
 # CI and secrets
 
-How the GitHub Actions workflows protect Sona's credentials, where those credentials live and how to rotate them. For maintainers; the contributor rules for workflow changes are in `docs/maintainers/ci-workflows.md`, "CI and workflows", and the release steps in [release.md](release.md).
+How the GitHub Actions workflows protect Sona's credentials, where those credentials live and how to rotate them. For maintainers; the contributor rules for workflow changes are in `docs/maintainers/ci-workflows.md`, "CI workflows", and the release steps in [release.md](release.md).
 
 The repository's GitHub Actions run on GitHub-hosted runners only (a self-hosted runner reachable from a pull request was ruled out). Once the repository is public, anyone can open a pull request, so the workflows assume the pull request's code is hostile.
 
