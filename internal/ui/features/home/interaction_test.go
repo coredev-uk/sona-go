@@ -36,16 +36,22 @@ var allGestures = []gesture{gClick, gDouble, gEnter, gShiftEnter, gSpace, gPlay}
 func kindItems() map[string]services.Item {
 	art := coverArt(7)
 	return map[string]services.Item{
-		"song": {Kind: services.ItemSong, ID: "s1", Name: "Song One", Subtitle: "Artist S", Art: art,
-			Song: &services.Song{ID: "s1", Name: "Song One", Artist: "Artist S", Playable: true}},
+		"song": {
+			Kind: services.ItemSong, ID: "s1", Name: "Song One", Subtitle: "Artist S", Art: art,
+			Song: &services.Song{ID: "s1", Name: "Song One", Artist: "Artist S", Playable: true},
+		},
 		"album":    albumItem("al1", "Album One", "Artist A", 1),
 		"playlist": playlistItem("pl1", "Playlist One", "Curator P", 2),
-		"artist": {Kind: services.ItemArtist, ID: "ar1", Name: "Artist One", Art: art,
-			Artist: &services.Artist{ID: "ar1", Name: "Artist One"}},
+		"artist": {
+			Kind: services.ItemArtist, ID: "ar1", Name: "Artist One", Art: art,
+			Artist: &services.Artist{ID: "ar1", Name: "Artist One"},
+		},
 		"station":        stationItem("sp1", "Station Page", 3, true),
 		"station-nopage": stationItem("sn1", "Station Plain", 4, false),
-		"video": {Kind: services.ItemMusicVideo, ID: "v1", Name: "Video One", Subtitle: "Artist V", Art: art,
-			MusicVideo: &services.MusicVideo{ID: "v1", Name: "Video One", Artist: "Artist V"}},
+		"video": {
+			Kind: services.ItemMusicVideo, ID: "v1", Name: "Video One", Subtitle: "Artist V", Art: art,
+			MusicVideo: &services.MusicVideo{ID: "v1", Name: "Video One", Artist: "Artist V"},
+		},
 		"curator":  {Kind: services.ItemCurator, ID: "cu1", Name: "Curator One", Art: art},
 		"grouping": {Kind: services.ItemGrouping, ID: "g1", Name: "Grouping One", Art: art},
 		"room":     {Kind: services.ItemRoom, ID: "ro1", Name: "Room One", Art: art},
@@ -151,7 +157,7 @@ func (r *rig) do(g gesture, label string, track bool) string {
 // link, a button, a group or a row tells a user it will do.
 func (r *rig) cue(label string) string {
 	named := func(name string) bool {
-		return name == label || name == label+" Play" || name == label+" Pause" || strings.HasPrefix(name, label+", ")
+		return name == label || name == label+" Play" || name == label+" Pause" || name == label+" Opens in your browser" || strings.HasPrefix(name, label+", ")
 	}
 	for _, role := range []struct {
 		r    ui.Role
@@ -387,8 +393,7 @@ var homeWant = map[string]map[string]outcomes{
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "no play control",
-			// DEPARTS: the tile is a link for assistive technology, but choosing it leaves the app for the browser, and nothing says so (the strip's row is a button; the links tile has an "Opens in your browser" icon)
-			cue: "link",
+			cue:        "link",
 		},
 	},
 	"strip": {
@@ -438,7 +443,7 @@ var homeWant = map[string]map[string]outcomes{
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "no play control",
-			cue:        "button",
+			cue:        "link",
 		},
 	},
 	"stationRows": {
@@ -630,9 +635,9 @@ var homeWant = map[string]map[string]outcomes{
 			double:     "url https://example.test/interview/1; url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
-			space:      "url https://example.test/interview/1",
+			space:      "nothing",
 			play:       "no play control",
-			cue:        "none",
+			cue:        "link",
 		},
 	},
 	"bricks": {

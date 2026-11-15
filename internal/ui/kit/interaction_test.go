@@ -512,11 +512,11 @@ func iaKinds() []iaKind {
 		{"artist", sub(services.Item{Kind: services.ItemArtist, ID: "ar1", Name: "Artist One", Artist: &services.Artist{ID: "ar1", Name: "Artist One"}}), "Artist One", "Artist One"},
 		{"station", sub(stationItem(true, true)), "Local FM", "Local FM"},
 		{"station without a page", sub(stationItem(false, true)), "Local FM Play", "Local FM Play"},
-		{"unplayable station without a page", sub(stationItem(false, false)), "Local FM", "Local FM Opens in your browser"},
+		{"unplayable station without a page", sub(stationItem(false, false)), "Local FM Opens in your browser", "Local FM Opens in your browser"},
 		{"music video", sub(services.Item{Kind: services.ItemMusicVideo, ID: "v1", Name: "Video One", MusicVideo: &services.MusicVideo{ID: "v1", Name: "Video One"}}), "Video One", "Video One"},
 		{"curator", sub(services.Item{Kind: services.ItemCurator, ID: "cu1", Name: "Curator One"}), "Curator One", "Curator One"},
 		{"upcoming album", sub(services.Item{Kind: services.ItemAlbum, ID: "up1", Name: "Upcoming One", Album: &upcoming}), "Upcoming One, Out Nov 19", "Upcoming One"},
-		{"web link", sub(services.Item{Kind: services.ItemLink, Name: "Web One", URL: "https://example.com/c"}), "Web One", "Web One Opens in your browser"},
+		{"web link", sub(services.Item{Kind: services.ItemLink, Name: "Web One", URL: "https://example.com/c"}), "Web One Opens in your browser", "Web One Opens in your browser"},
 		{"room", sub(services.Item{Kind: services.ItemRoom, ID: "r1", Name: "Room One"}), "Room One", "Room One"},
 	}
 }
@@ -805,11 +805,10 @@ var iaCoverWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"unplayable station without a page": {
-		role: "link",
-		play: "none",
-		more: "button",
-		menu: "opens",
-		// DEPARTS: the tile is a link (role link, no external-link glyph) but a click sends the user to the browser; LinkList marks such tiles with an arrow named "Opens in your browser" (collections_cover.go:301-308 tile role, collections_items_linklist.go:99-102); fix: a glyph on the cover or a role/label for web-only tiles.
+		role:       "link",
+		play:       "none",
+		more:       "button",
+		menu:       "opens",
 		click:      "opened=station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1",
 		double:     "opened=station:ra.1,station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1,https://music.apple.com/gb/station/local-fm/ra.1",
 		enter:      "opened=station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1",
@@ -864,11 +863,10 @@ var iaCoverWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"web link": {
-		role: "link",
-		play: "none",
-		more: "none",
-		menu: "none",
-		// DEPARTS: the tile is a link (role link, no external-link glyph) but a click sends the user to the browser; LinkList marks such tiles with an arrow named "Opens in your browser" (collections_cover.go:301-308 tile role, collections_items_linklist.go:99-102); fix: a glyph on the cover or a role/label for web-only tiles.
+		role:       "link",
+		play:       "none",
+		more:       "none",
+		menu:       "none",
 		click:      "opened=link: urls=https://example.com/c",
 		double:     "opened=link:,link: urls=https://example.com/c,https://example.com/c",
 		enter:      "opened=link: urls=https://example.com/c",
@@ -1001,16 +999,15 @@ var iaWideWant = map[string]iaRow{
 		playDisc:   "played=station:ra.1",
 	},
 	"unplayable station without a page": {
-		role: "button",
-		play: "none",
-		more: "button",
-		menu: "opens",
-		// DEPARTS: leaves the app with no cue: the card is a plain button (no role link) with no external-link glyph; a cover tile of the same item is role link and LinkList draws an arrow (collections_items_widerow.go:179-181).
+		role:       "link",
+		play:       "none",
+		more:       "button",
+		menu:       "opens",
 		click:      "opened=station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1",
 		double:     "opened=station:ra.1,station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1,https://music.apple.com/gb/station/local-fm/ra.1",
 		enter:      "opened=station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1",
 		shiftEnter: "nothing",
-		space:      "opened=station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1",
+		space:      "nothing",
 		shiftClick: "opened=station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1",
 		ctrlClick:  "opened=station:ra.1 urls=https://music.apple.com/gb/station/local-fm/ra.1",
 		playDisc:   "no control",
@@ -1059,16 +1056,15 @@ var iaWideWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"web link": {
-		role: "button",
-		play: "none",
-		more: "none",
-		menu: "none",
-		// DEPARTS: leaves the app with no cue: the card is a plain button (no role link) with no external-link glyph; a cover tile of the same item is role link and LinkList draws an arrow (collections_items_widerow.go:179-181).
+		role:       "link",
+		play:       "none",
+		more:       "none",
+		menu:       "none",
 		click:      "opened=link: urls=https://example.com/c",
 		double:     "opened=link:,link: urls=https://example.com/c,https://example.com/c",
 		enter:      "opened=link: urls=https://example.com/c",
 		shiftEnter: "nothing",
-		space:      "opened=link: urls=https://example.com/c",
+		space:      "nothing",
 		shiftClick: "opened=link: urls=https://example.com/c",
 		ctrlClick:  "opened=link: urls=https://example.com/c",
 		playDisc:   "no control",
@@ -1195,7 +1191,7 @@ var iaLinkWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"unplayable station without a page": {
-		role:       "button",
+		role:       "link",
 		play:       "none",
 		more:       "none",
 		menu:       "none",
@@ -1251,7 +1247,7 @@ var iaLinkWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"web link": {
-		role:       "button",
+		role:       "link",
 		play:       "none",
 		more:       "none",
 		menu:       "none",
@@ -1482,7 +1478,11 @@ func TestInteractionCoverTileOfThePlayingStation(t *testing.T) {
 func TestInteractionWideRowCards(t *testing.T) {
 	for _, k := range iaKinds() {
 		t.Run(k.name, func(t *testing.T) {
-			iaDiff(t, k.name, iaDrive(t, iaWideRow(k.item, k.item.Name, "Play "+k.item.Name, nil)), iaWideWant[k.name])
+			opener := k.item.Name
+			if strings.HasSuffix(k.link, "Opens in your browser") {
+				opener = k.link // a web-only card is named as its link tile is
+			}
+			iaDiff(t, k.name, iaDrive(t, iaWideRow(k.item, opener, "Play "+k.item.Name, nil)), iaWideWant[k.name])
 		})
 	}
 	song := iaKinds()[0]
