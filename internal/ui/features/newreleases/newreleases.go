@@ -80,7 +80,7 @@ func (n *newReleases) module() module.Module {
 			// After Concerts, so the positional Ctrl+1…9 keys of the pages before it stay.
 			Section: module.NavPrimary,
 			Label:   func() string { return i18n.T("New releases") },
-			Icon:    "disc-3",
+			Icon:    "calendar",
 			To:      path,
 			Order:   27,
 			Count:   n.unread,

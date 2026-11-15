@@ -1684,7 +1684,7 @@ The location dialog (`location.go`) searches Sona's own city list (`ConcertsServ
 
 ### New releases (`features/newreleases`)
 
-`/new-releases` with the `New releases` nav item (icon `disc-3`, primary, order 27: after Concerts, so the positional Ctrl+1…9 keys before it stay), the page of the artist tracker (`ArtistTrackerService`; `docs/architecture.md`, "Artist tracker"; its look is `docs/design.md`, "New releases"). The sidebar link is always there: the page says plainly when the tracker is off and links to Settings.
+`/new-releases` with the `New releases` nav item (icon `calendar`, primary, order 27: after Concerts, so the positional Ctrl+1…9 keys before it stay), the page of the artist tracker (`ArtistTrackerService`; `docs/architecture.md`, "Artist tracker"; its look is `docs/design.md`, "New releases"). The sidebar link is always there: the page says plainly when the tracker is off and links to Settings.
 
 - **State.** `artisttracker:changed` writes `store.KeyNewReleases` (`store.UseNewReleases`: items, unread count, when it was last checked); `Init` seeds it from `ArtistTrackerService.Releases`, which reads SQLite only. The nav item's `Count` peeks at it, so the sidebar shows the unread count without a fetch. Reads of the settings (`store.UseSettings`) tell the page whether the tracker is on.
 - **The page** (`page.go`) groups the list (`groupsOf`: Coming soon, soonest first; This week; Earlier) and builds each group as a table of rows (`row.go`), all in one `kit.Selection`, `kit.GridNav` and `kit.ActionMenus`, as the artist page's release list is: rows select, drag, open their item menu on right-click, Shift+F10 or the Menu key, and move with the arrows. A row is one Tab stop; the Delete key removes it.
