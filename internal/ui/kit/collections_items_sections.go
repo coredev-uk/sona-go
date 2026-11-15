@@ -15,6 +15,13 @@ import (
 // requests the 4:1 subscriptionHero art cropped to 1060×608 ("sr").
 const heroRatio = 1060.0 / 608.0
 
+// brickRatio is a brick's frame. music.apple.com crops the same 4:1
+// subscriptionHero art to 16:9 ("brick" profile, "sr"); Sona keeps the 2:1 a
+// brick row has always had, still inside the art's centre: Best of Apple Music
+// Club's art, which carries black bands of its own, has a picture about 1.96:1
+// between them (checked 2026-11-15), so a 2:1 crop fills the frame with it.
+const brickRatio = 2.0
+
 // textMax is the widest a paragraph gets: 72ch, a "0" of the interface font at
 // the 14 DIP body size being 9 DIPs wide (measured with Context.MeasureText).
 const textMax = 72 * 9
@@ -84,11 +91,11 @@ func (st *EditorialState) section(c *ui.Context, s services.Section, ctx ItemsCt
 	switch s.Kind {
 	case services.SectionHero:
 		WideRow(c, stateOf(&st.wides, s.ID), s.Items, ctx, WideRowOpts{
-			Title: s.Title, First: first, Min: 420, Ratio: heroRatio, Crop: true,
+			Title: s.Title, First: first, Min: 420, Ratio: heroRatio,
 		})
 	case services.SectionBricks:
 		WideRow(c, stateOf(&st.wides, s.ID), s.Items, ctx, WideRowOpts{
-			Title: s.Title, First: first, Min: 240, Ratio: 2,
+			Title: s.Title, First: first, Min: 240, Ratio: brickRatio,
 		})
 	case services.SectionTracks:
 		TrackShelf(c, stateOf(&st.tracks, s.ID), s.Items, ctx, TrackShelfOpts{Title: s.Title, First: first, More: more})

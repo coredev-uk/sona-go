@@ -102,11 +102,11 @@ func TestEditorialSectionsHeroArtIsRequestedAtTheHeroShape(t *testing.T) {
 	if got := a.fake.requests(); !slices.Equal(got, [][2]int{{420, 241}}) {
 		t.Errorf("requests %v, want [420 241]", got)
 	}
-	// Bricks are bound by their 2:1 frame: the 4:1 banner letterboxed whole.
+	// Bricks are cropped to their 2:1 frame: the CDN is asked for the frame.
 	a, tt, _ = sectionsApp(t, 240+48, []services.Section{sectionOf("b", services.SectionBricks, "", wideCards(1)...)}, EditorialOpts{First: true})
 	a.load(t, tt, 1)
-	if got := a.fake.requests(); !slices.Equal(got, [][2]int{{240, 60}}) {
-		t.Errorf("requests %v, want [240 60]", got)
+	if got := a.fake.requests(); !slices.Equal(got, [][2]int{{240, 120}}) {
+		t.Errorf("requests %v, want [240 120]", got)
 	}
 }
 

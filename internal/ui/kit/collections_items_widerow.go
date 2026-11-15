@@ -28,24 +28,20 @@ type WideRowOpts struct {
 	// Min is the smallest card width: 420 for heroes, 240 for category
 	// bricks.
 	Min float32
-	// Ratio is the artwork frame's width over its height. With Crop it is
-	// every frame's shape; otherwise it is the tallest frame (2 for
-	// bricks), and a row whose banners are all wider gets their shape
-	// instead.
+	// Ratio is every artwork frame's width over its height. Banners are
+	// cropped to it, as Apple's hero shelf and bricks are: its 4:1 art keeps
+	// what matters in the centre, and Apple's CDN crops it to the box.
 	Ratio float32
-	// Crop crops every banner to Ratio, as Apple's hero shelf does: its 4:1
-	// art keeps what matters in the centre, and Apple's CDN crops it to the
-	// box.
-	Crop bool
 }
 
 // WideRow is wide editorial cards (v0.2.0's WideRow): the banner (never under
-// text), the title and the line below. Every frame in a row has one shape. A
-// cropping row (heroes) fills it with each banner cropped to it. Otherwise
-// banners sit whole on their own background colour in the tallest of the row's
-// banner shapes within Ratio, so a row of 4:1 bricks has no empty bands and a
-// mixed row letterboxes only the wider ones. As many cards as fit; the arrows
-// page through the rest.
+// text), the title and the line below. Every frame in a row has one shape,
+// Ratio, and each banner is cropped to fill it (Apple's CDN cuts the centre),
+// so no card is a small picture between flat bands: Apple draws a banner's
+// subject in the centre of 4:1 art, and some banners (Best of Apple Music
+// Club) carry black bands of their own either side of a 2:1 picture, which
+// only a crop removes. A card with no banner shows its cover whole on its
+// background colour. As many cards as fit; the arrows page through the rest.
 func WideRow(c *ui.Context, st *WideRowState, items []services.Item, ctx ItemsCtx, o WideRowOpts) {
 	tk := theme.Current()
 	// Apple leaves heroes untitled; a paged one still gets a heading.
@@ -64,12 +60,6 @@ func WideRow(c *ui.Context, st *WideRowState, items []services.Item, ctx ItemsCt
 			return
 		}
 		cols, tile := CoverColumns(width, o.Min)
-		frame := o.Ratio
-		if !o.Crop {
-			if a := itemsWidestShape(items); a > 0 {
-				frame = max(o.Ratio, a)
-			}
-		}
 		pages := max(1, (len(items)+cols-1)/cols)
 		at := min(st.Page, pages-1)
 		shown := items[min(len(items), at*cols):min(len(items), at*cols+cols)]
@@ -82,7 +72,7 @@ func WideRow(c *ui.Context, st *WideRowState, items []services.Item, ctx ItemsCt
 				it := shown[i]
 				key := strconv.Itoa(at) + ":" + strconv.Itoa(i) + ":" + it.Kind + ":" + it.ID
 				ui.Column(c.Key(key)).Width(tile).Shrink(0).Role(ui.RoleListItem).Children(func() {
-					itemsWideCard(c, it, tile, frame, o.Crop, ctx, tk)
+					itemsWideCard(c, it, tile, o.Ratio, ctx, tk)
 				})
 			}
 		})
@@ -90,25 +80,6 @@ func WideRow(c *ui.Context, st *WideRowState, items []services.Item, ctx ItemsCt
 			ctx.Menus.Popup(c)
 		}
 	})
-}
-
-// itemsWidestShape is the tallest banner shape of the row: the smallest width
-// over height of its items' wide artwork, 0 when none has any.
-func itemsWidestShape(items []services.Item) float32 {
-	var tallest float32
-	for i := range items {
-		wide := items[i].Wide.Large
-		if wide == "" {
-			wide = items[i].Wide.Medium
-		}
-		if wide == "" {
-			continue
-		}
-		if a := itemsArtAspect(wide); tallest == 0 || a < tallest {
-			tallest = a
-		}
-	}
-	return tallest
 }
 
 // header is the heading row: the title, and with pages "{n} of {pages}" and
@@ -148,7 +119,7 @@ func (st *WideRowState) header(c *ui.Context, label string, at, pages int) {
 
 // itemsWideCard is one card: the banner on top, the title and the line below,
 // never text over the banner. The whole card opens the item.
-func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop bool, ctx ItemsCtx, tk *theme.Tokens) {
+func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx ItemsCtx, tk *theme.Tokens) {
 	link := ItemLink(it)
 	banner := it.Wide.Large
 	if banner == "" {
@@ -161,7 +132,7 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 			src = it.Art.Medium
 		}
 	}
-	cover := crop && banner != ""
+	cover := banner != ""
 
 	fh := width / ratio
 	// The card is a wrapper holding the opener and, beside it, the play
@@ -244,14 +215,14 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, crop b
 
 // itemsBanner draws the card's image in its w by h frame, or nothing while it
 // loads and when it failed, leaving the item colour: a banner is decoded at
-// the frame's own shape, centred whole (contain) at its own aspect, or
-// filling the frame when the row crops it.
-func itemsBanner(c *ui.Context, l *ArtLoader, v *artWindow, r artRank, src string, w, h float32, crop bool, radius float32) {
+// the frame's own shape, filling the frame (the CDN crops it); a cover with
+// no banner is centred whole (contain) at its own aspect.
+func itemsBanner(c *ui.Context, l *ArtLoader, v *artWindow, r artRank, src string, w, h float32, fill bool, radius float32) {
 	if l == nil || src == "" {
 		return
 	}
 	bw, bh := w, h
-	if !crop {
+	if !fill {
 		if a := itemsArtAspect(src); a >= w/h {
 			bh = w / a
 		} else {
