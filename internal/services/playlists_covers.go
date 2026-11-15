@@ -223,10 +223,11 @@ func tidyCoverFiles(ctx context.Context, e *Env) {
 	}
 }
 
-// coverOfPin is the cover the user chose for a pinned playlist, "" when
-// the pin keeps the artwork Apple gave it.
-func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID string) (string, bool) {
-	choice, err := s.e.Library.PlaylistCover(ctx, libraryID)
+// chosenPlaylistCover is the cover the user chose for library playlist
+// libraryID, "" with true for none; false when the playlist keeps its
+// automatic cover (or the choice cannot be drawn now).
+func (e *Env) chosenPlaylistCover(ctx context.Context, libraryID string) (string, bool) {
+	choice, err := e.Library.PlaylistCover(ctx, libraryID)
 	if err != nil {
 		return "", false
 	}
@@ -236,13 +237,33 @@ func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID string) (st
 	case library.CoverUpload:
 		return choice.Template, true
 	case library.CoverPreset:
-		// Drawn from the library's cover, not the pin's: the pin's is
-		// Apple's as of the last pin refresh, the name in it maybe an old one.
-		if auto, err := s.e.Library.AutoCover(ctx, libraryID); err == nil {
+		// Drawn from the library's cover, not a copy's: a pin's or a
+		// shelf's is Apple's as of its last refresh, the name in it maybe
+		// an old one.
+		if auto, err := e.Library.AutoCover(ctx, libraryID); err == nil {
 			if t, ok := artwork.WithPattern(auto, choice.Template); ok {
 				return t, true
 			}
 		}
 	}
 	return "", false
+}
+
+// playlistCover is the cover library playlist libraryID shows in Library →
+// Playlists, wherever else it is listed: the user's choice, else Apple's
+// artwork or the mosaic of its tracks' albums (library.AutoCover). "" with
+// true is the plain placeholder the user chose; false means the playlist is
+// not in the library or has no cover, and the caller keeps what it has.
+func (e *Env) playlistCover(ctx context.Context, libraryID string) (string, bool) {
+	if t, ok := e.chosenPlaylistCover(ctx, libraryID); ok {
+		return t, true
+	}
+	t, err := e.Library.AutoCover(ctx, libraryID)
+	return t, err == nil && t != ""
+}
+
+// coverOfPin is the cover the user chose for a pinned playlist, false when
+// the pin keeps the artwork Apple gave it.
+func (s *PlaylistsService) coverOfPin(ctx context.Context, libraryID string) (string, bool) {
+	return s.e.chosenPlaylistCover(ctx, libraryID)
 }
