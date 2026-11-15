@@ -88,6 +88,8 @@ Inside the tagged packages, what differs is in `_linux.go` and `_darwin.go` file
 | Discord IPC | Unix socket owned by the user | Unix socket owned by the user | Named pipe `\\.\pipe\discord-ipc-N` whose server runs as the user |
 | Track notifications | `org.freedesktop.Notifications` (`internal/desktop/notify`) | MyGo: UNUserNotificationCenter, from Sona.app only | MyGo: notification-area balloons, shown as toasts |
 | Start at login | XDG autostart entry (`app.XDGAutostart`, passes `--hidden`) | MyGo: SMAppService login item, from Sona.app only | MyGo: the user's `Run` key, which Task Manager can turn off |
+| Stay awake while playing | logind `sleep` inhibitor, portal fallback (`internal/desktop/inhibit`) | MyGo: `Power.KeepAwake`, an IOPMAssertion | MyGo: `Power.KeepAwake`, a `SystemRequired` power request |
+| On battery (motion artwork) | UPower (`internal/power`) | MyGo: `Power.IsOnBattery`, polled | MyGo: `Power.IsOnBattery`, polled |
 | Audio sink | `pipewiresink` | `osxaudiosink` | `wasapi2sink` |
 | CDM library | `libwidevinecdm.so` | `libwidevinecdm.dylib` | `widevinecdm.dll` |
 

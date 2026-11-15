@@ -21,9 +21,9 @@ import (
 //     macOS: outside Sona.app (a source build, bin/sona) they are absent and
 //     NeedsAppBundle says why.
 func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
-	out.Inhibitor = func(why func() string) services.SleepInhibitor { return newMacInhibitor(why) }
+	out.Inhibitor = func(why func() string) services.SleepInhibitor { return newDesktopInhibitor(why) }
 	out.KeepRunning = func(why func() string) services.RunningKeeper { return newMacKeeper(why) }
-	out.Power = openMacPower
+	out.Power = openDesktopPower
 	out.Files = newMacFiles(windows.Main)
 	if !runsFromAppBundle() {
 		out.NeedsAppBundle = true

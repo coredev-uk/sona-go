@@ -6452,6 +6452,10 @@ msgstr "Stops the computer from suspending on its own while music plays. The scr
 msgid "Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. Neither logind nor the desktop portal answered, so sleep can't be blocked."
 msgstr "Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. Neither logind nor the desktop portal answered, so sleep can't be blocked."
 
+#: internal/ui/features/settings/integrations_rows.go
+msgid "Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. {platform} refused the request, so sleep can't be blocked."
+msgstr "Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. {platform} refused the request, so sleep can't be blocked."
+
 #: internal/ui/features/settings/find.go
 msgid "Storage"
 msgstr "Storage"
