@@ -147,7 +147,7 @@ func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play fun
 				if !row.Hovered() {
 					btn.Opacity(0)
 				}
-				btn.Children(func() { theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Inherit: true}) })
+				btn.Children(func() { PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink"), Inherit: true}) })
 				if btn.Clicked() {
 					play()
 				}

@@ -130,7 +130,7 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 				}
 				box.Children(func() {
 					play := Button(c, "", ButtonOpts{
-						Variant: Ghost, Size: SizeSM, Icon: "play", Disabled: !s.Playable,
+						Variant: Ghost, Size: SizeSM, Icon: "play", Filled: true, Disabled: !s.Playable,
 						A11yLabel: i18n.T("Play {name}", "name", s.Name),
 					}).Radius(tk.Radius["full"])
 					if !hot && !play.Focused() {
@@ -151,7 +151,7 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 				if !hot {
 					mark.Opacity(0)
 				}
-				mark.Children(func() { theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink-muted"), Inherit: true}) })
+				mark.Children(func() { PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink-muted"), Inherit: true}) })
 			}
 			if ctx.Menus != nil {
 				ctx.Menus.Trigger(c.Key("more"), hit, ActionTarget{Item: StationItem(s), Name: s.Name}, TriggerOpts{Visible: hot})

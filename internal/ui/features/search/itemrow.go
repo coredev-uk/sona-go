@@ -97,7 +97,7 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			main.Children(func() {
 				body()
 				if role == ui.RoleButton {
-					glyph := theme.Glyph(c, "play", 14, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
+					glyph := kit.PlayGlyph(c, 14, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
 					if !main.Hovered() && !main.FocusVisible() {
 						glyph.Opacity(0)
 					}
@@ -117,7 +117,7 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 		// with the row's other actions.
 		if role == ui.RoleLink && run != nil && it.Kind == services.ItemSong && s.playable(it) {
 			play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
-				Variant: kit.Ghost, Size: kit.SizeSM, Icon: "play", Muted: true,
+				Variant: kit.Ghost, Size: kit.SizeSM, Icon: "play", Filled: true, Muted: true,
 				A11yLabel: i18n.T("Play {label}", "label", it.Name),
 			})
 			if !shown {
