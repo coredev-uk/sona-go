@@ -7456,7 +7456,6 @@ msgctxt "keyboard key"
 msgid "Up Arrow"
 msgstr "Up Arrow"
 
-#: internal/ui/features/discover/front.go
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Up next"
 msgstr "Up next"

@@ -709,13 +709,13 @@ The setup is a modal over the live app, not a page of its own: the sidebar, top 
 
 ## Discover
 
-Discover (`/new`) sets Apple's editorial front page as Sona's own issue: a masthead, the front page (the featured cards as one large lead with a queue of the next ones beside it), the contents, then the shelves grouped by what they hold, each band with its name in a margin. It is the one long page in the app (twenty-odd shelves), so it gets a lead to start from and a way to reach any band without scrolling or tabbing through the rest. Charts and the room, curator, multiroom and grouping pages share its masthead.
+Discover (`/new`) sets Apple's editorial front page as Sona's own issue: a masthead, the front page (the featured cards as one large lead with a queue of them beside it), the contents, then the shelves grouped by what they hold, each band with its name in a margin. It is the one long page in the app (twenty-odd shelves), so it gets a lead to start from and a way to reach any band without scrolling or tabbing through the rest. Charts and the room, curator, multiroom and grouping pages share its masthead.
 
 ```text
 ┌──────────────────────────────────────────────────────────┐
 │ Discover  Updated 12 min ago                  (controls) │
 │ ┌────────────────────────────────┐  ┌────────┐ ┌────────┐ │
-│ │                                │  │  next  │ │        │ │
+│ │                                │  │ (lead) │ │        │ │
 │ │   lead: 60% of the column      │  └────────┘ └────────┘ │
 │ │                                │  Title      Title      │
 │ └────────────────────────────────┘  Byline     Byline     │
@@ -743,9 +743,9 @@ Discover (`/new`) sets Apple's editorial front page as Sona's own issue: a masth
     - What it says is what Apple's hero card says: Apple's badge, the name, the artist or curator, and its one line (on music.apple.com the line sits over the picture). The line is the card's own tagline on a card with its own art (320), else the content's short editorial note. The badge is folded into the byline ("Updated playlist · Apple Music Pop"), never set as a label over the title.
     - The line's row is kept for a card without one, so nothing under the lead moves as it rotates. Clipped, it shows whole as a tooltip, and the lead's opener is described by the line and the byline.
     - The chevrons bring the card before or after into the lead, wrapping round, so a focused chevron is never disabled under the keyboard.
-  - **The queue** ("Up next") is the next four cards in the rotation after the lead. A tile is the card's picture in the hero card's shape (Apple's centre crop, as the lead shows it, in miniature, or the cover whole on the item's colour for a card with no banner), radius 4, then 8px down the title at 14/500 (underlined on hover) and the byline at 13 muted.
-    - A tile opens its card, as the lead does and as every other tile does ([#442]). On hover and focus it shows a 32px play disc at the picture's bottom left and a "Show in lead" button at its top right; the button makes the card the lead, and when the keyboard pressed it the focus goes with the card to the lead's title, since the tile is gone.
-    - Each turn of the rotation moves the queue on by one: the tiles slide to their new places over 400ms (ease in-out), the card now leading fades where it was and the next comes in at the end, sliding 1rem from the right.
+  - **The queue** is a still set of four featured cards in Apple's order, the lead among them. A tile is the card's picture in the hero card's shape (Apple's centre crop, as the lead shows it, in miniature, or the cover whole on the item's colour for a card with no banner), radius 4, then 8px down the title at 14/500 (underlined on hover) and the byline at 13 muted.
+    - **The tiles do not move as the lead rotates.** The lead's tile is marked where it stands: an `--active` fill reaching 6px past it at radius 6 (the mark of what is selected, never amber; described to assistive technology as the current one), with the lead's progress as a 2px line along its bottom. As the lead moves on, the mark moves from tile to tile (its fill fades over 400ms). Only when the lead leaves the four does the set move on, to start at the lead (wrapping round), as one 400ms cross-fade of the whole queue.
+    - A tile opens its card, as the lead does and as every other tile does ([#442]). On hover and focus it shows a 32px play disc at the picture's bottom left and, but on the lead's tile, a "Show in lead" button at its top right ("Show in lead: {name}" to assistive technology); the button makes the card the lead, and when the keyboard pressed it the focus goes on to the lead's title, since the button goes.
   - Play controls appear on hover and focus as on every tile; a right-click, Shift+F10 or the Menu key opens the item's menu.
   - What the front page shows is left out of the cover shelves below it (a shelf it would empty stays whole), so one album isn't met four times on the way down.
 - **The lead rotates.** Every 7 s the lead gives way to the next featured card, wrapping round.

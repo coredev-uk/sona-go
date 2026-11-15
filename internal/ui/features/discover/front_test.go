@@ -126,16 +126,16 @@ func (r *rig) heroCentre() (float32, float32) {
 	return hero.X + hero.W/4, hero.Y + hero.H/3
 }
 
-func TestFrontLeadsWithTheFirstCardAndQueuesTheNextFour(t *testing.T) {
+func TestFrontLeadsWithTheFirstCardAndQueuesTheFirstFour(t *testing.T) {
 	src := newCoverSource()
 	r := newFrontWith(t, 16, src)
-	for _, w := range []string{"Featured", "Card 1", "Card 2", "Card 5", "1 of 16", "Previous in Featured", "Next in Featured"} {
+	for _, w := range []string{"Featured", "Card 1", "Card 2", "Card 4", "1 of 16", "Previous in Featured", "Next in Featured"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("the front page lacks %q: %q", w, r.tt.Texts())
 		}
 	}
-	// The queue is the four after the lead.
-	for _, w := range []string{"Card 6", "Card 16"} {
+	// The queue is the first four, the lead among them.
+	for _, w := range []string{"Card 5", "Card 16"} {
 		if r.tt.HasText(w) {
 			t.Errorf("the queue shows %q", w)
 		}
@@ -208,23 +208,48 @@ func TestFrontProgressFillsTheLeadsSegmentAsTheIntervalRuns(t *testing.T) {
 	}
 }
 
-func TestFrontQueueMovesOnWithTheLeadAndWrapsRound(t *testing.T) {
+// The queue stays still while the lead goes through it, its tile marked, and
+// moves on to start at the lead only when the lead leaves it.
+func TestFrontQueueStaysStillUntilTheLeadLeavesIt(t *testing.T) {
 	r := newFront(t, 8)
-	for range 6 {
-		r.tick(rotateEvery)
-	}
-	if r.lead() != 6 {
-		t.Fatalf("lead %d, want the seventh card", r.lead())
-	}
-	r.tt.Drain()
-	for _, w := range []string{"7 of 8", "Card 7", "Card 8", "Card 1", "Card 2", "Card 3"} {
-		if !r.tt.HasText(w) {
-			t.Errorf("lacks %q: %q", w, r.tt.Texts())
+	shows := func(want, not []string) {
+		t.Helper()
+		for _, w := range want {
+			if !r.tt.HasText(w) {
+				t.Errorf("lead %d: lacks %q: %q", r.lead(), w, r.tt.Texts())
+			}
+		}
+		for _, w := range not {
+			if r.tt.HasText(w) {
+				t.Errorf("lead %d: shows %q", r.lead(), w)
+			}
 		}
 	}
-	if r.tt.HasText("Card 4") || r.tt.HasText("Card 6") {
-		t.Errorf("the queue is not the four after the lead: %q", r.tt.Texts())
+	r.tick(rotateEvery)
+	r.tick(rotateEvery)
+	r.tt.Drain()
+	if r.lead() != 2 || r.d.front.window != 0 {
+		t.Fatalf("lead %d, window %d: the queue moved while the lead was in it", r.lead(), r.d.front.window)
 	}
+	shows([]string{"Card 1", "Card 2", "Card 3", "Card 4"}, []string{"Card 5"})
+	r.tick(rotateEvery)
+	r.tick(rotateEvery)
+	r.tt.Drain()
+	if r.lead() != 4 || r.d.front.window != 4 {
+		t.Fatalf("lead %d, window %d: the queue did not move on when the lead left it", r.lead(), r.d.front.window)
+	}
+	shows([]string{"5 of 8", "Card 5", "Card 6", "Card 7", "Card 8"}, []string{"Card 1", "Card 4"})
+	// Chosen out of the queue, the lead starts it again.
+	r.d.front.choose(2)
+	r.tt.Drain()
+	if r.d.front.window != 2 {
+		t.Errorf("window %d after the lead left it for the third card", r.d.front.window)
+	}
+	shows([]string{"Card 3", "Card 4", "Card 5", "Card 6"}, []string{"Card 2", "Card 7"})
+	// Round the end: the queue wraps to the first cards.
+	r.d.front.choose(6)
+	r.tt.Drain()
+	shows([]string{"Card 7", "Card 8", "Card 1", "Card 2"}, []string{"Card 3", "Card 6"})
 }
 
 func TestFrontCrossFadesTheOldLeadOutAndKeepsItInertOnlyUntilTheFadeEnds(t *testing.T) {
@@ -621,7 +646,7 @@ func TestFrontAnOnlyCardHasNoRotationControlAndNeverRotates(t *testing.T) {
 			featured++
 		}
 	}
-	if r.tt.HasText("rotation") || r.tt.HasText("Up next") || featured != 1 { // the section's own name
+	if r.tt.HasText("rotation") || featured != 1 { // the section's own name; the queue's list would be a second
 		t.Errorf("a single card has a list or a rotation control: %q", r.tt.Texts())
 	}
 	if !r.tt.HasText("Card 1") {
@@ -885,12 +910,10 @@ func TestFrontLeadShowsApplesLineAndKeepsItsRowForACardWithout(t *testing.T) {
 	if !ok || !strings.HasPrefix(lead.Description, "Remi Wolf drowns her sorrows") {
 		t.Errorf("the lead's description %q does not start with Apple's line", lead.Description)
 	}
+	// Card 3's tile: the queue holds the first four whichever of them leads.
 	queue := func() float32 {
-		list, ok := r.tt.Find("Up next")
-		if !ok {
-			t.Fatalf("no queue: %q", r.tt.Texts())
-		}
-		return list.Y
+		_, y := r.tileCentre("Card 3")
+		return y
 	}
 	before := queue()
 	r.d.front.choose(1) // a card with no line

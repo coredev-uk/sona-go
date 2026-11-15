@@ -29,8 +29,11 @@ type front struct {
 	// keyboard: a control of the hero has the focus from the keyboard (what
 	// the last build saw; each build gathers it again with seeKeyboard).
 	keyboard bool
-	// focusLead: the keyboard showed a queued card in the lead, whose tile
-	// is gone with it; the lead takes the focus on the next build.
+	// window is the queue's first card: the queue shows queueSize cards from
+	// it, and moves only when the lead goes past them.
+	window int
+	// focusLead: the keyboard showed a queued card in the lead, whose "Show
+	// in lead" goes with it; the lead takes the focus on the next build.
 	focusLead bool
 }
 
@@ -96,7 +99,7 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 	// unmount). An element's state lives only while it is built.
 	if mounted := ui.Local(sec, "mounted", func() bool { return false }); !*mounted {
 		*mounted = true
-		f.at, f.paused, f.rot, f.focusLead = 0, false, rotation{}, false
+		f.at, f.paused, f.rot, f.focusLead, f.window = 0, false, rotation{}, false, 0
 	}
 	f.at = min(f.at, count-1)
 
@@ -120,6 +123,13 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 		c.After(wait)
 	}
 	at := f.at
+	// The queue stays where it is while the lead goes through it, and moves
+	// on to start at the lead only when the lead leaves it.
+	if count <= queueSize {
+		f.window = 0
+	} else if (at-f.window+count)%count >= queueSize {
+		f.window = at
+	}
 	pg := pageState{at: at, count: count, available: available, label: label}
 
 	defer func() {
@@ -446,24 +456,32 @@ func (d *discover) pager(c *ui.Context, pg pageState, top float32) {
 	})
 }
 
-// queue is the next cards in the rotation after the lead, up to queueSize,
-// as tiles: beside the lead in two rows of two, or in a row under it. Each
-// turn of the rotation moves every tile on by one place, the one that leads
-// now leaving and the next coming in at the end.
+// queue is a still window of the featured cards, up to queueSize of them in
+// Apple's order, as tiles: beside the lead in two rows of two, or in a row
+// under it. The lead goes through it, its tile marked; only when the lead
+// leaves it does the window move on, to start at the lead, its tiles
+// fading in as the old ones fade out where they were.
 func (d *discover) queue(c *ui.Context, items []services.Item, lay frontLayout, ctx kit.ItemsCtx) {
 	count := len(items)
 	if count < 2 {
 		return
 	}
+	f := &d.front
 	gapX, gapY, top := float32(tileGapX), float32(tileGapY), float32(0)
 	if !lay.beside {
 		gapX, top = queueNarrowGap, 24
 	}
-	ui.Grid(c.Key("queue")).Columns(lay.columns).GapX(gapX).GapY(gapY).Margin(top, 0, 0, 0).Shrink(0).
-		Role(ui.RoleList).Label(i18n.T("Up next")).Children(func() {
-		for k := 1; k <= min(queueSize, count-1); k++ {
-			index := (d.front.at + k) % count
-			d.queueTile(c, items[index], index, lay, ctx)
+	// The window's own key: a new window is a new grid, which fades in
+	// over the old one's copy.
+	grid := ui.Grid(c.Key("queue:"+strconv.Itoa(f.window))).Columns(lay.columns).GapX(gapX).GapY(gapY).Margin(top, 0, 0, 0).Shrink(0).
+		Role(ui.RoleList).Label(i18n.T("Featured"))
+	if !theme.ReducedMotion() {
+		grid.Transition(ui.ElementTransition{Duration: leadFade, Ease: ui.EaseInOut, Enter: &ui.Motion{}, Exit: &ui.Motion{}})
+	}
+	grid.Children(func() {
+		for k := range min(queueSize, count) {
+			index := (f.window + k) % count
+			d.queueTile(c, items[index], index, index == f.at, lay, ctx)
 		}
 	})
 }
@@ -471,10 +489,13 @@ func (d *discover) queue(c *ui.Context, items []services.Item, lay frontLayout, 
 // queueTile is a card of the queue: its picture in the hero card's shape
 // over its title and byline. It opens its card as the lead does; a play
 // button, a "Show in lead" button and the menu show on hover and focus.
+// current: the card leads now. Its tile stays where it is, on the active
+// tone (the mark of what is selected, never amber), with the lead's
+// progress as a line under it, and has no "Show in lead".
 //
 // The tile is a list item holding the opener and, over it, its buttons:
 // controls inside a button are not on the tree assistive technology reads.
-func (d *discover) queueTile(c *ui.Context, it services.Item, index int, lay frontLayout, ctx kit.ItemsCtx) {
+func (d *discover) queueTile(c *ui.Context, it services.Item, index int, current bool, lay frontLayout, ctx kit.ItemsCtx) {
 	tk := theme.Current()
 	f := &d.front
 	name := it.Name
@@ -483,20 +504,22 @@ func (d *discover) queueTile(c *ui.Context, it services.Item, index int, lay fro
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "tile:" + strconv.Itoa(index)}
 	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
 	w, artH := lay.tile, lay.tileArt
+	h := artH + tileCaption
 
 	item := ui.Column(c.Key(leadKey(it, index))).Width(w).Role(ui.RoleListItem)
-	if !theme.ReducedMotion() {
-		// The queue moves on with the lead: each tile slides to its new
-		// place, the one now leading fades where it was and the next
-		// comes in at the end.
-		item.Transition(ui.ElementTransition{
-			Duration: leadFade, Ease: ui.EaseInOut, Position: true,
-			Enter: &ui.Motion{X: leadSlide}, Exit: &ui.Motion{},
-		})
-	}
 	hovered := item.Hovered()
 	hot := hovered || item.FocusWithin()
 	item.Children(func() {
+		// The mark of the lead's tile, reaching tileMark past it all round,
+		// under the rest; it fades as the lead moves from tile to tile.
+		mark := ui.Box(c.Key("mark")).Absolute().Left(-tileMark).Top(-tileMark).Size(w+2*tileMark, h+2*tileMark).
+			Radius(tk.Radius["md"]).IgnoreInput(true).ZIndex(-1)
+		if current {
+			mark.Background(theme.C("active"))
+		}
+		if !theme.ReducedMotion() {
+			mark.Transition(ui.ElementTransition{Duration: leadFade, Ease: ui.EaseInOut, Colors: true})
+		}
 		var card ui.Element
 		if open != nil {
 			card = ui.ButtonBase(c.Key("card")).Column().AlignItems(ui.Start).Radius(tk.Radius["sm"]).Label(name)
@@ -510,6 +533,9 @@ func (d *discover) queueTile(c *ui.Context, it services.Item, index int, lay fro
 			card = ui.Column(c.Key("card")).AlignItems(ui.Start).Label(name)
 		}
 		card.Width(w)
+		if current {
+			card.Current(ui.CurrentItem)
+		}
 		f.seeKeyboard(card)
 		card.Children(func() {
 			art := ui.Box(c.Key("art")).Size(w, artH).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
@@ -541,15 +567,20 @@ func (d *discover) queueTile(c *ui.Context, it services.Item, index int, lay fro
 				ctx.Players.PlayItemFrom(it, opener)
 			}
 		}
-		show := kit.Button(c.Key("show"), i18n.T("Show in lead"), kit.ButtonOpts{Size: kit.SizeSM, Icon: "maximize-2", A11yLabel: i18n.T("Show in lead: {name}", "name", name)})
-		f.seeKeyboard(show).Absolute().Right(8).Top(8)
-		kit.Fade(show, hot || show.Focused())
-		if show.Clicked() {
-			// The tile goes with its card into the lead: the keyboard's focus
-			// goes there too rather than to nowhere.
-			f.focusLead = show.FocusVisible()
-			f.choose(index)
-			c.Invalidate()
+		if current {
+			d.tileProgress(c, w, h+tileMark/2)
+		} else {
+			show := kit.Button(c.Key("show"), i18n.T("Show in lead"), kit.ButtonOpts{Size: kit.SizeSM, Icon: "maximize-2", A11yLabel: i18n.T("Show in lead: {name}", "name", name)})
+			f.seeKeyboard(show).Absolute().Right(8).Top(8)
+			kit.Fade(show, hot || show.Focused())
+			if show.Clicked() {
+				// The tile becomes the lead's and its button goes: the
+				// keyboard's focus goes on to the lead rather than to
+				// nowhere.
+				f.focusLead = show.FocusVisible()
+				f.choose(index)
+				c.Invalidate()
+			}
 		}
 		if hasMenu {
 			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), card, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(0).Top(artH + 6)
@@ -558,6 +589,27 @@ func (d *discover) queueTile(c *ui.Context, it services.Item, index int, lay fro
 			open()
 		}
 	})
+}
+
+// tileProgress is the lead's progress as a line across the bottom of its
+// tile, top from the tile's top: the lead's segment of the progress under
+// the lead, drawn again where the eye is when it is on the queue.
+func (d *discover) tileProgress(c *ui.Context, w, top float32) {
+	rot := &d.front.rot
+	track, mark, ink := theme.C("line"), theme.C("ink-muted"), theme.C("ink")
+	ui.Box(c.Key("progress")).Absolute().Left(0).Top(top).Size(w, 2).IgnoreInput(true).
+		Draw(func(p *ui.Painter, r ui.Rect) {
+			if !rot.armed {
+				p.Fill(r, mark, r.H/2)
+				return
+			}
+			p.Fill(r, track, r.H/2)
+			if done := rot.progress(p.Now()); done > 0 {
+				r.W = max(r.W*done, r.H)
+				p.Fill(r, ink, r.H/2)
+			}
+			p.AnimationFrameRate(30)
+		})
 }
 
 // frontSkeleton is the front page's frame while it loads: the lead, its

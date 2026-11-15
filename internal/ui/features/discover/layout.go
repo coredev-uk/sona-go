@@ -60,6 +60,9 @@ const (
 	tileGapX    = 16
 	tileGapY    = 20
 	tileCaption = 8 + 20 + 18
+	// tileMark is how far the lead's tile's mark reaches past it all round;
+	// the lead's progress runs along its bottom, in that margin.
+	tileMark = 6
 	// marginAt is the page width (the scroll pane's) from which a band's
 	// heading stands in a margin column beside its shelves, marginWidth wide
 	// with marginGap to the shelves; narrower, it stands above them.
