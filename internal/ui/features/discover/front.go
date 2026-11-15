@@ -13,19 +13,14 @@ import (
 )
 
 // front is the front page's state (v0.2.0's FrontPage): which card leads,
-// the page of the strip the user turned to, the
-// user's pause and the rotation's timer.
+// the user's pause and the rotation's timer.
 type front struct {
-	// openers are the lead's and the strip's play buttons, which a music
+	// openers are the lead's and the queue's play buttons, which a music
 	// video's view returns the focus to when it closes.
 	openers kit.Openers
 	width   kit.WidthTracker
 	// at is the lead's place in the items.
 	at int
-	// turned: the user turned the strip to page turnPage while the lead was
-	// turnAt; the strip shows the lead's page otherwise.
-	turned           bool
-	turnAt, turnPage int
 	// paused is the user's pause (the control's state), not the temporary
 	// holds.
 	paused bool
@@ -34,6 +29,9 @@ type front struct {
 	// keyboard: a control of the hero has the focus from the keyboard (what
 	// the last build saw; each build gathers it again with seeKeyboard).
 	keyboard bool
+	// focusLead: the keyboard showed a queued card in the lead, whose tile
+	// is gone with it; the lead takes the focus on the next build.
+	focusLead bool
 }
 
 // seeKeyboard notes whether control e has the keyboard focus, with its ring
@@ -50,35 +48,36 @@ func (f *front) seeKeyboard(e ui.Element) ui.Element {
 // choose makes card to the lead; leadMotion cross-fades the cards.
 func (f *front) choose(to int) { f.at = to }
 
-// pageState is what the pager under the lead shows: the strip's page of pages,
-// and whether the rotation is on offer (a control for it).
+// pageState is what the pager at the end of the lead's caption shows: the
+// lead's place among the cards, and whether the rotation is on offer (a
+// control for it).
 type pageState struct {
-	page, pages int
-	available   bool
-	label       string
+	at, count int
+	available bool
+	label     string
 }
 
 // reserve is the room the lead's caption leaves at its end for the pager,
-// which sits over it: the rotation control and, with more than one page, the
-// count and the two buttons.
+// which sits over it: the rotation control and, with more than one card,
+// the count and the two buttons.
 func (p pageState) reserve() float32 {
 	var w float32
 	if p.available {
 		w += 36
 	}
-	if p.pages > 1 {
+	if p.count > 1 {
 		w += 120
 	}
 	return w
 }
 
 // frontPage is Discover's front page, set as the head of an issue: Apple's
-// featured cards, one of them the lead, as wide as the column (to leadMax) in
-// the hero card's shape, its title and line in a caption under it with the
-// pager at the caption's end, and all of them as a strip of cards under that,
-// four a page. The lead moves on by itself unless the user pauses it or asks
-// for reduced motion; choosing a card makes it the lead, and the strip shows
-// the page the lead is on.
+// featured cards, one of them the lead in the hero card's shape, its title
+// and line in a caption under it with the pager at the caption's end, and
+// the next ones in the rotation as a queue of tiles beside it (under it in
+// a narrow window). The lead moves on by itself unless the user pauses it
+// or asks for reduced motion, and a row of segments under its picture, one
+// a card, shows where it is and how long until the next.
 func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.ItemsCtx) {
 	count := len(items)
 	if count == 0 {
@@ -97,11 +96,12 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 	// unmount). An element's state lives only while it is built.
 	if mounted := ui.Local(sec, "mounted", func() bool { return false }); !*mounted {
 		*mounted = true
-		f.at, f.paused, f.turned, f.rot = 0, false, false, rotation{}
+		f.at, f.paused, f.rot, f.focusLead = 0, false, rotation{}, false
 	}
 	f.at = min(f.at, count-1)
 
-	// The rotation: one deadline, asked for as a frame, no per-frame work.
+	// The rotation: one deadline, asked for as a frame; only the progress
+	// moves in between, in frames that paint it without building the view.
 	available := !theme.ReducedMotion() && count > 1
 	// Hovering holds, and so does the focus the keyboard put in the hero. The
 	// focus a click left there (the pause control, the pager) does not: the
@@ -120,17 +120,7 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 		c.After(wait)
 	}
 	at := f.at
-
-	pages := max(1, (count+lay.perPage-1)/lay.perPage)
-	// The strip shows the lead's page until the user turns it, and returns to
-	// it when the lead changes.
-	page := at / lay.perPage
-	if f.turned && f.turnAt == at {
-		page = f.turnPage
-	}
-	page = min(page, pages-1)
-	shown := items[page*lay.perPage : min(count, (page+1)*lay.perPage)]
-	pg := pageState{page: page, pages: pages, available: available, label: label}
+	pg := pageState{at: at, count: count, available: available, label: label}
 
 	defer func() {
 		if f.keyboard != keyboard {
@@ -141,21 +131,34 @@ func (d *discover) frontPage(c *ui.Context, items []services.Item, base kit.Item
 		if width <= 0 {
 			return // the first frame measures; the next one lays it out
 		}
-		ui.Box(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
-			// The cross-fade: the new lead comes in as the old one goes out.
-			// MyGo leaves the old card as an inert copy, off the
-			// accessibility tree, and takes it away when the fade ends.
-			in := ui.Column(c.Key("in:" + leadKey(items[at], at))).Width(lay.lead)
-			if !theme.ReducedMotion() {
-				in.Transition(ui.ElementTransition{
-					Duration: leadFade, Ease: ui.EaseInOut,
-					Enter: &ui.Motion{X: leadSlide}, Exit: &ui.Motion{X: -leadSlide},
-				})
-			}
-			in.Children(func() { d.leadCard(c, items[at], lay, ctx, pg) })
-		})
-		if count > 1 {
-			d.strip(c, shown, page, lay, ctx, label)
+		lead := func() {
+			ui.Box(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
+				// The cross-fade: the new lead comes in as the old one goes
+				// out. MyGo leaves the old card as an inert copy, off the
+				// accessibility tree, and takes it away when the fade ends.
+				in := ui.Column(c.Key("in:" + leadKey(items[at], at))).Width(lay.lead)
+				if !theme.ReducedMotion() {
+					in.Transition(ui.ElementTransition{
+						Duration: leadFade, Ease: ui.EaseInOut,
+						Enter: &ui.Motion{X: leadSlide}, Exit: &ui.Motion{X: -leadSlide},
+					})
+				}
+				in.Children(func() { d.leadCard(c, items[at], lay, ctx, pg) })
+				// The pager stays while the lead changes under it, so the
+				// chevron the keyboard pressed keeps the focus.
+				if pg.reserve() > 0 {
+					d.pager(c, pg, lay.art+progressGap+progressHeight+leadCaptionGap+10)
+				}
+			})
+		}
+		if lay.beside {
+			ui.Row(c.Key("spread")).Gap(queueGap).AlignItems(ui.Start).Children(func() {
+				lead()
+				d.queue(c, items, lay, ctx)
+			})
+		} else {
+			lead()
+			d.queue(c, items, lay, ctx)
 		}
 		f.menus.Popup(c)
 
@@ -240,23 +243,25 @@ func (d *discover) opener(it services.Item, ctx kit.ItemsCtx) (open func(), link
 }
 
 // leadCard is the lead: the picture (the wide banner cropped to the card, else
-// the cover contained on its colour), under it the caption: the title opening
-// the item's page and the subtitle, with the pager at its end. A play button
-// shows on hover or focus and the item's menu sits beside the pager.
+// the cover contained on its colour), under it the rotation's progress, then
+// the caption: the title opening the item's page, Apple's line and the
+// byline, with the pager at its end. A play button shows on hover or focus
+// and the item's menu sits beside the pager.
 //
 // The card is one opener; the play button, the more button and the pager are
 // elements of their own over it (a button or a link is one piece for
 // assistive technology, so inside it they would not be on its tree).
 func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ctx kit.ItemsCtx, pg pageState) {
 	tk := theme.Current()
+	f := &d.front
 	name := it.Name
 	open, link := d.opener(it, ctx)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "lead"}
 	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
-	artH := lay.artHeight()
+	artH := lay.art
 	pager := pg.reserve()
-	captionTop := artH + leadCaptionGap // the caption's first line
+	captionTop := artH + progressGap + progressHeight + leadCaptionGap // the caption's first line
 
 	wrap := ui.Column(c.Key("wrap")).AlignItems(ui.Start).Width(lay.lead)
 	hot := wrap.Hovered() || wrap.FocusWithin()
@@ -275,7 +280,11 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			card = ui.Column(c.Key("card")).AlignItems(ui.Start).Label(name)
 		}
 		card.Width(lay.lead)
-		d.front.seeKeyboard(card)
+		if f.focusLead {
+			f.focusLead = false
+			card.Focus()
+		}
+		f.seeKeyboard(card)
 		card.Children(func() {
 			colour, hasColour := kit.ParseHex(it.Color)
 			art := ui.Box(c.Key("art")).Size(lay.lead, artH).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
@@ -291,10 +300,18 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 					})
 				}
 			})
+			if pg.count > 1 {
+				d.progress(c, pg, lay.lead)
+			}
 			// Headline, Apple's one line about the card, then the byline
 			// (badge · artist or curator). The line's row is kept when a card
-			// has none, so the strip does not jump as the lead rotates.
-			ui.Row(c.Key("caption")).Width(lay.lead).Margin(leadCaptionGap, 0, 0, 0).Children(func() {
+			// has none, so the queue beside it does not jump as the lead
+			// rotates.
+			gap := float32(leadCaptionGap)
+			if pg.count <= 1 {
+				gap += progressGap + progressHeight // where the progress would be
+			}
+			ui.Row(c.Key("caption")).Width(lay.lead).Margin(gap, 0, 0, 0).Children(func() {
 				ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
 					t := theme.Text(c, name, "title").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
 					if wrap.Hovered() && open != nil {
@@ -314,19 +331,16 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			})
 		})
 		if ctx.Players.CanPlay(it) {
-			play := d.front.seeKeyboard(kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48)).Absolute().Left(16).Top(artH - 16 - 48)
+			play := f.seeKeyboard(kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48)).Absolute().Left(16).Top(artH - 16 - 48)
 			kit.Fade(play, hot || play.Focused())
-			opener := d.front.openers.For("lead:" + leadKey(it, 0))
+			opener := f.openers.For("lead:" + leadKey(it, 0))
 			play.Bind(opener)
 			if play.Clicked() {
 				ctx.Players.PlayItemFrom(it, opener)
 			}
 		}
 		if hasMenu {
-			d.front.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), card, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(pager).Top(captionTop + 12)
-		}
-		if pager > 0 {
-			d.pager(c, pg, captionTop+10)
+			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), card, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(pager).Top(captionTop + 12)
 		}
 		if card.Clicked() && open != nil {
 			open()
@@ -346,26 +360,50 @@ func leadDescription(it services.Item) string {
 	return strings.Join(parts, ". ")
 }
 
-// strip is the featured cards under the lead: one page of them, in a row of
-// four or two rows of two. It reaches 8 past the lead's edges on each side, so
-// that a card's picture and text, which sit 8 inside it, line up with the
-// lead's.
-func (d *discover) strip(c *ui.Context, shown []services.Item, page int, lay frontLayout, ctx kit.ItemsCtx, label string) {
-	f := &d.front
-	ui.Grid(c.Key("list")).Columns(lay.columns).GapX(stripGap).GapY(stripGap/2).Width(lay.lead+16).Margin(20, -8, 0, -8).
-		Role(ui.RoleList).Label(label).Children(func() {
-		for i := range shown {
-			index := page*lay.perPage + i
-			d.featureRow(c, shown[i], index, index == f.at, lay, ctx)
-		}
-	})
+// progress is the rotation's progress under the lead's picture: a segment a
+// card, the ones before the lead filled, the ones after it a track. The
+// lead's own fills as its interval runs, in frames that only paint it (no
+// build, no layout); while the rotation holds or is paused it is a muted
+// mark, filled whole, of where the lead is, and so is it under reduced
+// motion, where nothing rotates. It is drawn, not read: the pager's count
+// says the same to assistive technology.
+func (d *discover) progress(c *ui.Context, pg pageState, w float32) {
+	rot := &d.front.rot
+	track, mark, ink := theme.C("line"), theme.C("ink-muted"), theme.C("ink")
+	count, at := pg.count, pg.at
+	ui.Box(c.Key("progress")).Size(w, progressHeight).Margin(progressGap, 0, 0, 0).IgnoreInput(true).
+		Draw(func(p *ui.Painter, r ui.Rect) {
+			seg := (r.W - float32(count-1)*segmentGap) / float32(count)
+			radius := r.H / 2
+			for i := range count {
+				box := ui.Rect{X: r.X + float32(i)*(seg+segmentGap), Y: r.Y, W: seg, H: r.H}
+				switch {
+				case i < at:
+					p.Fill(box, ink, radius)
+				case i > at:
+					p.Fill(box, track, radius)
+				case !rot.armed:
+					p.Fill(box, mark, radius)
+				default:
+					p.Fill(box, track, radius)
+					if done := rot.progress(p.Now()); done > 0 {
+						box.W = max(seg*done, r.H)
+						p.Fill(box, ink, radius)
+					}
+					// Thirty frames a second moves the fill by under a pixel
+					// in any lead, at a quarter of a 120 Hz display's work.
+					p.AnimationFrameRate(30)
+				}
+			}
+		})
 }
 
 // pager is the control group at the lead caption's end, over the room the
 // caption left for it: the rotation's pause control and, with more than one
-// page of the strip, "N of M" and the buttons that turn it. The pager wraps
-// round rather than disabling a button, so focus never drops from it to the
-// page. top is where it sits in the lead's box.
+// card, the buttons that bring the one before or after into the lead, with
+// "N of M" between them. They wrap round rather than disabling a button, so
+// focus never drops from them to the page. top is where it sits in the
+// lead's box.
 func (d *discover) pager(c *ui.Context, pg pageState, top float32) {
 	f := &d.front
 	ui.Row(c.Key("pager")).Height(28).Shrink(0).Absolute().Right(0).Top(top).Gap(4).AlignItems(ui.Center).Children(func() {
@@ -385,21 +423,21 @@ func (d *discover) pager(c *ui.Context, pg pageState, top float32) {
 				f.paused = !f.paused
 			}
 		}
-		if pg.pages <= 1 {
+		if pg.count <= 1 {
 			return
 		}
-		theme.Text(c, i18n.T("{current} of {pages}", "current", pg.page+1, "pages", pg.pages), "meta").
-			TextColor(theme.C("ink-muted")).FontFeatures("tnum").Margin(0, 4, 0, 0)
 		turn := func(by int) {
-			to := (pg.page + by + pg.pages) % pg.pages
-			f.turned, f.turnAt, f.turnPage = true, f.at, to
-			c.Announce(i18n.T("{current} of {pages}", "current", to+1, "pages", pg.pages))
+			to := (pg.at + by + pg.count) % pg.count
+			f.choose(to)
+			c.Announce(i18n.T("{current} of {pages}", "current", to+1, "pages", pg.count))
 		}
 		prev := kit.Button(c.Key("previous"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-left", A11yLabel: i18n.T("Previous in {label}", "label", pg.label)})
 		f.seeKeyboard(prev).Size(28, 28)
 		if prev.Clicked() {
 			turn(-1)
 		}
+		theme.Text(c, i18n.T("{current} of {pages}", "current", pg.at+1, "pages", pg.count), "meta").
+			TextColor(theme.C("ink-muted")).FontFeatures("tnum").Margin(0, 4, 0, 4)
 		next := kit.Button(c.Key("next"), "", kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Icon: "chevron-right", A11yLabel: i18n.T("Next in {label}", "label", pg.label)})
 		f.seeKeyboard(next).Size(28, 28)
 		if next.Clicked() {
@@ -408,91 +446,123 @@ func (d *discover) pager(c *ui.Context, pg pageState, top float32) {
 	})
 }
 
-// featureRow is a strip card: choosing it makes its card the lead (the lead's
-// own title opens the card). current: the card is the lead now, marked by the
-// active tone and not by amber (amber is what plays).
+// queue is the next cards in the rotation after the lead, up to queueSize,
+// as tiles: beside the lead in two rows of two, or in a row under it. Each
+// turn of the rotation moves every tile on by one place, the one that leads
+// now leaving and the next coming in at the end.
+func (d *discover) queue(c *ui.Context, items []services.Item, lay frontLayout, ctx kit.ItemsCtx) {
+	count := len(items)
+	if count < 2 {
+		return
+	}
+	gapX, gapY, top := float32(tileGapX), float32(tileGapY), float32(0)
+	if !lay.beside {
+		gapX, top = queueNarrowGap, 24
+	}
+	ui.Grid(c.Key("queue")).Columns(lay.columns).GapX(gapX).GapY(gapY).Margin(top, 0, 0, 0).Shrink(0).
+		Role(ui.RoleList).Label(i18n.T("Up next")).Children(func() {
+		for k := 1; k <= min(queueSize, count-1); k++ {
+			index := (d.front.at + k) % count
+			d.queueTile(c, items[index], index, lay, ctx)
+		}
+	})
+}
+
+// queueTile is a card of the queue: its picture in the hero card's shape
+// over its title and byline. It opens its card as the lead does; a play
+// button, a "Show in lead" button and the menu show on hover and focus.
 //
-// The card is a list item holding the choosing button and, over it, the play
-// button and the more button: controls inside a button are not on the tree
-// assistive technology reads.
-func (d *discover) featureRow(c *ui.Context, it services.Item, index int, current bool, lay frontLayout, ctx kit.ItemsCtx) {
+// The tile is a list item holding the opener and, over it, its buttons:
+// controls inside a button are not on the tree assistive technology reads.
+func (d *discover) queueTile(c *ui.Context, it services.Item, index int, lay frontLayout, ctx kit.ItemsCtx) {
 	tk := theme.Current()
 	f := &d.front
 	name := it.Name
-	item := ui.Row(c.Key(strconv.Itoa(index) + ":" + it.Kind + ":" + it.ID)).Width(lay.card).Height(lay.rowHeight).Shrink(0).Role(ui.RoleListItem)
+	open, link := d.opener(it, ctx)
+	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
+	menu := kit.ActionTarget{Item: target, Name: name, Key: "tile:" + strconv.Itoa(index)}
+	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
+	w, artH := lay.tile, lay.tileArt
+
+	item := ui.Column(c.Key(leadKey(it, index))).Width(w).Role(ui.RoleListItem)
+	if !theme.ReducedMotion() {
+		// The queue moves on with the lead: each tile slides to its new
+		// place, the one now leading fades where it was and the next
+		// comes in at the end.
+		item.Transition(ui.ElementTransition{
+			Duration: leadFade, Ease: ui.EaseInOut, Position: true,
+			Enter: &ui.Motion{X: leadSlide}, Exit: &ui.Motion{},
+		})
+	}
 	hovered := item.Hovered()
 	hot := hovered || item.FocusWithin()
-	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
-	menu := kit.ActionTarget{Item: target, Name: name, Key: "row:" + strconv.Itoa(index)}
-	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
-	var row ui.Element
 	item.Children(func() {
-		sub := kit.ItemSubtitle(it)
-		row = ui.ButtonBase(c.Key("row")).Grow(1).MinWidth(0).Height(lay.rowHeight).PaddingX(8).Gap(12).
-			AlignItems(ui.Center).Radius(tk.Radius["md"]).Label(name)
-		if sub != "" {
-			row.Description(sub)
-		}
-		switch {
-		case current:
-			row.Background(theme.C("active")).Current(ui.CurrentItem)
-		case hovered:
-			row.Background(theme.C("hover"))
-		}
-		theme.Fade(row, "press")
-		f.seeKeyboard(row)
-		row.Children(func() {
-			src := it.Art.Medium
-			if src == "" {
-				src = it.Art.Large
+		var card ui.Element
+		if open != nil {
+			card = ui.ButtonBase(c.Key("card")).Column().AlignItems(ui.Start).Radius(tk.Radius["sm"]).Label(name)
+			if link {
+				card.Role(ui.RoleLink)
 			}
-			if src == "" {
-				src = it.Wide.Medium
+			if sub := kit.ItemSubtitle(it); sub != "" {
+				card.Description(sub)
 			}
-			// The slot keeps the column and the play button where they are for
-			// every card; the picture sits in it at its own shape.
-			tw, th := thumbBox(src)
-			ui.Row(c.Key("slot")).Size(listThumb, listThumb).Shrink(0).Center().Children(func() {
-				thumb := ui.Box(c.Key("thumb")).Size(tw, th).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
-				if colour, ok := kit.ParseHex(it.Color); ok {
-					thumb.Background(colour)
-				}
-				thumb.Children(func() {
-					kit.Artwork(c, ctx.Art, src, tw, kit.ArtOpts{Aspect: tw / th, Edge: true, Fallback: func(*ui.Context) {}})
-				})
-			})
-			ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				theme.StyleText(ui.Text(c, name), "label").
-					TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
-				if sub != "" {
-					theme.Text(c, sub, "secondary").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+		} else {
+			card = ui.Column(c.Key("card")).AlignItems(ui.Start).Label(name)
+		}
+		card.Width(w)
+		f.seeKeyboard(card)
+		card.Children(func() {
+			art := ui.Box(c.Key("art")).Size(w, artH).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(theme.C("hover"))
+			if colour, ok := kit.ParseHex(it.Color); ok {
+				art.Background(colour)
+			}
+			art.Children(func() {
+				if src, contain := leadArt(it); src != "" {
+					kit.Artwork(c, ctx.Art, src, w, kit.ArtOpts{Aspect: w / artH, Edge: true, Contain: contain, Fallback: func(*ui.Context) {}})
 				}
 			})
-			if hasMenu {
-				ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits
-			}
+			ui.Row(c.Key("title")).Width(w).Height(20).Margin(8, 0, 0, 0).Gap(4).AlignItems(ui.Center).Children(func() {
+				t := theme.StyleText(ui.Text(c, name), "label").TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
+				if hovered && open != nil {
+					t.Underline()
+				}
+				if hasMenu {
+					ui.Box(c.Key("more-room")).Size(24, 1).Shrink(0).IgnoreInput(true) // where the more button sits
+				}
+			})
+			theme.Text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Width(w).Height(18).TextAlign(ui.Start)
 		})
 		if ctx.Players.CanPlay(it) {
-			play := f.seeKeyboard(kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 32)).Absolute().
-				Left(8 + (listThumb-32)/2).Top((lay.rowHeight - 32) / 2)
+			play := f.seeKeyboard(kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 32)).Absolute().Left(8).Top(artH - 8 - 32)
 			kit.Fade(play, hot || play.Focused())
-			opener := d.front.openers.For("row:" + leadKey(it, index))
+			opener := f.openers.For("tile:" + leadKey(it, index))
 			play.Bind(opener)
 			if play.Clicked() {
 				ctx.Players.PlayItemFrom(it, opener)
 			}
 		}
+		show := kit.Button(c.Key("show"), i18n.T("Show in lead"), kit.ButtonOpts{Size: kit.SizeSM, Icon: "maximize-2", A11yLabel: i18n.T("Show in lead: {name}", "name", name)})
+		f.seeKeyboard(show).Absolute().Right(8).Top(8)
+		kit.Fade(show, hot || show.Focused())
+		if show.Clicked() {
+			// The tile goes with its card into the lead: the keyboard's focus
+			// goes there too rather than to nowhere.
+			f.focusLead = show.FocusVisible()
+			f.choose(index)
+			c.Invalidate()
+		}
 		if hasMenu {
-			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), row, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(8).Top((lay.rowHeight - 24) / 2)
+			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), card, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(0).Top(artH + 6)
+		}
+		if card.Clicked() && open != nil {
+			open()
 		}
 	})
-	if row.Clicked() {
-		f.choose(index)
-	}
 }
 
 // frontSkeleton is the front page's frame while it loads: the lead, its
-// caption and the strip's cards as flat bars at their real sizes.
+// progress and caption and the queue's tiles as flat bars at their real
+// sizes.
 func (d *discover) frontSkeleton(c *ui.Context, m *kit.WidthTracker) {
 	tk := theme.Current()
 	root := ui.Column(c.Key("front-skeleton")).FillWidth().Margin(0, 0, 48, 0).Role(ui.RoleNone)
@@ -502,26 +572,38 @@ func (d *discover) frontSkeleton(c *ui.Context, m *kit.WidthTracker) {
 		if width <= 0 {
 			return
 		}
-		ui.Column(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
-			ui.Box(c).Size(lay.lead, lay.artHeight()).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
-			ui.Row(c).Height(30).Margin(leadCaptionGap, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/3, 20) })
-			ui.Row(c).Height(leadLine).Margin(2, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/2, 14) })
-			ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/4, 12) })
-		})
-		ui.Column(c.Key("list")).Width(lay.lead+16).Margin(20, -8, 0, -8).Gap(stripGap / 2).Children(func() {
-			for r := range lay.rows {
-				ui.Row(c.Key(r)).Gap(stripGap).Children(func() {
-					for col := range lay.columns {
-						ui.Row(c.Key(col)).Width(lay.card).Height(lay.rowHeight).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
-							kit.Bar(c, listThumb, listThumb)
-							ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-								ui.Box(c).WidthPercent(75).Height(14).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
-								ui.Box(c).WidthPercent(50).Height(12).Margin(8, 0, 0, 0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
-							})
-						})
-					}
-				})
+		lead := func() {
+			ui.Column(c.Key("lead")).Width(lay.lead).Shrink(0).Children(func() {
+				ui.Box(c).Size(lay.lead, lay.art).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
+				ui.Box(c).Size(lay.lead, progressHeight).Margin(progressGap, 0, 0, 0).Radius(progressHeight / 2).Background(theme.C("hover"))
+				ui.Row(c).Height(30).Margin(leadCaptionGap, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/3, 20) })
+				ui.Row(c).Height(leadLine).Margin(2, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/2, 14) })
+				ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.lead/4, 12) })
+			})
+		}
+		tiles := func() {
+			gapX, top := float32(tileGapX), float32(0)
+			if !lay.beside {
+				gapX, top = queueNarrowGap, 24
 			}
-		})
+			ui.Grid(c.Key("queue")).Columns(lay.columns).GapX(gapX).GapY(tileGapY).Margin(top, 0, 0, 0).Shrink(0).Children(func() {
+				for k := range queueSize {
+					ui.Column(c.Key(k)).Width(lay.tile).Children(func() {
+						kit.Bar(c, lay.tile, lay.tileArt)
+						ui.Row(c).Height(20).Margin(8, 0, 0, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.tile*3/4, 14) })
+						ui.Row(c).Height(18).AlignItems(ui.Center).Children(func() { kit.Bar(c, lay.tile/2, 12) })
+					})
+				}
+			})
+		}
+		if lay.beside {
+			ui.Row(c.Key("spread")).Gap(queueGap).AlignItems(ui.Start).Children(func() {
+				lead()
+				tiles()
+			})
+		} else {
+			lead()
+			tiles()
+		}
 	})
 }

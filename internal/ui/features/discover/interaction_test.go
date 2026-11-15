@@ -227,7 +227,7 @@ func surfaces() []surface {
 		{"lead", false, func(t *testing.T, it services.Item) *iaCtx {
 			return frontOf(t, append([]services.Item{it}, iaFiller(3)...))
 		}},
-		{"strip", false, func(t *testing.T, it services.Item) *iaCtx {
+		{"queue", false, func(t *testing.T, it services.Item) *iaCtx {
 			cards := iaFiller(4)
 			cards[1] = it
 			return frontOf(t, cards)
@@ -362,59 +362,45 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "button",
 		},
 	},
-	"strip": {
+	"queue": {
 		"album": {
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			click: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			double: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			enter:      "lead is card 1",
+			click:      "nav /album/al1",
+			double:     "nav /album/al1",
+			enter:      "nav /album/al1",
 			shiftEnter: "nothing",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			space: "lead is card 1",
-			play:  "play album:al1",
-			cue:   "button",
+			space:      "nothing",
+			play:       "play album:al1",
+			cue:        "link",
 		},
 		"artist": {
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			click: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			double: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			enter:      "lead is card 1",
+			click:      "nav /artist/ar1",
+			double:     "nav /artist/ar1",
+			enter:      "nav /artist/ar1",
 			shiftEnter: "nothing",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			space: "lead is card 1",
+			space:      "nothing",
 			// DEPARTS: an artist has no Play control (no artist player is registered, kit CanPlay) although album, playlist and station siblings have one
 			play: "no play control",
-			cue:  "button",
+			cue:  "link",
 		},
 		"station-nopage": {
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			click: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			double: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			enter:      "lead is card 1",
+			click: "play station:sn1",
+			// DEPARTS: the second click of a double-click fires again: the station is started twice
+			double:     "play station:sn1; play station:sn1",
+			enter:      "play station:sn1",
 			shiftEnter: "nothing",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			space: "lead is card 1",
-			play:  "play station:sn1",
-			cue:   "button",
+			space:      "play station:sn1",
+			// DEPARTS: a page-less station is played by its name and also has a separate Play button on its tile, as on the lead
+			play: "play station:sn1",
+			cue:  "button",
 		},
 		"curator": {
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			click: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			double: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			enter:      "lead is card 1",
+			click:      "nav /curator/cu1",
+			double:     "nav /curator/cu1",
+			enter:      "nav /curator/cu1",
 			shiftEnter: "nothing",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			space: "lead is card 1",
-			play:  "no play control",
-			cue:   "button",
+			space:      "nothing",
+			play:       "no play control",
+			cue:        "link",
 		},
 	},
 	"band": {

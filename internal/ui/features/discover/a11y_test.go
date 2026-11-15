@@ -77,7 +77,7 @@ func listItems(t *testing.T, tr access.Tree, list access.Node) []access.Node {
 }
 
 // frontRig is the front page over playlists that play: sixteen cards, so that
-// the list has pages.
+// the queue holds only some of them.
 func frontRig(t *testing.T) *rig {
 	t.Helper()
 	api := &fakeAPI{}
@@ -99,7 +99,7 @@ func frontRig(t *testing.T) *rig {
 	return r
 }
 
-func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.T) {
+func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryTile(t *testing.T) {
 	r := frontRig(t)
 	access.NoNestedControls(t, r.tt.Tester)
 	tr := access.Read(t, r.tt.Tester)
@@ -118,61 +118,81 @@ func TestA11yFrontKeepsThePlayAndMoreButtonsBesideTheLeadAndEveryRow(t *testing.
 	if !lead.Has(access.Focusable) {
 		t.Error("the lead's link is not focusable")
 	}
-	// A play button and a more button for the lead and another for its row.
-	if n := len(tr.FindAll(ui.RoleButton, "Play List 1")); n != 2 {
-		t.Errorf("%d Play buttons for the lead, want 2 (the lead's and its row's)", n)
+	if n := len(tr.FindAll(ui.RoleButton, "Play List 1")); n != 1 {
+		t.Errorf("%d Play buttons for the lead, want 1 (it is not queued)", n)
 	}
-	if n := len(tr.FindAll(ui.RoleMenuButton, "More for List 1")); n != 2 {
-		t.Errorf("%d more buttons for the lead, want 2", n)
+	if n := len(tr.FindAll(ui.RoleMenuButton, "More for List 1")); n != 1 {
+		t.Errorf("%d more buttons for the lead, want 1", n)
 	}
 
-	// The list holds items only, and the lead's row is the current one.
-	list, ok := tr.Find(ui.RoleList, "Featured")
+	// The queue holds items only: the next four, each a link to its page
+	// described by its line, with its play, Show in lead and more buttons
+	// beside it.
+	list, ok := tr.Find(ui.RoleList, "Up next")
 	if !ok {
-		t.Fatal("no list of the featured cards")
+		t.Fatalf("no list of the queued cards:\n%s", tr.Dump())
 	}
 	items := listItems(t, tr, list)
-	if len(items) == 0 {
-		t.Fatal("the list is empty")
+	if len(items) != queueSize {
+		t.Fatalf("the queue holds %d cards, want %d", len(items), queueSize)
 	}
-	// choose is the button of a row that chooses it.
-	choose := func(it access.Node) access.Node {
+	for i, it := range items {
+		name := fmt.Sprintf("List %d", i+2)
+		var link, play, show bool
 		for _, n := range tr.Children(it) {
-			if n.Role == ui.RoleButton && !strings.HasPrefix(n.Label, "Play ") {
-				return n
+			switch {
+			case n.Role == ui.RoleLink && n.Label == name:
+				link = n.Description == fmt.Sprintf("Curator %d", i+2)
+			case n.Role == ui.RoleButton && n.Label == "Play "+name:
+				play = true
+			case n.Role == ui.RoleButton && n.Label == "Show in lead: "+name:
+				show = true
 			}
 		}
-		return access.Node{}
+		if !link || !play || !show {
+			t.Errorf("queued %s: link %v, play %v, show in lead %v", name, link, play, show)
+		}
 	}
-	if n := choose(items[0]); n.Current != ui.CurrentItem || n.Description != "Curator 1" {
-		t.Errorf("the lead's row is %+v, want the current item with its line as its description", n)
+	if n := len(tr.FindAll(ui.RoleMenuButton, "More for List 2")); n != 1 {
+		t.Errorf("%d more buttons for a queued card, want 1", n)
 	}
-	if n := choose(items[1]); n.Current != ui.CurrentNone || n.Description != "Curator 2" {
-		t.Errorf("another row is %+v", n)
-	}
-	// Choosing a row moves the mark, and the row keeps its name.
-	x, y := r.rowCentre(2)
-	r.tt.ClickAt(x, y)
-	r.tt.Drain()
+	// Showing a queued card in the lead takes it out of the queue.
+	r.click("Show in lead: List 3")
 	tr = access.Read(t, r.tt.Tester)
-	list, _ = tr.Find(ui.RoleList, "Featured")
-	items = listItems(t, tr, list)
-	if n := choose(items[2]); n.Current != ui.CurrentItem {
-		t.Errorf("the chosen row is %+v", n)
+	if _, ok := tr.Find(ui.RoleLink, "List 3"); !ok || r.d.front.at != 2 {
+		t.Errorf("the lead did not become List 3: %d", r.d.front.at)
 	}
-	if n := choose(items[0]); n.Current != ui.CurrentNone {
-		t.Errorf("the old lead's row is still %+v", n)
-	}
-	if _, ok := tr.Find(ui.RoleLink, "List 3"); !ok {
-		t.Error("the lead did not become List 3")
+	if _, ok := tr.Find(ui.RoleButton, "Show in lead: List 3"); ok {
+		t.Error("the card in the lead is still queued")
 	}
 }
 
-func TestA11yFrontTabWalkGoesLeadThenListThenThePagerThenOnToTheContents(t *testing.T) {
+// The keyboard's "Show in lead" takes the focus with the card into the lead,
+// rather than dropping it with the tile.
+func TestA11yFrontShowInLeadFromTheKeyboardFocusesTheLead(t *testing.T) {
+	r := frontRig(t)
+	for range 20 {
+		r.tt.Key(0, ui.KeyTab)
+		if r.tt.Focused("Show in lead: List 2") {
+			break
+		}
+	}
+	if !r.tt.Focused("Show in lead: List 2") {
+		t.Fatal("Tab never reached Show in lead")
+	}
+	r.tt.Key(0, ui.KeyEnter)
+	r.tt.Drain()
+	r.tt.Drain()
+	if r.d.front.at != 1 || !r.tt.Focused("List 2") {
+		t.Errorf("lead %d; the focus is not on the lead's card", r.d.front.at)
+	}
+}
+
+func TestA11yFrontTabWalkGoesLeadThenThePagerThenTheQueueThenOnToTheContents(t *testing.T) {
 	r := frontRig(t)
 	stops := walk(t, r)
 	inOrder(t, stops, "List 1", "Play List 1", "Play featured rotation", "Previous in Featured", "Next in Featured",
-		"List 1", "Play List 1", "List 2", "Play List 2")
+		"List 2", "Play List 2", "Show in lead: List 2", "List 3")
 	// The more buttons are not stops: Shift+F10 on a card does the same.
 	if slices.Contains(stops, "More for List 1") {
 		t.Error("a more button is a Tab stop")
@@ -197,8 +217,8 @@ func TestA11yFrontRotationAndPagerAreNamedByTheirStateAndSayWhatTheUserDid(t *te
 		t.Errorf("pausing said %q", got)
 	}
 	r.click("Next in Featured")
-	if got := r.tt.Announcements(); !slices.Equal(got, []string{"2 of 4"}) {
-		t.Errorf("turning the page said %q", got)
+	if got := r.tt.Announcements(); !slices.Equal(got, []string{"2 of 16"}) {
+		t.Errorf("the next card said %q", got)
 	}
 }
 
