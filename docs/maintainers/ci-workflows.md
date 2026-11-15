@@ -77,7 +77,8 @@ SHA with the version in a comment (`uses: actions/checkout@<sha> # v7.0.1`;
 Renovate keeps pins current); `persist-credentials: false` on every checkout
 that doesn't push; pass expressions to scripts through `env:`, never inline
 in `run:`; the secrets are in environments that only `main` (and release
-tags) deploy to, so no pull request run can read them
+tags) deploy to, or, for a job that must run on a pull request's ref, that
+require a reviewer's approval, so no pull request run can read them unattended
 (`docs/maintainers/ci-and-secrets.md`). Run `actionlint` on changed
 workflows. The test jobs run `.github/ci/test.sh` (gotestsum: a failing test
 is rerun twice; one that passes on a rerun passes the job and is listed in the
