@@ -106,6 +106,9 @@ func (p *playlists) playlistPage(c *ui.Context, r *ui.Route) {
 	pg := &p.page
 	pg.enter(id)
 	q := p.detail(id)
+	if isLibraryID(id) && q.HasData {
+		p.remote(id) // shown from SQLite first; a change elsewhere swaps in
+	}
 
 	ww, _ := c.Size()
 	kit.PageScroll(c, &pg.pos, kit.PageGutter(float32(ww)), func(pane *kit.Pane) {

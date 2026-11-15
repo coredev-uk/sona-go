@@ -79,6 +79,11 @@ type Deps struct {
 	Focus   func()             // raise the main window
 	// Focused reports whether the main window is shown and focused.
 	Focused func() bool
+	// OnFocusChange registers fn to run, on any goroutine and without
+	// blocking, when the main window gains or loses the keyboard focus (nil:
+	// no events; the check for changes from other devices then runs only on
+	// its period).
+	OnFocusChange func(fn func(focused bool))
 	// Windows is the main window's control (internal/ui/app.Windows).
 	Windows Windows
 	// Platform is the OS integrations (main's platform_<os>.go); nil

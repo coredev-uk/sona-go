@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -73,6 +74,8 @@ type Windows struct {
 	mini  native // nil until first opened
 	hooks windowHooks
 	mem   *windowMemory
+	// focusFns are the OnFocusChange observers.
+	focusFns []func(focused bool)
 }
 
 // NewWindows is the window control for services.Deps.Windows. dev tells
@@ -97,6 +100,8 @@ func (w *Windows) attach(win *mygo.Window, mem *windowMemory, hooks windowHooks)
 	win.OnUnmaximize(observe)
 	win.OnEnterFullScreen(observe)
 	win.OnLeaveFullScreen(observe)
+	win.OnFocus(func() { w.focusChanged(true) })
+	win.OnBlur(func() { w.focusChanged(false) })
 	win.OnClose(func(e *mygo.CloseEvent) { w.closeEvent(win, e) })
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { w.quitting.Store(true) })
 	// The Dock icon (macOS) or the launcher with no window shown: the main
@@ -188,6 +193,24 @@ func (w *Windows) showMain() {
 		win.Restore()
 	}
 	win.Focus()
+}
+
+// OnFocusChange registers fn to run when the main window gains or loses the
+// keyboard focus (services.Deps.OnFocusChange). It runs on the main thread,
+// so fn must not block.
+func (w *Windows) OnFocusChange(fn func(focused bool)) {
+	w.mu.Lock()
+	w.focusFns = append(w.focusFns, fn)
+	w.mu.Unlock()
+}
+
+func (w *Windows) focusChanged(on bool) {
+	w.mu.Lock()
+	fns := slices.Clone(w.focusFns)
+	w.mu.Unlock()
+	for _, fn := range fns {
+		fn(on)
+	}
 }
 
 // Focused reports whether the main window is shown and has the focus

@@ -80,6 +80,9 @@ type pageRig struct {
 	states *pageStates
 	router *ui.Router
 	tt     *uitest.Session
+	// changed announces "playlists:changed", as the service does after it
+	// stored a change from another device.
+	changed func(services.PlaylistsChanged)
 	// linked is what env.HasRoute answers for every page but this one's.
 	linked bool
 }
@@ -104,6 +107,7 @@ func newPageRigWith(t *testing.T, id string, setup func(*fakeAPI), details ...se
 	t.Cleanup(kit.CancelConfirm)
 	p, api, play, h, router := testPlaylists(t, "/playlist/"+id)
 	r := &pageRig{t: t, p: p, api: api, play: play, states: &pageStates{}, router: router, linked: true}
+	r.changed = func(ev services.PlaylistsChanged) { h.Bus.Emit(services.EventPlaylistsChanged, ev) }
 	h.Env.HasRoute = func(string) bool { return r.linked }
 	h.Env.Actions = kit.NewActionRegistry(p.actions()...)
 	h.Env.ItemStates = kit.NewItemStates(h.Env.Queries, h.Env.Post, r.states)
