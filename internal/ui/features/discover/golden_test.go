@@ -25,15 +25,19 @@ func TestGoldenDiscoverLight(t *testing.T) { goldenNew(t, "discover-new-light") 
 
 func TestGoldenDiscoverDark(t *testing.T) { goldenNew(t, "discover-new-dark", withDark()) }
 
-func TestGoldenChartsLight(t *testing.T) {
+// goldenCharts draws the charts overview.
+func goldenCharts(t *testing.T, name string, opts ...rigOption) {
+	t.Helper()
 	if err := theme.RegisterFonts(); err != nil {
 		t.Fatal(err)
 	}
-	r := newRig(t, "/charts", withApple(&fakeApple{t: t}), withSize(1132, 1253))
+	r := newRig(t, "/charts", append([]rigOption{withApple(&fakeApple{t: t}), withSize(1132, 1253)}, opts...)...)
 	r.tt.Until("the charts", r.tt.Shows("Top songs", "Top albums"))
 	r.settle()
-	uitest.Golden(t, r.tt.Image(), "discover-charts-light")
+	uitest.Golden(t, r.tt.Image(), name)
 }
+
+func TestGoldenChartsLight(t *testing.T) { goldenCharts(t, "discover-charts-light") }
 
 // TestGoldenDiscoverNarrow is the front page and the first band at the
 // minimum window's content width (940 less the sidebar): the lead over the
@@ -42,12 +46,4 @@ func TestGoldenDiscoverNarrow(t *testing.T) {
 	goldenNew(t, "discover-new-narrow-light", withSize(708, 1253))
 }
 
-func TestGoldenChartsDark(t *testing.T) {
-	if err := theme.RegisterFonts(); err != nil {
-		t.Fatal(err)
-	}
-	r := newRig(t, "/charts", withApple(&fakeApple{t: t}), withSize(1132, 1253), withDark())
-	r.tt.Until("the charts", r.tt.Shows("Top songs", "Top albums"))
-	r.settle()
-	uitest.Golden(t, r.tt.Image(), "discover-charts-dark")
-}
+func TestGoldenChartsDark(t *testing.T) { goldenCharts(t, "discover-charts-dark", withDark()) }

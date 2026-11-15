@@ -145,7 +145,8 @@ func (d *discover) chartsSkeleton(c *ui.Context, m *kit.WidthTracker) {
 	ui.Column(c.Key("top-songs-skeleton")).FillWidth().Margin(8, 0, 40, 0).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		ui.Row(c).Height(32).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 112, 16) })
 		for i := range 6 {
-			ui.Row(c.Key(i)).FillWidth().Height(kit.TrackRowHeight).PaddingX(8).Gap(12).AlignItems(ui.Center).Children(func() {
+			ui.Row(c.Key(i)).FillWidth().Height(kit.TrackRowHeight).PaddingX(8).Gap(16).AlignItems(ui.Center).Children(func() {
+				ui.Box(c).Width(kit.TrackRankWidth).Shrink(0).Height(1)
 				ui.Box(c).Size(tk.Metric["track-art"], tk.Metric["track-art"]).Shrink(0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
 				ui.Box(c).WidthPercent(30).Height(14).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
 			})

@@ -629,18 +629,31 @@ func TestTrackListBlankDurationLeavesNoDashForASongWithoutLength(t *testing.T) {
 	}
 }
 
-// A ranked list shows the rank numerals, the host's extra column, and keeps
-// sorting, multi-select and drag; the numerals travel with the songs when the
-// host passes Of, else they follow the shown order.
-func TestTrackListRankAndExtraColumnsKeepSortSelectAndDrag(t *testing.T) {
+// rankRow reports whether the numeral shown as text sits on the row of label.
+func rankRow(t *testing.T, tt *ui.Tester, text, label string) bool {
+	t.Helper()
+	n, ok := tt.Find(text)
+	if !ok {
+		t.Fatalf("no numeral %q in %q", text, tt.Texts())
+	}
+	r, ok := tt.Find(label)
+	if !ok {
+		t.Fatalf("no %q in %q", label, tt.Texts())
+	}
+	return n.Y+n.H/2 >= r.Y && n.Y+n.H/2 <= r.Y+r.H
+}
+
+// A ranked list keeps sorting, multi-select and drag; the numerals travel
+// with the songs when the host passes Of (chart positions that are neither
+// the row index nor the track number).
+func TestTrackListRankKeepsSortSelectAndDrag(t *testing.T) {
 	var chart map[string]int
 	a, tt := newCollTrackApp(t, 12, 1200, 700, func(a *collTrackApp) {
-		a.opts.Columns.Extra = &TrackExtra{Title: "Plays", Text: func(i int, s *services.Song) string { return "n" + s.ID }}
 		a.opts.Rank = &TrackRank{Of: func(i int) int { return chart[a.songs[i].ID] }}
 	})
 	chart = map[string]int{}
 	for i, s := range a.songs {
-		chart[s.ID] = i + 1
+		chart[s.ID] = 41 + i
 	}
 	var dropped []*DragPayload
 	a.target = func(c *ui.Context) {
@@ -652,13 +665,8 @@ func TestTrackListRankAndExtraColumnsKeepSortSelectAndDrag(t *testing.T) {
 		box.Children(func() { ui.Text(c, "Queue target") })
 	}
 	tt.Frame()
-	for _, want := range []string{"Plays", "ns3", "12", "Title"} {
-		if !tt.HasText(want) {
-			t.Errorf("no %q in %q", want, tt.Texts())
-		}
-	}
-	if !tt.HasText("#") {
-		t.Error("the rank column lost its # header")
+	if !tt.HasText("#") || !rankRow(t, tt, "41", "Song 0") || !rankRow(t, tt, "52", "Song 11") {
+		t.Errorf("the chart positions are not on their rows: %q", tt.Texts())
 	}
 	// Sorting: the header calls back; the host reorders and the ranks stay with the songs.
 	ax, _ := collRowPos(t, tt, "Artist 3")
@@ -668,8 +676,11 @@ func TestTrackListRankAndExtraColumnsKeepSortSelectAndDrag(t *testing.T) {
 	}
 	slices.Reverse(a.songs)
 	tt.Frame()
-	if y0, y11 := collRowPos2(t, tt, "Song 0"), collRowPos2(t, tt, "Song 11"); y11 >= y0 {
-		t.Fatalf("not reversed: %v %v", y11, y0)
+	if !rankRow(t, tt, "41", "Song 0") || !rankRow(t, tt, "52", "Song 11") {
+		t.Errorf("the ranks did not follow the songs: %q", tt.Texts())
+	}
+	if _, y0 := collRowPos(t, tt, "Song 0"); y0 <= func() float32 { _, y := collRowPos(t, tt, "Song 11"); return y }() {
+		t.Fatal("the list was not reversed")
 	}
 	// Shift/Ctrl selection and drag.
 	x, y := collRowPos(t, tt, "Song 5")
@@ -696,19 +707,20 @@ func TestTrackListRankAndExtraColumnsKeepSortSelectAndDrag(t *testing.T) {
 	}
 }
 
-// TestTrackListRankWithoutOfNumbersTheShownOrder: with no Of the numerals are
-// the row positions, so a re-sorted list is numbered afresh.
+// With no Of the numerals are the row positions, so a re-sorted list is
+// numbered afresh (whatever the songs' own track numbers).
 func TestTrackListRankWithoutOfNumbersTheShownOrder(t *testing.T) {
-	a, tt := newCollTrackApp(t, 3, 1000, 400, func(a *collTrackApp) { a.opts.Rank = &TrackRank{} })
-	tt.Frame()
-	if !tt.HasText("3") {
-		t.Errorf("no rank 3 in %q", tt.Texts())
+	a, tt := newCollTrackApp(t, 4, 1000, 400, func(a *collTrackApp) { a.opts.Rank = &TrackRank{} })
+	for _, s := range a.songs {
+		s.TrackNumber = 9
 	}
-	_ = a
-}
-
-func collRowPos2(t *testing.T, tt *ui.Tester, label string) float32 {
-	t.Helper()
-	_, y := collRowPos(t, tt, label)
-	return y
+	tt.Frame()
+	if tt.HasText("9") || !rankRow(t, tt, "4", "Song 3") {
+		t.Fatalf("the numerals are not the positions: %q", tt.Texts())
+	}
+	slices.Reverse(a.songs)
+	tt.Frame()
+	if !rankRow(t, tt, "4", "Song 0") || !rankRow(t, tt, "1", "Song 3") {
+		t.Errorf("a re-sorted list kept its old numerals: %q", tt.Texts())
+	}
 }

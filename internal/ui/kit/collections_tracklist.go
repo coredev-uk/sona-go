@@ -21,13 +21,14 @@ const (
 	trackPadX         = 8
 	trackGap          = 16
 	trackNumberW      = 40
-	trackRankW        = 56
-	trackExtraW       = 96
 	trackDurationW    = 56
 	trackActionsW     = 32
 	// trackOverscan is how many rows beyond the ones showing are built.
 	trackOverscan = 12
 )
+
+// TrackRankWidth is the width of the leading column of a ranked list.
+const TrackRankWidth = 56
 
 // TrackSort keys of the sortable columns.
 const (
@@ -45,18 +46,6 @@ type TrackColumns struct {
 	Artwork    bool
 	Artist     bool
 	Album      bool
-	// Extra is one more column, after Album and Added by (nil: none).
-	Extra *TrackExtra
-}
-
-// TrackExtra is a list's one extra column: a title and the text of a row.
-// The column is a fixed 96 DIPs, right-aligned, in tabular figures (a play
-// count, a movement), not sortable.
-type TrackExtra struct {
-	// Title is the column header.
-	Title string
-	// Text is the cell of row i (the row's index in the list as given).
-	Text func(i int, s *services.Song) string
 }
 
 // TrackRank turns the leading "#" column into big rank numerals (a chart's
@@ -482,18 +471,16 @@ func (st *TrackListState) headings(c *ui.Context, o *TrackListOpts, i int, s *se
 }
 
 // columns lays a row's or the header's cells out: the widths of
-// gridTemplate (# 40, title 2fr, artist 1fr, album 1fr, added by 0.8fr,
+// gridTemplate (# 40, or 56 for a ranked list, title 2fr, artist 1fr, album 1fr, added by 0.8fr,
 // duration 56, actions 32), 16 apart.
 func (o *TrackListOpts) cell(e ui.Element, kind int) ui.Element {
 	e = e.ColumnIndex(o.columnIndex(kind))
 	switch kind {
 	case cellNumber:
 		if o.Rank != nil {
-			return e.Width(trackRankW).Shrink(0)
+			return e.Width(TrackRankWidth).Shrink(0)
 		}
 		return e.Width(trackNumberW).Shrink(0)
-	case cellExtra:
-		return e.Width(trackExtraW).Shrink(0)
 	case cellTitle:
 		return e.Grow(2).Basis(0).MinWidth(0)
 	case cellArtist, cellAlbum:
@@ -515,8 +502,6 @@ func (o *TrackListOpts) hasColumn(kind int) bool {
 		return o.Columns.Album
 	case cellAddedBy:
 		return o.AddedBy != nil
-	case cellExtra:
-		return o.Columns.Extra != nil
 	}
 	return true
 }
@@ -543,7 +528,6 @@ const (
 	cellArtist
 	cellAlbum
 	cellAddedBy
-	cellExtra
 	cellDuration
 	cellActions
 )
@@ -571,9 +555,6 @@ func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Toke
 		}
 		if o.AddedBy != nil {
 			st.headerCell(c, o, cellAddedBy, i18n.T("Added by"), "", meta)
-		}
-		if x := o.Columns.Extra; x != nil {
-			o.cell(ui.Row(c.Key("h-extra")).Role(ui.RoleColumnHeader).Justify(ui.End), cellExtra).Children(func() { label(ui.Text(c, x.Title)) })
 		}
 		st.durationHeader(c, o)
 		o.cell(ui.Box(c.Key("h-act")).Role(ui.RoleColumnHeader).Label(i18n.T("Actions")), cellActions).Height(1)
@@ -885,17 +866,6 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 				}
 			})
 		}
-		if x := o.Columns.Extra; x != nil {
-			o.cell(ui.Row(c.Key("extra")).Role(ui.RoleCell).Justify(ui.End).AlignItems(ui.Center), cellExtra).Children(func() {
-				if x.Text == nil {
-					return
-				}
-				if text := x.Text(i, s); text != "" {
-					ui.Text(c, text).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).TextColor(muted).
-						FontFeatures("tnum").SingleLine()
-				}
-			})
-		}
 		dur := "—"
 		switch {
 		case s.DurationMs > 0:
@@ -987,9 +957,6 @@ func (st *TrackListState) skeletonRow(c *ui.Context, o *TrackListOpts, i int, ho
 		}
 		if o.AddedBy != nil {
 			bar(cellAddedBy)
-		}
-		if o.Columns.Extra != nil {
-			bar(cellExtra)
 		}
 		o.cell(ui.Box(c), cellDuration).Height(1)
 		o.cell(ui.Box(c), cellActions).Height(1)
