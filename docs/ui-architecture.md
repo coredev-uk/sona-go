@@ -720,6 +720,10 @@ Other helpers: `uitest.Transport` (a recording fake of the playback commands, ov
 - `access.InOrder`, `access.StopLabels` and `Tree.MustFind` serve the checks every feature repeats.
 - Each feature package keeps its pages' tree, Tab-order, Escape and announcement checks in `a11y_test.go` (`docs/accessibility.md`).
 
+### `uitest/overlay`
+
+`internal/ui/uitest/overlay` asserts where one mark lies against what it sits on, beside `uitest` for the same reason as `access`. `overlay.Same(t, what, overlay, target)` fails unless the overlay's bounds equal its target's; `OnArtwork` finds the target in the picture (the box of the fixture cover's saturated pixels) instead of the layout; `Inside`, `InsetBottomLeft`, `Centred` and `WholePixels` check a disc in its corner, a glyph in its button and every edge on a device pixel. Each overlay that sits on artwork (a track row's wash, a tile's play disc, a home row's wash, the sidebar's shuffle button) has a test running them at scale 1 and 2; `docs/testing.md`, "Overlay checks and the marks contact sheet", lists them and the contact sheet of 4× crops of every small mark.
+
 ### Golden images
 
 `go test ./internal/ui/...` takes seconds. Golden images are few. `uitest.Golden(t, tt.Image(), name)` compares with `testdata/golden/<name>.png` beside the test.
@@ -728,7 +732,7 @@ Other helpers: `uitest.Transport` (a recording fake of the playback commands, ov
 - `go test ./internal/ui/app -update` rewrites them when a change is on purpose.
 - A failure saves the picture and a diff (differing blocks red) in the test's artifact directory: `$SONA_TEST_ARTIFACTS/<test name>` when that variable is set (as in CI, which uploads it), else `t.ArtifactDir()` (see `go test -artifacts -outputdir DIR`). Tests ask `internal/ui/uitest/artifacts` for it, and only when they fail, so passing runs stay cacheable.
 - Golden images are compared on Linux only. Pango shapes the text there; Core Text and DirectWrite place glyphs differently, which a tolerance should not hide. Elsewhere `Golden` skips the test with that reason, after the test's behaviour assertions have run.
-- Today the app's golden is the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden`).
+- Today the app's goldens are the shell with Albums, light and dark, at 1132×1253, and the marks contact sheet (`internal/ui/app/testdata/golden`).
 
 ## The development loop
 
