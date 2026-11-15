@@ -149,7 +149,7 @@ func keys(t *testing.T, v any) []string {
 	return out
 }
 
-// The JSON schemas are a contract (docs/cli.md): every field is always
+// The JSON schemas are a contract (site/src/content/docs/reference/cli.md): every field is always
 // present, under these names. Adding one means adding it here and there.
 func TestJSONSchemas(t *testing.T) {
 	for _, tc := range []struct {

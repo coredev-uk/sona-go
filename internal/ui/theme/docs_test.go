@@ -7,16 +7,22 @@ import (
 	"testing"
 )
 
-// docs/themes.md carries a complete example: it has to be a theme Sona
-// accepts, and the page has to list every built-in.
+// The theme file format page carries a complete example: it has to be a theme
+// Sona accepts. The themes guide has to list every built-in.
 func TestThemesDocExampleIsAValidThemeAndListsTheBuiltIns(t *testing.T) {
-	doc, err := os.ReadFile("../../../docs/themes.md")
+	const format = "../../../site/src/content/docs/reference/theme-format.md"
+	const guide = "../../../site/src/content/docs/guide/themes.md"
+	doc, err := os.ReadFile(format)
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := os.ReadFile(guide)
 	if err != nil {
 		t.Fatal(err)
 	}
 	m := regexp.MustCompile("(?s)```json\n(.*?)\n```").FindSubmatch(doc)
 	if m == nil {
-		t.Fatal("no JSON example in docs/themes.md")
+		t.Fatal("no JSON example in " + format)
 	}
 	th, problems := ParseTheme(m[1])
 	if th == nil {
@@ -26,8 +32,8 @@ func TestThemesDocExampleIsAValidThemeAndListsTheBuiltIns(t *testing.T) {
 		t.Error("the example should show both variants")
 	}
 	for _, b := range builtinOrder {
-		if !strings.Contains(string(doc), "| `"+b+"` |") {
-			t.Errorf("docs/themes.md does not list %s", b)
+		if !strings.Contains(string(list), "| `"+b+"` |") {
+			t.Errorf("%s does not list %s", guide, b)
 		}
 	}
 }

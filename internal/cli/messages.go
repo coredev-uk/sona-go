@@ -16,7 +16,7 @@ const (
 	versionLine = "sona --version"
 	errorPrefix = "sona: "
 	queueMark   = "▶"
-	seeAlsoURL  = "https://github.com/coredev-uk/sona-go/blob/main/docs/cli.md"
+	seeAlsoURL  = "https://sona.coredev.uk/reference/cli/"
 	// stateDirMac and stateDirWindows are the state folders msgManFilesText
 	// names.
 	stateDirMac     = "~/Library/Application Support/Sona/State"

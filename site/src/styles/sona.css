@@ -1,0 +1,271 @@
+/*
+ * Sona's look for the docs, mapped from the app's tokens
+ * (internal/ui/theme/tokens.json): a neutral board, ink, and amber, which in
+ * Sona marks what plays and so is used sparingly here: the current page's
+ * dot, links, the selection. Type is Schibsted Grotesk, self-hosted
+ * (public/fonts, SIL OFL 1.1).
+ */
+
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  src: url('/fonts/SchibstedGrotesk-Variable.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --sl-font: 'Schibsted Grotesk', system-ui, sans-serif;
+  --sl-text-base: 1.0625rem;
+  --sl-line-height: 1.65;
+  --sona-radius: 6px;
+  --sona-amber: #f0b43c;
+  --sona-on-amber: #1a1405;
+}
+
+/* Dark: the default */
+:root,
+:root[data-theme='dark'] {
+  --sl-color-white: #f0f0f0; /* ink */
+  --sl-color-gray-1: #e4e4e4;
+  --sl-color-gray-2: #aeaeae; /* ink-muted */
+  --sl-color-gray-3: #a5a5a5; /* ink-faint */
+  --sl-color-gray-4: #707070; /* control-line */
+  --sl-color-gray-5: #2e2e2e; /* active */
+  --sl-color-gray-6: #262626; /* hover */
+  --sl-color-gray-7: #191919; /* surface */
+  --sl-color-black: #141414; /* ground */
+  --sl-color-bg-nav: #191919;
+  --sl-color-bg-sidebar: #191919;
+  --sl-color-hairline: #2a2a2a; /* line */
+  --sl-color-hairline-light: #2a2a2a;
+  --sl-color-hairline-shade: #2a2a2a;
+  --sl-color-accent-low: #2b2208;
+  --sl-color-accent: #f0b43c;
+  --sl-color-accent-high: #f0b43c; /* amber-ink */
+  --sl-color-text-accent: #f0b43c;
+  --sl-shadow-md: 0 10px 28px rgb(0 0 0 / 0.36);
+  --sona-ring: rgb(240 240 240 / 0.6);
+  --sona-board: #212121; /* raised */
+  --sona-frame: rgb(240 240 240 / 0.06);
+}
+
+:root[data-theme='light'] {
+  --sl-color-white: #181818;
+  --sl-color-gray-1: #262626;
+  --sl-color-gray-2: #3d3d3d;
+  --sl-color-gray-3: #585858; /* ink-muted */
+  --sl-color-gray-4: #878787; /* control-line */
+  --sl-color-gray-5: #dbdbdb; /* line */
+  --sl-color-gray-6: #e6e6e6; /* hover */
+  --sl-color-gray-7: #ededed; /* surface */
+  --sl-color-black: #f5f5f5; /* ground */
+  --sl-color-bg-nav: #ededed;
+  --sl-color-bg-sidebar: #ededed;
+  --sl-color-hairline: #dbdbdb;
+  --sl-color-hairline-light: #dbdbdb;
+  --sl-color-hairline-shade: #dbdbdb;
+  --sl-color-accent-low: #f1e7cf;
+  --sl-color-accent: #ad7700;
+  --sl-color-accent-high: #845500; /* amber-ink */
+  --sl-color-text-accent: #845500;
+  --sl-shadow-md: 0 10px 28px rgb(0 0 0 / 0.14);
+  --sona-ring: rgb(24 24 24 / 0.6);
+  --sona-board: #ffffff;
+  --sona-frame: rgb(24 24 24 / 0.06);
+}
+
+/* Browser surfaces */
+::selection {
+  background: color-mix(in srgb, var(--sl-color-accent) 32%, transparent);
+}
+:focus-visible {
+  outline: 2px solid var(--sona-ring);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+html {
+  caret-color: var(--sl-color-text-accent);
+  scrollbar-color: color-mix(in srgb, var(--sl-color-white) 24%, transparent) transparent;
+}
+.sl-markdown-content :is(td, th) {
+  min-width: 6rem;
+}
+
+/* Headings: weight carries the hierarchy, tracking stays tight but sane */
+.sl-markdown-content :is(h1, h2, h3, h4) {
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+h1#_top {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+.sl-markdown-content h2 {
+  margin-top: 2.75rem;
+}
+.sl-markdown-content p,
+.sl-markdown-content li {
+  text-wrap: pretty;
+}
+
+/* Links: ink-weight text, amber-ink underline that firms up on hover */
+.sl-markdown-content a:not(.not-content *) {
+  color: var(--sl-color-text-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  transition: text-decoration-color 0.15s ease-out;
+}
+.sl-markdown-content a:not(.not-content *):hover {
+  text-decoration-color: currentColor;
+}
+
+/* The current page is marked like the playing row: an amber dot */
+nav.sidebar a[aria-current='page'] {
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-white);
+  font-weight: 600;
+  position: relative;
+}
+nav.sidebar a[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0.4rem;
+  top: 50%;
+  width: 0.4rem;
+  height: 0.4rem;
+  translate: 0 -50%;
+  border-radius: 50%;
+  background: var(--sl-color-accent);
+}
+nav.sidebar a[aria-current='page'] {
+  padding-inline-start: 1.1rem;
+}
+nav.sidebar a {
+  border-radius: var(--sona-radius);
+}
+nav.sidebar summary .large {
+  font-weight: 600;
+}
+
+/* Buttons */
+.sl-link-button {
+  border-radius: var(--sona-radius);
+  font-weight: 600;
+}
+.sl-link-button.primary {
+  background: var(--sl-color-accent);
+  border-color: var(--sl-color-accent);
+  color: var(--sona-on-amber);
+}
+.sl-link-button.primary:hover {
+  background: color-mix(in srgb, var(--sl-color-accent) 88%, var(--sl-color-white));
+  border-color: transparent;
+  color: var(--sona-on-amber);
+}
+.sl-link-button.secondary {
+  border-color: var(--sl-color-gray-4);
+  color: var(--sl-color-white);
+}
+.sl-link-button.secondary:hover {
+  background: var(--sl-color-gray-6);
+}
+
+/* Code, tables, asides */
+.sl-markdown-content :not(pre) > code {
+  background: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+  font-size: 0.88em;
+}
+.sl-markdown-content table {
+  border-radius: var(--sona-radius);
+}
+.starlight-aside {
+  border-radius: var(--sona-radius);
+  border-inline-start-width: 1px;
+  border: 1px solid var(--sl-color-hairline);
+  background: var(--sl-color-gray-7);
+}
+.starlight-aside__title {
+  font-weight: 650;
+}
+
+/* Which screenshot shows follows the theme */
+:root[data-theme='dark'] .only-light,
+:root[data-theme='light'] .only-dark {
+  display: none;
+}
+
+/* Splash */
+.sona-shot {
+  margin-top: 0;
+}
+.sona-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px var(--sona-frame),
+    var(--sl-shadow-md);
+}
+.sona-mini img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px var(--sona-frame),
+    var(--sl-shadow-md);
+}
+.sona-split {
+  display: grid;
+  gap: 1.5rem 3rem;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 50rem) {
+  .sona-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+}
+.sona-split > * {
+  margin-top: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+/* Heading anchors show on hover or focus only, in ink-faint */
+.sl-markdown-content .sl-anchor-link {
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+}
+.sl-markdown-content .sl-anchor-link svg {
+  color: var(--sl-color-gray-3);
+}
+.sl-heading-wrapper:hover .sl-anchor-link,
+.sl-anchor-link:focus-visible {
+  opacity: 1;
+}
+
+/* One rhythm above every h2, on the splash too */
+.sl-markdown-content .sl-heading-wrapper.level-h2 {
+  margin-top: 2.75rem;
+}
+.sona-split .sl-heading-wrapper.level-h2 {
+  margin-top: 0;
+}
+.sl-markdown-content .sona-split {
+  margin-top: 2.75rem;
+}
+.sl-markdown-content .sona-shot ~ p {
+  margin-top: 1.75rem;
+}

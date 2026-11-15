@@ -60,7 +60,7 @@ func (p Paths) DatabaseFile() string { return filepath.Join(p.Data, "sona.db") }
 // LogFile is the JSON log file; rotated copies sit beside it.
 func (p Paths) LogFile() string { return filepath.Join(p.State, "sona.log") }
 
-// ThemesDir is the folder of the user's theme files (docs/themes.md). It is
+// ThemesDir is the folder of the user's theme files (site/src/content/docs/reference/theme-format.md). It is
 // created when the themes service first lists it, not at start-up.
 func (p Paths) ThemesDir() string { return filepath.Join(p.Config, "themes") }
 

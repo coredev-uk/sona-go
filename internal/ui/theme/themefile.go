@@ -37,7 +37,7 @@ var builtinOrder = [...]string{
 	"catppuccin", "nord", "gruvbox", "solarized", "dracula", "rose-pine", "tokyo-night",
 }
 
-// Theme is a named set of overrides of Sona's own tokens (docs/themes.md): a
+// Theme is a named set of overrides of Sona's own tokens (site/src/content/docs/reference/theme-format.md): a
 // light variant, a dark variant or both, each overriding colour, scalar and
 // shadow tokens. A token it leaves out comes from Sona's own document
 // (tokens.json) of the same polarity, so a theme never shows a missing

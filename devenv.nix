@@ -61,6 +61,9 @@ in
       goose
       sqlite
       pkg-config
+      # Only the documentation site (site/, the `docs` script); the app's
+      # build and `check` never touch it.
+      nodejs
     ]
     ++ gstPlugins
     ++ map lib.getDev [
@@ -109,6 +112,8 @@ in
 
   # Each script is described in CONTRIBUTING.md ("devenv scripts").
   scripts = {
+    # The documentation site (site/, Astro Starlight) with live reload.
+    docs.exec = ''cd "$DEVENV_ROOT/site" && npm ci && npm run dev -- "$@"'';
     # The development loop (cmd/devloop): rebuilds the app with the dev tag
     # on every save, restarts it where it was, reloads tokens and catalogues
     # without a rebuild. `r` rebuilds, `q` quits. A first argument
