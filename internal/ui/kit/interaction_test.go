@@ -347,7 +347,7 @@ func iaTrackShelf(tweak func(*ItemsCtx)) iaSurface {
 			st := &TrackShelfState{}
 			return func(c *ui.Context, ctx ItemsCtx) {
 				TrackShelf(c, st, trackItems(3), ctx, TrackShelfOpts{Title: "Top Songs", First: true})
-			}, nil
+			}, func() int { return st.Sel.State().Len() }
 		},
 	}
 }
@@ -1405,19 +1405,17 @@ var iaStationWant = map[string]iaRow{
 // iaTrackShelfWant is a song as a TrackShelf row.
 var iaTrackShelfWant = map[string]iaRow{
 	"song": {
-		role: "list item",
-		play: "disc",
-		more: "button",
-		menu: "opens",
-		// DEPARTS: a single click on a song silently does nothing (no select, no open) though the row takes the hover fill; a TrackList row selects and a song cover tile opens its page; the shelf only plays on double-click, Enter or the cover button.
-		click:      "nothing",
-		double:     "songs=Top Songs@Song 1/Song 1..Song 3",
+		role:       "list item",
+		play:       "disc",
+		more:       "button",
+		menu:       "opens",
+		click:      "sel=1",
+		double:     "songs=Top Songs@Song 1/Song 1..Song 3 sel=1",
 		enter:      "songs=Top Songs@Song 1/Song 1..Song 3",
 		shiftEnter: "nothing",
-		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click does nothing (no selection in a TrackShelf), where it selects a TrackList row and a cover tile.
-		shiftClick: "nothing",
-		ctrlClick:  "nothing",
+		space:      "sel=1",
+		shiftClick: "sel=1",
+		ctrlClick:  "sel=1",
 		playDisc:   "songs=Top Songs@Song 1/Song 1..Song 3",
 	},
 }
