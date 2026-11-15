@@ -649,3 +649,55 @@ func TestArtworkIsDecodedForEachWindowsOwnScale(t *testing.T) {
 		}
 	}
 }
+
+// TestArtworkBoxIsWholePixels: a raw ratio (Apple's 1060×608 hero crop) gives
+// a box whole DIPs high, for Artwork and FluidArtwork alike, so the picture's
+// last row is solid and nothing is left half-covered under it.
+func TestArtworkBoxIsWholePixels(t *testing.T) {
+	const hero = 1060.0 / 608
+	for _, tc := range []struct {
+		name  string
+		fluid bool
+		size  float32
+		h     int // size / hero, rounded: 88.9 and 95.8
+	}{{"fixed", false, 155, 89}, {"fluid", true, 167, 96}} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, h := ArtBox(tc.size, hero); h != float32(tc.h) {
+				t.Fatalf("ArtBox(%v, 1060/608) is %v high, want %d", tc.size, h, tc.h)
+			}
+			src := &fakeArt{}
+			theme.SetMode(theme.ModeLight)
+			t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
+			mt := newMainThread()
+			l := newArtLoader(src, mt.post, 2)
+			t.Cleanup(l.Close)
+			o := ArtOpts{Aspect: hero}
+			tt := ui.NewTester(func(c *ui.Context) {
+				theme.Apply(c)
+				ui.Column(c).Padding(10).AlignItems(ui.Start).Children(func() {
+					if tc.fluid {
+						ui.Column(c.Key("w")).Width(tc.size).Children(func() {
+							FluidArtwork(c.Key("a"), l, "/art/k1/1060x608.jpg", tc.size, o)
+						})
+						return
+					}
+					Artwork(c.Key("a"), l, "/art/k1/1060x608.jpg", tc.size, o)
+				})
+			}, 200, 200)
+			tt.Frame()
+			mt.run(t, 1)
+			tt.Frame()
+			if got := src.requests(); len(got) != 1 || got[0] != [2]int{int(tc.size), tc.h} {
+				t.Errorf("requests %v, want one of %v×%d", got, tc.size, tc.h)
+			}
+			red := color.RGBA{220, 30, 30, 255}
+			x := 10 + int(tc.size)/2
+			if got := at(tt, x, 10+tc.h-1); !near(got, red) {
+				t.Errorf("the picture's last row is %v, want it solid %v", got, red)
+			}
+			if got := at(tt, x, 10+tc.h); near(got, red) {
+				t.Errorf("the row under the box is %v, want the ground", got)
+			}
+		})
+	}
+}

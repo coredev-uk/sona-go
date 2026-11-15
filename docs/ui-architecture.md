@@ -529,7 +529,8 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 - `ArtOpts.Fallback` builds the fallback in place of the glyph (PersonAvatar's initials).
 - `Contain` shows the whole picture at the shape its URL names (a banner stays wide) and decodes it at that size.
-- `FluidArtwork` fills its container's width at square or 16:9 and decodes for the largest width.
+- `Aspect` is any width over height, raw (Apple's 1060:608 hero crop) or worked out. The box's height is rounded to whole DIPs (`kit.ArtBox`), so the picture lands on whole pixels; a caller that frames the cover in a box of its own (Home's hero banner, Discover's wide thumbnails) sizes that box with `kit.ArtBox` rather than rounding by hand.
+- `FluidArtwork` fills its container's width at the aspect of `ArtOpts` (square, 16:9, a banner's) and decodes for the largest width, whose box is rounded the same way.
 - `ArtLoader` also loads backdrops (`/art/<key>/backdrop.jpg`, the pre-blurred JPEG from `artwork.Cache.Backdrop`, decoded at its own size) through the same queue, cache and retries.
 
 **Backdrop** is a box whose background is the cover's dominant colour at once, then the Go pre-blurred image at 110% fading in over 300 ms (a new source is decoded before it replaces the last). It sits under a solid scrim of the surface or ground token at `backdrop-scrim`, and draws nothing under Reduce effects. It holds its children, which draw over it.

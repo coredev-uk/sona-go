@@ -177,12 +177,12 @@ func (r *rotation) step(now time.Time, running bool, at int, occupied func() boo
 // shows it (Apple's centre crop at the hero card's shape), across the slot's
 // width and centred, where filling the slot would cut a square out of the
 // middle of a 4:1 banner and show that, enlarged. A tall one fits the slot's
-// height. The box is whole DIPs, so the picture (asked for at the box)
-// lands on whole pixels and is not resampled.
+// height. The box is whole DIPs (the wide one is kit.ArtBox's), so the
+// picture (asked for at the box) lands on whole pixels and is not resampled.
 func thumbBox(src string) (w, h float32) {
 	switch a := kit.ArtAspect(src); {
 	case a > thumbSquare:
-		return listThumb, float32(math.Round(listThumb / heroRatio))
+		return kit.ArtBox(listThumb, heroRatio)
 	case a < 1/thumbSquare:
 		return float32(math.Round(float64(listThumb * a))), listThumb
 	}
