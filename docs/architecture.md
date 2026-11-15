@@ -855,7 +855,7 @@ Other per-OS conventions are the Discord IPC socket and the CDM library name abo
 
 ### Linux
 
-- **Packages**: `task package` packages the local build. The AUR `sona-bin` PKGBUILD is `build/linux/arch/update.sh`. Flatpak is documented in `docs/maintainers/flatpak.md`.
+- **Packages**: `task package` packages the local build. The Linux release binary is a PIE with full RELRO (`-buildmode=pie`, `-Wl,-z,relro,-z,now`; `build/linux/Taskfile.yml`). The AUR `sona-bin` PKGBUILD is `build/linux/arch/update.sh`, shipped with a 0BSD `LICENSE`; the Arch dependencies there and in `nfpm.yaml` are kept in step. Flatpak is documented in `docs/maintainers/flatpak.md`.
 - **Apple Music links**: the desktop file claims `music`, `musics`, `itms` and `itmss`. Settings → General → **Open Apple Music links in Sona** makes Sona their default with `xdg-mime default dev.coredev.Sona.desktop x-scheme-handler/<scheme>` (read with `xdg-mime query default`; `app.XDGLinkHandler`). It says it can't where the desktop file isn't installed (an AppImage that isn't integrated, a source build) or inside a Flatpak.
 
 ### macOS
@@ -957,7 +957,7 @@ Every package, tests included, type-checks for `windows/amd64` and `darwin/arm64
 ### Packaging
 
 - `task package` builds the `.deb`, `.rpm`, Arch package (nfpm; GTK3, the tray's `libayatana-appindicator3` and GStreamer as dependencies) and the AppImage of the local build.
-- `build/linux/release/release.sh` builds them on Ubuntu 24.04 and smoke-tests them: `.deb` on Ubuntu, `.rpm` and the AppImage on Fedora, Arch package on Arch. The smoke checks `sona --version`, first paint under Xvfb, the GStreamer plugins, and no WebKitGTK or GTK4 linked.
+- `build/linux/release/release.sh` builds them on Ubuntu 24.04 and smoke-tests them: `.deb` on Ubuntu, `.rpm` and the AppImage on Fedora, Arch package on Arch. The smoke checks `sona --version`, first paint under Xvfb, the GStreamer plugins, and no WebKitGTK or GTK4 linked. On Arch it also runs `namcap` on the PKGBUILD and the built package and fails on anything but the run-time dependencies namcap can't see (`smoke.sh`, `namcap_allowed`).
 - `build/darwin/smoke.sh` and `build/windows/smoke.sh` do the same for the macOS app and the Windows zip and installer. The Windows one also silently uninstalls the installer and checks that the sandbox's AppContainer profile is gone, and runs the zip's `sona.exe --remove-sandbox`.
 
 ### Manual release checks

@@ -131,7 +131,7 @@ A test binary alone honours `SONA_CDMHOST_ALLOW_UNSANDBOXED=1` to load the CDM o
 
 ### Linux packages
 
-`bash build/linux/release/release.sh` is the packaging check. It builds every package on Ubuntu 24.04 and smoke-tests it on clean Ubuntu, Fedora and Arch containers, plus the AppImage on Fedora. It needs podman or docker and takes a while, so CI runs it.
+`bash build/linux/release/release.sh` is the packaging check. It builds every package on Ubuntu 24.04 and smoke-tests it on clean Ubuntu, Fedora and Arch containers, plus the AppImage on Fedora. On Arch the smoke also runs `namcap` on the AUR PKGBUILD and the built package, and fails on any error or warning except the run-time dependencies MyGo and GStreamer load by soname (listed by name in `smoke.sh`). It needs podman or docker and takes a while, so CI runs it.
 
 `task package` packages your local build for a look at the files. A devenv build links `/nix/store` and is not a release. Before a release, work through [maintainers/release.md](maintainers/release.md).
 

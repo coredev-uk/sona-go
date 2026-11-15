@@ -10,13 +10,17 @@ tasks:
       # secrets), so no logged command line ever holds it. -X main.version
       # carries VERSION into the binary (`sona --version`, Diagnostics, the
       # log).
-      - cmd: go build {{.BUILD_FLAGS}} -ldflags="$(VERSION={{.VERSION}} bash {{.ROOT_DIR}}/build/ldflags.sh --goos linux)" -o {{.OUTPUT}} ./cmd/sona
+      - cmd: go build {{.BUILD_FLAGS}} -ldflags="$(VERSION={{.VERSION}} bash {{.ROOT_DIR}}/build/ldflags.sh --goos linux) {{.HARDEN_LDFLAGS}}" -o {{.OUTPUT}} ./cmd/sona
         silent: true
       - echo "built {{.OUTPUT}} ({{.VERSION}})"
     vars:
       # -trimpath keeps -ldflags (and the credentials in them) out of the
       # binary's build info.
-      BUILD_FLAGS: '-tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false'
+      # Position-independent executable with full RELRO (distro packaging
+      # standards, namcap): -buildmode=pie, and the linker told to bind
+      # every symbol at load time (-z now) on top of the RELRO it sets.
+      BUILD_FLAGS: '-tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false -buildmode=pie'
+      HARDEN_LDFLAGS: "-extldflags '-Wl,-z,relro,-z,now'"
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'
     env:

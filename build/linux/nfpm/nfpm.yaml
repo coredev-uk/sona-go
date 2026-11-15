@@ -118,7 +118,14 @@ overrides:
   archlinux:
     # nfpm's Arch packager writes depends only (no optdepends), so the
     # gst-plugin-pipewire recommendation does not carry over.
+    # Keep in step with build/linux/arch/update.sh: the first five are what
+    # namcap sees linked or used; the rest are loaded by soname at run time.
     depends:
+      - glibc
+      - glib2
+      - gst-plugins-base-libs
+      - libstdc++
+      - hicolor-icon-theme
       - gtk3
       - libepoxy
       - libglvnd
