@@ -201,17 +201,17 @@ nav.sidebar summary .large {
 }
 
 /* Splash */
-.sona-shot {
+.sona-hero {
   margin-top: 0;
+  /* Wider than the text column, centred on the page; the picture carries its own shadows */
+  width: min(72rem, calc(100vw - 2rem));
+  margin-inline-start: 50%;
+  transform: translateX(-50%);
 }
-.sona-shot img {
+.sona-hero img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 10px;
-  box-shadow:
-    0 0 0 1px var(--sona-frame),
-    var(--sl-shadow-md);
 }
 .sona-mini img {
   display: block;
@@ -266,6 +266,6 @@ nav.sidebar summary .large {
 .sl-markdown-content .sona-split {
   margin-top: 2.75rem;
 }
-.sl-markdown-content .sona-shot ~ p {
+.sl-markdown-content .sona-hero ~ p {
   margin-top: 1.75rem;
 }

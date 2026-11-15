@@ -16,8 +16,8 @@ A native Apple Music client for Linux, macOS and Windows.
 <br clear="left">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="site/src/assets/home-dark.webp">
-  <img src="site/src/assets/home-light.webp" alt="Sona's Albums page: a sidebar, a grid of album covers and the player bar.">
+  <source media="(prefers-color-scheme: dark)" srcset="site/src/assets/hero-dark.webp">
+  <img src="site/src/assets/hero-light.webp" alt="Three Sona windows stacked and offset: Moon Music by Coldplay at the back, The Slow Rush by Tame Impala in the middle, and Now Playing in front with the cover of Taylor Swift's Cruel Summer beside its time-synced lyrics.">
 </picture>
 
 ## Contributing

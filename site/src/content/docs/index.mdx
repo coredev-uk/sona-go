@@ -14,16 +14,16 @@ hero:
 ---
 
 import { Image } from 'astro:assets';
-import homeLight from '../../assets/home-light.webp';
-import homeDark from '../../assets/home-dark.webp';
+import heroLight from '../../assets/hero-light.webp';
+import heroDark from '../../assets/hero-dark.webp';
 import miniLight from '../../assets/miniplayer-light.webp';
 import miniDark from '../../assets/miniplayer-dark.webp';
 
-<div class="sona-shot only-light">
-  <Image src={homeLight} widths={[640, 1132]} sizes="(min-width: 50rem) 50rem, 100vw" alt="Sona's Albums page in light mode: a sidebar with Discover, Charts, Radio and the library, a grid of 24 album covers, and the player bar along the bottom." loading="eager" />
+<div class="sona-hero only-light">
+  <Image src={heroLight} widths={[800, 1200, 1600, 2400]} sizes="(min-width: 76rem) 72rem, calc(100vw - 2rem)" alt="Three Sona windows in light mode, stacked and offset. At the back, Moon Music by Coldplay on its album page; in the middle, The Slow Rush by Tame Impala; in front, Now Playing with Taylor Swift's Cruel Summer, its cover large beside time-synced lyrics with the current line highlighted." loading="eager" />
 </div>
-<div class="sona-shot only-dark">
-  <Image src={homeDark} widths={[640, 1132]} sizes="(min-width: 50rem) 50rem, 100vw" alt="Sona's Albums page in dark mode: the same sidebar, album grid and player bar on a near-black board." loading="eager" />
+<div class="sona-hero only-dark">
+  <Image src={heroDark} widths={[800, 1200, 1600, 2400]} sizes="(min-width: 76rem) 72rem, calc(100vw - 2rem)" alt="The same three Sona windows in dark mode: Moon Music, The Slow Rush, and Now Playing with the lyrics of Cruel Summer, on near-black boards." loading="eager" />
 </div>
 
 Sona is in early development, not a finished product. You need an Apple Music subscription. It runs on Linux, macOS (Apple silicon) and Windows (x64).

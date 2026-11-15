@@ -32,3 +32,11 @@ npm run build
 - Keep history, internal reasons and implementation detail out of user pages. Link to `docs/` for depth.
 - Use an aside only for a real warning or tip.
 - Reference pages open with a one-line `>` description. Each command or token is a heading, its arguments are a bullet list (`name` type (optional) - description), and platform-only items carry _Linux_, _macOS_ or _Windows_.
+
+## The home page picture
+
+The picture at the top of the home page and the README, `src/assets/hero-light.webp` and `hero-dark.webp`, is three real Sona windows (The Slow Rush and Moon Music album pages behind, Now Playing with time-synced lyrics in front), offset and layered with rounded corners and soft shadows on a transparent background, 2400 px wide and under 400 KB each. Make it again when the interface changes enough to date it:
+
+1. Run a build with `-tags probe,sqlite_fts5` in `devenv shell -- headless`, signed out, with `SONA_PREVIEW=1 SONA_PRIVATE=1`, at scale 2 and a 1280×800 window. Use only catalogue content: no account, no personal data.
+2. Capture each screen in Light and Dark (Settings, Appearance, Mode) over the automation socket, once the artwork has loaded.
+3. Composite them and write the WebP files with quality about 85.
