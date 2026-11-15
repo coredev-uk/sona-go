@@ -10,6 +10,7 @@ How to measure the UI's frame cost, start-up and memory. Run every measurement h
   - [What the scroll does](#what-the-scroll-does)
   - [Run the probe](#run-the-probe)
   - [Compare runs](#compare-runs)
+- [Measure artwork fetch times](#measure-artwork-fetch-times)
 - [Measure memory](#measure-memory)
   - [Read the diagnostics bundle](#read-the-diagnostics-bundle)
   - [Script a run with memprobe](#script-a-run-with-memprobe)
@@ -113,6 +114,18 @@ A `for_window` rule in the sway config does the same. A library of the size you 
 - Confirm on a desktop session. The headless session draws on the CPU (llvmpipe, `frames: drawn in memory` in the output), so its CPU figures are not a desktop GPU's and its frame times only show relative change.
 - `MYGO_FRAME_STATS=all` itself costs a log line and a few counters per frame.
 - `-probe` counts its own wheel driver in the CPU figures; `uiprobe` does not (its driver is another process).
+
+## Measure artwork fetch times
+
+A cover that is slow to appear is slow in one of three places: the CDN, the queue in front of the downloads (`Cache.fetchSem`, 16 at once) or composing (a playlist's 2×2 mosaic). Measure each on its own with a throwaway program that is not committed:
+
+- **The CDN.** Take the artwork URLs from the library's first pages (`applemusic.Client.LibraryPlaylistsPage`, `LibraryAlbumsPage` with the user token from `.env`, read-only), fill `{w}x{h}` and time `GET` to the last byte, with `Accept: image/jpeg,image/png;q=0.9,*/*;q=0.8` and `artwork.DefaultUserAgent`. Request each size once per artwork: a repeat is a cache hit. The `X-Cache` header says `hit-fresh` or `miss` at the CDN's edge, but an origin render shows in the time. Use 8 or more artworks per size and report the median and how many took over 150 ms. Never print playlist names or URLs.
+- **The queue.** Start a fresh `artwork.Cache` (empty directory), ask for 60 album covers at once and time one more cover (a generated playlist cover and a mosaic) asked after 50 ms, against the same cover with nothing else loading.
+- **Composing.** Time `Cache.Get` of an `artwork.Mosaic` of four albums on an empty cache directory, then again for the disk hit; the difference to the slowest of its four tiles is the compose cost.
+
+Results of 2026-11-15 (one library, 24 playlists, 16 of them generated covers): a generated cover took 13 ms at 64, 256 and 512 px and 24 ms at 1200, 250 to 430 ms at every other size up to 1000 (128 px 252 ms, 1024 px 430 ms) and 975 ms at 2048. A mosaic composed on an empty cache took 93 to 150 ms once its tiles were downloaded (64 ms at 64 px); the tiles are 4 parallel fetches, so a mosaic waits for the slowest: albums at 128 px were slow (over 150 ms, up to 1.7 s) for 25 of 98 first requests. With 60 album covers loading, a generated cover took 217 ms and a mosaic 278 ms against 22 ms and (a fresh connection) 1.99 s alone: the 16-slot queue costs about one round trip, not the problem.
+
+After moving the sources to 64, 256, 512, 1200 and 2048 px (empty cache directory per playlist, first picture, median of 8 generated covers): a 128 px box 331 ms before and 51 ms after, a 600 px box 593 ms before and 126 ms after; 40 and 300 px boxes were already on cached sizes (63 and 71 ms before, 61 and 62 ms after). Mosaics (12 each, connection warm) stayed at 67 to 94 ms at 128 px and 76 to 78 ms at 256 px: the slow tail of a 128 px album tile (25 of 98) is gone by construction, but 12 samples did not show it in either run.
 
 ## Measure memory
 

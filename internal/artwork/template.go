@@ -14,7 +14,16 @@ import (
 // Sizes are the long edges of the sources fetched from Apple. A request
 // is served from the smallest cached source at least that large with the
 // same aspect ratio.
-var Sizes = []int{64, 128, 256, 512, 1024, 2048}
+//
+// They are the sizes Apple's image CDN already holds for most artwork: a
+// size it has not cached is rendered by an origin on the first request, which
+// took 250 ms to 2 s against 10 to 25 ms for a cached one (measured
+// 2026-11-15 over a library's album and playlist covers: 25 of 98 albums
+// slow at 128, 3 to 4 at 64, 256 and 512; every generated playlist cover
+// ~280 ms at 128 and 430 ms at 1024, ~13 ms at 64, 256 and 512, and 24 ms at
+// 1200). 128 and 1024 are left out and a request between two sizes is served
+// by scaling the larger source down; 2048 stays for the rare larger box.
+var Sizes = []int{64, 256, 512, 1200, 2048}
 
 const (
 	// MinSize and MaxSize bound the long edge of a served variant; its
