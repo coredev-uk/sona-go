@@ -1,6 +1,9 @@
 package config
 
-import "slices"
+import (
+	"maps"
+	"slices"
+)
 
 // Addons is what the user decided about each add-on, by add-on ID: it is
 // the one place a permission is granted (docs/addons.md). It describes this
@@ -18,6 +21,11 @@ type AddonSetting struct {
 	// does not run until the user approves again. Revoking one removes it
 	// here, and the next call that needs it is refused.
 	Granted []string `json:"granted"`
+	// Values are the add-on's non-secret settings rows, by row ID: a toggle
+	// "true" or "false", a text, a choice's value. A row the user never set
+	// has none here. Secrets never are: they live in the keyring under
+	// `addon.<id>`.
+	Values map[string]string `json:"values,omitempty"`
 }
 
 // Limits of what the file may hold: add-ons are a handful, and a file that
@@ -27,6 +35,9 @@ const (
 	maxAddonIDLength   = 40
 	maxAddonGrants     = 32
 	maxAddonPermLength = 40
+	maxAddonValues     = 32
+	maxAddonValueKey   = 40
+	maxAddonValueBytes = 1024
 )
 
 // normalized drops entries with an unreasonable ID, keeps at most MaxAddons
@@ -56,7 +67,32 @@ func (a Addons) normalized() Addons {
 		if len(s.Granted) == 0 {
 			s.Granted = nil
 		}
+		s.Values = normalizedValues(s.Values)
 		out[id] = s
+	}
+	return out
+}
+
+// normalizedValues keeps at most maxAddonValues rows (the first by ID) whose
+// ID and value are of a sane length; none is nil.
+func normalizedValues(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(in))
+	for k, v := range in {
+		if k != "" && len(k) <= maxAddonValueKey && len(v) <= maxAddonValueBytes {
+			keys = append(keys, k)
+		}
+	}
+	slices.Sort(keys)
+	keys = keys[:min(len(keys), maxAddonValues)]
+	if len(keys) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(keys))
+	for _, k := range keys {
+		out[k] = in[k]
 	}
 	return out
 }
@@ -70,6 +106,7 @@ func (a Addons) clone() Addons {
 	out := make(Addons, len(a))
 	for id, s := range a {
 		s.Granted = slices.Clone(s.Granted)
+		s.Values = maps.Clone(s.Values)
 		out[id] = s
 	}
 	return out

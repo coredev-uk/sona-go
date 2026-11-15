@@ -53,7 +53,13 @@ func (m *commands) available() []module.BoundShortcut {
 	if m.env.Shortcuts == nil {
 		return nil
 	}
-	return slices.DeleteFunc(m.env.Shortcuts(), func(s module.BoundShortcut) bool {
+	all := m.env.Shortcuts()
+	if m.env.AddonCommands != nil {
+		for _, s := range m.env.AddonCommands() {
+			all = append(all, module.BoundShortcut{Shortcut: s})
+		}
+	}
+	return slices.DeleteFunc(all, func(s module.BoundShortcut) bool {
 		return s.NoPalette || s.Run == nil || (s.When != nil && !s.When()) || (s.Unavailable != nil && s.Unavailable() != "")
 	})
 }
@@ -86,7 +92,7 @@ func commandEntry(s module.BoundShortcut, detail string) kit.PaletteEntry {
 // paletteGroups are the groups in the order the palette opens on them: the
 // places to go first, then what the player does, so Enter on opening goes
 // somewhere rather than pausing the music.
-var paletteGroups = []module.ShortcutGroup{"pages", "playback", "view", "navigation", "general"}
+var paletteGroups = []module.ShortcutGroup{"pages", "playback", "view", "navigation", "general", module.AddonsGroup}
 
 // sections is the palette's source: with nothing typed, every available
 // command by group; with a query, the best matching commands, then library

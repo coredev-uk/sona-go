@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -108,6 +109,10 @@ const (
 	GroupQueue ActionGroup = iota
 	GroupItem
 	GroupRating
+	// GroupAddon is the section of the actions add-ons contribute, after
+	// Sona's own and before the developer's: each row is labelled with the
+	// add-on's name.
+	GroupAddon
 	// GroupDeveloper is the development build's own section, last in every
 	// menu (the item inspector). Release builds register nothing in it.
 	GroupDeveloper
@@ -325,6 +330,10 @@ func (r *ActionRegistry) Navigate(path string) {
 func (r *ActionRegistry) Register(defs ...ActionDef) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.registerLocked(defs)
+}
+
+func (r *ActionRegistry) registerLocked(defs []ActionDef) {
 	for i := range defs {
 		d := defs[i]
 		if d.ID == "" || d.Label == nil || d.Run == nil {
@@ -353,6 +362,29 @@ func (r *ActionRegistry) Register(defs ...ActionDef) {
 			r.byKind[d.Target] = kind
 		}
 	}
+}
+
+// ReplacePrefix removes every action whose ID starts with prefix and
+// registers defs in their place, in one step: the add-ons' actions come and
+// go as add-ons start and stop, and a menu that opens meanwhile sees the old
+// set or the new one, never half of either. It panics, as Register does, on a
+// definition that cannot work or an ID that another action has.
+func (r *ActionRegistry) ReplacePrefix(prefix string, defs ...ActionDef) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for id := range r.ids {
+		if strings.HasPrefix(id, prefix) {
+			delete(r.ids, id)
+		}
+	}
+	keep := func(list []*ActionDef) []*ActionDef {
+		return slices.DeleteFunc(slices.Clone(list), func(d *ActionDef) bool { return strings.HasPrefix(d.ID, prefix) })
+	}
+	for kind, list := range r.byKind {
+		r.byKind[kind] = keep(list)
+	}
+	r.bulk = keep(r.bulk)
+	r.registerLocked(defs)
 }
 
 // For returns every registered action for a kind of target, in menu order;

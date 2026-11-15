@@ -70,6 +70,9 @@ Extend `internal/cli`:
   - add-on strings come from the manifest (English fallback), outside the generated `.po` catalogues.
 - **Settings → Add-ons:** each add-on with its permissions, an on/off switch, its log and its problems, plus "Open add-ons folder".
 - **`sona addons dev <dir>`:** runs an add-on from a folder without installing it and streams its log.
+- **Beyond this plan, decided in the PR for #300:**
+  - the protocol gained a `settings` topic and a `secret` method, so an add-on can read its rows' values and its secrets (stored under `addon.<id>`);
+  - `sona addons dev` is a client of the running Sona (`addons dev`, with `dev-log` and `dev-stop` as the client's own requests): Sona asks in its window, runs the add-on from the checked file and keeps the log; it is Linux only until the other platforms can run the checked file.
 - **Acceptance:**
   - `ui.Tester` tests for the page and its a11y tree;
   - an item action from a test add-on shows in the album menu, invokes the add-on and shows its answer as a toast;

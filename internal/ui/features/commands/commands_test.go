@@ -520,3 +520,33 @@ func TestGoldenPaletteAndHelp(t *testing.T) {
 		uitest.Golden(t, r.tt.Image(), "help-"+name)
 	}
 }
+
+// A running add-on's commands are listed under "Add-ons", with no keys, found
+// by their label and keywords, and run like any command.
+func TestAddonCommandsAreListedUnderAddOnsAndRunFromThePalette(t *testing.T) {
+	r := newRig(t)
+	var ran []string
+	r.h.Env.AddonCommands = func() []module.Shortcut {
+		return []module.Shortcut{{
+			ID: "addon.webhook.refresh", Label: func() string { return "Refresh it · Webhook" }, Group: module.AddonsGroup,
+			Keywords: func() string { return "post address" }, Icon: "command", Run: func() { ran = append(ran, "refresh") },
+		}}
+	}
+	r.focusOpener()
+	r.tt.Key(ui.Ctrl, ui.KeyK)
+	for _, s := range []string{"Add-ons", "Refresh it · Webhook"} {
+		if !r.tt.HasText(s) {
+			t.Errorf("the palette does not show %q; texts %q", s, r.tt.Texts())
+		}
+	}
+	r.tt.Type("address")
+	r.tt.Drain()
+	if !r.tt.HasText("Refresh it · Webhook") {
+		t.Fatalf("a keyword did not find the command; texts %q", r.tt.Texts())
+	}
+	r.tt.Key(0, ui.KeyEnter)
+	r.settle()
+	if !slices.Equal(ran, []string{"refresh"}) {
+		t.Errorf("ran %q", ran)
+	}
+}

@@ -42,6 +42,7 @@ func newAddonEnv(t *testing.T) *addonEnv {
 	}
 	s := newAddonsService(ce.e)
 	s.attach(ce.srv.addon)
+	ce.srv.addons = s
 	s.opts.backoff = []time.Duration{5 * time.Millisecond}
 	s.opts.grace = 100 * time.Millisecond
 	s.opts.helloTimeout = 5 * time.Second
@@ -53,6 +54,14 @@ func manifestJSON(id string, perms ...string) string {
 	b, _ := json.Marshal(perms)
 	return fmt.Sprintf(`{"id":%q,"name":"Add-on %s","version":"1.0.0","command":"run","permissions":%s}`, id, id, b)
 }
+
+// manifestWith is manifestJSON with contributions.
+func manifestWith(id, contributions string, perms ...string) string {
+	b, _ := json.Marshal(perms)
+	return fmt.Sprintf(`{"id":%q,"name":"Add-on %s","version":"1.0.0","command":"run","permissions":%s,"contributions":%s}`, id, id, b, contributions)
+}
+
+const sendAction = `{"actions":[{"id":"send","label":"Send","kinds":["album"]}],"commands":[{"id":"ping","label":"Ping"}]}`
 
 // install writes an add-on folder with a shell script as its program.
 func (a *addonEnv) install(t *testing.T, id, manifest, script string) string {
@@ -315,7 +324,7 @@ func TestAddonsKillOneThatNeverSaysHello(t *testing.T) {
 // and the rest of the service answers meanwhile.
 func TestAddonsInvokeAndTimeout(t *testing.T) {
 	a := newAddonEnv(t)
-	a.install(t, "answers", manifestJSON("answers"), hello("answers")+`
+	a.install(t, "answers", manifestWith("answers", sendAction), hello("answers")+`
 while read -r line; do
   case $line in
     *'"method":"invoke"'*)
@@ -324,7 +333,7 @@ while read -r line; do
   esac
 done
 `)
-	a.install(t, "hangs", manifestJSON("hangs"), hello("hangs")+"sleep 300\n")
+	a.install(t, "hangs", manifestWith("hangs", sendAction), hello("hangs")+"sleep 300\n")
 	for _, id := range []string{"answers", "hangs"} {
 		if err := a.svc.Enable(id, nil); err != nil {
 			t.Fatal(err)
@@ -334,16 +343,19 @@ done
 	a.waitState(t, "answers", AddonRunning)
 	a.waitState(t, "hangs", AddonRunning)
 
-	res, err := a.svc.Invoke(t.Context(), "answers", "addon.answers.send", json.RawMessage(`{"kind":"album","id":"1"}`))
+	res, err := a.svc.Invoke(t.Context(), "answers", "addon.answers.send", &AddonTarget{Kind: "album", ID: "1", Name: "Abbey Road"})
 	if err != nil || res.Toast != "Sent" || res.URL != "https://example.com/x" {
 		t.Errorf("invoke = %+v, %v", res, err)
+	}
+	if res, err := a.svc.Invoke(t.Context(), "answers", "addon.answers.ping", nil); err != nil || res.Toast != "Sent" {
+		t.Errorf("command = %+v, %v", res, err)
 	}
 
 	ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		_, err := a.svc.Invoke(ctx, "hangs", "addon.hangs.send", nil)
+		_, err := a.svc.Invoke(ctx, "hangs", "addon.hangs.ping", nil)
 		done <- err
 	}()
 	// The UI's other calls are not held up by the hung add-on.
@@ -362,6 +374,22 @@ done
 	}
 
 	// Actions of another add-on, and of one that isn't running, are refused.
+	album := &AddonTarget{Kind: "album", ID: "1"}
+	for name, tc := range map[string]struct {
+		action string
+		target *AddonTarget
+	}{
+		"another add-on's action":   {"addon.hangs.send", album},
+		"an action nobody declared": {"addon.answers.evil", album},
+		"an action without an item": {"addon.answers.send", nil},
+		"a command with an item":    {"addon.answers.ping", album},
+		"a station":                 {"addon.answers.send", &AddonTarget{Kind: "station", ID: "1"}},
+		"an item with no ID":        {"addon.answers.send", &AddonTarget{Kind: "album"}},
+	} {
+		if _, err := a.svc.Invoke(t.Context(), "answers", tc.action, tc.target); !errors.Is(err, ErrInvalidArgument) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
 	if _, err := a.svc.Invoke(t.Context(), "answers", "addon.hangs.send", nil); !errors.Is(err, ErrInvalidArgument) {
 		t.Errorf("another add-on's action: %v", err)
 	}
@@ -487,4 +515,30 @@ func processGone(pid int) bool {
 		}
 	}
 	return syscall.Kill(pid, 0) != nil
+}
+
+func TestAddonsOpenFolderCreatesItPrivateAndOpensIt(t *testing.T) {
+	a := newAddonEnv(t)
+	if err := os.RemoveAll(a.root); err != nil {
+		t.Fatal(err)
+	}
+	var opened []string
+	a.svc.e.OpenURL = func(u string) error { opened = append(opened, u); return nil }
+	if err := a.svc.OpenFolder(); err != nil {
+		t.Fatal(err)
+	}
+	if want := "file://" + a.root; len(opened) != 1 || opened[0] != want {
+		t.Errorf("opened %q, want %q", opened, want)
+	}
+	fi, err := os.Stat(a.root)
+	if err != nil || !fi.IsDir() {
+		t.Fatalf("folder: %v", err)
+	}
+	if fi.Mode().Perm() != 0o700 {
+		t.Errorf("folder mode %v, want 0700", fi.Mode().Perm())
+	}
+	a.svc.e.OpenURL = nil
+	if err := a.svc.OpenFolder(); !errors.Is(err, errors.ErrUnsupported) {
+		t.Errorf("without a way to open: %v", err)
+	}
 }

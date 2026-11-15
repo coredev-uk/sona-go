@@ -29,6 +29,9 @@ type command struct {
 	// local commands run in this process (help, completion); the others
 	// are sent to the running Sona.
 	local bool
+	// ownerOnly commands are for the person at the terminal: an add-on's
+	// channel may not send them (CommandPermission refuses them).
+	ownerOnly bool
 	// timeout bounds the round trip; commandTimeout when zero.
 	timeout time.Duration
 	// check validates an invocation beyond the table's rules.
@@ -135,6 +138,11 @@ var commands = []*command{
 		summary: msgPrivateSummary, help: msgPrivateHelp, maxArgs: 1, flags: []flag{flagJSON},
 	},
 	{
+		name: "addons", args: "dev <folder>", argName: "verb", argHelp: msgArgAddonVerb,
+		summary: msgAddonsSummary, help: msgAddonsHelp, choices: []string{addonsDev}, minArgs: 1, maxArgs: 3,
+		ownerOnly: true, timeout: devAskTimeout, check: checkAddons,
+	},
+	{
 		name: "help", args: "[<command>]", argHelp: msgArgHelpCommand, summary: msgHelpSummary, help: msgHelpHelp,
 		maxArgs: 1, local: true, flags: []flag{{name: "man", help: msgFlagMan}},
 	},
@@ -232,6 +240,9 @@ type invocation struct {
 	// lyrics' options: --lrc, and the localization shown instead of the
 	// line.
 	lrc, translation, transliteration bool
+	// fromRequest: the invocation is a request the running Sona received, not
+	// a command line (the verbs the client sends for itself are valid).
+	fromRequest bool
 }
 
 // parse reads a command line whose first argument is a command (see
@@ -324,7 +335,7 @@ func checkRequest(req Request) error {
 	if c == nil || c.local {
 		return &Error{Code: CodeUnknownCommand, Message: req.Command}
 	}
-	in := &invocation{cmd: c, args: req.Args, kind: req.Kind, limit: req.Limit}
+	in := &invocation{cmd: c, args: req.Args, kind: req.Kind, limit: req.Limit, fromRequest: true}
 	return in.validate()
 }
 

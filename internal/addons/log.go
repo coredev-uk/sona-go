@@ -34,6 +34,7 @@ type Log struct {
 
 	mu      sync.Mutex
 	partial []byte
+	tap     func(line string)
 }
 
 // OpenLog opens (appending) dir/<id>.log, creating dir with mode 0700.
@@ -88,8 +89,21 @@ func (l *Log) Notef(format string, args ...any) {
 
 func (l *Log) line(prefix string, b []byte) error {
 	s := Sanitize(string(b), MaxLogLine)
-	_, err := io.WriteString(l.f, l.now().UTC().Format("2006-01-02T15:04:05Z")+" "+prefix+s+"\n")
+	line := l.now().UTC().Format("2006-01-02T15:04:05Z") + " " + prefix + s
+	if l.tap != nil {
+		l.tap(line)
+	}
+	_, err := io.WriteString(l.f, line+"\n")
 	return err
+}
+
+// Tap makes fn see every line as it is written to the file, sanitised, with
+// its time (`sona addons dev` streams them). fn runs under the log's lock: it
+// must not call the log.
+func (l *Log) Tap(fn func(line string)) {
+	l.mu.Lock()
+	l.tap = fn
+	l.mu.Unlock()
 }
 
 // Close flushes a partial line and closes the file.

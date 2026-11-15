@@ -13,8 +13,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -86,9 +88,15 @@ func main() {
 	// `sona play`, `sona status` and the other commands (internal/cli) act
 	// on the running instance and exit; they never start Sona.
 	if cli.IsCommand(os.Args[1:]) {
-		os.Exit(cli.Run(context.Background(), os.Args[1:], cli.Env{
+		// `sona addons dev` runs until Ctrl+C and ends its run on the way out;
+		// no other command waits.
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		status := cli.Run(ctx, os.Args[1:], cli.Env{
 			Stdout: os.Stdout, Stderr: os.Stderr, Dial: dialInstance, Version: version, Printer: cliPrinter(),
-		}))
+			Terminal: isTerminal(os.Stdout),
+		})
+		stop()
+		os.Exit(status)
 	}
 
 	started := time.Now()
@@ -97,6 +105,13 @@ func main() {
 		os.Exit(1)
 	}
 	probeExit() // a failed `sona -probe` exits non-zero (probe builds only)
+}
+
+// isTerminal reports whether f is a terminal (a character device): what
+// `sona addons dev` prints is stripped of escape sequences there.
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
 
 // cliPrinter is the command line's language: the Language setting

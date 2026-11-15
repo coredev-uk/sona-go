@@ -5,7 +5,7 @@ An add-on is a program that runs beside Sona, hears what plays and may ask Sona 
 - It talks to Sona over **protocol v2**: one JSON object per line, in both directions, over the add-on's standard input and output.
 - It can be written in any language. `internal/cli/testdata/addon-client.sh` (shell) and `addon-client.py` (Python) are two complete clients; Sona's tests run both.
 - The Go side is `internal/cli` (`addon.go`, `addon_session.go`). The plan is `docs/maintainers/proposals/addons-and-remaining-work.md`.
-- Status: the protocol, manifests and the supervisor that starts add-ons are implemented. UI contributions, Settings → Add-ons and `sona addons dev` follow in their own change (#300).
+- Status: the protocol, manifests, the supervisor that starts add-ons, UI contributions, Settings → Add-ons and `sona addons dev` (Linux only for now) are implemented.
 
 > **Permissions are advisory until the OS sandbox (#304) lands.** An add-on is a program that runs with your rights. It can read what you can read, including files and the keyring, and it can reach the network. Permissions limit what Sona's protocol hands it; they do not limit the process. Run only add-ons you trust, and say so wherever one is offered for approval.
 
@@ -30,7 +30,7 @@ An add-on is a program that runs beside Sona, hears what plays and may ask Sona 
 | Frame | One UTF-8 JSON object ended by `\n`. |
 | Request | A frame with an `id` (an integer from 1) and a `method`. Its answer has the same `id` and a `result` or an `error`. |
 | Event | A frame with an `event` and `data` and no `id`. Nobody answers it. |
-| Topic | A stream of events you subscribe to: `status`, `now-playing` or `queue`. |
+| Topic | A stream of events you subscribe to: `status`, `now-playing`, `queue` or `settings`. |
 | Call | A request that runs one of the `sona` CLI's v1 commands for the add-on. |
 | Invoke | The one request Sona sends: the user chose one of the add-on's contributions. |
 | Permission | What the user grants an add-on. Checked on every call and every event. |
@@ -97,7 +97,7 @@ The answer lists the asked-for permissions that are granted now, and the session
 ### `subscribe` and `unsubscribe`
 
 - Both take `topics` and answer with the topics subscribed to afterwards.
-- A subscription needs the topic's permission (`status` and `now-playing`: `playback.read`; `queue`: `queue.read`).
+- A subscription needs the topic's permission (`status` and `now-playing`: `playback.read`; `queue`: `queue.read`; `settings`: none, its data is the add-on's own).
 - At most 8 topics may be subscribed to at once.
 - Subscribing delivers the topic's latest value at once, then every change.
 - Subscribing again to a topic is harmless.
@@ -112,6 +112,18 @@ The answer lists the asked-for permissions that are granted now, and the session
 
 ```json example UnsubscribeRequest
 {"id":3,"method":"unsubscribe","params":{"topics":["status"]}}
+```
+
+### `secret`
+
+Returns what you saved in one of the add-on's own secret rows. The add-on names the row's `key` (its ID); Sona looks it up under this add-on's ID in the keyring, so an add-on can read no secret but its own. It needs no permission. It fails with `not_found` while the row is empty and with `bad_arguments` for a key that is not a row ID; it counts against the call rate.
+
+```json example SecretRequest
+{"id":6,"method":"secret","params":{"key":"token"}}
+```
+
+```json example SecretResponse
+{"id":6,"result":{"value":"s3cr3t-token"}}
 ```
 
 ### `call`
@@ -163,8 +175,10 @@ The one request Sona sends. When the user chooses one of the add-on's contributi
 
 The add-on answers with the same `id`. Both fields of the result are plain text and optional:
 
-- `toast`: at most 500 bytes, shown by Sona.
-- `url`: http or https, no credentials, at most 2048 bytes. It is offered to the user to open and opens only after a click.
+| Field | Rule | Sona's use |
+| --- | --- | --- |
+| `toast` | At most 500 bytes. | Shown as a toast under the add-on's name. |
+| `url` | `http` or `https`, ASCII, no user name or password, at most 2048 bytes. | Offered as a button. **It opens only after a click.** |
 
 Anything else makes the invoke fail.
 
@@ -181,6 +195,7 @@ An add-on that cannot do it answers with an `error`. Sona passes only its `code`
 | `status` | `Status` | Any change of playback, volume, shuffle or repeat, and a position that jumps (a seek). A position that only moves on is not an event; compute it from `position` and the state. |
 | `now-playing` | `NowPlaying` | The song that plays changes, and when nothing plays. |
 | `queue` | `Queue` | The queue changes. At most 1000 songs, a window around the playing one. |
+| `settings` | [`SettingsValues`](#settingsvalues) | The value of each of the add-on's non-secret settings rows, now and whenever one changes. A row nobody set has its default. |
 | `shutdown` | none | Sent to every session, subscribed or not: Sona is stopping the add-on. |
 
 **A slow reader never slows Sona.**
@@ -202,6 +217,10 @@ An add-on that cannot do it answers with an `error`. Sona passes only its `code`
 
 ```json example QueueEvent
 {"event":"queue","data":{"index":0,"tracks":[{"id":"1441164430","title":"Come Together","artist":"The Beatles","album":"Abbey Road","duration":259.0,"explicit":false,"artwork":"","autoPlay":false}]}}
+```
+
+```json example SettingsEvent
+{"event":"settings","data":{"values":{"url":"https://example.com/hook","post":"true","format":"json"}}}
 ```
 
 ```json example ShutdownEvent
@@ -253,6 +272,10 @@ Sona reports its limits in the `hello` answer and enforces each. A refusal is an
 | Call rate | 20 per second, burst 40 | `rate_limited` |
 | `search` | 2 per second, burst 5 | `rate_limited` |
 | `like`, `open` | 1 per second, burst 3 | `rate_limited` |
+| Toasts from invocations | 1 per second per add-on | The later answer is dropped |
+| Contributions | 8 actions, 8 commands, 16 rows, 32 in all | The manifest is refused |
+| Toast text | 500 bytes | The answer fails |
+| Link in an answer | 2048 bytes | The answer fails |
 
 ## Errors
 
@@ -343,10 +366,71 @@ What an add-on never sees:
 | `description` | Optional. At most 300 characters, plain text like `name`. |
 | `command` | Required. The program to run, a path inside the folder: relative, `/` separators, no `..`, no `.` or empty element, no drive or backslash, at most 200 bytes. |
 | `permissions` | Required, may be empty. The [permissions](#permissions) the add-on asks for, each at most once. |
+| `contributions` | Optional. What the add-on adds to Sona's menus, palette and Settings: see [Contributions](#contributions). |
+| `strings` | Optional. The labels of the contributions by locale: see [Contributions](#contributions). |
 
 - The manifest is at most 64 KiB, and **a field this version doesn't know refuses it**.
 - At most 100 folders are read.
-- Why an add-on is refused is one of these codes, shown in Settings: `unreadable`, `manifest_too_large`, `manifest_invalid`, `bad_id`, `reserved_id`, `id_mismatch`, `bad_name`, `bad_version`, `bad_command`, `bad_permission`, `no_executable`, `executable_escapes`, `unsafe_owner`, `too_many_addons`.
+- Why an add-on is refused is one of these codes, shown in Settings: `unreadable`, `manifest_too_large`, `manifest_invalid`, `bad_id`, `reserved_id`, `id_mismatch`, `bad_name`, `bad_version`, `bad_command`, `bad_permission`, `bad_contribution`, `bad_strings`, `no_executable`, `executable_escapes`, `unsafe_owner`, `too_many_addons`.
+
+### Contributions
+
+A manifest may add to three of Sona's own surfaces. **Sona draws all of it**: an add-on brings text, never code or pictures into Sona's window. Choosing an action or a command sends the add-on an [`invoke`](#invoke); its answer is shown as a toast.
+
+```json example ManifestContributions
+{"id":"now-playing-webhook","name":"Now playing webhook","version":"1.2.0","command":"bin/webhook","permissions":["playback.read"],"contributions":{"actions":[{"id":"send","label":"Send to webhook","kinds":["song","album"],"icon":"send"}],"commands":[{"id":"refresh","label":"Refresh the webhook","keywords":"post address"}],"settings":[{"id":"url","kind":"text","label":"Web address","description":"Where the song is posted."},{"id":"post","kind":"toggle","label":"Post songs","default":"true"},{"id":"format","kind":"choice","label":"Format","options":[{"value":"json","label":"JSON"},{"value":"text","label":"Plain text"}],"default":"json"},{"id":"token","kind":"secret","label":"Access token"}]},"strings":{"de":{"action.send":"An Webhook senden","setting.url":"Webadresse"}}}
+```
+
+| Surface | What it is | Where Sona shows it |
+| --- | --- | --- |
+| **Actions** | Entries for a song, album, artist or playlist (`kinds`). | The item's menu, in a section of its own at the end. |
+| **Commands** | Entries with no item. | The command palette, under "Add-ons". |
+| **Settings rows** | A `toggle` (`"true"` or `"false"`), `text`, a `choice` of 2 to 16 `options`, or a `secret`. | Settings → Add-ons, under the add-on's own heading. Never on a sign-in or account page. |
+
+**IDs and keys**
+
+- An action or command has a local `id`: lowercase letters, digits and hyphens, at most 40.
+- Its full ID is `addon.<add-on id>.<id>`. That is what `invoke` carries.
+- **An add-on can never use an ID outside `addon.<its id>.*`.**
+- A command has **no keys**. It is not in Settings → Shortcuts and an add-on can't take a key from Sona.
+- `icon` names one of Sona's own icons. An unknown name gets a plain one. There are no pictures.
+
+**Settings rows**
+
+- The add-on reads the values from the `settings` topic ([Events](#events)).
+- It reads a secret with the [`secret`](#secret) method.
+- **A secret is kept in the system keyring under `addon.<id>`, never in `settings.json`.** Settings shows it as "Saved" and never shows it again.
+- The other values are part of the add-on's local settings. An export leaves them out.
+
+**Text and limits**
+
+- Labels are plain text of 1 to 60 characters. Descriptions are plain text up to 200.
+- Labels hold no control, bidirectional or other format characters.
+- Sona shows the add-on's name beside every contribution.
+- At most 8 actions, 8 commands and 16 rows, 32 in all.
+
+**`strings`** gives the labels in other languages, by locale: `{"de": {"action.send": "…"}}`.
+
+| Key | Names |
+| --- | --- |
+| `action.<id>` | An action's label. |
+| `command.<id>` | A command's label. |
+| `command.<id>.keywords` | A command's search words. |
+| `setting.<id>` | A row's label. |
+| `setting.<id>.description` | A row's description. |
+| `option.<row id>.<value>` | A choice's label. |
+
+- A key that names nothing refuses the manifest.
+- Sona picks the exact locale, then the language, then the manifest's own text.
+- These strings are outside Sona's own translation catalogues.
+
+**What Sona does with an invocation**
+
+- Sona calls the add-on off the UI thread. The same entry chosen again while it runs does nothing.
+- `target` is the item the action was chosen on, `{"kind": "album", "id": "…", "name": "…"}`. `id` is the Apple Music catalogue ID, or the library ID of a song only in the library. It is `null` for a command.
+- The answer's `toast` is shown for a few seconds under the add-on's name, **at most one a second per add-on**. Text is cut to 500 bytes and stripped of control characters.
+- A toast has **no buttons that run code**. A link in the answer is offered as one button, "Open {host}".
+- **A link opens only after you click that button.** It must be `http` or `https`, ASCII, with no user name or password, and at most 2048 bytes. `file:`, `search-ms:` and every other scheme is refused, and the answer fails.
 
 ### Safety rules for the files
 
@@ -375,6 +459,44 @@ Sona runs the program by the absolute path it checked: never through `PATH` or t
   - mode 0600, rotated at 1 MiB with one older copy kept.
   - The bug-report bundle lists add-ons (ID, version, on or off) and never their logs.
 
+### Settings → Add-ons
+
+- Lists each add-on under its own heading, refused ones too, with the reason.
+- **The switch.** Turning an add-on on opens a panel under the row. It names each permission and what it allows. Nothing is saved until you press "Turn on".
+- **Permissions.** Each one is shown as approved or not, with "Revoke" on the approved ones.
+- **Rows.** The add-on's settings rows, saved at once (a text field with "Save").
+- **Log.** "Show log" reads the last 200 lines. They are plain text.
+- **Folder.** "Open add-ons folder" creates the folder (mode 0700) and opens it. "Look again" reads the folder again, and so does coming back to the page.
+- The page says first that an add-on runs with your rights and that permissions are advisory until the OS sandbox (#304).
+
+### Developing an add-on
+
+`sona addons dev <folder>` runs an add-on from a folder **without installing it**, and prints its log until you press Ctrl+C. It needs Sona running and, for now, Linux.
+
+| Rule | How it is kept |
+| --- | --- |
+| The folder is yours. | Checked as an installed folder is: yours, not writable by group or others, not a link. |
+| It is not an installed add-on. | The ID may not belong to any folder in the add-ons directory, refused ones included, or to a running add-on. A folder inside the add-ons directory is installed. |
+| **You confirm it in Sona's window.** | A dialog names the add-on, the folder and the permissions. Sona brings its window up. One question at a time. No answer within 60 seconds is "no". |
+| It is not reachable from an add-on. | The command is not on the add-on channel's list: an add-on that sends `addons` gets `unknown_command`. |
+| Grants are not saved. | The manifest's permissions hold for the run, in memory. The settings file and the keyring are not touched. |
+| It gets none of your data. | Rows have their default values. `secret` finds nothing, even if the ID once was an installed add-on's. |
+| The file you confirmed is the file that runs. | The folder is read again after your answer, and a change to the program, the ID, the version or the permissions is refused. Sona opens the program once, checks the **open file** (a regular file of yours, no group or other write, inside the folder) and runs that descriptor through `/proc/self/fd`. A path swapped meanwhile changes nothing. |
+| It ends when you leave. | Ctrl+C stops it. A terminal that dies without saying so is noticed after 15 seconds without a poll. It also ends when Sona quits. |
+| The log is safe for a terminal. | Sona's log already replaces control characters. On a terminal the client also removes escape sequences (CSI, OSC, DCS, and their 8-bit forms), bidirectional characters and the other control characters. |
+
+- The add-on runs with your rights and with the descriptor of its own program open as file 3. A script sees `/proc/self/fd/3` as `$0`.
+- Its actions and commands are offered while it runs. It has no settings rows.
+- The log is also written to `addons/<id>.dev.log`, beside the log of installed add-ons.
+- On macOS and Windows the command fails with "unsupported". They can't yet run the file that was checked.
+
+**How the command talks to Sona**
+
+- `addons dev <folder>` starts the run. Sona answers once you confirm.
+- The client then asks for new lines, about three times a second, with a token only it holds.
+- Ctrl+C sends one last request that stops the run.
+- These requests are the client's own. Only `dev` is a command you can type.
+
 ## Security notes
 
 - **Permissions are advisory until #304.** See the callout at the top.
@@ -395,7 +517,7 @@ Sona runs the program by the absolute path it checked: never through `PATH` or t
   "$id": "https://github.com/coredev-uk/sona-go/docs/addons.md",
   "$defs": {
     "Permission": {"enum": ["playback.read", "playback.control", "queue.read", "lyrics.read", "search", "open", "volume", "like", "private.read"]},
-    "Topic": {"enum": ["status", "now-playing", "queue"]},
+    "Topic": {"enum": ["status", "now-playing", "queue", "settings"]},
     "Version": {"type": "string", "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})(\\.(0|[1-9][0-9]{0,5}))?$"},
     "Error": {
       "type": "object", "additionalProperties": false, "required": ["code", "message"],
@@ -612,6 +734,36 @@ Sona runs the program by the absolute path it checked: never through `PATH` or t
       "type": "object", "additionalProperties": false, "required": ["event", "data"],
       "properties": {"event": {"const": "queue"}, "data": {"$ref": "#/$defs/Queue"}}
     },
+    "SettingsEvent": {
+      "type": "object", "additionalProperties": false, "required": ["event", "data"],
+      "properties": {
+        "event": {"const": "settings"},
+        "data": {
+          "type": "object", "additionalProperties": false, "required": ["values"],
+          "properties": {"values": {"type": "object"}}
+        }
+      }
+    },
+    "SecretRequest": {
+      "type": "object", "additionalProperties": false, "required": ["id", "method", "params"],
+      "properties": {
+        "id": {"type": "integer", "minimum": 1}, "method": {"const": "secret"},
+        "params": {
+          "type": "object", "additionalProperties": false, "required": ["key"],
+          "properties": {"key": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,39}$"}}
+        }
+      }
+    },
+    "SecretResponse": {
+      "type": "object", "additionalProperties": false, "required": ["id", "result"],
+      "properties": {
+        "id": {"type": "integer", "minimum": 1},
+        "result": {
+          "type": "object", "additionalProperties": false, "required": ["value"],
+          "properties": {"value": {"type": "string", "maxLength": 1024}}
+        }
+      }
+    },
     "ShutdownEvent": {
       "type": "object", "additionalProperties": false, "required": ["event"],
       "properties": {"event": {"const": "shutdown"}}
@@ -651,15 +803,50 @@ Sona runs the program by the absolute path it checked: never through `PATH` or t
         "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$", "maxLength": 40},
         "description": {"type": "string", "maxLength": 1200},
         "command": {"type": "string", "pattern": "^[^/\\\\:][^\\\\:]*$", "maxLength": 200},
-        "permissions": {"type": "array", "maxItems": 9, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}}
+        "permissions": {"type": "array", "maxItems": 9, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}},
+        "contributions": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "actions": {"type": "array", "maxItems": 8, "items": {
+              "type": "object", "additionalProperties": false, "required": ["id", "label", "kinds"],
+              "properties": {
+                "id": {"$ref": "#/$defs/LocalID"}, "label": {"type": "string", "minLength": 1, "maxLength": 240},
+                "kinds": {"type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": {"enum": ["song", "album", "artist", "playlist"]}},
+                "icon": {"$ref": "#/$defs/LocalID"}
+              }
+            }},
+            "commands": {"type": "array", "maxItems": 8, "items": {
+              "type": "object", "additionalProperties": false, "required": ["id", "label"],
+              "properties": {
+                "id": {"$ref": "#/$defs/LocalID"}, "label": {"type": "string", "minLength": 1, "maxLength": 240},
+                "keywords": {"type": "string", "maxLength": 240}, "icon": {"$ref": "#/$defs/LocalID"}
+              }
+            }},
+            "settings": {"type": "array", "maxItems": 16, "items": {
+              "type": "object", "additionalProperties": false, "required": ["id", "kind", "label"],
+              "properties": {
+                "id": {"$ref": "#/$defs/LocalID"}, "kind": {"enum": ["toggle", "text", "choice", "secret"]},
+                "label": {"type": "string", "minLength": 1, "maxLength": 240}, "description": {"type": "string", "maxLength": 800},
+                "default": {"type": "string", "maxLength": 800},
+                "options": {"type": "array", "minItems": 2, "maxItems": 16, "items": {
+                  "type": "object", "additionalProperties": false, "required": ["value", "label"],
+                  "properties": {"value": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,40}$"}, "label": {"type": "string", "minLength": 1, "maxLength": 240}}
+                }}
+              }
+            }}
+          }
+        },
+        "strings": {"type": "object"}
       }
     },
+    "LocalID": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,39}$"},
     "Frame": {
       "oneOf": [
         {"$ref": "#/$defs/HelloRequest"}, {"$ref": "#/$defs/HelloResponse"}, {"$ref": "#/$defs/SubscribeRequest"},
         {"$ref": "#/$defs/TopicsResponse"}, {"$ref": "#/$defs/CallRequest"}, {"$ref": "#/$defs/CallResponse"},
         {"$ref": "#/$defs/StatusEvent"}, {"$ref": "#/$defs/NowPlayingEvent"},
-        {"$ref": "#/$defs/QueueEvent"}, {"$ref": "#/$defs/ShutdownEvent"}, {"$ref": "#/$defs/InvokeRequest"},
+        {"$ref": "#/$defs/QueueEvent"}, {"$ref": "#/$defs/ShutdownEvent"}, {"$ref": "#/$defs/SettingsEvent"},
+        {"$ref": "#/$defs/SecretRequest"}, {"$ref": "#/$defs/SecretResponse"}, {"$ref": "#/$defs/InvokeRequest"},
         {"$ref": "#/$defs/InvokeResponse"}, {"$ref": "#/$defs/ErrorResponse"}
       ]
     }

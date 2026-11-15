@@ -347,9 +347,9 @@ func TestAddonHelloOnce(t *testing.T) {
 func TestEveryCommandMapsToAPermission(t *testing.T) {
 	for _, c := range commands {
 		perm, ok := CommandPermission(c.name)
-		if c.local {
+		if c.local || c.ownerOnly {
 			if ok {
-				t.Errorf("local command %s has permission %q", c.name, perm)
+				t.Errorf("local or owner-only command %s has permission %q", c.name, perm)
 			}
 			continue
 		}
@@ -363,7 +363,8 @@ func TestEveryCommandMapsToAPermission(t *testing.T) {
 		}
 	}
 	for _, topic := range Topics {
-		if perm, ok := TopicPermission(topic); !ok || !KnownPermission(perm) {
+		// "" is the settings topic: the add-on's own data needs none.
+		if perm, ok := TopicPermission(topic); !ok || (perm != "" && !KnownPermission(perm)) || (perm == "" && topic != TopicSettings) {
 			t.Errorf("topic %s: permission %q", topic, perm)
 		}
 	}
@@ -888,7 +889,7 @@ func TestAddonInvoke(t *testing.T) {
 		"javascript url": `{"url":"javascript:alert(1)"}`,
 		"file url":       `{"url":"file:///etc/passwd"}`,
 		"credentials":    `{"url":"https://user:pw@example.com/"}`,
-		"long toast":     `{"toast":"` + strings.Repeat("x", maxToast+1) + `"}`,
+		"long toast":     `{"toast":"` + strings.Repeat("x", MaxToast+1) + `"}`,
 		"not an object":  `"hi"`,
 	} {
 		got = invoke(t.Context(), "addon.demo.bad")

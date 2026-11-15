@@ -172,6 +172,17 @@ msgstr ""
 msgid "Add {songName} to {playlistName}"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+#: internal/ui/features/settings/find.go
+#: internal/ui/module/shortcut_groups.go
+msgid "Add-ons"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+#: internal/ui/features/settings/find.go
+msgid "Add-ons folder"
+msgstr ""
+
 #: internal/ui/kit/collections_tracklist.go
 msgid "Added By"
 msgstr ""
@@ -366,6 +377,10 @@ msgstr ""
 
 #: internal/ui/features/settings/accents.go
 msgid "Amber"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "An add-on is a program that runs with your rights. Permissions limit what Sona gives it, not what the program can do: it can read your files and use the network. Turn on only add-ons you trust."
 msgstr ""
 
 #: internal/ui/features/settings/linkhandler.go
@@ -825,11 +840,44 @@ msgstr ""
 msgid "Call me"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Can ask Sona to open an Apple Music page."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Can love or unlove the song that plays."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Can play, pause, skip and go back."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Can read and change the volume."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Can read the lyrics of the song that plays."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Can read the songs that are queued."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Can search Apple Music's catalogue."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Can see whether private listening is on. It never hears a private listen and can't change the setting."
+msgstr ""
+
 #: internal/ui/account/browser.go
 #: internal/ui/account/code.go
 #: internal/ui/account/token.go
 #: internal/ui/features/onboarding/connections.go
 #: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/settings/addons.go
 #: internal/ui/features/settings/scrobble.go
 #: internal/ui/features/settings/shortcuts.go
 #: internal/ui/kit/overlays_dialog.go
@@ -1611,8 +1659,16 @@ msgstr ""
 msgid "Couldn't open a link"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Couldn't open the add-ons folder"
+msgstr ""
+
 #: internal/ui/features/settings/devtools.go
 msgid "Couldn't open the inspector"
+msgstr ""
+
+#: internal/ui/features/addons/addons.go
+msgid "Couldn't open the link"
 msgstr ""
 
 #: internal/ui/features/settings/bugreport.go
@@ -1693,6 +1749,14 @@ msgstr ""
 
 #: internal/ui/features/settings/storage.go
 msgid "Couldn't read Sona's storage"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Couldn't read the add-ons: {statusError}"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Couldn't read the log."
 msgstr ""
 
 #: internal/ui/features/settings/connections.go
@@ -2170,11 +2234,19 @@ msgstr ""
 msgid "Dolby Atmos"
 msgstr ""
 
+#: internal/ui/features/addons/addons.go
+msgid "Don't run"
+msgstr ""
+
 #: internal/ui/features/onboarding/layer.go
 #: internal/ui/features/onboarding/steps.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/playlist/page.go
 msgid "Done"
+msgstr ""
+
+#: internal/ui/features/addons/addons.go
+msgid "Done."
 msgstr ""
 
 #. Name of one of Apple Music's playlist cover designs: a grid of large circles.
@@ -2824,6 +2896,10 @@ msgstr ""
 msgid "Hide Sona"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Hide log"
+msgstr ""
+
 #: internal/ui/features/playlist/suggestions.go
 msgid "Hide suggestions"
 msgstr ""
@@ -2972,6 +3048,10 @@ msgstr ""
 msgid "Install the Media Feature Pack for Windows (Settings → System → Optional features), then restart Sona."
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Installed"
+msgstr ""
+
 #: internal/ui/kit/controls_input.go
 msgid "Invalid"
 msgstr ""
@@ -2982,6 +3062,18 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "It applies the next time playback starts."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It asks for a permission Sona doesn't have."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It asks for no permissions."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It asks for these permissions:"
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
@@ -3004,6 +3096,10 @@ msgstr ""
 msgid "It couldn't be found. It may have been removed."
 msgstr ""
 
+#: internal/ui/features/addons/addons.go
+msgid "It didn't answer in time."
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "It has no network or mount namespace of its own, because unprivileged user namespaces are blocked."
 msgstr ""
@@ -3016,8 +3112,28 @@ msgstr ""
 msgid "It isn't in your library on this computer, and Apple Music didn't return it. It may not be offered in your storefront, or it was removed."
 msgstr ""
 
+#: internal/ui/features/addons/addons.go
+msgid "It isn't running."
+msgstr ""
+
 #: internal/ui/features/settings/themes.go
 msgid "It needs a light variant, a dark variant or both"
+msgstr ""
+
+#: internal/ui/features/addons/addons.go
+msgid "It runs from the folder {dir} and asks for these permissions: {permissions}. It runs with your rights until you stop it in the terminal or quit Sona, and nothing is saved."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It runs with your rights: permissions limit what Sona gives it, not what it can do."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It stopped on its own. Sona starts it again in a moment."
+msgstr ""
+
+#: internal/ui/features/addons/addons.go
+msgid "It stopped several times in a row. Settings → Add-ons has its log."
 msgstr ""
 
 #: internal/ui/i18n/errors.go
@@ -3038,8 +3154,40 @@ msgstr ""
 msgid "Items"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Its ID is kept for Sona's own add-ons."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its ID isn't the folder's name, or isn't a valid ID."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its addon.json is larger than 64 KiB."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its addon.json isn't valid: it isn't JSON, has a field Sona doesn't know or one of the wrong type."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its command isn't a plain path inside the folder."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its command isn't a program Sona can run: it is missing, not a regular file or not executable."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its command leads out of its folder."
+msgstr ""
+
 #: internal/ui/features/album/page.go
 msgid "Its last song was deleted from your library."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its name isn't plain text of 1 to 60 characters."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
@@ -3050,8 +3198,16 @@ msgstr ""
 msgid "Its songs leave your library and any playlists they're in."
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Its translated labels don't match what it adds."
+msgstr ""
+
 #: internal/ui/account/signin.go
 msgid "Its two-factor method (such as a security key) can't be completed inside Sona. Sign in with your browser instead."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its version isn't a semantic version such as 1.2.0."
 msgstr ""
 
 #: internal/ui/features/playlist/covers.go
@@ -3216,6 +3372,10 @@ msgstr ""
 msgid "Light: {text}"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Likes"
+msgstr ""
+
 #: internal/ui/features/settings/accents.go
 msgid "Lime"
 msgstr ""
@@ -3352,8 +3512,20 @@ msgstr ""
 msgid "Location"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Log"
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Log file"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Look again"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Look in the add-ons folder again"
 msgstr ""
 
 #: internal/ui/kit/controls_badge.go
@@ -3369,6 +3541,7 @@ msgstr ""
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/player/lyrics_sheet.go
 #: internal/ui/features/player/nowplaying_view.go
+#: internal/ui/features/settings/addons.go
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/lyrics.go
 #: internal/ui/features/settings/settingsfile.go
@@ -3771,6 +3944,10 @@ msgstr ""
 msgid "No Secret Service keyring is running, so Sona keeps your Apple Music token in a file only your user can read. Start GNOME Keyring or KWallet and Sona moves it into the keyring."
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "No add-ons are installed. Open the folder, put an add-on's folder in it and it appears here."
+msgstr ""
+
 #: internal/ui/features/library/albums.go
 msgid "No albums besides singles and EPs"
 msgstr ""
@@ -3983,6 +4160,10 @@ msgctxt "playlist cover"
 msgid "None"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "None installed"
+msgstr ""
+
 #: internal/ui/features/player/nowplaying_view.go
 msgid "None of the lyrics sources in Settings has lyrics for it."
 msgstr ""
@@ -4010,6 +4191,10 @@ msgstr ""
 
 #: internal/ui/features/settings/themes.go
 msgid "Not a valid theme file: {detail}"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Not approved"
 msgstr ""
 
 #: internal/ui/features/onboarding/status.go
@@ -4145,6 +4330,10 @@ msgstr ""
 msgid "Nothing in your library for “{q}”"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Nothing is saved."
+msgstr ""
+
 #: internal/ui/features/onboarding/connections.go
 msgid "Nothing is scrobbled or shown on Discord while private listening is on."
 msgstr ""
@@ -4155,6 +4344,10 @@ msgstr ""
 
 #: internal/ui/features/playlist/page.go
 msgid "Nothing left to arrange"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Nothing logged yet."
 msgstr ""
 
 #: internal/ui/features/newreleases/page.go
@@ -4246,6 +4439,10 @@ msgstr ""
 
 #: internal/ui/features/equalizer/page.go
 msgid "Off · Sona plays the music as mastered"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Off. It isn't running."
 msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
@@ -4361,6 +4558,10 @@ msgstr ""
 msgid "Open"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Open Apple Music links"
+msgstr ""
+
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/linkhandler.go
 msgid "Open Apple Music links in Sona"
@@ -4377,6 +4578,10 @@ msgstr ""
 #. Button of the small player: brings the main window back.
 #: internal/ui/features/miniplayer/view.go
 msgid "Open Sona"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Open add-ons folder"
 msgstr ""
 
 #: internal/ui/features/settings/audio.go
@@ -4425,6 +4630,10 @@ msgstr ""
 
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Open website"
+msgstr ""
+
+#: internal/ui/features/addons/addons.go
+msgid "Open {host}"
 msgstr ""
 
 #: internal/ui/features/concerts/row.go
@@ -4577,6 +4786,10 @@ msgctxt "keyboard key"
 msgid "Period"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Permissions"
+msgstr ""
+
 #: internal/ui/account/code.go
 msgid "Phone call"
 msgstr ""
@@ -4716,6 +4929,10 @@ msgstr ""
 msgid "Playback"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Playback controls"
+msgstr ""
+
 #: internal/ui/features/equalizer/page.go
 msgid "Playback here has no equaliser, so there is nothing to adjust."
 msgstr ""
@@ -4735,6 +4952,10 @@ msgstr ""
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/settings/playback.go
 msgid "Playback isn't available on this platform yet"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Playback state"
 msgstr ""
 
 #: internal/ui/features/home/local.go
@@ -4999,6 +5220,10 @@ msgstr ""
 msgid "Private listening stays on because Sona was started with SONA_PRIVATE=1."
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Private listening, read only"
+msgstr ""
+
 #: internal/ui/features/search/profile.go
 msgid "Private profile"
 msgstr ""
@@ -5020,6 +5245,10 @@ msgstr ""
 msgid "Profiles"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Programs that run beside Sona and add small things to it."
+msgstr ""
+
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Pronunciation"
 msgstr ""
@@ -5034,6 +5263,10 @@ msgstr ""
 
 #: internal/ui/features/settings/themes.go
 msgid "Put a theme file, a .json, in {folder}. It shows here, and an edit shows as you save it."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Put an add-on's folder here to install it. Sona doesn't run it until you turn it on."
 msgstr ""
 
 #: internal/ui/features/player/nowplaying_shortcuts.go
@@ -5093,6 +5326,10 @@ msgstr ""
 #: internal/ui/features/artist/head.go
 #: internal/ui/kit/controls_states.go
 msgid "Read more"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Reading the log…"
 msgstr ""
 
 #: internal/ui/features/onboarding/status.go
@@ -5199,11 +5436,16 @@ msgstr ""
 
 #: internal/ui/features/home/page.go
 #: internal/ui/features/playlist/suggestions.go
+#: internal/ui/features/settings/addons.go
 msgid "Refresh"
 msgstr ""
 
 #: internal/ui/features/playlist/suggestions.go
 msgid "Refresh for another set."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Refresh the log of {name}"
 msgstr ""
 
 #: internal/ui/features/playlist/suggestions.go
@@ -5254,6 +5496,7 @@ msgstr ""
 
 #: internal/ui/features/player/queue_menu.go
 #: internal/ui/features/playlist/editor.go
+#: internal/ui/features/settings/addons.go
 msgid "Remove"
 msgstr ""
 
@@ -5271,6 +5514,10 @@ msgstr ""
 
 #: internal/ui/features/search/recentshelf.go
 msgid "Remove {label} from recent searches"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Remove {label} · {name}"
 msgstr ""
 
 #: internal/ui/features/newreleases/row.go
@@ -5431,6 +5678,14 @@ msgstr ""
 msgid "Retrying…"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Revoke"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Revoke {permission}"
+msgstr ""
+
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
 msgid "Right Arrow"
@@ -5453,12 +5708,21 @@ msgstr ""
 msgid "Rotation playing"
 msgstr ""
 
+#: internal/ui/features/addons/addons.go
 #: internal/ui/kit/overlays_palette.go
 msgid "Run"
 msgstr ""
 
+#: internal/ui/features/addons/addons.go
+msgid "Run {name}?"
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Running · pid {hostPid}"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Running."
 msgstr ""
 
 #: internal/ui/kit/controls_badge.go
@@ -5479,6 +5743,7 @@ msgid "Sandboxed · no network or session access"
 msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/settings/addons.go
 msgid "Save"
 msgstr ""
 
@@ -5486,8 +5751,20 @@ msgstr ""
 msgid "Save your settings to a file, or load one exported from Sona on another computer. The window size, audio output, rendering fixes and connected accounts stay with this computer."
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Save {label} · {name}"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Saved"
+msgstr ""
+
 #: internal/ui/features/settings/settingsfile.go
 msgid "Saved as {file}."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Saved in your system keyring. It isn't shown again."
 msgstr ""
 
 #: internal/ui/account/signedin.go
@@ -5529,6 +5806,7 @@ msgstr ""
 #: internal/ui/features/search/field.go
 #: internal/ui/features/search/results.go
 #: internal/ui/features/search/search.go
+#: internal/ui/features/settings/addons.go
 #: internal/ui/kit/controls_input.go
 msgid "Search"
 msgstr ""
@@ -5584,6 +5862,10 @@ msgstr ""
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/video/view.go
 msgid "Seek"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Sees which song plays, its progress and whether it is paused."
 msgstr ""
 
 #: internal/ui/app/menubar.go
@@ -5740,6 +6022,10 @@ msgstr ""
 #: internal/ui/features/song/page.go
 #: internal/ui/kit/controls_states.go
 msgid "Show less"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Show log"
 msgstr ""
 
 #: internal/ui/features/player/nowplaying_shortcuts.go
@@ -6175,6 +6461,10 @@ msgstr ""
 msgid "Sona can't play this station"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Sona can't read the folder or its addon.json."
+msgstr ""
+
 #: internal/ui/i18n/errors.go
 msgid "Sona can't use that image. It must be a JPEG or PNG within the size limits."
 msgstr ""
@@ -6185,6 +6475,14 @@ msgstr ""
 
 #: internal/ui/features/library/gate.go
 msgid "Sona copies your Apple Music library to this computer after you sign in, so it opens instantly and works offline."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Sona couldn't do that: the add-on changed since you looked. Check what it asks for and try again."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Sona couldn't do that: {why}"
 msgstr ""
 
 #: internal/ui/i18n/cdm.go
@@ -6355,6 +6653,10 @@ msgstr ""
 msgid "Sona quits: it can't stay in the system tray on {platform} yet."
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Sona reads at most 100 add-on folders."
+msgstr ""
+
 #: internal/ui/features/library/videos.go
 msgid "Sona reads your music videos from Apple Music, so they appear once you're back online."
 msgstr ""
@@ -6385,6 +6687,14 @@ msgstr ""
 
 #: internal/ui/account/credentials.go
 msgid "Sona talks to Apple directly. Your password is used once and never saved."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Sona won't run it."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Sona won't run this add-on"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
@@ -6604,6 +6914,10 @@ msgstr ""
 msgid "Starting Widevine's download…"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Starting."
+msgstr ""
+
 #: internal/ui/features/onboarding/status.go
 #: internal/ui/features/onboarding/widevine.go
 msgid "Starting…"
@@ -6697,6 +7011,10 @@ msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
 msgid "Supported"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Switched off: it stopped on its own too many times in a row. Turn it on to try again."
 msgstr ""
 
 #: internal/ui/features/library/sync.go
@@ -6805,6 +7123,10 @@ msgstr ""
 
 #: internal/ui/account/signin.go
 msgid "That Apple Account or password isn't right"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "That add-on isn't in the folder any more."
 msgstr ""
 
 #: internal/ui/i18n/errors.go
@@ -6928,6 +7250,10 @@ msgstr ""
 msgid "The folder isn't empty. Move or delete what's in it first."
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "The folder or the program isn't yours alone: it belongs to someone else or others may change it."
+msgstr ""
+
 #: internal/ui/features/settings/themes.go
 msgid "The id has to be 1 to 40 of a to z, 0 to 9 and -"
 msgstr ""
@@ -6966,6 +7292,10 @@ msgstr ""
 
 #: internal/ui/features/settings/general.go
 msgid "The page you were last on"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "The queue"
 msgstr ""
 
 #: internal/ui/features/player/queue_list.go
@@ -7370,12 +7700,28 @@ msgstr ""
 msgid "Turn off the sleep timer"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Turn on"
+msgstr ""
+
 #: internal/ui/features/private/private.go
 msgid "Turn on private listening"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Turn on {name}"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Turn on {name}?"
+msgstr ""
+
 #: internal/ui/features/newreleases/page.go
 msgid "Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Turned on"
 msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
@@ -7562,6 +7908,7 @@ msgstr ""
 msgid "Version"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
 #: internal/ui/features/settings/cdm.go
 msgid "Version {version}"
 msgstr ""
@@ -7608,6 +7955,7 @@ msgid "Vocal"
 msgstr ""
 
 #: internal/ui/features/player/bar.go
+#: internal/ui/features/settings/addons.go
 #: internal/ui/features/video/view.go
 msgid "Volume"
 msgstr ""
@@ -7637,6 +7985,10 @@ msgstr ""
 msgid "Waiting for Widevine: see Settings → Playback in Sona"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Waiting for you: it asks for a permission you haven't approved. It doesn't run until you do."
+msgstr ""
+
 #: internal/ui/features/settings/themes.go
 msgid "Warm grey, teal"
 msgstr ""
@@ -7658,8 +8010,20 @@ msgstr ""
 msgid "Welcome to Sona"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "What Sona lets it do. It runs with your rights either way."
+msgstr ""
+
 #: internal/ui/features/onboarding/welcome.go
 msgid "What Whole Songs Need"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "What it adds to Sona's menus, palette or settings isn't valid."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "What it wrote to its standard error, the last 200 lines."
 msgstr ""
 
 #: internal/ui/features/onboarding/layer.go
@@ -8161,6 +8525,10 @@ msgstr ""
 msgid "in {year}"
 msgstr ""
 
+#: internal/ui/features/settings/find.go
+msgid "install, plugin, extension, open add-ons folder"
+msgstr ""
+
 #: internal/ui/i18n/relative.go
 msgid "just now"
 msgstr ""
@@ -8250,6 +8618,10 @@ msgstr ""
 
 #: internal/ui/i18n/relative.go
 msgid "never"
+msgstr ""
+
+#: internal/ui/features/addons/addons.go
+msgid "none"
 msgstr ""
 
 #: internal/ui/features/settings/shortcuts.go
@@ -8598,6 +8970,10 @@ msgstr ""
 msgid "{key} moves between controls. Choose another key."
 msgstr ""
 
+#: internal/ui/features/addons/addons.go
+msgid "{label} · {addon}"
+msgstr ""
+
 #: internal/ui/kit/controls_badge.go
 msgid "{label}, uploaded"
 msgstr ""
@@ -8648,6 +9024,10 @@ msgstr ""
 msgid "{movedName}: moved to position {movedPosition} of {movedOf}"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "{n, plural, one {# add-on} other {# add-ons}}"
+msgstr ""
+
 #: internal/ui/features/home/index.go
 #: internal/ui/kit/overlays_actions.go
 msgid "{n, plural, one {# album} other {# albums}}"
@@ -8660,6 +9040,10 @@ msgstr ""
 
 #: internal/ui/kit/overlays_actions.go
 msgid "{n, plural, one {# music video} other {# music videos}}"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "{n, plural, one {# on} other {# on}}"
 msgstr ""
 
 #: internal/ui/features/home/index.go
@@ -8681,6 +9065,10 @@ msgstr ""
 msgid "{n, plural, one {# station} other {# stations}}"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "{n, plural, one {It has stopped on its own once.} other {It has stopped on its own # times.}}"
+msgstr ""
+
 #: internal/ui/features/search/profile.go
 msgid "{name} hasn't shared any playlists on their profile."
 msgstr ""
@@ -8695,6 +9083,10 @@ msgstr ""
 
 #: internal/ui/features/settings/connections.go
 msgid "{name} no longer accepts Sona's sign-in. Reconnect to keep scrobbling."
+msgstr ""
+
+#: internal/ui/features/addons/addons.go
+msgid "{name} was switched off"
 msgstr ""
 
 #: internal/ui/features/player/queue_row.go

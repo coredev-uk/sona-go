@@ -137,6 +137,7 @@ func (s *settings) summaries() map[string]string {
 		secPlayback:    playback,
 		secAppearance:  appearance,
 		secConnections: connections,
+		secAddons:      s.addonsSummary(),
 		secShortcuts:   i18n.Meta(shortcuts...),
 		secStorage:     i18n.T("Artwork up to {limit}", "limit", limit),
 		secDiagnostics: i18n.T("Checks, logs and bug reports"),

@@ -39,10 +39,19 @@ type AddonsService struct {
 	logs string
 	opts addonOptions
 
+	// secMu serialises the keyring items of the add-ons' secret rows.
+	secMu sync.Mutex
+
 	mu      sync.Mutex
 	runners map[string]*addonRunner // by add-on ID
 	started bool                    // the network is open: enabled add-ons run
 	closed  bool
+
+	// devMu guards `addons dev`: the one question waiting for the person and
+	// the runs, by token (addons_dev.go).
+	devMu sync.Mutex
+	ask   *devAsk
+	devs  map[string]*devRun
 }
 
 // addonOptions are the supervisor's timings, replaced in tests.
@@ -60,6 +69,10 @@ type addonOptions struct {
 	grace time.Duration
 	// environ is Sona's environment, os.Environ when nil.
 	environ func() []string
+	// devAsk is how long `addons dev` waits for the person to confirm in
+	// Sona's window; devLease how long a run lives without its client asking
+	// for the log (a killed terminal).
+	devAsk, devLease time.Duration
 }
 
 func defaultAddonOptions() addonOptions {
@@ -70,6 +83,8 @@ func defaultAddonOptions() addonOptions {
 		helloTimeout: 10 * time.Second,
 		grace:        time.Second,
 		environ:      os.Environ,
+		devAsk:       60 * time.Second,
+		devLease:     15 * time.Second,
 	}
 }
 
@@ -80,12 +95,28 @@ var ErrAddonUnavailable = errors.New("the add-on is not running")
 func newAddonsService(e *Env) *AddonsService {
 	s := &AddonsService{
 		e: e, root: e.Paths.AddonsDir(), logs: e.Paths.AddonLogDir(),
-		opts: defaultAddonOptions(), runners: map[string]*addonRunner{},
+		opts: defaultAddonOptions(), runners: map[string]*addonRunner{}, devs: map[string]*devRun{},
 	}
+	e.Settings.OnChange(func(prev, next config.Settings) { s.settingsChanged() })
 	e.OnNetwork(s.start)
 	e.OnClose(s.close)
 	e.OnDiagnostics("Add-ons", s.bundle)
 	return s
+}
+
+// settingsChanged tells every running add-on its rows' new values.
+func (s *AddonsService) settingsChanged() {
+	s.mu.Lock()
+	rs := make([]*addonRunner, 0, len(s.runners))
+	for _, r := range s.runners {
+		rs = append(rs, r)
+	}
+	s.mu.Unlock()
+	for _, r := range rs {
+		if own := r.ownData(); own != nil {
+			own.publish()
+		}
+	}
 }
 
 // attach gives the service the host its add-ons are served from, once the
@@ -284,6 +315,20 @@ func (s *AddonsService) Revoke(id, permission string) error {
 	return nil
 }
 
+// OpenFolder creates the add-ons folder, mode 0700 like the config
+// directory, if it is not there yet and opens it in the file manager: how a
+// person installs an add-on. Sona never reads or runs what is put there
+// until the add-on is enabled.
+func (s *AddonsService) OpenFolder() error {
+	if err := os.MkdirAll(s.root, 0o700); err != nil {
+		return fmt.Errorf("add-ons: create %s: %w", s.root, err)
+	}
+	if s.e.OpenURL == nil {
+		return fmt.Errorf("add-ons: open folder: %w", errors.ErrUnsupported)
+	}
+	return s.e.OpenURL("file://" + s.root)
+}
+
 // Log returns the last lines of the add-on's log, at most 200.
 func (s *AddonsService) Log(id string) ([]string, error) {
 	if _, err := s.find(id); err != nil && !errors.Is(err, ErrInvalidArgument) {
@@ -296,22 +341,40 @@ func (s *AddonsService) Log(id string) ([]string, error) {
 	return lines, err
 }
 
-// Invoke asks a running add-on to run one of its contributions (action is
-// addon.<id>.<name>) and waits for its answer: at most the deadline ctx
-// carries, or ten seconds, and never more than thirty. A hung add-on costs
-// the caller that wait and nothing else.
-func (s *AddonsService) Invoke(ctx context.Context, id, action string, target json.RawMessage) (AddonResult, error) {
-	if !strings.HasPrefix(action, "addon."+id+".") || len(action) > 200 {
+// Invoke asks a running add-on to run one of the actions or commands its
+// manifest declares (action is addon.<id>.<name>) and waits for its answer: at
+// most the deadline ctx carries, or ten seconds, and never more than thirty. A
+// hung add-on costs the caller that wait and nothing else. target is the item
+// an action was chosen on, nil for a command; an action Sona never read in
+// the manifest is refused, so no add-on is sent a call it didn't offer.
+func (s *AddonsService) Invoke(ctx context.Context, id, action string, target *AddonTarget) (AddonResult, error) {
+	local, ok := addons.LocalID(id, action)
+	if !ok || len(action) > 200 {
 		return AddonResult{}, fmt.Errorf("%w: %q is not an action of add-on %q", ErrInvalidArgument, action, id)
 	}
 	s.mu.Lock()
 	r := s.runners[id]
 	s.mu.Unlock()
-	sess := r.current()
+	sess, m := r.current()
 	if sess == nil {
 		return AddonResult{}, ErrAddonUnavailable
 	}
-	res, err := sess.Invoke(ctx, action, target)
+	var raw json.RawMessage
+	switch {
+	case slices.ContainsFunc(m.Contributions.Actions, func(a addons.Action) bool { return a.ID == local }):
+		if target == nil || !slices.Contains(addons.ActionKinds, target.Kind) || target.ID == "" || len(target.ID) > 200 {
+			return AddonResult{}, fmt.Errorf("%w: action %q needs an item", ErrInvalidArgument, action)
+		}
+		t := AddonTarget{Kind: target.Kind, ID: target.ID, Name: addons.Sanitize(target.Name, 400)}
+		raw, _ = json.Marshal(t)
+	case slices.ContainsFunc(m.Contributions.Commands, func(a addons.Command) bool { return a.ID == local }):
+		if target != nil {
+			return AddonResult{}, fmt.Errorf("%w: command %q has no item", ErrInvalidArgument, action)
+		}
+	default:
+		return AddonResult{}, fmt.Errorf("%w: add-on %q declares no %q", ErrInvalidArgument, id, local)
+	}
+	res, err := sess.Invoke(ctx, action, raw)
 	if err != nil {
 		var ce *cli.Error
 		if errors.As(err, &ce) && ce.Code == cli.AddonErrTimeout {
@@ -319,7 +382,9 @@ func (s *AddonsService) Invoke(ctx context.Context, id, action string, target js
 		}
 		return AddonResult{}, fmt.Errorf("add-on %s: %w", id, ErrAddonUnavailable)
 	}
-	return AddonResult{Toast: res.Toast, URL: res.URL}, nil
+	// What the add-on says is text for a person: clean of control and
+	// bidirectional characters and cut, whatever it sent.
+	return AddonResult{Toast: addons.Sanitize(res.Toast, cli.MaxToast), URL: res.URL}, nil
 }
 
 func (s *AddonsService) changed() {
@@ -396,6 +461,12 @@ type addonRunner struct {
 	state    AddonState
 	restarts int
 	session  *cli.Session
+	manifest addons.Manifest
+	own      *addonOwn
+	// dev is the `addons dev` run this one is, nil for an installed add-on.
+	dev *devRun
+	// exit is how the last run of the add-on ended.
+	exit error
 }
 
 func (r *addonRunner) snapshot() (AddonState, int) {
@@ -411,16 +482,23 @@ func (r *addonRunner) crashed() bool {
 	return r.state == AddonCrashed
 }
 
-func (r *addonRunner) current() *cli.Session {
+// current is the running add-on's session and manifest; nil when it isn't up.
+func (r *addonRunner) current() (*cli.Session, addons.Manifest) {
 	if r == nil {
-		return nil
+		return nil, addons.Manifest{}
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.state != AddonRunning {
-		return nil
+		return nil, addons.Manifest{}
 	}
-	return r.session
+	return r.session, r.manifest
+}
+
+func (r *addonRunner) ownData() *addonOwn {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.own
 }
 
 func (r *addonRunner) set(state AddonState, sess *cli.Session) {
@@ -510,25 +588,38 @@ func (r *addonRunner) giveUp(name string) {
 	r.set(AddonCrashed, nil)
 }
 
-// runOnce starts the add-on and serves it until its channel ends, then
-// makes sure it is gone: stopped, its group killed, reaped.
+// runOnce starts the installed add-on and serves it until its channel ends,
+// then makes sure it is gone: stopped, its group killed, reaped.
 func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.Log) {
 	s, o := r.s, r.s.opts
 	declared := en.Manifest.Permissions
-	proc, err := addons.Start(addons.Spec{
+	spec := addons.Spec{
 		Exe: en.Exe, Dir: filepath.Join(s.root, r.dir), Env: addons.Environment(o.environ(), r.id), Stderr: log,
-	})
+	}
+	// The grant is asked at every call; the manifest's list bounds it.
+	allowed := func(p string) bool { return slices.Contains(declared, p) && s.allowed(r.id, p) }
+	r.serve(ctx, en, log, spec, newAddonOwn(s, en.Manifest, false), allowed)
+	r.set(AddonRestarting, nil)
+}
+
+// serve starts the add-on as spec says and serves its session until the
+// channel ends, then stops it, kills its group and reaps it. own is its
+// settings and secrets, allowed its grant.
+func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Log, spec addons.Spec, own *addonOwn, allowed func(string) bool) {
+	s, o := r.s, r.s.opts
+	proc, err := addons.Start(spec)
 	if err != nil {
 		s.e.Logger.Warn("addons: start", "addon", r.id, "err", err)
 		log.Notef("could not start")
 		return
 	}
 	log.Notef("started (pid %d, version %s)", proc.Pid(), en.Manifest.Version)
+	r.mu.Lock()
+	r.manifest, r.own = en.Manifest, own
+	r.mu.Unlock()
 	sess := cli.NewSession(cli.AddonConfig{
-		ID: r.id, Host: s.host,
-		// The grant is asked at every call; the manifest's list bounds it.
-		Allowed: func(p string) bool { return slices.Contains(declared, p) && s.allowed(r.id, p) },
-		Log:     slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: slog.LevelWarn})),
+		ID: r.id, Host: s.host, Own: own, Allowed: allowed,
+		Log: slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: slog.LevelWarn})),
 	})
 	r.set(AddonStarting, sess)
 	served := make(chan struct{})
@@ -562,5 +653,5 @@ func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.
 	proc.Stop(o.grace)
 	err = proc.Err()
 	log.Notef("exited: %v", err)
-	r.set(AddonRestarting, nil)
+	r.exit = err
 }

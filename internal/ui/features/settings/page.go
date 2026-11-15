@@ -130,6 +130,8 @@ func (s *settings) content(c *ui.Context, section string, narrow bool) {
 			s.appearance(c)
 		case secConnections:
 			s.connections(c)
+		case secAddons:
+			s.addonsSection(c)
 		case secShortcuts:
 			s.shortcutsSection(c)
 		case secStorage:
@@ -148,6 +150,7 @@ var sectionIcon = map[string]string{
 	secPlayback:    "play",
 	secAppearance:  "moon",
 	secConnections: "link-2",
+	secAddons:      "square-terminal",
 	secShortcuts:   "keyboard",
 	secStorage:     "folder-closed",
 	secDiagnostics: "badge-check",

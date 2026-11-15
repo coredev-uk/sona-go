@@ -1270,6 +1270,7 @@ Settings (h1)                  Playback (h2 at 24/650)
   | Playback | `Play` |
   | Appearance | `Moon` |
   | Connections | `Link2` |
+  | Add-ons | `SquareTerminal` |
   | Shortcuts | `Keyboard` |
   | Storage | `FolderClosed` |
   | Diagnostics | `BadgeCheck` |
@@ -1282,6 +1283,12 @@ Settings (h1)                  Playback (h2 at 24/650)
 - **New releases** (General) holds the artist tracker's two switches under their own group heading: *Track new releases from favourite artists* and *Also show a desktop notification*. The second waits for the first (greyed while it is off) and, like every row the platform can't back, keeps its place with the reason where the platform has no notifications.
 - **What the platform can't do** keeps its row: the title in `--ink-muted` and, where the control would be described, a `CircleSlash` and why ("Not available on macOS yet.", or the specific reason: no tray to keep playing from, a player that reports plays itself). Nothing disappears quietly. Without any playback, Playback is that one row and the lyrics.
 - **Theme** is three segments (System, Light, Dark) in one 32px outlined control, radio buttons underneath: every choice in view, ←/→ to move.
+- **Add-ons** sits after Connections and is a document of the same kind, with one difference: each add-on is a group of its own, its name the h3 in the margin and its version and description the margin line.
+  - It opens with a trust note on `--raised` with a 1px `--control-line` border and a `ShieldAlert` in `--danger`: an add-on runs with your rights, permissions limit what Sona gives it. Under it, *Add-ons folder* with *Open add-ons folder* and *Look again*.
+  - An add-on's rows are the ledger's: the switch (*Turned on*, with where the add-on is in words), *Permissions* (each name at 14/500 over what it allows at 13 muted, *Not approved* or a ghost *Revoke*), its own settings rows, then *Log*.
+  - **Turning one on never saves anything by itself.** The switch opens a panel under the row on `--raised`: each permission, the warning, *Turn on* (the one filled button) and *Cancel*. The panel is announced as a group; Escape cancels.
+  - A secret field is a password field that shows *Saved* as its placeholder and never the value. A refused add-on has no switch: a `CircleAlert` in `--danger`, *Sona won't run this add-on* and the reason.
+  - Every text the add-on supplies is plain, cut and never in ink-on-ink emphasis: the add-on's name is the heading, never a badge or a picture. The log is selectable text in a scrolling `--raised` box.
 - **Storage** opens with a group, *On this computer*, whose row holds what Sona keeps as three figures at 24/650 with tabular figures: the artwork cache against its limit with a 4px meter in `--ink-muted`, the catalogue cache, the database. The group *Limit and cleanup* keeps only what each does and its action, so no figure is shown twice.
 - **Shortcuts** set their groups in two columns where the section is at least 46rem wide, each group whole in one column; rows are the ledger's at 44px. The two columns use the section's full width, so their h3s stay above their rows instead of in a margin.
 - **Diagnostics** leads with its verdict at 16/600 beside its icon ("Everything Sona needs is working", or the count of problems), the warnings counted under it, as the first margin note; its three actions are the first row beside it. The checks follow as groups in the margin frame, ledger rows of a 200px name column and the value. Variable names break after an underscore.

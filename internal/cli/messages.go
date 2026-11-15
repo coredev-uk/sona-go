@@ -51,6 +51,8 @@ const (
 	msgLikeHelp          l10n.Message = "Favourites the playing song (on, the default), removes it from your favourites (off), switches it (toggle) or shows whether it is one (status). Favouriting a song adds it to your library, as in Sona. Needs an Apple Music account signed in to Sona."
 	msgPrivateSummary    l10n.Message = "Show or switch private listening"
 	msgPrivateHelp       l10n.Message = "Shows private listening (status, the default), or turns it on, off or over (toggle). While it is on, nothing you play is reported to Apple, scrobbled or kept in Sona's history."
+	msgAddonsSummary     l10n.Message = "Run an add-on from a folder while you build it"
+	msgAddonsHelp        l10n.Message = "`sona addons dev <folder>` runs the add-on in a folder without installing it and prints its log until you press Ctrl+C. Sona asks you to confirm in its window, naming the folder and the permissions its manifest asks for; nothing is saved and the permissions end with the run. The add-on's ID can't be one you have installed, it gets none of your saved secrets, and the folder must be yours and not writable by others. It needs Linux for now."
 	msgHelpSummary       l10n.Message = "Show help for Sona's commands"
 	msgHelpHelp          l10n.Message = "Shows the commands, or one command's arguments and options. With --man it prints the manual page in roff instead."
 	msgCompletionSummary l10n.Message = "Print a shell completion script"
@@ -77,6 +79,7 @@ const (
 	msgArgSwitch           l10n.Message = "on, off, toggle or status"
 	msgArgShell            l10n.Message = "bash, zsh or fish"
 	msgArgHelpCommand      l10n.Message = "a command"
+	msgArgAddonVerb        l10n.Message = "dev, then the add-on's folder"
 )
 
 // Help and manual page text.
@@ -127,6 +130,8 @@ const (
 	msgMissingArg       l10n.Message = "%s: missing %s"
 	msgBadChoice        l10n.Message = "%s: %q isn't one of %s"
 	msgBadLink          l10n.Message = "that isn't an Apple Music link Sona can open"
+	msgDenied           l10n.Message = "you didn't confirm it in Sona's window"
+	msgBadAddonFolder   l10n.Message = "%s: the folder must be a path (for example ./my-addon)"
 	msgStatusNotRunning l10n.Message = "Sona isn't running"
 	msgBadVolume        l10n.Message = "volume: %q isn't 0 to 100, +N or -N"
 	msgBadTemplate      l10n.Message = "%s: --format: %v"
@@ -214,3 +219,10 @@ var msgKinds = map[string]l10n.Message{
 	"music-video": "Music videos",
 	"curator":     "Curators",
 }
+
+// Lines of `sona addons dev`.
+const (
+	msgAddonsRunning l10n.Message = "Running %s (%s) from %s. Press Ctrl+C to stop."
+	msgAddonsStopped l10n.Message = "Stopped %s."
+	msgAddonsEnded   l10n.Message = "%s ended: %s."
+)

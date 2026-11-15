@@ -17,7 +17,7 @@ func TestDocManifestExamplesParse(t *testing.T) {
 	}
 	text := string(b)
 	n := 0
-	for _, m := range regexp.MustCompile("(?s)```json example Manifest\n(.*?)\n```").FindAllStringSubmatch(text, -1) {
+	for _, m := range regexp.MustCompile("(?s)```json example Manifest[A-Za-z]*\n(.*?)\n```").FindAllStringSubmatch(text, -1) {
 		n++
 		if _, err := ParseManifest([]byte(m[1])); err != nil {
 			t.Errorf("example %s: %v", m[1], err)
@@ -44,7 +44,7 @@ func TestDocManifestExamplesParse(t *testing.T) {
 	}
 	for _, code := range []string{
 		ProblemUnreadable, ProblemTooLarge, ProblemManifest, ProblemID, ProblemReservedID, ProblemIDMismatch, ProblemName,
-		ProblemVersion, ProblemCommand, ProblemPermission, ProblemNoExecutable, ProblemEscapes, ProblemUnsafe, ProblemTooMany,
+		ProblemVersion, ProblemCommand, ProblemPermission, ProblemContribution, ProblemStrings, ProblemNoExecutable, ProblemEscapes, ProblemUnsafe, ProblemTooMany,
 	} {
 		if !strings.Contains(text, "`"+code+"`") {
 			t.Errorf("the page doesn't list the problem %q", code)

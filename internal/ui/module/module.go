@@ -98,6 +98,11 @@ type Env struct {
 	// (the factories run in modules.go's order, a Point sorts by its own).
 	PlayerControls Point
 	PlayerNotice   Point
+	// AddonCommands are the commands the running add-ons contribute to the
+	// command palette (owned by features/addons, which sets it in its factory;
+	// nil while that feature is not registered). They have no keys and are
+	// never in the shortcut help or Settings → Shortcuts. Main thread.
+	AddonCommands func() []Shortcut
 	// ArtistConcerts builds an artist page's "Upcoming concerts" (owned by
 	// features/concerts, which sets it in its factory; nil while that feature
 	// is not registered: build nothing). first marks the page's first shelf.

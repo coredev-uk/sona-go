@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"regexp"
 	"slices"
 	"sync"
 	"time"
@@ -27,11 +28,24 @@ type AddonHost interface {
 	Watch(topic string) (updates <-chan any, cancel func(), err error)
 }
 
+// AddonOwn is what one add-on's session serves of its own data.
+type AddonOwn interface {
+	// WatchSettings delivers the SettingsValues now and at each change,
+	// latest wins, until cancel.
+	WatchSettings() (updates <-chan any, cancel func())
+	// Secret is the value the user saved in the add-on's own secret row key.
+	Secret(key string) (string, bool)
+}
+
 // AddonConfig configures a Session.
 type AddonConfig struct {
 	// ID is the add-on's ID as the supervisor started it; hello must name it.
 	ID   string
 	Host AddonHost
+	// Own serves what is the add-on's alone: its settings rows' values and
+	// its secrets. Nil: the settings topic and the secret method don't exist
+	// for this session.
+	Own AddonOwn
 	// Allowed reports whether the add-on holds a permission right now. It is
 	// asked at every call and every event, never cached: a revoked
 	// permission refuses the very next call.
@@ -427,6 +441,8 @@ func (s *Session) request(f Frame) {
 		s.unsubscribe(f)
 	case AddonMethodCall:
 		s.call(f)
+	case AddonMethodSecret:
+		s.secret(f)
 	default:
 		s.fail(f.ID, AddonErrUnknownMethod)
 	}
@@ -444,7 +460,7 @@ func (s *Session) topicsOf(f Frame) ([]string, string) {
 	}
 	out := make([]string, 0, len(p.Topics))
 	for _, t := range p.Topics {
-		if _, ok := TopicPermission(t); !ok {
+		if _, ok := TopicPermission(t); !ok || (t == TopicSettings && s.cfg.Own == nil) {
 			return nil, AddonErrUnknownTopic
 		}
 		if !slices.Contains(out, t) {
@@ -461,7 +477,7 @@ func (s *Session) subscribe(f Frame) {
 		return
 	}
 	for _, t := range topics {
-		if perm, _ := TopicPermission(t); !s.cfg.Allowed(perm) {
+		if perm, _ := TopicPermission(t); perm != "" && !s.cfg.Allowed(perm) {
 			s.fail(f.ID, AddonErrPermission)
 			return
 		}
@@ -484,7 +500,16 @@ func (s *Session) subscribe(f Frame) {
 	}
 	var started []watch
 	for _, t := range fresh {
-		ch, cancel, err := s.cfg.Host.Watch(t)
+		var (
+			ch     <-chan any
+			cancel func()
+			err    error
+		)
+		if t == TopicSettings {
+			ch, cancel = s.cfg.Own.WatchSettings()
+		} else {
+			ch, cancel, err = s.cfg.Host.Watch(t)
+		}
 		if err != nil {
 			s.mu.Unlock()
 			s.fail(f.ID, AddonErrUnknownTopic)
@@ -544,7 +569,7 @@ func (s *Session) pump(topic string, ch <-chan any) {
 	defer s.wg.Done()
 	perm, _ := TopicPermission(topic)
 	for v := range ch {
-		if !s.cfg.Allowed(perm) {
+		if perm != "" && !s.cfg.Allowed(perm) {
 			continue
 		}
 		data, err := json.Marshal(forAddon(v))
@@ -559,6 +584,51 @@ func (s *Session) pump(topic string, ch <-chan any) {
 		}
 		s.event(topic, b)
 	}
+}
+
+// secretKeyExpr is a secret row's ID.
+var secretKeyExpr = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
+
+// secret answers an add-on's own secret row. It is the add-on's alone: the
+// host looks the key up under this add-on's ID, so no key reaches another's.
+func (s *Session) secret(f Frame) {
+	if s.cfg.Own == nil {
+		s.fail(f.ID, AddonErrUnknownMethod)
+		return
+	}
+	var p SecretParams
+	if err := json.Unmarshal(f.Params, &p); err != nil || !secretKeyExpr.MatchString(p.Key) {
+		s.fail(f.ID, AddonErrBadArguments)
+		return
+	}
+	if !s.allowRate("") {
+		s.fail(f.ID, AddonErrRateLimited)
+		return
+	}
+	s.mu.Lock()
+	if s.calls >= s.limits.Calls || s.dead {
+		s.mu.Unlock()
+		s.fail(f.ID, AddonErrBusy)
+		return
+	}
+	s.calls++
+	s.wg.Add(1)
+	s.mu.Unlock()
+	go func() {
+		defer s.wg.Done()
+		defer func() {
+			s.mu.Lock()
+			s.calls--
+			s.mu.Unlock()
+		}()
+		v, ok := s.cfg.Own.Secret(p.Key)
+		if !ok {
+			s.fail(f.ID, "not_found")
+			return
+		}
+		b, _ := json.Marshal(SecretResult{Value: v})
+		s.reply(Frame{ID: f.ID, Result: b})
+	}()
 }
 
 // call runs a v1 command for the add-on.

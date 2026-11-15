@@ -87,6 +87,19 @@ Shows or sets private listening: `sona private [on|off|toggle|status]`. The defa
 
 - `--json` - prints `{"on", "source", "saved"}`.
 
+### `sona addons dev`
+
+_Linux_
+
+Runs an add-on from a folder without installing it, and prints its log until you press Ctrl+C: `sona addons dev <folder>`. It is for people who write add-ons ([the add-on reference](https://github.com/coredev-uk/sona-go/blob/main/docs/addons.md)).
+
+- Sona asks you to confirm in its window. The question names the add-on, the folder and the permissions its manifest asks for. Without a "Run" there, nothing runs.
+- Nothing is saved. The permissions hold for the run. The add-on gets none of your saved values or secrets.
+- The folder must be yours and not writable by others. Its ID can't be one of your installed add-ons or one reserved for Sona's own.
+- The add-on's log goes to standard output. On a terminal, escape sequences and control characters are stripped from it. Sona's own lines go to standard error.
+- It exits with status 0 when you press Ctrl+C or the add-on ends. A refusal is status 1, and no Sona is status 3.
+- macOS and Windows can't run it yet: the command fails and says so.
+
 ### `sona help`
 
 Prints help for a command: `sona help [command]`.

@@ -256,6 +256,8 @@ func eventPayloads(t *testing.T) []reflect.Type {
 		"EventThemesChanged":         reflect.TypeFor[[]ThemeFile](),
 		"EventAddonsChanged":         reflect.TypeFor[[]AddonInfo](),
 		"EventAddonsNotice":          reflect.TypeFor[AddonNotice](),
+		"EventAddonsDevAsk":          reflect.TypeFor[AddonDevAsk](),
+		"EventAddonsDevAskEnd":       reflect.TypeFor[string](),
 		"EventScrobbleChanged":       reflect.TypeFor[ScrobbleStatus](),
 		"EventSettingsChanged":       reflect.TypeFor[config.Settings](),
 		"EventAppleTranslations":     reflect.TypeFor[AppleTranslations](),
