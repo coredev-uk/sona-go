@@ -1296,7 +1296,7 @@ A master and detail page.
 
 - **Recently added** files the list under Today, Past week, Past month and Earlier by `DateAdded` (calendar days, as History counts them), one `kit.CoverGrid` and one selection per group. The groups come from the first page; what lies past it is older than all of it, so it joins Earlier. The pages fetched follow the union of the groups' built tiles.
 - **History** groups `LibraryService.History(days)` by day (30 days; "Show earlier days" adds 30 while the earlier days keep showing) as a timeline. Each day is a row with the day's heading and counts in a 168 DIP rail, a 1px line down the rail's right edge with a dot at the heading, and one `kit.TrackList` to the right. The query sits under `["library","recent"]` so a new playing song refreshes it.
-- **Music videos** page through `MusicVideos` in 100s (stale after 10 minutes) and play where the platform plays videos.
+- **Music videos** page through `MusicVideos` in 100s (stale after 10 minutes) and play where the platform plays videos. They are read live from Apple and kept nowhere, so offline (the auth status's `Offline`), or when the request fails for lack of a connection, the page shows "Music videos need a connection" with Try again in place of the grid, and reloads by itself once back online. Online it carries no note, like every other library page.
 
 #### Sync
 
