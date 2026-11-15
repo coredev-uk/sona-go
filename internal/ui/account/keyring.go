@@ -44,21 +44,29 @@ func (r *KeyringRetry) Build(c *ui.Context, status services.AuthStatus) {
 	}
 }
 
+// keyringShown reports whether the section shows the keyring notice for st:
+// signed out, with the stored sign-in still being read, a keyring that
+// didn't answer or failed, or no keyring at all.
+func keyringShown(st services.AuthStatus) bool {
+	switch {
+	case HasAccount(st.State):
+		return false
+	case st.State == "restoring":
+		return st.Keyring == "waiting"
+	}
+	return st.Keyring == "unavailable" || st.Unencrypted
+}
+
 // keyringNotice is where the keyring holds sign-in up: the stored sign-in
 // still being read, a keyring that didn't answer or failed, or no keyring at
 // all (a sign-in would go to the unencrypted file). The retry keeps its
 // place across these, so focus stays on it while it reads again.
 func (s *Section) keyringNotice(c *ui.Context, st services.AuthStatus) {
-	restoring := st.State == "restoring"
-	if restoring {
-		if st.Keyring != "waiting" {
-			return
-		}
-	} else if st.Keyring != "unavailable" && !st.Unencrypted {
+	if !keyringShown(st) {
 		return
 	}
 	retry := func() { s.retry.Build(c, st) }
-	if restoring {
+	if st.State == "restoring" {
 		notice(c, noticeOpts{Spin: true}, func() {
 			noticeTitle(c, i18n.T("Signing in…"))
 			noticeDetail(c, kit.KeyringWords(s.d.OS).Waiting)

@@ -257,32 +257,33 @@ func keycapsWidth(chords []string) float32 {
 }
 
 // announce says how many shortcuts a typed query leaves, once for each
-// change of the query.
+// change of the query. A query that leaves none says so through the status
+// in its place (none).
 func (h *helpSheet) announce(c *ui.Context, shown []helpGroup) {
 	if h.query == h.last {
 		return
 	}
 	h.last = h.query
 	h.scroll.Y = 0
-	q := strings.TrimSpace(h.query)
-	if q == "" {
+	if strings.TrimSpace(h.query) == "" {
 		return
 	}
 	n := 0
 	for _, g := range shown {
 		n += len(g.list)
 	}
-	if n == 0 {
-		c.Announce(i18n.T("No shortcuts match “{term}”", "term", q))
-		return
+	if n > 0 {
+		c.Announce(i18n.T("{count, plural, one {# shortcut} other {# shortcuts}}", "count", n))
 	}
-	c.Announce(i18n.T("{count, plural, one {# shortcut} other {# shortcuts}}", "count", n))
 }
 
-// none is the list when the filter leaves nothing.
+// none is the list when the filter leaves nothing. Its first line is a
+// status: announced as it appears, and read by MyGo as the query changes it.
 func (h *helpSheet) none(c *ui.Context) {
 	ui.Column(c.Key("help:none")).FillWidth().Padding(56, 0).Gap(4).AlignItems(ui.Center).Children(func() {
-		theme.Text(c.Key("t"), i18n.T("No shortcuts match “{term}”", "term", strings.TrimSpace(h.query)), "label").TextColor(theme.C("ink")).Role(ui.RoleStatus)
+		msg := i18n.T("No shortcuts match “{term}”", "term", strings.TrimSpace(h.query))
+		st := theme.Text(c.Key("t"), msg, "label").TextColor(theme.C("ink")).Role(ui.RoleStatus)
+		kit.AnnounceMounted(c, st, msg)
 		theme.Text(c.Key("d"), i18n.T("Try part of a command's name, or a key."), "secondary").TextColor(theme.C("ink-muted"))
 	})
 }
