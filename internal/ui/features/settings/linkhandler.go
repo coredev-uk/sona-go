@@ -53,7 +53,8 @@ func notInstalled(os string) string {
 func (s *settings) linkHandlerRow(c *ui.Context, caps services.Capabilities) {
 	title := i18n.T("Open Apple Music links in Sona")
 	if !caps.LinkHandler {
-		// Windows has no row: its installer registers the links for the user.
+		// No link handler on this platform: no row, unless macOS ties it to
+		// the app bundle.
 		if caps.NeedsAppBundle {
 			s.unavailableRow(c, "link-handler", title, needsAppBundle())
 		}

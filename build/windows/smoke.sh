@@ -188,7 +188,7 @@ if [[ $(cd "$dest" && find . -type f ! -name uninstall.exe | sort) != "$zipfiles
   fail "the installation and the zip hold different files"
 fi
 check_version "$version" "$dest/sona.exe"
-for scheme in music itms; do
+for scheme in music musics itms itmss; do
   reg query "HKCU\\Software\\Classes\\$scheme\\shell\\open\\command" >/dev/null || fail "no $scheme: URL handler"
 done
 reg query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Sona' >/dev/null || fail "not listed under Apps"
@@ -220,7 +220,7 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 [[ ! -e $dest/lib && ! -e $dest/libexec ]] || fail "uninstall left the GStreamer folders"
-for scheme in music itms; do
+for scheme in music musics itms itmss; do
   ! reg query "HKCU\\Software\\Classes\\$scheme" >/dev/null 2>&1 || fail "uninstall left the $scheme: keys"
 done
 ! reg query "$run_key" /v Sona >/dev/null 2>&1 || fail "uninstall left the start-at-login entry"
