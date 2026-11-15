@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	eqBarW   = 3  // DIPs
-	eqGap    = 2  // DIPs
+	eqBarW   = 4  // DIPs
+	eqGap    = 3  // DIPs: bars and gaps are whole DIPs and the group is 18 wide, even, so centred in an even cover every edge is on a device pixel at 1x and 2x
 	eqHeight = 12 // DIPs
 	// eqLowest is the shortest a moving bar gets, as a scale of eqHeight;
 	// the tallest is eqHeight itself.
@@ -47,7 +47,7 @@ func eqLevel(period, t time.Duration) float32 {
 }
 
 // EqualiserBars is the now-playing mark: three amber bars (60, 100 and 40% of
-// 12 DIPs at rest, 3 wide), moving while the track plays and still when
+// 12 DIPs at rest, 4 wide, 3 apart), moving while the track plays and still when
 // paused, when the page is covered by Now Playing or full-screen lyrics (an
 // unseen loop still costs every frame) or when motion is reduced. Each bar
 // rises and falls between a quarter of the height and all of it on a period

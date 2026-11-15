@@ -46,6 +46,7 @@ func TestTrackRowOverlaysLieOnTheirCover(t *testing.T) {
 		cover.Y += trackRowH
 		overlay.Inside(t, "track row equaliser", bars, cover)
 		overlay.Centred(t, "track row equaliser", bars, cover, 0.5)
+		overlay.WholePixels(t, "track row equaliser", bars, sc)
 	}
 }
 
