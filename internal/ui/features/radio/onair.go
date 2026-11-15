@@ -167,6 +167,7 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 			}
 		}
 		hot := hit.Hovered() || row.FocusWithin()
+		button := false // the more button is drawn (and wires the right-click itself)
 		if hot && whole {
 			row.Background(theme.C("hover"))
 		}
@@ -208,7 +209,8 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 				}
 			case !page:
 				if menus != nil {
-					menus.Trigger(c.Key("more"), kit.ActionTarget{Item: kit.StationItem(s), Name: s.Name}, kit.TriggerOpts{Visible: hot})
+					menus.Trigger(c.Key("more"), hit, kit.ActionTarget{Item: kit.StationItem(s), Name: s.Name}, kit.TriggerOpts{Visible: hot})
+					button = true
 				}
 			}
 		})
@@ -246,9 +248,10 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 				r.playStation(s.ID, nil)
 			}
 		}
-		if !page && menus != nil {
-			// The more button is not a Tab stop: Shift+F10 or the Menu key on
-			// the row's button open the same menu, as on every list row.
+		if !page && menus != nil && !button {
+			// No more button (the play control or the equaliser is there): the
+			// right-click, Shift+F10 and the Menu key on the row's button open the
+			// same menu, as on every list row.
 			menus.Row(hit, kit.ActionTarget{Item: kit.StationItem(s), Name: s.Name})
 		}
 	})

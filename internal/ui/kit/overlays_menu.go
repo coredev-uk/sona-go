@@ -186,6 +186,22 @@ func (m *Menu) OpenAt(x, y float32, keyboard bool) {
 	m.x, m.y = x, y
 }
 
+// OpenOn wires row to open the menu, for a row with a "More" button of its
+// own (not an ActionMenus item): a right-click opens it at the pointer, and
+// Shift+F10 or the Menu key while the row has the focus within, below the row
+// (starting on its first entry). Call it after building the row.
+func (m *Menu) OpenOn(row ui.Element) {
+	if row.RightClicked() {
+		x, y, _ := row.PointerPosition()
+		wx, wy := row.LocalToWindow(x, y)
+		m.OpenAt(wx, wy, false)
+	}
+	if row.Shortcut(ui.Shift, ui.KeyF10) || row.Shortcut(0, ui.KeyContextMenu) {
+		b := row.Bounds()
+		m.OpenAt(b.X+16, b.Y+b.H, true)
+	}
+}
+
 // OpenFrom opens the menu below its trigger (MenuOpts.Anchor); keyboard
 // (Enter, Space, a click with no pointer) starts it on its first row.
 func (m *Menu) OpenFrom(keyboard bool) { m.start(true, keyboard) }

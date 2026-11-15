@@ -225,9 +225,11 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 	bh := float32(math.Round(float64(w / heroRatio)))
 	link := kit.ItemLink(it)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
+	var opener ui.Element
 	root.Children(func() {
 		ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-			if h.titleBlock(c, it, "page", link).Clicked() {
+			opener = h.titleBlock(c, it, "page", link)
+			if opener.Clicked() {
 				h.open(it, ctx)
 			}
 			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
@@ -237,7 +239,7 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 					}
 				}
 				if hasTarget {
-					menus.Trigger(c.Key("more"), kit.ActionTarget{Item: target, Name: it.Name}, kit.TriggerOpts{Header: true})
+					menus.Trigger(c.Key("more"), root, kit.ActionTarget{Item: target, Name: it.Name}, kit.TriggerOpts{Header: true}, opener)
 				}
 			})
 		})

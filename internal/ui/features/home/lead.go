@@ -214,7 +214,7 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 					ctx.Players.PlayItem(it)
 				}
 				if selectable {
-					menus.Trigger(c.Key("more"), at, kit.TriggerOpts{Header: true})
+					menus.Trigger(c.Key("more"), s, at, kit.TriggerOpts{Header: true, Select: &st.sel}, opener)
 				}
 			})
 		})
@@ -236,7 +236,6 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 	}
 	st.sel.OutsidePress(w)
 	if selectable {
-		menus.OpenFor(&st.sel, src, opener, at, 0)
 		menus.Popup(c)
 	}
 }

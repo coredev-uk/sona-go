@@ -424,7 +424,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 - `kit.PageFrame`: embed it in a scroll page's view state. `Scroll(c, identity, body)` is the scroll container with the shell's gutters, the reset to the top when the identity changes and the width tracking. `kit.PageScroll` and `kit.PageGutter` are the same for the pages that size by the window; `PagePadTop`, `PagePadBottom`, `PageNarrow`.
 - `Env.Routed(path)`: `HasRoute` that is false in a hand-built Env; the one way a feature asks whether to link.
 - `Env.TrackOpts(menus, restricted)`: the base `TrackListOpts` of a song list (art, motion, menu, what plays, links to artist, album and profile pages that exist).
-- `ActionMenus.OpenFor`, `HasMenu`, `kit.MenusIn`; `kit.ShelfSeeAll`, `ShelfDisclosure`.
+- `ActionMenus.Trigger` (the button and its right-click), `HasMenu`, `kit.MenusIn`; `kit.ShelfSeeAll`, `ShelfDisclosure`.
 - `kit.QueryError`, `DetailQueryError`, `BackAction`: an error block whose Try again invalidates keys.
 - `store.KeyLibrary…`, `LibraryArtist`, `LibraryAlbum`, `CatalogArtist`, `CatalogAlbum`, `LibrarySearch`: the query keys several features share. Spell them there, as prefix invalidation depends on it.
 - `kit.Bar` (a flat placeholder bar), `kit.ParseHex`, `kit.WidthTracker`, `kit.Entry`, `kit.ReleaseTitle`.
@@ -616,7 +616,10 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 **ActionMenus** (`NewActionMenus(env.Actions, selection)`)
 
-- A list's "More for <name>" button (`Trigger`: ghost while the row is hovered or focused, outline for a header; its menu is aligned to its end, 224 wide), right-click, Shift+F10 and the Menu key (`Row`, drawn by `Popup`, called once per list).
+- An item's "More for <name>" button is `Trigger(c, row, target, opts)` (ghost while the row is hovered or focused, outline for a header; its menu is aligned to its end, 224 wide). **A ⋯ button implies right-click**: `Trigger` takes the element the button belongs to and wires it too, so a right-click on it opens the same menu at the pointer, and Shift+F10 or the Menu key while the focus is within it open it below it, starting on the first entry. A surface cannot draw the button without the wiring; the compiler enforces it, and there is no other way to draw the button. `Popup` draws the point menus, called once per list or page after the rows.
+- What `row` is: a list row or tile; for a page header, the box around its artwork and title (a right-click on either, or on any part of the head that takes no press of its own, opens the item's menu; its buttons keep theirs). `TriggerOpts.Select` and `Index` make a right-click on an item outside the selection select it alone first (lists with a `Selection`). the trailing arguments of `Trigger` list children that take the pointer themselves (a title that is a link, a result row's open button): MyGo hands a right-click to the innermost interactive element, so without it the click would never reach `row`.
+- `ActionMenus.Row` wires an item that has a menu but no button (the radio board's playing rows, the bar's cover); `Menu.OpenOn(row)` does the same for a `kit.Menu` ⋯ button of its own (the sidebar's pins and folders). Both are for a surface that cannot use `Trigger`; a ⋯ button drawn any other way needs one of them.
+- The rule is tested with `access.CheckMenuWays` (`uitest/access`): for an item it opens the menu with the button, with a right-click at the title and at the artwork, and with Shift+F10 and the Menu key, and fails when a way opens no menu, a different one, or a menu away from the pointer. Each surface that draws a ⋯ button has a `menus_test.go` check in its package.
 - A row inside a multi-selection (`SelectionScope.GroupWith`) lists the bulk actions for all of them under "<what> selected" and runs once with every item and `Container.Indices`.
 - A list that shows its collection sorted or filtered gives `ActionContainer.Order` (row i is item `Order[i]`), so `Index` and `Indices` always name places in the collection. A positional action (Remove from playlist) needs that.
 - Kinds with no registered action get no trigger.

@@ -46,6 +46,10 @@ shapes the rules below.
 - A list is one Tab stop with arrow keys inside (a focusable row, the
   others reached by the arrows); its controls are on the tree but are not
   stops. Menus are reached from the row with Shift+F10 or the Menu key.
+  Wherever an item has a "More" button (a list row or tile, a page's
+  header, a sidebar row) the same menu opens on a right-click at the pointer,
+  and from Shift+F10 or the Menu key with the focus on the item or, for a
+  page header, on any of its buttons; the menu starts on its first entry.
   The playing song's menu opens the same way from the bar's cover and from
   the mini player; Now Playing also has a "More for <title>" menu button.
 - Links are `RoleLink` (artist and album cells, "See all", sidebar

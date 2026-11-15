@@ -20,7 +20,7 @@ type headProps struct {
 	// About band.
 	lead    string
 	latest  *services.Album
-	actions func()
+	actions func(head ui.Element)
 	// width is the content width (layoutFor).
 	width float32
 }
@@ -119,7 +119,8 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 	// The wash is the header's parent: an absolutely placed child draws over
 	// its siblings, scrim included.
 	e := kit.Backdrop(c.Key("head"), a.env.Art, kit.BackdropOpts{Src: p.header.Backdrop, Color: colour, Tone: kit.ToneGround}, func() {
-		ui.Row(c.Key("row")).FillWidth().AlignItems(ui.Start).Gap(32).Children(func() {
+		row := ui.Row(c.Key("row")).FillWidth().AlignItems(ui.Start).Gap(32)
+		row.Children(func() {
 			ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
 				theme.StyleText(ui.Text(c, art.Name), "display").
 					TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(1)
@@ -144,7 +145,7 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 					})
 				}
 				if p.actions != nil {
-					ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(20, 0, 0, 0).Children(p.actions)
+					ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(20, 0, 0, 0).Children(func() { p.actions(row) })
 				}
 			})
 			if p.latest != nil && lay.slipBeside {

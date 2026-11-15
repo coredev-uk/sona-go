@@ -109,7 +109,7 @@ func (s *song) content(c *ui.Context, page services.CatalogSong) {
 	}
 	s.frame(c, sh, wash, func(size float32) {
 		kit.Artwork(c, s.env.Art, sg.Art.Large, size, kit.ArtOpts{Edge: true})
-	}, func() { s.lead(c, page, sh) }, func() { s.body(c, page, sh) })
+	}, func(head ui.Element) { s.lead(c, head, page, sh) }, func() { s.body(c, page, sh) })
 
 	ictx := s.env.ItemsCtx(s.menus)
 	if len(page.Videos) > 0 && s.env.Routed("/music-video/x") {
@@ -210,13 +210,14 @@ func bodyFor(room float32) (cols int, widest float32) {
 // column, with the body beside it; narrower they are a full-width band over
 // the same wash with the body under it. The loading skeleton is built by it
 // too, so nothing moves when the song arrives.
-func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(size float32), lead, body func()) {
+func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(size float32), lead func(head ui.Element), body func()) {
 	if sh.wide {
 		ui.Row(c.Key("liner")).FillWidth().AlignItems(ui.Start).Children(func() {
 			kit.Backdrop(c.Key("spine"), s.env.Art, wash, func() {
-				ui.Column(c).FillWidth().Padding(spineTop, spineGap, 28, sh.gutter).Children(func() {
+				head := ui.Column(c).FillWidth().Padding(spineTop, spineGap, 28, sh.gutter)
+				head.Children(func() {
 					cover(sh.cover)
-					ui.Column(c.Key("lead")).FillWidth().Margin(20, 0, 0, 0).Children(lead)
+					ui.Column(c.Key("lead")).FillWidth().Margin(20, 0, 0, 0).Children(func() { lead(head) })
 				})
 			}).Width(sh.gutter+sh.cover+spineGap).Shrink(0).Margin(-kit.PagePadTop, 0, 0, -sh.gutter)
 			ui.Column(c.Key("body")).Grow(1).Basis(0).MinWidth(0).MaxWidth(sh.bodyMax).Margin(1, 0, 0, splitGap).Children(body)
@@ -224,10 +225,11 @@ func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(
 		return
 	}
 	kit.Backdrop(c.Key("band"), s.env.Art, wash, func() {
-		ui.Column(c).FillWidth().Padding(spineTop, sh.gutter, 28, sh.gutter).Children(func() {
+		head := ui.Column(c).FillWidth().Padding(spineTop, sh.gutter, 28, sh.gutter)
+		head.Children(func() {
 			ui.Row(c.Key("row")).FillWidth().AlignItems(ui.End).Gap(24).Children(func() {
 				cover(coverNarrow)
-				ui.Column(c.Key("lead")).Grow(1).Basis(0).MinWidth(0).Children(lead)
+				ui.Column(c.Key("lead")).Grow(1).Basis(0).MinWidth(0).Children(func() { lead(head) })
 			})
 		})
 	}).AlignSelf(ui.Stretch).Shrink(0).Margin(-kit.PagePadTop, -sh.gutter, 28, -sh.gutter)
@@ -236,7 +238,7 @@ func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(
 
 // lead is the title, the artists, the album, the badges and the actions of
 // the song.
-func (s *song) lead(c *ui.Context, page services.CatalogSong, sh shape) {
+func (s *song) lead(c *ui.Context, head ui.Element, page services.CatalogSong, sh shape) {
 	sg := page.Song
 	tk := theme.Current().Type
 	d := tk["display"]
@@ -260,7 +262,7 @@ func (s *song) lead(c *ui.Context, page services.CatalogSong, sh shape) {
 		s.env.ItemStates.LibraryButton(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name, "")
 		s.env.ItemStates.RatingButtons(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name)
 		if s.menus != nil {
-			s.menus.Trigger(c, kit.ActionTarget{Item: kit.SongItem(sg), Name: sg.Name}, kit.TriggerOpts{Header: true})
+			s.menus.Trigger(c, head, kit.ActionTarget{Item: kit.SongItem(sg), Name: sg.Name}, kit.TriggerOpts{Header: true})
 		}
 	})
 }
@@ -315,7 +317,7 @@ func (s *song) skeleton(c *ui.Context) {
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		s.frame(c, sh, kit.BackdropOpts{}, func(size float32) {
 			ui.Box(c).Size(size, size).Radius(4).Background(hover).Shrink(0)
-		}, func() {
+		}, func(ui.Element) {
 			ui.Box(c).Height(36).WidthPercent(60).Radius(6).Background(hover)
 			ui.Box(c).Height(16).WidthPercent(45).Radius(6).Background(hover).Margin(14, 0, 0, 0)
 			ui.Box(c).Height(13).WidthPercent(35).Radius(6).Background(hover).Margin(8, 0, 0, 0)

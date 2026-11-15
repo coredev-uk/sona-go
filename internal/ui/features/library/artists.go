@@ -727,7 +727,8 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 					pg.want = artistsWantNone
 				}
 			}
-			ui.Row(c.Key("header")).FillWidth().Gap(28).AlignItems(ui.End).Children(func() {
+			head := ui.Row(c.Key("header")).FillWidth().Gap(28).AlignItems(ui.End)
+			head.Children(func() {
 				kit.PersonAvatar(c, l.env.Art, e.Name, e.Art, artistPortrait(pg.width)).Shrink(0)
 				ui.Column(c.Key("who")).Grow(1).MinWidth(0).Padding(0, 0, 2).Children(func() {
 					theme.Text(c, e.Name, "display").TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(nameLevel)
@@ -753,7 +754,8 @@ func (v *artistsView) detail(c *ui.Context, e services.ArtistEntry) {
 							}
 						}
 						if menus := l.itemMenus(&pg.menus, nil); menus != nil && albums.HasData {
-							menus.Trigger(c, kit.ActionTarget{Item: kit.ArtistItem(albums.Data.Artist), Name: e.Name}, kit.TriggerOpts{Header: true})
+							menus.Trigger(c, head, kit.ActionTarget{Item: kit.ArtistItem(albums.Data.Artist), Name: e.Name}, kit.TriggerOpts{Header: true})
+							menus.Popup(c) // the menu a right-click opens (the button draws its own)
 						}
 					})
 				})

@@ -82,7 +82,8 @@ func (a *album) band(c *ui.Context, m *model, k *colours, lay layout, now time.T
 	}
 	content := func() {
 		a.onBand(k, func() {
-			ui.Column(c.Key("band-body")).FillWidth().Children(func() {
+			body := ui.Column(c.Key("band-body")).FillWidth()
+			body.Children(func() {
 				row := ui.Row(c.Key("band-row")).FillWidth().Padding(top, a.gr, 0, a.gl).Gap(gap).AlignItems(ui.Start)
 				if lay.wide {
 					row.AlignItems(ui.Stretch)
@@ -96,11 +97,11 @@ func (a *album) band(c *ui.Context, m *model, k *colours, lay layout, now time.T
 					if lay.wide {
 						head.Justify(ui.End)
 					}
-					head.Children(func() { a.head(c, m, k, now, account, !lay.stack, lay) })
+					head.Children(func() { a.head(c, m, k, now, account, !lay.stack, lay, body) })
 				})
 				if lay.stack {
 					ui.Row(c.Key("band-actions")).FillWidth().Wrap().Gap(8).AlignItems(ui.Center).Padding(20, a.gr, 0, a.gl).Children(func() {
-						a.actions(c, m, account)
+						a.actions(c, m, account, body)
 					})
 				}
 				// The room under the head, and the dissolve's: nothing sits in it.

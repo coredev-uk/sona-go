@@ -853,7 +853,7 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 		})
 		o.cell(ui.Row(c.Key("act")).Role(ui.RoleCell).Justify(ui.End).AlignItems(ui.Center), cellActions).Children(func() {
 			if o.Menus != nil {
-				o.Menus.Trigger(c.Key("more"), target, TriggerOpts{Visible: hot})
+				o.Menus.Trigger(c.Key("more"), src, target, TriggerOpts{Visible: hot, Select: &st.Sel, Index: i})
 			}
 		})
 	})
@@ -875,9 +875,6 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 				o.OnPlay(i)
 			}
 		}
-	}
-	if o.Menus != nil && key != "" {
-		o.Menus.OpenFor(&st.Sel, src, src, target, i)
 	}
 }
 

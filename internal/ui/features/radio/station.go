@@ -172,14 +172,16 @@ func (r *radio) stationBody(c *ui.Context, d services.StationDetail) {
 		}
 	}
 	if !pg.split() {
-		ui.Column(c.Key("identity")).Margin(0, 0, 32, 0).Children(func() { r.identity(c, d, 0) })
+		head := ui.Column(c.Key("identity")).Margin(0, 0, 32, 0)
+		head.Children(func() { r.identity(c, head, d, 0) })
 		ui.Column(c.Key("lists")).Children(lists)
 		return
 	}
 	column := pg.identityW()
 	ui.Row(c.Key("page")).FillWidth().Gap(identityGap).AlignItems(ui.Start).Children(func() {
 		// The identity stays in view while a long schedule scrolls.
-		ui.Column(c.Key("identity")).Width(column).Shrink(0).Sticky().Top(16).Children(func() { r.identity(c, d, column) })
+		head := ui.Column(c.Key("identity")).Width(column).Shrink(0).Sticky().Top(16)
+		head.Children(func() { r.identity(c, head, d, column) })
 		ui.Column(c.Key("lists")).Grow(1).Basis(0).MinWidth(0).MaxWidth(listsMax).Children(lists)
 	})
 }
@@ -187,8 +189,9 @@ func (r *radio) stationBody(c *ui.Context, d services.StationDetail) {
 // identity is what the station is: its cover, name, who runs it, the
 // catalogue line, notes and the play control with its menu. Beside the lists
 // (column, the identity column's width) the cover leads a column; stacked
-// (column 0) it is a small cover beside the lines.
-func (r *radio) identity(c *ui.Context, d services.StationDetail, column float32) {
+// (column 0) it is a small cover beside the lines. head is the element around
+// it: a right-click on the cover or the name opens the station's menu.
+func (r *radio) identity(c *ui.Context, head ui.Element, d services.StationDetail, column float32) {
 	pg := &r.stationPg
 	tk := theme.Current()
 	s := d.Station
@@ -233,7 +236,7 @@ func (r *radio) identity(c *ui.Context, d services.StationDetail, column float32
 					}
 				})
 			}
-			pg.menus.Trigger(c, kit.ActionTarget{Item: kit.StationItem(s), Name: s.Name}, kit.TriggerOpts{Header: true})
+			pg.menus.Trigger(c, head, kit.ActionTarget{Item: kit.StationItem(s), Name: s.Name}, kit.TriggerOpts{Header: true})
 		})
 	}
 	if column > 0 {
