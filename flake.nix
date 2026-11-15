@@ -25,7 +25,7 @@
   description = "Sona: a native Apple Music client";
 
   # devenv.yaml's nixpkgs revision, so the package gets the Go, GTK3 and
-  # GStreamer Sona is developed against. Bumped with it (CONTRIBUTING.md,
+  # GStreamer Sona is developed against. Bumped with it (docs/maintainers/repository.md,
   # "Pinned inputs").
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/31ecbaca1bdefa45dffc409f0250bd8039ea0010";
 

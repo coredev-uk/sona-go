@@ -28,14 +28,14 @@ Run everything as `devenv shell -- <cmd>` (devenv 2.4+; it sets `CGO_ENABLED`, `
 - `check`: vet (also `dev` and `probe` tags), Windows and macOS type-checks, golangci-lint on new code, `mygo vet internal/ui`, i18n extract check, path case. `tests`: `go test -race` in `dbus-run-session`, `ui.Tester` and golden images included.
 - `fmt` (gofumpt), `gen` (sqlc into `internal/db/dbq`), `go run ./cmd/i18ntool extract` (English `.po` catalogues; a test fails when stale).
 - One test: `devenv shell -- go test -race ./internal/<pkg> -run '^TestName$'`.
-- The rest (`dev`, `build`, `headless`, `e2e`, `probe`, `release`, spikes) and the nix-ssh workaround: CONTRIBUTING.md, "devenv scripts". DRM regression after CDM, playback or Apple changes: `go run ./cmd/playspike -seek 90`.
+- The rest (`dev`, `build`, `headless`, `e2e`, `probe`, `release`, spikes): `docs/development.md`, "devenv scripts". DRM regression after CDM, playback or Apple changes: `go run ./cmd/playspike -seek 90`.
 
 ## Repo map and where to look
 
 - `cmd/sona` entry; `internal/services` Go services (contracts in `internal/services/doc.go`); `internal/ui` MyGo UI; `internal/db` SQLite, goose migrations (dense from `00001`, applied in order), sqlc. `VERSION` is the version source.
 - `docs/architecture.md`: scope, process model, playback and DRM, layout (§6), data, performance, platforms, testing: the why behind every rule here.
 - `docs/ui-architecture.md` UI modules; `docs/design.md` visual direction; `docs/accessibility.md` keyboard and assistive-technology contracts; `site/src/content/docs/reference/theme-format.md` theme files; `site/src/content/docs/reference/cli.md` the `sona` CLI; `site/` the public docs.
-- `docs/auth.md` sign-in; `docs/apple-music-reference.md` Apple endpoints (functionality only); `docs/security-review.md` threat model; `CONTRIBUTING.md` setup, checks, platforms, strings, CI.
+- `docs/auth.md` sign-in; `docs/apple-music-reference.md` Apple endpoints (functionality only); `docs/security-review.md` threat model; `docs/development.md` setup and scripts; `docs/testing.md` checks and tests; `docs/platforms.md`; `docs/translations.md` strings; `docs/maintainers/ci-workflows.md` CI; `CONTRIBUTING.md` and `site/src/content/docs/contributing/` the contributor pages.
 - A new page is a service (`internal/services/<feature>.go`, `<feature>_dto.go`, one `registry.go` line) plus a UI package (`internal/ui/features/<name>`, one `internal/ui/app/modules.go` line).
 - Design every page fresh with `skill://impeccable` and `skill://design-taste-frontend`; never copy Apple's layouts.
 - Work comes from the project board (https://github.com/users/coredev-uk/projects/3) and its issues. Labels: `area/*` and `platform/*` say where; `decision` needs the maintainer's call, `needs-hardware` a real machine, `upstream` MyGo or Apple; `needs-triage` is a new report. `state/*`, `verdict/*`, `kind/*`, `type/*` and `clarence:*` are the bots'; leave them.
@@ -55,12 +55,12 @@ Rationale: `docs/architecture.md`.
 - Write a file Sona replaces in place with `fsutil.WriteFileAtomic`, never hand-rolled temp-and-rename.
 - Performance: MyGo draws on the GPU, so no layout, text shaping or image work per frame; narrow invalidation; `Scroll` virtualises lists.
 - Decode artwork at its shown size, off the main thread, cached. Pre-blur backdrops in Go, never live. Cold start reads SQLite only; network and playback host start after first paint.
-- Platforms: OS-specific code goes behind the seams (`platform_<os>.go`, `services.Platform`, CONTRIBUTING.md "Platforms"). Where a platform lacks a feature, report it (`errors.ErrUnsupported`, `PlatformService.Capabilities`) and hide or explain the control; never a stub that pretends.
+- Platforms: OS-specific code goes behind the seams (`platform_<os>.go`, `services.Platform`, `docs/platforms.md`). Where a platform lacks a feature, report it (`errors.ErrUnsupported`, `PlatformService.Capabilities`) and hide or explain the control; never a stub that pretends.
 
 ## Process
 
 - Private mode: every test, smoke or live check that plays runs with `SONA_PRIVATE=1`; never play against Apple without it. `SONA_PREVIEW=1` or `playspike -preview` play 30-second previews with no account.
-- Live audio goes to your own PipeWire null sink, never the default sink or source; destroy only nodes you created. Recipe: CONTRIBUTING.md, "Live playback and the session bus".
+- Live audio goes to your own PipeWire null sink, never the default sink or source; destroy only nodes you created. Recipe: `docs/development.md`, "Live playback and the session bus".
 - Only one Sona may own the real session bus. Everything else runs under `dbus-run-session` with private XDG dirs, never the real `~/.config/sona` or `~/.local/share/sona`. Concurrent dev builds also set `SONA_DEV_INSTANCE=<name>`.
 - Commits and PR titles are Conventional Commits (`feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `ci`, `build`, `chore`, `revert`; scope optional); CI fails other PR titles and squash merges use the title.
 

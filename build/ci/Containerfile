@@ -8,7 +8,7 @@
 #
 # The playback job stays on the bare runner (it changes a host sysctl).
 #
-# To run what CI runs on a Mac (golden updates, CONTRIBUTING.md, "Golden
+# To run what CI runs on a Mac (golden updates, docs/testing.md, "Golden
 # images"): podman run --rm -v "$PWD":/src -w /src ghcr.io/coredev-uk/sona-ci:<tag> go test ./internal/ui/... -update
 FROM docker.io/library/ubuntu:26.04
 

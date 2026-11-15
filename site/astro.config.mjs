@@ -37,7 +37,17 @@ export default defineConfig({
         { slug: 'privacy-and-security' },
         {
           label: 'Contributing',
-          items: [{ slug: 'contributing/documentation' }],
+          items: [
+            { slug: 'contributing/setup' },
+            { slug: 'contributing/build-and-run' },
+            { slug: 'contributing/test' },
+            { slug: 'contributing/architecture' },
+            { slug: 'contributing/ui-conventions' },
+            { slug: 'contributing/add-a-feature' },
+            { slug: 'contributing/translations' },
+            { slug: 'contributing/pull-requests' },
+            { slug: 'contributing/documentation' },
+          ],
         },
         {
           label: 'Reference',

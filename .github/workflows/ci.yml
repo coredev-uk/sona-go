@@ -49,7 +49,7 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# How the work is spread (CONTRIBUTING.md, "CI and workflows"): every check
+# How the work is spread (docs/maintainers/ci-workflows.md, "CI and workflows"): every check
 # still runs, including the golden images; a pull request runs -race on the
 # packages that start goroutines, main and the nightly on all of them. Each
 # test runs once and the jobs run side by side. The test jobs take their packages from
@@ -143,8 +143,8 @@ jobs:
         run: build/ci/find-image.sh
 
   # go vet for the host, the development build (-tags dev) and the probe build
-  # (-tags probe), then the macOS and Windows seams (CONTRIBUTING.md,
-  # "Platforms"): every package must type-check there with cgo off, which needs
+  # (-tags probe), then the macOS and Windows seams (docs/platforms.md,
+  # "Type-check and cross-build"): every package must type-check there with cgo off, which needs
   # no system packages, and paths that differ only by case break macOS and
   # Windows checkouts. The steps share compiled dependencies, so one job beats
   # several that each compile them.
@@ -637,7 +637,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # The macOS and Windows builds (CONTRIBUTING.md, "Platforms"). They run
+  # The macOS and Windows builds (docs/platforms.md, "Platform support"). They run
   # after a merge to main and when dispatched (Actions → CI → Run workflow);
   # a pull request that reaches the code runs the macOS build too, and nothing
   # of either runs from release.yml (linux-only: it builds the release
