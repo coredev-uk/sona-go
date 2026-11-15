@@ -124,6 +124,9 @@ func TestTriggerWiresTheHeadItBelongsTo(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			a, _ := newListApp(t)
+			// The rating stays pending, so every open lists the same entries.
+			a.gate = make(chan struct{})
+			t.Cleanup(func() { close(a.gate) })
 			w := &wiringApp{listApp: a, title: linked}
 			tt := ui.NewTester(w.view, 560, 420)
 			tt.Frame()

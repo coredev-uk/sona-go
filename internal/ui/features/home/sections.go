@@ -208,7 +208,7 @@ type heroCard struct {
 
 func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.ItemsCtx, menus *kit.ActionMenus) {
 	tk := theme.Current()
-	root := ui.Row(c.Key("hero")).Margin(shelfGapTop, 0, 0, 0).Gap(40).AlignItems(ui.Center).Role(ui.RoleGroup).Label(i18n.T("Featured"))
+	root := ui.Row(c.Key("hero")).Margin(shelfGapTop, 0, 0, 0).Role(ui.RoleGroup).Label(i18n.T("Featured"))
 	width := hc.width.Track(c, root)
 	banner := it.Wide.Large
 	if banner == "" {
@@ -226,35 +226,41 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 	link := kit.ItemLink(it)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	var opener ui.Element
+	// The group keeps its role and name; the menu is wired to the unnamed row
+	// inside, so the group itself takes no press.
+	var inner ui.Element
 	root.Children(func() {
-		ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-			opener = h.titleBlock(c, it, "page", link)
-			if opener.Clicked() {
-				h.open(it, ctx)
-			}
-			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
-				if ctx.Players.CanPlay(it) {
-					if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name}); play {
-						ctx.Players.PlayItem(it)
-					}
+		inner = ui.Row(c.Key("body")).FillWidth().Gap(40).AlignItems(ui.Center)
+		inner.Children(func() {
+			ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+				opener = h.titleBlock(c, it, "page", link)
+				if opener.Clicked() {
+					h.open(it, ctx)
 				}
-				if hasTarget {
-					menus.Trigger(c.Key("more"), root, kit.ActionTarget{Item: target, Name: it.Name}, kit.TriggerOpts{Header: true}, opener)
+				ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
+					if ctx.Players.CanPlay(it) {
+						if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name}); play {
+							ctx.Players.PlayItem(it)
+						}
+					}
+					if hasTarget {
+						menus.Trigger(c.Key("more"), inner, kit.ActionTarget{Item: target, Name: it.Name}, kit.TriggerOpts{Header: true}, opener)
+					}
+				})
+			})
+			bg := theme.C("hover")
+			if col, ok := kit.ParseHex(it.Color); ok {
+				bg = col
+			}
+			ui.Box(c.Key("banner")).Size(w, bh).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg).Children(func() {
+				if bh > 0 && src != "" {
+					// The colour block stays while the picture loads and if it
+					// fails; a square cover is shown whole on it.
+					kit.Artwork(c, h.env.Art, src, w, kit.ArtOpts{
+						Aspect: w / bh, Edge: true, Contain: banner == "", Fallback: func(*ui.Context) {},
+					})
 				}
 			})
-		})
-		bg := theme.C("hover")
-		if col, ok := kit.ParseHex(it.Color); ok {
-			bg = col
-		}
-		ui.Box(c.Key("banner")).Size(w, bh).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg).Children(func() {
-			if bh > 0 && src != "" {
-				// The colour block stays while the picture loads and if it
-				// fails; a square cover is shown whole on it.
-				kit.Artwork(c, h.env.Art, src, w, kit.ArtOpts{
-					Aspect: w / bh, Edge: true, Contain: banner == "", Fallback: func(*ui.Context) {},
-				})
-			}
 		})
 		menus.Popup(c)
 	})

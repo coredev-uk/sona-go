@@ -49,7 +49,8 @@ shapes the rules below.
   Wherever an item has a "More" button (a list row or tile, a page's
   header, a sidebar row) the same menu opens on a right-click at the pointer,
   and from Shift+F10 or the Menu key with the focus on the item or, for a
-  page header, on any of its buttons; the menu starts on its first entry.
+  page header, on any of its buttons; only these keyboard ways start the
+  menu on its first entry (the button and the right-click leave it unselected).
   The playing song's menu opens the same way from the bar's cover and from
   the mini player; Now Playing also has a "More for <title>" menu button.
 - Links are `RoleLink` (artist and album cells, "See all", sidebar
