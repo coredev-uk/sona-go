@@ -6720,6 +6720,10 @@ msgid "Syncing loves"
 msgstr ""
 
 #: internal/ui/features/library/sync.go
+msgid "Syncing music videos"
+msgstr ""
+
+#: internal/ui/features/library/sync.go
 msgid "Syncing playlist songs"
 msgstr ""
 

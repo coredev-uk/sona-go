@@ -160,6 +160,12 @@ func (c *Client) LibraryMusicVideos(ctx context.Context, limit, offset int) (Pag
 	})
 }
 
+// LibraryMusicVideosWalk walks the user's library music videos in Apple's
+// order, with the catalogue copy included (MusicVideo.CatalogID).
+func (c *Client) LibraryMusicVideosWalk(ctx context.Context, opt PageOptions, fn func(offset int, videos []MusicVideo) error) (int, error) {
+	return FetchPages(ctx, c, "/v1/me/library/music-videos", url.Values{"include[library-music-videos]": {"catalog"}}, opt, fn)
+}
+
 // LibraryMusicVideo returns the user's library music video id with its
 // catalog copy (MusicVideo.CatalogID).
 func (c *Client) LibraryMusicVideo(ctx context.Context, id string) (MusicVideo, error) {

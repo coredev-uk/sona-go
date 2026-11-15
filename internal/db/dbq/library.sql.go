@@ -30,6 +30,26 @@ func (q *Queries) CountLibraryKind(ctx context.Context, kind string) (int64, err
 	return count, err
 }
 
+const countLibraryMusicVideos = `-- name: CountLibraryMusicVideos :one
+SELECT count(*) FROM library_music_videos
+`
+
+func (q *Queries) CountLibraryMusicVideos(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countLibraryMusicVideos)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteLibraryMusicVideo = `-- name: DeleteLibraryMusicVideo :exec
+DELETE FROM library_music_videos WHERE library_id = ?
+`
+
+func (q *Queries) DeleteLibraryMusicVideo(ctx context.Context, libraryID string) error {
+	_, err := q.db.ExecContext(ctx, deleteLibraryMusicVideo, libraryID)
+	return err
+}
+
 const deleteOrphanLibraryAlbums = `-- name: DeleteOrphanLibraryAlbums :execrows
 DELETE FROM albums
 WHERE library_id IS NOT NULL
@@ -107,6 +127,18 @@ type DeleteStaleLibraryItemsParams struct {
 
 func (q *Queries) DeleteStaleLibraryItems(ctx context.Context, arg DeleteStaleLibraryItemsParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteStaleLibraryItems, arg.Kind, arg.Generation)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteStaleLibraryMusicVideos = `-- name: DeleteStaleLibraryMusicVideos :execrows
+DELETE FROM library_music_videos WHERE generation < ?
+`
+
+func (q *Queries) DeleteStaleLibraryMusicVideos(ctx context.Context, generation int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteStaleLibraryMusicVideos, generation)
 	if err != nil {
 		return 0, err
 	}
@@ -390,6 +422,58 @@ func (q *Queries) LibrarySongKnown(ctx context.Context, libraryID sql.NullString
 	return exists, err
 }
 
+const listLibraryMusicVideos = `-- name: ListLibraryMusicVideos :many
+SELECT id, library_id, catalog_id, name, artist_name, album_name, duration_ms, release_date, genre, explicit, has_4k, has_hdr, url, artwork_template, artwork_width, artwork_height, position, generation, updated_at FROM library_music_videos ORDER BY position, id LIMIT ? OFFSET ?
+`
+
+type ListLibraryMusicVideosParams struct {
+	Limit  int64
+	Offset int64
+}
+
+func (q *Queries) ListLibraryMusicVideos(ctx context.Context, arg ListLibraryMusicVideosParams) ([]LibraryMusicVideo, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryMusicVideos, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LibraryMusicVideo{}
+	for rows.Next() {
+		var i LibraryMusicVideo
+		if err := rows.Scan(
+			&i.ID,
+			&i.LibraryID,
+			&i.CatalogID,
+			&i.Name,
+			&i.ArtistName,
+			&i.AlbumName,
+			&i.DurationMs,
+			&i.ReleaseDate,
+			&i.Genre,
+			&i.Explicit,
+			&i.Has4k,
+			&i.HasHdr,
+			&i.Url,
+			&i.ArtworkTemplate,
+			&i.ArtworkWidth,
+			&i.ArtworkHeight,
+			&i.Position,
+			&i.Generation,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markLibraryItem = `-- name: MarkLibraryItem :exec
 INSERT INTO library_items (kind, ref, date_added, added_rank, generation)
 VALUES (?, ?, ?, ?, ?)
@@ -670,6 +754,77 @@ func (q *Queries) UpsertLibraryArtist(ctx context.Context, arg UpsertLibraryArti
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const upsertLibraryMusicVideo = `-- name: UpsertLibraryMusicVideo :exec
+INSERT INTO library_music_videos (
+    library_id, catalog_id, name, artist_name, album_name, duration_ms, release_date, genre,
+    explicit, has_4k, has_hdr, url, artwork_template, artwork_width, artwork_height,
+    position, generation, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (library_id) DO UPDATE SET
+    catalog_id = excluded.catalog_id,
+    name = excluded.name,
+    artist_name = excluded.artist_name,
+    album_name = excluded.album_name,
+    duration_ms = excluded.duration_ms,
+    release_date = excluded.release_date,
+    genre = excluded.genre,
+    explicit = excluded.explicit,
+    has_4k = excluded.has_4k,
+    has_hdr = excluded.has_hdr,
+    url = excluded.url,
+    artwork_template = excluded.artwork_template,
+    artwork_width = excluded.artwork_width,
+    artwork_height = excluded.artwork_height,
+    position = excluded.position,
+    generation = excluded.generation,
+    updated_at = excluded.updated_at
+`
+
+type UpsertLibraryMusicVideoParams struct {
+	LibraryID       string
+	CatalogID       string
+	Name            string
+	ArtistName      string
+	AlbumName       string
+	DurationMs      int64
+	ReleaseDate     string
+	Genre           string
+	Explicit        int64
+	Has4k           int64
+	HasHdr          int64
+	Url             string
+	ArtworkTemplate string
+	ArtworkWidth    int64
+	ArtworkHeight   int64
+	Position        int64
+	Generation      int64
+	UpdatedAt       int64
+}
+
+func (q *Queries) UpsertLibraryMusicVideo(ctx context.Context, arg UpsertLibraryMusicVideoParams) error {
+	_, err := q.db.ExecContext(ctx, upsertLibraryMusicVideo,
+		arg.LibraryID,
+		arg.CatalogID,
+		arg.Name,
+		arg.ArtistName,
+		arg.AlbumName,
+		arg.DurationMs,
+		arg.ReleaseDate,
+		arg.Genre,
+		arg.Explicit,
+		arg.Has4k,
+		arg.HasHdr,
+		arg.Url,
+		arg.ArtworkTemplate,
+		arg.ArtworkWidth,
+		arg.ArtworkHeight,
+		arg.Position,
+		arg.Generation,
+		arg.UpdatedAt,
+	)
+	return err
 }
 
 const upsertLibraryPlaylist = `-- name: UpsertLibraryPlaylist :one

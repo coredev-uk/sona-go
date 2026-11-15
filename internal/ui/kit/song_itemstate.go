@@ -77,6 +77,7 @@ var membershipLists = []store.Key{
 	{"library", "artist"},
 	{"library", "recently-added"},
 	{"library", "favorite-songs"},
+	{"library", "music-videos"},
 }
 
 // stateStale is how long a state is fresh: Go caches Apple's answers for
