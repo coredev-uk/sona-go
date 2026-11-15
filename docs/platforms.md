@@ -139,11 +139,13 @@ A real Windows build cross-compiles from Linux with zig as the C compiler (`nix 
 
 ```sh
 GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC='zig cc -target x86_64-windows-gnu' \
-  go build -tags mygo_noinspector,sqlite_fts5 \
+  go build -tags mygo_noinspector,mygo_nowebview,sqlite_fts5 \
   -ldflags '-H windowsgui -X github.com/egoist/mygo.production=1' ./cmd/sona
 ```
 
 zig ignores the `-mwindows` Go passes for `-H windowsgui`. Wrap it to pass `-Wl,--subsystem,windows` instead, or the exe opens a console.
+
+`mygo_nowebview` (MyGo v0.9.1) leaves MyGo's WebView2 code out of the Windows build: every Sona window is native UI, so nothing needs it, and `sona.exe` is about 0.8 MB smaller and holds none of the loader's names that antivirus heuristics flag. `build/windows/package.sh` refuses a `sona.exe` that still names `WebView2Loader`. Linux and macOS have no such code to leave out. Development and probe builds keep the default, as the inspector's DevTools need a page.
 
 ## Title bar and window controls
 
