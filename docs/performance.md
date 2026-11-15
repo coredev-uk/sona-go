@@ -24,7 +24,7 @@ Memory is measured per process, never as one figure: the app and the playback ho
 
 `cmd/memprobe` measures the same on Linux, with a scripted run against a probe build. The probe build writes the Go heap profile and the runtime's figures into `SONA_MEMPROFILE_DIR` on `SIGUSR1` (`internal/memprobe`; the host child, which cannot write files, logs its figures into `sona.log`), and memprobe signals the whole process tree, reads each process's `/proc/<pid>/smaps` (RSS, PSS, anonymous memory, the mappings that hold the most) and prints one JSON line per process:
 
-```
+```sh
 SONA_MEMPROFILE_DIR=$PWD/prof MYGO_AUTOMATION=$PWD/a.sock SONA_PREVIEW=1 SONA_PRIVATE=1 bin/sona-probe &
 go run ./cmd/memprobe -pid $! -socket $PWD/a.sock -dir $PWD/prof -o $PWD/keep \
     link:Discover wait:20s press:"Play Perfecth" wait:15s press:"Open now playing" wait:15s measure:now-playing
