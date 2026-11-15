@@ -306,7 +306,9 @@ const queueNowArt = 56
 // matched against (and that shows the link's underline and pointer while the
 // pointer is over it); the row stays the list's one Tab stop.
 type rowLinks struct {
-	src   ui.Element
+	// x, y is the pointer in window coordinates, when it is over the row.
+	x, y  float32
+	over  bool
 	items []rowLink
 }
 
@@ -316,23 +318,20 @@ type rowLink struct {
 }
 
 // reset starts a build of the row, whose source is src.
-func (l *rowLinks) reset(src ui.Element) { l.src, l.items = src, l.items[:0] }
-
-// pointer is the pointer in window coordinates, when it is over the row.
-func (l *rowLinks) pointer() (x, y float32, ok bool) {
-	x, y, ok = l.src.PointerPosition()
-	if !ok {
-		return 0, 0, false
+func (l *rowLinks) reset(src ui.Element) {
+	l.items = l.items[:0]
+	x, y, ok := src.PointerPosition()
+	l.over = ok
+	if ok {
+		l.x, l.y = src.LocalToWindow(x, y)
 	}
-	x, y = l.src.LocalToWindow(x, y)
-	return x, y, true
 }
 
 // add makes el, text as last laid out, a link that open follows.
 func (l *rowLinks) add(el ui.Element, open func()) {
 	el.Role(ui.RoleLink)
 	at := el.Bounds()
-	if x, y, ok := l.pointer(); ok && at.Contains(x, y) {
+	if l.over && at.Contains(l.x, l.y) {
 		el.Underline()
 	}
 	l.items = append(l.items, rowLink{at, open})
@@ -340,12 +339,11 @@ func (l *rowLinks) add(el ui.Element, open func()) {
 
 // under is the link the pointer is over, if any.
 func (l *rowLinks) under() func() {
-	x, y, ok := l.pointer()
-	if !ok {
+	if !l.over {
 		return nil
 	}
 	for _, it := range l.items {
-		if it.at.Contains(x, y) {
+		if it.at.Contains(l.x, l.y) {
 			return it.open
 		}
 	}
