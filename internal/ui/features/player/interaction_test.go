@@ -1,6 +1,7 @@
 package player
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -98,6 +99,11 @@ func iaQueueRig(t *testing.T, kind string) *iaQueue {
 			q.Station = &services.QueueStation{ID: "st.1", Name: "Chill", AutoPlay: true}
 		case "video":
 			q.Items[2].Video, q.Items[2].CatalogID = true, "mv.3"
+		}
+		for i := range q.Items {
+			k := i + 1
+			q.Items[i].AlbumID, q.Items[i].Album = fmt.Sprint("al.", k), fmt.Sprint("Album ", k)
+			q.Items[i].ArtistID = fmt.Sprint("ar.", k)
 		}
 	})
 	return &iaQueue{t: t, r: r}
@@ -223,24 +229,51 @@ func TestInteractionQueueNowPlayingRow(t *testing.T) {
 	}
 }
 
-// A song's title and artist in a row are plain text, not links: choosing them
-// is choosing the row, and the page they could open (the album, the artist) is
-// reached only through the menu. A music video's title is a link to its page
-// (a pointer shortcut: the row stays the list's one Tab stop, and Enter plays).
+// A song's title and artist in a row link to its album and to the artist, as
+// the player bar's do (pointer shortcuts: the row stays the list's one Tab
+// stop, and Enter plays it). A music video's title links to its page.
 func TestInteractionQueueRowTitleAndArtist(t *testing.T) {
 	q := iaQueueRig(t, "song")
-	for _, name := range []string{"Song 3", "Artist 3"} {
-		if info, ok := q.r.tt.Access(name); ok && info.Role == ui.RoleLink {
-			t.Errorf("%s is a link", name)
+	for _, c := range []struct{ name, want string }{
+		{"Song 3", "nav /album/al.3?song=i.3"},
+		{"Artist 3", "nav /artist/ar.3"},
+	} {
+		if info, ok := q.r.tt.Access(c.name); !ok || info.Role != ui.RoleLink {
+			t.Errorf("%s: role %v (found %v), want a link", c.name, info.Role, ok)
 		}
 		q.mark()
-		if err := q.r.tt.Click(name); err != nil {
+		if err := q.r.tt.Click(c.name); err != nil {
 			t.Fatal(err)
 		}
-		// DEPARTS: the same song's title and artist are links in the player bar (to its album and to the artist), here they are plain text that opens nothing.
-		if got := q.fx(); got != "nothing" {
-			t.Errorf("click on the %s of a song row: %s, want nothing", name, got)
+		if got := q.fx(); got != c.want {
+			t.Errorf("click on the %s of a song row: %s, want %s", c.name, got, c.want)
 		}
+	}
+	// The row still plays on Enter and a double-click anywhere else on it.
+	q.r.focusRow(t, "Song 3, Artist 3")
+	q.mark()
+	q.r.tt.Key(0, ui.KeyEnter)
+	if got := q.fx(); got != "jump 2" {
+		t.Errorf("Enter on a song row: %s, want a jump", got)
+	}
+	// Neither link is a Tab stop: the row is the list's one.
+	for range 40 {
+		q.r.tt.Key(0, ui.KeyTab)
+		q.r.tt.Frame()
+		if tr := access.Read(t, q.r.tt.Tester); tr.Focus != nil && (tr.Focus.Label == "Song 3" || tr.Focus.Label == "Artist 3") {
+			t.Fatalf("Tab stops at %q", tr.Focus.Label)
+		}
+	}
+	// The right-click menu still opens over a link.
+	for _, name := range []string{"Song 3", "Artist 3"} {
+		q.mark()
+		x, y := q.r.at(t, name)
+		q.r.tt.RightClickAt(x, y)
+		if got := q.fx(); got != "menu" {
+			t.Errorf("right-click on %s of a song row: %s, want the row's menu", name, got)
+		}
+		q.r.tt.Key(0, ui.KeyEscape)
+		q.r.tt.Frame()
 	}
 
 	v := iaQueueRig(t, "video")
@@ -251,7 +284,6 @@ func TestInteractionQueueRowTitleAndArtist(t *testing.T) {
 	if err := v.r.tt.Click("Song 3"); err != nil {
 		t.Fatal(err)
 	}
-	// DEPARTS: a music video's title in a row opens its page on a click, though a song's title in the next row opens nothing.
 	if got := v.fx(); got != "nav /music-video/mv.3" {
 		t.Errorf("click on a music video's title: %s, want its page", got)
 	}
@@ -263,14 +295,37 @@ func TestInteractionQueueRowTitleAndArtist(t *testing.T) {
 		t.Errorf("Enter on a music video's row: %s, want a jump", got)
 	}
 
-	// Without the page the title is plain text.
-	u := iaQueueRig(t, "video")
+	// Without the pages the text is plain.
+	u := iaQueueRig(t, "song")
 	u.r.h.Env.HasRoute = func(string) bool { return false }
 	u.r.tt.Frame()
-	u.mark()
-	_ = u.r.tt.Click("Song 3")
-	if got := u.fx(); got != "nothing" {
-		t.Errorf("click on a music video's title without its page: %s, want nothing", got)
+	for _, name := range []string{"Song 3", "Artist 3"} {
+		if info, ok := u.r.tt.Access(name); ok && info.Role == ui.RoleLink {
+			t.Errorf("%s is a link without its page", name)
+		}
+		u.mark()
+		_ = u.r.tt.Click(name)
+		if got := u.fx(); got != "nothing" {
+			t.Errorf("click on %s without its page: %s, want nothing", name, got)
+		}
+	}
+}
+
+// The playing row links its title, artist and album as the bar does.
+func TestInteractionQueuePlayingRowLinks(t *testing.T) {
+	q := iaQueueRig(t, "song")
+	for _, c := range []struct{ name, want string }{
+		{"Song 1", "nav /album/al.1?song=i.1"},
+		{"Artist 1", "nav /artist/ar.1"},
+		{"Album 1", "nav /album/al.1"},
+	} {
+		q.mark()
+		if err := q.r.tt.Click(c.name); err != nil {
+			t.Fatal(err)
+		}
+		if got := q.fx(); got != c.want {
+			t.Errorf("click on %s of the playing row: %s, want %s", c.name, got, c.want)
+		}
 	}
 }
 
@@ -318,9 +373,8 @@ func TestInteractionQueuePlayingFromLink(t *testing.T) {
 	if !ok {
 		t.Fatalf("no link Chill:\n%s", tr.Dump())
 	}
-	// DEPARTS: the link has no Tab stop, so the station's page cannot be reached from the keyboard here.
-	if n.Has(access.Focusable) {
-		t.Error("the station link is a Tab stop")
+	if !n.Has(access.Focusable) {
+		t.Error("the station link is not a Tab stop")
 	}
 	r.tt.MustClick("Chill")
 	if got := r.nav.Pushed; len(got) != 1 || got[0] != "/station/st.1" {

@@ -248,6 +248,7 @@ It is the recommended setting on software rendering.
   - It marks a song wherever it could be taken for a catalogue one, so a catalogue song and an upload of the same name are two rows that tell themselves apart. The one place it is left off (`TrackListOpts.HideUploadMark`) is a record whose songs are all uploads, where it would mark every row and tell none apart.
   - An upload has no catalogue page, so its menu has none of what needs one (no Copy link, View credits or Create station), and its row opens no song page: it plays in place.
 - Queue rows have one menu, opened by right-click, Shift+F10 or the Menu key, or the ellipsis button that shares the hover and focus slot with the remove button (both replace the duration): Play, Play next (to the front of what plays next), Move to end (to the back of the user's songs, before AutoPlay's), then Remove. An item that would change nothing is left out (no Play next on the first song after the current one, no Move to end on the last of the user's), and the playing song has no menu. AutoPlay and station rows keep their place, so their menu is Play and Remove. A move is announced in a status region ("Airbag: moved to position 2 of 6") and a row with focus stays focused and in view.
+- **A queue row's title and artist are links, as the bar's are**: the title opens the song in its album (a music video its page), the artist their page, and the playing row also links its album. They are pointer shortcuts, matched against the row's own click so that a row can still be dragged by its title or artist: the list stays one Tab stop, Enter and a double-click elsewhere on the row still play it, and a right-click on a link opens the row's menu. Without the page the text is plain; a song credited to several artists keeps its artist as plain text (the bar's menu of them is a button, which would take the press from the drag). "Playing from <station>" is a Tab stop.
 - **The queue panel is a running order in three groups**, each under a 14/600 heading. Each group is a list of its own for assistive technology, so a row says its place in its group.
   - **Now playing**: the playing song as one 72px row on a `--hover` fill at radius 8 (cover 56px, the title at 14/600 in `--amber-ink`, the artist and the album under it, the equaliser at the end).
   - **Next**: the songs after it in play order, 52px rows numbered from 1 in `--ink-faint` tabular figures where the cover's index would be. The grip of a row that can be dragged takes the number's place while the pointer or the focus is on it. The heading's detail line says how many follow ("3 songs after this one", or the station it plays from, as a link).
@@ -382,9 +383,9 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button | disclosure |
 | Queue rows | song, AutoPlay, music video | focuses the row | plays from the row | plays | none | none | none | yes | hover fill and grip |
 |  | the playing song | none | restarts it | restarts it | none | none | none | none ([#447]) | amber title |
-|  | video title | opens its page | | | | | | | link |
-|  | song title and artist | plain text ([#448]) | | | | | | | |
-|  | "Playing from <station>" | opens the station | | not a Tab stop ([#448]) | | | | | link |
+|  | song title, music video title | opens its album with the song marked, its page | | | none | none | none | the row's menu | link (a pointer shortcut, not a Tab stop) |
+|  | artist | opens the artist (several credited: plain text) | | | none | none | none | the row's menu | link (a pointer shortcut, not a Tab stop) |
+|  | "Playing from <station>" | opens the station | | opens | | | | | link, a Tab stop |
 | Player bar | cover | opens Now Playing (a video: the video view) | | opens | none | opens | n/a | yes | button |
 |  | title | song: its album with the song marked; station: its page; video: its page | | opens | none | none | n/a | yes | link |
 |  | artist, album | opens | | opens | none | none | n/a | yes | link |
@@ -436,7 +437,6 @@ Argued departures that stay (not issues):
 | [#445] | local shelves, library grids and release rows have no Play |
 | [#446] | station rows: pause, menu, link tile Play |
 | [#447] | right-click and More disagree |
-| [#448] | the queue's links and Tab stop |
 | [#449] | the mini player's inert text |
 
 [#423]: https://github.com/coredev-uk/sona-go/issues/423
@@ -457,7 +457,6 @@ Argued departures that stay (not issues):
 [#445]: https://github.com/coredev-uk/sona-go/issues/445
 [#446]: https://github.com/coredev-uk/sona-go/issues/446
 [#447]: https://github.com/coredev-uk/sona-go/issues/447
-[#448]: https://github.com/coredev-uk/sona-go/issues/448
 [#449]: https://github.com/coredev-uk/sona-go/issues/449
 
 ## Dates
