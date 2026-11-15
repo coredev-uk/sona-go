@@ -31,6 +31,11 @@ type fakeAPI struct {
 	details     map[string]services.PlaylistDetail
 	collab      map[string]services.PlaylistCollaboration
 	suggestions map[string][]services.Song
+	// suggestSets, when set for a playlist, are the sets Suggestions returns
+	// one after another (the last one repeats): Apple draws a new set on
+	// every call.
+	suggestSets map[string][][]services.Song
+	suggestN    map[string]int
 	recents     []string
 	pinTracks   map[string][]services.Song
 	// covers are the cover pickers by playlist; SetCover, UploadCover and
@@ -52,6 +57,8 @@ func newFakeAPI() *fakeAPI {
 		details:     map[string]services.PlaylistDetail{},
 		collab:      map[string]services.PlaylistCollaboration{},
 		suggestions: map[string][]services.Song{},
+		suggestSets: map[string][][]services.Song{},
+		suggestN:    map[string]int{},
 		pinTracks:   map[string][]services.Song{},
 		covers:      map[string]services.PlaylistCovers{},
 	}
@@ -129,6 +136,11 @@ func (f *fakeAPI) Suggestions(_ context.Context, id string) ([]services.Song, er
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if sets := f.suggestSets[id]; len(sets) > 0 {
+		n := min(f.suggestN[id], len(sets)-1)
+		f.suggestN[id]++
+		return sets[n], nil
+	}
 	return f.suggestions[id], nil
 }
 

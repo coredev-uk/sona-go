@@ -174,6 +174,14 @@ Sidebar sections: Recently Added, Artists, Albums, Songs, Music Videos, Made for
 | Suggested songs (shown below a user playlist) | same page | `POST /v1/me/recommendations/suggested?contexts=playlist-suggested-songs&types=songs&limit=20&meta=source&include[songs]=artists&fields[songs]=artwork,name,url,artistName,albumName,previews` with body `{"targetContent":{"id":"p.…","type":"library-playlists"}}` | 200. `results.suggested` → songs |
 | "Add to Playlist" target list | context menu | `GET /v1/me/library/playlists?filter[featured]=suggested` | 200. Recently used editable playlists (`meta.filters.featured.suggested`) |
 
+Suggested songs: refresh and paging (probed 2026-11-15, read-only, through Sona's client, on three library playlists):
+
+- **Every call draws a new set.** Repeating the same `POST` returned another 20 songs each time, sharing 1 to 8 of the 20 with the call before; there is no cursor and no seed to send, so "refresh" is just asking again.
+- **No paging.** The response has only `results.suggested` (no `next`, no `meta`). `offset=20` returns another random 20 that overlaps the first call's (3 to 7 shared), so it is not a second page.
+- **`limit` goes above 20.** `limit=40` and `limit=100` returned exactly that many songs (a fresh draw, not the first 20 plus more). Sona keeps `limit=20`.
+- Songs already in the playlist are not guaranteed to be left out, and two draws overlap, so Sona filters the playlist's own songs and the songs of sets it has replaced.
+- The probe only read; no suggestion was added to any playlist. The web player's own refresh control was not inspected.
+
 Library list paging: `limit` is at most 100 and `meta.total` is present. This matches Sona's `FetchPages`. Library playlists can mix catalog and uploaded or non-catalog songs; resolve `catalog` relationships when present.
 
 ### 3.1 A pre-added (unreleased) album in the library

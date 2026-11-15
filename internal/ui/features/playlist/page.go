@@ -205,7 +205,7 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 	}
 
 	if editable && !inEdit {
-		p.suggestionsShelf(c, id, pl.Name)
+		p.suggestionsShelf(c, id, pl.Name, d.Tracks)
 	}
 	p.featuredShelf(c, d, menus)
 	p.moreShelf(c, d, menus)
