@@ -164,9 +164,12 @@ in
     # Not `test`: the shell's `test` builtin would shadow it.
     tests.exec = ''
       set -e
-      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race ./... "$@"
+      # go test's 10 minute default is a wall-clock limit a busy machine can pass
+      # in the UI packages (docs/testing.md, "Timing in tests"): 30 minutes only
+      # guards against a hang. An argument of yours comes later and wins.
+      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -timeout 30m ./... "$@"
       # The packages with dev-only code, in a development build.
-      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris
+      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -timeout 30m -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris
     '';
     auth-spike.exec = ''go run ./cmd/authspike "$@"'';
     play-spike.exec = ''go run ./cmd/playspike "$@"'';

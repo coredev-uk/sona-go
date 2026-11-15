@@ -153,7 +153,7 @@ func (a *listApp) view(c *ui.Context) {
 // main thread) and redraws.
 func (a *listApp) drain(t *testing.T, tt *ui.Tester, want int) {
 	t.Helper()
-	deadline := time.After(2 * time.Second)
+	deadline := time.After(hangGuard)
 	for range want {
 		select {
 		case fn := <-a.posted:
@@ -471,7 +471,7 @@ func TestMenuDataWithASynchronousPosterDoesNotRace(t *testing.T) {
 	a, tt := newListApp(t)
 	a.reg.SetPoster(func(fn func()) { fn() }) // as a test Poster does: on the load goroutine
 	_ = tt.Click("More for Airbag")
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for !tt.HasText("Undo favourite") {
 		if time.Now().After(deadline) {
 			t.Fatal("the data never arrived")

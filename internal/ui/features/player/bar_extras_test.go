@@ -20,6 +20,11 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
+// hangGuard is how long a test waits for state before it calls the wait
+// hung. It is no part of what a test checks, so it is far longer than a
+// loaded machine needs.
+const hangGuard = 30 * time.Second
+
 // routed makes every page a registered one, or none.
 func routed(r *rig, all bool) *uitest.Nav {
 	nav := &uitest.Nav{}
@@ -135,12 +140,12 @@ func TestLyricsButtonIsOfferedUnlessAMusicVideoPlays(t *testing.T) {
 }
 
 // fakeRatings is the library service behind the rating buttons.
-// wait blocks until a call was made (the test fails after 5 s).
+// wait blocks until a call was made.
 func (f *fakeRatings) wait(t *testing.T) {
 	t.Helper()
 	select {
 	case <-f.done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("the rating call never came")
 	}
 }
@@ -196,14 +201,9 @@ func ratedRig(t *testing.T, state services.ItemState) (*rig, *fakeRatings) {
 	r.env.ItemStates = kit.NewItemStates(r.env.Queries, r.env.Post, f)
 	r.seed(func(s *services.PlaybackState) { s.Current.CatalogID = "100" })
 	// The buttons are disabled until Go has answered the (batched) state load.
-	for range 400 {
-		r.h.Main.Drain()
-		r.tt.Frame()
-		if r.env.ItemStates.Use(kit.StateSongs, kit.StateItem{ID: "i.1", CatalogID: "100"}).HasData {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	r.tt.Until("the item states", func() bool {
+		return r.env.ItemStates.Use(kit.StateSongs, kit.StateItem{ID: "i.1", CatalogID: "100"}).HasData
+	})
 	return r, f
 }
 
@@ -211,15 +211,10 @@ func ratedRig(t *testing.T, state services.ItemState) (*rig, *fakeRatings) {
 // shows.
 func (r *rig) until(t *testing.T, name string) {
 	t.Helper()
-	for range 200 {
-		r.h.Main.Drain()
-		r.tt.Frame()
-		if _, ok := r.tt.Find(name); ok {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("%q never showed: %q", name, r.tt.Texts())
+	r.tt.Until(fmt.Sprintf("%q", name), func() bool {
+		_, ok := r.tt.Find(name)
+		return ok
+	})
 }
 
 func TestRatingButtonsFavouriteTheSong(t *testing.T) {
@@ -498,17 +493,10 @@ func TestALibrarySongInTheBarGetsItsCataloguesArtists(t *testing.T) {
 	if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleLink, stayCredit); !ok {
 		t.Fatal("before the lookup the library artist is a link")
 	}
-	for deadline := time.Now().Add(5 * time.Second); ; {
-		r.h.Main.Drain()
-		r.tt.Frame()
-		if _, ok := access.Read(t, r.tt.Tester).Find(ui.RoleMenuButton, stayCredit); ok {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("the chooser never came:\n%s", access.Read(t, r.tt.Tester).Dump())
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	r.tt.Until("the chooser", func() bool {
+		_, ok := access.Read(t, r.tt.Tester).Find(ui.RoleMenuButton, stayCredit)
+		return ok
+	})
 	if got := <-f.ids; !slices.Equal(got, []string{"1001"}) {
 		t.Errorf("looked up %v, want the catalogue song", got)
 	}

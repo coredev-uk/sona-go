@@ -9,10 +9,16 @@ import (
 	"time"
 )
 
-// fakeClock is the Client's clock, moved by hand.
+// hangGuard bounds a wait that is always satisfied by an event: it only turns
+// a hang into a failure, and is long enough for a shared, loaded runner.
+const hangGuard = 30 * time.Second
+
+// fakeClock is the Client's clock, moved by hand. It is also the Client's
+// poster: each published fetch result is announced on posted.
 type fakeClock struct {
-	mu sync.Mutex
-	t  time.Time
+	mu     sync.Mutex
+	t      time.Time
+	posted chan struct{}
 }
 
 func (c *fakeClock) now() time.Time {
@@ -27,17 +33,46 @@ func (c *fakeClock) advance(d time.Duration) {
 	c.mu.Unlock()
 }
 
+// post publishes at once, then announces it. No test makes anywhere near
+// cap(posted) fetches, so the send never blocks or drops.
+func (c *fakeClock) post(fn func()) {
+	fn()
+	c.posted <- struct{}{}
+}
+
+// awaitPosts waits until n more fetch results have been published.
+func (c *fakeClock) awaitPosts(t *testing.T, n int) {
+	t.Helper()
+	for range n {
+		select {
+		case <-c.posted:
+		case <-time.After(hangGuard):
+			t.Fatal("timed out waiting for a fetch result to be published")
+		}
+	}
+}
+
 func newTestClient() (*Client, *fakeClock) {
-	clk := &fakeClock{t: time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)}
-	cl := NewClient(nil)
+	clk := &fakeClock{t: time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC), posted: make(chan struct{}, 1024)}
+	cl := NewClient(clk.post)
 	cl.now = clk.now
 	return cl, clk
 }
 
-// eventually polls cond: fetches run on goroutines.
+// fetching reports whether key's query has a fetch in flight, without
+// using it (a use could start one).
+func fetching(cl *Client, key Key) bool {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	e := cl.entries[key.id()]
+	return e != nil && e.fetching
+}
+
+// eventually polls cond: fetches run on goroutines. The deadline only guards
+// a hang.
 func eventually(t *testing.T, what string, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for !cond() {
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out waiting for %s", what)
@@ -131,7 +166,9 @@ func TestStaleDataRefetchesWhenAViewMounts(t *testing.T) {
 	// A mount within Stale keeps the data.
 	clk.advance(5 * time.Second)
 	use()
-	time.Sleep(10 * time.Millisecond)
+	if fetching(cl, key) { // a refetch would be marked in flight by now
+		t.Error("a mount within Stale started a fetch")
+	}
 	if c.n.Load() != 2 {
 		t.Errorf("fresh data refetched: %d", c.n.Load())
 	}
@@ -174,16 +211,30 @@ func TestInvalidateFollowsKeyPrefixes(t *testing.T) {
 	}
 	settle := func(want int32) {
 		t.Helper()
+		// A fetch counts as run before its answer is published, and an
+		// Invalidate in between would cancel it: wait until none is in flight.
 		eventually(t, "settled fetches", func() bool {
 			use()
 			for _, k := range keys {
-				if k.c.n.Load() < want {
+				if k.c.n.Load() < want || fetching(cl, k.key) {
 					return false
 				}
 			}
 			return true
 		})
-		time.Sleep(5 * time.Millisecond)
+	}
+	// quiet waits until no query has a fetch in flight (a fetch counts as run
+	// before its answer is published).
+	quiet := func(what string) {
+		t.Helper()
+		eventually(t, what, func() bool {
+			for _, k := range keys {
+				if fetching(cl, k.key) {
+					return false
+				}
+			}
+			return true
+		})
 	}
 	counts := func() [3]int32 { return [3]int32{albums.n.Load(), songs.n.Load(), lists.n.Load()} }
 	use()
@@ -204,20 +255,28 @@ func TestInvalidateFollowsKeyPrefixes(t *testing.T) {
 		t.Errorf("a sibling refetched: %v", counts())
 	}
 
+	quiet("the library refetch") // one still in flight would look like a fetch the next Invalidate started
 	cl.Invalidate(Key{"libr"}, Key{"library", "albums", "title", "more"}, Key{"nothing"})
-	time.Sleep(10 * time.Millisecond)
+	for _, k := range keys { // an Invalidate that started a fetch has marked it in flight
+		if fetching(cl, k.key) {
+			t.Errorf("non-prefixes started a fetch of %v", k.key)
+		}
+	}
 	if counts() != [3]int32{3, 2, 1} {
 		t.Errorf("non-prefixes matched: %v", counts())
 	}
 
 	cl.Invalidate() // everything
 	eventually(t, "everything", func() bool { return counts() == [3]int32{4, 3, 2} })
+	quiet("everything")
 
 	// A query nobody used for a while is only marked: it refetches when used again.
 	clk.advance(10 * time.Minute)
 	before := counts()
 	cl.Invalidate(Key{"playlists"})
-	time.Sleep(10 * time.Millisecond)
+	if fetching(cl, Key{"playlists"}) {
+		t.Error("an idle query started a fetch")
+	}
 	if counts() != before {
 		t.Errorf("an idle query refetched at once: %v", counts())
 	}
@@ -239,7 +298,7 @@ func TestInvalidatedIdleQueryRefetchesWhenUsedAgain(t *testing.T) {
 }
 
 func TestInvalidateCancelsAFetchInFlightAndIgnoresItsResult(t *testing.T) {
-	cl, _ := newTestClient()
+	cl, clk := newTestClient()
 	var runs atomic.Int32
 	first := make(chan struct{})
 	cancelled := make(chan struct{})
@@ -259,12 +318,12 @@ func TestInvalidateCancelsAFetchInFlightAndIgnoresItsResult(t *testing.T) {
 	cl.Invalidate(Key{"q"})
 	select {
 	case <-cancelled:
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("the fetch in flight was not cancelled")
 	}
 	eventually(t, "the new result", func() bool { return Use(cl, Key{"q"}, fetch).Data == "new" })
 	close(first)
-	time.Sleep(10 * time.Millisecond)
+	clk.awaitPosts(t, 2) // the cancelled fetch's answer and the new one are both published
 	if Use(cl, Key{"q"}, fetch).Data != "new" {
 		t.Error("the cancelled fetch's result replaced the new one")
 	}
@@ -317,7 +376,7 @@ func TestKeepDropsUnusedQueriesAndCancelsTheirFetch(t *testing.T) {
 	n := cl.sweepNow()
 	select {
 	case <-gone:
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("the dropped query's context was not cancelled")
 	}
 	if n != 1 {
@@ -476,7 +535,7 @@ func TestResetDropsEverythingAndCancels(t *testing.T) {
 	cl.Reset()
 	select {
 	case <-gone:
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("Reset left a fetch running")
 	}
 	if r := Use(cl, Key{"b"}, c.fetch, Options{Stale: Forever}); r.HasData {

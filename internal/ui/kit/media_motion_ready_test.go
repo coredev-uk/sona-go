@@ -38,7 +38,7 @@ func systemOpen(t *testing.T, path string) func(context.Context, string, int) (*
 // mediaWaitFor builds frames of tt and runs what posted until cond holds.
 func mediaWaitFor(t *testing.T, tt *ui.Tester, e *mediaMotionEnv, what string, cond func() bool) {
 	t.Helper()
-	for end := time.Now().Add(20 * time.Second); !cond(); time.Sleep(3 * time.Millisecond) {
+	for end := time.Now().Add(hangGuard); !cond(); time.Sleep(3 * time.Millisecond) {
 		if time.Now().After(end) {
 			t.Fatalf("no %s", what)
 		}

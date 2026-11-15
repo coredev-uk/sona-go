@@ -32,7 +32,7 @@ func (f *fakeQueueSvc) wait(t *testing.T) {
 	t.Helper()
 	select {
 	case <-f.done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("no service call")
 	}
 }
@@ -115,12 +115,11 @@ func (m *queueMain) drain() {
 // until drains the posted funcs until ok holds.
 func (m *queueMain) until(t *testing.T, what string, ok func() bool) {
 	t.Helper()
-	for i := 0; i < 1000; i++ {
+	for deadline := time.Now().Add(hangGuard); time.Now().Before(deadline); time.Sleep(time.Millisecond) {
 		m.drain()
 		if ok() {
 			return
 		}
-		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %s", what)
 }
@@ -244,14 +243,13 @@ func TestReplacingALongUserQueueCanAskFirst(t *testing.T) {
 // waitToasts waits for n toasts and takes them.
 func waitToasts(t *testing.T, n int) []string {
 	t.Helper()
-	for i := 0; i < 1000; i++ {
+	for deadline := time.Now().Add(hangGuard); time.Now().Before(deadline); time.Sleep(time.Millisecond) {
 		toasts.mu.Lock()
 		got := len(toasts.queue)
 		toasts.mu.Unlock()
 		if got >= n {
 			return queueToasts()
 		}
-		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %d toasts", n)
 	return nil

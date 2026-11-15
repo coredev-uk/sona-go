@@ -218,14 +218,11 @@ func newSongArtists(f *fakeSongArtists) *SongArtists {
 	return s
 }
 
-func eventually(t *testing.T, what string, ok func() bool) {
-	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(2 * time.Millisecond) {
-		if ok() {
-			return
-		}
-	}
-	t.Fatalf("timed out waiting for %s", what)
+// queuedSongArtists is what has been asked for and not yet sent.
+func queuedSongArtists(s *SongArtists) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.queue)
 }
 
 // A library song knows its library artist alone: its catalogue copy's artists
@@ -234,7 +231,7 @@ func eventually(t *testing.T, what string, ok func() bool) {
 func TestSongArtistsLooksUpALibrarySongsCatalogueCopy(t *testing.T) {
 	f := &fakeSongArtists{by: map[string][]services.Artist{"1574968888": twoArtists, "5": oneArtist}}
 	s := newSongArtists(f)
-	s.wait = 40 * time.Millisecond // the frame's asks gather
+	s.wait = time.Hour // the frame's asks gather until the test sends them
 	lib := services.Song{ID: "i.1", Source: services.SourceLibrary, CatalogID: "1574968888", Artist: "The Kid LAROI & Justin Bieber", ArtistID: "r.7"}
 	if got := s.OfSong(lib); len(got) != 1 || got[0].ID != "r.7" {
 		t.Fatalf("before the lookup: %+v, want the library artist alone", got)
@@ -242,9 +239,9 @@ func TestSongArtistsLooksUpALibrarySongsCatalogueCopy(t *testing.T) {
 	// Another song in the same frame joins the call.
 	other := services.Song{ID: "i.2", CatalogID: "5", Artist: "Earth, Wind & Fire", ArtistID: "r.8"}
 	s.OfSong(other)
-	eventually(t, "the lookup", func() bool { return len(s.OfSong(lib)) == 2 })
+	s.flush()
 	got := s.OfSong(lib)
-	if got[0].ID != "1435848034" || got[1].Name != "Justin Bieber" {
+	if len(got) != 2 || got[0].ID != "1435848034" || got[1].Name != "Justin Bieber" {
 		t.Errorf("artists %+v, want Apple's order", got)
 	}
 	if reqs := f.requests(); len(reqs) != 1 || len(reqs[0]) != 2 {
@@ -259,6 +256,9 @@ func TestSongArtistsLooksUpALibrarySongsCatalogueCopy(t *testing.T) {
 	if reqs := f.requests(); len(reqs) != 1 {
 		t.Errorf("a known song was asked again: %v", reqs)
 	}
+	if q := queuedSongArtists(s); len(q) != 0 {
+		t.Errorf("a known song was queued again: %v", q)
+	}
 }
 
 // Only a song that can name several is looked up: a name with no ", " or " & "
@@ -266,6 +266,7 @@ func TestSongArtistsLooksUpALibrarySongsCatalogueCopy(t *testing.T) {
 func TestSongArtistsAsksOnlyWhereTheNameMayNameSeveral(t *testing.T) {
 	f := &fakeSongArtists{by: map[string][]services.Artist{}}
 	s := newSongArtists(f)
+	s.wait = time.Hour // nothing is sent unless the test flushes, so the queue shows what was asked
 	s.OfSong(services.Song{CatalogID: "1", Artist: "Queen", ArtistID: "r.1"})
 	s.OfSong(services.Song{CatalogID: "", Artist: "A & B", ArtistID: "r.2"})
 	own := services.Song{CatalogID: "3", Artist: "A & B", ArtistID: "9", Artists: twoArtists}
@@ -276,7 +277,9 @@ func TestSongArtistsAsksOnlyWhereTheNameMayNameSeveral(t *testing.T) {
 	if got := nilSongArtists.OfSong(services.Song{CatalogID: "4", Artist: "A & B", ArtistID: "r.4"}); len(got) != 1 || got[0].ID != "r.4" {
 		t.Errorf("without a resolver: %+v", got)
 	}
-	time.Sleep(50 * time.Millisecond)
+	if q := queuedSongArtists(s); len(q) != 0 {
+		t.Errorf("queued %v, want nothing", q)
+	}
 	if reqs := f.requests(); len(reqs) != 0 {
 		t.Errorf("requests %v, want none", reqs)
 	}
@@ -289,10 +292,10 @@ func TestSongArtistsAsksOnlyWhereTheNameMayNameSeveral(t *testing.T) {
 func TestSongArtistsFailureKeepsTheFirstArtist(t *testing.T) {
 	f := &fakeSongArtists{err: errors.New("offline")}
 	s := newSongArtists(f)
+	s.wait = time.Hour // the test runs the batch itself
 	song := services.Song{CatalogID: "1", Artist: "A & B", ArtistID: "r.1"}
 	s.OfSong(song)
-	eventually(t, "the lookup", func() bool { return len(f.requests()) == 1 })
-	time.Sleep(20 * time.Millisecond)
+	s.flush()
 	for range 3 {
 		if got := s.OfSong(song); len(got) != 1 || got[0].ID != "r.1" {
 			t.Fatalf("after a failure: %+v", got)
@@ -300,5 +303,8 @@ func TestSongArtistsFailureKeepsTheFirstArtist(t *testing.T) {
 	}
 	if reqs := f.requests(); len(reqs) != 1 {
 		t.Errorf("a failed lookup was retried at once: %v", reqs)
+	}
+	if q := queuedSongArtists(s); len(q) != 0 {
+		t.Errorf("a failed lookup was queued again at once: %v", q)
 	}
 }

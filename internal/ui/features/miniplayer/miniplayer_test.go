@@ -22,6 +22,11 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
 
+// hangGuard is how long a test waits for an event before it calls the wait
+// hung. It is no part of what a test checks, so it is far longer than a
+// loaded machine needs.
+const hangGuard = 30 * time.Second
+
 // fakeDesk records the window calls.
 type fakeDesk struct {
 	mu    sync.Mutex
@@ -51,7 +56,7 @@ func (d *fakeDesk) wait(t *testing.T) []string {
 	t.Helper()
 	select {
 	case <-d.done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("no window call")
 	}
 	d.mu.Lock()

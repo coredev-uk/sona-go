@@ -1,6 +1,7 @@
 package media
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -8,6 +9,37 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/playback/video"
 )
+
+// hangGuard bounds a wait that an event always ends: it only turns a hang
+// into a failure, and is long enough for a shared, loaded runner.
+const hangGuard = 30 * time.Second
+
+// spySource reports the sequence every Next call waits after, so a test can
+// tell what the feed has taken and that it is asking for the next picture.
+type spySource struct {
+	FrameSource
+	nexts chan uint64
+}
+
+func (s *spySource) Next(ctx context.Context, after uint64) (video.Frame, bool) {
+	select {
+	case s.nexts <- after:
+	default:
+	}
+	return s.FrameSource.Next(ctx, after)
+}
+
+// nextAfter is the sequence of the next Next call.
+func (s *spySource) nextAfter(t *testing.T) uint64 {
+	t.Helper()
+	select {
+	case after := <-s.nexts:
+		return after
+	case <-time.After(hangGuard):
+		t.Fatal("the feed never asked for a picture")
+		return 0
+	}
+}
 
 // planes is a w×h I420 picture of one grey.
 func planes(w, h int, luma byte) []byte {
@@ -44,7 +76,7 @@ func TestFeedShowsPicturesFromTheSurface(t *testing.T) {
 
 	wait := func() Picture {
 		t.Helper()
-		deadline := time.After(5 * time.Second)
+		deadline := time.After(hangGuard)
 		for {
 			runPosted()
 			select {
@@ -93,7 +125,7 @@ func TestFeedShowsPicturesFromTheSurface(t *testing.T) {
 
 	// Cleared: the video ended.
 	s.Clear()
-	deadline := time.After(5 * time.Second)
+	deadline := time.After(hangGuard)
 	for done := false; !done; {
 		runPosted()
 		select {
@@ -119,7 +151,18 @@ func TestFeedHoldsPicturesWhileNotDrawn(t *testing.T) {
 	defer f.Stop()
 
 	s.Show(16, 16, 0, planes(16, 16, 128))
-	time.Sleep(100 * time.Millisecond) // the feed took it and left it
+	// The feed took it and left it: held as skipped, nothing posted.
+	for deadline := time.Now().Add(hangGuard); ; time.Sleep(time.Millisecond) {
+		f.mu.Lock()
+		held := f.skipped != nil
+		f.mu.Unlock()
+		if held {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the feed never took the picture")
+		}
+	}
 	if posts.Load() != 0 {
 		t.Fatalf("%d pictures were posted while not drawn", posts.Load())
 	}
@@ -127,7 +170,7 @@ func TestFeedHoldsPicturesWhileNotDrawn(t *testing.T) {
 	// Drawing again: the picture the feed skipped is shown.
 	drawn.Store(true)
 	f.Refresh()
-	deadline := time.After(5 * time.Second)
+	deadline := time.After(hangGuard)
 	for {
 		mu.Lock()
 		q := queue
@@ -153,7 +196,7 @@ func TestFeedStopEndsTheGoroutine(t *testing.T) {
 	go func() { f.Stop(); close(stopped) }()
 	select {
 	case <-stopped:
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("Stop did not return")
 	}
 	f.Stop() // twice is fine
@@ -171,7 +214,7 @@ func TestFeedKeepsNothingAfterStop(t *testing.T) {
 	f := NewFeed(s, post, func(Picture) { shown++ }, func() {}, nil)
 	f.Start()
 	s.Show(16, 16, 0, planes(16, 16, 128))
-	deadline := time.After(5 * time.Second)
+	deadline := time.After(hangGuard)
 	for {
 		mu.Lock()
 		n := len(queue)
@@ -205,8 +248,7 @@ func TestFeedKeepsNothingAfterStop(t *testing.T) {
 		t.Error("the feed still holds pictures after Stop")
 	}
 	// A restart does not flash the old picture, and a Refresh after Stop does nothing.
-	f.Refresh()
-	time.Sleep(20 * time.Millisecond)
+	f.Refresh() // synchronous: the goroutine is gone, so anything it posted is already queued
 	mu.Lock()
 	n := len(queue)
 	mu.Unlock()
@@ -218,15 +260,21 @@ func TestFeedKeepsNothingAfterStop(t *testing.T) {
 func TestFeedRestartTakesOnlyPicturesShownFromNow(t *testing.T) {
 	s := video.NewSurface()
 	s.Show(64, 48, 0, planes(64, 48, 235)) // the item before's last picture
+	src := &spySource{FrameSource: s, nexts: make(chan uint64, 16)}
 	shown := make(chan Picture, 8)
-	f := NewFeed(s, func(fn func()) { fn() }, func(p Picture) { shown <- p }, func() {}, nil)
+	f := NewFeed(src, func(fn func()) { fn() }, func(p Picture) { shown <- p }, func() {}, nil)
 	defer f.Stop()
 
 	f.Restart()
+	// The feed waits for a picture after the one on show (1) rather than
+	// taking it: had it asked after 0 it would be shown at once.
+	if after := src.nextAfter(t); after != 1 {
+		t.Fatalf("the feed took the picture on show before the restart: it asked after %d, want 1", after)
+	}
 	select {
 	case p := <-shown:
 		t.Fatalf("the picture on show before the restart was taken (seq %d)", p.Seq)
-	case <-time.After(50 * time.Millisecond):
+	default:
 	}
 	s.Show(64, 48, time.Second, planes(64, 48, 16))
 	select {
@@ -234,7 +282,7 @@ func TestFeedRestartTakesOnlyPicturesShownFromNow(t *testing.T) {
 		if p.Seq != 2 {
 			t.Errorf("picture seq %d, want the new one (2)", p.Seq)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("no picture after the restart")
 	}
 	// A Start after a Start-less Stop begins with the picture on show.
@@ -245,7 +293,7 @@ func TestFeedRestartTakesOnlyPicturesShownFromNow(t *testing.T) {
 		if p.Seq != 2 {
 			t.Errorf("Start took seq %d, want the picture on show (2)", p.Seq)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("Start did not take the picture on show")
 	}
 }
@@ -260,10 +308,12 @@ func TestFeedDropsAPictureThatWasPublishedAcrossARestart(t *testing.T) {
 	// The old picture, taken before the restart, is published now, with the
 	// feed running again.
 	f.publish(video.Frame{Seq: 1, Width: 64, Height: 48, Data: planes(64, 48, 235)})
+	// publish is synchronous and the poster runs at once: a picture it
+	// accepted is already shown.
 	select {
 	case p := <-shown:
 		t.Fatalf("the picture of before the restart was shown (seq %d)", p.Seq)
-	case <-time.After(30 * time.Millisecond):
+	default:
 	}
 	// A picture shown after it is taken.
 	f.publish(video.Frame{Seq: 2, Width: 64, Height: 48, Data: planes(64, 48, 16)})
@@ -272,7 +322,7 @@ func TestFeedDropsAPictureThatWasPublishedAcrossARestart(t *testing.T) {
 		if p.Seq != 2 {
 			t.Errorf("shown seq %d, want 2", p.Seq)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("the new picture was not shown")
 	}
 }
@@ -281,12 +331,16 @@ func TestFeedDropsAPictureThatWasPublishedAcrossARestart(t *testing.T) {
 // bitmap, which would panic on it, and the one before stays.
 func TestFeedDropsAMalformedPicture(t *testing.T) {
 	s := video.NewSurface()
+	src := &spySource{FrameSource: s, nexts: make(chan uint64, 16)}
 	var posts atomic.Int32
-	f := NewFeed(s, func(fn func()) { posts.Add(1); fn() }, func(Picture) {}, func() {}, nil)
+	f := NewFeed(src, func(fn func()) { posts.Add(1); fn() }, func(Picture) {}, func() {}, nil)
 	f.Start()
 	defer f.Stop()
 	s.Show(64, 48, 0, planes(64, 48, 128)[:100])
-	time.Sleep(100 * time.Millisecond)
+	// The feed asks for the picture after this one (1) only once it has
+	// dealt with it.
+	for src.nextAfter(t) != 1 {
+	}
 	if n := posts.Load(); n != 0 {
 		t.Fatalf("%d posts for a malformed picture", n)
 	}

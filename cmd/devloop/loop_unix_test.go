@@ -35,12 +35,17 @@ func (o *output) String() string {
 	return o.buf.String()
 }
 
+// hangGuard bounds every wait here: they end when devloop or the app prints
+// or exits, and a build under load can take long, so it only turns a hang
+// into a failure.
+const hangGuard = 60 * time.Second
+
 // waitFor waits until the output has n matches of re, and returns the last
 // one's groups.
 func (o *output) waitFor(t *testing.T, re string, n int) []string {
 	t.Helper()
 	rx := regexp.MustCompile(re)
-	deadline := time.Now().Add(60 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for time.Now().Before(deadline) {
 		if m := rx.FindAllStringSubmatch(o.String(), -1); len(m) >= n {
 			return m[n-1]
@@ -165,7 +170,7 @@ func TestFailedBuildKeepsTheApp(t *testing.T) {
 	select {
 	case err := <-done:
 		t.Logf("devloop exited: %v", err)
-	case <-time.After(30 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatalf("devloop did not quit on q:\n%s", out.String())
 	}
 	if alive(second) {

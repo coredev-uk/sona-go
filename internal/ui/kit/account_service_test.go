@@ -21,9 +21,9 @@ func toasted(t *testing.T, fn func(), want ...string) *ui.Tester {
 	tt := controlsTester(t, 600, 300, func(c *ui.Context) { Toaster(c) })
 	CloseToast("")
 	fn()
-	// The toast is raised by a goroutine after its service call: poll, in
-	// real time, with a deadline.
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+	// The toast is raised by a goroutine after its service call: poll until it
+	// shows.
+	for deadline := time.Now().Add(hangGuard); time.Now().Before(deadline); time.Sleep(time.Millisecond) {
 		tt.Frame()
 		ok := true
 		for _, w := range want {
@@ -43,7 +43,7 @@ func TestSetPrivateWritesTheAnswerAndToastsAFailure(t *testing.T) {
 	setPrivate(cl, func(on bool) (services.PrivateState, error) {
 		return services.PrivateState{On: on, Source: "setting", Saved: on}, nil
 	}, true)
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(5 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); ; time.Sleep(time.Millisecond) {
 		if s, ok := store.Peek[services.PrivateState](cl, store.KeyPrivate); ok {
 			if !s.On {
 				t.Fatalf("mirror = %+v", s)

@@ -95,12 +95,12 @@ func TestSettingsPrefsSaveIntoTheSettings(t *testing.T) {
 	p := settingsPrefs(h.Env.Queries, h.Core)
 	p.SetFolderOpen("f.a", true)
 	p.SetCollapsed("apple", true)
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for !slices.Equal(sys.Settings().Sidebar.OpenFolders, []string{"f.a"}) || !slices.Equal(sys.Settings().Sidebar.FoldedSections, []string{"apple"}) {
 		if time.Now().After(deadline) {
 			t.Fatalf("settings hold %+v", sys.Settings().Sidebar)
 		}
-		time.Sleep(5 * time.Millisecond)
+		h.Main.Wait(5 * time.Millisecond)
 	}
 	want := before
 	want.Sidebar = sys.Settings().Sidebar

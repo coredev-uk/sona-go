@@ -50,12 +50,17 @@ func (f *fakeCat) OpenInAppleMusic(url string) error {
 	return err
 }
 
+// hangGuard is how long a test waits for state before it calls the wait
+// hung. It is no part of what a test checks, so it is far longer than a
+// loaded machine needs.
+const hangGuard = 30 * time.Second
+
 // wait blocks until a link was opened (OpenInAppleMusic runs on a goroutine).
 func (f *fakeCat) wait(t *testing.T) {
 	t.Helper()
 	select {
 	case <-f.done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("the link was never opened")
 	}
 }
@@ -218,23 +223,25 @@ func grey(w, h int, luma byte) []byte {
 // the text and edges there; other systems' output differs).
 var onLinux = runtime.GOOS == "linux"
 
-// shows reports whether the middle of the picture area has that colour; off
-// Linux, where pixels are not read, whether a picture is on show.
-// quiet drains what goroutines post until nothing has come for a while: the
-// Core's start-up events and the like have reached the mirror.
+// quiet waits until the Core's start-up events have reached the mirror: the
+// account has finished restoring (its change is the last thing the Core
+// reports on its own), and a volume nobody else sets, sent now, has come
+// back. The Core's events reach the main thread in the order it sent them,
+// so the one sent last arrives behind the rest.
 func (r *rig) quiet() {
 	r.t.Helper()
-	for still, deadline := 0, time.Now().Add(5*time.Second); still < 10 && time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
-		pending := r.h.Main.Pending()
-		r.tt.Drain()
-		if pending {
-			still = 0
-		} else {
-			still++
-		}
+	acct := services.Service[services.AuthService](r.h.Core)
+	r.tt.Until("the account to restore", func() bool { return acct.Status().State != "restoring" })
+	const marker = 0.37
+	play := services.Service[services.PlaybackService](r.h.Core)
+	if err := play.SetVolume(context.Background(), marker); err != nil {
+		r.t.Fatal(err)
 	}
+	r.tt.Until("the Core's events", func() bool { return r.env.Play.State().Volume == marker })
 }
 
+// shows reports whether the middle of the picture area has that colour; off
+// Linux, where pixels are not read, whether a picture is on show.
 func (r *rig) shows(want color.RGBA) bool {
 	if !onLinux {
 		return r.v.feed.HasPicture()

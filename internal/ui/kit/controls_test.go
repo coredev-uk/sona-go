@@ -242,10 +242,16 @@ func TestSkeletonPulsesUnlessMotionIsReduced(t *testing.T) {
 		t.Fatal("motion is reduced before the test (a desktop preference or another test's switch)")
 	}
 	px := func() [4]uint8 { p := tt.Image().RGBAAt(60, 30); return [4]uint8{p.R, p.G, p.B, p.A} }
-	tt.Advance(time.Second) // half way through the 2 s pulse
-	mid := px()
-	tt.Advance(time.Second)
+	// The pulse's phase is the tester's clock modulo 2 s, and that clock
+	// starts at the wall clock: the two samples, half a period apart, are
+	// equal when the start puts them where the cosine is 0. Begin on a whole
+	// period so every run samples the same two phases, the extremes.
+	const period = 2 * time.Second
+	tt.Advance(period - time.Duration(tt.Now().UnixNano())%period)
 	full := px()
+	tt.Advance(period / 2)
+	mid := px()
+	tt.Advance(period / 2)
 	if mid == full {
 		t.Error("the skeleton does not pulse")
 	}

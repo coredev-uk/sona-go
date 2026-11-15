@@ -31,7 +31,7 @@ func TestNoLyricsIsCachedAsAnAnswer(t *testing.T) {
 		return services.Lyrics{}, fmt.Errorf("lyrics: %w", applemusic.ErrNotFound)
 	}
 	var r Result[services.Lyrics]
-	for end := time.Now().Add(5 * time.Second); time.Now().Before(end); time.Sleep(2 * time.Millisecond) {
+	for end := time.Now().Add(hangGuard); time.Now().Before(end); time.Sleep(2 * time.Millisecond) {
 		if r = useLyrics(cl, "1", fetch); r.HasData {
 			break
 		}

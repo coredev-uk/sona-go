@@ -83,12 +83,10 @@ func hsl(h, s, l float64) color.RGBA {
 // settle draws frames until the art in view has been decoded.
 func (a *itemsApp) settle(t *testing.T, tt *ui.Tester) {
 	t.Helper()
-	for range 6 {
+	for range 3 { // paint learns the scale, the redraw asks, every answer is waited for
 		tt.Frame()
-		a.mt.run(t, 0)
-		time.Sleep(25 * time.Millisecond)
+		a.mt.settle(t, a.art)
 	}
-	a.mt.run(t, 0)
 	tt.Frame()
 }
 
