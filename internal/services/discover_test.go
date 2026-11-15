@@ -388,6 +388,11 @@ func TestSentenceCase(t *testing.T) {
 	for in, want := range map[string]string{
 		"NEW ALBUM": "New album", "ONLY ON APPLE MUSIC": "Only on Apple Music", "NEW DJ MIX": "New DJ mix",
 		"Made for You": "Made for You", "": "",
+		// Names keep their case, whatever it is.
+		"HIS MAJESTY THE KING ON ROCKET HOUR": "HIS MAJESTY THE KING ON ROCKET HOUR",
+		"NEW MUSIC DAILY WITH ZANE LOWE":      "NEW MUSIC DAILY WITH ZANE LOWE",
+		"His Majesty The King on Rocket Hour": "His Majesty The King on Rocket Hour",
+		"ABBA":                                "ABBA",
 	} {
 		if got := sentenceCase(in); got != want {
 			t.Errorf("sentenceCase(%q) = %q, want %q", in, got, want)
