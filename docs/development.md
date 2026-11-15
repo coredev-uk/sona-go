@@ -154,4 +154,3 @@ a minute.
 - `bin/sona` (or `go run ./cmd/sona`) starts the app from a checkout: `SONA_PRIVATE=1 SONA_PREVIEW=1 bin/sona` plays 30-second previews without an account. MyGo loads GTK3 and the GL libraries by soname: inside devenv `LD_LIBRARY_PATH` carries them; elsewhere install GTK 3, Pango, libepoxy and a GL driver.
 - `go tool mygo vet internal/ui` finds build values kept past their frame, the usual cause of a view that updates one frame late.
 - UI behaviour is tested headless with `ui.Tester` (`go test ./internal/ui/...`): it renders views without a window, drives keys and clicks, and takes image snapshots.
-
