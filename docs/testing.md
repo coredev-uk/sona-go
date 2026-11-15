@@ -18,6 +18,7 @@ The detail behind the [Test Your Change](https://sona.coredev.uk/contributing/te
 - [UI tests and the end-to-end smoke](#ui-tests-and-the-end-to-end-smoke)
   - [ui.Tester tests](#uitester-tests)
   - [Golden images](#golden-images)
+  - [Overlay checks and the marks contact sheet](#overlay-checks-and-the-marks-contact-sheet)
   - [The end-to-end smoke](#the-end-to-end-smoke)
   - [The Orca walk](#the-orca-walk)
 - [Desktop VM tests](#desktop-vm-tests)
@@ -170,7 +171,7 @@ The Core is hermetic:
 
 ### Golden images
 
-Golden images are few: the shell with Albums, light and dark, at 1132×1253 (`internal/ui/app/testdata/golden/`). `uitest.Golden` compares by the mean colour of 8×8-pixel blocks. Another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not.
+Golden images are few: the shell with Albums, light and dark, at 1132×1253, and the marks contact sheet (below), all in `internal/ui/app/testdata/golden/`. `uitest.Golden` compares by the mean colour of 8×8-pixel blocks. Another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not.
 
 When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`. Commit the new PNGs and say in the pull request why. You can also ask a maintainer to regenerate them on your pull request.
 
@@ -188,6 +189,34 @@ podman run --rm -v "$PWD":/src -w /src -e MYGO_GPU=0 ghcr.io/coredev-uk/sona-ci:
 ```
 
 The image is amd64 and arm64. An arm64 machine (Apple silicon, through Podman's VM) may draw text a hair differently from CI's amd64 runners. CI is the reference, so push and check the run.
+
+### Overlay checks and the marks contact sheet
+
+A flat fixture tile and a golden compared in 8×8 blocks hide a mark that sits one pixel off its cover, so the small marks have two checks of their own.
+
+**`uitest/overlay`.** `internal/ui/uitest/overlay` (beside `uitest`, as `uitest/access` is, so the kit's own tests can use it) asserts where one mark lies against what it sits on. Rectangles are a `ui.Tester`'s (`Find`), in DIPs, and every check allows 1/100 DIP:
+
+- `Same(t, what, overlay, target)`: the overlay's bounds equal its target's ("this wash covers exactly that artwork").
+- `OnArtwork(t, what, img, scale, r)`: the same, but the target is found in the picture: the box of the cover's saturated pixels. The fixture's covers are gradients between two hues and the ground, the washes and the glyphs are grey, so the cover is where its colour is, whatever the layout says. Measure with the mark at rest. `ArtBounds` is the box itself.
+- `Inside`, `InsetBottomLeft`, `Centred`: a disc inside its cover, 8 DIPs from the corner, in the middle of a button.
+- `WholePixels(t, what, r, scale)`: every edge of `r` falls on a device pixel at that scale.
+
+Every overlay that sits on artwork has a test that runs them at scale 1 and 2:
+
+| Overlay | Test |
+| --- | --- |
+| a track row's play wash and the playing glyph | `kit` `TestTrackRowOverlaysLieOnTheirCover` |
+| a tile's play disc | `kit` `TestTilePlayDiscSitsInItsCoversCorner` |
+| a home row's play wash and a home tile's play disc | `home` `TestRowOverlaysLieOnTheirCover` |
+| the sidebar's shuffle button | `playlist` `TestShuffleButtonLiesOnTheArtworkAndItsGlyphIsCentred` |
+
+A new overlay on artwork gets a case in the test of its package. Covers for these tests are the fixture's or the kit's evidence palette (`paletteArt`), never a flat colour.
+
+**The contact sheet.** `internal/ui/app/testdata/golden/marks-contact-sheet.png` is every small mark that sits on or beside artwork, cropped from the shell over the synthetic library and magnified so one DIP is 4 pixels, with no smoothing, so a half-pixel offset, a lopsided glyph or a corner that does not match its cover shows. Each row is a mark: a tile's play disc (hover and keyboard focus), its release badge, a station's play mark, the Explicit mark, a track row's play wash, playing glyph and focus ring, a select's chevron, the check beside the chosen theme, the player bar's disc and its tooltip, and the sidebar's shuffle button. The columns are light and dark at 1x and 2x (1x is magnified four times, 2x twice). Look at it when you add or change a mark, and review a change to it as you review a golden.
+
+- `go test ./internal/ui/app -run MarksContactSheet` draws it and compares it like a golden; `-update` redraws it after a change on purpose. It runs with reduced motion on, so the playing glyph rests and the picture settles.
+- A mark is one entry in `sheetRoutes` (`internal/ui/app/marks_sheet_test.go`): the page it is on (the shell's, or a view of the kit's components over the shell's `Env` for what needs Apple's data, such as a catalogue tile), the state to show (hover, focus) and where to crop.
+- It is a golden: Linux only, compared in blocks, so another machine's text antialiasing passes.
 
 ### The end-to-end smoke
 
