@@ -181,6 +181,11 @@ func (c *Core) Activate(act app.Activation, forwarded bool) { c.open.activate(ac
 // command transport.
 func (c *Core) Commands() cli.Server { return c.commands }
 
+// AddonHost is what add-on sessions (cli.Session) are served from: the
+// commands and topics of the running Sona, with private listens and
+// previews hidden (addonhost.go).
+func (c *Core) AddonHost() cli.AddonHost { return c.commands.addon }
+
 // Close stops background work (features' OnClose steps, then the media
 // controls). The caller then closes the coordinator, engine and database.
 func (c *Core) Close() {
