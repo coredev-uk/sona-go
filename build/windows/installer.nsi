@@ -1,6 +1,6 @@
 ; Sona's per-user installer (build/windows/package.sh runs makensis on it).
 ; Installs into %LOCALAPPDATA%\Programs\Sona without administrator rights,
-; with a Start-menu shortcut, the music: and itms: URL handlers and an
+; with a Start-menu shortcut, the music:, musics:, itms: and itmss: URL handlers and an
 ; uninstaller listed under Settings → Apps. Settings, the library database
 ; and sign-in live in %APPDATA%\Sona and %LOCALAPPDATA%\Sona and stay on
 ; uninstall; so does the Widevine CDM there. The uninstaller runs
@@ -45,11 +45,23 @@ VIAddVersionKey "LegalCopyright" "Sona contributors"
 !define RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
 !define APPROVED_KEY "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
 
+; The Apple Music link schemes (app.LinkSchemes), each a class of the user's
+; whose open command runs this installation, the way MyGo's
+; RegisterURLScheme writes it (Settings → General → Open Apple Music links
+; in Sona; cmd/sona/linkhandler_windows.go).
 !macro UrlScheme scheme
   WriteRegStr HKCU "Software\Classes\${scheme}" "" "URL:${scheme} (Sona)"
   WriteRegStr HKCU "Software\Classes\${scheme}" "URL Protocol" ""
   WriteRegStr HKCU "Software\Classes\${scheme}\DefaultIcon" "" "$INSTDIR\sona.exe,0"
   WriteRegStr HKCU "Software\Classes\${scheme}\shell\open\command" "" '"$INSTDIR\sona.exe" "%1"'
+!macroend
+
+; Only a class that runs this installation goes: a portable copy may own the
+; scheme now (StrCmp ignores case).
+!macro UnUrlScheme scheme
+  ReadRegStr $1 HKCU "Software\Classes\${scheme}\shell\open\command" ""
+  StrCmp $1 '"$INSTDIR\sona.exe" "%1"' 0 +2
+    DeleteRegKey HKCU "Software\Classes\${scheme}"
 !macroend
 
 Section "Sona"
@@ -62,7 +74,9 @@ Section "Sona"
 
   WriteRegStr HKCU "Software\Sona" "InstallDir" "$INSTDIR"
   !insertmacro UrlScheme "music"
+  !insertmacro UrlScheme "musics"
   !insertmacro UrlScheme "itms"
+  !insertmacro UrlScheme "itmss"
 
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "Sona"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"
@@ -89,8 +103,10 @@ Section "Uninstall"
   DetailPrint "Sona's playback sandbox cleanup finished: $0"
   sandboxdone:
   Delete "$SMPROGRAMS\Sona.lnk"
-  DeleteRegKey HKCU "Software\Classes\music"
-  DeleteRegKey HKCU "Software\Classes\itms"
+  !insertmacro UnUrlScheme "music"
+  !insertmacro UnUrlScheme "musics"
+  !insertmacro UnUrlScheme "itms"
+  !insertmacro UnUrlScheme "itmss"
   ; Start at login (Settings → General): MyGo writes a value named after the
   ; app in the user's Run key, and Task Manager's switch for it in
   ; StartupApproved (cmd/sona/login_desktop.go). Only this installation's

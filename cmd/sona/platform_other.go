@@ -26,7 +26,8 @@ import (
 // integrations_darwin.go (sleep inhibit, the power source, the file chooser,
 // and, from Sona.app, notifications and the login item) and
 // integrations_windows.go (notifications, the login item, sleep inhibit,
-// the power source and the file chooser). What an OS lacks is absent from
+// the power source, the file chooser and the default app for Apple Music
+// links). What an OS lacks is absent from
 // services.Platform, so Capabilities reports it and the UI hides or explains
 // it. Media keys and Now Playing are MyGo's NowPlaying on macOS and Windows
 // (nowplaying_desktop.go; internal/nowplaying). The tray is the UI's

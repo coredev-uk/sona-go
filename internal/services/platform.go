@@ -48,7 +48,7 @@ type Platform struct {
 	Files FileChooser
 	// LinkHandler is the system's choice of the app that opens Apple Music
 	// links (music://, musics://, itms://, itmss://): whether it is Sona
-	// and making it Sona. Nil where Sona can't be chosen (Windows).
+	// and making it Sona. Nil where Sona can't be chosen.
 	LinkHandler LinkHandler
 	// Commands: `sona <command>` (Core.Commands) reaches the running
 	// instance and a second launch forwards its links to it (internal/app:
