@@ -265,27 +265,36 @@ func (s *settings) diagGroup(c *ui.Context, g diagGroup) {
 		s.marginal(c, 10, func() {
 			theme.Text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
 		}, func() {
-			for i, r := range g.rows {
-				k := c.Key("row" + strconv.Itoa(i))
-				ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
-				ui.Row(k).FillWidth().Gap(24).Padding(10, 0).AlignItems(ui.Start).Children(func() {
-					theme.Text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(labelWidth).Shrink(0)
-					ui.Column(k.Key("v")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-						ui.Row(k.Key("val")).Gap(8).AlignItems(ui.Start).Children(func() {
-							statusIcon(k.Key("s"), r.status)
-							t := theme.Text(k, r.value, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
-							if r.status == statusError {
-								t.FontWeight(500)
-							}
-						})
-						if r.detail != "" {
-							theme.Text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576)
-						}
-					})
-				})
-			}
+			// The values (versions, paths, ids) are one selection per group;
+			// the labels and the notes are muted type and stay out of it
+			// (docs/design.md, "Selectable text"). Copy diagnostics still
+			// copies the lot.
+			ui.Column(c.Key("values")).FillWidth().Selectable().Children(func() { s.diagRows(c, g, labelWidth) })
 		})
 	})
+}
+
+// diagRows are a group's label/value rows, each under a rule.
+func (s *settings) diagRows(c *ui.Context, g diagGroup, labelWidth float32) {
+	for i, r := range g.rows {
+		k := c.Key("row" + strconv.Itoa(i))
+		ui.Box(c.Key("line" + strconv.Itoa(i))).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
+		ui.Row(k).FillWidth().Gap(24).Padding(10, 0).AlignItems(ui.Start).Children(func() {
+			theme.Text(k, r.label, "secondary").TextColor(theme.C("ink-muted")).Width(labelWidth).Shrink(0).Unselectable()
+			ui.Column(k.Key("v")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+				ui.Row(k.Key("val")).Gap(8).AlignItems(ui.Start).Children(func() {
+					statusIcon(k.Key("s"), r.status)
+					t := theme.Text(k, r.value, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+					if r.status == statusError {
+						t.FontWeight(500)
+					}
+				})
+				if r.detail != "" {
+					theme.Text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576).Unselectable()
+				}
+			})
+		})
+	}
 }
 
 // diagLoading is the 7-row label/value skeleton, announced busy.

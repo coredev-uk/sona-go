@@ -1178,6 +1178,10 @@ msgstr "Cool grey, sky blue"
 msgid "Copy"
 msgstr "Copy"
 
+#: internal/ui/features/song/page.go
+msgid "Copy ISRC"
+msgstr "Copy ISRC"
+
 #: internal/ui/app/menubar.go
 msgid "Copy an Apple Music link first."
 msgstr "Copy an Apple Music link first."
@@ -2831,6 +2835,10 @@ msgstr "Hz"
 #: internal/ui/features/song/page.go
 msgid "ISRC"
 msgstr "ISRC"
+
+#: internal/ui/features/song/page.go
+msgid "ISRC copied"
+msgstr "ISRC copied"
 
 #: internal/ui/features/settings/settingsfile.go
 msgid "Importing…"

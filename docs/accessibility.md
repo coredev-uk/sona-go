@@ -137,6 +137,11 @@ kept past its build pass, and a handle cannot stand in for it.
   (`docs/design.md`, Backdrops). `--danger` falls below 4.5:1 there in dark,
   so no danger text sits on a backdrop: icons only (≥ 3:1), with the message
   in ink.
+- Selected text keeps `--ink` at ≥ 4.5:1 on the selection (checked in every
+  theme); `--ink-muted` does not, so only `--ink` text is selectable
+  (`docs/design.md`, "Selectable text"; issue #411). `Selectable()` adds no
+  role, so a screen reader reads the same tree; an identifier that is
+  selectable also has a Copy button (`kit.CopyButton`) for the keyboard.
 
 ### Focus
 

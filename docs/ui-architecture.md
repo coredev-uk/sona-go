@@ -460,6 +460,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 - A disabled button is MyGo's 50%. The disabled Play disc keeps `--hover` and faint ink: `DimDisabled(false)` turns the dimming off for it, so it is right over a cover wash too.
 - The face eases over 120 ms (the `feedback` motion) unless motion is reduced. The focus ring is MyGo's, in the ring token, on keyboard focus only.
 - `IconButton(c, icon, label, opts)` is the icon-only shorthand; `PlayButton(c, label, size)` is the bare amber disc tiles use.
+- `CopyButton(c, copy, value, CopyOpts{Label, Done})` (`kit/copy.go`) is a 24px ghost icon button for an identifier next to its value: a click calls `Env.Copy` and toasts `Done`, or toasts the clipboard error. Text people copy is `Selectable()` (`docs/design.md`, "Selectable text").
 
 **Controls** (`kit/controls_*.go`). Every one takes the ring, ink and `--control-line` from the tokens, takes strings through `i18n.T`, and has a `Label` for assistive technology.
 

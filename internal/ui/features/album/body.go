@@ -334,21 +334,25 @@ func (a *album) discIndex(c *ui.Context, m *model) {
 }
 
 // finePrint is the record's facts in meta type, each
-// a muted name over its entry, then the ℗ line, which names itself.
+// a muted name over its entry, then the ℗ line, which names itself. The
+// entries are one selection (the label, the day, the writers); the names and
+// the ℗ line are muted type, which the selection colour does not carry at
+// 4.5:1 in every theme, so they stay out of it (docs/design.md,
+// "Selectable text").
 func (a *album) finePrint(c *ui.Context, m *model) {
-	ui.Column(c).FillWidth().Children(func() {
+	ui.Column(c).FillWidth().Selectable().Children(func() {
 		if len(m.facts) > 0 {
 			ui.Column(c.Key("facts")).Gap(8).FillWidth().Children(func() {
 				for _, f := range m.facts {
 					ui.Column(c.Key(f.label)).FillWidth().Children(func() {
-						theme.Text(c, f.label, "meta").TextColor(theme.C("ink-muted"))
+						theme.Text(c, f.label, "meta").TextColor(theme.C("ink-muted")).Unselectable()
 						theme.Text(c, f.value, "meta").TextColor(theme.C("ink"))
 					})
 				}
 			})
 		}
 		if m.rights != "" {
-			e := theme.Text(c, m.rights, "meta").TextColor(theme.C("ink-muted"))
+			e := theme.Text(c, m.rights, "meta").TextColor(theme.C("ink-muted")).Unselectable()
 			if len(m.facts) > 0 {
 				e.Margin(12, 0, 0, 0)
 			}

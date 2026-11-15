@@ -109,6 +109,8 @@ Lists every shortcut by group. Select one to record new keys, with a warning whe
 
 Runs checks of the playback host, database and keyring when you open it, and reports problems and warnings. Check again repeats them, Copy diagnostics copies a report with tokens and your email address removed, and Open log folder opens the logs. See [Troubleshooting](/guide/troubleshooting/).
 
+To copy one value, such as a version or a path, select it (triple-click takes a line) and press Ctrl+C, or right-click it and choose Copy. On a Mac, press Cmd+C.
+
 | Group | What it shows |
 | --- | --- |
 | Playback | The playback host, the Widevine module, the sandbox, the audio priority and the stream format. |
