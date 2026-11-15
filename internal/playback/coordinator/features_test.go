@@ -299,6 +299,11 @@ func TestUndoReplace(t *testing.T) {
 			t.Fatalf("calls %v", calls)
 		}
 
+		// The engine's events for the restored item reach the coordinator on
+		// its own goroutine: let them land first, or a "playing" that is
+		// applied after the pause undoes it and the queue below is saved
+		// playing.
+		synctest.Wait()
 		// A paused queue comes back paused, without touching the engine's
 		// new item beyond stopping it.
 		must(t, h.c.Pause(ctx))

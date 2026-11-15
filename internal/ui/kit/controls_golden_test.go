@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"testing"
 	"time"
 
@@ -23,8 +22,6 @@ import (
 // collide in one test binary).
 var updateControls = flag.Bool("update-controls", false, "rewrite internal/ui/kit/testdata/golden/controls-*.png")
 
-var controlsFont sync.Once
-
 // controlsSheet renders build in a w×h window light and dark and compares
 // each image with testdata/golden/controls-<name>-<mode>.png (tolerance: a
 // pixel may differ by 6 per channel, 0.2% of pixels by more). setup may drive
@@ -34,11 +31,7 @@ func controlsSheet(t *testing.T, name string, w, h int, build func(c *ui.Context
 	if runtime.GOOS != "linux" {
 		t.Skip("golden images are compared on Linux only: macOS draws text with Core Text")
 	}
-	controlsFont.Do(func() {
-		if err := theme.RegisterFonts(); err != nil {
-			t.Fatal(err)
-		}
-	})
+	collectionsFonts(t)
 	for _, mode := range []struct {
 		name string
 		m    theme.Mode

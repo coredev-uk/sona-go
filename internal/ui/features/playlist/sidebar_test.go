@@ -638,7 +638,9 @@ func TestAFailedDropToastsTheError(t *testing.T) {
 
 func TestAPinnedEditablePlaylistTakesDrops(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), []services.Pin{{Kind: "playlist", ID: "p.own", Name: "Road Trip", Action: "drillIn"}})
-	e.shows("Pinned", "Road Trip")
+	// The pins list a row before the tree says whether it can be edited:
+	// wait for a section only the tree gives, or the row has no drop yet.
+	e.shows("Pinned", "Road Trip", "Made for you")
 	e.grab(sbSongPayload(song("s1", "Airbag", "Radiohead")))
 	e.over("Road Trip")
 	if !e.tt.HasText("Add to “Road Trip”") {
