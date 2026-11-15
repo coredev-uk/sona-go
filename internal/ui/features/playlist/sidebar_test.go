@@ -40,6 +40,24 @@ func TestSidebarListsTheSectionsInOrder(t *testing.T) {
 	}
 }
 
+// A collaborative playlist the user joined is listed under Playlists, not
+// under Apple Music.
+func TestSidebarListsAJoinedCollaborativePlaylistUnderPlaylists(t *testing.T) {
+	tree := sbLibrary()
+	joined := treePlaylist("p.joined", "Road Crew", "", 5, false)
+	joined.Playlist.CatalogID = "pl.u-9"
+	joined.Collaborative = true
+	tree.Playlists = append(tree.Playlists, joined)
+	e := sbSetup(t, tree, nil)
+	e.shows("Apple Music", "Playlists", "Road Trip", "Road Crew")
+	e.above("Playlists", "Road Crew")
+	e.above("Apple Music", "Quiet Hours")
+	e.above("Quiet Hours", "Playlists")
+	if e.y("Road Crew") < e.y("Playlists") {
+		t.Errorf("Road Crew (y=%v) is above the Playlists heading (y=%v)", e.y("Road Crew"), e.y("Playlists"))
+	}
+}
+
 func TestSidebarOmitsEmptySections(t *testing.T) {
 	tree := sbLibrary()
 	tree.Playlists = []services.TreePlaylist{treePlaylist("p.own", "Road Trip", "", 0, true)}

@@ -123,24 +123,26 @@ type PlaybackHistory struct {
 }
 
 type Playlist struct {
-	ID              int64
-	LibraryID       sql.NullString
-	CatalogID       sql.NullString
-	Name            string
-	Description     string
-	CuratorName     string
-	ArtworkTemplate string
-	CanEdit         int64
-	IsPublic        int64
-	LastModified    string
-	TracksModified  string
-	TrackCount      int64
-	Url             string
-	UpdatedAt       int64
-	FolderID        string
-	FolderPosition  int64
-	CanDelete       int64
-	Favorited       int64
+	ID                int64
+	LibraryID         sql.NullString
+	CatalogID         sql.NullString
+	Name              string
+	Description       string
+	CuratorName       string
+	ArtworkTemplate   string
+	CanEdit           int64
+	IsPublic          int64
+	LastModified      string
+	TracksModified    string
+	TrackCount        int64
+	Url               string
+	UpdatedAt         int64
+	FolderID          string
+	FolderPosition    int64
+	CanDelete         int64
+	Favorited         int64
+	IsCollaborative   int64
+	CollaborativeHost int64
 }
 
 type PlaylistCover struct {

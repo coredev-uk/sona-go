@@ -338,7 +338,7 @@ func (s *PlaylistsService) Tree(ctx context.Context) (PlaylistTree, error) {
 	for i, r := range rows {
 		out.Playlists[i] = TreePlaylist{
 			Playlist: s.m.libPlaylist(r.Playlist), FolderID: r.FolderID, Position: r.Position,
-			CanDelete: r.CanDelete, Favorited: r.Favorited,
+			CanDelete: r.CanDelete, Favorited: r.Favorited, Collaborative: r.Collaborative, Host: r.Host,
 		}
 	}
 	return out, nil

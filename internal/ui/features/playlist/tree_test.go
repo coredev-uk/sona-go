@@ -162,22 +162,44 @@ func TestPlaylistSection(t *testing.T) {
 		name      string
 		catalogID string
 		canEdit   bool
+		collab    bool
 		want      section
 	}{
-		{"personal mix, not editable", "pl.pm-4c1f", false, sectionMadeForYou},
-		{"personal mix, editable", "pl.pm-4c1f", true, sectionMadeForYou},
-		{"editorial", "pl.f4d106fe", false, sectionApple},
-		{"someone's shared playlist", "pl.u-8aZ", false, sectionApple},
-		{"Replay is not a mix", "pl.rp-1", false, sectionApple},
-		{"no catalogue ID", "", false, sectionApple},
-		{"own", "", true, sectionOwn},
-		{"collaborative own", "pl.u-8aZ", true, sectionOwn},
+		{"personal mix, not editable", "pl.pm-4c1f", false, false, sectionMadeForYou},
+		{"personal mix, editable", "pl.pm-4c1f", true, false, sectionMadeForYou},
+		{"editorial", "pl.f4d106fe", false, false, sectionApple},
+		{"someone's shared playlist", "pl.u-8aZ", false, false, sectionApple},
+		{"Replay is not a mix", "pl.rp-1", false, false, sectionApple},
+		{"no catalogue ID", "", false, false, sectionApple},
+		{"own", "", true, false, sectionOwn},
+		{"collaborative, hosted", "pl.u-8aZ", true, true, sectionOwn},
+		{"collaborative, joined (not editable)", "pl.u-8aZ", false, true, sectionOwn},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if got := playlistSection(services.Playlist{CatalogID: c.catalogID, CanEdit: c.canEdit}); got != c.want {
+			if got := playlistSection(services.TreePlaylist{Playlist: services.Playlist{CatalogID: c.catalogID, CanEdit: c.canEdit}, Collaborative: c.collab}); got != c.want {
 				t.Errorf("got %v, want %v", got, c.want)
 			}
 		})
+	}
+}
+
+// A collaborative playlist is the user's own whether they host it or joined
+// it: it stays in its folder and out of Apple Music.
+func TestSidebarPlaylistsKeepsCollaborativeOnesWithTheOwn(t *testing.T) {
+	joined := treePL("p.joined", "Joined", "f.run", 0, false, "pl.u-1")
+	joined.Collaborative = true
+	hosted := treePL("p.hosted", "Hosted", "", 1, true, "pl.u-2")
+	hosted.Collaborative, hosted.Host = true, true
+	tree := services.PlaylistTree{
+		Folders:   []services.PlaylistFolder{folder("f.run", "Running", "", 0)},
+		Playlists: []services.TreePlaylist{joined, hosted, treePL("p.ed", "Editorial", "", 2, false, "pl.f4d")},
+	}
+	s := sidebarPlaylists(tree, nil)
+	if got := outline(s.Own, true); got != "Running[Joined],Hosted" {
+		t.Errorf("own %q", got)
+	}
+	if len(s.Apple) != 1 || s.Apple[0].Playlist.Name != "Editorial" || len(s.MadeForYou) != 0 {
+		t.Errorf("apple %+v, made for you %+v", s.Apple, s.MadeForYou)
 	}
 }
 

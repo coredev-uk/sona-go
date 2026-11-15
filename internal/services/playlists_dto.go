@@ -126,6 +126,10 @@ type TreePlaylist struct {
 	Position  int      `json:"position"`
 	CanDelete bool     `json:"canDelete"`
 	Favorited bool     `json:"favorited"`
+	// Collaborative: the playlist is collaborative, whether the user
+	// started it (Host) or joined it. A joined one is not editable.
+	Collaborative bool `json:"collaborative"`
+	Host          bool `json:"host"`
 }
 
 // PlaylistTree is the user's folders and library playlists, from SQLite.

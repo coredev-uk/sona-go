@@ -92,7 +92,8 @@ func (s *Syncer) syncPlaylistTree(ctx context.Context, gen int64) error {
 			case applemusic.TypeLibraryPlaylists:
 				err = q.PlacePlaylist(ctx, dbq.PlacePlaylistParams{
 					FolderID: e.ParentID, FolderPosition: int64(e.Position),
-					Favorited: db.Bool(slices.Contains(e.Tags, TagFavorited)), CanDelete: db.Bool(e.CanDelete), LibraryID: db.NullString(e.ID),
+					Favorited: db.Bool(slices.Contains(e.Tags, TagFavorited)), CanDelete: db.Bool(e.CanDelete),
+					IsCollaborative: db.Bool(e.Collaborative), CollaborativeHost: db.Bool(e.Host), LibraryID: db.NullString(e.ID),
 				})
 			}
 			if err != nil {

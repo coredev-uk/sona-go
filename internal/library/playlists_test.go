@@ -39,6 +39,42 @@ func treePlaylists(t *testing.T, e *env) map[string][2]any {
 	return out
 }
 
+// The tree walk is where Apple says which playlists are collaborative and
+// whether the user hosts them; the sync stores both for the sidebar.
+func TestSyncStoresCollaborationFlags(t *testing.T) {
+	e := newEnv(t)
+	seed(e.fake, 20)
+	joined := playlist("p.joined", "Joined", "2024-05-01T00:00:00Z")
+	hosted := playlist("p.hosted", "Hosted", "2024-05-01T00:00:00Z")
+	plain := playlist("p.plain", "Plain", "2024-05-01T00:00:00Z")
+	set := func(p map[string]any, collab, host bool) {
+		a := p["attributes"].(map[string]any)
+		a["hasCollaboration"], a["isCollaborativeHost"] = collab, host
+	}
+	set(joined, true, false)
+	joined["attributes"].(map[string]any)["canEdit"] = false
+	set(hosted, true, true)
+	set(plain, false, false)
+	e.fake.playlists = append(e.fake.playlists, joined, hosted, plain)
+	e.fake.folders[applemusic.PlaylistsRoot] = []map[string]any{joined, hosted, plain}
+	if err := e.run(t, DomainPlaylists); err != nil {
+		t.Fatal(err)
+	}
+	_, placed, err := e.lib.PlaylistTree(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string][2]bool{}
+	for _, p := range placed {
+		got[p.LibraryID] = [2]bool{p.Collaborative, p.Host}
+	}
+	for id, want := range map[string][2]bool{"p.joined": {true, false}, "p.hosted": {true, true}, "p.plain": {false, false}} {
+		if got[id] != want {
+			t.Errorf("%s: collaborative, host = %v, want %v", id, got[id], want)
+		}
+	}
+}
+
 func TestSyncDropsTombstonesAndStoresFolders(t *testing.T) {
 	e := newEnv(t)
 	seed(e.fake, 20)

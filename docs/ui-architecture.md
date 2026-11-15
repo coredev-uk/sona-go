@@ -1563,8 +1563,8 @@ Registered after video and before radio and the player. It owns:
 **Tree logic** (`tree.go`, tested against `tree.test.ts`)
 
 - Folders come before playlists at every level, by Apple's position then name. Unknown parents go at the top.
-- Pinned and non-editable playlists are left out of the folder tree (their folders count them).
-- Sections: Made for you (`pl.pm-` catalogue IDs), Apple Music and own.
+- Pinned and non-editable playlists are left out of the folder tree (their folders count them), except collaborative ones (`TreePlaylist.Collaborative`, stored by the sync), which are the user's own whether hosted or joined and stay in their folder.
+- Sections: Made for you (`pl.pm-` catalogue IDs), Apple Music (the rest the user cannot edit) and own (editable, or collaborative). A joined collaborative playlist is not editable (`CanEdit` false), so the edit, move and drop-in actions stay off it; Delete and Change cover stay.
 
 #### Sidebar
 
