@@ -368,13 +368,13 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Surface | Item | Click | Enter | Shift+Enter | Play | Cue |
 |---|---|---|---|---|---|---|
 | Suggestion list: typed completion | term | searches | searches | searches | n/a | search icon, chevron when active |
-| Suggestion list: result | song with a page, library song with a catalogue copy | opens `/song/…` | opens | **plays** ([#426]) | none | chevron |
+| Suggestion list: result | song with a page, library song with a catalogue copy | opens `/song/…` | opens | opens | none | chevron |
 |  | song with no page (a library upload) | plays | plays | plays | none | play triangle when active |
 |  | album, artist, playlist, curator, video, station with a page | opens | opens | opens | none | chevron |
 |  | station with no page | plays | plays | plays | none | play triangle when active |
 |  | web link | opens the browser | same | same | none | arrow-up-right when active |
 | Suggestion list: recently searched | term | searches | searches | searches | none | clock icon, chevron when active |
-|  | album, artist, song with a page | opens | opens | opens (a suggested song plays, [#426]) | none | chevron |
+|  | album, artist, song with a page | opens | opens | opens | none | chevron |
 |  | station with no page | plays | plays | plays | none | play triangle when active |
 | Best match panel | song, album, playlist, station with a page, video | opens | opens | none | amber disc beside it | link |
 |  | artist, curator | opens | opens | none | none | link |
@@ -444,14 +444,12 @@ Argued departures that stay (not issues):
 
 | Issue | What |
 |---|---|
-| [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
 | [#435] | a page-less station has two controls, no cue, or replays instead of pausing: Discover's lead and strip cards still have a second disc ([#442]) |
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
 | [#440] | a double-click acts twice |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
 | [#447] | curators, rooms and link tiles have no menu at all (no action is registered for them) |
 
-[#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#435]: https://github.com/coredev-uk/sona-go/issues/435
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
@@ -789,7 +787,7 @@ The suggestion list under the top-bar field:
 - **Runs** are named by an icon and a 12/16 600 heading: Suggestions, Top results, Recently searched, In your library.
 - **An item row** ends in its kind's icon.
 - **The active row** (the keyboard's or the pointer's) takes the `--active` fill, a ring and a glyph where the kind's icon was. The glyph says what Enter does:
-  - a **chevron** opens a page. A song's suggestion opens its song page, and Shift+Enter plays the song instead (the sidebar's Shift+Enter, which shuffles, is the precedent);
+  - a **chevron** opens a page. A song's suggestion opens its song page. Shift+Enter is Enter here: no cue hints at a second action and a recent entry keeps too little of a song to play it, so the list has none;
   - a **play triangle** plays: a song with no page of its own, an upload in the library, and a station with no page (the kit's `PlaysWhenOpened`);
   - an **arrow-up-right** leaves Sona for the browser (a web-only link, as the link list draws it).
 

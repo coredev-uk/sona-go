@@ -90,7 +90,7 @@ Controls are never nested in an opener. MyGo reads a button, link, tab, column h
   - the highlighted one is `Checked` (aria-selected) and pointed at by `ActiveDescendant` on the field, which keeps the keyboard focus;
   - the arrows move the option, as in MyGo's `ComboboxBase`, and the field reads as a combo box with its list shown (`Expanded`);
   - in the search field Enter or a click on a song suggestion opens its song page, like every other result (the chevron on the active row says so);
-  - Shift+Enter plays the active song: an option holds no control, so the keyboard modifier is the field's way to play, and the results page has the Play buttons (the best match's disc, a song row's button) and the menu.
+  - Shift+Enter is Enter: an option holds no control and no cue hints at a second action, so the field has no hidden way to play; the song's page and the results page have the Play buttons (the best match's disc, a song row's button) and the menu.
 - Landmarks:
   - the shell's search field is a `RoleSearch` with no name: it is the one global search, and the field in it is already "Search";
   - the Albums page's type and sort are a `RoleSearch` named "Filter albums", and the Artists filter one named "Find artists" (not "Filter artists", which is the field's own name);

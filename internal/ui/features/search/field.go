@@ -105,9 +105,6 @@ type field struct {
 	// resultsReq: Down was pressed with the list closed on /search, this
 	// frame: the page moves the focus into its first result.
 	resultsReq bool
-	// playKey: the Enter that submits the field came with Shift, which
-	// plays the active song instead of opening its page.
-	playKey bool
 }
 
 func newField(s *search) *field { return &field{s: s, active: -1} }
@@ -167,7 +164,6 @@ func (f *field) build(c *ui.Context) {
 				if k.Key == ui.KeyTab {
 					f.close() // Tab closes the list and the focus moves on
 				}
-				f.playKey = k.Key == ui.KeyEnter && k.Mods&ui.Shift != 0
 				return false
 			})
 		if in.Changed() {
@@ -224,10 +220,8 @@ func (f *field) build(c *ui.Context) {
 		}
 	}
 	if in.Submitted() {
-		play := f.playKey
-		f.playKey = false
 		if f.active >= 0 && f.active < len(opts) {
-			f.pick(opts[f.active], scope, play)
+			f.pick(opts[f.active], scope)
 		} else {
 			f.search(f.text, scope)
 		}
@@ -399,15 +393,14 @@ func (f *field) visit(path string) {
 }
 
 // openItem opens a top result: the field loses the focus, the item is
-// remembered, and its page opens, a song's too. play (Shift+Enter) plays a
-// song instead; a song with no page here plays, and anything else without a
-// page opens as it does elsewhere.
-func (f *field) openItem(it services.Item, play bool) {
+// remembered, and its page opens, a song's too. A song with no page here
+// plays, and anything else without a page opens as it does elsewhere.
+func (f *field) openItem(it services.Item) {
 	f.close()
 	f.blur = 3
 	f.s.rememberItem(it, itemSource(it))
 	switch p := itemPath(it); {
-	case it.Kind == services.ItemSong && ((play && f.s.playable(it)) || !f.opensPage(it)):
+	case it.Kind == services.ItemSong && (!f.opensPage(it)):
 		f.s.playSong(it)
 	case p != "":
 		f.visit(p)
@@ -416,14 +409,14 @@ func (f *field) openItem(it services.Item, play bool) {
 	}
 }
 
-// pick chooses a row (v0.2.0's pick). play is Shift+Enter: a song result
-// plays instead of opening its page.
-func (f *field) pick(o option, scope string, play bool) {
+// pick chooses a row (v0.2.0's pick). Shift+Enter is Enter: nothing on the
+// row hints at a second action, so there is none.
+func (f *field) pick(o option, scope string) {
 	switch o.kind {
 	case optTerm:
 		f.search(o.term, scope)
 	case optItem:
-		f.openItem(o.item, play)
+		f.openItem(o.item)
 	default:
 		r := o.entry
 		if r.Kind == services.RecentTerm {
@@ -521,7 +514,7 @@ func (f *field) popup(c *ui.Context, box ui.Element, opts []option, typed, scope
 	}
 	f.moved = false
 	if pick >= 0 {
-		f.pick(opts[pick], scope, false) // a click opens; playing is Shift+Enter
+		f.pick(opts[pick], scope)
 	}
 	return activeRow
 }

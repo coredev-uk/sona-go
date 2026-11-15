@@ -372,8 +372,7 @@ func TestInteractionFieldSuggestionRowsPerKind(t *testing.T) {
 			row: "Song Alpha", kind: "song",
 			click: "nav /song/s1; wrote item:song:s1",
 			enter: "nav /song/s1; wrote item:song:s1",
-			// DEPARTS: Shift+Enter plays a song (and does not open it) though the active row's cue is the open chevron and nothing on screen mentions Shift.
-			shiftEnter: "queue s1; wrote item:song:s1",
+			shiftEnter: "nav /song/s1; wrote item:song:s1",
 		},
 		{
 			row: "Album Beta", kind: "album",
@@ -472,12 +471,8 @@ func TestInteractionFieldSongWithoutAPagePlays(t *testing.T) {
 			x := newIxField(t, "/search?scope=library", lib)
 			x.ixTyped("In Your Library")
 			g.do(x, "Library Lambda")
-			// Opens its catalogue copy's page; Shift+Enter plays it.
+			// Opens its catalogue copy's page; Shift+Enter is Enter.
 			want := "nav /song/c.2"
-			if g.name == "Shift+Enter" {
-				// DEPARTS: Shift+Enter plays the library song (no cue for Shift); Enter and a click open the page.
-				want = "queue i.2"
-			}
 			if got := x.settled(want); got != want {
 				t.Errorf("%s: %s, want %s", g.name, got, want)
 			}
