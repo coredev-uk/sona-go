@@ -19,7 +19,7 @@ The main checkout is read-only: it stays on `main` and you never edit, build or 
 
 - Always: one change per branch and PR; run `check` and `tests` before a PR; update docs with the code; use `SONA_PRIVATE=1` for anything that plays music; read Clarence's card on your PR.
 - Ask first: restarting WirePlumber, merging anything Clarence ruled `verdict/review`, `SONA_ALLOW_MAIN=1`, bumping a pinned dependency (MyGo, Go, nixpkgs), changing a DRM or security rule.
-- Never: commit or push to `main` (`.githooks/` refuse both); merge with `gh pr merge` or the button; hand-edit generated files; print, log or commit `.env`, tokens or passwords; renumber or edit a released migration; bundle, patch or work around the CDM (Hard rules).
+- Never: commit or push to `main` (`.githooks/` refuse both); merge with `gh pr merge` or the button; hand-edit generated files (`internal/db/dbq`, the English `.po` catalogues, `CHANGELOG.md`); print, log or commit `.env`, tokens or passwords; renumber or edit a released migration; bundle, patch or work around the CDM (Hard rules).
 
 ## Commands
 
@@ -38,7 +38,8 @@ Run everything as `devenv shell -- <cmd>` (devenv 2.4+; it sets `CGO_ENABLED`, `
 - `docs/auth.md` sign-in; `docs/apple-music-reference.md` Apple endpoints (functionality only); `docs/security-review.md` threat model; `CONTRIBUTING.md` setup, checks, platforms, strings, CI.
 - A new page is a service (`internal/services/<feature>.go`, `<feature>_dto.go`, one `registry.go` line) plus a UI package (`internal/ui/features/<name>`, one `internal/ui/app/modules.go` line).
 - Design every page fresh with `skill://impeccable` and `skill://design-taste-frontend`; never copy Apple's layouts.
-- Work comes from the project board (https://github.com/users/coredev-uk/projects/3) and issues, labelled `area/*`, `kind/*` and `type/*`. Reference only: [vibez](https://github.com/simonepelosi/vibez) (MIT) hosts the CDM the same way; never copy it wholesale.
+- Work comes from the project board (https://github.com/users/coredev-uk/projects/3) and its issues. Labels: `area/*` and `platform/*` say where; `decision` needs the maintainer's call, `needs-hardware` a real machine, `upstream` MyGo or Apple; `needs-triage` is a new report. `state/*`, `verdict/*`, `kind/*`, `type/*` and `clarence:*` are the bots'; leave them.
+- Reference only: [vibez](https://github.com/simonepelosi/vibez) (MIT) hosts the CDM the same way; never copy it wholesale.
 
 ## Hard rules
 
