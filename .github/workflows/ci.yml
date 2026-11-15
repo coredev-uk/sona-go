@@ -115,7 +115,9 @@ jobs:
   # The image the Linux jobs below run in (build/ci/Containerfile, published
   # by images.yml). The tag follows the Containerfile and go.mod; a change to
   # either on a branch of this repository is built by the Images workflow in
-  # parallel, and this job waits for it. The jobs pin the digest found here,
+  # parallel (a pull request's as pr-<tag>; main, the nightly and a release
+  # take only an image built on main, with its provenance verified), and this
+  # job waits for it. The jobs pin the digest found here,
   # so the weekly rebuild never changes a run in progress, and the digest
   # keys Go's caches.
   image:

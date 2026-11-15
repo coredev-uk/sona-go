@@ -26,7 +26,7 @@ push leaves room for the rest. Main also runs
 "Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret (the step runs again, up to four attempts, when `playspike -preview` exits with status 75, "the network failed"; any other failure fails it), the motion artwork tests (`internal/ui/media`: a generated H.264 clip played through Media Foundation by MyGo's `ui/video`, which must become Ready and loop, with the open and loop-point timings in the log; a skipped one fails the step), the CDM tests)),
 `windows-playback.yml` (weekly and on dispatch, from main, `live` environment: playspike on windows-2025 plays a full track privately through the CDM host child to `fakesink`; its last line says whether Apple licensed the host; a failing weekly run opens an issue),
 `build-deps.yml` (on a push to main that changes `build/windows/gstreamer.sha256` or `build/darwin/gstreamer.sha256`, and on dispatch: mirrors the pinned GStreamer packages as assets of the `build-deps` prerelease, which never becomes "latest" and has no v* tag. A Windows and a macOS job restore them from the setup actions' Actions cache entry, falling back to gstreamer.freedesktop.org on a miss, check each against its pin, and upload it. `build/gstreamer-fetch.sh` downloads from the mirror first and falls back to upstream. GitHub serves the 1 GB Windows installer in seconds and keeps it. freedesktop.org is slow and behind a bot check, and has timed a release out; the cache drops an entry 7 days after its last use, sooner near the 10 GB cap. After bumping GStreamer, let this run on main before a release, or dispatch it),
-`images.yml` (also builds the CI image, below),
+`images.yml` (builds the CI image, below),
 `golden-update.yml`, `nix-vendor-hash.yml` ("Nix vendorHash": builds the Go
 modules of `build/linux/nix/package.nix` on pushes to main and on pull requests
 that touch `go.mod`, `go.sum`, the flake or the package) and `nix-branch.yml`
@@ -55,8 +55,17 @@ and the system libraries, which the UI goldens depend on, change only when the
 image is rebuilt. `images.yml` builds it when `build/ci/**` or `go.mod`
 changes (on a pull request of this repository too: the CI job named "CI image"
 waits for it), weekly and on dispatch; `build/ci/tag.sh` names the tag from the
-Containerfile and the Go and gotestsum versions. A run pins the digest it finds
-and keys Go's caches by it. Each kind of job (vet, e2e, one shard of a test pool with or without `-race`) has its own Go cache, saved only by a run on main, and `cache-prune.yml` keeps the newest of each: 7.5 GB of the repository's 10 GB in 34 entries after a main run (measured 2026-11-05: the macOS `-race` caches 1.7 GB, the UI shards' 1.8 GB, macOS's GStreamer installer 1.0 GB, the rest under 0.6 GB each); the pull-request jobs restore them and save nothing. The playback job stays on the bare runner (it
+Containerfile and the Go and gotestsum versions. Only a run on main writes that
+tag, and it attests the manifest's build provenance; a pull request (or a
+dispatch from a branch) writes `pr-<tag>`, which only pull request runs read.
+`build/ci/find-image.sh` takes `<tag>` for a pull request run (else `pr-<tag>`)
+and, for every other run (main, the nightly, a release), only a `<tag>` whose
+provenance says `images.yml` built it on `refs/heads/main`
+(`gh attestation verify`); an image that predates the attestation is rebuilt by
+the next main run of `images.yml`. A run pins the digest it finds
+and keys Go's caches by it. The Linux release build image
+(`build/linux/release/Containerfile`) is not published at all: `release.sh`
+builds it in the release job (about three minutes). Each kind of job (vet, e2e, one shard of a test pool with or without `-race`) has its own Go cache, saved only by a run on main, and `cache-prune.yml` keeps the newest of each: 7.5 GB of the repository's 10 GB in 34 entries after a main run (measured 2026-11-05: the macOS `-race` caches 1.7 GB, the UI shards' 1.8 GB, macOS's GStreamer installer 1.0 GB, the rest under 0.6 GB each); the pull-request jobs restore them and save nothing. The playback job stays on the bare runner (it
 lifts the user-namespace restriction of the host). To rebuild it by hand:
 `podman build $(build/ci/tag.sh args) -f build/ci/Containerfile build/ci`.
 

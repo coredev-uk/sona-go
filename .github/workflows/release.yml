@@ -247,7 +247,6 @@ jobs:
       HAVE_PROTON_PASS: ${{ secrets.PROTON_PASS_PERSONAL_ACCESS_TOKEN != '' }}
     permissions:
       contents: read
-      packages: read # pull the build image (images.yml)
       id-token: write # sign the build provenance
       attestations: write # store it
     steps:
@@ -255,14 +254,6 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
-
-      # release.sh pulls the build image published by images.yml; without the
-      # login (or the image) it builds the image itself, three minutes slower.
-      - name: Log in to GHCR
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          printf '%s' "$GH_TOKEN" | podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin || echo "::warning::no GHCR login, so the build image will be built here"
 
       # A prerelease's version is VERSION-<rc>; the packages read VERSION.
       - name: Set the version
