@@ -184,7 +184,7 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 	case curatorName(d) != "":
 		byline = func() { p.byline(c, d) }
 	}
-	stamps := p.stamps(c, pl)
+	stamps := p.stamps(c, pl, collab)
 	var find func()
 	if !inEdit && len(d.Tracks) > 0 {
 		find = func() { p.songFinder(c, d.Tracks) }
@@ -244,28 +244,66 @@ func (p *playlists) byline(c *ui.Context, d services.PlaylistDetail) {
 	ui.Text(c, name).TextColor(theme.C("ink-muted")).SingleLine()
 }
 
-// stamps are the ledger's dated cells: when the playlist was created
-// (library playlists; Apple gives a catalogue playlist no creation date) and
-// when it last changed, each with the exact date and time behind it. A
-// playlist created and last changed on the same day shows one cell, "Created
-// today" or "Created 3 March 2024". Unknown dates leave their cell out. The
-// page is asked back when the words would change: at the next local midnight,
-// and every minute while the update was today.
-func (p *playlists) stamps(c *ui.Context, pl services.Playlist) []ledgerCell {
+// stampKind is how the ledger words the date beside "Updated …".
+type stampKind int
+
+const (
+	// stampNone: no such date is shown. A personal mix is Apple's, and the
+	// day it was added says nothing; only "Updated" does.
+	stampNone stampKind = iota
+	// stampCreated: the user made the playlist, so `dateAdded` is its
+	// creation date.
+	stampCreated
+	// stampAdded: somebody else made it and the user added or joined it, so
+	// `dateAdded` is when it came to their library.
+	stampAdded
+)
+
+// stampKindOf is what a library playlist's `dateAdded` means. A personal mix
+// is Apple's and has no such date shown. A collaborative playlist is the
+// user's own when they host it (they are its owner); any other playlist is
+// when they can edit it: one added from Apple Music or a curator, or joined,
+// is not theirs to edit.
+func stampKindOf(pl services.Playlist, collab *services.PlaylistCollaboration) stampKind {
+	switch {
+	case isPersonalMix(pl):
+		return stampNone
+	case collab != nil:
+		if collab.Viewer == services.RoleOwner {
+			return stampCreated
+		}
+		return stampAdded
+	case pl.CanEdit:
+		return stampCreated
+	}
+	return stampAdded
+}
+
+// stamps are the ledger's dated cells: the date the library holds the
+// playlist ("Created" for the user's own, "Added" for one somebody else
+// made; Apple gives no creation date for those, see
+// docs/apple-music-reference.md) and when it last changed, each with the
+// exact date and time behind it. An update on the same day as the date, or
+// before it, is left out: one cell, and never "Updated" earlier than the
+// date beside it. A personal mix shows only "Updated". Unknown dates leave
+// their cell out. The page is asked back when the words would change: at the
+// next local midnight, and every minute while the update was today.
+func (p *playlists) stamps(c *ui.Context, pl services.Playlist, collab *services.PlaylistCollaboration) []ledgerCell {
 	now := c.Now()
 	if p.now != nil {
 		now = p.now()
 	}
-	var created, updated *time.Time
-	if pl.DateAdded > 0 {
+	kind := stampKindOf(pl, collab)
+	var dated, updated *time.Time
+	if pl.DateAdded > 0 && kind != stampNone {
 		t := time.UnixMilli(pl.DateAdded).In(time.Local)
-		created = &t
+		dated = &t
 	}
 	if pl.LastModified > 0 {
 		t := time.UnixMilli(pl.LastModified).In(time.Local)
 		updated = &t
 	}
-	if created == nil && updated == nil {
+	if dated == nil && updated == nil {
 		return nil
 	}
 	wake := i18n.NextMidnight(now, time.Local).Sub(now)
@@ -273,17 +311,16 @@ func (p *playlists) stamps(c *ui.Context, pl services.Playlist) []ledgerCell {
 		wake = min(wake, time.Minute)
 	}
 	c.After(max(time.Millisecond, wake))
-	return stampCells(created, updated, now)
+	return stampCells(dated, kind, updated, now)
 }
 
-// stampCells words the created and updated times against now; see stamps.
-func stampCells(created, updated *time.Time, now time.Time) []ledgerCell {
+// stampCells words the date and the update against now; see stamps.
+func stampCells(dated *time.Time, kind stampKind, updated *time.Time, now time.Time) []ledgerCell {
 	var cells []ledgerCell
-	sameDay := created != nil && updated != nil && i18n.CalendarDays(*created, *updated, time.Local) == 0
-	if created != nil {
-		cells = append(cells, ledgerCell{text: createdText(*created, now), detail: i18n.FormatDateTime(*created)})
+	if dated != nil {
+		cells = append(cells, ledgerCell{text: datedText(kind, *dated, now), detail: i18n.FormatDateTime(*dated)})
 	}
-	if updated != nil && !sameDay {
+	if updated != nil && (dated == nil || i18n.CalendarDays(*dated, *updated, time.Local) > 0) {
 		cells = append(cells, ledgerCell{
 			text:   i18n.T("Updated {when}", "when", i18n.RelativeDay(*updated, now, time.Local)),
 			detail: i18n.FormatDateTime(*updated),
@@ -292,10 +329,21 @@ func stampCells(created, updated *time.Time, now time.Time) []ledgerCell {
 	return cells
 }
 
-// createdText is "Created today", "Created yesterday" or, from two days
-// back, "Created 3 March 2024": a creation date rarely matters to the minute.
-func createdText(t, now time.Time) string {
-	switch days := i18n.CalendarDays(t, now, time.Local); {
+// datedText is "Created today", "Created yesterday" or, from two days back,
+// "Created 3 March 2024", and the same with "Added": the day a playlist came
+// about rarely matters to the minute.
+func datedText(kind stampKind, t, now time.Time) string {
+	days := i18n.CalendarDays(t, now, time.Local)
+	if kind == stampAdded {
+		switch {
+		case days <= 0:
+			return i18n.T("Added today")
+		case days == 1:
+			return i18n.T("Added yesterday")
+		}
+		return i18n.T("Added {date}", "date", i18n.FormatDate(t, i18n.DateLong))
+	}
+	switch {
 	case days <= 0:
 		return i18n.T("Created today")
 	case days == 1:

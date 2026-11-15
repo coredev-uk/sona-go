@@ -230,3 +230,39 @@ func TestPlaylistSuggestionsGolden(t *testing.T) {
 		})
 	}
 }
+
+// The header of a collaborative playlist the user joined: "Added …" with no
+// "Updated" (Apple's date is from before they joined), not "Created".
+func TestPlaylistJoinedCollaborativeGolden(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode theme.Mode
+	}{{"playlist-joined-light", theme.ModeLight}, {"playlist-joined-dark", theme.ModeDark}} {
+		t.Run(tc.name, func(t *testing.T) {
+			goldenFont(t)
+			d := goldenDetail()
+			d.Playlist.CatalogID, d.Playlist.CanEdit = "pl.u-9", false
+			d.Playlist.DateAdded = time.Date(2024, 9, 8, 10, 0, 0, 0, time.Local).UnixMilli()
+			d.Playlist.LastModified = time.Date(2023, 5, 1, 10, 0, 0, 0, time.Local).UnixMilli()
+			r := newPageRigWith(t, "p.1", func(api *fakeAPI) {
+				api.collab["p.1"] = services.PlaylistCollaboration{
+					Collaborative: true,
+					OwnerID:       "sp.1",
+					Collaborators: []services.SocialProfile{
+						{ID: "sp.1", Name: "Ada", Handle: "ada"},
+						{ID: "sp.2", Name: "Bo", Handle: "bo"},
+					},
+					Viewer: services.RoleCollaborator,
+				}
+			}, d)
+			r.p.now = func() time.Time { return goldenNow }
+			theme.SetMode(tc.mode)
+			r.shows("Road Trip", "Collaborative playlist", "Added September 8, 2024")
+			if r.tt.HasText("Updated") {
+				t.Errorf("an update from before the join shows: %q", r.tt.Texts())
+			}
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), tc.name)
+		})
+	}
+}

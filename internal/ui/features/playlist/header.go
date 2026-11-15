@@ -39,7 +39,7 @@ func headArt(ww float32) float32 {
 	return headCover
 }
 
-// ledgerCell is one fact of the ledger strip: the text and, for "Created …" and
+// ledgerCell is one fact of the ledger strip: the text and, for the dated cells ("Created …", "Added …") and
 // "Updated …", the exact date and time behind it (the cell is then a tab stop with a
 // tooltip).
 type ledgerCell struct {
@@ -49,7 +49,7 @@ type ledgerCell struct {
 }
 
 // ledger is the strip under the cover: the kind of playlist, how many songs,
-// the running time, and when it was created and last changed. Cells with nothing to say are
+// the running time, and when it was created or added and last changed. Cells with nothing to say are
 // left out.
 func (p *playlists) ledger(d services.PlaylistDetail, collab *services.PlaylistCollaboration, stamps ...ledgerCell) []ledgerCell {
 	kind := i18n.T("Playlist")
