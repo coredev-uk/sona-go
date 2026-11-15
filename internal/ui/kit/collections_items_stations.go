@@ -158,7 +158,7 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 			}
 		}
 
-		if hit.Clicked() {
+		if ClickOnce(hit) {
 			switch {
 			case s.HasPage:
 				ctx.nav(itemsPage("/station/", s.ID))

@@ -102,7 +102,7 @@ func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Toke
 			WebCue(c)
 		}
 	})
-	if tile.Clicked() {
+	if ClickOnce(tile) {
 		if link != "" {
 			ctx.nav(link)
 		} else {

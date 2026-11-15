@@ -226,7 +226,7 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 				Absolute().Right(0).Top(fh + 6)
 		}
 	})
-	if card.Clicked() {
+	if ClickOnce(card) {
 		ctx.opened(it)
 		if link != "" {
 			ctx.nav(link)

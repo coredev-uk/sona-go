@@ -238,7 +238,7 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 			}
 		})
 
-		if hit.Clicked() {
+		if kit.ClickOnce(hit) {
 			switch {
 			case page:
 				r.env.Nav.Push(stationURL(s.ID))
@@ -360,7 +360,7 @@ func (r *radio) cell(c *ui.Context, cl cell, link func()) {
 			})
 		}
 	})
-	if link != nil && el.Clicked() {
+	if link != nil && kit.ClickOnce(el) {
 		link()
 	}
 }
