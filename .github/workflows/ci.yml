@@ -886,6 +886,13 @@ jobs:
             --allow-skip 'TestOpenMotionWithoutDecoder|TestMotionFileOfTheCache' \
             -- go test -count=1 -timeout 10m -v ./internal/ui/media/
 
+      # Discord presence over a named pipe (internal/discord/ipc_windows.go):
+      # a pipe this test serves carries the handshake and the activity, and
+      # one whose server is another user's gets nothing (docs/security-review.md,
+      # F4).
+      - name: Discord pipe tests
+        run: go test -count=1 -timeout 5m -v ./internal/discord/
+
       # Google's CDM, downloaded and verified the way Sona does, loaded
       # through the shim DLL (SONA_CDM_SHIM, set by setup-windows).
       - name: CDM tests

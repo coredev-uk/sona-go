@@ -87,7 +87,7 @@ See [Playback](/guide/playback/) for the equaliser and the output in use.
 | --- | --- | --- |
 | Last.fm | Connects your account and adds each song you play to your profile. Builds without a Last.fm key can't connect. | |
 | ListenBrainz | Connects with your user token and adds each song to your public history. | |
-| Discord status | Shows the song you're playing as your Discord activity. Builds without a Discord application ID don't have it. | Not on _Windows_ yet. |
+| Discord status | Shows the song you're playing as your Discord activity. Builds without a Discord application ID don't have it. | |
 
 A song counts as scrobbled once you've played half of it or four minutes. Nothing is scrobbled or shown on Discord while private listening is on. See [Scrobbling and Discord](/guide/scrobbling-and-discord/).
 

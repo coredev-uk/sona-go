@@ -1,8 +1,9 @@
 // Package discord sets the user's Discord rich presence over the local
-// Discord IPC socket ($XDG_RUNTIME_DIR/discord-ipc-N, including the
-// Flatpak and Snap locations, or $TMPDIR on macOS; see ipc_unix.go). On
-// Windows, where Discord uses a named pipe, Supported is false. It needs no Discord credentials: only the
-// application's public client ID.
+// Discord IPC endpoint: a Unix socket ($XDG_RUNTIME_DIR/discord-ipc-N,
+// including the Flatpak and Snap locations, or $TMPDIR on macOS; see
+// ipc_unix.go), or on Windows the named pipe \\.\pipe\discord-ipc-N
+// (ipc_windows.go). Either is used only when the current user owns it. It
+// needs no Discord credentials: only the application's public client ID.
 //
 // Wire format: every frame is a little-endian uint32 opcode, a
 // little-endian uint32 payload length and a JSON payload. The client
@@ -18,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"strconv"
 	"sync"
@@ -87,8 +87,15 @@ type Client struct {
 	paths    func() []string
 
 	mu    sync.Mutex
-	conn  net.Conn
+	conn  ipcConn
 	nonce uint64
+}
+
+// ipcConn is a connection to Discord: a Unix socket or a named pipe, both
+// with deadlines.
+type ipcConn interface {
+	io.ReadWriteCloser
+	SetDeadline(t time.Time) error
 }
 
 // New returns a Client for the application clientID that looks for the
@@ -158,16 +165,16 @@ func isConnErr(err error) bool {
 	return errors.As(err, &ce)
 }
 
-// connect dials the first socket that answers and performs the handshake.
+// connect dials the first endpoint that answers and is the user's own
+// (dial, per OS), and performs the handshake.
 func (c *Client) connect(ctx context.Context) error {
 	_ = c.drop()
 	if !Supported {
 		return ErrUnsupported
 	}
-	var d net.Dialer
-	var conn net.Conn
+	var conn ipcConn
 	for _, p := range c.paths() {
-		cn, err := d.DialContext(ctx, "unix", p)
+		cn, err := dial(ctx, p)
 		if err == nil {
 			conn = cn
 			break
@@ -364,7 +371,7 @@ func (c *Client) read(ctx context.Context) (uint32, []byte, error) {
 	return op, data, nil
 }
 
-func setDeadline(ctx context.Context, conn net.Conn) {
+func setDeadline(ctx context.Context, conn ipcConn) {
 	dl, _ := ctx.Deadline()
 	_ = conn.SetDeadline(dl) // zero: none
 }
