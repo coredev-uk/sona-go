@@ -107,7 +107,7 @@
 // dependency) and emits "themes:changed" with the files when one changes.
 // It does not parse them: the UI's theme registry (internal/ui/theme)
 // checks and applies a file, keeping the last good theme when an edit is
-// refused (docs/themes.md).
+// refused (site/src/content/docs/reference/theme-format.md).
 //
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls

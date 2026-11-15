@@ -1,57 +1,103 @@
-# Command line
+---
+title: Command Line Reference
+description: Every sona command, its options, exit status and JSON output.
+---
 
-`sona <command>` controls the Sona that is running: playback, the volume,
-favourites, lyrics, search, links and private listening, with text for
-people and JSON for scripts and status bars. Commands never start Sona.
+> Control the running Sona from a terminal, script or status bar.
 
-```sh
-sona status                 # what's playing
-sona toggle                 # play/pause
-sona next; sona prev
-sona volume +10             # 0 to 100, or +N/-N
-sona like                   # favourite the playing song
-sona lyrics                 # the playing song's lyrics (--lrc for an LRC file)
-sona search abbey road      # results with their links
-sona open https://music.apple.com/gb/album/abbey-road/1441164426
-sona private on
-sona help [command]         # sona(1) has the same
-```
+For an introduction, see [Command line](/guide/cli/).
 
-Started without a command, `sona` opens Sona, or hands its Apple Music
-links to the Sona already running (`sona --hidden` starts without a
-window, `sona --version` prints the version).
+## Options of `sona`
 
-On Windows, `sona.exe --remove-sandbox` takes away what the playback
-host's sandbox left on the computer: its AppContainer profile and the
-access list entries granted to it on Sona's, GStreamer's and the
-Widevine folders (the downloaded Widevine CDM, your settings and your
-library stay). The installer's uninstaller runs it for you. The portable
-`.zip` has no uninstaller: quit Sona and run `sona.exe --remove-sandbox`
-from its folder before you delete the folder. It starts nothing and can
-run again; when a step fails it exits with status 1 and says why. On
-other systems it exits with status 1: there is nothing to remove.
+`sona` without a command opens Sona, or hands its Apple Music links to the Sona already running. `sona --hidden` starts without a window, and `sona --version` prints the version.
+
+### `sona.exe --remove-sandbox`
+
+_Windows_
+
+Removes what the playback host's sandbox left on the computer: its AppContainer profile and the access entries granted to it on Sona's, GStreamer's and the Widevine folders. Your settings, library and the downloaded Widevine component stay.
+
+- The installer's uninstaller runs it for you.
+- The portable `.zip` has no uninstaller: quit Sona and run it from the folder before you delete the folder.
+- It starts nothing and can run again. If a step fails, it exits with status 1 and says why. On other systems it exits with status 1, because there is nothing to remove.
 
 ## Commands
 
-| Command | What it does | `--json` prints |
-| --- | --- | --- |
-| `play`, `pause`, `toggle`, `next`, `prev` | Resume, pause, play/pause, next song, previous song (or restart the song in its first seconds, like the previous key) | the status after it |
-| `status [--follow] [--format T]` | The playback state, song, position, volume, shuffle, repeat and private listening | the status |
-| `lyrics [--lrc] [--follow] [--format T] [--translation\|--transliteration]` | The playing song's lyrics as plain text, as an LRC file (`--lrc`), or, with `--follow`, the line being sung now, a new one each time it changes ([below](#lyrics-in-a-bar-or-shell)) | `{"track", "state", "position", "provider", "timing", "synced", "lines"}`; with `--follow` one `{"running", "state", "track", …}` per line |
-| `queue` | The queue in play order, the playing song marked | `{"index", "tracks"}` |
-| `search <term>… [--type KIND] [--limit N]` | Catalogue search in Sona's storefront, up to N (default 5, at most 20) results of each kind: `song`, `album`, `artist`, `playlist`, `station`, `music-video`, `curator` | `{"term", "results"}` |
-| `open <link>` | Opens a music.apple.com, `music://` or `itms://` link in Sona's window, as clicking it would | `{"kind", "id", "storefront"}` |
-| `volume [N\|+N\|-N]` | Shows the volume, or sets it as the player bar's slider does (and keeps it) | `{"volume"}` |
-| `like [on\|off\|toggle\|status]` | Favourites the playing song (`on`, the default), un-favourites it, switches it or shows it. Needs an Apple Music account in Sona; favouriting a song adds it to the library | `{"track", "liked"}` |
-| `private [on\|off\|toggle\|status]` | Private listening (`status`, the default). `SONA_PRIVATE=1` keeps it on; a development build changes it for the session only | `{"on", "source", "saved"}` |
-| `help [command] [--man]` | Help, or the manual page in roff | |
-| `completion bash\|zsh\|fish` | The shell completion script | |
+Options may come anywhere after the command. `--` ends them, and a number such as `-10` is an argument (`sona volume -10`). Every command takes `-h` and `--help`.
 
-Options may come anywhere after the command; `--` ends them, and a number
-such as `-10` is an argument (`sona volume -10`). Every command takes
-`-h`/`--help`.
+### `sona play`, `pause`, `toggle`, `next`, `prev`
 
-### Exit status
+Resume, pause, play or pause, skip to the next song, go to the previous song (or restart the song in its first seconds, like the previous key).
+
+- `--json` - prints the status after the command.
+
+### `sona status`
+
+Prints the playback state, song, position, volume, shuffle, repeat and private listening.
+
+- `--follow` - keeps printing on every change.
+- `--format` string (optional) - a template for each line ([Status bars](#status-bars)).
+- `--json` - prints the status.
+
+### `sona lyrics`
+
+Prints the playing song's lyrics as plain text.
+
+- `--lrc` - prints an LRC file.
+- `--follow` - prints the line being sung, a new one each time it changes ([Lyrics in a bar or shell](#lyrics-in-a-bar-or-shell)).
+- `--format` string (optional) - a template for each line.
+- `--translation` or `--transliteration` - prints that version of each line.
+- `--json` - prints `{"track", "state", "position", "provider", "timing", "synced", "lines"}`. With `--follow`, one `{"running", "state", "track", …}` per line.
+
+### `sona queue`
+
+Prints the queue in play order and marks the playing song.
+
+- `--json` - prints `{"index", "tracks"}`.
+
+### `sona search`
+
+Searches the catalogue in Sona's storefront: `sona search <term>…`.
+
+- `--type` string (optional) - `song`, `album`, `artist`, `playlist`, `station`, `music-video` or `curator`.
+- `--limit` number (optional) - results of each kind. Default 5, at most 20.
+- `--json` - prints `{"term", "results"}`.
+
+### `sona open`
+
+Opens a `music.apple.com`, `music://` or `itms://` link in Sona's window, as clicking it would: `sona open <link>`.
+
+- `--json` - prints `{"kind", "id", "storefront"}`.
+
+### `sona volume`
+
+Shows the volume, or sets it as the player bar's slider does and keeps it: `sona volume [N|+N|-N]`.
+
+- `--json` - prints `{"volume"}`.
+
+### `sona like`
+
+Favourites the playing song, which adds it to your library. Needs an Apple Music account signed in to Sona: `sona like [on|off|toggle|status]`. The default is `on`.
+
+- `--json` - prints `{"track", "liked"}`.
+
+### `sona private`
+
+Shows or sets private listening: `sona private [on|off|toggle|status]`. The default is `status`. `SONA_PRIVATE=1` keeps it on. A development build changes it for the session only.
+
+- `--json` - prints `{"on", "source", "saved"}`.
+
+### `sona help`
+
+Prints help for a command: `sona help [command]`.
+
+- `--man` - prints the manual page in roff.
+
+### `sona completion`
+
+Prints the shell completion script: `sona completion bash|zsh|fish`.
+
+## Exit status
 
 | Status | Meaning |
 | --- | --- |
@@ -232,7 +278,7 @@ sona lyrics --json | jq '.lines[] | select(.start > 60) | .text'
   doesn't leave an untimed file looking like LRC; leave `--lrc` out for the
   plain text.
 - **`--translation`, `--transliteration`** print the line's translation, or
-  its Latin-script sound, *instead of* the line where it has one, and the
+  its Latin-script sound, _instead of_ the line where it has one, and the
   line itself where it doesn't. They apply to the plain text, `--lrc` and
   `--follow`'s `text`, not to the one-shot `--json` (which carries every
   localization: combining them is an error), and not to each other.
@@ -341,9 +387,7 @@ tail = true
 
 ## Shell completions and the manual page
 
-The deb, rpm and Arch packages install the bash, zsh and fish completions
-and `sona(1)`, all generated by the binary from its command table
-(`build/linux/Taskfile.yml`, `package:cli`). Elsewhere, load them by hand:
+The `.deb`, `.rpm` and Arch packages install the bash, zsh and fish completions and the `sona(1)` manual page. Elsewhere, load them by hand:
 
 ```sh
 source <(sona completion bash)                       # bash, e.g. in ~/.bashrc
@@ -352,35 +396,11 @@ sona completion fish > ~/.config/fish/completions/sona.fish
 sona help --man > ~/.local/share/man/man1/sona.1     # then: man sona
 ```
 
-The AppImage and the Flatpak install neither: run the AppImage with a
-command (`Sona.AppImage status`), or `flatpak run dev.coredev.Sona status`.
+The AppImage installs neither. Run it with a command: `Sona.AppImage status`.
 
-## How it reaches Sona
+## How commands reach Sona
 
-- Linux: the D-Bus session bus. The running Sona owns `dev.coredev.Sona`
-  (its single-instance name) and exports `dev.coredev.Sona.Instance` at
-  `/dev/coredev/Sona`: `Run(s request) → (s reply)` answers a command and
-  the `StatusChanged(s status)` signal carries each change for `--follow`.
-  The session bus is the user's own.
-- macOS and Windows: a Unix socket, `sona.sock`, in Sona's state folder
-  (`~/Library/Application Support/Sona/State`, `%LOCALAPPDATA%\Sona\State`;
-  0700, the socket 0600), held by the running Sona together with an
-  exclusive lock on `sona.lock` beside it. Sona answers only processes of
-  its own user (the peer's credentials: `LOCAL_PEERCRED` on macOS, the
-  token's user SID on Windows) and closes any other connection. The same
-  lock and socket give macOS and Windows single instance: a second launch
-  hands its links to the running Sona and exits.
+- **Linux:** over your D-Bus session bus. The running Sona owns `dev.coredev.Sona`.
+- **macOS and Windows:** over a socket, `sona.sock`, in Sona's state folder (`~/Library/Application Support/Sona/State`, `%LOCALAPPDATA%\Sona\State`). Sona answers only processes of your own user.
 
-Both carry the same protocol (`internal/cli/protocol.go`): a JSON request
-`{"command", "args", "kind", "limit"}`, and a reply `{"result"}` or
-`{"error": {"code", "message"}}`. The running Sona checks every request
-against the command table before acting on it, and acts through the
-services the UI uses (`internal/services/commands.go`), so the window
-follows every change. All command-line text is in
-`internal/cli/messages.go`, in Go's message catalogue
-(`internal/i18n/l10n`): help, the manual page, the completions'
-descriptions, the lines commands print and errors are in Sona's Language
-setting (read from `settings.json`), else the system's languages. Command
-and option names, `--json` output and `--format` templates are the same in
-every language. An error's `code` is what the command line words; Sona's
-`message` (English) is shown only for a failure it has no words for.
+The window follows every change a command makes. Help, the manual page, completion descriptions, printed lines and errors use Sona's Language setting, else your system's languages. Command and option names, `--json` output and `--format` templates are the same in every language.

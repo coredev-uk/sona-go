@@ -28,7 +28,7 @@ func Contrast(a, b ui.Color) float64 {
 	return (la + 0.05) / (lb + 0.05)
 }
 
-// The floors Validate holds a theme to (docs/design.md "Colour", docs/themes.md).
+// The floors Validate holds a theme to (docs/design.md "Colour", site/src/content/docs/reference/theme-format.md).
 const (
 	// TextFloor is text against any background it sits on (WCAG AA).
 	TextFloor = 4.5

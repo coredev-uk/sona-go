@@ -2,7 +2,7 @@ package cli
 
 // The JSON every command answers with: the result of a Reply, and what
 // --json prints. These schemas are stable: fields may be added, never
-// renamed, removed or changed in meaning (docs/cli.md lists them).
+// renamed, removed or changed in meaning (site/src/content/docs/reference/cli.md lists them).
 // Durations and positions are seconds; the volume is a percentage.
 
 // Status is `sona status` and the answer to play, pause, toggle, next

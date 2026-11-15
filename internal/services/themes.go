@@ -19,7 +19,7 @@ import (
 const themesPoll = 2 * time.Second
 
 // ThemesService reads the user's theme files, `<config dir>/themes/*.json`
-// (docs/themes.md). It only lists and reads them: the UI's theme registry
+// (site/src/content/docs/reference/theme-format.md). It only lists and reads them: the UI's theme registry
 // (internal/ui/theme) parses, checks and applies them. After the first paint
 // it polls the folder every two seconds and emits "themes:changed" with the
 // files when one is added, edited or removed, so an edit shows without a

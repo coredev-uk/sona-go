@@ -120,6 +120,7 @@ private mode.
 | `dev`        | Builds `cmd/devloop` into `bin/devloop` and runs it on `./cmd/sona` with your arguments after `--`: it builds the app with `-tags dev,sqlite_fts5` into `bin/sona-dev`, runs it, and rebuilds and restarts it when a Go file of the app changes (the old app keeps running during the build; a failed build prints its errors and leaves it; the restart lands on the same screen, scroll and window). Keys: `r` rebuilds, `q` quits. A first argument `-background` (`dev -background -- <app args>`) starts the app without taking the focus (`MYGO_DEV_BACKGROUND=1`), so a restart on a save leaves it in your editor. Design tokens and `.po` files reload in the running app without a build. See docs/ui-architecture.md, "The development loop". |
 | `gallery`    | The same loop on `./cmd/uigallery`: the component gallery (every kit component, light and dark, with knobs), restarting like `dev`. |
 | `build`      | `go build -tags mygo_noinspector,sqlite_fts5 -ldflags "$(bash build/ldflags.sh --no-credentials --goos "$(go env GOOS)")" -o bin/sona ./cmd/sona`: no inspector in the binary, MyGo in production mode (`build/ldflags.sh` is the one place the link flags are assembled: `-w -s`, the version, production mode, and per OS the macOS deployment target or `-H windowsgui`; `--no-credentials` leaves the Last.fm and Discord values out, which only `-trimpath` builds may carry). |
+| `docs`       | `cd site && npm ci && npm run dev`: the documentation site with live reload (see "Documentation site"). Node is only in the dev shell for this; the app's build and `check` don't use it. |
 | `gen`        | `sqlc generate`. Commit the result. |
 | `fmt`        | gofumpt on every tracked Go file except `internal/db/dbq`. |
 | `check`      | The static half of the checks below: `go vet`, `go vet -tags dev,sqlite_fts5` and `-tags probe,sqlite_fts5` (development and probe builds type-check too), the Windows and macOS type-checks, `golangci-lint --new-from-rev=origin/main`, `go tool mygo vet internal/ui` (build values kept past their frame), the catalogue check (`i18ntool extract -check`) and the path-case check (`cmd/pathcase`). |
@@ -252,7 +253,7 @@ own identifier, and a login item you turn on is listed in System Settings →
 General → Login Items & Extensions until you turn it off again). A bare
 `bin/sona` has neither, and Settings says so ("Only when Sona runs from
 Sona.app"). `sona <command>` and single instance work over a socket in
-Sona's state folder (docs/cli.md). Apple's licence server grants licences to
+Sona's state folder (site/src/content/docs/reference/cli.md). Apple's licence server grants licences to
 this unsigned host: full tracks play on Apple Silicon.
 
 The CDM host child runs under macOS's sandbox (`sandbox-exec` with Sona's
@@ -600,6 +601,10 @@ Steps are `wait:<duration>`, `link:`/`button:`/`toggle:`/`tab:`/`press:<label>` 
 
 CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every pull request and every push to `main` (`.github/workflows/secret-scan.yml`): over every commit of every branch and tag, your pull request's own commits included, and over the pull request's title and body. `.gitleaks.toml` adds Sona's rules to gitleaks' defaults: JWTs (the Apple developer token), Music User Tokens, the Last.fm key and secret, the Discord application ID, and credential files (`.env`, `.p8`, `.pem`, keys, keystores). The public log shows only each finding's rule, commit, file and line. Run it before pushing with `nix run nixpkgs#gitleaks -- git --config .gitleaks.toml --redact .` (CI pins gitleaks 8.30.1). Test fixtures that need token-shaped input use obviously fake values; an allowlist entry in `.gitleaks.toml` names the file and the exact fake value, with a comment saying why it is fake. A commit that ever held a real secret stays public through its pull request even after a squash merge or force-push: rotate the secret first, then tell the maintainer. Details: `docs/security-review.md`, "Secret scanning".
 
+## Documentation site
+
+The public docs are an [Astro Starlight](https://starlight.astro.build) site in `site/`, published to https://sona.coredev.uk by `.github/workflows/pages.yml`. Pages are Markdown in `site/src/content/docs/`. Preview with `devenv shell -- docs`, and run `npm run lint` and `npm run build` in `site/` before you push (a broken internal link fails the build). `docs/` holds the contributor and agent references: architecture, design, UI architecture and the rest. The writing rules are on the site's "Write Docs" page.
+
 ## Branches and pull requests
 
 - One change per branch and pull request. Parallel work is easiest in
@@ -739,7 +744,7 @@ own GStreamer decoder (`motion_gst.go`).
 - In `cmd/sona`, `main.go` is portable; `platform_linux.go` and `platform_other.go` build
   what differs per OS: the `sona <command>` transport and single instance
   (`internal/app`: D-Bus on Linux, a socket in the state folder on macOS
-  and Windows; docs/cli.md), the app options, and `services.Platform`:
+  and Windows; site/src/content/docs/reference/cli.md), the app options, and `services.Platform`:
   media controls (MPRIS on Linux; MyGo's NowPlaying on macOS and Windows through
   `internal/nowplaying`, `nowplaying_desktop.go`, never linked on Linux), notifications, the sleep inhibitor, the
   on-battery monitor, the autostart entry, the file chooser, and the

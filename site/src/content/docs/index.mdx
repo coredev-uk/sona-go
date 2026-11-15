@@ -1,0 +1,53 @@
+---
+title: Sona
+description: Sona is an Apple Music client for the desktop, built first for Linux.
+template: splash
+hero:
+  tagline: Apple Music on your desktop. A native app, drawn on the GPU, with no web view.
+  actions:
+    - text: Get started
+      link: /guide/install/
+      icon: right-arrow
+    - text: Contributing
+      link: https://github.com/coredev-uk/sona-go/blob/main/CONTRIBUTING.md
+      variant: minimal
+---
+
+import { Image } from 'astro:assets';
+import homeLight from '../../assets/home-light.webp';
+import homeDark from '../../assets/home-dark.webp';
+import miniLight from '../../assets/miniplayer-light.webp';
+import miniDark from '../../assets/miniplayer-dark.webp';
+
+<div class="sona-shot only-light">
+  <Image src={homeLight} widths={[640, 1132]} sizes="(min-width: 50rem) 50rem, 100vw" alt="Sona's For you page in light mode: a sidebar with Discover, Charts, Radio and the library, a grid of album covers under Recently added and Your playlists, and the player bar along the bottom." loading="eager" />
+</div>
+<div class="sona-shot only-dark">
+  <Image src={homeDark} widths={[640, 1132]} sizes="(min-width: 50rem) 50rem, 100vw" alt="Sona's For you page in dark mode: the same sidebar, album grid and player bar on a near-black board." loading="eager" />
+</div>
+
+Sona is in early development, not a finished product. You need an Apple Music subscription. It is built first for Linux, and also runs on macOS (Apple silicon) and Windows (x64).
+
+## A native app
+
+Sona's interface is drawn on the GPU by [MyGo](https://github.com/egoist/mygo) over GTK3, AppKit or Win32, with no web view. On Linux you get media controls, notifications and a tray. On macOS and Windows you get media keys and Now Playing.
+
+<div class="sona-split">
+<div>
+
+## Make it yours
+
+Sona's board is neutral so album covers show true colour, and amber marks what is playing. Twelve [themes](/guide/themes/) come with it, and you can write your own as a JSON file. Control the running app from a terminal or status bar with the [command line](/guide/cli/), or use the small mini player.
+
+</div>
+<div class="sona-mini">
+<Image class="only-light" src={miniLight} alt="Sona's mini player in light mode, a small window with the cover, title and playback controls." />
+<Image class="only-dark" src={miniDark} alt="Sona's mini player in dark mode." />
+</div>
+</div>
+
+## Start here
+
+1. [Install Sona](/guide/install/) on Linux, macOS or Windows.
+2. [Sign in with Apple Music](/guide/first-run/).
+3. To help build Sona, read [CONTRIBUTING](https://github.com/coredev-uk/sona-go/blob/main/CONTRIBUTING.md).

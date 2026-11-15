@@ -63,7 +63,7 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 ### Themes
 
-The table above is Sona's own theme (`sona`): `tokens.json` is its whole document, and every other theme is a set of overrides of it (`internal/ui/theme/themes/*.json`, and the user's own files, `docs/themes.md`). A token a theme leaves out comes from Sona's own, so a theme never shows a missing colour. Every light/dark difference is a token (`scrim`, `input-bg`, `switch-off`, `select-hover`, `badge-destructive`, `link-tile-border`, `dialog-border`…); the kit has no `theme.Dark()` branch for a colour.
+The table above is Sona's own theme (`sona`): `tokens.json` is its whole document, and every other theme is a set of overrides of it (`internal/ui/theme/themes/*.json`, and the user's own files, `site/src/content/docs/reference/theme-format.md`). A token a theme leaves out comes from Sona's own, so a theme never shows a missing colour. Every light/dark difference is a token (`scrim`, `input-bg`, `switch-off`, `select-hover`, `badge-destructive`, `link-tile-border`, `dialog-border`…); the kit has no `theme.Dark()` branch for a colour.
 
 | Theme | Looks | Spot colour |
 | --- | --- | --- |

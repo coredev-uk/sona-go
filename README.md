@@ -47,7 +47,7 @@ the unsigned macOS and Windows builds.
   Updates install in place from Settings → Updates. The uninstaller removes
   Sona's playback sandbox too (your data stays); before deleting a portable
   folder, quit Sona and run `sona.exe --remove-sandbox` from it
-  (`docs/cli.md`).
+  (the [command line reference](https://sona.coredev.uk/reference/cli/)).
 
 ## Build and run
 
@@ -96,7 +96,7 @@ this repository or any Sona build, and must never be bundled or modified.
 ## More
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): environment, checks and pull requests
-- [docs/cli.md](docs/cli.md): `sona play`, `sona status --follow` and the
+- [Command line](https://sona.coredev.uk/guide/cli/): `sona play`, `sona status --follow` and the
   other commands for the running Sona (scripts, Waybar, Polybar)
 - [docs/architecture.md](docs/architecture.md): how Sona is put together
 - [SECURITY.md](SECURITY.md): reporting a vulnerability
