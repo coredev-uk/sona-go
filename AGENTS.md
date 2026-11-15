@@ -34,7 +34,7 @@ Run everything as `devenv shell -- <cmd>` (devenv 2.4+; it sets `CGO_ENABLED`, `
 
 - `cmd/sona` entry; `internal/services` Go services (contracts in `internal/services/doc.go`); `internal/ui` MyGo UI; `internal/db` SQLite, goose migrations (dense from `00001`, applied in order), sqlc. `VERSION` is the version source.
 - `docs/architecture.md`: scope, process model, playback and DRM, layout (§6), data, performance, platforms, testing: the why behind every rule here.
-- `docs/ui-architecture.md` UI modules; `docs/design.md` visual direction; `docs/accessibility.md` keyboard and assistive-technology contracts; `docs/themes.md` theme files; `docs/cli.md` the `sona` CLI.
+- `docs/ui-architecture.md` UI modules; `docs/design.md` visual direction; `docs/accessibility.md` keyboard and assistive-technology contracts; `site/src/content/docs/reference/theme-format.md` theme files; `site/src/content/docs/reference/cli.md` the `sona` CLI; `site/` the public docs.
 - `docs/auth.md` sign-in; `docs/apple-music-reference.md` Apple endpoints (functionality only); `docs/security-review.md` threat model; `CONTRIBUTING.md` setup, checks, platforms, strings, CI.
 - A new page is a service (`internal/services/<feature>.go`, `<feature>_dto.go`, one `registry.go` line) plus a UI package (`internal/ui/features/<name>`, one `internal/ui/app/modules.go` line).
 - Design every page fresh with `skill://impeccable` and `skill://design-taste-frontend`; never copy Apple's layouts.
