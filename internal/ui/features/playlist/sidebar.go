@@ -25,9 +25,6 @@ import (
 // sidebarContainer is the ActionContainer kind of the sidebar's rows.
 const sidebarContainer = "sidebar"
 
-// shuffleWash is the ground wash under the shuffle glyph.
-const shuffleWash = 0.85
-
 const (
 	// rowArt is a row's picture and rowArtGap the space after it: with the
 	// 10 DIP padding, the name starts where the navigation's labels do.
@@ -523,7 +520,7 @@ func (p *playlists) shuffleButton(c *ui.Context, id, plName string, songs int, l
 	reason := p.shuffleReason(songs)
 	btn := ui.ButtonBase(c.Key("shuffle")).Absolute().Left(left).Top(rowArtTop()).
 		Size(rowArt, rowArt).Center().Radius(theme.Current().Radius["sm"]).Cursor(ui.CursorPointer).
-		Background(theme.C("ground").Alpha(shuffleWash)).Label(name).TabStop(false).IgnoreInput(!hot)
+		Background(kit.ArtworkWash(true)).Label(name).TabStop(false).IgnoreInput(!hot)
 	kit.Fade(btn, hot)
 	ink := theme.C("ink")
 	if reason != "" {

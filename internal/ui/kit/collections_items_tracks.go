@@ -135,7 +135,7 @@ func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play fun
 	row.Children(func() {
 		ui.Box(c.Key("art")).Size(trackArt, trackArt).Shrink(0).Children(func() {
 			itemsArtwork(c, ctx.Art, song.Art.Small, trackArt, ArtOpts{Edge: true})
-			wash := theme.C("ground").Alpha(0.7)
+			wash := ArtworkWash(false)
 			switch {
 			case current:
 				ui.Row(c.Key("now")).Absolute().Left(0).Top(0).Size(trackArt, trackArt).Center().Radius(tk.Radius["sm"]).

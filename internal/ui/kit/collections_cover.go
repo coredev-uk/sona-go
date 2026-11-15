@@ -454,6 +454,18 @@ func (st *CoverState) loadingTile(c *ui.Context, i int, size float32, video bool
 	})
 }
 
+// ArtworkWash is the ground colour laid over a cover to dim it under a play
+// glyph, so the glyph reads on any cover (a pale one, a dark one). A row's
+// 40 DIP cover takes 70%: the cover still shows through. A small cover (the
+// sidebar's 20 DIP shuffle button) takes 85%, because a glyph of 12 DIPs
+// covers most of it and a weaker wash lets the picture fight the strokes.
+func ArtworkWash(small bool) ui.Color {
+	if small {
+		return theme.C("ground").Alpha(0.85)
+	}
+	return theme.C("ground").Alpha(0.7)
+}
+
 // Fade shows or hides e over the theme's press duration, at once while motion
 // is reduced: the play button and the playing mark over a cover.
 func Fade(e ui.Element, show bool) {

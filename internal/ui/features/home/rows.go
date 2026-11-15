@@ -14,13 +14,12 @@ import (
 
 // Geometry of the item rows (v0.2.0's ItemRows), in DIPs.
 const (
-	rowMin   = 264 // the smallest column
-	rowH     = 56  // h-14
-	rowArt   = 40
-	rowPadX  = 8
-	rowGap   = 12
-	rowGapX  = kit.TileGapX
-	rowMarkA = 0.7 // the play mark's ground wash
+	rowMin  = 264 // the smallest column
+	rowH    = 56  // h-14
+	rowArt  = 40
+	rowPadX = 8
+	rowGap  = 12
+	rowGapX = kit.TileGapX
 	// rowInline is the column width from which an inline row (a running
 	// order) sets its reason beside its name instead of under it.
 	rowInline = 480
@@ -294,7 +293,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			hover := w.Hovered()
 			if playable && !direct {
 				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
-					Background(theme.C("ground").Alpha(rowMarkA)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
+					Background(kit.ArtworkWash(false)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
 				if o.Tile {
 					// A disc at the middle of the cover.
 					play.Left(tilePad+(tileArt-tileDisc)/2).Top(tilePad+(tileArt-tileDisc)/2).Size(tileDisc, tileDisc).Radius(tk.Radius["full"])
@@ -327,7 +326,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				// A station with no page plays when it is opened: the mark is
 				// the name's button, not a second control.
 				mark := ui.Row(c.Key("mark")).Absolute().Left(0).Top(0).Size(artSize, artSize).Center().Radius(radius).
-					Background(theme.C("ground").Alpha(rowMarkA)).IgnoreInput(true)
+					Background(kit.ArtworkWash(false)).IgnoreInput(true)
 				if o.Tile {
 					mark.Left((artSize-tileDisc)/2).Top((artSize-tileDisc)/2).Size(tileDisc, tileDisc).Radius(tk.Radius["full"])
 				}
