@@ -54,7 +54,7 @@ in
   pname = "sona";
   inherit version src;
 
-  vendorHash = "sha256-9WEA7Vsl+G8d9bZaC9RkhQoplltAmkWHyREoKmKtohE=";
+  vendorHash = "sha256-Wm8RpV7X/1eR/tA6pb6XQ5Du5WU5cg/twC7oUpGnheM=";
 
   subPackages = [ "cmd/sona" ];
   tags = [
@@ -100,7 +100,7 @@ in
   '';
 
   meta = {
-    description = "Apple Music for the Linux desktop";
+    description = "Native Apple Music client";
     homepage = "https://github.com/coredev-uk/sona-go";
     license = lib.licenses.agpl3Only;
     mainProgram = "sona";

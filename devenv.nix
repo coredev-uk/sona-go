@@ -61,6 +61,9 @@ in
       goose
       sqlite
       pkg-config
+      # Only the documentation site (site/, the `docs` script); the app's
+      # build and `check` never touch it.
+      nodejs
     ]
     ++ gstPlugins
     ++ map lib.getDev [
@@ -107,8 +110,10 @@ in
     MACOSX_DEPLOYMENT_TARGET = darwinMinVersion;
   };
 
-  # Each script is described in CONTRIBUTING.md ("devenv scripts").
+  # Each script is described in docs/development.md ("devenv scripts").
   scripts = {
+    # The documentation site (site/, Astro Starlight) with live reload.
+    docs.exec = ''cd "$DEVENV_ROOT/site" && npm ci && npm run dev -- "$@"'';
     # The development loop (cmd/devloop): rebuilds the app with the dev tag
     # on every save, restarts it where it was, reloads tokens and catalogues
     # without a rebuild. `r` rebuilds, `q` quits. A first argument
@@ -145,14 +150,14 @@ in
       go vet -tags dev,sqlite_fts5 ./...
       go vet -tags probe,sqlite_fts5 ./...
       # Every package must still type-check on the other platforms
-      # (CONTRIBUTING.md, "Platforms").
+      # (docs/platforms.md, "Type-check and cross-build").
       GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
       go run ./cmd/typecheck -os darwin -arch arm64 ./...
       golangci-lint run --new-from-rev=origin/main ./...
       # Build values kept past their frame (MyGo's lifetime check).
       go tool mygo vet internal/ui
-      # Both message catalogues match the source (CONTRIBUTING.md,
-      # "Strings and translations").
+      # Both message catalogues match the source (docs/translations.md,
+      # "Add or change a UI string").
       go run ./cmd/i18ntool extract -check
       go run ./cmd/pathcase
     '';
@@ -166,7 +171,7 @@ in
     auth-spike.exec = ''go run ./cmd/authspike "$@"'';
     play-spike.exec = ''go run ./cmd/playspike "$@"'';
     # A headless sway session with private XDG dirs, D-Bus, AT-SPI and stub
-    # portals around a command (CONTRIBUTING.md, "UI tests and the
+    # portals around a command (docs/testing.md, "UI tests and the
     # end-to-end smoke"); `e2e` runs the end-to-end smoke in it.
     headless.exec = ''bash e2e/headless.sh "$@"'';
     e2e.exec = ''headless -- go test -tags e2e -count=1 ./e2e/... "$@"'';
@@ -180,8 +185,8 @@ in
       orca=$(nix build --no-link --print-out-paths "github:NixOS/nixpkgs/$rev#orca")/bin/orca
       E2E_ORCA=1 E2E_ORCA_BIN=$orca E2E_OUT=''${E2E_OUT:-$PWD/bin/orca-out} headless -- go test -tags e2e -count=1 -v -run '^TestOrca' ./e2e/ "$@"
     '';
-    # The Albums scroll probe in the app's own process (CONTRIBUTING.md,
-    # "Measuring UI performance"), in `headless` on a profile whose covers
+    # The Albums scroll probe in the app's own process (docs/performance.md,
+    # "Measure UI performance"), in `headless` on a profile whose covers
     # are cached or reachable (the e2e fixture's are not, outside e2e).
     probe.exec = ''
       set -e
@@ -190,7 +195,7 @@ in
     '';
   };
 
-  # .githooks refuse commits and pushes on main (AGENTS.md, "Worktrees and Branches"). The
+  # .githooks refuse commits and pushes on main (AGENTS.md, "Workflow"). The
   # setting lives in the shared git config, so it covers every worktree.
   enterShell = ''
     git config core.hooksPath .githooks

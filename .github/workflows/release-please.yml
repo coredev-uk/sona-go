@@ -4,7 +4,7 @@
 # Merging that PR tags vX.Y.Z, creates a draft GitHub release with the
 # changelog entry, and calls release.yml, which builds and smoke-tests the
 # Linux packages, attests them, uploads them to the draft and publishes it.
-# Configuration: release-please-config.json; steps: docs/release-checklist.md
+# Configuration: release-please-config.json; steps: docs/maintainers/release.md
 # ("Releasing").
 #
 # release-please acts as the bot-cecil GitHub App (the identity Renovate uses),
@@ -40,7 +40,7 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       # bot-cecil's installation permissions must include at least these three
-      # (docs/release-checklist.md, "bot-cecil App permissions").
+      # (docs/maintainers/ci-and-secrets.md, "bot-cecil App permissions").
       - name: Generate bot-cecil token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0

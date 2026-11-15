@@ -77,7 +77,7 @@ func AutostartEntry(argv []string) (string, error) {
 	return "[Desktop Entry]\n" +
 		"Type=Application\n" +
 		"Name=Sona\n" +
-		"Comment=Apple Music for the Linux desktop\n" +
+		"Comment=Listen to Apple Music\n" +
 		"Exec=" + strings.Join(words, " ") + "\n" +
 		"Icon=sona\n" +
 		"Terminal=false\n" +

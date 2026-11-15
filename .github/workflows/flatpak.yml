@@ -1,4 +1,4 @@
-# Builds the Flatpak (build/linux/flatpak, docs/flatpak.md) from the checked-out
+# Builds the Flatpak (build/linux/flatpak, docs/maintainers/flatpak.md) from the checked-out
 # ref in flatpak-github-actions' GNOME 51 image, offline: the Go modules come
 # from build/linux/flatpak/go-sources.json, so the run also proves that file is
 # in step with go.mod. The bundle is uploaded as an artifact.

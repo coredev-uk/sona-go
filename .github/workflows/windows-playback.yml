@@ -9,7 +9,7 @@
 # the Proton Pass item "Apple Music User Token" (MUSIC_USER_TOKEN, vault
 # "CI"), read with the `live` environment's secret
 # PROTON_PASS_PERSONAL_ACCESS_TOKEN; that environment deploys only
-# to main (docs/security-review.md, "Workflows"), so it builds main and never
+# to main (docs/maintainers/ci-and-secrets.md), so it builds main and never
 # a branch; no pull request's CI depends on it (ci.yml's Windows job plays
 # previews with no secret). A failing scheduled run opens, or comments on, an
 # issue. The CDM host child runs in its AppContainer sandbox here (an

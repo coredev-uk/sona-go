@@ -28,7 +28,7 @@ var coverPatterns = []string{
 }
 
 // Playlist covers are Sona's own. Apple's web API cannot set a playlist's
-// artwork (docs/apple-music-reference.md, "Playlist artwork"), so the
+// artwork (docs/apple-music-reference.md §5.8, "Playlist artwork"), so the
 // choice lives in SQLite (library.CoverChoice) and an uploaded image in
 // the data directory (artwork.SaveCover); nothing is sent to Apple.
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Refuses commits on main: every change lands through a pull request that Clarence merges.
-# Work in a worktree on a branch instead (AGENTS.md, "Worktrees and Branches"). Emergencies only:
+# Work in a worktree on a branch instead (AGENTS.md, "Workflow"). Emergencies only:
 # SONA_ALLOW_MAIN=1 git commit ...
 branch=$(git symbolic-ref --quiet --short HEAD) || exit 0
 if [ "$branch" = "main" ] && [ "${SONA_ALLOW_MAIN:-}" != "1" ]; then

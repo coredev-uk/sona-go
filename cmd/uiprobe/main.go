@@ -19,7 +19,7 @@
 // uiprobe. They need those pages (the album page, Now Playing, Home and
 // Discover); the probe grows them as the pages land.
 //
-// How to run it headless: CONTRIBUTING.md, "Measuring UI performance".
+// How to run it headless: docs/performance.md, "Measure UI performance".
 package main
 
 import (

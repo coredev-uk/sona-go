@@ -5,7 +5,7 @@ package services
 const EventThemesChanged = "themes:changed"
 
 // MaxThemeFileBytes is the largest theme file Sona reads: a theme is a few
-// kilobytes of JSON (docs/themes.md).
+// kilobytes of JSON (site/src/content/docs/reference/theme-format.md).
 const MaxThemeFileBytes = 256 << 10
 
 // maxThemeFiles is how many files of the folder are read; the rest are

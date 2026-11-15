@@ -44,14 +44,14 @@ line, put `BEGIN_COMMIT_OVERRIDE`, the new Conventional Commits line(s) and
 Merging a release:
 
 1. Run §1 and §2 against the release PR's head.
-2. release-please pushes the release PR as the bot-cecil GitHub App, so CI
+2. release-please pushes the release PR as the bot-cecil GitHub App
+   ([permissions](ci-and-secrets.md#bot-cecil-app-permissions)), so CI
    and the PR title check start on it like on any other PR, and re-run on
    every push to its branch. Wait for the three required checks ("Go vet and
-   test (-race)", "Conventional Commits title", "gitleaks"; CONTRIBUTING.md,
-   "Pull requests"). If a push changed nothing in
+   test (-race)", "Conventional Commits title", "gitleaks"; <https://sona.coredev.uk/contributing/pull-requests/>). If a push changed nothing in
    the PR and the checks are missing (the release PR opened before the App
    token was in use), close and reopen it to start them.
-3. Merge it through Clarence (`@bot-clarence merge`, AGENTS.md) with its title
+3. Merge it through Clarence (`@bot-clarence merge`, [clarence.md](clarence.md)) with its title
    unchanged: release-please finds it by the title and the
    `autorelease: pending` label.
 4. The Release Please run for that merge tags `vX.Y.Z` on the merge commit,
@@ -113,7 +113,7 @@ same files on all three platforms, uploads them as the `linux-release`,
 attests, signs nor publishes. It runs without the `release` environment, which only
 deploys from `main`, so these builds have no Last.fm or Discord
 credentials compiled in. `release-secrets.yml` checks that the Proton Pass token and
-all four items resolve (monthly and on dispatch).
+all four items resolve (monthly and on dispatch; [ci-and-secrets.md](ci-and-secrets.md)).
 
 ### Platforms in a release
 
@@ -192,35 +192,12 @@ and Windows development builds in ci.yml never hold a release up), then the
   corrected one and its re-signed manifest (the key is the `release`
   environment's), or by the next release: the signature covers the bytes.
 - **Signing the manifests:** `go run ./cmd/releasesign` signs each archive's
-  SHA-256 with the Ed25519 key in the item "Update Signing Key" (field
-  `SONA_UPDATE_KEY`) of the Proton Pass vault "CI" (the master
-  copy is also in Development → Sona Update Signing Key; the file `go tool mygo keygen` wrote; the public key is
+  SHA-256 with the Ed25519 key `SONA_UPDATE_KEY` (public key:
   `internal/update/update.pub`, linked into the macOS and Windows builds).
-  Manifests are signed last, after the archives are uploaded. **Without the
-  key** (a fork, a run outside the environment) the step is skipped, says so
-  in the run summary, and the release has no `update-<target>.json`, so those
-  installs do not self-update. In this repository `publish` refuses instead:
-  it checks `SONA_UPDATE_KEY` and the Last.fm and Discord credentials are all
-  there before it signs or publishes. `release-please.yml` calls `release.yml`
-  with `secrets: inherit`, since a called workflow sees its environment's
-  secret (the Proton Pass token) only that way; with the App secrets passed by name, v0.3.0 shipped
-  without the credentials or manifests and was replaced by v0.3.1.
-- **Where the CI secrets live:** in Proton Pass, vault "CI":
-  "Update Signing Key" (`SONA_UPDATE_KEY`), "Last.fm API" (`SONA_LASTFM_KEY`,
-  `SONA_LASTFM_SECRET`), "Discord App" (`SONA_DISCORD_CLIENT_ID`) and "Apple
-  Music User Token" (`MUSIC_USER_TOKEN`, for the live checks). Item titles
-  are matched exactly, case included. The `release`
-  and `live` environments each hold one secret,
-  `PROTON_PASS_PERSONAL_ACCESS_TOKEN`: the same token, `sona-ci`, viewer on
-  that vault alone, which `protonpass/load-secret-action` uses to read them.
-  **Rotate a value** by editing the item in Proton Pass; nothing changes in
-  GitHub. **Renew the token** (it expires 2027-11-14) with `pass-cli pat
-  renew --pat-name sona-ci --expiration 1y`: it keeps its access to "CI"
-  but prints a new token string and the old one stops working at once, so
-  set the new one straight away with `gh secret set
-  PROTON_PASS_PERSONAL_ACCESS_TOKEN --env release` and `--env live`. The
-  monthly "Release secrets" run catches an expired or revoked token before a
-  release; dispatch it after any change.
+  Manifests are signed last, after the archives are uploaded. Without the key
+  the release has no `update-<target>.json` and installs do not self-update;
+  in this repository `publish` refuses to run without it. Where the key and
+  the other secrets live, and how to rotate them: [ci-and-secrets.md](ci-and-secrets.md).
 - **Release notes:** a release's draft holds release-please's changelog entry;
   `publish` appends `.github/release-notes/install.md` (first-run steps for
   macOS and Windows, verifying downloads).
@@ -308,30 +285,6 @@ Before merging a release PR, install the release candidate's files:
   still says it is available, and "Check now" brings the notice back. Copy
   diagnostics shows `lastRollback` with `"manual": true`. There is no row on
   Linux or in a development build.
-
-### bot-cecil App permissions
-
-release-please and the publish job act as the bot-cecil GitHub App (the same
-App Renovate uses), through a token minted by
-`actions/create-github-app-token` in each job from the repository secrets
-`RENOVATE_APP_CLIENT_ID` and `RENOVATE_APP_PRIVATE_KEY`. The App must be
-installed on this repository with at least these repository permissions, all
-of which Renovate's token (`renovate.yaml`) already requests:
-
-| Permission     | Level | Used by                                                            |
-| -------------- | ----- | ------------------------------------------------------------------ |
-| Contents       | write | release-please: release branch, tag, draft release; publish job: upload and publish; golden-update.yml: push the regenerated golden images to a pull request's branch; nix-vendor-hash.yml: push the updated vendorHash to a pull request's branch; nix-branch.yml: push the flake's `nix` branch |
-| Pull requests  | write | release-please: open and update the release PR; golden-update.yml: remove the `update-goldens` label (with Issues: a pull request's label needs both) |
-| Issues         | write | release-please: the `autorelease:` labels on the release PR; golden-update.yml: remove the `update-goldens` label |
-| Workflows      | write | nix-branch.yml: merging main onto the `nix` branch brings main's workflow changes with it, and GitHub refuses an App's push of those without this |
-
-Each job requests only what it uses (`permission-*` inputs), so the token is
-narrower than the installation. `golden-update.yml` reads the same two secrets
-in its own `golden-update` environment (create it under Settings →
-Environments and copy them there, so no other workflow's job reaches them
-through it; until then the repository-level secrets serve it). The build provenance needs no App
-permission: it uses the workflow's `id-token: write` and
-`attestations: write`.
 
 ### Repository settings release-please needs
 
@@ -427,56 +380,4 @@ run, with the evidence for anything not obvious from the check itself.
 ## 4. Known issues
 
 Upstream bugs Sona ships with, tracked here until they are reported and
-fixed upstream. Re-check each one on every release. None is open today: the
-only entry is historical.
-
-### Blank mini player without a font DPI (WebKitGTK second web view) — historical
-
-> Historical: found in the Wails/WebKitGTK app that preceded the native UI.
-> The native app has no web view and draws its mini player itself
-> (`features/miniplayer`), so nothing of Sona's is affected any more. The
-> record is kept for the upstream report; the entries below describe that
-> old app, not a current bug. Drop the section once WebKitGTK is fixed or
-> the report is filed.
-
-- **Symptom:** the mini player window opens at its size with its title, but
-  shows only the background colour. Its page loads (the buttons are in the
-  DOM and respond), but `innerWidth` and `innerHeight` are 0 and
-  `devicePixelRatio` is `Infinity`. The main window is fine. First seen on
-  sway; it is not sway-specific.
-- **Cause:** WebKitGTK scales a web view's page by `fontDPI() / 96`.
-  `fontDPI()` is GTK's `gtk-xft-dpi` when set; when it is -1 (no settings
-  portal, GSettings or XSettings value, for example `GDK_DEBUG=no-portals`
-  or a `dbus-run-session` without xdg-desktop-portal) WebKit falls back to
-  the monitor's physical DPI. Headless and nested wlroots outputs report
-  0 mm (`wl_output.geometry(0, 0, 0, 0, …)`), so the DPI is infinite and
-  the page zoom becomes infinite. The first web view is created before
-  WebKit has screen data and keeps 96 dpi, so only later views are hit.
-  With a monitor that reports its size the later views are zoomed by
-  its DPI / 96 instead (weston headless, 1 mm per pixel: a 640×442 view
-  reports 2418×1670 at `devicePixelRatio` 0.26). Unchanged on WebKit
-  `main` (2026-11-01: `ScreenManagerGtk.cpp`, `PlatformScreenGtk.cpp`
-  `fontDPI()`, `WebKitWebViewBase.cpp` `refreshInternalScaling`).
-- **Versions:** WebKitGTK 2.54.1 (ABI 6.0), GTK 4.22.4, sway 1.12, labwc
-  0.9.7, weston 15.0.1. nixpkgs-unstable and master also carry 2.54.1.
-  Wails is not involved.
-- **Repro without Sona or Wails:** `docs/upstream/webkitgtk-second-view/two.c`
-  (build and run commands in its header).
-- **Results** (headless sway, pixman unless noted; second view's page):
-  with `GDK_DEBUG=no-portals` 0×0 every run; also with the GLES renderer,
-  output scale 2, both views in one window, the second window created on
-  the first one's `map`, `WEBKIT_DISABLE_COMPOSITING_MODE=1`,
-  `WEBKIT_DISABLE_DMABUF_RENDERER=1`, and `GSK_RENDERER=gl|ngl|cairo`.
-  With the settings portal, or `gtk-xft-dpi=98304` in `settings.ini`, it
-  gets its size. labwc behaves like sway; weston zooms as above. Headless
-  Hyprland 0.56 did not start here, so the earlier "Hyprland works" result
-  (a session with the portal) has no headless control.
-- **Workaround (gone):** before creating the mini player, the Wails shell set
-  `gtk-xft-dpi` to 96 dpi when GTK has none (`internal/shell/fontdpi_linux.go`, deleted with the shell; MyGo draws its own text, so the native app needs none).
-  GTK renders at 96 dpi in that case anyway, so only WebKit's fallback
-  changes. Checked with the Wails app under `GDK_DEBUG=no-portals` on headless sway:
-  the mini player reports 420×132 at `devicePixelRatio` 1 and renders
-  (before: 0×0, `Infinity`, blank).
-- **Upstream:** not reported yet; the report text is in the pull request
-  that added the repro (`docs/upstream/webkitgtk-second-view/two.c`, build and
-  run commands in its header).
+fixed upstream. Re-check each one on every release. None is open today.

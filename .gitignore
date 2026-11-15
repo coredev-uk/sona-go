@@ -41,3 +41,7 @@ coverage.*
 # (never committed: Sona fetches them at run time)
 /internal/ui/i18n/locales/apple/
 /result
+
+# Personal agent settings
+CLAUDE.local.md
+.claude/settings.local.json

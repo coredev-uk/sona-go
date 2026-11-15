@@ -62,7 +62,7 @@
 //   - Text Go shows itself, outside the UI (notification buttons,
 //     file chooser titles and filters, the sleep inhibitor's reason), is
 //     an l10n.Message shown through Deps.Language.Printer() when it is
-//     shown, so it follows the Language setting (CONTRIBUTING.md, "Go's
+//     shown, so it follows the Language setting (docs/translations.md, "Go's
 //     own text").
 //   - applemusic: one file per Apple domain; new amp-api endpoints are
 //     one-liners with applemusic.AMP / AMPResource / AMPResources and
@@ -107,7 +107,7 @@
 // dependency) and emits "themes:changed" with the files when one changes.
 // It does not parse them: the UI's theme registry (internal/ui/theme)
 // checks and applies a file, keeping the last good theme when an edit is
-// refused (docs/themes.md).
+// refused (site/src/content/docs/reference/theme-format.md).
 //
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls
