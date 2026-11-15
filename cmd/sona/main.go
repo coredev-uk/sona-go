@@ -376,8 +376,8 @@ func run(started time.Time) error {
 		// the accessibility bus must stay the application id, and the
 		// first window takes its class from the program name.
 		setApplicationID(log)
-		// --hidden (the XDG autostart entry's) or, on macOS, the login item
-		// the user asked to start in the tray (login_darwin.go).
+		// --hidden (the XDG autostart entry's) or, on macOS and Windows, the
+		// login item the user asked to start in the tray (login_desktop.go).
 		hidden := act.Hidden() || loginStartsHidden(cur.Desktop)
 		ui = uiapp.New(uiapp.Options{
 			Core: core, Settings: settings, Bus: bus, Windows: windows, Art: art, Motion: mot, Video: vid, Log: log.With("component", "ui"),

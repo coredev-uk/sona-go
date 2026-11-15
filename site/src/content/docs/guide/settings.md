@@ -12,7 +12,7 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Setting | What it does | Platform |
 | --- | --- | --- |
 | Language | Sets the language of Sona. Automatic follows your Apple Music account and your system. Shown only when other languages are on offer. | |
-| Start Sona when you log in | Adds Sona to your desktop's startup applications. | Needs Sona.app on _macOS_, not a source build. Not on _Windows_ yet. |
+| Start Sona when you log in | Adds Sona to your desktop's startup applications. | Needs Sona.app on _macOS_, not a source build. On _Windows_ Task Manager's startup apps list it; a portable copy must stay in its folder, or be turned on again after a move. |
 | Start in the tray | Starts Sona without a window at login, ready to play from the tray or your media keys. Shown when Start Sona when you log in is on. | Needs a tray icon |
 | Open on | Chooses the page Sona shows when it starts: the page you were last on, or a fixed page. Your queue is always kept. | |
 | Open Apple Music links in Sona | Makes Sona the app that opens `music://` and `itms://` links. Links that start with `https://` stay with your browser. | Needs Sona.app on _macOS_; needs Sona's desktop entry on _Linux_, so not a source build, Flatpak or AppImage that isn't integrated. Not on _Windows_ yet. |

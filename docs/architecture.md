@@ -141,7 +141,7 @@ The shell lives in `internal/ui/app` and `services/desktop.go`.
 - **Closing the window**: keeps Sona playing in the background with its tray icon (Settings → General). Without a tray it quits.
 - **Tray**: libayatana-appindicator3 on Linux, a menu bar item on macOS. It shows the current song, the transport, private listening, Show Sona, the mini player and Quit.
 - **Mini player**: a second, fixed-size, always-on-top window shown in the main window's place.
-- **Start hidden**: `--hidden` (the autostart's "Start in the tray") starts with no window, when there is a tray. Autostart is an opt-in XDG entry.
+- **Start hidden**: `--hidden` (the XDG autostart entry's "Start in the tray") starts with no window, when there is a tray. Autostart is opt-in: an XDG entry on Linux, MyGo's login item on macOS and Windows, where the settings say whether a start at login opens in the tray (`cmd/sona/login_desktop.go`, §9).
 - **Bringing the window forward**: MPRIS `Raise`, the tray and a second launch do it. Apple Music links (`music://`, `itms://`, music.apple.com) open their page.
 - **Title bar**: the system's inset buttons on macOS. On stacking Linux desktops and Windows, a hidden title bar under Sona's top bar with MyGo's buttons in the desktop's layout (`internal/windowchrome` decides; `docs/platforms.md`, "Title bar and window controls").
 - **Session end**: on macOS and Windows the OS ends the process as soon as the quit listeners return, and `Run` never does. An `OnWillQuit` listener (`cmd/sona/sessionend.go`) therefore saves the queue and position, ends the play and delivers its play activity within 3 s. Linux has no such signal: a SIGTERM quits as usual and `Run` returns.
@@ -924,6 +924,7 @@ These are MyGo's (`cmd/sona/integrations_windows.go`). Where a type is the same 
 | Integration | How |
 | --- | --- |
 | Track and reminder notifications | Notification-area balloons, which Windows 10 and later show as toasts (`notify_desktop.go`): a title, a text and a click that brings Sona forward, no artwork and no Next button. They come from the tray icon, or a temporary icon with the application's when there is no tray. |
+| Start Sona when you log in | A value named `Sona` in the user's `Run` key with the executable's path and MyGo's start-at-login argument (`login_desktop.go`, shared with macOS). Task Manager's Startup apps turns it off in `StartupApproved`, which the row reads at the next start. A moved portable copy reads as off and its old entry is removed at its next start. The uninstaller deletes the installation's entry. |
 
 #### Uninstalling
 

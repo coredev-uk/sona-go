@@ -87,6 +87,7 @@ Inside the tagged packages, what differs is in `_linux.go` and `_darwin.go` file
 | Keyring backend (go-keyring) | Secret Service | Keychain | Credential Manager |
 | Discord IPC socket | Unix socket | Unix socket | Unsupported (uses a named pipe) |
 | Track notifications | `org.freedesktop.Notifications` (`internal/desktop/notify`) | MyGo: UNUserNotificationCenter, from Sona.app only | MyGo: notification-area balloons, shown as toasts |
+| Start at login | XDG autostart entry (`app.XDGAutostart`, passes `--hidden`) | MyGo: SMAppService login item, from Sona.app only | MyGo: the user's `Run` key, which Task Manager can turn off |
 | Audio sink | `pipewiresink` | `osxaudiosink` | `wasapi2sink` |
 | CDM library | `libwidevinecdm.so` | `libwidevinecdm.dylib` | `widevinecdm.dll` |
 

@@ -43,8 +43,11 @@ func (s *settings) startupRows(c *ui.Context, cfg config.Settings, caps services
 		return
 	}
 	desc := i18n.T("Adds Sona to your desktop's startup applications.")
-	if caps.OS == "darwin" {
+	switch caps.OS {
+	case "darwin":
 		desc = i18n.T("Adds Sona to the login items in System Settings → General.")
+	case "windows":
+		desc = i18n.T("Adds Sona to the startup apps in Task Manager.")
 	}
 	s.switchRow(c, rowOpts{ID: "autostart", Title: title, Desc: desc},
 		d.Autostart, false, func(on bool) { s.saveDesktop(func(d *config.Desktop) { d.Autostart = on }) })

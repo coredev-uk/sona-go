@@ -205,6 +205,11 @@ msgstr ""
 
 #: internal/ui/features/onboarding/desktop.go
 #: internal/ui/features/settings/desktop.go
+msgid "Adds Sona to the startup apps in Task Manager."
+msgstr ""
+
+#: internal/ui/features/onboarding/desktop.go
+#: internal/ui/features/settings/desktop.go
 msgid "Adds Sona to your desktop's startup applications."
 msgstr ""
 
