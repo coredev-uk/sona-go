@@ -5,4 +5,4 @@
 # version, change the version and the hash together (the script prints the
 # hash it computed when it differs).
 nsis 3.13.0 pending
-pkgconfiglite 0.28 pending
+pkgconfiglite 0.28 602e1f286274272c7a2a65b847a2a14d47c7388f20b6e48aa727d73e8d2d5db5
