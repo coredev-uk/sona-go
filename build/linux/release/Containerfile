@@ -13,6 +13,8 @@ LABEL org.opencontainers.image.source="https://github.com/coredev-uk/sona-go"
 
 ARG GO_VERSION=1.27.3
 
+# zsync: zsyncmake, which the pinned linuxdeploy AppImage plugin calls for the
+# .zsync file but (unlike its rolling `continuous` build) does not bundle.
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl xz-utils git file binutils patchelf \
@@ -23,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
       gstreamer1.0-libav gstreamer1.0-pulseaudio gstreamer1.0-tools \
       librsvg2-common \
+      zsync \
     && rm -rf /var/lib/apt/lists/*
 
 ARG TASK_VERSION=v3.44.1
