@@ -27,6 +27,8 @@ tests               # go test -race
 
 Outside the shell, run any of these as `devenv shell -- <command>`. Everything runs in devenv's pinned toolchain.
 
+Development tools: a development build (`dev` makes one) adds **Inspect** to every item's right-click menu, which shows the item's IDs, artwork and what Apple sent, from Go's cache (see [Debugging the UI](docs/development.md#debugging-the-ui)); `SONA_INSPECTOR=1 dev` opens MyGo's element inspector. Release builds have neither the action nor its code.
+
 ## Issues
 
 Use the matching [issue form](https://github.com/coredev-uk/sona-go/issues/new/choose):
