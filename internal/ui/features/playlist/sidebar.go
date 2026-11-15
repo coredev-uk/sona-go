@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -14,9 +15,9 @@ import (
 )
 
 // The sidebar's playlists, under the library links (PlaylistSidebar.tsx):
-// Pinned, Made for you (Apple's personal mixes), Apple Music (playlists
-// added from Apple Music or another curator, which cannot be edited) and the
-// user's own Playlists with their folders (a SidebarSection slot, stacked in
+// Pinned, Apple Music (Apple's personal mixes, then the playlists added from
+// Apple Music or another curator, which cannot be edited) and the user's own
+// Playlists with their folders (a SidebarSection slot, stacked in
 // the shell's scrolling middle). A pinned playlist shows under Pinned only.
 // The sidebar is not a routed page, so its links are rows that push the path
 // through env.Nav.
@@ -151,8 +152,7 @@ func (p *playlists) sidebarSection(c *ui.Context) {
 		d = &derived{}
 	}
 	p.pinsSection(c, pins.Data, d.editable)
-	p.readOnlySection(c, "made-for-you", i18n.T("Made for You"), d.lists.MadeForYou)
-	p.readOnlySection(c, "apple-music", i18n.T("Apple Music"), d.lists.Apple)
+	p.readOnlySection(c, config.SidebarAppleSection, i18n.T("Apple Music"), d.lists.Apple)
 	p.ownSection(c, d.lists.Own, treePending || pinsPending, d.anyEdit)
 	if am := p.sidebarActions(); am != nil {
 		am.Popup(c)

@@ -17,10 +17,24 @@ type Sidebar struct {
 	FoldedSections []string `json:"foldedSections"`
 }
 
+// SidebarAppleSection is the ID of the sidebar's Apple Music section in
+// FoldedSections.
+const SidebarAppleSection = "apple-music"
+
+// legacyMadeForYou is the ID of the Made for you section, which was merged
+// into Apple Music.
+const legacyMadeForYou = "made-for-you"
+
 // normalized sorts both lists, dropping empty and repeated entries, so the
 // file is stable and never grows; an empty list is nil, as in the defaults.
+// A section folded under the old Made for you ID is read as the merged Apple
+// Music section folded, and the old ID is dropped, so the next save writes
+// only the new one.
 func (s Sidebar) normalized() Sidebar {
 	s.OpenFolders = tidyIDs(s.OpenFolders)
+	if slices.Contains(s.FoldedSections, legacyMadeForYou) {
+		s.FoldedSections = append(slices.DeleteFunc(slices.Clone(s.FoldedSections), func(id string) bool { return id == legacyMadeForYou }), SidebarAppleSection)
+	}
 	s.FoldedSections = tidyIDs(s.FoldedSections)
 	return s
 }

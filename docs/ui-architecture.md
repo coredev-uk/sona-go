@@ -1568,12 +1568,12 @@ Registered after video and before radio and the player. It owns:
 
 - Folders come before playlists at every level, by Apple's position then name. Unknown parents go at the top.
 - Pinned and non-editable playlists are left out of the folder tree (their folders count them), except collaborative ones (`TreePlaylist.Collaborative`, stored by the sync), which are the user's own whether hosted or joined and stay in their folder.
-- Sections: Made for You (`pl.pm-` catalogue IDs), Apple Music (the rest the user cannot edit) and own (editable, or collaborative). A joined collaborative playlist is not editable (`CanEdit` false), so the edit, move and drop-in actions stay off it; Delete and Change cover stay.
+- Sections: Apple Music (Apple's: the personal mixes, then the playlists the user cannot edit) and own (editable, or collaborative). The mixes come first in Apple's position order, the others by name. `isPersonalMix` (a `pl.pm-` catalogue ID) is the one test for a personal mix and does not depend on the section: Delete is not offered for a mix, and any other place that must tell a mix reuses it. A joined collaborative playlist is not editable (`CanEdit` false), so the edit, move and drop-in actions stay off it; Delete and Change cover stay.
 
 #### Sidebar
 
-- Sections: Pinned, Made for You, Apple Music, Playlists. They wait for pins and tree so a pinned playlist never flashes in its section.
-- Open folders and folded sections persist in `config.Settings.Sidebar` (`OpenFolders`, `FoldedSections`). They are read at start and saved through `SystemService.SetSidebar` (one save at a time, newest state last; it changes nothing else in the settings). Settings exports leave the key out: it describes this computer's library view.
+- Sections: Pinned, Apple Music, Playlists. They wait for pins and tree so a pinned playlist never flashes in its section.
+- Open folders and folded sections persist in `config.Settings.Sidebar` (`OpenFolders`, `FoldedSections`). They are read at start and saved through `SystemService.SetSidebar` (one save at a time, newest state last; it changes nothing else in the settings). Settings exports leave the key out: it describes this computer's library view. A section folded under the old Made for you ID (`made-for-you`) is read as the merged Apple Music section folded: `config.Sidebar` normalises it at load and the next save writes only `apple-music`.
 - Playlist rows and pinned editable playlists are `kit.DropOn` targets that accept any payload whose items hold songs, albums or playlists (a queue row's payload carries its song and an `Origin`, which is ignored here). They describe the drop ("Add to …") and add through `PlaylistsService.Add`.
 - The Pinned section and the "New playlist" row are targets that exist while a matching drag is on. A drag resting on a closed folder opens it after 600 ms.
 

@@ -64,15 +64,15 @@ func childRoles(tr access.Tree, n access.Node) []ui.Role {
 func TestA11ySidebar(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), sbPins())
 	e.router.Replace("/playlist/p.own")
-	e.shows("Made for You", "Apple Music", "Playlists", "Road Trip", "Alpha")
+	e.shows("Apple Music", "Playlists", "Road Trip", "Alpha")
 	stops, tr := walk(t, e.tt,
 		"Alpha", "More for Alpha", "Beta, plays", "More for Beta", "Gamma, shuffles", "More for Gamma", "Delta", "More for Delta",
-		"Made for You", "Morning Mix", "Discovery Mix", "Apple Music", "Quiet Hours",
+		"Apple Music", "Morning Mix", "Discovery Mix", "Quiet Hours",
 		"New playlist or folder", "Running", "More for the folder Running", "Road Trip",
 	)
 	_ = stops
 
-	for _, h := range []string{"Pinned", "Made for You", "Apple Music", "Playlists"} {
+	for _, h := range []string{"Pinned", "Apple Music", "Playlists"} {
 		if n, ok := tr.Find(ui.RoleHeading, h); !ok || n.Level != 2 {
 			t.Errorf("no h2 %q: %+v", h, n)
 		}
@@ -96,7 +96,7 @@ func TestA11ySidebar(t *testing.T) {
 	}{
 		{"Pinned", ui.RoleLink, "Alpha", "More for Alpha"},
 		{"Pinned", ui.RoleButton, "Beta, plays", "More for Beta"},
-		{"Made for You", ui.RoleLink, "Morning Mix", "More for Morning Mix"},
+		{"Apple Music", ui.RoleLink, "Morning Mix", "More for Morning Mix"},
 		{"Playlists", ui.RoleDisclosure, "Running", "More for the folder Running"},
 		{"Playlists", ui.RoleLink, "Road Trip", "More for Road Trip"},
 	} {
@@ -124,14 +124,14 @@ func TestA11ySidebar(t *testing.T) {
 		}
 	}
 	// The folders and the foldable sections say whether they are open.
-	for name, open := range map[string]bool{"Made for You": true, "Apple Music": true, "Running": false} {
+	for name, open := range map[string]bool{"Apple Music": true, "Running": false} {
 		n, ok := tr.Find(ui.RoleDisclosure, name)
 		if !ok || n.Has(access.Expanded) != open {
 			t.Errorf("disclosure %q: %+v, want expanded %v", name, n, open)
 		}
 	}
 	// A foldable section's heading controls the list it folds, while it shows.
-	for _, name := range []string{"Made for You", "Apple Music"} {
+	for _, name := range []string{"Apple Music"} {
 		n, _ := tr.Find(ui.RoleDisclosure, name)
 		if got := tr.ControlledBy(n); len(got) != 1 || got[0].Role != ui.RoleList || got[0].Label != name {
 			t.Errorf("disclosure %q controls %v, want the list %q", name, got, name)
@@ -171,9 +171,9 @@ func TestA11ySidebarItemsSayTheirPlaceInTheirList(t *testing.T) {
 		{ui.RoleButton, "Beta, plays", 2, 4},
 		{ui.RoleButton, "Gamma, shuffles", 3, 4},
 		{ui.RoleLink, "Delta", 4, 4},
-		{ui.RoleLink, "Morning Mix", 1, 2},
-		{ui.RoleLink, "Discovery Mix", 2, 2},
-		{ui.RoleLink, "Quiet Hours", 1, 1},
+		{ui.RoleLink, "Morning Mix", 1, 3},
+		{ui.RoleLink, "Discovery Mix", 2, 3},
+		{ui.RoleLink, "Quiet Hours", 3, 3},
 		{ui.RoleDisclosure, "Running", 1, 2},
 		{ui.RoleLink, "Road Trip", 2, 2},
 		{ui.RoleLink, "Tempo", 1, 1},
@@ -712,7 +712,7 @@ func TestA11yPlaylistFindAndSort(t *testing.T) {
 // it opens a menu before it is pressed.
 func TestA11yNewPlaylistOrFolderButtonOpensAMenu(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
-	e.shows("Made for You", "Playlists", "Road Trip")
+	e.shows("Apple Music", "Playlists", "Road Trip")
 	tr := access.Read(t, e.tt.Tester)
 	n, ok := tr.Find(ui.RoleMenuButton, "New playlist or folder")
 	if !ok || n.HasPopup != ui.PopupMenu || n.Has(access.Expanded) {

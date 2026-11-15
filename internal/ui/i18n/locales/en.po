@@ -3402,10 +3402,6 @@ msgstr "Lyrics {words}"
 msgid "Lyrics, full screen"
 msgstr "Lyrics, full screen"
 
-#: internal/ui/features/playlist/sidebar.go
-msgid "Made for You"
-msgstr "Made for You"
-
 #: internal/ui/features/playlist/header.go
 msgid "Made for you"
 msgstr "Made for you"

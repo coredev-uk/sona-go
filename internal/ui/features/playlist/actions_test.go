@@ -266,9 +266,10 @@ func TestDeleteRules(t *testing.T) {
 	f := newActionsFixture(t)
 	d := f.def(t, "playlists.delete")
 	tree := map[string]any{"playlists.tree": map[string]services.TreePlaylist{
-		"p.own":  {Playlist: services.Playlist{ID: "p.own"}, CanDelete: true},
-		"p.lock": {Playlist: services.Playlist{ID: "p.lock"}, CanDelete: false},
-		"p.mix":  {Playlist: services.Playlist{ID: "p.mix"}, CanDelete: true},
+		"p.own":   {Playlist: services.Playlist{ID: "p.own"}, CanDelete: true},
+		"p.lock":  {Playlist: services.Playlist{ID: "p.lock"}, CanDelete: false},
+		"p.mix":   {Playlist: services.Playlist{ID: "p.mix"}, CanDelete: true},
+		"p.added": {Playlist: services.Playlist{ID: "p.added"}, CanDelete: true},
 	}}
 	catalogue := kit.PlaylistItem(services.Playlist{ID: "pl.123", Source: services.SourceCatalog})
 	for _, c := range []struct {
@@ -282,6 +283,7 @@ func TestDeleteRules(t *testing.T) {
 		{"library playlist that cannot be deleted", libPlaylist("p.lock", false, ""), tree, true, false},
 		{"not loaded yet", libPlaylist("p.own", true, ""), nil, true, false},
 		{"personal mix is never offered", libPlaylist("p.mix", false, "pl.pm-9"), tree, false, true},
+		{"playlist added from Apple Music is offered", libPlaylist("p.added", false, "pl.f4d"), tree, true, true},
 		{"catalogue playlist is never offered", catalogue, tree, false, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {

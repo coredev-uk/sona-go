@@ -182,7 +182,7 @@ func TestPlaylistSidebarHoverGolden(t *testing.T) {
 	goldenFont(t)
 	e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.own"))
 	theme.SetMode(theme.ModeLight)
-	e.shows("Pinned", "Made for You", "Apple Music", "Playlists", "Running")
+	e.shows("Pinned", "Apple Music", "Playlists", "Running")
 	e.hover("Quiet Hours")
 	e.tt.Settle()
 	uitest.Golden(t, e.tt.Image(), "playlist-sidebar-hover-light")
