@@ -24,6 +24,7 @@ The manifest is `build/linux/flatpak/dev.coredev.Sona.yml`. It builds offline, i
 | `--talk-name=org.kde.StatusNotifierWatcher` | Tray (MyGo's libayatana-appindicator3, a StatusNotifierItem). |
 
 **No permission needed:**
+
 - **Single-instance name `dev.coredev.Sona`** (`internal/app/instance.go`). It equals the app ID, which Flatpak grants by default. Verified: `RequestName` returns 1 (primary owner).
 - **Portals.** `org.freedesktop.portal.*` is always reachable. This covers the sleep inhibitor's portal fallback (`internal/desktop/inhibit`, used because logind is on the system bus), the settings import/export file chooser (`internal/app/portal.go`), the Realtime portal through which Sona raises the playback host's audio thread (`internal/playback/cdmhost/realtime_linux.go`: RTKit sits on the system bus, out of the Flatpak's reach), and opening URLs. MyGo runs `xdg-open`, and in the runtime that is the [flatpak-xdg-utils](https://github.com/flatpak/flatpak-xdg-utils) binary that forwards to the OpenURI portal.
 - **`org.freedesktop.Flatpak` / `--talk-name` for the Flatpak portal.** `flatpak-spawn --sandbox` from the app worked without either.
@@ -39,6 +40,7 @@ Sona downloads the Widevine CDM itself from Google's servers into `<data>/widevi
 The `dlopen` checks below were made with a host copy of the same CDM; they apply equally to the downloaded one.
 
 **`dlopen` inside the runtime works.**
+
 - The CDM needs only `libdl.so.2 libpthread.so.0 libm.so.6 libgcc_s.so.1 libc.so.6 ld-linux-x86-64.so.2`, with symbol versions up to `GLIBC_2.17`. The runtime ships glibc 2.44.
 - Inside the app sandbox the CDM loaded, reported its version, and played a full track.
 - The CDM is never bundled in the Flatpak or patched ([AGENTS.md](../../AGENTS.md), "Hard rules").
@@ -46,17 +48,20 @@ The `dlopen` checks below were made with a host copy of the same CDM; they apply
 ## CDM host sandbox
 
 **What `internal/playback/cdmhost` does today** (`sandbox_linux.go`, `sandbox_fs_linux.go`, `host.go`; full description in [architecture.md](../architecture.md) §4.4 and [security-review.md](../security-review.md#linux-sandbox), "Linux sandbox", with the history in [F2](../security-review.md#f2-the-cdm-child-sandbox-blocked-only-inet-sockets)):
+
 - **Namespaces.** `spawn` starts the child with `namespaceAttr()`: `Cloneflags: CLONE_NEWUSER|CLONE_NEWNET|CLONE_NEWNS`, uid/gid mapped onto themselves. In the mount namespace the child hides `/run`, `/tmp`, `$XDG_RUNTIME_DIR` (except the audio socket) and makes the home directory read-only. If the `fork/exec` fails, it logs `cdmhost: no namespaces for the playback host; starting it without`, restarts the child without namespaces, and records `Sandbox.NetNS=false` with the reason.
 - **Landlock.** Applied with or without namespaces: no writes outside `/dev`, no TCP/UDP, `connect()` only to the audio socket (ABI 9), abstract sockets and signals scoped (ABI 6).
 - **Seccomp.** The child installs a seccomp filter (TSYNC, `no_new_privs`) that allows `socket` only for `AF_UNIX` and denies ptrace, `process_vm_*`, io_uring, mounts and namespaces, then tests itself (`InetDenied`). Without the filter it does not load the CDM.
 - **Diagnostics.** `Info.Sandbox` carries `NetNS`, `MountNS`, `Landlock`, `Seccomp`, `InetDenied` and `Reason` to Diagnostics.
 
 **Conflict with Flatpak.** Flatpak's seccomp filter, applied to every app, blocks sub-namespaces unconditionally, including without `--devel` ([`common/flatpak-run.c`](https://github.com/flatpak/flatpak/blob/main/common/flatpak-run.c), "Don't allow subnamespace setups"):
+
 - `unshare`, `setns`, `mount`, `pivot_root` → EPERM;
 - `clone` with `CLONE_NEWUSER` set → EPERM;
 - `clone3` → ENOSYS.
 
 `--devel` only lifts `perf_event_open`, `personality` and `ptrace` (`syscall_nondevel_blocklist`). Measured in the sandbox:
+
 - `clone(CLONE_NEWUSER|CLONE_NEWNET)`, `clone(CLONE_NEWNET)` and `unshare(...)` all return `Operation not permitted`.
 - Go's `os/exec` with those `Cloneflags` fails with `fork/exec ...: operation not permitted`.
 - Stacking a second seccomp filter works: after installing it, `socket(AF_INET)` and `socket(AF_INET6)` return EPERM and `AF_UNIX` still works.
@@ -64,6 +69,7 @@ The `dlopen` checks below were made with a host copy of the same CDM; they apply
 Sona's own sandbox test, run inside the Flatpak, reports `{NetNS:false Seccomp:true InetDenied:true Reason:no network namespace (user namespaces unavailable: fork/exec ...: operation not permitted)}`.
 
 **Options:**
+
 - **(a) Rely on the fallback (works today, no code change).** The child runs inside the app's Flatpak sandbox, shares its network namespace, and is confined by Sona's Landlock domain (where the kernel has it: no writes, `connect()` only to the audio socket from ABI 9) and seccomp filter (no inet or netlink sockets). Diagnostics shows "no network namespace". On kernels without Landlock ABI 9 the child can still reach the Unix sockets the app sandbox can, including the filtered session bus.
 - **(b) Flatpak portal subsandbox.** Use [`org.freedesktop.portal.Flatpak.Spawn`](https://github.com/flatpak/flatpak/blob/main/data/org.freedesktop.portal.Flatpak.xml), the `flatpak-spawn` tool shipped in the runtime, with flags `SANDBOX (4) | NO_NETWORK (8) | WATCH_BUS (16)`. Because `flatpak-portal` runs on the host, it creates the namespace with bwrap and the in-sandbox seccomp rule does not apply. Measured:
   - `--no-network` → `connect: Network is unreachable`.
@@ -85,6 +91,7 @@ Sona's own sandbox test, run inside the Flatpak, reports `{NetNS:false Seccomp:t
 - **Why the Secret portal does not fit.** [`org.freedesktop.portal.Secret`](https://github.com/flatpak/xdg-desktop-portal/blob/main/data/org.freedesktop.portal.Secret.xml) has a single method, `RetrieveSecret`. It writes a per-app master secret to an fd. The app (in practice libsecret's local backend) uses it to encrypt its own file inside the sandbox ([GNOME blog, 2019](https://blogs.gnome.org/mclasen/2019/10/03/some-flatpak-updates/)). go-keyring does not implement that, so a "Secret portal" route does not apply to Sona's current code.
 
 The options:
+
 - **`--talk-name=org.freedesktop.secrets`** (in the manifest). Verified: with it, `OpenSession` on a private gnome-keyring succeeds from the sandbox. Without it, the call fails with `ServiceUnknown`. The MUT goes into the user's keyring as on other packages, under service `sona`, key `mut`.
 - **No Secret Service on the bus.** `store.Open` falls back to the 0600 file inside the sandbox's `XDG_CONFIG_HOME`. Seen in the sandbox log: `secret service unavailable; storing credentials unencrypted` with `path: ~/.var/app/dev.coredev.Sona/config/sona/credentials.json`. Flatpak removes it on `flatpak uninstall --delete-data`.
 - **A real portal backend** would mean implementing `RetrieveSecret` plus a local encrypted store in `internal/auth/store`. Not needed for viability.
@@ -150,6 +157,7 @@ devenv shell -- bash build/linux/flatpak/smoke.sh
 It passes when `--version` prints `sona <VERSION>`, the log has `startup: first paint` and sway shows a window with `sandbox_app_id` `dev.coredev.Sona`, `org.mpris.MediaPlayer2.sona` and `dev.coredev.Sona` are owned on the session bus, a second `flatpak run` reaches the running instance (`sona status`), and the Widevine CDM has downloaded into `~/.var/app/dev.coredev.Sona/data/sona/widevine` (`SONA_FLATPAK_SMOKE_OFFLINE=1` skips that last check).
 
 **What the run on NixOS showed** (flatpak 1.18.4, GNOME 51 runtime, headless sway, `MYGO_GPU=0`):
+
 - **First paint** at 391 to 564 ms after process start; the window had `sandbox_app_id` `dev.coredev.Sona`.
 - **CDM.** The setup dialog showed "Widevine: Ready, version 4.10.3112.0", downloaded after first paint into the Flatpak's data directory. The load check ran in the CDM host child through the fallback below.
 - **CDM host sandbox.** `cdmhost: no namespaces for the playback host; starting it without` with `fork/exec /app/bin/sona: operation not permitted`, as [CDM host sandbox](#cdm-host-sandbox) describes. Playback still ran through the fallback.
