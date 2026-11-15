@@ -81,8 +81,6 @@ See [Playback](/guide/playback/) for the equaliser and the output in use.
 | Reduce effects | Uses solid surfaces instead of artwork colour washes and turns animation off. Smoother on software rendering. |
 | Motion artwork | Plays the looping covers some albums and playlists have. Off while Reduce effects is on. Pauses on battery power where Sona can read the power state. |
 
-Motion artwork needs a video decoder. On _Windows_ covers show their still images until that decoder lands.
-
 ## Connections
 
 | Setting | What it does | Platform |

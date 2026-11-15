@@ -21,9 +21,9 @@ type Capabilities struct {
 	SleepInhibit bool `json:"sleepInhibit"`
 	// PowerState: the on-battery state ("power:changed") is followed.
 	PowerState bool `json:"powerState"`
-	// MotionArtwork: motion covers can be decoded here (a video decoder
-	// for Apple's H.264 motion artwork: GStreamer on Linux and macOS).
-	// False on Windows until its decoder lands: covers show their stills.
+	// MotionArtwork: motion covers can be decoded here (Apple's H.264
+	// motion artwork: GStreamer on Linux, the platform decoder on macOS
+	// and Windows; internal/ui/media). Where false, covers show stills.
 	MotionArtwork bool `json:"motionArtwork"`
 	// FileChooser: the native file dialog (settings import and export).
 	FileChooser bool `json:"fileChooser"`
