@@ -169,10 +169,6 @@ msgstr "Add to “{name}”"
 msgid "Add {songName} to {playlistName}"
 msgstr "Add {songName} to {playlistName}"
 
-#: internal/ui/features/playlist/suggestions.go
-msgid "Added"
-msgstr "Added"
-
 #: internal/ui/kit/collections_tracklist.go
 msgid "Added by"
 msgstr "Added by"
@@ -1425,6 +1421,10 @@ msgstr "Couldn't load songs"
 msgid "Couldn't load stations"
 msgstr "Couldn't load stations"
 
+#: internal/ui/features/playlist/suggestions.go
+msgid "Couldn't load suggestions"
+msgstr "Couldn't load suggestions"
+
 #: internal/ui/features/discover/players.go
 msgid "Couldn't load the album"
 msgstr "Couldn't load the album"
@@ -1695,6 +1695,10 @@ msgstr "Couldn't read your recent additions from this computer"
 #: internal/ui/features/library/gate.go
 msgid "Couldn't read your songs from this computer"
 msgstr "Couldn't read your songs from this computer"
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Couldn't refresh the suggestions"
+msgstr "Couldn't refresh the suggestions"
 
 #: internal/ui/features/home/page.go
 msgid "Couldn't refresh your recommendations"
@@ -2765,6 +2769,10 @@ msgstr "Hide Sidebar"
 #: internal/ui/app/menubar.go
 msgid "Hide Sona"
 msgstr "Hide Sona"
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Hide suggestions"
+msgstr "Hide suggestions"
 
 #: internal/ui/features/settings/themes.go
 msgid "High contrast"
@@ -3851,6 +3859,10 @@ msgstr "No songs to play"
 #: internal/ui/features/search/groups.go
 msgid "No stations for “{q}”"
 msgstr "No stations for “{q}”"
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "No suggestions right now"
+msgstr "No suggestions right now"
 
 #: internal/ui/features/search/groups.go
 msgid "No top results for “{q}”"
@@ -5045,8 +5057,17 @@ msgid "Reduced effects"
 msgstr "Reduced effects"
 
 #: internal/ui/features/home/page.go
+#: internal/ui/features/playlist/suggestions.go
 msgid "Refresh"
 msgstr "Refresh"
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Refresh for another set."
+msgstr "Refresh for another set."
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Refresh to try again."
+msgstr "Refresh to try again."
 
 #: internal/ui/features/home/page.go
 msgid "Refreshing…"
@@ -5603,6 +5624,10 @@ msgstr "Show or hide the sidebar"
 #: internal/ui/features/player/nowplaying_shortcuts.go
 msgid "Show or hide the video"
 msgstr "Show or hide the video"
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Show suggestions"
+msgstr "Show suggestions"
 
 #. Command in the command palette and the shortcut help.
 #: internal/ui/features/miniplayer/miniplayer.go
@@ -6480,6 +6505,10 @@ msgstr "Suggested songs"
 #: internal/ui/features/search/field.go
 msgid "Suggestions"
 msgstr "Suggestions"
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Suggestions refreshed"
+msgstr "Suggestions refreshed"
 
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"

@@ -169,10 +169,6 @@ msgstr ""
 msgid "Add {songName} to {playlistName}"
 msgstr ""
 
-#: internal/ui/features/playlist/suggestions.go
-msgid "Added"
-msgstr ""
-
 #: internal/ui/kit/collections_tracklist.go
 msgid "Added by"
 msgstr ""
@@ -1425,6 +1421,10 @@ msgstr ""
 msgid "Couldn't load stations"
 msgstr ""
 
+#: internal/ui/features/playlist/suggestions.go
+msgid "Couldn't load suggestions"
+msgstr ""
+
 #: internal/ui/features/discover/players.go
 msgid "Couldn't load the album"
 msgstr ""
@@ -1694,6 +1694,10 @@ msgstr ""
 
 #: internal/ui/features/library/gate.go
 msgid "Couldn't read your songs from this computer"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Couldn't refresh the suggestions"
 msgstr ""
 
 #: internal/ui/features/home/page.go
@@ -2764,6 +2768,10 @@ msgstr ""
 
 #: internal/ui/app/menubar.go
 msgid "Hide Sona"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Hide suggestions"
 msgstr ""
 
 #: internal/ui/features/settings/themes.go
@@ -3850,6 +3858,10 @@ msgstr ""
 
 #: internal/ui/features/search/groups.go
 msgid "No stations for “{q}”"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "No suggestions right now"
 msgstr ""
 
 #: internal/ui/features/search/groups.go
@@ -5045,7 +5057,16 @@ msgid "Reduced effects"
 msgstr ""
 
 #: internal/ui/features/home/page.go
+#: internal/ui/features/playlist/suggestions.go
 msgid "Refresh"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Refresh for another set."
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Refresh to try again."
 msgstr ""
 
 #: internal/ui/features/home/page.go
@@ -5602,6 +5623,10 @@ msgstr ""
 
 #: internal/ui/features/player/nowplaying_shortcuts.go
 msgid "Show or hide the video"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Show suggestions"
 msgstr ""
 
 #. Command in the command palette and the shortcut help.
@@ -6479,6 +6504,10 @@ msgstr ""
 #: internal/ui/features/concerts/location.go
 #: internal/ui/features/search/field.go
 msgid "Suggestions"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Suggestions refreshed"
 msgstr ""
 
 #: internal/ui/kit/overlays_palette.go
