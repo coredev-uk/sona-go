@@ -34,7 +34,7 @@ The manifest is `build/linux/flatpak/dev.coredev.Sona.yml`. It builds offline, i
 
 ## CDM access
 
-Sona downloads the Widevine CDM itself from Google's servers into `<data>/widevine` (inside the Flatpak, the app's own `~/.var/app/dev.coredev.Sona/data/sona/widevine`), verified as described in [security-review.md](../security-review.md), "Widevine CDM downloader". Browser and system copies are never used, so the manifest needs no `--filesystem` grant for a CDM and no browser directory is exposed. No setting or environment variable can point Sona at another library.
+Sona downloads the Widevine CDM itself from Google's servers into `<data>/widevine` (inside the Flatpak, the app's own `~/.var/app/dev.coredev.Sona/data/sona/widevine`), verified as described in [security-review.md](../security-review.md#widevine-cdm-downloader), "Widevine CDM downloader". Browser and system copies are never used, so the manifest needs no `--filesystem` grant for a CDM and no browser directory is exposed. No setting or environment variable can point Sona at another library.
 
 The `dlopen` checks below were made with a host copy of the same CDM; they apply equally to the downloaded one.
 
@@ -45,7 +45,7 @@ The `dlopen` checks below were made with a host copy of the same CDM; they apply
 
 ## CDM host sandbox
 
-**What `internal/playback/cdmhost` does today** (`sandbox_linux.go`, `sandbox_fs_linux.go`, `host.go`; full description in [architecture.md](../architecture.md) §4.4 and [security-review.md](../security-review.md) F2):
+**What `internal/playback/cdmhost` does today** (`sandbox_linux.go`, `sandbox_fs_linux.go`, `host.go`; full description in [architecture.md](../architecture.md) §4.4 and [security-review.md](../security-review.md#linux-sandbox), "Linux sandbox", with the history in [F2](../security-review.md#f2-the-cdm-child-sandbox-blocked-only-inet-sockets)):
 - **Namespaces.** `spawn` starts the child with `namespaceAttr()`: `Cloneflags: CLONE_NEWUSER|CLONE_NEWNET|CLONE_NEWNS`, uid/gid mapped onto themselves. In the mount namespace the child hides `/run`, `/tmp`, `$XDG_RUNTIME_DIR` (except the audio socket) and makes the home directory read-only. If the `fork/exec` fails, it logs `cdmhost: no namespaces for the playback host; starting it without`, restarts the child without namespaces, and records `Sandbox.NetNS=false` with the reason.
 - **Landlock.** Applied with or without namespaces: no writes outside `/dev`, no TCP/UDP, `connect()` only to the audio socket (ABI 9), abstract sockets and signals scoped (ABI 6).
 - **Seccomp.** The child installs a seccomp filter (TSYNC, `no_new_privs`) that allows `socket` only for `AF_UNIX` and denies ptrace, `process_vm_*`, io_uring, mounts and namespaces, then tests itself (`InetDenied`). Without the filter it does not load the CDM.
