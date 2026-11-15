@@ -14,6 +14,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
@@ -427,7 +428,7 @@ func TestInteractionFieldSongWithoutAPagePlays(t *testing.T) {
 		t.Run("library upload/"+g.name, func(t *testing.T) {
 			x := newIxField(t, "/search?scope=library", lib)
 			x.ixTyped("In your library")
-			g.do(x, "Upload Kappa")
+			g.do(x, kit.UploadedLabel("Upload Kappa")) // an upload's row says so (#398)
 			// Played; a library song is never remembered.
 			want := "queue u1"
 			if got := x.settled(want); got != want {
@@ -517,8 +518,8 @@ func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 
 	lib := newIxField(t, "/search?scope=library", &ixAPI{lib: services.LibrarySearch{Songs: []services.Song{*ixItems()["song-upload"].Song}}})
 	lib.ixTyped("In your library")
-	lib.activate("Upload Kappa")
-	play := lib.ixGlyph("Upload Kappa")
+	lib.activate(kit.UploadedLabel("Upload Kappa"))
+	play := lib.ixGlyph(kit.UploadedLabel("Upload Kappa"))
 	if chevron == play {
 		t.Fatal("the chevron and the play triangle draw alike: the cue cannot be told")
 	}
@@ -1273,7 +1274,7 @@ var ixLibRowWant = map[string]string{
 // TestInteractionResultsLibrarySongs: the library scope's song list.
 func TestInteractionResultsLibrarySongs(t *testing.T) {
 	x := newIxPage(t, "/search?q=blue&scope=library", &ixAPI{lib: ixLibrary()}, nil)
-	ixRowGestures(t, x, "Songs", "Lib Upload Two", "Lib Singer", "Lib Record", ixLibRowWant)
+	ixRowGestures(t, x, "Songs", kit.UploadedLabel("Lib Upload Two"), "Lib Singer", "Lib Record", ixLibRowWant)
 }
 
 // TestInteractionResultsLibraryTiles: the library scope's artist, album and
