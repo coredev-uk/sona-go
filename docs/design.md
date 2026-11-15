@@ -38,6 +38,7 @@ This is the visual direction for Sona's interface: type, colour, shape, motion a
   - [Radio](#radio)
   - [Link lists](#link-lists)
   - [Concerts](#concerts)
+  - [New releases](#new-releases)
   - [Video view](#video-view)
   - [Settings](#settings)
   - [Command palette and shortcut sheet](#command-palette-and-shortcut-sheet)
@@ -1155,6 +1156,37 @@ Concerts (`/concerts`) answers one question: what is on near me, and when. A gig
 - **Elsewhere.** An artist's page carries "Upcoming concerts" between its lead and its discography: three rows with a compact date column and a 1px rule first (weekday, day number at 24/650, month; the artist's portrait and name are left out, the venue leads), the ones near the chosen city first, "Show all n", and a link to the agenda. It is left out when the artist has none. Home carries "Concerts in {city}" where Apple puts its concerts shelf: six such rows in two columns, with portraits and ghost ticket buttons, and "See all". Their start and distance sit under the venue, as the columns are too narrow for the agenda's timetable. Apple's own concerts links open this page.
 - No amber: nothing here is playing.
 
+## New releases
+
+New releases (`/new-releases`) is the artist tracker's list (`docs/architecture.md`, "Artist tracker"): what the artists the user has favourited have put out, newest first. It answers one question, what is new from my artists, so it is a plain list of releases read down, each a cover and two lines, with nothing of Apple's shelves in it. It is Operate, not Persuade: no hero, no tiles, no colour beyond the covers.
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ New releases  [✓ Mark all as read] [🗑 Clear list]   32/700   │
+│ From the artists you've favourited · Checked 3 hr. ago        │
+│ Coming soon 1                                      16/600     │
+│ ●  ▢  Winter Rooms                              Out Nov 27   │
+│       Hollow Pines · Album                                    │
+│ This week 2                                                   │
+│ ●  ▢  Night Signals                                 Nov 14   │
+│       Mia Vale · EP                                           │
+│    ▢  Paper Boats                                   Nov 13   │
+│       Hollow Pines · Single                                   │
+│ Earlier 2                                                     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- **Header.** The title at 32/700 with two outline buttons beside it (the control sits with what it acts on, as Concerts' location button does): *Mark all as read* (greyed with nothing unread) and *Clear list*. Under them one line at 13 muted: what the list is and how old the last check is ("Checked 3 hr. ago", `i18n.RelativeTime`), or "Not checked yet". The buttons are left out of an empty list.
+- **Groups.** *Coming soon* (releases not out yet, soonest first), *This week* (out in the last seven days) and *Earlier*, each under a 16/600 heading with its count in `--ink-faint`, 32px apart; a group with nothing in it is not drawn. Each group is a table for assistive technology, named by its heading.
+- **A row** is 64px: a 12px slot for the unread dot, the 48px cover (radius 4 with the 6% edge line), the title at 14 and the artist and kind ("Mia Vale · EP", "Hollow Pines · Album", "… · Single") at 13 muted under it, and the date right-aligned in a 104px column at 13 muted tabular ("Out Nov 27" while to come, "Nov 14" once out, the year alone when Apple gives no day). The " - EP" and " - Single" suffixes come off the title, the kind says it.
+  - **Unread is said twice.** An 8px `--ink` dot in the slot and the title at weight 600 against 400 once read. The dot is ink, never amber: nothing is playing, so the spot colour stays out. The row's description starts "Unread" for assistive technology.
+  - The hover fill is `--hover` at radius 6 as other lists; a selection takes ink at 12%. The title underlines on hover.
+  - The row's end has two 24px ghost buttons: *More* (the item menu, shown while the row is hovered or holds focus) and *Remove*, a cross shown under the pointer only. Under the keyboard a row is one Tab stop; its remove is the menu's *Remove from New releases* and the Delete key.
+  - **Opening a release marks it read** and goes to the album. A selection of rows, drag and the item menu (right-click, Shift+F10, the Menu key) are the albums' own. The menu adds *Mark as read* (unread rows only) and *Remove from New releases* after the library's actions, only in this list; an upcoming release carries the album's *Remind me*.
+- **Sidebar.** The link sits after Concerts in the main section, with a calendar icon. Its unread count is a figure at the link's end at 12/600 tabular in `--ink`: no badge shape, no colour, no animation, and nothing at 0. The count is part of the link's name ("New releases, 3 new").
+- **States.** Off (the tracker is a setting, off by default): the empty frame's title *Release tracking is off*, one sentence naming the setting and *Open Settings*. On with nothing yet: *Nothing new yet* and one sentence saying it looks about once a day. Loading draws the heading and three rows' frame in flat bars. A failed load is the usual error block with Retry. A list found before the tracker was turned off stays readable under "Release tracking is off".
+- No amber on the page.
+
 ## Video view
 
 A music video has a page (`/music-video/{id}`, `internal/ui/features/video/page.go`) and a full-window view (`view.go`).
@@ -1223,6 +1255,7 @@ Settings (h1)                  Playback (h2 at 24/650)
   - Wider than 960px each group's h3 (16/600) and its one muted line (13, in the 176px column) sit in a left margin, level with the first row's title. The rows run in the column to its right, 32px on. A block with no heading of its own (Language, Widevine, Appearance) keeps to that same column with its margin empty, so every row of a section shares one left edge. At 960px and below the h3 stacks above its rows.
   - Every row sits under one 1px `--line` (no box, no tone step): the title at 14/500, what it does at 13 muted (60ch), the control at the right, 40px clear of the text. A row's state that needs attention keeps its own line under the description.
   - The content column is up to 960px.
+- **New releases** (General) holds the artist tracker's two switches under their own group heading: *Track new releases from favourite artists* and *Also show a desktop notification*. The second waits for the first (greyed while it is off) and, like every row the platform can't back, keeps its place with the reason where the platform has no notifications.
 - **What the platform can't do** keeps its row: the title in `--ink-muted` and, where the control would be described, a `CircleSlash` and why ("Not available on macOS yet.", or the specific reason: no tray to keep playing from, a player that reports plays itself). Nothing disappears quietly. Without any playback, Playback is that one row and the lyrics.
 - **Theme** is three segments (System, Light, Dark) in one 32px outlined control, radio buttons underneath: every choice in view, ←/→ to move.
 - **Storage** opens with a group, *On this computer*, whose row holds what Sona keeps as three figures at 24/650 with tabular figures: the artwork cache against its limit with a 4px meter in `--ink-muted`, the catalogue cache, the database. The group *Limit and cleanup* keeps only what each does and its action, so no figure is shown twice.

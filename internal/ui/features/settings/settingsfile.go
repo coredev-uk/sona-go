@@ -68,6 +68,10 @@ func listedRow(key string) string {
 		return i18n.T("Open on")
 	case "integrations.notifications":
 		return i18n.T("Track notifications")
+	case "artistTracker.enabled":
+		return i18n.T("Track new releases from favourite artists")
+	case "artistTracker.desktop":
+		return i18n.T("Also show a desktop notification")
 	case "integrations.inhibitSleep":
 		return i18n.T("Stay awake while playing")
 	case "integrations.discordPresence":

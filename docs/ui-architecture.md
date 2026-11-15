@@ -46,6 +46,7 @@ Sona's interface is Go all the way down: [MyGo](https://github.com/egoist/mygo)'
   - [Playlists](#playlists-featuresplaylist)
   - [Search](#search-featuressearch)
   - [Concerts](#concerts-featuresconcerts)
+  - [New releases](#new-releases-featuresnewreleases)
   - [Browse: Home, Discover, Radio](#browse-home-discover-radio-featureshome-featuresdiscover-featuresradio)
   - [Catalogue pages](#catalogue-pages-featuresalbum-featuresartist-featuressong)
 - [Tests](#tests)
@@ -152,7 +153,7 @@ The concerts module sets `ConcertsShelf` and `ArtistConcerts` in its factory. Th
 ### What a module declares
 
 - **Routes** use MyGo's router patterns (`/album/{id}`, `/settings/{section...}`). The route memory, titles and the back and forward buttons are the shell's.
-- **Nav** entries sit in the primary, library or footer section and sort by `Order`. `To` is one of the module's own patterns. Each entry gets a go-to shortcut (`Keys`, else Ctrl+1…9 or Alt+1…9 by position).
+- **Nav** entries sit in the primary, library or footer section and sort by `Order`. `To` is one of the module's own patterns. Each entry gets a go-to shortcut (`Keys`, else Ctrl+1…9 or Alt+1…9 by position). `Count`, when set, is a number the link carries at its end while it is above 0 and in its name for assistive technology ("New releases, 3 new"); it is read every frame, so it only peeks at a mirror.
 - **Init** runs once after the shell connects, on the main thread: subscriptions (`store.On`) and first snapshots. A module's `Init` subscribes to each event, then calls `env.Queries.Invalidate(store.Key{"library"})` or the like.
 - **Actions** (`[]kit.ActionDef`) are the module's item actions, single (`Target` a kind) and bulk (`Target: kit.KindSelection`). The shell registers every module's into one `kit.ActionRegistry` (`Env.Actions`), which `kit.ActionMenus` lists and shortcuts and the palette share by ID. A duplicate ID panics at start-up.
 
@@ -1680,6 +1681,17 @@ The agenda is one Tab stop with roving arrows (`roving.go`). A row has the start
 The location dialog (`location.go`) searches Sona's own city list (`ConcertsService.Places`), saves with `SetLocation` and can return to the storefront's main city.
 
 `auth:changed` invalidates the listings only when the signed-in state changes. `ArtistConcerts` and `ConcertsShelf` (`upcoming.go`) are the artist page's "Upcoming concerts" and Home's shelf (compact rows with a date column and rule), set on `Env` by this module.
+
+### New releases (`features/newreleases`)
+
+`/new-releases` with the `New releases` nav item (icon `calendar`, primary, order 27: after Concerts, so the positional Ctrl+1…9 keys before it stay), the page of the artist tracker (`ArtistTrackerService`; `docs/architecture.md`, "Artist tracker"; its look is `docs/design.md`, "New releases"). The sidebar link is always there: the page says plainly when the tracker is off and links to Settings.
+
+- **State.** `artisttracker:changed` writes `store.KeyNewReleases` (`store.UseNewReleases`: items, unread count, when it was last checked); `Init` seeds it from `ArtistTrackerService.Releases`, which reads SQLite only. The nav item's `Count` peeks at it, so the sidebar shows the unread count without a fetch. Reads of the settings (`store.UseSettings`) tell the page whether the tracker is on.
+- **The page** (`page.go`) groups the list (`groupsOf`: Coming soon, soonest first; This week; Earlier) and builds each group as a table of rows (`row.go`), all in one `kit.Selection`, `kit.GridNav` and `kit.ActionMenus`, as the artist page's release list is: rows select, drag, open their item menu on right-click, Shift+F10 or the Menu key, and move with the arrows. A row is one Tab stop; the Delete key removes it.
+- **Marking read** is by opening a release (`MarkRead`, then the album page), the header's *Mark all as read*, or the menu; *Clear list* and *Remove* dismiss (`Dismiss`, `Clear`). Every call runs off the main thread (`newReleases.do`) and its outcome comes back as `artisttracker:changed`.
+- **Actions.** `newreleases.mark-read` and `newreleases.dismiss` (album target, item group, orders 80 and 81) are listed only for a row of this list: the rows pass `kit.ActionContainer{Kind: "new-releases"}`. An upcoming release also carries `reminders.toggle` (Remind me).
+- **Opening from a notification.** `app:open` with kind `new-releases` and no ID (the summary notification) opens the page; `routeForOpen` answers it before it looks for an ID.
+- **Settings.** The two switches are rows of Settings → General (`releases.go`), ids `artist-tracker` and `artist-tracker-notify`; the second is an unavailable row where `Capabilities.Notifications` is false.
 
 ### Browse: Home, Discover, Radio (`features/home`, `features/discover`, `features/radio`)
 

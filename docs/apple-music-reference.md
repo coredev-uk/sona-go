@@ -550,6 +550,38 @@ Sona's covers are therefore local (`playlist_covers`, migrations 00010 and 00011
 - **Video:** `has4K`, `hasHDR`, `videoTraits`.
 - **Other:** `isVocalAttenuationAllowed` (Apple Music Sing; not on the web), `isPrerelease` (Coming Soon), `previews` (30-second clips; usable for non-subscribers).
 
+### 5.10 Favourite artists and their new releases (the artist tracker)
+
+Checked 2026-11-15 through `internal/applemusic.Client` with a subscriber account (read-only `GET`s; nothing was changed). `internal/services/artisttracker.go` is the one user of these calls.
+
+**Listing the favourite artists.** There is no call that lists them.
+
+| Call | Status | Result |
+|---|---|---|
+| `GET /v1/me/ratings/artists` (no `ids`, or with `limit`) | 400 | `Invalid Parameter Value`, code `40005`, "No ids supplied on the request": ratings are read for the IDs given, never listed. |
+| `GET /v1/me/favorites?types=artists` | 404 | `Path Not Found`: `/v1/me/favorites` takes only `POST` and `DELETE` (5.5). |
+| `GET /v1/me/library/artists?include=catalog&fields[artists]=name&limit=100&offset={n}` | 200 | Library artists, 100 a page (`next`, `meta.total`). Each carries `relationships.catalog.data[0].id`, its catalogue artist ID (every one did). |
+| `GET /v1/me/ratings/artists?ids={a,b,…}` (up to 100 IDs) | 200 | `data[]` of `ratings` with `attributes.value` `1`; unrated IDs are absent. A library of a few hundred artists took five calls, and a handful were favourites. |
+| Home's `your-favorites` shelf (`GET /v1/me/recommendations`) | 200 | `resourceTypes: [stations]`: artist stations, not a list of artists. Not used. |
+
+So Sona takes as candidates the artists of the synced library that have a catalogue ID (`artists.catalog_id`, from `include=catalog` during the library sync) plus the artists favourited in Sona (`favorites`, kind `artists`), and asks `Ratings` which are rated 1. **Limit:** an artist that is favourited elsewhere but is neither in the library nor favourited in Sona is not found `[INFERENCE: Apple adds a favourited artist to the library, as Music does; not verified]`.
+
+**Reading their releases.** Catalogue calls; `platform=web` is refused on `api.music.apple.com` (400, "Platform web is not supported") and sent on amp-api only.
+
+| Call | Status | Result |
+|---|---|---|
+| `GET amp-api /v1/catalog/{sf}/artists?ids={a,b,…}&views=latest-release,full-albums,singles&limit[full-albums]=3&limit[singles]=5&fields[artists]=name&fields[albums]=name,artistName,releaseDate,isSingle,isCompilation,isPrerelease,artwork,url,contentRating,trackCount&platform=web` | 200 | **What the tracker asks.** One resource per ID (unknown IDs are omitted), each with `views.latest-release`, `views.full-albums` and `views.singles`, `data[]` newest first by `releaseDate` (observed in every view of every artist sampled). About 7 KB an artist. Ten IDs went in one request; the tracker sends 25. |
+| `GET api.music.apple.com /v1/catalog/{sf}/artists/{id}/albums?sort=-releaseDate&limit=3` | 200 | The same albums, one artist per call: 25 calls where the batch is one. |
+| `GET api.music.apple.com /v1/catalog/{sf}/artists/{id}/view/latest-release` | 200 | One album: a release of the same day as another would hide the other. |
+| `GET api.music.apple.com /v1/catalog/{sf}/artists?ids=…&include=albums&limit[albums]=3` | 200 | `relationships.albums` of up to 25 albums in no order the tracker could rely on. Not used. |
+
+Shapes the tracker relies on:
+
+- `latest-release.data` is empty for some artists; the latest release is also the first of one of the other two views, so the tracker takes the union of the three by album ID.
+- `full-albums` can hold an album flagged `isSingle` and `singles` holds EPs and short albums that are not (Apple files an EP as "… - EP" with `isSingle: true`): the kind comes from the name's suffix and `isSingle` (`releaseKind`), never from the view.
+- `releaseDate` is `YYYY-MM-DD`, or a year alone; `isPrerelease` marks an album that is not out yet. None of the sampled albums was a pre-release; the artist page's views list one with a future `releaseDate` as for pre-added albums (4.1) `[INFERENCE]`.
+- The calls go through `applemusic.Client`, which sends the web player token and `Origin` and retries 429 and 5xx with backoff, waiting at least `Retry-After`.
+
 ## 6. Account, profile and social
 
 | Feature | Route | Call | Status | MUT | Applicability |

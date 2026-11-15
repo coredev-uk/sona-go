@@ -191,6 +191,18 @@
 // Platform.Notifications Set fails with "unsupported". Pre-add is
 // LibraryService.Add: Apple's web player pre-adds with the same call.
 //
+// The artist tracker (artisttracker.go, tables tracked_artists,
+// artist_releases and artist_tracker_state) is opt-in
+// (config.ArtistTracker, off by default): after the first paint and about
+// once a day it asks Apple which of the library's artists and the artists
+// favourited in Sona are rated 1, reads their latest releases in batches
+// (applemusic.AMPResources) and lists what is new as NewReleases
+// ("artisttracker:changed"). An artist's first check records what is out as
+// seen and announces nothing. The optional desktop notification is shown by
+// the notifier the reminders use (notices.go); a release still to come
+// carries the album's Remind me. Nothing is asked while it is off or signed
+// out; its state is user data, cleared on sign-out.
+//
 // Lyrics (lyrics.go): LyricsService.Lyrics(songID) asks the lyrics
 // sources switched on in config.Settings.Lyrics (internal/lyrics: Apple
 // Music, Musixmatch, LRCLIB, NetEase) in parallel, matching them by the

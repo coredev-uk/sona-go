@@ -104,6 +104,8 @@ type Settings struct {
 	Lyrics Lyrics `json:"lyrics"`
 	// Concerts is where the Concerts page looks (concerts.go).
 	Concerts Concerts `json:"concerts"`
+	// ArtistTracker is the favourite artists' new releases (artisttracker.go).
+	ArtistTracker ArtistTracker `json:"artistTracker"`
 	// Sidebar is the playlist tree's open folders and folded sections (sidebar.go).
 	Sidebar Sidebar `json:"sidebar"`
 	// LyricsView is the lyrics view's Translation and Pronunciation choices

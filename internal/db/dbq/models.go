@@ -53,6 +53,29 @@ type Artist struct {
 	UpdatedAt       int64
 }
 
+type ArtistRelease struct {
+	AlbumID         string
+	ArtistID        string
+	Name            string
+	ArtistName      string
+	ArtworkTemplate string
+	Kind            string
+	ReleaseDate     string
+	ReleaseAt       int64
+	Prerelease      int64
+	TrackCount      int64
+	Explicit        int64
+	Listed          int64
+	FoundAt         int64
+	ReadAt          sql.NullInt64
+	DismissedAt     sql.NullInt64
+}
+
+type ArtistTrackerState struct {
+	ID        int64
+	CheckedAt int64
+}
+
 type CatalogCache struct {
 	Key        string
 	Storefront string
@@ -235,4 +258,10 @@ type Track struct {
 	Composer        string
 	UpdatedAt       int64
 	NoPlayParams    int64
+}
+
+type TrackedArtist struct {
+	ArtistID string
+	Name     string
+	SeededAt int64
 }
