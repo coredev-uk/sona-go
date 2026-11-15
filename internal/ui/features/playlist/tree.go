@@ -47,15 +47,24 @@ const (
 // (Favourites Mix, New Music Mix, Chill Mix…).
 const personalMix = "pl.pm-"
 
-// playlistSection is where a library playlist belongs. Apple's personal
-// mixes are catalogue playlists `pl.pm-…`, so the library copy names one by
-// its catalogue ID. Any other playlist the user cannot edit was added from
-// Apple Music (or another curator); the rest are the user's own.
-func playlistSection(p services.Playlist) section {
-	if strings.HasPrefix(p.CatalogID, personalMix) {
+// isPersonalMix reports whether p is one of Apple's personal mixes: they
+// are catalogue playlists `pl.pm-…`, so the library copy names one by its
+// catalogue ID.
+func isPersonalMix(p services.Playlist) bool {
+	return strings.HasPrefix(p.CatalogID, personalMix)
+}
+
+// playlistSection is where a library playlist belongs. Personal mixes are
+// Made for you. A collaborative playlist is the user's own, whether they
+// host it or joined it (a joined one is not editable). Any other playlist
+// the user cannot edit was added from Apple Music (or another curator); the
+// rest are the user's own.
+func playlistSection(item services.TreePlaylist) section {
+	p := item.Playlist
+	switch {
+	case isPersonalMix(p):
 		return sectionMadeForYou
-	}
-	if p.CanEdit {
+	case item.Collaborative || p.CanEdit:
 		return sectionOwn
 	}
 	return sectionApple
@@ -148,7 +157,7 @@ func sidebarPlaylists(tree services.PlaylistTree, pinned map[string]bool) sideba
 		hidden[id] = true
 	}
 	for _, item := range tree.Playlists {
-		sec := playlistSection(item.Playlist)
+		sec := playlistSection(item)
 		if sec == sectionOwn {
 			continue
 		}

@@ -162,7 +162,8 @@ func (q *Queries) InsertPin(ctx context.Context, arg InsertPinParams) error {
 
 const libraryPlaylistTree = `-- name: LibraryPlaylistTree :many
 SELECT p.library_id, p.catalog_id, p.name, p.description, p.curator_name, p.artwork_template,
-       p.can_edit, p.can_delete, p.is_public, p.favorited, p.track_count, p.last_modified,
+       p.can_edit, p.can_delete, p.is_public, p.favorited, p.is_collaborative, p.collaborative_host,
+       p.track_count, p.last_modified,
        p.folder_id, p.folder_position, li.date_added
 FROM playlists p
 JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
@@ -171,21 +172,23 @@ ORDER BY p.folder_id, p.folder_position, p.name COLLATE NOCASE
 `
 
 type LibraryPlaylistTreeRow struct {
-	LibraryID       sql.NullString
-	CatalogID       sql.NullString
-	Name            string
-	Description     string
-	CuratorName     string
-	ArtworkTemplate string
-	CanEdit         int64
-	CanDelete       int64
-	IsPublic        int64
-	Favorited       int64
-	TrackCount      int64
-	LastModified    string
-	FolderID        string
-	FolderPosition  int64
-	DateAdded       sql.NullInt64
+	LibraryID         sql.NullString
+	CatalogID         sql.NullString
+	Name              string
+	Description       string
+	CuratorName       string
+	ArtworkTemplate   string
+	CanEdit           int64
+	CanDelete         int64
+	IsPublic          int64
+	Favorited         int64
+	IsCollaborative   int64
+	CollaborativeHost int64
+	TrackCount        int64
+	LastModified      string
+	FolderID          string
+	FolderPosition    int64
+	DateAdded         sql.NullInt64
 }
 
 func (q *Queries) LibraryPlaylistTree(ctx context.Context) ([]LibraryPlaylistTreeRow, error) {
@@ -208,6 +211,8 @@ func (q *Queries) LibraryPlaylistTree(ctx context.Context) ([]LibraryPlaylistTre
 			&i.CanDelete,
 			&i.IsPublic,
 			&i.Favorited,
+			&i.IsCollaborative,
+			&i.CollaborativeHost,
 			&i.TrackCount,
 			&i.LastModified,
 			&i.FolderID,
@@ -358,26 +363,31 @@ func (q *Queries) OrderedPins(ctx context.Context) ([]OrderedPinsRow, error) {
 }
 
 const placePlaylist = `-- name: PlacePlaylist :exec
-UPDATE playlists SET folder_id = ?, folder_position = ?, favorited = ?, can_delete = ?
+UPDATE playlists SET folder_id = ?, folder_position = ?, favorited = ?, can_delete = ?,
+       is_collaborative = ?, collaborative_host = ?
 WHERE library_id = ?
 `
 
 type PlacePlaylistParams struct {
-	FolderID       string
-	FolderPosition int64
-	Favorited      int64
-	CanDelete      int64
-	LibraryID      sql.NullString
+	FolderID          string
+	FolderPosition    int64
+	Favorited         int64
+	CanDelete         int64
+	IsCollaborative   int64
+	CollaborativeHost int64
+	LibraryID         sql.NullString
 }
 
-// The folder tree (amp-api) carries canDelete; the library list (public
-// API) does not.
+// The folder tree (amp-api) carries canDelete and the collaboration flags;
+// the library list (public API) does not.
 func (q *Queries) PlacePlaylist(ctx context.Context, arg PlacePlaylistParams) error {
 	_, err := q.db.ExecContext(ctx, placePlaylist,
 		arg.FolderID,
 		arg.FolderPosition,
 		arg.Favorited,
 		arg.CanDelete,
+		arg.IsCollaborative,
+		arg.CollaborativeHost,
 		arg.LibraryID,
 	)
 	return err

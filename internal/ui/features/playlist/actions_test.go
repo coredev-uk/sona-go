@@ -245,6 +245,23 @@ func TestEditAndMoveOnlyForEditableLibraryPlaylists(t *testing.T) {
 	}
 }
 
+// A playlist the user joined is theirs to leave but not to edit: Apple says
+// it is not editable, so only the actions that do not edit it are offered.
+func TestJoinedCollaborativePlaylistOffersOnlyTheCollaboratorsActions(t *testing.T) {
+	f := newActionsFixture(t)
+	joined := libPlaylist("p.joined", false, "pl.u-9")
+	ctx := f.r.Context([]kit.Item{joined}, nil, map[string]any{}).WithData(map[string]any{"playlists.tree": map[string]services.TreePlaylist{
+		"p.joined": {Playlist: joined.Playlist(), CanDelete: true, Collaborative: true},
+	}})
+	for id, want := range map[string]bool{
+		"playlists.edit": false, "playlists.move": false, "playlists.delete": true, "playlists.cover": true,
+	} {
+		if got := available(f.def(t, id), ctx); got != want {
+			t.Errorf("%s available = %v, want %v", id, got, want)
+		}
+	}
+}
+
 func TestDeleteRules(t *testing.T) {
 	f := newActionsFixture(t)
 	d := f.def(t, "playlists.delete")

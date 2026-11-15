@@ -254,6 +254,11 @@ type LibraryPlaylistTree struct {
 	Tags      []string
 	CanDelete bool
 	DateAdded string
+	// Collaborative: Apple marks the playlist collaborative (hasCollaboration),
+	// whether the user started it or joined it. Host: the user hosts it
+	// (isCollaborativeHost); false for a playlist the user joined.
+	Collaborative bool
+	Host          bool
 }
 
 type treeItemAttributes struct {
@@ -261,6 +266,9 @@ type treeItemAttributes struct {
 	Tags      []string `json:"tags"`
 	CanDelete bool     `json:"canDelete"`
 	DateAdded string   `json:"dateAdded"`
+
+	HasCollaboration    bool `json:"hasCollaboration"`
+	IsCollaborativeHost bool `json:"isCollaborativeHost"`
 }
 
 // maxFolderDepth bounds the folder walk (Apple's tree is shallow; this
@@ -281,7 +289,9 @@ func (c *Client) PlaylistTree(ctx context.Context) ([]LibraryPlaylistTree, error
 	for len(queue) > 0 {
 		f := queue[0]
 		queue = queue[1:]
-		q := url.Values{"extend[library-playlists]": {"tags"}, "platform": {"web"}}
+		// extend=hasCollaboration,isCollaborativeHost is how the tree says which
+		// playlists are collaborative; the public library list never does.
+		q := url.Values{"extend": {"hasCollaboration,isCollaborativeHost"}, "extend[library-playlists]": {"tags"}, "platform": {"web"}}
 		pos := 0
 		_, err := FetchPages(ctx, c, c.ampBase()+"/v1/me/library/playlist-folders/"+url.PathEscape(f.id)+"/children", q,
 			PageOptions{Parallel: 2}, func(_ int, items []Resource[treeItemAttributes]) error {
@@ -293,6 +303,7 @@ func (c *Client) PlaylistTree(ctx context.Context) ([]LibraryPlaylistTree, error
 					out = append(out, LibraryPlaylistTree{
 						ID: it.ID, Type: it.Type, ParentID: f.id, Position: pos,
 						Name: a.Name, Tags: a.Tags, CanDelete: a.CanDelete, DateAdded: a.DateAdded,
+						Collaborative: a.HasCollaboration, Host: a.IsCollaborativeHost,
 					})
 					pos++
 					if it.Type == TypeLibraryPlaylistFolders && !seen[it.ID] && f.depth < maxFolderDepth {

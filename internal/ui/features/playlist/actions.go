@@ -252,7 +252,7 @@ func (p *playlists) actions() []kit.ActionDef {
 			// added can go.
 			Available: func(a *kit.ActionContext) bool {
 				pl := a.Item().Playlist()
-				return isLibraryPlaylist(pl) && playlistSection(pl) != sectionMadeForYou
+				return isLibraryPlaylist(pl) && !isPersonalMix(pl)
 			},
 			Enabled: func(a *kit.ActionContext) bool {
 				byID, _ := kit.DataOf[map[string]services.TreePlaylist](a, tree)

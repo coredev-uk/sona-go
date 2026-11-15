@@ -19,9 +19,10 @@ UPDATE playlists SET folder_id = '', folder_position = 1000000, favorited = 0
 WHERE library_id IS NOT NULL;
 
 -- name: PlacePlaylist :exec
--- The folder tree (amp-api) carries canDelete; the library list (public
--- API) does not.
-UPDATE playlists SET folder_id = ?, folder_position = ?, favorited = ?, can_delete = ?
+-- The folder tree (amp-api) carries canDelete and the collaboration flags;
+-- the library list (public API) does not.
+UPDATE playlists SET folder_id = ?, folder_position = ?, favorited = ?, can_delete = ?,
+       is_collaborative = ?, collaborative_host = ?
 WHERE library_id = ?;
 
 -- name: SetPlaylistCanDelete :exec
@@ -61,7 +62,8 @@ SELECT
 
 -- name: LibraryPlaylistTree :many
 SELECT p.library_id, p.catalog_id, p.name, p.description, p.curator_name, p.artwork_template,
-       p.can_edit, p.can_delete, p.is_public, p.favorited, p.track_count, p.last_modified,
+       p.can_edit, p.can_delete, p.is_public, p.favorited, p.is_collaborative, p.collaborative_host,
+       p.track_count, p.last_modified,
        p.folder_id, p.folder_position, li.date_added
 FROM playlists p
 JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id

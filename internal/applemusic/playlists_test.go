@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -95,9 +96,12 @@ func TestPlaylistTreeWalksFoldersSkippingTombstones(t *testing.T) {
 			{"id":"p.gone","type":"library-playlists","attributes":{"canDelete":false}},
 			{"id":"p.a","type":"library-playlists","attributes":{"name":"A","canDelete":true,"tags":["favorited"]}}]`,
 		"p.f1": `[{"id":"p.f2","type":"library-playlist-folders","attributes":{"name":"Old","canDelete":true}},
-			{"id":"p.b","type":"library-playlists","attributes":{"name":"B","canDelete":true}}]`,
+			{"id":"p.b","type":"library-playlists","attributes":{"name":"B","canDelete":true,"hasCollaboration":true,"isCollaborativeHost":false}},
+			{"id":"p.c","type":"library-playlists","attributes":{"name":"C","canDelete":true,"hasCollaboration":true,"isCollaborativeHost":true}}]`,
 	}
+	var extend string
 	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		extend = r.URL.Query().Get("extend")
 		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/v1/me/library/playlist-folders/"), "/children")
 		body, ok := children[id]
 		if !ok { // empty folders answer 404
@@ -120,9 +124,20 @@ func TestPlaylistTreeWalksFoldersSkippingTombstones(t *testing.T) {
 	for _, e := range got {
 		lines = append(lines, fmt.Sprintf("%s<%s@%d", e.ID, e.ParentID, e.Position))
 	}
-	want := "p.f1<p.playlistsroot@0 p.a<p.playlistsroot@1 p.f2<p.f1@0 p.b<p.f1@1"
+	want := "p.f1<p.playlistsroot@0 p.a<p.playlistsroot@1 p.f2<p.f1@0 p.b<p.f1@1 p.c<p.f1@2"
 	if strings.Join(lines, " ") != want {
 		t.Fatalf("tree = %s\nwant   %s", strings.Join(lines, " "), want)
+	}
+	if extend != "hasCollaboration,isCollaborativeHost" {
+		t.Errorf("extend = %q, want the collaboration flags asked for", extend)
+	}
+	flags := map[string][2]bool{}
+	for _, e := range got {
+		flags[e.ID] = [2]bool{e.Collaborative, e.Host}
+	}
+	want2 := map[string][2]bool{"p.a": {false, false}, "p.b": {true, false}, "p.c": {true, true}, "p.f1": {false, false}, "p.f2": {false, false}}
+	if !reflect.DeepEqual(flags, want2) {
+		t.Errorf("collaboration flags = %v, want %v", flags, want2)
 	}
 	if got[1].Tags[0] != "favorited" {
 		t.Fatalf("tags = %v", got[1].Tags)

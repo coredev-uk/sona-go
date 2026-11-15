@@ -532,6 +532,10 @@ type PlacedPlaylist struct {
 	Position  int
 	CanDelete bool
 	Favorited bool
+	// Collaborative and Host: Apple's hasCollaboration and
+	// isCollaborativeHost, as the last playlist sync saw them.
+	Collaborative bool
+	Host          bool
 }
 
 // PlaylistTree returns the playlist folders and every library playlist
@@ -564,6 +568,7 @@ func (l *Library) PlaylistTree(ctx context.Context) ([]dbq.PlaylistFolder, []Pla
 		out[i] = PlacedPlaylist{
 			Playlist: pls[i], FolderID: r.FolderID, Position: int(r.FolderPosition),
 			CanDelete: r.CanDelete != 0, Favorited: r.Favorited != 0,
+			Collaborative: r.IsCollaborative != 0, Host: r.CollaborativeHost != 0,
 		}
 	}
 	return folders, out, nil
