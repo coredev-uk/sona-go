@@ -1037,8 +1037,34 @@ var ixBestWant = map[string]ixCell{
 		// DEPARTS: a curator has no Play disc (no curator player exists), like an artist.
 		play: "nothing",
 	},
-	// DEPARTS: a web-only link as the best match is not interactive at all: a click does nothing, though the same item opens the browser from the field's suggestions and from a shelf tile.
-	"link": {role: "none", click: "nothing", play: "nothing"},
+	"link": {
+		role:  "link",
+		click: ixURL("link:web1"), enter: ixURL("link:web1"), shiftEnter: "nothing", space: "nothing",
+		play: "nothing",
+	},
+}
+
+// TestInteractionResultsWebItemsCarryTheArrowOut: a web-only best match and
+// compact row end in the arrow that says they open the browser, as the link
+// list's tile does; an in-app result does not.
+func TestInteractionResultsWebItemsCarryTheArrowOut(t *testing.T) {
+	for name, items := range map[string][]services.Item{
+		"best match":  {ixItems()["link"]},
+		"compact row": {ixFiller(), ixItems()["link"]},
+	} {
+		t.Run(name, func(t *testing.T) {
+			x := newIxPage(t, "/search?q=blue", &ixAPI{cat: ixCatalog(ixTop(items...))}, nil)
+			x.show(ixItems()["link"].Name)
+			if !slices.Contains(x.r.tt.Texts(), "Opens in your browser") {
+				t.Errorf("the web-only %s has no arrow-out cue; texts %q", name, x.r.tt.Texts())
+			}
+		})
+	}
+	x := newIxPage(t, "/search?q=blue", &ixAPI{cat: ixCatalog(ixTop(ixItems()["album"]))}, nil)
+	x.show(ixItems()["album"].Name)
+	if slices.Contains(x.r.tt.Texts(), "Opens in your browser") {
+		t.Error("an album result carries the arrow-out cue")
+	}
 }
 
 // TestInteractionResultsCompactRowsPerKind: the compact rows beside the best
@@ -1108,8 +1134,11 @@ var ixRowWant = map[string]ixCell{
 		click: ixOpen("/curator/cu1", "curator:cu1"), enter: ixOpen("/curator/cu1", "curator:cu1"), shiftEnter: "nothing", space: "nothing",
 		play: "nothing",
 	},
-	// DEPARTS: a web-only link row is not interactive: a click does nothing (the field and a tile open the browser).
-	"link": {role: "none", click: "nothing", play: "nothing"},
+	"link": {
+		role:  "link",
+		click: ixURL("link:web1"), enter: ixURL("link:web1"), shiftEnter: "nothing", space: "nothing",
+		play: "nothing",
+	},
 }
 
 // ixShelfCatalog is one result group per kind, one item each (a station with a

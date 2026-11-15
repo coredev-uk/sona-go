@@ -246,6 +246,9 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 			}
 			main.Children(func() {
 				body()
+				if s.leavesSona(it) {
+					outCue(c)
+				}
 				if role == ui.RoleButton {
 					disc(c, 40)
 				}
