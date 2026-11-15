@@ -4633,6 +4633,7 @@ msgstr "Platform"
 #: internal/ui/kit/collections_cover.go
 #: internal/ui/kit/collections_items_linklist.go
 #: internal/ui/kit/collections_items_stations.go
+#: internal/ui/kit/overlays_palette.go
 #: internal/ui/kit/playback_controls.go
 msgid "Play"
 msgstr "Play"

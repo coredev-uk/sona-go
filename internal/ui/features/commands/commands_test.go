@@ -28,6 +28,8 @@ type rig struct {
 	routes []string
 	ran    []string
 	extra  []module.BoundShortcut
+	// songPage is where the song entry of the interaction fixtures opens.
+	songPage string
 }
 
 func (r *rig) hasRoute(path string) bool {
@@ -39,7 +41,7 @@ func newRig(t *testing.T, opts ...uitest.Option) *rig {
 	opts = append(opts, uitest.Albums(fixture.Album{Name: "Zebra Crossing", Artist: "Mia", Titles: []string{"Quartz Lantern"}}))
 	h := uitest.New(t, opts...)
 	env := h.Env
-	r := &rig{t: t, h: h, routes: []string{"/library/albums", "/album/", "/artist/", "/playlist/", "/search", "/settings"}}
+	r := &rig{t: t, h: h, routes: []string{"/library/albums", "/album/", "/artist/", "/playlist/", "/song/", "/search", "/settings"}}
 	r.router = ui.NewRouter("/library/albums")
 	env.Nav = r.router
 	env.HasRoute = r.hasRoute
@@ -237,7 +239,7 @@ func TestPaletteFindsLibraryItemsAfterAPauseAndOpensThem(t *testing.T) {
 	}
 }
 
-func TestPalettePlaysASongPickedFromTheLibrary(t *testing.T) {
+func TestPaletteOpensASongPickedFromTheLibraryAndShiftEnterPlaysIt(t *testing.T) {
 	r := newRig(t)
 	r.tt.Key(ui.Ctrl, ui.KeyK)
 	r.tt.Type("quartz")
@@ -245,13 +247,11 @@ func TestPalettePlaysASongPickedFromTheLibrary(t *testing.T) {
 	r.tt.Until("the song", r.tt.Shows("Quartz Lantern", "Song · Mia"))
 	r.tt.MustClick("Quartz Lantern")
 	r.settle()
-	r.tt.Until("the song queued through env.Queue", func() bool {
-		r.h.Main.Drain()
-		q := r.h.Env.Play.Queue()
-		return len(q.Items) == 1 && q.Items[0].Name == "Quartz Lantern"
-	})
-	if got := r.router.Path(); got != "/library/albums" {
-		t.Errorf("playing a song navigated to %q", got)
+	if got := r.router.Path(); !strings.HasPrefix(got, "/song/") {
+		t.Errorf("picking the song went to %q, want its page", got)
+	}
+	if q := r.h.Env.Play.Queue(); len(q.Items) != 0 {
+		t.Errorf("opening the song queued %d items", len(q.Items))
 	}
 }
 

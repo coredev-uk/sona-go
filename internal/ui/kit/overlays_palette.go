@@ -149,7 +149,13 @@ type PaletteEntry struct {
 	Leading func(c *ui.Context)
 	// Keys are the chords shown at the end (at most two are drawn).
 	Keys []string
-	Run  func()
+	// Cue is the Lucide glyph on the active row that says what Enter does:
+	// "chevron-right" opens, "play" plays; "" for none (a command shows its keys).
+	Cue string
+	Run func()
+	// Alt runs on Shift+Enter; nil for none. The foot names it
+	// ("Play") while the entry is active, so no key does what nothing hints at.
+	Alt func()
 }
 
 // PaletteSection is a titled group of entries ("Commands", "In your
@@ -192,6 +198,8 @@ type Palette struct {
 	// the query last changed. Until then the first entry is the active one,
 	// whatever arrives above it, so Enter runs what the list shows first.
 	steered bool
+	// altKey: the Enter that submits the field came with Shift.
+	altKey bool
 	// reveal scrolls the active row into view, once, after the keys moved it.
 	reveal bool
 }
@@ -240,6 +248,7 @@ func (p *Palette) Show(c *ui.Context, src PaletteSource) {
 // takesChord is the field's OnTextKey: the palette's own chord closes it
 // even where the text field would keep the key (macOS's Control+K).
 func (p *Palette) takesChord(k ui.TextKey) bool {
+	p.altKey = k.Key == ui.KeyEnter && k.Mods&ui.Shift != 0
 	for _, s := range p.Chords {
 		if mods, key, ok := ParseChord(s); ok && mods == k.Mods && key == k.Key {
 			p.open = false
@@ -294,7 +303,12 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 		case n > 0 && field.Shortcut(0, ui.KeyUp):
 			p.active, p.reveal, p.steered = flat[(at-1+n)%n].Key, true, true
 		case n > 0 && field.Submitted():
-			pick(flat[at])
+			e := flat[at]
+			if p.altKey && e.Alt != nil {
+				e.Run = e.Alt
+			}
+			p.altKey = false
+			pick(e)
 		}
 	})
 	theme.Hairline(c.Key("palette:sep"))
@@ -353,6 +367,9 @@ func (p *Palette) body(c *ui.Context, src PaletteSource, windowH float32) {
 		}
 		hint("move", i18n.T("Move"), "ArrowUp", "ArrowDown")
 		hint("run", i18n.T("Run"), "Enter")
+		if at >= 0 && flat[at].Alt != nil {
+			hint("alt", i18n.T("Play"), "Shift+Enter")
+		}
 		hint("close", i18n.T("Close"), "Escape")
 	})
 }
@@ -390,6 +407,9 @@ func (p *Palette) option(c *ui.Context, e PaletteEntry, active bool) ui.Element 
 		}
 		if len(e.Keys) > 0 {
 			Keycaps(c.Key("keys"), e.Keys[:min(len(e.Keys), 2)]...)
+		}
+		if active && e.Cue != "" {
+			theme.Glyph(c.Key("go"), e.Cue, 16, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0).Margin(0, 4, 0, 0)
 		}
 	})
 	return row

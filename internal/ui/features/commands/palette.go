@@ -131,7 +131,7 @@ func (m *commands) sections(c *ui.Context) kit.PaletteSource {
 		}
 		if m.env.Routed("/search") {
 			out = append(out, kit.PaletteSection{Title: i18n.T("Apple Music"), Entries: []kit.PaletteEntry{{
-				Key: "search", Label: i18n.T("Search Apple Music for “{term}”", "term", q), Leading: iconTile("search"),
+				Key: "search", Label: i18n.T("Search Apple Music for “{term}”", "term", q), Leading: iconTile("search"), Cue: "chevron-right",
 				Run: func() { m.env.Nav.Push("/search?q=" + url.QueryEscape(q)) },
 			}}})
 		}
@@ -179,8 +179,9 @@ func (m *commands) libraryEntries(c *ui.Context, q string) []kit.PaletteEntry {
 }
 
 // itemEntry is one library item: cover, name and "Kind · subtitle". Picking
-// opens its page (when a module registered it), or, for a song, plays it. A
-// nil Run says there is nothing to do.
+// opens its page (when a module registered it) and Shift+Enter plays a song;
+// a song with no page here (an upload) plays instead. The Cue says which.
+// A nil Run says there is nothing to do.
 func (m *commands) itemEntry(c *ui.Context, kind, id, name, subtitle string, art services.Art, round bool, path string, song *services.Song) kit.PaletteEntry {
 	e := kit.PaletteEntry{
 		Key:    "i:" + kind + ":" + id,
@@ -190,14 +191,30 @@ func (m *commands) itemEntry(c *ui.Context, kind, id, name, subtitle string, art
 			kit.Artwork(c.Key("art"), m.env.Art, art.Small, 32, kit.ArtOpts{Round: round, Edge: true})
 		},
 	}
+	if song != nil {
+		path = songPage(*song)
+	}
 	switch {
+	case path != "" && m.env.Routed(path):
+		e.Run, e.Cue = func() { m.env.Nav.Push(path) }, "chevron-right"
+		if song != nil && m.env.Queue != nil {
+			s := *song
+			e.Alt = func() { m.playSong(s) }
+		}
 	case song != nil && m.env.Queue != nil:
 		s := *song
-		e.Run = func() { m.playSong(s) }
-	case path != "" && m.env.Routed(path):
-		e.Run = func() { m.env.Nav.Push(path) }
+		e.Run, e.Cue = func() { m.playSong(s) }, "play"
 	}
 	return e
+}
+
+// songPage is a library song's page: /song/{id} takes a catalogue ID, so it
+// is the catalogue copy's; "" for an upload, which has none.
+func songPage(s services.Song) string {
+	if s.IsUpload() || s.CatalogID == "" {
+		return ""
+	}
+	return "/song/" + url.PathEscape(s.CatalogID)
 }
 
 // itemMeta is "Song · Artist": the kind, then the item's own subtitle.
