@@ -43,15 +43,7 @@ func TestShortcutsDoNotRunWhileTheSetupIsOpen(t *testing.T) {
 	t.Cleanup(a.env.Art.Close)
 	a.connect()
 	tt := h.Tester(t, a.view, 1132, 800)
-	for still := 0; still < 10; time.Sleep(10 * time.Millisecond) { // the engine's start-up events
-		p := h.Main.Pending()
-		tt.Drain()
-		if p {
-			still = 0
-		} else {
-			still++
-		}
-	}
+	tt.Until("the engine's start-up events", startedPlaying(a))
 	toggles := func() (n int) {
 		for _, c := range h.Engine.Calls() {
 			if c == "pause" || c == "resume" {
@@ -73,12 +65,5 @@ func TestShortcutsDoNotRunWhileTheSetupIsOpen(t *testing.T) {
 	a.env.Surfaces.CloseSetup()
 	tt.Frame()
 	tt.Key(0, ui.KeySpace)
-	deadline := time.Now().Add(5 * time.Second)
-	for toggles() == 0 && time.Now().Before(deadline) {
-		h.Main.Drain()
-		time.Sleep(5 * time.Millisecond)
-	}
-	if toggles() == 0 {
-		t.Error("Space does nothing with the setup closed: the test does not exercise the shortcut")
-	}
+	tt.Until("Space to toggle playback with the setup closed", func() bool { return toggles() > 0 })
 }

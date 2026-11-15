@@ -64,7 +64,7 @@ func TestAdvancingTheClockMovesAPlayingSongsPosition(t *testing.T) {
 	// coordinator publishes a snapshot per engine event), so none lands after
 	// the clock moved.
 	quiet := 0
-	for deadline := time.Now().Add(5 * time.Second); quiet < 20; time.Sleep(5 * time.Millisecond) {
+	for deadline := time.Now().Add(HangGuard); quiet < 20; h.Main.Wait(5 * time.Millisecond) {
 		if h.Main.Drain() == 0 && h.Env.Play.State().State == store.StatePlaying {
 			quiet++
 		} else {

@@ -456,7 +456,7 @@ func TestClickingALineSeeksToItsBeginPlusTheOffset(t *testing.T) {
 		if want := int64(1000+3*4000) + 500; ms != want {
 			t.Errorf("seeked to %d, want %d", ms, want)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("clicking a line did not seek")
 	}
 	// The mirror shows the new position at once, until Go's next snapshot.
@@ -556,7 +556,7 @@ func TestLyricsChoicesAreKeptInTheSettings(t *testing.T) {
 	h := uitest.New(t)
 	until := func(what string, ok func() bool) {
 		t.Helper()
-		for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		for deadline := time.Now().Add(hangGuard); time.Now().Before(deadline); h.Main.Wait(5 * time.Millisecond) {
 			h.Main.Drain()
 			if ok() {
 				return

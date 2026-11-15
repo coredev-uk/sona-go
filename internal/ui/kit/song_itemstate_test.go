@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -94,40 +95,35 @@ func newStates() (*ItemStates, *fakeStateAPI, *store.Client) {
 	return NewItemStates(q, func(fn func()) { fn() }, api), api, q
 }
 
-func waitFor(t *testing.T, what string, ok func() bool) {
-	t.Helper()
-	for end := time.Now().Add(5 * time.Second); time.Now().Before(end); time.Sleep(2 * time.Millisecond) {
-		if ok() {
-			return
-		}
-	}
-	t.Fatalf("timed out waiting for %s", what)
-}
-
+// The loads run in bubbles where the batch's timer is on a fake clock that
+// moves only when every goroutine waits: a wall-clock window of 16 ms could
+// pass between two goroutines starting on a busy machine.
 func TestLoadsInTheSameFrameAreOneStatesCall(t *testing.T) {
-	s, api, _ := newStates()
-	var wg sync.WaitGroup
-	for _, id := range []string{"1", "2", "3"} {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			st, ok := s.Load(context.Background(), StateSongs, StateItem{ID: id})
-			if !ok || st.ID != id {
-				t.Errorf("load %s: %+v %v", id, st, ok)
-			}
-		}()
-	}
-	wg.Wait()
-	if len(api.batches) != 1 || api.batches[0] != 3 {
-		t.Errorf("batches %v, want one of 3", api.batches)
-	}
-	// A state just learnt is answered from memory.
-	if _, ok := s.Load(context.Background(), StateSongs, StateItem{ID: "1"}); !ok || len(api.batches) != 1 {
-		t.Errorf("asked again: %v", api.batches)
-	}
-	if _, ok := s.Load(context.Background(), StateSongs, StateItem{}); ok {
-		t.Error("an item without an ID loaded")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		s, api, _ := newStates()
+		var wg sync.WaitGroup
+		for _, id := range []string{"1", "2", "3"} {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				st, ok := s.Load(context.Background(), StateSongs, StateItem{ID: id})
+				if !ok || st.ID != id {
+					t.Errorf("load %s: %+v %v", id, st, ok)
+				}
+			}()
+		}
+		wg.Wait()
+		if len(api.batches) != 1 || api.batches[0] != 3 {
+			t.Errorf("batches %v, want one of 3", api.batches)
+		}
+		// A state just learnt is answered from memory.
+		if _, ok := s.Load(context.Background(), StateSongs, StateItem{ID: "1"}); !ok || len(api.batches) != 1 {
+			t.Errorf("asked again: %v", api.batches)
+		}
+		if _, ok := s.Load(context.Background(), StateSongs, StateItem{}); ok {
+			t.Error("an item without an ID loaded")
+		}
+	})
 }
 
 func TestChangeShowsAtOnceAndRestoresOnFailure(t *testing.T) {
@@ -157,67 +153,72 @@ func TestChangeShowsAtOnceAndRestoresOnFailure(t *testing.T) {
 // A refetch in flight when a rating is written answers late and must not put
 // the older state back (v0.2.0's cancelQueries before setQueryData).
 func TestLateRefetchDoesNotOverwriteAnOptimisticRating(t *testing.T) {
-	s, api, q := newStates()
-	api.gate, api.entered = make(chan struct{}), make(chan struct{}, 1)
-	item := StateItem{ID: "late"}
-	fetch := func() store.Result[services.ItemState] { return s.Use(StateSongs, item) }
-	fetch()
-	select {
-	case <-api.entered:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the refetch never started")
-	}
-	go func() {
-		if _, err := s.Change(context.Background(), StateSongs, item, StateChange(RateFavorite)); err != nil {
-			t.Error(err)
+	synctest.Test(t, func(t *testing.T) {
+		s, api, q := newStates()
+		api.gate, api.entered = make(chan struct{}), make(chan struct{}, 1)
+		item := StateItem{ID: "late"}
+		fetch := func() store.Result[services.ItemState] { return s.Use(StateSongs, item) }
+		fetch()
+		select {
+		case <-api.entered:
+		case <-time.After(hangGuard):
+			t.Fatal("the refetch never started")
 		}
-	}()
-	waitFor(t, "the rating", func() bool {
+		go func() {
+			if _, err := s.Change(context.Background(), StateSongs, item, StateChange(RateFavorite)); err != nil {
+				t.Error(err)
+			}
+		}()
+		synctest.Wait() // the change has written its rating
 		r := store.Use(q, StateKey(StateSongs, "late"), func(context.Context) (services.ItemState, error) {
 			return services.ItemState{}, errors.New("not cached")
 		})
-		return r.HasData && r.Data.Rating == 1
+		if !r.HasData || r.Data.Rating != 1 {
+			t.Fatalf("the rating was not written: %+v", r)
+		}
+		close(api.gate)
+		synctest.Wait() // the late answer has come in, and been dropped
+		if r := fetch(); !r.HasData || r.Data.Rating != 1 {
+			t.Errorf("the late answer overwrote the rating: %+v", r)
+		}
 	})
-	close(api.gate)
-	time.Sleep(100 * time.Millisecond)
-	if r := fetch(); !r.HasData || r.Data.Rating != 1 {
-		t.Errorf("the late answer overwrote the rating: %+v", r)
-	}
 }
 
 func TestBulkRateAddRemove(t *testing.T) {
-	s, api, _ := newStates()
-	items := []KindedItem{{StateSongs, StateItem{ID: "1", CatalogID: "c1"}}, {StateAlbums, StateItem{ID: "2", CatalogID: "c2"}}, {StateSongs, StateItem{ID: "3"}}}
-	s.RateMany(items, RateFavorite, "3 items")
-	waitFor(t, "the ratings", func() bool { return len(api.log()) == 3 })
-	if got := api.log(); !slices.Equal(got, []string{"favorite=true 1", "favorite=true 2", "favorite=true 3"}) {
-		t.Errorf("%v", got)
-	}
-	s.AddMany(items, "3 items")
-	waitFor(t, "the adds", func() bool { return len(api.log()) == 5 })
-	if got := api.log(); !slices.Contains(got, "add songs [c1 3]") || !slices.Contains(got, "add albums [c2]") {
-		t.Errorf("%v", got)
-	}
-	// Removal asks once, for all.
-	s.RemoveMany(items, "3 items")
-	if !ConfirmPending() {
-		t.Fatal("no question")
-	}
-	if len(api.log()) != 5 {
-		t.Fatal("removed before the answer")
-	}
-	settleConfirm(true)
-	waitFor(t, "the removals", func() bool { return len(api.log()) == 8 })
-	if got := api.log(); !slices.Contains(got, "remove 1") || !slices.Contains(got, "remove 3") {
-		t.Errorf("%v", got)
-	}
-	// Cancelling removes nothing.
-	s.RemoveMany(items, "3 items")
-	settleConfirm(false)
-	time.Sleep(20 * time.Millisecond)
-	if len(api.log()) != 8 {
-		t.Errorf("a cancelled removal ran: %v", api.log())
-	}
+	synctest.Test(t, func(t *testing.T) {
+		s, api, _ := newStates()
+		items := []KindedItem{{StateSongs, StateItem{ID: "1", CatalogID: "c1"}}, {StateAlbums, StateItem{ID: "2", CatalogID: "c2"}}, {StateSongs, StateItem{ID: "3"}}}
+		s.RateMany(items, RateFavorite, "3 items")
+		synctest.Wait() // the calls the goroutines make have been made
+		if got := api.log(); !slices.Equal(got, []string{"favorite=true 1", "favorite=true 2", "favorite=true 3"}) {
+			t.Errorf("%v", got)
+		}
+		s.AddMany(items, "3 items")
+		synctest.Wait()
+		if got := api.log(); len(got) != 5 || !slices.Contains(got, "add songs [c1 3]") || !slices.Contains(got, "add albums [c2]") {
+			t.Errorf("%v", got)
+		}
+		// Removal asks once, for all.
+		s.RemoveMany(items, "3 items")
+		if !ConfirmPending() {
+			t.Fatal("no question")
+		}
+		if len(api.log()) != 5 {
+			t.Fatal("removed before the answer")
+		}
+		settleConfirm(true)
+		synctest.Wait()
+		if got := api.log(); len(got) != 8 || !slices.Contains(got, "remove 1") || !slices.Contains(got, "remove 3") {
+			t.Errorf("%v", got)
+		}
+		// Cancelling removes nothing.
+		s.RemoveMany(items, "3 items")
+		settleConfirm(false)
+		synctest.Wait()
+		if len(api.log()) != 8 {
+			t.Errorf("a cancelled removal ran: %v", api.log())
+		}
+	})
 }
 
 func TestALateLoadDoesNotOverwriteAChange(t *testing.T) {
@@ -231,7 +232,7 @@ func TestALateLoadDoesNotOverwriteAChange(t *testing.T) {
 	}()
 	select {
 	case <-api.entered:
-	case <-time.After(5 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("the load never reached Go")
 	}
 	// The user favourites while Apple's answer (rating 0) is on its way.
@@ -254,38 +255,52 @@ func TestALateLoadDoesNotOverwriteAChange(t *testing.T) {
 }
 
 func TestAStateIsAskedAgainAfterItsStaleTimeEvenOnScreen(t *testing.T) {
-	s, api, q := newStates()
-	now := time.Now()
-	s.now = func() time.Time { return now }
-	it := StateItem{ID: "1"}
-	use := func() store.Result[services.ItemState] { return s.Use(StateSongs, it) }
-	use()
-	waitFor(t, "the first answer", func() bool { return use().HasData })
-	if api.asked() != 1 {
-		t.Fatalf("asked %d times", api.asked())
-	}
-	// Frames inside the stale time ask nothing, however many.
-	now = now.Add(stateStale - time.Second)
-	for range 5 {
+	synctest.Test(t, func(t *testing.T) {
+		s, api, _ := newStates()
+		now := time.Now()
+		s.now = func() time.Time { return now }
+		it := StateItem{ID: "1"}
+		use := func() store.Result[services.ItemState] { return s.Use(StateSongs, it) }
+		// idle runs the bubble's clock past the batch's timer and lets every
+		// goroutine that started finish: what a frame was going to ask has been
+		// asked by now.
+		idle := func() {
+			time.Sleep(time.Second)
+			synctest.Wait()
+		}
 		use()
-	}
-	time.Sleep(30 * time.Millisecond)
-	if api.asked() != 1 {
-		t.Fatalf("asked again inside the stale time: %d", api.asked())
-	}
-	// Past it, the next frame asks once; the per-frame call does not keep
-	// the state young.
-	now = now.Add(2 * time.Second)
-	use()
-	waitFor(t, "the refetch", func() bool { return api.asked() == 2 })
-	for range 5 {
+		idle()
+		if !use().HasData {
+			t.Fatal("no first answer")
+		}
+		if api.asked() != 1 {
+			t.Fatalf("asked %d times", api.asked())
+		}
+		// Frames inside the stale time ask nothing, however many.
+		now = now.Add(stateStale - time.Second)
+		for range 5 {
+			use()
+		}
+		idle()
+		if api.asked() != 1 {
+			t.Fatalf("asked again inside the stale time: %d", api.asked())
+		}
+		// Past it, the next frame asks once; the per-frame call does not keep
+		// the state young.
+		now = now.Add(2 * time.Second)
 		use()
-	}
-	time.Sleep(30 * time.Millisecond)
-	if api.asked() != 2 {
-		t.Errorf("asked %d times, want 2", api.asked())
-	}
-	_ = q
+		idle()
+		if api.asked() != 2 {
+			t.Fatalf("asked %d times after the stale time, want 2", api.asked())
+		}
+		for range 5 {
+			use()
+		}
+		idle()
+		if api.asked() != 2 {
+			t.Errorf("asked %d times, want 2", api.asked())
+		}
+	})
 }
 
 // toastTitles drains the queued toasts' titles.
@@ -301,26 +316,20 @@ func toastTitles() []string {
 }
 
 func TestAddToastsUseTheSingleItemWords(t *testing.T) {
-	s, _, _ := newStates()
-	toastTitles()
-	s.Add(StateSongs, StateItem{ID: "1", CatalogID: "c1"}, "Airbag")
-	waitFor(t, "the toast", func() bool {
-		toasts.mu.Lock()
-		defer toasts.mu.Unlock()
-		return len(toasts.queue) > 0
+	synctest.Test(t, func(t *testing.T) {
+		s, _, _ := newStates()
+		toastTitles()
+		s.Add(StateSongs, StateItem{ID: "1", CatalogID: "c1"}, "Airbag")
+		synctest.Wait() // the goroutine that adds has raised its toast
+		if got := toastTitles(); !slices.Equal(got, []string{"Added “Airbag” to your library"}) {
+			t.Errorf("toasts %q", got)
+		}
+		s.AddMany([]KindedItem{{StateSongs, StateItem{ID: "1"}}}, "3 songs")
+		synctest.Wait()
+		if got := toastTitles(); !slices.Equal(got, []string{"Added 3 songs to your library"}) {
+			t.Errorf("toasts %q", got)
+		}
 	})
-	if got := toastTitles(); !slices.Equal(got, []string{"Added “Airbag” to your library"}) {
-		t.Errorf("toasts %q", got)
-	}
-	s.AddMany([]KindedItem{{StateSongs, StateItem{ID: "1"}}}, "3 songs")
-	waitFor(t, "the toast", func() bool {
-		toasts.mu.Lock()
-		defer toasts.mu.Unlock()
-		return len(toasts.queue) > 0
-	})
-	if got := toastTitles(); !slices.Equal(got, []string{"Added 3 songs to your library"}) {
-		t.Errorf("toasts %q", got)
-	}
 }
 
 // A state Go announces (`sona like`) shows at once and outdates a load begun
@@ -368,7 +377,7 @@ func TestRememberRefreshesTheFavouriteSongs(t *testing.T) {
 	}, store.Options{Stale: store.Forever})
 	select {
 	case <-fetched:
-	case <-time.After(2 * time.Second):
+	case <-time.After(hangGuard):
 		t.Error("the favourite songs were not refetched")
 	}
 }

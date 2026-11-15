@@ -691,7 +691,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 - Views take what they need from a struct (the feature's state), so a test builds the struct and drives `tt` against its view. Call `theme.Apply(c)` first, and `theme.SetMode` for light or dark.
 - Off the main thread, tests give `store.Client`, `store.Bus` and `kit.ArtLoader` a Poster that queues funcs and run them on the test goroutine, as the app runs them on the main thread (`-race` is part of `tests`). Store tests move a fake clock (`Client.now`) instead of sleeping.
-- A test never sleeps for the UI: it advances the tester's clock. Fetch goroutines are the exception: poll with a deadline.
+- A test never sleeps for the UI: it advances the tester's clock, which stands still until `Advance` but starts at the wall clock (line a pulse up with `tt.Now()`). Goroutines are waited for, not slept for: a post (`MainThread.Wait`, `Until`), a channel the fake closes, `ArtLoader.Pending()`, or a `testing/synctest` bubble with `Session.Quiesce`. Deadlines only guard against a hang (`docs/testing.md`, "Timing in tests").
 
 ### `uitest`
 
@@ -706,7 +706,7 @@ Options: `Albums(...)` for a library of your own, `Empty()`, `Bare()` (no servic
 
 `h.Tester(t, view, w, h)` (or `uitest.Tester(t, env, view, w, h)`) is a `ui.Tester` plus:
 
-- `Until(what, cond)`: drains and draws frames until the goroutines delivered, 10 s at most.
+- `Until(what, cond)`: drains and draws frames until the goroutines delivered, `uitest.HangGuard` (30 s) at most.
 - `Shows(texts...)`, `Drain()`, and `Settle()` (frames until the picture stops changing).
 
 Other helpers: `uitest.Transport` (a recording fake of the playback commands, over `uitest.Recorder`), `uitest.Nav`, `Harness.Play` (a playing song seeded into the mirror), and the `Session` helpers `MustClick`, `Want`, `Lacks`, `Emit`, `Hover` and `Pump`. The Tester's own `Click` tries every control of the name.

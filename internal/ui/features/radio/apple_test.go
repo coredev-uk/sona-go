@@ -20,6 +20,11 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
 
+// hangGuard is how long a test waits for state before it calls the wait
+// hung. It is no part of what a test checks, so it is far longer than a
+// loaded machine needs.
+const hangGuard = 30 * time.Second
+
 // appleFake is Apple's catalogue as the radio pages see it: live stations
 // with schedules, the user's recent stations, stations by ID, the station
 // page, the editorial radio grouping (the services' trimmed real grouping
@@ -172,7 +177,7 @@ func appleRig(t *testing.T, path string, width, height int) (*rig, *appleFake) {
 	// The account is validated before the first frame: a station page read
 	// without the user's token has no songs to list.
 	acct := services.Service[services.AuthService](core)
-	for deadline := time.Now().Add(10 * time.Second); acct.Status().State != "signed_in"; time.Sleep(5 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); acct.Status().State != "signed_in"; time.Sleep(5 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatalf("the fake account never signed in: %q", acct.Status().State)
 		}

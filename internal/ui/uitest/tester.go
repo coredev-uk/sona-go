@@ -48,9 +48,15 @@ func Tester(t testing.TB, env *module.Env, view func(*ui.Context), w, h int) *Se
 	return hn.Tester(t, view, w, h)
 }
 
+// HangGuard is how long a wait on state lasts before the test calls it hung.
+// It guards against a wake-up that never comes and is not a speed limit: a
+// shared runner under -race only makes a wait longer (docs/testing.md,
+// "Timing in tests").
+const HangGuard = 30 * time.Second
+
 // Until runs what was posted and draws frames until ok holds, waiting for
 // the service calls and cover decodes that run on goroutines. It fails the
-// test after 10 s, naming what it waited for and the texts shown.
+// test after HangGuard, naming what it waited for and the texts shown.
 //
 // It draws a frame when the picture can have changed (the first time, when
 // something was posted, when a frame is pending) and otherwise at least
@@ -63,7 +69,7 @@ func (tt *Session) Until(what string, ok func() bool) {
 	tt.T.Helper()
 	const idleFrame = 50 * time.Millisecond
 	var last time.Time
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); tt.H.Main.Wait(5 * time.Millisecond) {
+	for deadline := time.Now().Add(HangGuard); time.Now().Before(deadline); tt.H.Main.Wait(5 * time.Millisecond) {
 		if n := tt.H.Main.Drain(); last.IsZero() || n > 0 || tt.FramePending() || time.Since(last) >= idleFrame {
 			tt.Frame()
 			last = time.Now()
@@ -114,14 +120,16 @@ func (tt *Session) artPending() int {
 // Settle draws frames, running what is posted, until the picture no longer
 // changes (a run of quiet frames with nothing queued and no cover still
 // being decoded): the covers drawn, the animations done. For a golden image.
-// It allows 30 s: a full-window frame of the CPU renderer under -race takes
-// most of a second, and twice that while the rest of the suite runs.
+// It allows HangGuard: a full-window frame of the CPU renderer under -race
+// takes most of a second, and twice that while the rest of the suite runs.
+// It knows only of the covers and the posts: wait (Until) for the page's own
+// data before settling, or a golden is taken of the loading state.
 func (tt *Session) Settle() {
 	tt.T.Helper()
 	const quiet = 8
 	var last []byte
 	same := 0
-	for deadline := time.Now().Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+	for deadline := time.Now().Add(HangGuard); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
 		tt.H.Main.Drain()
 		tt.Frame()
 		tt.Advance(time.Second) // animations and toasts

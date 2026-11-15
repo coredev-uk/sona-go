@@ -944,7 +944,7 @@ The commands and the detail are in `docs/testing.md`. This section records what 
 
 ### Timing
 
-CI runners are shared and run everything under `-race`. Tests therefore wait for what they check (an event, a channel, a fake clock, `testing/synctest`), not for a sleep. A performance test checks what makes the code slow rather than its wall time: the large-library test (`internal/library`) checks each UI query's statement count, the rows it reads and its plan (`EXPLAIN QUERY PLAN`: no table scanned once per row of another). `BenchmarkSongsPage` and `BenchmarkSearch` measure the time.
+CI runners are shared and run everything under `-race`, and so does a workstation running `tests` beside other work. Tests therefore wait for what they check (an event, a channel, a post to the main thread, a fake clock, `testing/synctest`), not for a sleep, and a deadline in a test only guards against a hang (30 s), never limits speed. `docs/testing.md`, "Timing in tests", has the rules. A performance test checks what makes the code slow rather than its wall time: the large-library test (`internal/library`) checks each UI query's statement count, the rows it reads and its plan (`EXPLAIN QUERY PLAN`: no table scanned once per row of another). `BenchmarkSongsPage` and `BenchmarkSearch` measure the time.
 
 ### DRM path regression
 

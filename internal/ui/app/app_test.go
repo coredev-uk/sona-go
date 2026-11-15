@@ -18,6 +18,22 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
+// hangGuard is how long a test waits for what it knows will happen (a
+// goroutine's post, an event) before it gives up. It only stops a hang from
+// running to the test binary's own timeout: nothing waits for it to pass, and
+// a shared runner under -race can be slow.
+const hangGuard = 30 * time.Second
+
+// startedPlaying is true once the engine's start-up events for a song that
+// was queued (the item loading, then playing) have reached the mirror: the
+// state and, behind it, the queue. A test that seeds the mirror itself waits
+// for it first, so a late event does not overwrite what it seeded.
+func startedPlaying(a *App) func() bool {
+	return func() bool {
+		return a.env.Play.State().State == store.StatePlaying && a.env.Play.Queue().Index >= 0
+	}
+}
+
 // pageModule is a module with one page per path, a nav item each, and a
 // page body naming the page.
 func pageModule(id string, pages ...pageDef) module.Factory {
@@ -448,11 +464,18 @@ func TestFirstRunOpensTheSetupRoute(t *testing.T) {
 // whole settings, does not put the old value back.
 func TestSettingsChangedKeepsTheSharedSettingsCurrent(t *testing.T) {
 	h := uitest.New(t)
+	// The save applies Reduce effects to the process's theme: put it back.
+	t.Cleanup(func() { theme.SetReduceEffects(false) })
 	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Now: h.Clock.Now}, nil)
 	t.Cleanup(a.env.Art.Close)
 	a.connect()
-	if r := store.UseSettings(a.env.Queries, h.Core); !r.HasData {
+	// The fetch Use starts lands first: its post, arriving after the Set below,
+	// would put Go's settings back over the cache.
+	for deadline := time.Now().Add(hangGuard); !store.UseSettings(a.env.Queries, h.Core).HasData; h.Main.Wait(5 * time.Millisecond) {
 		h.Main.Drain()
+		if time.Now().After(deadline) {
+			t.Fatal("the settings never reached the cache")
+		}
 	}
 	store.Set(a.env.Queries, store.KeySettings, h.Settings.Get()) // the cache holds the settings as they were
 
@@ -468,10 +491,10 @@ func TestSettingsChangedKeepsTheSharedSettingsCurrent(t *testing.T) {
 	}
 
 	kit.UpdateSettings(a.env.Queries, h.Core, func(s *config.Settings) { s.ReduceEffects = true })
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for !h.Settings.Get().ReduceEffects && time.Now().Before(deadline) {
 		h.Main.Drain()
-		time.Sleep(5 * time.Millisecond)
+		h.Main.Wait(5 * time.Millisecond) // the save posts when it is done
 	}
 	got := h.Settings.Get()
 	if !got.ReduceEffects {

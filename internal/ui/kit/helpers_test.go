@@ -2,9 +2,28 @@ package kit
 
 import (
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 )
+
+// hangGuard is how long a test waits for state before it calls the wait hung.
+// It guards against a wake-up that never comes and is not a speed limit: a
+// shared runner under -race only makes the wait longer (docs/architecture.md,
+// "Timing").
+const hangGuard = 30 * time.Second
+
+// waitFor polls ok until it holds, for the things a goroutine does that
+// nothing posts or signals. Prefer a channel, a post (mainThread.until) or a
+// fake clock where there is one.
+func waitFor(t *testing.T, what string, ok func() bool) {
+	t.Helper()
+	for deadline := time.Now().Add(hangGuard); !ok(); time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+	}
+}
 
 func TestReleaseTitle(t *testing.T) {
 	for _, c := range []struct{ in, title, kind string }{

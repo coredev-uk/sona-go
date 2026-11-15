@@ -46,7 +46,7 @@ func (r *Recorder) Wait(t *testing.T, n int) []string {
 	for range n {
 		select {
 		case <-r.done:
-		case <-time.After(5 * time.Second):
+		case <-time.After(HangGuard):
 			t.Fatalf("expected %d service calls, got %v", n, r.Snapshot())
 		}
 	}

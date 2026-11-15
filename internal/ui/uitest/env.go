@@ -331,7 +331,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	if o.apple != nil {
 		// Start restores the account on a goroutine: the first request must
 		// carry the Music User Token, as a signed-in session's does.
-		deadline := time.Now().Add(10 * time.Second)
+		deadline := time.Now().Add(HangGuard)
 		for authm.Status().State != auth.StateSignedIn {
 			if time.Now().After(deadline) {
 				t.Fatalf("uitest: the fake Apple account did not sign in: %+v", authm.Status())

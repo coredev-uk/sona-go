@@ -12,11 +12,17 @@ import (
 	"io"
 	"math/rand/v2"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 )
+
+// hangGuard bounds waits that an event always ends (the fake's socket is
+// listening before Dial): it only turns a hang into a failure, and is long
+// enough for a shared, loaded runner.
+const hangGuard = 30 * time.Second
 
 // fakeApp answers MyGo's automation protocol for an Albums page of 40
 // albums in 4 columns: rows 266 DIPs apart, the first at y=300 when the
@@ -158,7 +164,7 @@ func (a *fakeApp) serveWith(t *testing.T, handle func([]byte) any) string {
 
 func TestAlbumsScenarioScrollsThePageAndPrintsTheTable(t *testing.T) {
 	app := &fakeApp{noWindowFor: 2}
-	c, err := Dial(app.serve(t), 2*time.Second)
+	c, err := Dial(app.serve(t), hangGuard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +264,7 @@ func (c *stepClock) Sleep(d time.Duration) {
 func TestAlbumsGivesUpWhenTheCoversNeverCome(t *testing.T) {
 	app := &flatApp{}
 	app.frames = append(app.frames, Frame{At: time.Now(), Path: "drawn in memory"})
-	c, err := Dial(app.serveWith(t, app.handle), 2*time.Second)
+	c, err := Dial(app.serveWith(t, app.handle), hangGuard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +340,7 @@ func (a *resizedApp) handle(line []byte) any {
 func TestAlbumsReadsTheCoversAtTheWindowsSizeNow(t *testing.T) {
 	app := &resizedApp{}
 	app.frames = append(app.frames, Frame{At: time.Now(), Path: "drawn in memory"})
-	c, err := Dial(app.serveWith(t, app.handle), 2*time.Second)
+	c, err := Dial(app.serveWith(t, app.handle), hangGuard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,17 +366,19 @@ func TestACallThatIsNeverAnsweredTimesOut(t *testing.T) {
 			_, _ = io.Copy(io.Discard, c) // reads requests, never answers
 		}
 	}()
-	c, err := Dial(l.Addr().String(), time.Second)
+	c, err := Dial(l.Addr().String(), hangGuard)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = c.Close() }()
 	c.Timeout = 100 * time.Millisecond
-	start := time.Now()
-	if err := c.Idle(time.Second); err == nil {
+	// The request ends because its deadline passed, however long that took
+	// on this machine.
+	err = c.Idle(time.Second)
+	if err == nil {
 		t.Fatal("an unanswered request succeeded")
 	}
-	if time.Since(start) > 3*time.Second {
-		t.Errorf("took %v", time.Since(start))
+	if !errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Errorf("err = %v, want the request's deadline to have passed", err)
 	}
 }

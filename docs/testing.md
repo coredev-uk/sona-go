@@ -6,6 +6,7 @@ The detail behind the [Test Your Change](https://sona.coredev.uk/contributing/te
 
 - [Checks](#checks)
   - [Real-CDM tests](#real-cdm-tests)
+- [Timing in tests](#timing-in-tests)
 - [Preview playback](#preview-playback)
   - [Run checks that play music](#run-checks-that-play-music)
   - [Run the app privately](#run-the-app-privately)
@@ -58,6 +59,18 @@ CI (the `.github/actions/setup-cdm` action):
 3. Fills a miss with `go run ./cmd/cdmfetch -dir ~/.cache/sona-ci/widevine`, and exports `SONA_CDM_CACHE`.
 
 The job sets `SONA_CDM_REQUIRE=1`. The playback shard then runs the tests like any test, and `skips.sh` fails the job if one of them skipped (the CDM tests are in no allow-list).
+
+## Timing in tests
+
+CI runners are shared, run everything under `-race`, and so does `tests` on a busy workstation. A test therefore waits for the state it checks, never for an amount of time ([architecture.md](architecture.md), "Timing"). The check that this holds: `devenv shell -- tests` passes five times in a row while another `go test -race ./...` runs beside it.
+
+- **Wait on what the test checks.** An event, a channel the fake closes, a post to the main thread (`uitest.MainThread.Wait` and `Drain`, `uitest.Session.Until`), the artwork loader's `Pending()` (the kit's `mainThread.settle`), a text on screen. Never `time.Sleep(20 * time.Millisecond)` to let a goroutine finish.
+- **Move a clock the test owns.** The `ui.Tester`'s clock stands still until `Advance`; the harness has `Clock`; stores and loaders take a `now`. Goroutines with timers of their own (the item states' 16 ms batch, the playback coordinator, the probe) run under `testing/synctest`: fake time moves only when every goroutine in the bubble waits, and `synctest.Wait` (`Session.Quiesce`) is the barrier for "everything that was going to happen has happened". A test that a thing did not happen ends in such a barrier, or in an operation ordered after what would have happened, not in a sleep.
+- **A deadline is a hang guard, not a speed limit.** It is `uitest.HangGuard` (30 s; `hangGuard` in a package that cannot import `uitest`, such as `kit`) and only turns a lost wake-up into a failure. A test never asserts that something took less than some milliseconds: it asserts what would make it slow (one request and no retries, a plan with no table scanned per row).
+- **The tester's clock starts at the wall clock.** What is drawn from the clock modulo a period (the skeleton's pulse, the equaliser's bars) depends on when the test began. Line the clock up with `tt.Now()` and `Advance`, or pin the state, as `TestSkeletonPulsesUnlessMotionIsReduced` does.
+- **A timer in the code under test needs a seam.** Where a batch waits on a real timer (`SongArtists`), the test sets a wait too long to fire and calls the flush itself, or runs in a bubble.
+- **Settle after the data.** `Session.Settle` knows covers and posts only. `Until` the page's own text first, or the golden is a picture of the loading state.
+- **Leave no process-wide switch behind.** `theme.SetReducedMotion`, `SetReduceEffects` and `SetMode` are process-wide: a test that sets one restores it in `t.Cleanup`, or a later test draws something else.
 
 ## Preview playback
 

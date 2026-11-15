@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/zalando/go-keyring"
@@ -58,45 +57,42 @@ func TestCoreCannotReachTheProcessKeyring(t *testing.T) {
 }
 
 // A request to a host nobody serves fails at once, naming the host, whoever
-// makes it: the Core's services, the auth manager's client, a test.
+// makes it: the Core's services, the auth manager's client, a test. "At once"
+// is checked by what it rules out, not by a clock: the error is the
+// Network's own (ErrOffline), so nothing went out to resolve or dial, and
+// each call made one request (Blocked), so nothing was retried with a wait.
 func TestNetworkOutsideTheFixturesFailsFast(t *testing.T) {
 	h := New(t, Version("1.0.0"))
 
 	t.Run("update check", func(t *testing.T) {
-		start := time.Now()
 		_, err := services.Service[services.UpdatesService](h.Core).Check(t.Context())
-		assertOffline(t, err, "api.github.com", start)
+		assertOffline(t, err, "api.github.com")
 	})
 	t.Run("scrobbler", func(t *testing.T) {
 		// The services' HTTP waits for the first paint.
 		services.Service[services.SystemService](h.Core).FirstPaint()
-		start := time.Now()
 		_, err := services.Service[services.ScrobbleService](h.Core).ConnectListenBrainz(t.Context(), "token")
-		assertOffline(t, err, "api.listenbrainz.org", start)
+		assertOffline(t, err, "api.listenbrainz.org")
 		if services.CodeOf(err) != services.CodeNetwork {
 			t.Errorf("the services classify it as %q, not a network error", services.CodeOf(err))
 		}
 	})
 	t.Run("client", func(t *testing.T) {
-		start := time.Now()
 		_, err := h.Network.Client().Get("https://example.com/path")
-		assertOffline(t, err, "example.com/path", start)
+		assertOffline(t, err, "example.com/path")
 	})
-	if got := h.Network.Blocked(); len(got) < 3 {
-		t.Errorf("Blocked lists %v", got)
+	if got := h.Network.Blocked(); len(got) != 3 {
+		t.Errorf("Blocked lists %v, want one request for each of the three calls", got)
 	}
 }
 
-func assertOffline(t *testing.T, err error, want string, start time.Time) {
+func assertOffline(t *testing.T, err error, want string) {
 	t.Helper()
 	if !errors.Is(err, ErrOffline) {
 		t.Fatalf("error %v is not ErrOffline", err)
 	}
 	if !strings.Contains(err.Error(), want) {
 		t.Errorf("error %q does not name %s", err, want)
-	}
-	if d := time.Since(start); d > time.Second {
-		t.Errorf("the request failed after %v", d)
 	}
 }
 
@@ -153,7 +149,6 @@ func TestEnvironmentIsPrivate(t *testing.T) {
 		if id := discord.ClientID(); id != "" {
 			t.Errorf("a Discord application %q is configured", id)
 		}
-		start := time.Now()
 		if conn, err := dbus.SessionBus(); err == nil {
 			_ = conn.Close()
 			t.Error("the session bus is reachable")
@@ -161,9 +156,6 @@ func TestEnvironmentIsPrivate(t *testing.T) {
 		if conn, err := dbus.SystemBus(); err == nil {
 			_ = conn.Close()
 			t.Error("the system bus is reachable")
-		}
-		if time.Since(start) > time.Second {
-			t.Errorf("the bus connections took %v to fail", time.Since(start))
 		}
 		if _, err := net.Dial("unix", filepath.Join(os.Getenv("XDG_RUNTIME_DIR"), "discord-ipc-0")); err == nil {
 			t.Error("a Discord socket answers")
@@ -178,11 +170,10 @@ func TestDefaultClientFailsFast(t *testing.T) {
 	before := http.DefaultTransport
 	t.Run("test", func(t *testing.T) {
 		h := New(t, Bare())
-		start := time.Now()
 		_, err := http.DefaultClient.Get("https://example.com/")
-		assertOffline(t, err, "example.com", start)
+		assertOffline(t, err, "example.com")
 		_, err = (&http.Client{}).Get("https://api.github.com/")
-		assertOffline(t, err, "api.github.com", start)
+		assertOffline(t, err, "api.github.com")
 		if got := h.Network.Blocked(); len(got) != 2 {
 			t.Errorf("Blocked lists %v", got)
 		}

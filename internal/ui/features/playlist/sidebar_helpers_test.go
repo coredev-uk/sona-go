@@ -1,9 +1,11 @@
 package playlist
 
 import (
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -12,6 +14,16 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
+
+// inBubble runs a test body in a synctest bubble on one core: MyGo's rasteriser
+// shares helper goroutines between frames, and a helper (or the WaitGroup it
+// signals) that belongs to a bubble breaks the next frame drawn outside it. One
+// core draws without helpers.
+func inBubble(t *testing.T, body func(*testing.T)) {
+	t.Helper()
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+	synctest.Test(t, body)
+}
 
 // sbEnv is the sidebar over the fakes, in a window beside a draggable "Dragged"
 // item that carries payload, with the toaster, the confirm host and the
@@ -141,12 +153,12 @@ func (e *sbEnv) adds() []string {
 	return out
 }
 
-// quiet draws a few frames, letting anything posted arrive.
+// quiet runs what is posted once every goroutine of the bubble has finished
+// or blocked for good: a call that was going to be made has been made. A test
+// of "nothing happened" ends with it instead of a sleep, in inBubble.
 func (e *sbEnv) quiet() {
-	for range 6 {
-		e.tt.Drain()
-		time.Sleep(2 * time.Millisecond)
-	}
+	e.tt.Quiesce()
+	e.tt.Quiesce() // the posts the first ran may have started more
 }
 
 // y is where the element showing text s is, from the top.

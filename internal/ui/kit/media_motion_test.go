@@ -123,7 +123,7 @@ func (f *mediaFakeOpen) opened() []mediaOpenCall {
 // decoder on a goroutine of its own).
 func (f *mediaFakeOpen) waitClosed(t *testing.T, n int32) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for f.closed.Load() < n {
 		if time.Now().After(deadline) {
 			t.Fatalf("%d decoders closed, want %d", f.closed.Load(), n)
@@ -317,7 +317,7 @@ func mediaFrames(t *testing.T, tt *ui.Tester, mt *mainThread) {
 // its outcome has come in (no slot is loading).
 func mediaSettle(t *testing.T, tt *ui.Tester, e *mediaMotionEnv, opens int) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for {
 		tt.Frame()
 		e.mt.run(t, 0)
@@ -542,14 +542,14 @@ func TestMotionCoverClosesALateDecoderNobodyWantsAnyMore(t *testing.T) {
 	tt.Frame() // nothing wants it now: the slot is released, the load cancelled
 	close(e.f.gate)
 	// The decoder opens anyway, and is closed when it arrives: nobody plays it.
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for len(e.f.opened()) < 1 {
 		if time.Now().After(deadline) {
 			t.Fatal("the late open never finished")
 		}
 		time.Sleep(time.Millisecond)
 	}
-	for deadline := time.Now().Add(5 * time.Second); e.f.closed.Load() < 1; time.Sleep(time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); e.f.closed.Load() < 1; time.Sleep(time.Millisecond) {
 		e.mt.run(t, 0) // the late answer is among what posted
 		if time.Now().After(deadline) {
 			break
@@ -632,7 +632,7 @@ func TestMotionPolicyProbesTheDecoderOffTheMainThread(t *testing.T) {
 		if ok {
 			t.Error("allowed before the probe answered")
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("Allowed waited for the probe")
 	}
 	if p.Allowed() {
@@ -700,7 +700,7 @@ func TestMotionPolicySweepEndsWithTheLastSlotAndSleepsWhileHidden(t *testing.T) 
 	}
 	// Shown again: the next tick finds the stale slot and posts its release.
 	e.p.SetVisible(true)
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for s.state == slotReady {
 		e.mt.run(t, 0)
 		if time.Now().After(deadline) {
@@ -710,10 +710,7 @@ func TestMotionPolicySweepEndsWithTheLastSlotAndSleepsWhileHidden(t *testing.T) 
 	}
 
 	// With no slot left the sweep ends by itself on a tick; no call of ours.
-	time.Sleep(sweepEvery + 200*time.Millisecond)
-	if sweeping(e.p) {
-		t.Error("the sweep goes on with no slots")
-	}
+	waitFor(t, "the sweep to end with no slots", func() bool { return !sweeping(e.p) })
 }
 
 type mediaTilesApp struct {
@@ -891,7 +888,7 @@ func TestTileMotionOwnerThatVanishedIsReplacedAfterTheStaleTime(t *testing.T) {
 	// It asked to be built again after the stale time, with no other event.
 	// (Advance builds the view only if something asked for it: no Frame here.)
 	tt.Advance(ownerStale + 50*time.Millisecond)
-	for deadline := time.Now().Add(5 * time.Second); len(e.f.opened()) < 2; time.Sleep(time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); len(e.f.opened()) < 2; time.Sleep(time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatal("the second tile never took over: nothing woke it after the stale time")
 		}
@@ -953,7 +950,7 @@ func TestMotionCoverPlaysARealFile(t *testing.T) {
 	defer p.Close()
 	e := &mediaMotionEnv{p: p, mt: mt, f: &mediaFakeOpen{t: t}}
 	_, tt := newMediaCoverApp(t, e, "/motion/k1/720.mp4")
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(hangGuard)
 	for {
 		tt.Frame()
 		mt.run(t, 0)

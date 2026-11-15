@@ -23,7 +23,7 @@ func countOf(api *fakeAPI, call string) int {
 // untilCount drains what was posted until the fake was asked call n times.
 func untilCount(t *testing.T, h interface{ Drain() int }, api *fakeAPI, call string, n int) {
 	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(2 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); time.Now().Before(deadline); time.Sleep(2 * time.Millisecond) {
 		h.Drain()
 		if countOf(api, call) >= n {
 			return
@@ -36,7 +36,7 @@ func untilCount(t *testing.T, h interface{ Drain() int }, api *fakeAPI, call str
 // page ask every frame in the app; here the test does.
 func settleQueries(t *testing.T, p *playlists, h interface{ Drain() int }, id string) {
 	t.Helper()
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(2 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); time.Now().Before(deadline); time.Sleep(2 * time.Millisecond) {
 		h.Drain()
 		if p.tree().HasData && p.pins().HasData && (id == "" || p.detail(id).HasData) {
 			return
@@ -61,7 +61,7 @@ func TestPlaylistsChangedRefreshesWhatChanged(t *testing.T) {
 	api.mu.Unlock()
 	h.Bus.Emit(services.EventPlaylistsChanged, services.PlaylistsChanged{Tree: true})
 	untilCount(t, h.Main, api, "Tree", tree+1)
-	for deadline := time.Now().Add(5 * time.Second); len(p.tree().Data.Playlists) != 2; {
+	for deadline := time.Now().Add(hangGuard); len(p.tree().Data.Playlists) != 2; {
 		if time.Now().After(deadline) {
 			t.Fatal("the new playlist never reached the tree")
 		}
@@ -95,11 +95,10 @@ func TestPlaylistsChangedSkipsAPlaylistBeingEdited(t *testing.T) {
 	p.moveTrack("p.1", 0, 2, threeSongs()[0])
 	untilCount(t, h.Main, api, "MoveTrack p.1 0 2 a", 1)
 	h.Bus.Emit(services.EventPlaylistsChanged, services.PlaylistsChanged{IDs: []string{"p.1"}})
-	for range 20 {
-		h.Main.Drain()
-		time.Sleep(2 * time.Millisecond)
-	}
-	if got := countOf(api, "Playlist p.1"); got != detail {
+	// The handler runs on the main thread, here: an invalidation of the
+	// detail would have started its refetch by the time Drain returns.
+	h.Main.Drain()
+	if got := countOf(api, "Playlist p.1"); got != detail || p.detail("p.1").Fetching {
 		t.Errorf("the detail was refetched %d times while its edit was out", got-detail)
 	}
 	close(gate)
@@ -116,8 +115,8 @@ func TestAnOlderAnswerDoesNotOverwriteANewerEdit(t *testing.T) {
 
 	p.moveTrack("p.1", 0, 1, songs[0]) // A moves down: b a c
 	// The answer is posted but not yet run on the main thread.
-	for deadline := time.Now().Add(5 * time.Second); !h.Main.Pending(); time.Sleep(2 * time.Millisecond) {
-		if time.Now().After(deadline) {
+	for !h.Main.Pending() {
+		if !h.Main.Wait(hangGuard) {
 			t.Fatalf("the first edit never answered: %v", api.asked())
 		}
 	}

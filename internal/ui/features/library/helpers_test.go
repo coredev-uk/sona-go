@@ -15,6 +15,11 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
+// hangGuard is how long a test waits for state before it calls the wait hung;
+// it is no part of what a test checks, so it is far longer than a loaded
+// machine needs.
+const hangGuard = 30 * time.Second
+
 // inBubble runs a test body in a synctest bubble on one core: MyGo's rasteriser
 // shares helper goroutines between frames, and a helper (or the WaitGroup it
 // signals) that belongs to a bubble breaks the next frame drawn outside it. One
@@ -130,7 +135,7 @@ func seedAuth(h *uitest.Harness) {
 		return
 	}
 	real := services.Service[services.AuthService](h.Core)
-	for end := time.Now().Add(5 * time.Second); real.Status().State == "restoring" && time.Now().Before(end); time.Sleep(time.Millisecond) {
+	for end := time.Now().Add(hangGuard); real.Status().State == "restoring" && time.Now().Before(end); time.Sleep(time.Millisecond) {
 	}
 	store.Set(h.Env.Queries, store.KeyAuth, real.Status())
 }

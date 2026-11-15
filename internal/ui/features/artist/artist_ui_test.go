@@ -1090,6 +1090,7 @@ func TestViewPageAsksForNoPageWhileOneIsBeingFetched(t *testing.T) {
 		r.cat.views["top-songs"] = songPages(420)
 		r.cat.viewGate = make(chan struct{})
 	})
+	r.tt.Until("both fetches to start", func() bool { return len(r.cat.asked()) >= 2 })
 	for range 20 {
 		r.tt.Drain()
 	}

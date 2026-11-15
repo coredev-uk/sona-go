@@ -354,23 +354,27 @@ func TestTrackListSeveralArtistsOpenAChooser(t *testing.T) {
 // copy and then offers every artist.
 func TestTrackListOffersALibrarySongsCatalogueArtists(t *testing.T) {
 	f := &fakeSongArtists{by: map[string][]services.Artist{"c1": twoArtists}}
+	artists := newSongArtists(f)
+	artists.wait = time.Hour // the lookup is sent when the test says, not after a delay a busy machine can overrun
 	_, tt := newCollTrackApp(t, 3, 1000, 400, func(a *collTrackApp) {
 		lib := collSong(1)
 		lib.Source, lib.ID, lib.LibraryID = services.SourceLibrary, "i.1", "i.1"
 		lib.Artist, lib.ArtistID = "The Kid LAROI & Justin Bieber", "r.9"
 		a.songs[1] = lib
-		a.opts.Artists = newSongArtists(f)
-		a.opts.Artists.wait = 100 * time.Millisecond
+		a.opts.Artists = artists
 	})
 	tt.Frame()
 	if _, ok := access.Read(t, tt).Find(ui.RoleLink, "The Kid LAROI & Justin Bieber"); !ok {
 		t.Fatal("before the lookup the library artist is a link")
 	}
-	eventually(t, "the chooser", func() bool {
-		tt.Frame()
-		_, ok := access.Read(t, tt).Find(ui.RoleMenuButton, "The Kid LAROI & Justin Bieber")
-		return ok
-	})
+	if q := queuedSongArtists(artists); len(q) != 1 || q[0] != "c1" {
+		t.Fatalf("the row asked for %v, want the one catalogue song", q)
+	}
+	artists.flush()
+	tt.Frame()
+	if _, ok := access.Read(t, tt).Find(ui.RoleMenuButton, "The Kid LAROI & Justin Bieber"); !ok {
+		t.Error("after the lookup the artists are a chooser")
+	}
 	if reqs := f.requests(); len(reqs) != 1 || len(reqs[0]) != 1 || reqs[0][0] != "c1" {
 		t.Errorf("lookups %v, want the one catalogue song", reqs)
 	}
