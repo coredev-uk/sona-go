@@ -487,11 +487,11 @@ func (s *PlaybackService) released(date string, hasPlayParams bool, album func()
 }
 
 // storedReleased is released for a stored song. A library song is out by the
-// library's rule (library.Unreleased); a catalog one without a date of its
+// library's rule (library.SongUnreleased); a catalog one without a date of its
 // own and without playParams goes by its catalog album's date.
 func (s *PlaybackService) storedReleased(ctx context.Context, t dbq.Track) error {
 	if t.LibraryID.Valid {
-		un, err := s.o.Library.Unreleased(ctx, t.LibraryID.String)
+		un, err := library.SongUnreleased(ctx, s.o.DB, library.Day(s.m.clock()), t.LibraryID.String)
 		switch {
 		case err != nil:
 			return err

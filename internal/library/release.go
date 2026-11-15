@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/db"
 )
 
 // Songs not out yet. A pre-added album's songs are in the library with
@@ -37,11 +39,10 @@ func (l *Library) SetClock(now func() time.Time) { l.now = now }
 
 // today is the local day the release rule compares with, "YYYY-MM-DD".
 func (l *Library) today() string {
-	now := time.Now
-	if l.now != nil {
-		now = l.now
+	if l.now == nil {
+		return Day(time.Now())
 	}
-	return now().In(time.Local).Format(time.DateOnly)
+	return Day(l.now())
 }
 
 // withAlbum joins the library album a track `t` belongs to as `ur`, the
@@ -76,8 +77,15 @@ func out(today string) string { return `NOT ` + unreleased(today) }
 // Unreleased reports whether library song libraryID is not out yet:
 // ErrNotFound when the library has no such song.
 func (l *Library) Unreleased(ctx context.Context, libraryID string) (bool, error) {
+	return SongUnreleased(ctx, l.db, l.today(), libraryID)
+}
+
+// SongUnreleased is Library.Unreleased over database d for the local day today
+// ("YYYY-MM-DD"), for a caller that holds the database and its own clock
+// (playback).
+func SongUnreleased(ctx context.Context, d *db.DB, today, libraryID string) (bool, error) {
 	var n int64
-	err := l.db.R.QueryRowContext(ctx, `SELECT `+unreleased(l.today())+` FROM tracks t`+withAlbum+`
+	err := d.R.QueryRowContext(ctx, `SELECT `+unreleased(today)+` FROM tracks t`+withAlbum+`
 		WHERE t.library_id = ?`, libraryID).Scan(&n)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, ErrNotFound
@@ -87,3 +95,7 @@ func (l *Library) Unreleased(ctx context.Context, libraryID string) (bool, error
 	}
 	return n != 0, nil
 }
+
+// Day is the local day at now, "YYYY-MM-DD": what the release rule compares
+// with.
+func Day(now time.Time) string { return now.In(time.Local).Format(time.DateOnly) }
