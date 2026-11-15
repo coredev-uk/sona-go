@@ -15,3 +15,6 @@ internal/ui/media TestMotionFileOfTheCache
 # CI's containers run as root, which reads a file whatever its mode, so the
 # test of a theme file the user can't read has nothing to make unreadable.
 internal/services TestThemesFilesMarksAnUnreadableFile root reads everything
+# The marks contact sheet is a picture with no concurrency in it: about 5 min
+# under -race, so only the shards without -race draw it.
+internal/ui/app TestMarksContactSheet runs without -race only

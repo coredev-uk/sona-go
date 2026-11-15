@@ -21,3 +21,6 @@ internal/ui/media TestMotionFileOfTheCache
 internal/playback/native TestEqualizerAndDeviceFollowHosts
 internal/playback/gst TestFilePipelineMovesOutputInEveryState
 internal/ui/probe/measure TestTreeUsageOfThisProcess
+# The marks contact sheet is a picture with no concurrency in it: about 5 min
+# under -race, so only the shards without -race draw it.
+internal/ui/app TestMarksContactSheet runs without -race only

@@ -236,6 +236,12 @@ func sheetRoutes() []sheetRoute {
 }
 
 func TestMarksContactSheet(t *testing.T) {
+	// A picture of 16 renders of the whole shell: about 5 min under -race
+	// against seconds without, and there's no concurrency in it to check.
+	// The ui shards without -race (every pull request and push) draw it.
+	if raceDetector {
+		t.Skip("runs without -race only: a picture, no concurrency to check")
+	}
 	// Still: the playing glyph rests, faces do not ease, and the picture settles.
 	theme.SetReducedMotion(true)
 	t.Cleanup(func() { theme.SetReducedMotion(false) })
