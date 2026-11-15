@@ -345,13 +345,12 @@ func TestUnreleasedAlbumCountsDownToTheMinute(t *testing.T) {
 		for i := 2; i < 5; i++ { // three songs are not out yet
 			p.Tracks[i].Playable = false
 			p.Tracks[i].DurationMs = 0
-			p.Tracks[i].Artist = "unknown" // Apple's stand-in credit
 		}
 	}))
 	r.shows("Out in 5 hours, 12 minutes", "Pre-add")
 	day := fullReleaseDate(release.UnixMilli())
 	r.wantTexts(day, "Play the 2 songs out now", "Pre-add")
-	r.wantNoTexts("Shuffle", "Released", "unknown")
+	r.wantNoTexts("Shuffle", "Released")
 	// The songs are in two groups, each named once: the ones that play, then
 	// the day the rest are out. No row repeats the day.
 	badge := kit.ReleaseBadge(services.Album{Prerelease: true, ReleaseAt: release.UnixMilli()}, r.now)
@@ -421,6 +420,41 @@ func (r *rig) addPreAddedLibraryAlbum(release time.Time) {
 		Tracks: libTracks, InLibrary: true,
 	}
 	r.states.inLib["l.9"] = true
+}
+
+// addPlaceholderLibraryAlbum is addPreAddedLibraryAlbum with the songs not out
+// as the library has them for a pre-added album: "Track N" with no duration
+// and no artist (Apple's "unknown" is dropped by the service, services.credit,
+// whose test holds it), not playable.
+func (r *rig) addPlaceholderLibraryAlbum(release time.Time) {
+	r.addPreAddedLibraryAlbum(release)
+	d := r.lib.albums["l.9"]
+	d.Tracks = slices.Clone(d.Tracks)
+	for i := 2; i < len(d.Tracks); i++ {
+		d.Tracks[i].Name, d.Tracks[i].Artist, d.Tracks[i].DurationMs, d.Tracks[i].Playable = fmt.Sprintf("Track %d", i+1), "", 0, false
+	}
+	r.lib.albums["l.9"] = d
+}
+
+// A pre-added album lists the songs that are not out as songs to come, not
+// as broken ones: "Track N" rows under the day they are out, no artist, no
+// "Unavailable", no duration, and only the songs out to play.
+func TestPreAddedAlbumListsItsUnreleasedSongsAsUpcoming(t *testing.T) {
+	r := newRig(t, "/album/l.9", 1132, 1000)
+	release := r.now.Add(5*time.Hour + 12*time.Minute)
+	r.addPlaceholderLibraryAlbum(release)
+	r.shows("Out in 5 hours, 12 minutes")
+	r.wantTexts("Salt Flats", "Low Tide", "Out now", "Track 3", "Track 4", "Track 5", "Play the 2 songs out now")
+	r.wantNoTexts("Unavailable", "Glass Houses")
+	// The rows under the day: the song numbers stay, and a placeholder is
+	// not a row to play.
+	out, _ := r.tt.Find("Out now")
+	coming, ok := r.tt.Find("Track 3")
+	if !ok || coming.Y <= out.Y {
+		t.Errorf("Track 3 is not under the songs out: %v, %v", coming, out)
+	}
+	r.wantNoTexts("Play Track 3", "Play Track 4", "Play Track 5")
+	r.wantTexts("Play Salt Flats")
 }
 
 // The album comes out while its page is open: the countdown gives way to

@@ -168,6 +168,29 @@ func TestGoldenLibraryAlbumNotOutYet(t *testing.T) {
 	}
 }
 
+// A pre-added library album with its songs not out as the library holds them:
+// "Track N" placeholders, no artist, no duration, under the day
+// they are out; the songs out play.
+func TestGoldenLibraryAlbumPlaceholders(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		opts []uitest.Option
+	}{
+		{"library-album-placeholders-light", nil},
+		{"library-album-placeholders-dark", []uitest.Option{uitest.Dark()}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			goldenRegional(t)
+			r := newRig(t, "/album/l.9", 899, 1133, c.opts...)
+			r.addPlaceholderLibraryAlbum(r.now.Add(5*time.Hour + 12*time.Minute))
+			r.shows("Salt Flats", "Out in 5 hours, 12 minutes", "Track 3")
+			r.tt.Art = append(r.tt.Art, r.h.Env.Art)
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), c.name)
+		})
+	}
+}
+
 // goldenUpcoming is an album not out for 18 days and 6 hours, two of its five
 // songs out now; goldenUpcomingYear one Apple gives only the year of, none
 // of its songs out. upcomingRig's platform has notifications, so Remind me
@@ -178,7 +201,7 @@ func goldenUpcoming(r *rig) func(p *services.CatalogAlbum) {
 		goldenAlbum(p)
 		p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, release.UnixMilli(), release.Format("2006-01-02")
 		for i := 2; i < 5; i++ {
-			p.Tracks[i].Playable, p.Tracks[i].DurationMs, p.Tracks[i].Artist = false, 0, "unknown"
+			p.Tracks[i].Playable, p.Tracks[i].DurationMs, p.Tracks[i].Artist = false, 0, ""
 		}
 	}
 }
@@ -187,7 +210,7 @@ func goldenUpcomingYear(p *services.CatalogAlbum) {
 	goldenAlbum(p)
 	p.Album.Prerelease, p.Album.ReleaseAt, p.Album.ReleaseDate = true, 0, "2027"
 	for i := range p.Tracks {
-		p.Tracks[i].Playable, p.Tracks[i].DurationMs, p.Tracks[i].Artist = false, 0, "unknown"
+		p.Tracks[i].Playable, p.Tracks[i].DurationMs, p.Tracks[i].Artist = false, 0, ""
 	}
 }
 

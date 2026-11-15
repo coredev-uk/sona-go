@@ -127,24 +127,6 @@ func TestFirstReleasedSaysWhenRecordingsAreOlder(t *testing.T) {
 	}
 }
 
-func TestPlaceholderCreditsAreDroppedOnAnUnreleasedAlbum(t *testing.T) {
-	placeholder := song(func(s *services.Song) { s.Name, s.Artist, s.Playable, s.DurationMs = "Track 3", "unknown", false, 0 })
-	announced := song(func(s *services.Song) { s.Artist, s.Playable, s.DurationMs = "Morgan Wallen", false, 196000 })
-	out := song(func(s *services.Song) { s.Artist, s.DurationMs = "Yung Lean", 161000 })
-	in := []services.Song{placeholder, announced, out}
-	got := withoutPlaceholderCredits(in, true)
-	if got[0].Artist != "" || got[1].Artist != "Morgan Wallen" || got[2].Artist != "Yung Lean" {
-		t.Errorf("credits %q %q %q", got[0].Artist, got[1].Artist, got[2].Artist)
-	}
-	if in[0].Artist != "unknown" {
-		t.Error("the input was changed")
-	}
-	// Once out, songs keep whatever Apple credits them with.
-	if got := withoutPlaceholderCredits(in, false); got[0].Artist != "unknown" {
-		t.Errorf("an album that is out lost a credit: %q", got[0].Artist)
-	}
-}
-
 func TestLibraryShare(t *testing.T) {
 	if got := libraryShare(2, 13); got == nil || *got != (share{2, 13}) {
 		t.Errorf("libraryShare(2,13) = %v", got)

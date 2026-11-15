@@ -336,14 +336,14 @@ func TestJustOutAlbumWaitsForItsSongs(t *testing.T) {
 	}
 }
 
-// The minute an album comes out its page doesn't jump: Apple's stand-in
-// credit stays dropped and the running time stays left out, as before.
+// The minute an album comes out its page doesn't jump: a song with no credit
+// yet stays without one and the running time stays left out, as before.
 func TestJustOutAlbumKeepsTheShapeOfTheUpcomingOne(t *testing.T) {
 	build := func(release time.Time) model {
 		p := saltFlats(func(p *services.CatalogAlbum) {
 			p.Album.Prerelease, p.Album.ReleaseAt = true, release.UnixMilli()
 			for i := range p.Tracks {
-				p.Tracks[i].Playable, p.Tracks[i].DurationMs, p.Tracks[i].Artist = false, 0, "unknown"
+				p.Tracks[i].Playable, p.Tracks[i].DurationMs, p.Tracks[i].Artist = false, 0, ""
 			}
 		})
 		return newModel(p.AlbumDetail, &p, true, modelNow)

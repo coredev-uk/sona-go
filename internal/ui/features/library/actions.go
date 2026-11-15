@@ -99,13 +99,14 @@ func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool
 				}
 				return i18n.T("Favourite")
 			},
-			Icon:    "star",
-			Filled:  func(a *kit.ActionContext) bool { return ratingOf(a) == 1 },
-			Group:   kit.GroupRating,
-			Order:   10,
-			Data:    []kit.MenuData{state},
-			Enabled: loaded,
-			Run:     rate(kit.RateFavorite, kit.RateUnfavorite, 1),
+			Icon:          "star",
+			Filled:        func(a *kit.ActionContext) bool { return ratingOf(a) == 1 },
+			Group:         kit.GroupRating,
+			Order:         10,
+			Data:          []kit.MenuData{state},
+			Enabled:       loaded,
+			NeedsPlayable: true,
+			Run:           rate(kit.RateFavorite, kit.RateUnfavorite, 1),
 		},
 		{
 			ID:     "library.suggest-less." + string(target),
@@ -116,13 +117,14 @@ func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool
 				}
 				return i18n.T("Suggest less")
 			},
-			Icon:    "thumbs-down",
-			Filled:  func(a *kit.ActionContext) bool { return ratingOf(a) == -1 },
-			Group:   kit.GroupRating,
-			Order:   20,
-			Data:    []kit.MenuData{state},
-			Enabled: loaded,
-			Run:     rate(kit.RateSuggestLess, kit.RateUndoSuggestLess, -1),
+			Icon:          "thumbs-down",
+			Filled:        func(a *kit.ActionContext) bool { return ratingOf(a) == -1 },
+			Group:         kit.GroupRating,
+			Order:         20,
+			Data:          []kit.MenuData{state},
+			Enabled:       loaded,
+			NeedsPlayable: true,
+			Run:           rate(kit.RateSuggestLess, kit.RateUndoSuggestLess, -1),
 		},
 		{
 			ID:     "library.copy-link." + string(target),
@@ -161,7 +163,8 @@ func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool
 				si, _ := item(a)
 				return si.Source == services.SourceCatalog && !inLibrary(a)
 			},
-			Enabled: loaded,
+			Enabled:       loaded,
+			NeedsPlayable: true,
 			Run: func(a *kit.ActionContext) {
 				si, name := item(a)
 				l.env.ItemStates.Add(kind, si, name)
@@ -288,12 +291,13 @@ func (l *library) bulkActions() []kit.ActionDef {
 				}
 				return i18n.T("Favourite")
 			},
-			Icon:    "star",
-			Filled:  allFavourite,
-			Group:   kit.GroupRating,
-			Order:   10,
-			Data:    []kit.MenuData{states},
-			Enabled: loaded,
+			Icon:          "star",
+			Filled:        allFavourite,
+			Group:         kit.GroupRating,
+			Order:         10,
+			Data:          []kit.MenuData{states},
+			Enabled:       loaded,
+			NeedsPlayable: true,
 			Run: func(a *kit.ActionContext) {
 				undo := allFavourite(a)
 				// Favouriting skips items that already are; undoing applies
@@ -324,7 +328,8 @@ func (l *library) bulkActions() []kit.ActionDef {
 			Available: func(a *kit.ActionContext) bool {
 				return len(notInLibrary(a)) > 0
 			},
-			Enabled: loaded,
+			Enabled:       loaded,
+			NeedsPlayable: true,
 			Run: func(a *kit.ActionContext) {
 				l.env.ItemStates.AddMany(notInLibrary(a), kit.DescribeItems(a.Items))
 			},

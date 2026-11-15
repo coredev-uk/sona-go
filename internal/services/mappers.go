@@ -152,7 +152,7 @@ func (m mapper) libSong(s library.Song) Song {
 		CatalogID:   s.CatalogID,
 		LibraryID:   s.LibraryID,
 		Name:        s.Name,
-		Artist:      s.ArtistName,
+		Artist:      credit(s.ArtistName, s.NoPlayParams),
 		Album:       s.AlbumName,
 		AlbumID:     s.AlbumLibraryID,
 		ArtistID:    s.ArtistLibraryID,
@@ -164,7 +164,7 @@ func (m mapper) libSong(s library.Song) Song {
 		Explicit:    s.Explicit,
 		HasLyrics:   s.HasLyrics,
 		// Uploads play from their library ID; songs not out yet don't.
-		Playable: (s.CatalogID != "" || s.LibraryID != "") && !songUnreleased(s, m.clock()),
+		Playable: (s.CatalogID != "" || s.LibraryID != "") && !s.Unreleased,
 		Art:      m.artOf(s.ArtworkTemplate),
 	}
 }
@@ -265,7 +265,7 @@ func (m mapper) amSong(s applemusic.Song) Song {
 		Source:      SourceCatalog,
 		CatalogID:   s.CatalogID(),
 		Name:        a.Name,
-		Artist:      a.ArtistName,
+		Artist:      credit(a.ArtistName, a.PlayParams == nil),
 		Album:       a.AlbumName,
 		DurationMs:  a.DurationInMillis,
 		TrackNumber: a.TrackNumber,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth"
+	"github.com/coredev-uk/sona-go/internal/db/dbq"
 	"github.com/coredev-uk/sona-go/internal/library"
 )
 
@@ -33,6 +34,12 @@ type LibraryService struct {
 	// removeRecheck is how long after a removal Remove checks that Apple
 	// really dropped the item (see confirmRemoved).
 	removeRecheck time.Duration
+	// releaseTimer fires the sync at the next release of a library album
+	// (armReleaseSync); after is how it is set (time.AfterFunc; tests).
+	releaseTimer *time.Timer
+	after        func(time.Duration, func()) *time.Timer // nil is time.AfterFunc
+	// syncForRelease is what the timer syncs with (nil: syncSoon; tests).
+	syncForRelease func(...library.Domain)
 }
 
 // newLibraryService also schedules the library sync: after first paint
@@ -41,6 +48,7 @@ func newLibraryService(e *Env) *LibraryService {
 	s := &LibraryService{o: e, m: e.m, setClipboard: e.Clipboard, removeRecheck: 10 * time.Second}
 	e.OnNetwork(func() {
 		go s.syncIfStale(context.Background())
+		s.armReleaseSync()
 		if e.History != nil {
 			go e.History.trim(context.Background())
 		}
@@ -56,7 +64,7 @@ func newLibraryService(e *Env) *LibraryService {
 			go e.OnNetwork(func() { s.syncIfStale(context.Background()) })
 		}
 	})
-	e.OnSignOut("library sync", func(context.Context) error { s.stopSync(); return nil })
+	e.OnSignOut("library sync", func(context.Context) error { s.stopReleaseSync(); s.stopSync(); return nil })
 	e.OnClose(s.close)
 	return s
 }
@@ -65,18 +73,23 @@ func listOpts(sort string, desc bool, offset, limit int) library.ListOptions {
 	return library.ListOptions{Sort: library.Sort(sort), Desc: desc, Offset: offset, Limit: limit}
 }
 
-// Songs lists library songs. sort is "title", "artist", "album" or
-// "dateAdded"; limit 0 means 100 (max 1000).
+// Songs lists library songs that are out. sort is "title", "artist", "album"
+// or "dateAdded"; limit 0 means 100 (max 1000). Total counts the songs out,
+// except for a page of one row (the letter rail's probe), which has none.
 func (s *LibraryService) Songs(ctx context.Context, sort string, desc bool, offset, limit int) (SongPage, error) {
 	songs, err := s.o.Library.Songs(ctx, listOpts(sort, desc, offset, limit))
 	if err != nil {
 		return SongPage{}, err
 	}
-	c, err := s.o.Library.Counts(ctx)
-	if err != nil {
-		return SongPage{}, err
+	// Total reads every song, and the letter rail asks one row at a time: a
+	// page of one row has no total (the rail has the list's own).
+	total := 0
+	if limit != 1 {
+		if total, err = s.o.Library.SongCount(ctx); err != nil {
+			return SongPage{}, err
+		}
 	}
-	return SongPage{Items: mapSlice(songs, s.m.libSong), Total: c.Songs}, nil
+	return SongPage{Items: mapSlice(songs, s.m.libSong), Total: total}, nil
 }
 
 // Albums lists library albums. sort is "title", "artist", "dateAdded" or
@@ -137,11 +150,11 @@ func (s *LibraryService) Playlists(ctx context.Context, sort string, desc bool, 
 	if err != nil {
 		return PlaylistPage{}, err
 	}
-	c, err := s.o.Library.Counts(ctx)
+	total, err := s.o.Library.PlaylistCount(ctx)
 	if err != nil {
 		return PlaylistPage{}, err
 	}
-	return PlaylistPage{Items: mapSlice(pls, s.m.libPlaylist), Total: c.Playlists}, nil
+	return PlaylistPage{Items: mapSlice(pls, s.m.libPlaylist), Total: total}, nil
 }
 
 // Album returns a library album and its tracks.
@@ -490,6 +503,9 @@ func (s *LibraryService) startSync(mode library.Mode, domains ...library.Domain)
 		ev.ErrorCode = CodeOf(err)
 		s.o.Logger.Info("library: sync finished", "ok", err == nil, "took", s.o.Now().Sub(start).Round(time.Millisecond), "counts", c)
 		s.o.Emit.Emit(EventSyncDone, ev)
+		if ctx.Err() == nil {
+			s.armReleaseSync()
+		}
 		if len(again) > 0 && ctx.Err() == nil {
 			if err := s.startSync(library.Incremental, again...); err != nil {
 				s.o.Logger.Warn("library: sync after add", "err", err)
@@ -516,5 +532,102 @@ func (s *LibraryService) close() {
 	s.mu.Lock()
 	s.closed = true
 	s.mu.Unlock()
+	s.stopReleaseSync()
 	s.stopSync()
+}
+
+// Release-time sync. A pre-added album's songs not out yet are stored with
+// placeholder metadata, and the lists hold them back until the album's day
+// (library.Library.Songs); Apple's real names, artists and play parameters
+// arrive with a sync. So that they do without the user syncing by hand, the
+// service syncs the albums and songs domains shortly after the next release
+// of a library album, and while an album that is out is still flagged
+// upcoming by Apple (it takes a while to publish) again every
+// releaseRetry, up to releaseGiveUp after the day. The timer is set for at
+// most releaseCheck and the wall clock is read when it fires, because a
+// timer sleeps with the computer.
+const (
+	releaseSlack  = time.Minute
+	releaseRetry  = 30 * time.Minute
+	releaseCheck  = 15 * time.Minute
+	releaseGiveUp = 48 * time.Hour
+)
+
+// nextReleaseSync is how long from now until the library should sync for a
+// release, from the stored albums still ahead (UpcomingLibraryAlbums); false
+// when none is waiting for one (a release known only by its year, an album
+// flagged upcoming without a date, or none at all).
+func nextReleaseSync(rows []dbq.UpcomingLibraryAlbumsRow, now time.Time) (time.Duration, bool) {
+	var wait time.Duration
+	var found bool
+	for _, r := range rows {
+		date, ahead := libraryRelease(r.ReleaseDate, r.CatalogReleaseDate, r.IsPrerelease != 0, now)
+		at := releaseAt(date)
+		if at == 0 {
+			continue
+		}
+		d := time.UnixMilli(at).Sub(now) + releaseSlack
+		if !ahead {
+			// Out by the clock but not by Apple's flag.
+			if now.Sub(time.UnixMilli(at)) > releaseGiveUp {
+				continue
+			}
+			d = releaseRetry
+		}
+		if !found || d < wait {
+			wait, found = d, true
+		}
+	}
+	return wait, found
+}
+
+// armReleaseSync (re)sets the timer for the next release; a sync that ends
+// sets it again, as it changes what is ahead.
+func (s *LibraryService) armReleaseSync() {
+	rows, err := s.o.DB.RQ.UpcomingLibraryAlbums(context.Background(), s.o.Now().In(time.Local).Format(time.DateOnly))
+	if err != nil {
+		s.o.Logger.Warn("library: albums ahead of their release", "err", err)
+		return
+	}
+	wait, ok := nextReleaseSync(rows, s.o.Now())
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.releaseTimer != nil {
+		s.releaseTimer.Stop()
+		s.releaseTimer = nil
+	}
+	if !ok || s.closed {
+		return
+	}
+	after := s.after
+	if after == nil {
+		after = time.AfterFunc
+	}
+	// A timer does not count the time the computer sleeps (Go's timers stop
+	// with the system clock on suspend), so a long wait is made of short ones
+	// that each look at the wall clock: waking up late is at most releaseCheck.
+	due := s.o.Now().Add(wait)
+	s.releaseTimer = after(min(wait, releaseCheck), func() {
+		if s.o.Now().Before(due) {
+			s.armReleaseSync()
+			return
+		}
+		s.o.Logger.Info("library: sync for a release")
+		sync := s.syncForRelease
+		if sync == nil {
+			sync = s.syncSoon
+		}
+		sync(library.DomainAlbums, library.DomainSongs)
+		s.armReleaseSync()
+	})
+}
+
+// stopReleaseSync cancels the timer (sign-out, close).
+func (s *LibraryService) stopReleaseSync() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.releaseTimer != nil {
+		s.releaseTimer.Stop()
+		s.releaseTimer = nil
+	}
 }

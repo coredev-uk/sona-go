@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 
@@ -215,6 +216,14 @@ type ActionDef struct {
 	Order int
 	// Available: listed for this target at all (default: always).
 	Available func(a *ActionContext) bool
+	// NeedsPlayable: not listed for a song that cannot be played, such as
+	// one of an album not out yet, which is no song to rate, put in a
+	// playlist, pin or start a station from. A bulk action is listed while
+	// something in the selection can take it (a song that plays, or any
+	// other kind) and acts on those items alone, as the queue's actions do;
+	// its menu data is loaded for them too. Albums and other kinds are not
+	// affected.
+	NeedsPlayable bool
 	// Enabled: listed but greyed out when false (default: enabled).
 	Enabled func(a *ActionContext) bool
 	// DisabledReason greys the row out with this line under its label
@@ -241,6 +250,67 @@ type ActionChoice struct {
 func (d *ActionDef) bulk() bool { return d.Target == KindSelection }
 
 func (d *ActionDef) rank() int { return int(d.Group)*1000 + d.Order }
+
+// playableSuffix names the menu data a NeedsPlayable bulk action loads for
+// the items that can take it, beside the data of the whole selection.
+const playableSuffix = "#playable"
+
+// unplayableSong: i is a song that cannot be played.
+func unplayableSong(i Item) bool { return i.Kind == KindSong && !i.Song().Playable }
+
+// onlyPlayable returns the items that are not songs that cannot be played,
+// and the positions (of the items) they hold in order; ok is false when
+// every item stays.
+func onlyPlayable(items []Item) (kept []Item, at []int, ok bool) {
+	if !slices.ContainsFunc(items, unplayableSong) {
+		return items, nil, false
+	}
+	for i, it := range items {
+		if !unplayableSong(it) {
+			kept, at = append(kept, it), append(at, i)
+		}
+	}
+	return kept, at, true
+}
+
+// scoped is the context d acts in and whether d is listed at all for it:
+// a NeedsPlayable action is not listed for a song that cannot be played, and
+// a bulk one is given the items that can take it (and their places and menu
+// data) and not listed when there are none.
+func (d *ActionDef) scoped(ctx *ActionContext) (*ActionContext, bool) {
+	if !d.NeedsPlayable {
+		return ctx, true
+	}
+	kept, at, narrowed := onlyPlayable(ctx.Items)
+	if !narrowed {
+		return ctx, true
+	}
+	if len(kept) == 0 || !d.bulk() {
+		return ctx, false
+	}
+	cp := *ctx
+	cp.Items = kept
+	if c := ctx.Container; c != nil && len(c.Indices) == len(ctx.Items) {
+		cc := *c
+		cc.Indices = make([]int, len(at))
+		for i, j := range at {
+			cc.Indices[i] = c.Indices[j]
+		}
+		cp.Container = &cc
+	}
+	cp.loaded = maps.Clone(ctx.loaded)
+	if cp.loaded == nil {
+		cp.loaded = map[string]any{}
+	}
+	for _, md := range d.Data {
+		if v, ok := ctx.loaded[md.ID+playableSuffix]; ok {
+			cp.loaded[md.ID] = v
+		} else {
+			delete(cp.loaded, md.ID)
+		}
+	}
+	return &cp, true
+}
 
 // ActionRegistry holds the actions of every module: per-kind lists for
 // song, album, playlist, artist, station and music-video targets plus one

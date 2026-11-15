@@ -115,6 +115,9 @@ func New(d Deps) *Core {
 	if d.Logger == nil {
 		d.Logger = slog.New(slog.DiscardHandler)
 	}
+	if d.Library != nil {
+		d.Library.SetClock(d.Now) // which songs are out
+	}
 	env := &Env{Deps: d, m: mapper{art: d.Art, motion: d.Motion, now: d.Now}, members: newMembership(d.DB)}
 	c := &Core{env: env, open: &opener{emit: d.Emit, focus: d.Focus, log: d.Logger}}
 	env.firstPaint = c.firstPaint

@@ -35,6 +35,7 @@ func TestSyncStoresAPreAddedAlbumsRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
+	e.lib.SetClock(func() time.Time { return time.Date(2026, 11, 18, 12, 0, 0, 0, time.Local) })
 	a, songs, err := e.lib.Album(ctx, "l.soon")
 	if err != nil {
 		t.Fatal(err)
@@ -49,28 +50,25 @@ func TestSyncStoresAPreAddedAlbumsRelease(t *testing.T) {
 	for _, s := range songs {
 		bySong[s.LibraryID] = s
 	}
-	if s := bySong["i.out"]; s.NoPlayParams || s.ReleaseDate != "2026-09-17" {
+	if s := bySong["i.out"]; s.NoPlayParams || s.Unreleased || s.ReleaseDate != "2026-09-17" {
 		t.Fatalf("a song out has playParams and a date: %+v", s)
 	}
 	s := bySong["i.later"]
-	if !s.NoPlayParams || s.ReleaseDate != "" || !s.Album.Prerelease || s.Album.CatalogDate != "2026-11-20" {
-		t.Fatalf("a song not out = %+v, want no playParams and its album's release state", s)
+	if !s.NoPlayParams || s.ReleaseDate != "" || !s.Unreleased {
+		t.Fatalf("a song not out = %+v, want no playParams, no date and not out (its album is ahead)", s)
 	}
 	one, err := e.lib.Song(ctx, "i.later")
-	if err != nil || one.NoPlayParams != true || one.Album != s.Album {
-		t.Fatalf("Song = %+v, %v", one, err)
+	if err != nil || one != s {
+		t.Fatalf("Song = %+v, %v; want the album's copy %+v", one, err, s)
 	}
-	// Lists carry the same state.
+	// The list holds the songs out alone.
 	list, err := e.lib.Songs(ctx, ListOptions{Limit: 10})
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || !slices.Equal(songIDs(list), []string{"i.old", "i.out"}) {
+		t.Fatalf("Songs = %v, %v; want i.old and i.out", songIDs(list), err)
 	}
 	for _, l := range list {
-		if l.LibraryID == "i.later" && (!l.NoPlayParams || !l.Album.Prerelease) {
-			t.Fatalf("listed song = %+v", l)
-		}
-		if l.LibraryID == "i.old" && (l.NoPlayParams || l.Album.Prerelease) {
-			t.Fatalf("a released album's song = %+v", l)
+		if l.Unreleased {
+			t.Fatalf("a listed song is not out: %+v", l)
 		}
 	}
 	old, _, err := e.lib.Album(ctx, "l.old")

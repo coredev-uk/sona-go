@@ -149,7 +149,7 @@ func newModel(detail services.AlbumDetail, page *services.CatalogAlbum, catalogu
 	m := model{album: album, header: detail.Header, page: page, catalogue: catalogue}
 	m.upcoming = kit.IsUpcoming(album, now)
 	m.justOut = album.Prerelease && !m.upcoming
-	m.list = withoutPlaceholderCredits(detail.Tracks, m.upcoming || m.justOut)
+	m.list = detail.Tracks
 	m.headed = m.upcoming && len(m.list) <= kit.VirtualFrom
 	if m.headed {
 		m.list, m.mixed = outNowFirst(m.list)

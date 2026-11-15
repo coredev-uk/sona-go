@@ -178,7 +178,7 @@ func (r *radio) init() {
 func (r *radio) actions() []kit.ActionDef {
 	create := func(id string, kind kit.ItemKind, seed string, of func(kit.Item) (catalogID, name string)) kit.ActionDef {
 		return kit.ActionDef{
-			ID: id, Target: kind, Icon: "radio", Group: kit.GroupQueue, Order: 30,
+			ID: id, Target: kind, Icon: "radio", Group: kit.GroupQueue, Order: 30, NeedsPlayable: true,
 			Label: func(*kit.ActionContext) string { return i18n.T("Create station") },
 			Available: func(a *kit.ActionContext) bool {
 				catalogID, _ := of(a.Item())

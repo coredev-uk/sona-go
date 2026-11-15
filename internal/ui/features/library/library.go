@@ -56,7 +56,7 @@ type libraryAPI interface {
 // playbackAPI is what the pages ask of PlaybackService.
 type playbackAPI interface {
 	PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error
-	PlayLibrary(ctx context.Context, sort string, desc bool, start int) error
+	PlayLibrary(ctx context.Context, sort string, desc bool, start int, songID string) error
 	UndoReplace(ctx context.Context) (bool, error)
 	SetShuffle(on bool)
 }

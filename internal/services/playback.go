@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -486,24 +487,28 @@ func (s *PlaybackService) released(date string, hasPlayParams bool, album func()
 	return nil
 }
 
-// storedReleased is released for a stored song. One without a date of its
-// own and without playParams goes by its album: a library album's date and
-// Apple's flag are the ones its catalog album gave (libraryRelease), a
-// pre-added album having no releaseDate of its own.
+// storedReleased is released for a stored song. A library song is out when
+// the library says so (library.Song.Unreleased: its own date, else its
+// playParams, else its album's release state: the rule the song lists use, so
+// a song listed plays and one not listed is refused). A track only in the
+// catalogue cache has no library album: it goes by its own date and, with
+// neither playParams nor a date, by its catalogue album's.
 func (s *PlaybackService) storedReleased(ctx context.Context, t dbq.Track) error {
+	if t.LibraryID.Valid {
+		so, err := s.o.Library.Song(ctx, t.LibraryID.String)
+		if err != nil {
+			return err
+		}
+		if so.Unreleased {
+			return ErrNotReleased
+		}
+		return nil
+	}
 	if upcoming(t.ReleaseDate, false, s.m.clock()) {
 		return ErrNotReleased
 	}
 	if t.ReleaseDate != "" || t.NoPlayParams == 0 {
 		return nil
-	}
-	if t.AlbumLibraryID.Valid {
-		if a, err := s.o.DB.RQ.GetAlbumByLibraryID(ctx, t.AlbumLibraryID); err == nil {
-			if _, up := libraryRelease(a.ReleaseDate, a.CatalogReleaseDate, a.IsPrerelease != 0, s.m.clock()); up {
-				return ErrNotReleased
-			}
-			return nil
-		}
 	}
 	return s.released("", false, func() string { return s.catalogAlbumDate(ctx, t) })
 }
@@ -543,12 +548,12 @@ func trackItem(t dbq.Track) (coordinator.Item, trackMeta, error) {
 	if t.LibraryID.Valid {
 		src = SourceLibrary
 	}
-	return itemOf(id, t.Name, t.ArtistName, t.AlbumName, t.DurationMs, t.ArtworkTemplate, t.ContentRating == "explicit"), metaOf(t, src), nil
+	return itemOf(id, t.Name, credit(t.ArtistName, t.NoPlayParams != 0), t.AlbumName, t.DurationMs, t.ArtworkTemplate, t.ContentRating == "explicit"), metaOf(t, src), nil
 }
 
 func songItem(so applemusic.Song) coordinator.Item {
 	a := so.Attributes
-	return itemOf(so.CatalogID(), a.Name, a.ArtistName, a.AlbumName, a.DurationInMillis, a.Artwork.Template(), a.ContentRating == "explicit")
+	return itemOf(so.CatalogID(), a.Name, credit(a.ArtistName, so.Attributes.PlayParams == nil), a.AlbumName, a.DurationInMillis, a.Artwork.Template(), a.ContentRating == "explicit")
 }
 
 // itemOf is the coordinator item of a song or video.
@@ -648,10 +653,12 @@ func (s *PlaybackService) SetSleep(mode string, minutes int) error {
 }
 
 // PlayLibrary queues the whole library songs list in the given order
-// (as LibraryService.Songs) and plays the song at position start. Songs
-// not out yet (by their own date or, without one, their album's) are left
-// out; not_released when it is the start song.
-func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, start int) error {
+// (as LibraryService.Songs, which lists only the songs that are out) and
+// plays the song at position start. songID, when given, is the library ID of
+// the song the caller meant: its place in the list as it is now wins over
+// start, which only says where it was in the page the caller read (the list
+// changes when songs come out). A song not in the list falls back to start.
+func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, start int, songID string) error {
 	rctx, superseded, end := s.beginReplace(ctx)
 	defer end()
 	songs, err := s.o.Library.AllSongs(rctx, library.ListOptions{Sort: library.Sort(sort), Desc: desc})
@@ -661,33 +668,27 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	if err != nil {
 		return err
 	}
+	if songID != "" {
+		if at := slices.IndexFunc(songs, func(so library.Song) bool { return so.LibraryID == songID }); at >= 0 {
+			start = at
+		}
+	}
 	if start < 0 || start >= len(songs) {
 		return fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(songs))
 	}
-	now := s.m.clock()
-	if songUnreleased(songs[start], now) {
-		return fmt.Errorf("library song %s: %w", songs[start].LibraryID, ErrNotReleased)
-	}
 	items := make([]coordinator.Item, 0, len(songs))
-	idx := 0
 	s.mu.Lock()
-	for i, so := range songs {
-		if songUnreleased(so, now) {
-			continue
-		}
+	for _, so := range songs {
 		// Uploads have no catalog ID and play by their library ID.
 		id := cmp.Or(so.CatalogID, so.LibraryID)
-		if i == start {
-			idx = len(items)
-		}
-		items = append(items, itemOf(id, so.Name, so.ArtistName, so.AlbumName, so.DurationMS, so.ArtworkTemplate, so.Explicit))
+		items = append(items, itemOf(id, so.Name, credit(so.ArtistName, so.NoPlayParams), so.AlbumName, so.DurationMS, so.ArtworkTemplate, so.Explicit))
 		s.meta[id] = trackMeta{
 			source: SourceLibrary, id: so.LibraryID, catalogID: so.CatalogID, libraryID: so.LibraryID,
 			albumID: so.AlbumLibraryID, artistID: so.ArtistLibraryID,
 		}
 	}
 	s.mu.Unlock()
-	return s.fail(s.o.Coord.SetQueue(ctx, items, idx, "library:songs"))
+	return s.fail(s.o.Coord.SetQueue(ctx, items, start, "library:songs"))
 }
 
 // queueItems resolves refs for PlayNext, Append and Insert, which like

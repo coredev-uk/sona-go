@@ -108,8 +108,9 @@ func TestPlaybackRefusesUnreleasedSongs(t *testing.T) {
 	}
 }
 
-// Playing the library song list applies the same rule: a song without a
-// date of its own or playParams goes by its album's.
+// Playing the library song list queues the songs the list shows: those out,
+// by the same rule (a song without a date of its own or playParams goes by
+// its album's).
 func TestPlayLibrarySkipsUnreleasedSongs(t *testing.T) {
 	ctx := t.Context()
 	d, err := db.Open(ctx, filepath.Join(t.TempDir(), "sona.db"))
@@ -155,15 +156,13 @@ func TestPlayLibrarySkipsUnreleasedSongs(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = coord.Close() })
 	now := localDay(t, "2026-11-01")
-	e := &Env{Deps: Deps{DB: d, Library: library.New(d, nil), Coord: coord, Logger: discard(), Now: func() time.Time { return now }}}
+	lib := library.New(d, nil)
+	lib.SetClock(func() time.Time { return now })
+	e := &Env{Deps: Deps{DB: d, Library: lib, Coord: coord, Logger: discard(), Now: func() time.Time { return now }}}
 	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
 
-	for _, start := range []int{1, 4} {
-		if err := s.PlayLibrary(ctx, "title", false, start); CodeOf(err) != CodeNotReleased {
-			t.Fatalf("start %d: %v, want not_released", start, err)
-		}
-	}
-	if err := s.PlayLibrary(ctx, "title", false, 2); err != nil {
+	// The list is i.1, i.3, i.4, i.6 (i.2 and i.5 are not out).
+	if err := s.PlayLibrary(ctx, "title", false, 1, ""); err != nil {
 		t.Fatal(err)
 	}
 	var ids []string

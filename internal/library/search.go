@@ -54,7 +54,7 @@ func (l *Library) SearchAll(ctx context.Context, term string, perKind int) (Resu
 		return r, err
 	}
 	if r.Songs, err = byIDs(ctx, l, `SELECT `+trackColumns+` FROM tracks t WHERE t.library_id IN `, songIDs, scanSong,
-		func(s Song) string { return s.LibraryID }); err != nil {
+		func(s Song) string { return s.LibraryID }, l.today()); err != nil {
 		return r, err
 	}
 	if r.Albums, err = byIDs(ctx, l, albumsByID, albumIDs, scanAlbum, func(a Album) string { return a.LibraryID }); err != nil {
@@ -85,14 +85,15 @@ const (
 )
 
 // byIDs runs q (ending in "IN ") for ids and returns the rows in the order
-// of ids, skipping IDs without a row.
+// of ids, skipping IDs without a row. lead are the arguments q takes before
+// them.
 func byIDs[T any](ctx context.Context, l *Library, q string, ids []string,
-	scan func(scanner) (T, error), id func(T) string,
+	scan func(scanner) (T, error), id func(T) string, lead ...any,
 ) ([]T, error) {
 	if len(ids) == 0 {
 		return []T{}, nil
 	}
-	rows, err := query(ctx, l, q+`(`+placeholders(len(ids))+`)`, scan, anys(ids)...)
+	rows, err := query(ctx, l, q+`(`+placeholders(len(ids))+`)`, scan, append(lead, anys(ids)...)...)
 	if err != nil {
 		return nil, err
 	}

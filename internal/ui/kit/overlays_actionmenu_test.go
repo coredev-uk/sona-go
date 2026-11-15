@@ -480,3 +480,92 @@ func TestMenuDataWithASynchronousPosterDoesNotRace(t *testing.T) {
 		tt.Frame()
 	}
 }
+
+// An action that NeedsPlayable is not offered for a song that cannot be
+// played (one of an album not out yet): not Favourite, not Suggest less; the
+// others stay, and a song that plays has them all.
+func TestNeedsPlayableActionsAreNotListedForAnUnplayableSong(t *testing.T) {
+	a, tt := newListApp(t)
+	for _, d := range a.reg.For(KindSong) {
+		d.NeedsPlayable = d.ID == "library.favorite.song" || d.ID == "library.suggest-less.song"
+	}
+	a.rows[1] = SongItem(services.Song{ID: "s-out", Name: "Paranoid Android", Playable: true})
+	a.scope.rows = a.rows
+
+	if err := tt.Click("More for Airbag"); err != nil {
+		t.Fatal(err)
+	}
+	a.drain(t, tt, 1)
+	for _, s := range []string{"Play next", "Rename…"} {
+		if !tt.HasText(s) {
+			t.Errorf("%q missing for a song not out", s)
+		}
+	}
+	for _, s := range []string{"Favourite", "Undo favourite", "Suggest less"} {
+		if tt.HasText(s) {
+			t.Errorf("%q listed for a song not out", s)
+		}
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Frame()
+
+	if err := tt.Click("More for Paranoid Android"); err != nil {
+		t.Fatal(err)
+	}
+	a.drain(t, tt, 1)
+	for _, s := range []string{"Play next", "Rename…", "Undo favourite", "Suggest less"} {
+		if !tt.HasText(s) {
+			t.Errorf("%q missing for a song that plays", s)
+		}
+	}
+}
+
+// A bulk action that NeedsPlayable is listed while one selected song can take
+// it, acts on the songs that can alone (with their places and their menu data
+// loaded for them), and is not listed when none can.
+func TestNeedsPlayableBulkActionActsOnThePlayableSongsOnly(t *testing.T) {
+	a, tt := newListApp(t)
+	var ran [][]string
+	var places [][]int
+	var data []int
+	rd := MenuData{ID: "count", Load: func(_ context.Context, items []Item) any { return len(items) }}
+	a.reg.Register(ActionDef{
+		ID: "library.add.many", Target: KindSelection, Kinds: []ItemKind{KindSong}, Group: GroupItem, Order: 30, NeedsPlayable: true,
+		Data:  []MenuData{rd},
+		Label: func(*ActionContext) string { return "Add to library" },
+		Run: func(x *ActionContext) {
+			var names []string
+			for _, it := range x.Items {
+				names = append(names, it.Name())
+			}
+			n, _ := DataOf[int](x, rd)
+			ran, places, data = append(ran, names), append(places, x.Container.Indices), append(data, n)
+		},
+	})
+	a.rows[1] = SongItem(services.Song{ID: "s-out", Name: "Paranoid Android", Playable: true})
+	a.scope.rows = a.rows
+
+	a.scope.sel = []int{0, 1, 2} // Airbag and Karma Police cannot play
+	tt.Frame()
+	if err := tt.RightClick("Paranoid Android"); err != nil {
+		t.Fatal(err)
+	}
+	a.drain(t, tt, 1)
+	if err := tt.Click("Add to library"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	tt.Frame()
+	if len(ran) != 1 || !slices.Equal(ran[0], []string{"Paranoid Android"}) || !slices.Equal(places[0], []int{1}) || data[0] != 1 {
+		t.Fatalf("ran %v at %v with data %v, want the song that plays alone, at its place", ran, places, data)
+	}
+
+	a.scope.sel = []int{0, 2}
+	tt.Frame()
+	if err := tt.RightClick("Karma Police"); err != nil {
+		t.Fatal(err)
+	}
+	if tt.HasText("Add to library") {
+		t.Error("listed for a selection of songs that cannot be played")
+	}
+}

@@ -188,6 +188,13 @@ func (a *ActionMenus) loadData() {
 	var datas []MenuData
 	for _, d := range a.actions() {
 		for _, md := range d.Data {
+			if d.NeedsPlayable && d.bulk() {
+				if kept, _, ok := onlyPlayable(a.cur.items); ok && len(kept) > 0 {
+					// The data of the items the action acts on.
+					load := md.Load
+					md = MenuData{ID: md.ID + playableSuffix, Load: func(ctx context.Context, _ []Item) any { return load(ctx, kept) }}
+				}
+			}
 			if !seen[md.ID] {
 				seen[md.ID] = true
 				datas = append(datas, md)
@@ -227,9 +234,11 @@ func (a *ActionMenus) menuItems() []MenuItem {
 		})
 	}
 	var avail []*ActionDef
+	scope := map[*ActionDef]*ActionContext{}
 	for _, d := range a.actions() {
-		if d.Available == nil || d.Available(ctx) {
+		if dctx, ok := d.scoped(ctx); ok && (d.Available == nil || d.Available(dctx)) {
 			avail = append(avail, d)
+			scope[d] = dctx
 		}
 	}
 	for i, sec := range Sections(avail) {
@@ -237,6 +246,7 @@ func (a *ActionMenus) menuItems() []MenuItem {
 			out = append(out, MenuItem{Key: "sep:" + string(rune('0'+i)), Kind: MenuSeparator})
 		}
 		for _, d := range sec.Actions {
+			ctx := scope[d]
 			it := MenuItem{Key: d.ID, Label: d.Label(ctx), Icon: d.Icon, Run: func() {
 				if a.Before != nil {
 					a.Before(d)

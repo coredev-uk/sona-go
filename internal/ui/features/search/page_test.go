@@ -8,10 +8,12 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/catalog"
+	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -793,8 +795,10 @@ func TestPageSongGoldens(t *testing.T) {
 			suffix, opts = "_dark", []uitest.Option{uitest.Dark()}
 		}
 		t.Run("best"+suffix, func(t *testing.T) {
-			r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 1132, height: 640,
-				setup: func(a *pageApple) { a.songFirst = true }}, opts...)
+			r := newPageRig(t, "/search?q=blue", rigOpts{
+				signedIn: true, width: 1132, height: 640,
+				setup: func(a *pageApple) { a.songFirst = true },
+			}, opts...)
 			r.tt.Until("the results", r.tt.Shows("Top results", "Song · Blue Band"))
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), "page_song_best"+suffix)
@@ -894,5 +898,35 @@ func TestNothingFoundOffersTheOtherScope(t *testing.T) {
 	r.click("Search Apple Music")
 	if got := r.loc(); got != "/search?q=nothing" {
 		t.Errorf("went to %q", got)
+	}
+}
+
+// The songs of a pre-added album that are not out are "Track N" by "unknown"
+// in the library until Apple publishes them: the library search does not find
+// them, by name, by artist or by their album, and finds them once they are
+// out and the sync has stored what they really are.
+func TestLibrarySearchLeavesOutAPreAddedAlbumsPlaceholders(t *testing.T) {
+	soon := fixture.PreAdded{Name: "Soon", Artist: "Mia Vale", Out: "2026-01-10", Songs: []string{"Out Already", "", ""}}
+	r := newPageRig(t, "/search?q=soon&scope=library", rigOpts{}, uitest.ServicesOnClock(),
+		uitest.Seeded(func(ctx context.Context, d *db.DB) error { return fixture.PreAdd(ctx, d, soon) }))
+	r.tt.Until("the album's results", r.tt.Shows("Out Already", "Soon"))
+	for _, w := range []string{"Track 2", "Track 3", "unknown"} {
+		if r.tt.HasText(w) {
+			t.Errorf("the search shows %q, a placeholder of a song not out", w)
+		}
+	}
+	for _, term := range []string{"track", "unknown"} {
+		r.router.Push("/search?q=" + term + "&scope=library")
+		r.tt.Until("nothing found", r.tt.Shows("Nothing in your library for “"+term+"”"))
+	}
+
+	r.h.Clock.Advance(10 * 24 * time.Hour)
+	if err := fixture.PublishPreAdded(t.Context(), r.h.DB, "Mia Vale", "2026-01-10", map[int]string{2: "Glass Houses", 3: "Evening Bus"}); err != nil {
+		t.Fatal(err)
+	}
+	r.router.Push("/search?q=glass&scope=library")
+	r.tt.Until("the song that came out", r.tt.Shows("Glass Houses"))
+	if r.tt.HasText("unknown") {
+		t.Errorf("a placeholder artist shows: %q", r.tt.Texts())
 	}
 }

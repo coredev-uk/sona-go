@@ -61,6 +61,8 @@ type options struct {
 	auth      []func(*auth.Config)
 	equalizer bool
 	platform  []func(*services.Platform)
+	seeded    []func(context.Context, *db.DB) error
+	clocked   bool
 }
 
 // Albums seeds the library with these albums instead of the fixture's
@@ -68,6 +70,19 @@ type options struct {
 func Albums(a ...fixture.Album) Option {
 	return func(o *options) { o.albums, o.playlists = a, nil }
 }
+
+// Seeded changes the seeded library: f runs on its database once the fixture
+// is in (Empty skips both), for what the fixture has no albums for (a
+// pre-added album, fixture.PreAdd).
+func Seeded(f func(context.Context, *db.DB) error) Option {
+	return func(o *options) { o.seeded = append(o.seeded, f) }
+}
+
+// ServicesOnClock gives the services the harness's Clock for their time
+// (Deps.Now) as well, so a test moves what they see with Clock.Advance: the
+// release of an album, say. Otherwise they keep the machine's time. The
+// fixture's albums are all out at the Clock's Epoch.
+func ServicesOnClock() Option { return func(o *options) { o.clocked = true } }
 
 // Empty leaves the library empty: a signed-out library with nothing to show.
 func Empty() Option { return func(o *options) { o.seed = false } }
@@ -253,6 +268,11 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 		if err := fixture.Seed(ctx, d, o.albums, o.playlists); err != nil {
 			t.Fatal(err)
 		}
+		for _, f := range o.seeded {
+			if err := f(ctx, d); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	art, err := artwork.New(artwork.Options{Dir: filepath.Join(h.Dir, "art"), CoverDir: filepath.Join(h.Dir, "covers"), HTTP: h.Network.Client()})
 	if err != nil {
@@ -319,7 +339,12 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	for _, f := range o.platform {
 		f(&plat)
 	}
+	var now func() time.Time // nil: the machine's
+	if o.clocked {
+		now = h.Clock.Now
+	}
 	core := services.New(services.Deps{
+		Now:      now,
 		Paths:    config.Paths{Config: h.Dir, Data: h.Dir, Cache: h.Dir, Art: h.Dir, State: h.Dir},
 		Settings: settings, DB: d, Auth: authm, API: api, Catalog: cat, Storefront: appleStorefront(o.apple != nil), Library: ilib.New(d, nil), Syncer: ilib.NewSyncer(d, nil, nil, 0), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),

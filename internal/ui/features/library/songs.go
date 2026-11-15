@@ -68,10 +68,10 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 				PlayLabel: i18n.T("Play your songs"), Shuffle: true, Disabled: list.Total == 0,
 			})
 			if play {
-				l.playSongsFrom(q, 0, false)
+				l.playSongsFrom(q, list.At, 0, false)
 			}
 			if shuffle {
-				l.playSongsFrom(q, randomPlayable(list.Loaded()), true)
+				l.playSongsFrom(q, list.At, randomPlayable(list.Loaded()), true)
 			}
 		}})
 		if l.gate(c, gateOpts{
@@ -100,19 +100,26 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 		l.songTable(c, &pg.list, pane, list, songTableOpts{
 			label:  i18n.T("Songs in your library"),
 			sort:   sortState,
-			onPlay: func(i int) { l.playSongsFrom(q, i, false) },
+			onPlay: func(i int) { l.playSongsFrom(q, list.At, i, false) },
 		})
 	})
 }
 
 // playSongsFrom replaces the queue with the library in q's order, starting
-// at index start; shuffle turns shuffle on first.
-func (l *library) playSongsFrom(q listQuery, start int, shuffle bool) {
+// at index start of the page shown (at reads it); shuffle turns shuffle on
+// first. The song's ID goes with the index: the list can have changed since
+// the page was read (a release day lists songs), and the service starts the
+// song, not the position.
+func (l *library) playSongsFrom(q listQuery, at func(int) *services.Song, start int, shuffle bool) {
+	id := ""
+	if s := at(start); s != nil {
+		id = s.ID
+	}
 	l.env.Queue.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
 		if shuffle {
 			l.play.SetShuffle(true)
 		}
-		return l.play.PlayLibrary(ctx, q.sort, q.desc, start)
+		return l.play.PlayLibrary(ctx, q.sort, q.desc, start, id)
 	}, nil)
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
+	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
@@ -127,7 +128,7 @@ func TestRestrictedAccountSkipsExplicitSongs(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = coord.Close() })
-	e := &Env{Deps: Deps{Settings: settings, DB: d, Auth: authm, Coord: coord, Gate: NewGate(time.Hour, nil), Emit: &recorder{}, Logger: discard()}}
+	e := &Env{Deps: Deps{Settings: settings, DB: d, Library: library.New(d, nil), Auth: authm, Coord: coord, Gate: NewGate(time.Hour, nil), Emit: &recorder{}, Logger: discard()}}
 	s := newPlaybackService(e)
 	t.Cleanup(e.close)
 

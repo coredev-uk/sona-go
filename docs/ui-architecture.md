@@ -610,7 +610,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 **ActionRegistry** and `ActionDef` share action IDs across menus, shortcuts and the palette (`player.play-next`, `library.favorite.song`…).
 
 - One `ActionDef` is a single action (`Target` a kind: song, album, playlist, artist, station, music-video) or a bulk one (`Target: KindSelection`, `Kinds`).
-- Its fields: `Label`, `Icon`, `Filled`, `Group` (queue, item, rating), `Order`, `Available`, `Enabled`, `DisabledReason`, `Data` (`MenuData`, loaded once per ID when the menu opens, off the main thread) and `Run`.
+- Its fields: `Label`, `Icon`, `Filled`, `Group` (queue, item, rating), `Order`, `Available`, `NeedsPlayable` (not listed for a song that cannot be played, a song of an album not out yet; a bulk action is listed while one selected item can take it and acts on those, its menu data loaded for them), `Enabled`, `DisabledReason`, `Data` (`MenuData`, loaded once per ID when the menu opens, off the main thread) and `Run`.
 - `ActionContext` carries the items, the data, `Container` and `Navigate`.
 - Modules list them in `Module.Actions`; the shell registers them into `Env.Actions` (a duplicate ID panics). `DescribeItems`, `Sections` and `TracksOf` follow the reference.
 
@@ -703,7 +703,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 - an artwork cache whose HTTP serves generated covers (`fixture.CDN`);
 - a Poster that queues what goroutines post until the test drains it (`Harness.Main`), and a fake clock (`Harness.Clock`).
 
-Options: `Albums(...)` for a library of your own, `Empty()`, `Bare()` (no services: the bus, the playback mirror and the artwork loader only), `Dark()`. `Env` sets `MYGO_GPU=0` (the CPU renderer), English and the light theme, and restores the theme afterwards.
+Options: `Albums(...)` for a library of your own, `Seeded(f)` (change the seeded database: `fixture.PreAdd` stores a pre-added album with its placeholder songs), `ServicesOnClock()` (the services read the harness `Clock`, so `Clock.Advance` moves a release), `Empty()`, `Bare()` (no services: the bus, the playback mirror and the artwork loader only), `Dark()`. `Env` sets `MYGO_GPU=0` (the CPU renderer), English and the light theme, and restores the theme afterwards.
 
 `h.Tester(t, view, w, h)` (or `uitest.Tester(t, env, view, w, h)`) is a `ui.Tester` plus:
 

@@ -119,11 +119,19 @@ func TestGTAAlbumFixturePlaysTheSongsOut(t *testing.T) {
 // the catalog's playParams and dates, so the single without a date plays, and
 // the page the library shows agrees with the song list.
 func TestGTAAlbumPreAddedSongsFollowThemselves(t *testing.T) {
+	d := preAddedStore(t) // the pre-added album, out on 2026-11-20
 	now := localDay(t, "2026-11-14")
+	lib := library.New(d, nil)
+	lib.SetClock(func() time.Time { return now })
 	m := mapper{now: func() time.Time { return now }}
-	ahead := library.ReleaseState{CatalogDate: "2026-11-20", Prerelease: true}
-	flower := library.Song{LibraryID: "i.flower", CatalogID: "6812477273", Name: "Flower In A Hurricane", Album: ahead}
-	track1 := library.Song{LibraryID: "i.1", Name: "Track 1", NoPlayParams: true, Album: ahead}
+	flower, err := lib.Song(t.Context(), "i.single") // playParams, no date
+	if err != nil {
+		t.Fatal(err)
+	}
+	track1, err := lib.Song(t.Context(), "i.later") // no playParams, no date
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !m.libSong(flower).Playable {
 		t.Fatal("Flower In A Hurricane (playParams, no date) is not playable in the library")
 	}

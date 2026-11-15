@@ -723,13 +723,18 @@ The code is in `internal/library`.
   - On sign-in.
   - After an add to the library made in Sona (only the domains it touches; favouriting a song adds it).
   - On "Sync now".
-  - Nothing syncs on a timer while Sona stays open.
+  - Shortly after the release of an album in the library (below).
+  - Nothing else syncs on a timer while Sona stays open.
 
 ### Pre-added (unreleased) albums
 
 - The albums walk asks the web host (`amp-api`, `platform=web`) for the included catalogue album's `isSingle,releaseDate,isPrerelease`. It stores `albums.is_prerelease` and `albums.catalog_release_date`.
 - A song stores `tracks.no_play_params`, because Apple gives a song not out no `playParams`.
-- The incremental run also asks again, by ID, for the albums still ahead and their songs without `playParams` (`UpcomingLibraryAlbums`). The newest-first walk stops at the first row it has, so this is how the flag clears once the album is out.
+- The incremental run also asks again, by ID, for the albums still ahead (`UpcomingLibraryAlbums`) and for every song without `playParams` (`UnplayableLibrarySongs`), whatever its album says: the album's flag can clear, or its date pass, before the songs are published, and neither may keep the songs from being asked for. The newest-first walk stops at the first row it has, so this is how the flag clears once the album is out.
+- **One rule says what is out, in SQL.** A song is out by its own date, else by its `playParams`, else by its album's release state (the catalogue album's date when the library album has none or the catalogue's is still ahead; `isPrerelease` only without a full date). It is written once, in `internal/library/release.go` (`songNotOut`), and is the last column of every song read (`trackColumns`, `Song.Unreleased`): the album page's `Playable` flag (`libSong`) and what `PlaybackService` refuses (`storedReleased`, through `Library.Song`) ask the library; nothing else decides. The lists take it as a condition (`songOut`): `Songs`, `SongCount`, `Artist`, `ArtistIndex`, `FavoriteSongs` and `Search`, so paging, totals, the letter rail and the "Play all" queue (`AllSongs`) leave a placeholder out from the day it is out of the rule until the sync has replaced it; `Album` and `Song` return every song with its flag. The search index (`search_fts`) still holds the placeholder; the search filters it when it runs, because the release comes without a sync. Only a track in the catalogue cache (no library album) is held to its own date and its catalogue album's in Go (`storedReleased`); the album-level countdown (`libraryRelease`) is the same rule for an album's own date, and `TestUndatedPlaceholderSongFollowsItsAlbumsCountdown` holds a song to its album's answer.
+- **Time is a date.** Release dates are local midnight of a `YYYY-MM-DD`, so the SQL gets today's date in the computer's zone (`Library.today`, parameter `?1`; `Library.SetClock`, which `services.New` gives `Deps.Now`) and compares strings: a full date is ahead exactly while it is later than today. A date that is not a full one (a year alone) is never ahead by itself; the album's `isPrerelease` decides. The condition must come before any plain `?` in a statement.
+- **Release-time sync.** `LibraryService.armReleaseSync` sets a timer for the next release of a library album (`UpcomingLibraryAlbums`): it syncs the albums and songs domains a minute after the day starts, and again about every 30 minutes for up to 48 hours while Apple still flags an album that is out, so the placeholders become the real songs without a manual sync. The timer waits at most 15 minutes and reads the wall clock when it fires (a Go timer does not count the time the computer sleeps), so a release slept through syncs at the first check after wake-up. A sync that ends re-arms it; start-up arms it and sign-out and close stop it. Until the sync has run, a song whose album's day has come is listed with Apple's placeholder name and no artist.
+- **No "unknown" artist.** A song with no `playParams` credited to `"unknown"` is mapped with no artist (`services.credit`); a song that plays keeps whatever it is credited to.
 - The shapes: `docs/apple-music-reference.md` §3.1.
 
 ### How stale a delete made elsewhere can be
@@ -737,7 +742,7 @@ The code is in `internal/library`.
 - **A playlist** leaves at the next sync: the incremental run reads the whole playlist list and removes what it no longer lists.
 - **An album or song** does too, as long as the removal shows in the counts. The incremental run takes the new items first, so a removal leaves the local count above Apple's and the domain runs fully in the same sync.
 - **A removal the counts don't show** waits for the next full run (the first sync more than 72 hours after the last full one, or "Sync now"). That covers an artist, which is only counted, and an album or song offset by an add the newest-first walk stops before.
-- **So** Recently added, Albums, Songs and Playlists are as old as the last sync: at most 6 hours old after launch, with no bound while the app stays open. Apple has no change feed to follow, and "Sync now" refreshes everything on demand. A periodic sync while open would bound it and is not done yet.
+- **So** Recently added, Albums, Songs and Playlists are as old as the last sync: at most 6 hours old after launch, with no bound while the app stays open (an album's release aside: the library syncs for it). Apple has no change feed to follow, and "Sync now" refreshes everything on demand. A periodic sync while open would bound it and is not done yet.
 - **A delete made in Sona** leaves at once (`Library.DropPlaylist`, `Library.Remove`, and the UI's invalidations).
 
 ### Albums and songs

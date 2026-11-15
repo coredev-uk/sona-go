@@ -475,12 +475,14 @@ func (s *Syncer) refreshUpcomingAlbums(ctx context.Context, skip []applemusic.Al
 	return fresh, changed, nil
 }
 
-// refreshUpcomingSongs is refreshUpcomingAlbums for the songs of those
-// albums that Apple gave no playParams yet: a song comes out before its
-// album, and the song walk stops at the first song it has too. It returns
-// the songs for storing and how many gained playParams.
+// refreshUpcomingSongs is refreshUpcomingAlbums for the songs Apple gave no
+// playParams yet, whatever their album says (a song comes out before its
+// album, an album's flag can clear first, and the song walk stops at the first
+// song it has too). A song of an album long out with none costs a lookup each
+// sync, once, in a batch. It returns the songs for storing and how many gained
+// playParams.
 func (s *Syncer) refreshUpcomingSongs(ctx context.Context, skip []applemusic.Song) (fresh []applemusic.Song, changed int, err error) {
-	rows, err := s.db.RQ.UnplayableUpcomingLibrarySongs(ctx, s.now().Format(time.DateOnly))
+	rows, err := s.db.RQ.UnplayableLibrarySongs(ctx)
 	if err != nil {
 		return nil, 0, err
 	}

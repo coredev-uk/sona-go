@@ -199,7 +199,8 @@ func TestLargeLibraryListsFast(t *testing.T) {
 	check("counts", func() (int, error) {
 		c, err := lib.Counts(ctx)
 		return c.Songs, err
-	}, 12000, 1, 4) // a row per kind
+	}, 12000, 2, 5) // the songs out, then a row per kind
+	check("playlist count", func() (int, error) { return lib.PlaylistCount(ctx) }, 0, 1, 1)
 	check("search prefix", func() (int, error) {
 		r, err := lib.Search(ctx, "son 1199", 50)
 		return len(r), err
@@ -566,7 +567,14 @@ func TestAlbumTracksListSongsWithNoDiscLast(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	rows, err := e.db.RQ.LibraryAlbumTracks(ctx, db.NullString("l.1"))
+	ref, err := e.db.Q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{LibraryID: db.NullString("l.1"), Name: "Album", UpdatedAt: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.db.Q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "album", Ref: ref, Generation: 1}); err != nil {
+		t.Fatal(err)
+	}
+	_, rows, err := e.lib.Album(ctx, "l.1")
 	if err != nil {
 		t.Fatal(err)
 	}

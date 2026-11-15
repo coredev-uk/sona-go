@@ -13,6 +13,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
 // actLib is a LibraryService for the item actions: it answers states from a
@@ -841,10 +842,12 @@ func TestRowMenuOfASongOffersFavouriteAndRunsIt(t *testing.T) {
 
 func rowMenuOfASongOffersFavouriteAndRunsIt(t *testing.T) {
 	f := &actLib{}
+	// A bubble's clock starts in 2000, before the fixture's songs are out: the
+	// services follow the harness's clock instead.
 	r := newSongsRig(t, songsPath, func(l *library) {
 		f.libraryAPI = l.lib
 		l.lib = f
-	})
+	}, uitest.Albums(sevenAlbums...), uitest.ServicesOnClock())
 	r.tt.Until("the songs", r.tt.Shows("Apple Orchard song 1"))
 	if err := r.tt.RightClick("Apple Orchard song 1"); err != nil {
 		t.Fatal(err)

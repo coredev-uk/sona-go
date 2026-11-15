@@ -152,24 +152,6 @@ func prefix(s string, n int) string {
 	return s[:n]
 }
 
-// withoutPlaceholderCredits: an album not out yet lists songs Apple hasn't
-// published as placeholders ("Track 3", no duration) credited to an artist it
-// doesn't know yet. Their credit is dropped so the rows don't repeat Apple's
-// stand-in name. The songs are copied; the input is never changed.
-func withoutPlaceholderCredits(songs []services.Song, upcoming bool) []services.Song {
-	if !upcoming {
-		return songs
-	}
-	out := make([]services.Song, len(songs))
-	copy(out, songs)
-	for i := range out {
-		if !out[i].Playable && out[i].DurationMs == 0 {
-			out[i].Artist = ""
-		}
-	}
-	return out
-}
-
 // share is how much of a record a library album holds.
 type share struct{ have, total int }
 

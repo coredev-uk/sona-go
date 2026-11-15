@@ -9,11 +9,14 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
 
 // songsRecorder passes through to the real LibraryService and notes the
@@ -400,4 +403,32 @@ func TestSongsFollowASync(t *testing.T) {
 	s.total.Store(4)
 	r.h.Env.Bus.Emit(services.EventSyncProgress, services.SyncProgress{Domain: "songs", Done: 4, Total: 4, Finished: true})
 	r.tt.Until("four songs", r.tt.Shows("4 songs"))
+}
+
+// An album pre-added before its release has its unreleased songs stored as
+// placeholders ("Track 3" by "unknown"): they are not songs yet, so the list,
+// its count and the letters leave them out. Once the album is out and the
+// sync has stored the real songs, they are listed with no manual sync.
+func TestSongsLeaveOutAPreAddedAlbumsPlaceholdersUntilItsRelease(t *testing.T) {
+	soon := fixture.PreAdded{Name: "Soon", Artist: "Mia Vale", Out: "2026-01-10", Songs: []string{"Out Already", "", ""}}
+	r := newSongsRig(t, songsPath, nil, uitest.Albums(sevenAlbums...), uitest.ServicesOnClock(),
+		uitest.Seeded(func(ctx context.Context, d *db.DB) error { return fixture.PreAdd(ctx, d, soon) }))
+	// 14 songs of the seven albums and the one of Soon that is out.
+	r.tt.Until("the songs", r.tt.Shows("15 songs", "Out Already"))
+	for _, w := range []string{"Track 1", "Track 2", "Track 3", "unknown"} {
+		if r.tt.HasText(w) {
+			t.Errorf("the list shows %q, a placeholder of a song not out", w)
+		}
+	}
+
+	// The day comes and the sync stores the songs Apple has published.
+	r.h.Clock.Advance(10 * 24 * time.Hour)
+	if err := fixture.PublishPreAdded(t.Context(), r.h.DB, "Mia Vale", "2026-01-10", map[int]string{2: "Glass Houses", 3: "Evening Bus"}); err != nil {
+		t.Fatal(err)
+	}
+	r.h.Env.Bus.Emit(services.EventSyncProgress, services.SyncProgress{Domain: "songs", Done: 17, Total: 17, Finished: true})
+	r.tt.Until("the songs that came out", r.tt.Shows("17 songs", "Glass Houses", "Evening Bus"))
+	if r.tt.HasText("unknown") || r.tt.HasText("Track 2") {
+		t.Errorf("a placeholder is still listed: %q", r.tt.Texts())
+	}
 }
