@@ -148,7 +148,9 @@ flatpak run dev.coredev.Sona --version           # sona <VERSION>
 - **Source tree.** The `dir` source copies the working tree minus `.git`, `.devenv`, `bin` and the like. Flathub would use `type: git` with the release tag and commit instead.
 - **NixOS.** flatpak runs without a system helper; bubblewrap works unprivileged here (user namespaces are on). The shell may carry devenv's `LD_LIBRARY_PATH`, whose newer glibc breaks nixpkgs' flatpak (`version 'GLIBC_2.43' not found`): `build.sh` and `smoke.sh` drop it for flatpak. `flatpak --user install` can print `cp: cannot create regular file …/exports/share/icons/hicolor/index.theme: Permission denied` on a reinstall, because the `index.theme` left by the first install is read-only (mode 444, copied from the Nix store); the build and install succeed, and `chmod u+w` on that file silences it.
 
-**Smoke test** (headless sway, private `HOME` and XDG dirs, `SONA_PRIVATE=1`, no real session touched):
+### Smoke test
+
+Headless sway, private `HOME` and XDG dirs, `SONA_PRIVATE=1`, no real session touched:
 
 ```sh
 devenv shell -- bash build/linux/flatpak/smoke.sh

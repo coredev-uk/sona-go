@@ -64,7 +64,7 @@ needs:
   last, after the archives are uploaded.
 - A prerelease's notes (and its manifests' notes) are `go run ./cmd/rcnotes
   -exclude <tag>`: the changes since the previous `v*` tag, by Conventional
-  Commit type (`docs/maintainers/release.md`, "Prerelease notes").
+  Commit type (`docs/maintainers/release.md`, "Releasing": the Prerelease notes item).
 - Tests run against an `httptest` fake release server (`internal/update`,
   `internal/services/updates_self_test.go`): the check, a bad signature
   refused, no key (off), a development build never checking, the rollback

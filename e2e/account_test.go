@@ -15,8 +15,8 @@ import (
 // signed-out fixture profile: the avatar's menu offers Sign in, which opens
 // the account dialog with the native sign-in form and its fallbacks; Escape
 // closes it. (Signing in itself needs Apple's endpoints: the probe build has
-// no seam for fake ones, see docs/ui-architecture.md, "Account and
-// sign-in". The same flow runs against fakes in internal/ui/account.)
+// no seam for fake ones, see docs/ui-architecture.md, "Account and sign-in
+// (`internal/ui/account`, `features/auth`)". The same flow runs against fakes in internal/ui/account.)
 func TestAccount(t *testing.T) {
 	a := startApp(t)
 	c := a.client

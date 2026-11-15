@@ -26,7 +26,7 @@ How Sona builds and runs on Linux, macOS and Windows: the platform seams, build 
 
 ## Platform support
 
-Linux is the full platform. macOS and Windows build and run the UI, with every OS-specific part behind a seam that reports itself unsupported where it isn't implemented. Both also play through the CDM host.
+Sona ships on Linux, macOS and Windows, and all three play through the CDM host. Every OS-specific part sits behind a seam that reports itself unsupported where a platform lacks it, and the UI hides or explains that control.
 
 **Windows** takes:
 

@@ -550,7 +550,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 - The tile says it is hot (hovered or focused; `Focus` marks focus only). The video opens after a 400 ms dwell and goes when the tile cools; nothing is built at rest.
 - One tile plays at a time: a hovered tile takes over from a focused one, an owner that failed or is no longer built is gone, and waiting tiles are woken by the owner's release (nothing polls).
 - It opens at the tile's own size for the scale of `MotionOptions.Art` (`motionPx(size, scale)`, as a cover's), so the rendition is never narrower than the tile draws.
-- Both draw the video in the still's own box (same size, `Fit(Cover)`, radius and edge), so the motion sits exactly where the still sits. Neither letterboxes, tints nor frames it (Apple's Album Motion Guidelines: `docs/apple-music-reference.md`, "Motion artwork").
+- Both draw the video in the still's own box (same size, `Fit(Cover)`, radius and edge), so the motion sits exactly where the still sits. Neither letterboxes, tints nor frames it (Apple's Album Motion Guidelines: `docs/apple-music-reference.md` §4.1, "Motion artwork").
 
 ### Artists of a song
 
@@ -558,7 +558,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 **Data**
 
-- Apple's artists relationship, in Apple's order, as `Artist{ID, Name}` (catalogue artists; `docs/apple-music-reference.md`, "Several artists"). `ArtistID` stays the first, for code that needs one.
+- Apple's artists relationship, in Apple's order, as `Artist{ID, Name}` (catalogue artists; `docs/apple-music-reference.md` §4.4, "Several artists"). `ArtistID` stays the first, for code that needs one.
 - The catalogue mappers fill `Artists` only when the artists came named (`include=artists`). Every list and page request has it, and `Client.Song` and the batched `Client.Songs` send it. The catalogue cache keys a song as `song-artists`, so a copy cached without names is not read back.
 - A "feat." artist is in the title, not the relationship, so it is not offered. A compilation under "Various Artists" has no artist, so its credit is text.
 - A queue slot fetched from the catalogue (`PlayItems` of a chart or search, a station's batch, a music video) carries `Artists` from the response.
@@ -1572,7 +1572,7 @@ Registered after video and before radio and the player. It owns:
 - *Change cover…* in the item menu of any library playlist (`playlists.cover`), and *Cover* beside *Name and description* in edit mode.
 - A radio group of option tiles from `PlaylistsService.CoverOptions`: Automatic, None, Your image, and Apple Music's nine designs of the playlist's generated cover when Apple generates one (else a line saying why there are none). Four columns, `GridNav` with arrow keys, scrolling in a short window. Applied at once through `SetCover`.
 - *Choose an image…* runs `UploadCover` (the file chooser lives in the service, `Platform.Files`). A failure stays beside the button as a status.
-- The covers are Sona's own (`docs/apple-music-reference.md`, "Playlist artwork") and the dialog says so.
+- The covers are Sona's own (`docs/apple-music-reference.md` §5.8, "Playlist artwork") and the dialog says so.
 
 #### Page
 
