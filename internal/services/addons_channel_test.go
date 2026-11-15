@@ -19,7 +19,7 @@ import (
 // reaches the add-on's permissions nor takes the place of the real one.
 func TestAddonHelloOverTheCommandTransportIsRefused(t *testing.T) {
 	a := newAddonEnv(t)
-	dir := a.install(t, "demo", manifestJSON("demo", "playback.read", "playback.control"), hello("demo", "playback.read")+"cat <&0 > in.log &\nwait\n")
+	dir := a.install(t, "demo", manifestJSON("demo", "playback.read", "playback.control"), hello("demo", "playback.read")+"exec 3<&0\ncat <&3 > in.log &\nwait\n")
 	if err := a.svc.Enable("demo", []string{"playback.read", "playback.control"}); err != nil {
 		t.Fatal(err)
 	}

@@ -181,7 +181,8 @@ func TestAddonsEnableNeedsTheApprovedPermissions(t *testing.T) {
 func TestAddonsRunServeAndRevoke(t *testing.T) {
 	a := newAddonEnv(t)
 	dir := a.install(t, "demo", manifestJSON("demo", "playback.read"), hello("demo", "playback.read")+`
-cat <&0 > in.log &
+exec 3<&0
+cat <&3 > in.log &
 n=1
 while :; do
   n=$((n+1))
@@ -380,7 +381,8 @@ func TestAddonsQuitStopsAddonsAndTheirChildren(t *testing.T) {
 trap '' TERM
 sleep 300 &
 echo $! > child.pid
-cat <&0 > in.log &
+exec 3<&0
+cat <&3 > in.log &
 wait
 `)
 	if err := a.svc.Enable("stubborn", nil); err != nil {
@@ -403,7 +405,7 @@ wait
 	if b, _ := os.ReadFile(filepath.Join(dir, "in.log")); !strings.Contains(string(b), `"event":"shutdown"`) {
 		t.Errorf("the add-on was not told to shut down: %q", b)
 	}
-	waitUntil(t, "the child to die", func() bool { return syscall.Kill(child, 0) != nil })
+	waitUntil(t, "the child to die", func() bool { return processGone(child) })
 	// After quit nothing starts again.
 	a.svc.start()
 	if _, err := a.svc.Invoke(t.Context(), "stubborn", "addon.stubborn.x", nil); CodeOf(err) != CodeAddonUnavailable {
@@ -473,4 +475,16 @@ func TestAddonsStartWhenTheNetworkOpens(t *testing.T) {
 	}
 	a.e.Gate.Open()
 	a.waitState(t, "late", AddonRunning)
+}
+
+// processGone reports that pid is not running: it doesn't exist, or on Linux
+// it is a zombie (a container without an init process doesn't reap orphans,
+// and a dead process that nobody waited for still answers signal 0).
+func processGone(pid int) bool {
+	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)); err == nil {
+		if i := strings.LastIndexByte(string(b), ')'); i > 0 && i+2 < len(b) && b[i+2] == 'Z' {
+			return true
+		}
+	}
+	return syscall.Kill(pid, 0) != nil
 }

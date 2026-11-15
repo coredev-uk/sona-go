@@ -5,6 +5,7 @@ package addons
 import (
 	"bufio"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -35,7 +36,16 @@ func startScript(t *testing.T, body string, env []string) (*Proc, string) {
 	return p, dir
 }
 
-func alive(pid int) bool { return syscall.Kill(pid, 0) == nil }
+// alive reports whether pid runs: not gone, and not a zombie that nobody
+// reaped (a container without an init process leaves orphans as zombies).
+func alive(pid int) bool {
+	if b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat"); err == nil {
+		if i := strings.LastIndexByte(string(b), ')'); i > 0 && i+2 < len(b) && b[i+2] == 'Z' {
+			return false
+		}
+	}
+	return syscall.Kill(pid, 0) == nil
+}
 
 func waitFor(t *testing.T, what string, ok func() bool) {
 	t.Helper()
@@ -144,44 +154,50 @@ func TestStopLetsAnAddonLeaveOnEndOfInput(t *testing.T) {
 	}
 }
 
-// Linux: the kernel kills the add-on when Sona's thread dies, covering a
-// crash. The locked thread's end stands in for it here.
+// The kernel ends the add-on when Sona dies without quitting (Linux's
+// parent-death signal). A helper process, this test binary run again, starts
+// an add-on as the supervisor does and is then killed outright: the add-on dies
+// with it.
 func TestLinuxParentDeathKillsTheAddon(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("parent-death signals are Linux's")
 	}
 	dir, exe := writeScript(t, "echo $$ > pid.out\nsleep 300\n")
-	started, release := make(chan *Proc, 1), make(chan struct{})
-	go func() {
-		runtime.LockOSThread() // and never unlock: the thread ends with the goroutine
-		p, err := Start(Spec{Exe: exe, Dir: dir, Env: Environment(os.Environ(), "demo")})
-		if err != nil {
-			t.Error(err)
-			close(started)
-			return
-		}
-		started <- p
-		<-release
-	}()
-	p := <-started
-	if p == nil {
+	helper := exec.Command(os.Args[0], "-test.run=^TestAddonSupervisorHelper$")
+	helper.Env = append(os.Environ(), "SONA_ADDON_TEST_HELPER="+dir+"|"+exe)
+	if err := helper.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = helper.Process.Kill(); _ = helper.Wait() })
+	var pid int
+	waitFor(t, "the add-on's pid", func() bool {
+		b, err := os.ReadFile(filepath.Join(dir, "pid.out"))
+		n, perr := strconv.Atoi(strings.TrimSpace(string(b)))
+		pid = n
+		return err == nil && perr == nil
+	})
+	if !alive(pid) {
+		t.Fatal("the add-on isn't running")
+	}
+	if err := helper.Process.Kill(); err != nil { // a crash: no chance to clean up
+		t.Fatal(err)
+	}
+	_ = helper.Wait()
+	waitFor(t, "the add-on to die with its supervisor", func() bool { return !alive(pid) })
+}
+
+// TestAddonSupervisorHelper is the helper process of the test above: it
+// starts an add-on on a locked thread, as the supervisor does, and waits to
+// be killed. Run on its own it does nothing.
+func TestAddonSupervisorHelper(t *testing.T) {
+	spec := os.Getenv("SONA_ADDON_TEST_HELPER")
+	if spec == "" {
 		return
 	}
-	waitFor(t, "the add-on's pid", func() bool { _, err := os.Stat(filepath.Join(dir, "pid.out")); return err == nil })
-	if alive := func() bool {
-		select {
-		case <-p.Done():
-			return false
-		default:
-			return true
-		}
-	}(); !alive {
-		t.Fatal("the add-on ended while its thread lived")
+	runtime.LockOSThread()
+	dir, exe, _ := strings.Cut(spec, "|")
+	if _, err := Start(Spec{Exe: exe, Dir: dir, Env: Environment(os.Environ(), "demo")}); err != nil {
+		t.Fatal(err)
 	}
-	close(release) // the goroutine ends, and its locked thread with it
-	select {
-	case <-p.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("the add-on outlived the thread that started it")
-	}
+	select {}
 }
