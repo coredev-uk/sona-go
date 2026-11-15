@@ -51,7 +51,7 @@ Merging a release:
    "Pull requests"). If a push changed nothing in
    the PR and the checks are missing (the release PR opened before the App
    token was in use), close and reopen it to start them.
-3. Merge it through Clarence (`@bot-clarence merge`, AGENTS.md) with its title
+3. Merge it through Clarence (`@bot-clarence merge`, `docs/maintainers/clarence.md`) with its title
    unchanged: release-please finds it by the title and the
    `autorelease: pending` label.
 4. The Release Please run for that merge tags `vX.Y.Z` on the merge commit,

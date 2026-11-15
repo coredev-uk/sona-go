@@ -1,7 +1,7 @@
 # devenv 2.4 or newer (`devenv version`); an older CLI refuses this project.
 require_version: ">=2.4.0"
 inputs:
-  # Pinned nixos-unstable revision (2026-10-27): Go, Node, GTK4, WebKitGTK and
+  # Pinned nixos-unstable revision (2026-10-27): Go, GTK3, the GL libraries and
   # GStreamer change only when this line does. To bump it, take the current
   # nixos-unstable head (`git ls-remote https://github.com/NixOS/nixpkgs
   # refs/heads/nixos-unstable`), put that revision here, run `devenv update`,

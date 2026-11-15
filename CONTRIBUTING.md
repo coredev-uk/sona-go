@@ -138,6 +138,30 @@ on NixOS would link against `/nix/store`, so release packages come from `release
 The macOS and Windows release builds are `build/darwin/bundle.sh` and
 `build/windows/package.sh`, run by `release.yml` (see "Releases").
 
+### Live playback and the session bus
+
+Run live audio against your own PipeWire null sink, never the default sink or
+the microphone. Create it with `pw-cli create-node adapter '{
+factory.name=support.null-audio-sink node.name=<name> media.class=Audio/Sink
+object.linger=true audio.position=[FL FR] }'`, and target it with
+`pipewiresink target-object` (`-device` in playspike; `PIPEWIRE_NODE` pins a
+stream and breaks device-move tests). Record from its monitor with `pw-record
+--target <name> -P '{ stream.capture.sink=true }' out.wav`: without
+`stream.capture.sink`, `pw-record` falls back to the default source, which is
+the microphone. Check the links with `pw-link -l`. Destroy only the nodes you
+created; if WirePlumber stops linking streams, ask before restarting it.
+
+Only one Sona may own the real session bus (the single-instance lock and the
+MPRIS name). Keep real-session runs short and quit the app yourself. Every
+other run uses `dbus-run-session` and private XDG directories, never the real
+`~/.config/sona` or `~/.local/share/sona` (copy data into the private
+directories when you need it). Worktrees running at once must not share
+runtime state: private XDG dirs, and a separately named null sink. Two dev
+builds on one session bus also need `SONA_DEV_INSTANCE=<name>` (dev builds
+only): it suffixes the single-instance and MPRIS D-Bus names and the
+dev-restore directory, and `sona status` reaches the instance the same
+variable names.
+
 ### Widevine CDM
 
 devenv ships no CDM. The app downloads it itself, with no prompt, once the

@@ -190,7 +190,7 @@ in
     '';
   };
 
-  # .githooks refuse commits and pushes on main (AGENTS.md, "Worktrees and Branches"). The
+  # .githooks refuse commits and pushes on main (AGENTS.md, "Workflow"). The
   # setting lives in the shared git config, so it covers every worktree.
   enterShell = ''
     git config core.hooksPath .githooks

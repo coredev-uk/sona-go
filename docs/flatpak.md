@@ -41,7 +41,7 @@ The `dlopen` checks below were made with a host copy of the same CDM; they apply
 **`dlopen` inside the runtime works.**
 - The CDM needs only `libdl.so.2 libpthread.so.0 libm.so.6 libgcc_s.so.1 libc.so.6 ld-linux-x86-64.so.2`, with symbol versions up to `GLIBC_2.17`. The runtime ships glibc 2.44.
 - Inside the app sandbox the CDM loaded, reported its version, and played a full track.
-- The CDM is never bundled in the Flatpak or patched ([AGENTS.md](../AGENTS.md) DRM rules).
+- The CDM is never bundled in the Flatpak or patched ([AGENTS.md](../AGENTS.md), "Hard rules").
 
 ## CDM host sandbox
 
