@@ -270,17 +270,25 @@ func TestA11ySidebarMoreMenuReturnsTheFocus(t *testing.T) {
 
 // The page of a library playlist: the name is the h1, the controls follow in
 // reading order, the songs are a named table and the suggestions a named list
-// of items; adding a suggestion is announced and keeps the focus in its row.
+// of items (behind a disclosure that starts closed); adding a suggestion is
+// announced and moves the focus to the next row.
 func TestA11yPlaylistPage(t *testing.T) {
 	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
 	r.api.suggestions["p.1"] = []services.Song{
 		pgSong("s1", "Sugg One", "Singer", "Album S"),
 		pgSong("s2", "Sugg Two", "Singer", "Album S"),
 	}
-	r.shows("Suggested songs", "Sugg One")
+	r.shows("Suggested songs", "Show suggestions")
+	if d, ok := access.Read(t, r.tt.Tester).Find(ui.RoleDisclosure, "Show suggestions"); !ok || d.Has(access.Expanded) {
+		t.Errorf("the closed shelf's disclosure: %+v", d)
+	}
+	r.click("Show suggestions")
+	r.shows("Sugg One")
 	_, tr := walk(t, r.tt,
+		// The walk starts after the disclosure just clicked, which is its last stop.
+		"Play Sugg One", "Add Sugg One to Road Trip", "Play Sugg Two", "Add Sugg Two to Road Trip",
 		"Play Road Trip", "Shuffle", "Favourite Road Trip", "Suggest less like Road Trip", "Edit", "More for Road Trip",
-		"Song A", "Play Sugg One", "Add Sugg One to Road Trip", "Play Sugg Two", "Add Sugg Two to Road Trip",
+		"Song A", "Refresh", "Hide suggestions",
 	)
 	if h, ok := tr.Find(ui.RoleHeading, "Road Trip"); !ok || h.Level != 1 {
 		t.Errorf("the name is not the h1: %+v", h)
@@ -305,17 +313,15 @@ func TestA11yPlaylistPage(t *testing.T) {
 		t.Errorf("the suggestions are %d items, want 2", items)
 	}
 
-	// Adding: the button goes, "Added" shows, a screen reader hears it and the
-	// focus stays in the row.
+	// Adding: the row goes, a screen reader hears it and the focus moves to
+	// the next row.
 	r.tt.Drain()
 	r.tt.Announcements()
 	r.click("Add Sugg One to Road Trip")
 	if got := r.tt.Announcements(); !slices.Contains(got, "Added “Sugg One” to “Road Trip”") {
 		t.Errorf("announcements %q", got)
 	}
-	if !r.tt.Focused("Play Sugg One") {
-		t.Error("the focus did not stay in the suggestion's row")
-	}
+	r.tt.Until("the focus on the next row", func() bool { return r.tt.Focused("Play Sugg Two") })
 	r.tt.Until("the edits done", func() bool { return !r.p.edits.editing("p.1") })
 }
 

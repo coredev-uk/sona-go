@@ -48,7 +48,7 @@ func (a *choicesApp) view(c *ui.Context) {
 		row := ui.Row(c.Key("row")).Height(40).Width(480).AlignItems(ui.Center)
 		row.Children(func() {
 			ui.Text(c, a.item.Name()).Grow(1)
-			a.am.Trigger(c, tgt, TriggerOpts{Visible: true})
+			a.am.Trigger(c, row, tgt, TriggerOpts{Visible: true})
 		})
 	})
 	a.am.Popup(c)

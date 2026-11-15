@@ -214,6 +214,7 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 	if shown {
 		panel.Background(theme.C("hover"))
 	}
+	var main ui.Element // the open button, when the panel has one: it takes the right-click
 	panel.Children(func() {
 		body := func() {
 			kit.Artwork(c, s.env.Art, it.Art.Small, bestArt, kit.ArtOpts{Round: kit.ItemRound(it), Edge: true})
@@ -222,6 +223,9 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 					theme.Text(c, it.Name, "title").TextColor(theme.C("ink")).MaxLines(2).Shrink(1).MinWidth(0)
 					if it.Explicit {
 						kit.ExplicitMark(c).Shrink(0)
+					}
+					if it.IsUpload() {
+						kit.UploadedBadge(c.Key("uploaded"))
 					}
 				})
 				if meta := itemMeta(it); meta != "" {
@@ -232,13 +236,13 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 		if run == nil {
 			ui.Row(c.Key("body")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Children(body)
 		} else {
-			main := ui.ButtonBase(c.Key("open")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Radius(tk.Radius["md"]).Role(role)
+			main = ui.ButtonBase(c.Key("open")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Radius(tk.Radius["md"]).Role(role)
 			if role == ui.RoleButton {
 				// Named by its visible text (WCAG 2.5.3), with the action after it.
-				main.Label(it.Name + ", " + i18n.T("Play"))
+				main.Label(accessibleName(it) + ", " + i18n.T("Play"))
 				main.Description(itemMeta(it))
 			} else {
-				main.Label(strings.TrimSpace(it.Name + " " + itemMeta(it)))
+				main.Label(strings.TrimSpace(accessibleName(it) + " " + itemMeta(it)))
 			}
 			main.Children(func() {
 				body()
@@ -248,13 +252,6 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 			})
 			if focus {
 				main.Focus()
-			}
-			if menus != nil && main.RightClicked() {
-				if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
-					x, y, _ := main.PointerPosition()
-					wx, wy := main.LocalToWindow(x, y)
-					menus.OpenAt(kit.ActionTarget{Item: ai, Name: it.Name, Key: key}, wx, wy, false)
-				}
 			}
 			if main.Clicked() {
 				if ctx.OnOpen != nil {
@@ -275,15 +272,12 @@ func (s *search) bestMatch(c *ui.Context, ctx kit.ItemsCtx, it services.Item, fo
 		}
 		if menus != nil {
 			if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
-				menus.Trigger(c, kit.ActionTarget{Item: ai, Name: it.Name, Key: key}, kit.TriggerOpts{Visible: shown})
+				// The open button takes the press, so the panel never sees it: it
+				// wires the menu as well.
+				menus.Trigger(c, panel, kit.ActionTarget{Item: ai, Name: it.Name, Key: key}, kit.TriggerOpts{Visible: shown}, main)
 			}
 		}
 	})
-	if menus != nil {
-		if ai, ok := kit.ActionItemOf(it, s.env.Players); ok {
-			menus.Row(panel, kit.ActionTarget{Item: ai, Name: it.Name, Key: key})
-		}
-	}
 }
 
 // disc is the Play disc drawn into a control that plays as a whole: amber,

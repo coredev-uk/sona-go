@@ -109,7 +109,7 @@ func (s *song) content(c *ui.Context, page services.CatalogSong) {
 	}
 	s.frame(c, sh, wash, func(size float32) {
 		kit.Artwork(c, s.env.Art, sg.Art.Large, size, kit.ArtOpts{Edge: true})
-	}, func() { s.lead(c, page, sh) }, func() { s.body(c, page, sh) })
+	}, func(head ui.Element) { s.lead(c, head, page, sh) }, func() { s.body(c, page, sh) })
 
 	ictx := s.env.ItemsCtx(s.menus)
 	if len(page.Videos) > 0 && s.env.Routed("/music-video/x") {
@@ -210,13 +210,14 @@ func bodyFor(room float32) (cols int, widest float32) {
 // column, with the body beside it; narrower they are a full-width band over
 // the same wash with the body under it. The loading skeleton is built by it
 // too, so nothing moves when the song arrives.
-func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(size float32), lead, body func()) {
+func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(size float32), lead func(head ui.Element), body func()) {
 	if sh.wide {
 		ui.Row(c.Key("liner")).FillWidth().AlignItems(ui.Start).Children(func() {
 			kit.Backdrop(c.Key("spine"), s.env.Art, wash, func() {
-				ui.Column(c).FillWidth().Padding(spineTop, spineGap, 28, sh.gutter).Children(func() {
+				head := ui.Column(c).FillWidth().Padding(spineTop, spineGap, 28, sh.gutter)
+				head.Children(func() {
 					cover(sh.cover)
-					ui.Column(c.Key("lead")).FillWidth().Margin(20, 0, 0, 0).Children(lead)
+					ui.Column(c.Key("lead")).FillWidth().Margin(20, 0, 0, 0).Children(func() { lead(head) })
 				})
 			}).Width(sh.gutter+sh.cover+spineGap).Shrink(0).Margin(-kit.PagePadTop, 0, 0, -sh.gutter)
 			ui.Column(c.Key("body")).Grow(1).Basis(0).MinWidth(0).MaxWidth(sh.bodyMax).Margin(1, 0, 0, splitGap).Children(body)
@@ -224,10 +225,11 @@ func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(
 		return
 	}
 	kit.Backdrop(c.Key("band"), s.env.Art, wash, func() {
-		ui.Column(c).FillWidth().Padding(spineTop, sh.gutter, 28, sh.gutter).Children(func() {
+		head := ui.Column(c).FillWidth().Padding(spineTop, sh.gutter, 28, sh.gutter)
+		head.Children(func() {
 			ui.Row(c.Key("row")).FillWidth().AlignItems(ui.End).Gap(24).Children(func() {
 				cover(coverNarrow)
-				ui.Column(c.Key("lead")).Grow(1).Basis(0).MinWidth(0).Children(lead)
+				ui.Column(c.Key("lead")).Grow(1).Basis(0).MinWidth(0).Children(func() { lead(head) })
 			})
 		})
 	}).AlignSelf(ui.Stretch).Shrink(0).Margin(-kit.PagePadTop, -sh.gutter, 28, -sh.gutter)
@@ -236,7 +238,7 @@ func (s *song) frame(c *ui.Context, sh shape, wash kit.BackdropOpts, cover func(
 
 // lead is the title, the artists, the album, the badges and the actions of
 // the song.
-func (s *song) lead(c *ui.Context, page services.CatalogSong, sh shape) {
+func (s *song) lead(c *ui.Context, head ui.Element, page services.CatalogSong, sh shape) {
 	sg := page.Song
 	tk := theme.Current().Type
 	d := tk["display"]
@@ -260,7 +262,7 @@ func (s *song) lead(c *ui.Context, page services.CatalogSong, sh shape) {
 		s.env.ItemStates.LibraryButton(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name, "")
 		s.env.ItemStates.RatingButtons(c, kit.StateSongs, kit.StateOfSong(sg), sg.Name)
 		if s.menus != nil {
-			s.menus.Trigger(c, kit.ActionTarget{Item: kit.SongItem(sg), Name: sg.Name}, kit.TriggerOpts{Header: true})
+			s.menus.Trigger(c, head, kit.ActionTarget{Item: kit.SongItem(sg), Name: sg.Name}, kit.TriggerOpts{Header: true})
 		}
 	})
 }
@@ -315,7 +317,7 @@ func (s *song) skeleton(c *ui.Context) {
 	ui.Column(c.Key("loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		s.frame(c, sh, kit.BackdropOpts{}, func(size float32) {
 			ui.Box(c).Size(size, size).Radius(4).Background(hover).Shrink(0)
-		}, func() {
+		}, func(ui.Element) {
 			ui.Box(c).Height(36).WidthPercent(60).Radius(6).Background(hover)
 			ui.Box(c).Height(16).WidthPercent(45).Radius(6).Background(hover).Margin(14, 0, 0, 0)
 			ui.Box(c).Height(13).WidthPercent(35).Radius(6).Background(hover).Margin(8, 0, 0, 0)
@@ -431,13 +433,17 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong, first bool)
 func (s *song) creditsShelf(c *ui.Context, groups []services.CreditGroup, cols int, first bool) {
 	tk := theme.Current().Type
 	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Credits"), First: first}, func() {
-		ui.Column(c.Key("groups")).FillWidth().Gap(20).Children(func() {
+		// The names are one selection: drag across people, double-click a
+		// name. The group titles, the roles and the pictures' initials are
+		// muted type or decoration, which the selection colour would not
+		// carry at 4.5:1 (docs/design.md, "Selectable text"): Unselectable.
+		ui.Column(c.Key("groups")).FillWidth().Gap(20).Selectable().Children(func() {
 			for gi, g := range groups {
 				title := creditTitle(g)
 				ui.Column(c.Key(gi)).FillWidth().Role(ui.RoleGroup).Label(title).Children(func() {
 					ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line"))
 					ui.Text(c, title).FontSize(tk["secondary"].Size).FixedLineHeight(tk["secondary"].LineHeight).FontWeight(600).
-						TextColor(theme.C("ink-muted")).Margin(12, 0, 12, 0).Role(ui.RoleHeading).Level(3)
+						TextColor(theme.C("ink-muted")).Margin(12, 0, 12, 0).Role(ui.RoleHeading).Level(3).Unselectable()
 					ui.Column(c.Key("people")).FillWidth().Gap(14).Children(func() {
 						for from := 0; from < len(g.Credits); from += cols {
 							ui.Row(c.Key(from)).FillWidth().AlignItems(ui.Start).Gap(colGap).Children(func() {
@@ -461,11 +467,11 @@ func (s *song) creditsShelf(c *ui.Context, groups []services.CreditGroup, cols i
 func (s *song) person(c *ui.Context, p services.Credit) {
 	tk := theme.Current().Type
 	ui.Row(c).Grow(1).Basis(0).MinWidth(0).Gap(12).AlignItems(ui.Start).Children(func() {
-		kit.PersonAvatar(c, s.env.Art, p.Name, p.Art.Small, avatar).Shrink(0)
+		kit.PersonAvatar(c, s.env.Art, p.Name, p.Art.Small, avatar).Shrink(0).Unselectable()
 		ui.Column(c).Grow(1).MinWidth(0).MinHeight(avatar).Justify(ui.Center).Children(func() {
 			ui.Text(c, p.Name).FontSize(tk["body"].Size).FixedLineHeight(tk["body"].LineHeight).TextColor(theme.C("ink")).SingleLine()
 			ui.Text(c, strings.Join(p.Roles, ", ")).FontSize(tk["secondary"].Size).FixedLineHeight(tk["secondary"].LineHeight).
-				TextColor(theme.C("ink-muted"))
+				TextColor(theme.C("ink-muted")).Unselectable()
 		})
 	})
 }
@@ -475,10 +481,14 @@ func (s *song) person(c *ui.Context, p services.Credit) {
 // reports whether there is a ledger at all.
 func (s *song) ledger(c *ui.Context, page services.CatalogSong) bool {
 	sg := page.Song
-	var rows [][2]string
+	type fact struct {
+		name, value string
+		copy        *kit.CopyOpts // an identifier also has a Copy button
+	}
+	var rows []fact
 	add := func(name, value string) {
 		if value != "" {
-			rows = append(rows, [2]string{name, value})
+			rows = append(rows, fact{name: name, value: value})
 		}
 	}
 	if sg.ReleaseDate != "" {
@@ -495,20 +505,32 @@ func (s *song) ledger(c *ui.Context, page services.CatalogSong) bool {
 		add(i18n.T("Disc"), strconv.Itoa(sg.DiscNumber))
 	}
 	add(i18n.T("Written by"), page.Composer)
-	add(i18n.T("ISRC"), page.ISRC)
+	if page.ISRC != "" {
+		add(i18n.T("ISRC"), page.ISRC)
+		rows[len(rows)-1].copy = &kit.CopyOpts{Label: i18n.T("Copy ISRC"), Done: i18n.T("ISRC copied")}
+	}
 	if len(rows) == 0 {
 		return false
 	}
 	tk := theme.Current().Type["secondary"]
 	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Details"), First: true}, func() {
 		ui.Box(c.Key("rule")).FillWidth().Height(1).Background(theme.C("line")).Margin(0, 0, 12, 0)
-		ui.Column(c.Key("facts")).FillWidth().MaxWidth(ledgerMax).Gap(6).Children(func() {
+		// The values are one selection (a double click takes a word, a triple
+		// click the line, a drag runs across rows); the names are muted type
+		// and stay out of it. The ISRC, which people paste into forms, also
+		// has a Copy button for the keyboard.
+		ui.Column(c.Key("facts")).FillWidth().MaxWidth(ledgerMax).Gap(6).Selectable().Children(func() {
 			for i, r := range rows {
 				ui.Row(c.Key(i)).FillWidth().AlignItems(ui.Start).Gap(16).Children(func() {
-					ui.Text(c.Key("name"), r[0]).FontSize(tk.Size).FixedLineHeight(tk.LineHeight).
-						TextColor(theme.C("ink-muted")).Width(nameColumn).Shrink(0)
-					ui.Text(c.Key("value"), r[1]).FontSize(tk.Size).FixedLineHeight(tk.LineHeight).
-						TextColor(theme.C("ink")).Grow(1).Basis(0).MinWidth(0)
+					ui.Text(c.Key("name"), r.name).FontSize(tk.Size).FixedLineHeight(tk.LineHeight).
+						TextColor(theme.C("ink-muted")).Width(nameColumn).Shrink(0).Unselectable()
+					value := ui.Text(c.Key("value"), r.value).FontSize(tk.Size).FixedLineHeight(tk.LineHeight).
+						TextColor(theme.C("ink")).MinWidth(0)
+					if r.copy == nil {
+						value.Grow(1).Basis(0)
+						return
+					}
+					kit.CopyButton(c.Key("copy"), s.env.Copy, r.value, *r.copy).Margin(-2, 0, -2, -8)
 				})
 			}
 		})

@@ -221,9 +221,11 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 		p.env.PlayerNotice.Build(c) // features/cdm's notice
 	case s.State == "error" && s.Error != "":
 		// The line says what happened, the tooltip why (Go's error code, worded).
-		// It is a status, and said once (TrackAnnouncer.AnnounceFailure).
+		// It is a status, said once as it appears (TrackAnnouncer.AnnounceFailure);
+		// keyed by the item, so another item's failure is a new status and not
+		// a change MyGo reads as well.
 		msg := kit.FailureLine(cur)
-		ui.Row(c).Gap(6).AlignItems(ui.Center).MinWidth(0).Role(ui.RoleStatus).Label(msg).Tooltip(i18n.ErrorText(s.Error)).Children(func() {
+		ui.Row(c.Key("failed:"+cur.ID)).Gap(6).AlignItems(ui.Center).MinWidth(0).Role(ui.RoleStatus).Label(msg).Tooltip(i18n.ErrorText(s.Error)).Children(func() {
 			ui.Icon(c, theme.Icon("circle-alert")).FontSize(14).TextColor(theme.C("danger"))
 			label(c, msg, "sub").TextColor(theme.C("ink"))
 		})

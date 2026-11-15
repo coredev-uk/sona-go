@@ -18,9 +18,12 @@ type headProps struct {
 	line string
 	// lead is the biography's first paragraph, with "Read more" to the
 	// About band.
-	lead    string
-	latest  *services.Album
-	actions func()
+	lead   string
+	latest *services.Album
+	// actions draws the buttons under the biography; text is the column they
+	// sit in, the element the artist menu is wired to. It returns what wires
+	// the portrait to the same menu, or nil.
+	actions func(text ui.Element) (portrait func(ui.Element))
 	// width is the content width (layoutFor).
 	width float32
 }
@@ -119,8 +122,12 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 	// The wash is the header's parent: an absolutely placed child draws over
 	// its siblings, scrim included.
 	e := kit.Backdrop(c.Key("head"), a.env.Art, kit.BackdropOpts{Src: p.header.Backdrop, Color: colour, Tone: kit.ToneGround}, func() {
-		ui.Row(c.Key("row")).FillWidth().AlignItems(ui.Start).Gap(32).Children(func() {
-			ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
+		row := ui.Row(c.Key("row")).FillWidth().AlignItems(ui.Start).Gap(32)
+		var wirePortrait func(ui.Element)
+		var text ui.Element
+		row.Children(func() {
+			text = ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0)
+			text.Children(func() {
 				theme.StyleText(ui.Text(c, art.Name), "display").
 					TextColor(theme.C("ink")).MaxLines(2).Role(ui.RoleHeading).Level(1)
 				ui.Text(c, p.line).FontSize(tk.Type["meta"].Size).FixedLineHeight(tk.Type["meta"].LineHeight).
@@ -144,7 +151,7 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 					})
 				}
 				if p.actions != nil {
-					ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(20, 0, 0, 0).Children(p.actions)
+					ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(20, 0, 0, 0).Children(func() { wirePortrait = p.actions(text) })
 				}
 			})
 			if p.latest != nil && lay.slipBeside {
@@ -153,10 +160,16 @@ func (a *artist) head(c *ui.Context, pg *pageState, p headProps) {
 				})
 			}
 			// The person stays round, at the trailing edge.
-			if p.header.Motion != "" {
-				kit.MotionCover(c, a.env.Motion, a.env.Art, art.Art.Large, p.header.Motion, lay.portrait, kit.MotionOpts{VideoSize: portraitWide, Round: true})
-			} else {
-				kit.Artwork(c, a.env.Art, art.Art.Large, lay.portrait, kit.ArtOpts{Edge: true, Round: true})
+			portrait := ui.Column(c.Key("portrait")).Shrink(0)
+			portrait.Children(func() {
+				if p.header.Motion != "" {
+					kit.MotionCover(c, a.env.Motion, a.env.Art, art.Art.Large, p.header.Motion, lay.portrait, kit.MotionOpts{VideoSize: portraitWide, Round: true})
+				} else {
+					kit.Artwork(c, a.env.Art, art.Art.Large, lay.portrait, kit.ArtOpts{Edge: true, Round: true})
+				}
+			})
+			if wirePortrait != nil {
+				wirePortrait(portrait)
 			}
 		})
 		if p.latest != nil && !lay.slipBeside {

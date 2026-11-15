@@ -61,7 +61,7 @@ func (a *album) cover(c *ui.Context, m *model, size float32) {
 // head is AlbumHead: the title (wrapping as far as it needs, never moving
 // the cover), the artist, the catalogue line, the badges, Apple's one-line
 // note, the album's state, then its actions.
-func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account, withActions bool, lay layout) {
+func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account, withActions bool, lay layout, band ui.Element) {
 	tk := theme.Current()
 	release := m.upcoming || m.justOut
 	// A compact head (a short pane) keeps to what names the record and what
@@ -81,7 +81,7 @@ func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account
 		size, line = 40, 44
 	}
 	ui.Column(c.Key("head-body")).MinWidth(0).Children(func() {
-		theme.Text(c, m.album.Name, "display").FontSize(size).FixedLineHeight(line).LetterSpacing(-size/50).
+		theme.Text(c, m.album.Name, "display").FontSize(size).FixedLineHeight(line).LetterSpacing(-size / 50).
 			TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(1)
 		ui.Row(c.Key("byline")).Margin(6, 0, 0, 0).MinWidth(0).TextColor(theme.C("ink")).
 			FontSize(tk.Type["heading"].Size).FontWeight(500).Children(func() { a.byline(c, m, k) })
@@ -100,7 +100,7 @@ func (a *album) head(c *ui.Context, m *model, k *colours, now time.Time, account
 		}
 		actions := func(top float32) {
 			ui.Row(c.Key("actions")).Wrap().Gap(8).AlignItems(ui.Center).Margin(top, 0, 0, 0).Children(func() {
-				a.actions(c, m, account)
+				a.actions(c, m, account, band)
 			})
 		}
 		if release {
@@ -202,8 +202,10 @@ func (a *album) libraryShare(c *ui.Context, m *model) {
 // ratings and the album's menu. An album not out yet plays the songs out
 // now (the disc), offers Pre-add to a signed-in account and Remind me where
 // the platform can; the first of Play, Pre-add and Remind me that applies
-// leads, and only without a Play disc is it ink-filled.
-func (a *album) actions(c *ui.Context, m *model, account bool) {
+// leads, and only without a Play disc is it ink-filled. band is the band the
+// head sits on: a right-click on it (the cover, the title) opens the album's
+// menu, as its button does.
+func (a *album) actions(c *ui.Context, m *model, account bool, band ui.Element) {
 	al := m.album
 	item := kit.StateOfAlbum(al)
 	from := services.PlayFrom{Kind: "album", ID: al.ID}
@@ -231,7 +233,7 @@ func (a *album) actions(c *ui.Context, m *model, account bool) {
 		a.env.ItemStates.LibraryButton(c, kit.StateAlbums, item, al.Name, "")
 	}
 	a.env.ItemStates.RatingButtons(c, kit.StateAlbums, item, al.Name)
-	a.menus.Trigger(c.Key("menu"), kit.ActionTarget{Item: kit.AlbumItem(al), Name: al.Name}, kit.TriggerOpts{Header: true})
+	a.menus.Trigger(c.Key("menu"), band, kit.ActionTarget{Item: kit.AlbumItem(al), Name: al.Name}, kit.TriggerOpts{Header: true})
 }
 
 // songs is the track list: the number column is the track, the Artist column
@@ -248,6 +250,7 @@ func (a *album) songs(c *ui.Context, m *model, highlight string, now time.Time, 
 	o.Label = i18n.T("Songs on {albumName}", "albumName", m.album.Name)
 	o.Columns = kit.TrackColumns{Artist: m.compilation}
 	o.Discs = !m.mixed
+	o.HideUploadMark = m.uploads == len(m.list)
 	o.Highlight = highlight
 	o.Popular = m.popular
 	o.Subline = func(s *services.Song) string { return subline(*s) }
@@ -331,21 +334,25 @@ func (a *album) discIndex(c *ui.Context, m *model) {
 }
 
 // finePrint is the record's facts in meta type, each
-// a muted name over its entry, then the ℗ line, which names itself.
+// a muted name over its entry, then the ℗ line, which names itself. The
+// entries are one selection (the label, the day, the writers); the names and
+// the ℗ line are muted type, which the selection colour does not carry at
+// 4.5:1 in every theme, so they stay out of it (docs/design.md,
+// "Selectable text").
 func (a *album) finePrint(c *ui.Context, m *model) {
-	ui.Column(c).FillWidth().Children(func() {
+	ui.Column(c).FillWidth().Selectable().Children(func() {
 		if len(m.facts) > 0 {
 			ui.Column(c.Key("facts")).Gap(8).FillWidth().Children(func() {
 				for _, f := range m.facts {
 					ui.Column(c.Key(f.label)).FillWidth().Children(func() {
-						theme.Text(c, f.label, "meta").TextColor(theme.C("ink-muted"))
+						theme.Text(c, f.label, "meta").TextColor(theme.C("ink-muted")).Unselectable()
 						theme.Text(c, f.value, "meta").TextColor(theme.C("ink"))
 					})
 				}
 			})
 		}
 		if m.rights != "" {
-			e := theme.Text(c, m.rights, "meta").TextColor(theme.C("ink-muted"))
+			e := theme.Text(c, m.rights, "meta").TextColor(theme.C("ink-muted")).Unselectable()
 			if len(m.facts) > 0 {
 				e.Margin(12, 0, 0, 0)
 			}

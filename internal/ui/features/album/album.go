@@ -22,10 +22,15 @@ type disc struct {
 }
 
 // discsOf is the album's discs in list order, or none when the songs sit on
-// one disc (a single disc needs no index).
+// one disc (a single disc needs no index). A song with no disc number (an
+// upload; DiscNumber 0) is on no disc: it never opens "Disc 0" and the discs
+// don't count it.
 func discsOf(songs []services.Song) []disc {
 	var discs []disc
 	for i, s := range songs {
+		if s.DiscNumber <= 0 {
+			continue
+		}
 		if n := len(discs); n > 0 && discs[n-1].number == s.DiscNumber {
 			discs[n-1].songs++
 			discs[n-1].durationMs += s.DurationMs

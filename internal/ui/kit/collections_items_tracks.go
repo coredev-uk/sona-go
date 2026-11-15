@@ -96,8 +96,12 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 	withheld := ctx.Restricted && song.Explicit
 	disabled := !song.Playable || withheld
 
+	name := song.Name
+	if song.IsUpload() {
+		name = UploadedLabel(name)
+	}
 	row := ui.Row(c.Key(strconv.Itoa(i) + ":" + song.ID)).Height(trackRowH).MinWidth(0).Gap(12).PaddingX(8).
-		Radius(tk.Radius["md"]).Focusable().Role(ui.RoleListItem).Label(song.Name).ColumnStart(col + 1).RowStart(rowAt + 1)
+		Radius(tk.Radius["md"]).Focusable().Role(ui.RoleListItem).Label(name).ColumnStart(col + 1).RowStart(rowAt + 1)
 	hot := HoverRow(row)
 	if disabled {
 		row.Opacity(0.5)
@@ -121,7 +125,7 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 					Background(wash).IgnoreInput(true).Children(func() { EqualiserBars(c, ctx.Playing, ctx.Motion) })
 			case !disabled:
 				btn := ui.Row(c.Key("play")).Absolute().Left(0).Top(0).Size(trackArt, trackArt).Center().Radius(tk.Radius["sm"]).
-					Background(wash).TextColor(theme.C("ink")).Role(ui.RoleButton).Label(i18n.T("Play {name}", "name", song.Name)).
+					Background(wash).TextColor(theme.C("ink")).Role(ui.RoleButton).Label(i18n.T("Play {name}", "name", name)).
 					Cursor(ui.CursorPointer)
 				if !row.Hovered() {
 					btn.Opacity(0)
@@ -145,6 +149,9 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 				if song.Explicit {
 					ExplicitMark(c.Key("explicit"))
 				}
+				if song.IsUpload() {
+					UploadedBadge(c.Key("uploaded"))
+				}
 			})
 			var open func(id string)
 			if ctx.HasRoute == nil || ctx.HasRoute("/artist/x") {
@@ -159,7 +166,7 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 		})
 
 		if ctx.Menus != nil {
-			ctx.Menus.Trigger(c.Key("more"), ActionTarget{Item: SongItem(song), Name: song.Name}, TriggerOpts{Visible: hot})
+			ctx.Menus.Trigger(c.Key("more"), row, ActionTarget{Item: SongItem(song), Name: song.Name}, TriggerOpts{Visible: hot})
 		}
 	})
 }

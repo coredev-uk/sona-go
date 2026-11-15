@@ -424,7 +424,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 - `kit.PageFrame`: embed it in a scroll page's view state. `Scroll(c, identity, body)` is the scroll container with the shell's gutters, the reset to the top when the identity changes and the width tracking. `kit.PageScroll` and `kit.PageGutter` are the same for the pages that size by the window; `PagePadTop`, `PagePadBottom`, `PageNarrow`.
 - `Env.Routed(path)`: `HasRoute` that is false in a hand-built Env; the one way a feature asks whether to link.
 - `Env.TrackOpts(menus, restricted)`: the base `TrackListOpts` of a song list (art, motion, menu, what plays, links to artist, album and profile pages that exist).
-- `ActionMenus.OpenFor`, `HasMenu`, `kit.MenusIn`; `kit.ShelfSeeAll`, `ShelfDisclosure`.
+- `ActionMenus.Trigger` (the button and its right-click), `HasMenu`, `kit.MenusIn`; `kit.ShelfSeeAll`, `ShelfDisclosure`.
 - `kit.QueryError`, `DetailQueryError`, `BackAction`: an error block whose Try again invalidates keys.
 - `store.KeyLibrary…`, `LibraryArtist`, `LibraryAlbum`, `CatalogArtist`, `CatalogAlbum`, `LibrarySearch`: the query keys several features share. Spell them there, as prefix invalidation depends on it.
 - `kit.Bar` (a flat placeholder bar), `kit.ParseHex`, `kit.WidthTracker`, `kit.Entry`, `kit.ReleaseTitle`.
@@ -460,13 +460,14 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 - A disabled button is MyGo's 50%. The disabled Play disc keeps `--hover` and faint ink: `DimDisabled(false)` turns the dimming off for it, so it is right over a cover wash too.
 - The face eases over 120 ms (the `feedback` motion) unless motion is reduced. The focus ring is MyGo's, in the ring token, on keyboard focus only.
 - `IconButton(c, icon, label, opts)` is the icon-only shorthand; `PlayButton(c, label, size)` is the bare amber disc tiles use.
+- `CopyButton(c, copy, value, CopyOpts{Label, Done})` (`kit/copy.go`) is a 24px ghost icon button for an identifier next to its value: a click calls `Env.Copy` and toasts `Done`, or toasts the clipboard error. Text people copy is `Selectable()` (`docs/design.md`, "Selectable text").
 
 **Controls** (`kit/controls_*.go`). Every one takes the ring, ink and `--control-line` from the tokens, takes strings through `i18n.T`, and has a `Label` for assistive technology.
 
 *Marks and tooltips*
 
 - `Tooltip(c, anchor, text)` is an ink bubble with an arrow over MyGo's `TooltipBase` (hover or keyboard focus; Escape hides it first). The delay is 400 ms, the `tooltip` motion token set as `Theme.TooltipDelay` by `theme.Apply` (MyGo's default is 0.6 s).
-- `Badge` (six variants, `Interactive` for an anchor), `ExplicitMark`, `Tag`, `PreviewMark`, `SDMark`, `Badges` (Explicit, Apple's audio labels from `TraitLabels`, extras), `Separator`, `Skeleton` (pulses unless motion is reduced).
+- `Badge` (six variants, `Interactive` for an anchor), `ExplicitMark`, `Tag`, `PreviewMark`, `SDMark`, `UploadedBadge` (an upload among catalogue songs; `UploadedLabel` adds ", uploaded" to its row's accessible name), `Badges` (Explicit, Apple's audio labels from `TraitLabels`, extras), `Separator`, `Skeleton` (pulses unless motion is reduced).
 
 *Fields*
 
@@ -616,7 +617,10 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 **ActionMenus** (`NewActionMenus(env.Actions, selection)`)
 
-- A list's "More for <name>" button (`Trigger`: ghost while the row is hovered or focused, outline for a header; its menu is aligned to its end, 224 wide), right-click, Shift+F10 and the Menu key (`Row`, drawn by `Popup`, called once per list).
+- An item's "More for <name>" button is `Trigger(c, row, target, opts)` (ghost while the row is hovered or focused, outline for a header; its menu is aligned to its end, 224 wide). **A ⋯ button implies right-click**: `Trigger` takes the element the button belongs to and wires it too, so a right-click on it opens the same menu at the pointer, and Shift+F10 or the Menu key while the focus is within it open it below it, starting on the first entry. The signature makes the owner an argument, so a surface cannot draw the button through `Trigger` without naming what to wire (the sidebar draws its own ⋯ and wires it with `Menu.OpenOn`). `Popup` draws the point menus, called once per list or page after the rows.
+- What `row` is: a list row or tile; for a page header, the box around its artwork and title (a right-click on either, or on any part of the head that takes no press of its own, opens the item's menu; its buttons keep theirs). `TriggerOpts.Select` and `Index` make a right-click on an item outside the selection select it alone first (lists with a `Selection`). The trailing arguments of `Trigger` list children that take the pointer themselves (a title that is a link, a result row's open button): MyGo hands a right-click to the innermost interactive element, so without it the click would never reach `row`.
+- `ActionMenus.Row` wires an item that has a menu but no button (the radio board's playing rows, the bar's cover); `Menu.OpenOn(row)` does the same for a `kit.Menu` ⋯ button of its own (the sidebar's pins and folders). Both are for a surface that cannot use `Trigger`; a ⋯ button drawn any other way needs one of them.
+- The rule is tested with `access.CheckMenuWays` (`uitest/access`): for an item it opens the menu with the button, with a right-click at the title and at the artwork, and with Shift+F10 and the Menu key, and fails when a way opens no menu, a different one, or a menu away from the pointer. Each surface that draws a ⋯ button has such a check in its package: most in `menus_test.go`, Discover in `front_test.go`, Search in `itemrow_menu_test.go`, and the radio on-air, artist release and Home rows in their older right-click tests.
 - A row inside a multi-selection (`SelectionScope.GroupWith`) lists the bulk actions for all of them under "<what> selected" and runs once with every item and `Container.Indices`.
 - A list that shows its collection sorted or filtered gives `ActionContainer.Order` (row i is item `Order[i]`), so `Index` and `Indices` always name places in the collection. A positional action (Remove from playlist) needs that.
 - Kinds with no registered action get no trigger.
@@ -642,6 +646,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 - The header has sortable Title/Artist/Album, and Duration when `TrackSortState.Duration` is set (a list that sorts itself). `TrackSortState.Toggle` is the click's cycle for such a list: ascending, descending, then none, the list's own order.
 - Rows are 44 DIP. It also has disc and work headings, `Popular`, "Added by", the current-song mark, skeleton rows, and highlight and scroll to it.
+- `TrackListOpts.HideUploadMark` leaves the "Uploaded" badge and the ", uploaded" name off uploaded rows (a list made only of uploads); the row's Play button carries the same name.
 - One Tab stop (only the focused row is focusable). Arrows, Page Up/Down, Home/End move it; Enter and double-click play; Ctrl+click/Shift+click/Shift+arrows/Ctrl+A select; selected runs draw as one block.
 - More than 200 rows in a `Pane` are built by row (12 beyond).
 - `TrackListState.BlockTop` and `ScrollToBlock` give the album's disc index its jump (work headings are measured from the last frame, so wrapped ones count).
@@ -1292,7 +1297,7 @@ A master and detail page.
 
 - **Recently added** files the list under Today, Past week, Past month and Earlier by `DateAdded` (calendar days, as History counts them), one `kit.CoverGrid` and one selection per group. The groups come from the first page; what lies past it is older than all of it, so it joins Earlier. The pages fetched follow the union of the groups' built tiles.
 - **History** groups `LibraryService.History(days)` by day (30 days; "Show earlier days" adds 30 while the earlier days keep showing) as a timeline. Each day is a row with the day's heading and counts in a 168 DIP rail, a 1px line down the rail's right edge with a dot at the heading, and one `kit.TrackList` to the right. The query sits under `["library","recent"]` so a new playing song refreshes it.
-- **Music videos** page through `MusicVideos` in 100s (stale after 10 minutes) and play where the platform plays videos.
+- **Music videos** page through `MusicVideos` in 100s (stale after 10 minutes) and play where the platform plays videos. They are read live from Apple and kept nowhere, so offline (the auth status's `Offline`), or when the request fails for lack of a connection, the page shows "Music videos need a connection" with Try again in place of the grid, and reloads by itself once back online. Online it carries no note, like every other library page.
 
 #### Sync
 
@@ -1308,6 +1313,7 @@ A master and detail page.
 
 - IDs: `library.favorite.*`, `library.suggest-less.*`, `library.copy-link.*`, `library.add.*` and `library.remove.*` for songs, albums, artists and playlists; `library.copy-link.station`; and the bulk `library.favorite.many`, `library.add.many`, `library.remove.many`.
 - Labels and availability read the item's state from `Env.ItemStates`, which a menu loads once for every item in it as one `LibraryService.States` call.
+- Delete from library is offered for an item in the library. An item that names its library copy (`Source` library, or a `LibraryID`) is in the library whatever Apple's catalogue `inLibrary` says (Apple reports a partly added or just added album as not in it, and a library answer can leave an ID out), until the user's own removal says otherwise: `LibraryService.States` answers so, and before a state loads the single and bulk actions read the item the same way, so every album under Library, the album page's header menu included, offers it.
 - A change shows at once and is undone when Go refuses it. Delete asks first (`kit.Confirm`) and every outcome toasts.
 - Playing and queueing go through `Env.Queue` (`kit.QueueCommands`).
 

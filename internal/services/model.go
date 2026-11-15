@@ -97,6 +97,10 @@ type Song struct {
 	Art      Art    `json:"art"`
 }
 
+// IsUpload reports whether the song is one the user uploaded: in the library
+// with no catalogue copy. It has no song page and plays in place.
+func (s Song) IsUpload() bool { return s.Source == SourceLibrary && s.CatalogID == "" }
+
 // Album is an album from the library or the catalog.
 type Album struct {
 	ID        string `json:"id"`
@@ -328,6 +332,9 @@ type Item struct {
 	Station    *Station    `json:"station,omitempty"`
 	MusicVideo *MusicVideo `json:"musicVideo,omitempty"`
 }
+
+// IsUpload reports whether the item is a song the user uploaded (Song.IsUpload).
+func (it Item) IsUpload() bool { return it.Kind == ItemSong && it.Song != nil && it.Song.IsUpload() }
 
 // Section kinds: how an editorial or recommendation section is presented.
 const (

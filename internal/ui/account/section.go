@@ -100,8 +100,11 @@ type Section struct {
 	// statusLine is the status notice the last Build showed, "" for none, and
 	// statusKnown whether a Build has shown the section since Reset: a notice
 	// that appears after that is read out (React's role=status live region).
-	statusLine  string
-	statusKnown bool
+	// statusKeyring is whether that notice was the keyring's, which is one
+	// status whose words change and MyGo reads as they do.
+	statusLine    string
+	statusKnown   bool
+	statusKeyring bool
 
 	checking bool // Revalidate runs
 
@@ -117,7 +120,7 @@ func New(d Deps) *Section { return &Section{d: d, retry: NewKeyringRetry(d)} }
 // comes back from Go's status when the section is built again.
 func (s *Section) Reset() {
 	s.flow, s.focusAccount = nil, false
-	s.statusLine, s.statusKnown = "", false
+	s.statusLine, s.statusKnown, s.statusKeyring = "", false, false
 }
 
 // FocusAccount asks the next Build to focus the Apple Account field once.
@@ -407,11 +410,14 @@ func statusNotice(st services.AuthStatus) string {
 
 // announceStatus reads out a status notice that appears while the section is
 // shown, as v0.2.0's role=status (polite live) notices were; a notice that
-// was there when the section was first built is read with the dialog.
+// was there when the section was first built is read with the dialog. The
+// keyring notice stays one status as its words change (waiting, refused,
+// unencrypted), so the retry keeps its place: MyGo reads that change whole,
+// and announcing its title as well would say it twice.
 func (s *Section) announceStatus(c *ui.Context, st services.AuthStatus) {
-	line := statusNotice(st)
-	if s.statusKnown && line != "" && line != s.statusLine {
+	line, keyring := statusNotice(st), keyringShown(st)
+	if s.statusKnown && line != "" && line != s.statusLine && (!keyring || !s.statusKeyring) {
 		c.Announce(line)
 	}
-	s.statusLine, s.statusKnown = line, true
+	s.statusLine, s.statusKnown, s.statusKeyring = line, true, keyring
 }

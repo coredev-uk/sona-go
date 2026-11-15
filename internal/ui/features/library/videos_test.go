@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -307,9 +308,10 @@ func TestMusicVideosGateStates(t *testing.T) {
 		}
 	})
 	t.Run("error", func(t *testing.T) {
-		// The library's call needs Apple, and the test network has none.
 		r, _ := newVideosRig(t, nil, false)
+		r.stub.fail(true)
 		r.tt.Until("the error", r.tt.Shows("Couldn't load your music videos from Apple Music", "Try again"))
+		r.stub.fail(false)
 		r.stub.setVideos(videoFixtures(2))
 		if err := r.tt.Click("Try again"); err != nil {
 			t.Fatal(err)
@@ -331,4 +333,38 @@ func TestASyncDoneRefreshesTheMusicVideos(t *testing.T) {
 	}
 	r.h.Env.Bus.Emit(services.EventSyncDone, services.SyncDone{OK: true})
 	r.tt.Until("the new video", r.tt.Shows("3 music videos"))
+}
+
+func TestMusicVideosShowNoConnectionNoteOnline(t *testing.T) {
+	r, _ := newVideosRig(t, videoFixtures(2), false)
+	r.tt.Until("the videos", r.tt.Shows("Video 0", "2 music videos"))
+	for _, w := range []string{"From Apple Music: needs a connection", "Music videos need a connection"} {
+		if r.tt.HasText(w) {
+			t.Errorf("online page shows %q", w)
+		}
+	}
+}
+
+func TestMusicVideosOfflineShowsTheStateAndReloadsWhenBack(t *testing.T) {
+	r, _ := newVideosRig(t, videoFixtures(2), false)
+	fakeOffline(r.l, true)
+	r.tt.Until("the offline state", r.tt.Shows("Music videos need a connection", "Try again"))
+	fakeOffline(r.l, false)
+	r.tt.Until("the videos", r.tt.Shows("Video 0", "2 music videos"))
+}
+
+func TestMusicVideosNetworkErrorShowsTheStateAndTryAgainReloads(t *testing.T) {
+	// The library's call needs Apple, and the test network has none.
+	r, _ := newVideosRig(t, nil, false)
+	r.tt.Until("the offline state", r.tt.Shows("Music videos need a connection", "Try again"))
+	r.stub.setVideos(videoFixtures(2))
+	r.settle()
+	if err := r.tt.Click("Try again"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the videos", r.tt.Shows("Video 0", "2 music videos"))
+}
+
+func fakeOffline(l *library, off bool) {
+	store.Set(l.env.Queries, store.KeyAuth, services.AuthStatus{State: "signed_in", Offline: off})
 }

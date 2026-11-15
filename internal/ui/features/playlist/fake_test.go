@@ -31,6 +31,11 @@ type fakeAPI struct {
 	details     map[string]services.PlaylistDetail
 	collab      map[string]services.PlaylistCollaboration
 	suggestions map[string][]services.Song
+	// suggestSets, when set for a playlist, are the sets Suggestions returns
+	// one after another (the last one repeats): Apple draws a new set on
+	// every call.
+	suggestSets map[string][][]services.Song
+	suggestN    map[string]int
 	recents     []string
 	pinTracks   map[string][]services.Song
 	// covers are the cover pickers by playlist; SetCover, UploadCover and
@@ -52,6 +57,8 @@ func newFakeAPI() *fakeAPI {
 		details:     map[string]services.PlaylistDetail{},
 		collab:      map[string]services.PlaylistCollaboration{},
 		suggestions: map[string][]services.Song{},
+		suggestSets: map[string][][]services.Song{},
+		suggestN:    map[string]int{},
 		pinTracks:   map[string][]services.Song{},
 		covers:      map[string]services.PlaylistCovers{},
 	}
@@ -129,6 +136,11 @@ func (f *fakeAPI) Suggestions(_ context.Context, id string) ([]services.Song, er
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if sets := f.suggestSets[id]; len(sets) > 0 {
+		n := min(f.suggestN[id], len(sets)-1)
+		f.suggestN[id]++
+		return sets[n], nil
+	}
 	return f.suggestions[id], nil
 }
 
@@ -425,7 +437,7 @@ func testPlaylistsWith(t *testing.T, start string, opts ...uitest.Option) (*play
 
 // song, treePlaylist and folder build test data.
 func song(id, name, artist string) services.Song {
-	return services.Song{ID: id, Source: services.SourceLibrary, Name: name, Artist: artist, DurationMs: 200_000, Playable: true}
+	return services.Song{ID: id, Source: services.SourceLibrary, CatalogID: "c" + id, Name: name, Artist: artist, DurationMs: 200_000, Playable: true}
 }
 
 func treePlaylist(id, name, folder string, position int, canEdit bool) services.TreePlaylist {

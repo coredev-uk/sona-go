@@ -375,8 +375,11 @@ func newRigOpts(t *testing.T, w, h int, setup func(*rig), opts []uitest.Option, 
 				case rt.Match("/album/{id}"):
 					ui.Text(c, "ALBUM PAGE "+rt.Param("id")+" song="+rt.Query("song"))
 					// A row of the album's songs, with its menu.
-					r.rows.Trigger(c, kit.ActionTarget{Item: kit.SongItem(services.Song{ID: "1441", CatalogID: "1441", Name: "Paranoid Android"}), Name: "Paranoid Android"},
-						kit.TriggerOpts{Header: true})
+					song := ui.Column(c)
+					song.Children(func() {
+						r.rows.Trigger(c, song, kit.ActionTarget{Item: kit.SongItem(services.Song{ID: "1441", CatalogID: "1441", Name: "Paranoid Android"}), Name: "Paranoid Android"},
+							kit.TriggerOpts{Header: true})
+					})
 					r.rows.Popup(c)
 				case rt.Match("/artist/{id}/view/{view}"):
 					ui.Text(c, "ARTIST VIEW "+rt.Param("id")+" "+rt.Param("view"))

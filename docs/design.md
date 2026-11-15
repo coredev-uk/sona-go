@@ -17,8 +17,10 @@ This is the visual direction for Sona's interface: type, colour, shape, motion a
   - [Motion](#motion)
   - [Reduce effects](#reduce-effects)
   - [Lists](#lists)
+  - [Choosing and playing: the interaction table](#choosing-and-playing-the-interaction-table)
   - [Dates](#dates)
   - [Empty, loading and error states](#empty-loading-and-error-states)
+  - [Selectable text](#selectable-text)
 - Pages and surfaces
   - [Playlist page](#playlist-page)
   - [The song page: a liner card](#the-song-page-a-liner-card)
@@ -174,7 +176,7 @@ The table above is Sona's own theme (`sona`): `tokens.json` is its whole documen
 
 ## Artwork
 
-- Square, 4px radius, a 1px line at 6% ink drawn just inside the edge (`ArtOpts.Edge`) so pale covers do not dissolve into the ground. Video frames are 16:9; hero cards are Apple's 1060:608; bricks and page banners keep their own 2.4:1 or 4:1 shape.
+- Square, 4px radius, a 1px line at 6% ink drawn just inside the edge (`ArtOpts.Edge`) so pale covers do not dissolve into the ground. Video frames are 16:9; hero cards are Apple's 1060:608; bricks are 2:1 and page banners keep their own 2.4:1 or 4:1 shape.
 - Always requested from Go at the exact rendered box (width and height × the window's scale; grid tiles at their exact width, never rounded up, so the art is never resampled while painting) through `/art/<key>/<w>x<h>.jpg` paths, resolved in one place (`kit.ArtLoader`, `internal/ui/kit/artloader.go`) and decoded off the main thread, in parallel, covers on screen first. The box is fixed before the picture arrives, so rows never shift.
 - Missing art: a `--hover` square with a 40%-ink outline music glyph centred, at the same size. People never get this glyph: see People, below.
 - Playlists Apple rendered no cover for show a mosaic Go composes (`internal/artwork/mosaic.go`): the first four distinct album covers in track order as a 2×2 grid, edge to edge with no gutter, each tile the centred square of its cover, at the exact requested box like any cover. One distinct cover, or fewer than four, shows the first cover whole. Cropping each tile is what makes it a collage; the UI sees an ordinary `/art/` path, and the playlist's backdrop and colours come from the mosaic. A playlist with no track artwork keeps the missing-art square.
@@ -186,7 +188,7 @@ The table above is Sona's own theme (`sona`): `tokens.json` is its whole documen
   - Every choice is an ordinary `/art/` path, so the sidebar, the library grid, search, pins and the page and its backdrop show it without knowing.
 - **The picker** (`internal/ui/features/playlist/covers.go`): a dialog of tiles in four columns (92 DIP covers with their names under them), a radio group, so one is chosen and a ring, a check and a heavier name say which (not colour alone). A choice applies at once, on every surface; there is no Save, only Done. Below the tiles: *Choose an image…* (the system file chooser; hidden with a sentence where there is none), *Remove my image* once one is kept, and the limits in view beside the button, not behind a failure. The grid scrolls in a short window.
 - The cover is never cropped, tinted or overlaid with text, with one exception: an album not out yet carries its release date ("Out 19 Nov") in a small `--raised` chip at the cover's bottom-left corner, where the play control of a playable tile sits (it has none). Its page leads with the release ("Out in 18 days, 6 hours", the day in full), re-read every minute, never a ticking counter (Album page, Not out yet, below).
-- Hero cards (the untitled "Featured" row) fill Apple's own card shape, 1060:608, with the 4:1 `subscriptionHero` art cropped to it by the CDN, as music.apple.com does: the art keeps its text and subject in the centre, so nothing is letterboxed or cut. A card without a banner shows its cover whole on its background colour. On Discover they are the front page's lead and list (Discover, below). Bricks sit whole on their own background colour: a row takes the shape of its tallest banner (at most 2:1), so only a wider banner in a mixed row is letterboxed.
+- Hero cards (the untitled "Featured" row) fill Apple's own card shape, 1060:608, with the 4:1 `subscriptionHero` art cropped to it by the CDN, as music.apple.com does: the art keeps its text and subject in the centre, so nothing is letterboxed or cut. A card without a banner shows its cover whole on its background colour. On Discover they are the front page's lead and list (Discover, below). Bricks (a category row such as Discover's "New for November") are cropped the same way, to a 2:1 frame: every banner fills it, the CDN cutting the centre of the art, so no card is a small picture between flat bands. Some art carries bands of its own (Best of Apple Music Club's 4:1 `subscriptionHero` is black either side of a 1.96:1 picture), which only a crop removes; music.apple.com crops bricks the same way (to 16:9). A square banner (a curator with only a square flavour) is cut to the frame too. No blur and no flat colour is involved, so there is no image work per frame.
 
 ## Backdrops (pre-blurred in Go)
 
@@ -234,6 +236,10 @@ It is the recommended setting on software rendering.
   - A bar's top edge moves by fractions of a pixel: the bar is squeezed from its foot, not resized, since a resized rectangle's edges snap to whole device pixels and step at 1x.
   - The glyph is painted at the display's rate by painting the glyph alone again, so a playing song costs no build or layout of the page around it.
   - The bars hold still, at 60, 100 and 40%, while paused, while the Now Playing view or full-screen lyrics cover the list, and under reduced motion.
+- **An uploaded song is marked where it sits.** A song the user uploaded (in the library with no catalogue copy: `services.Song.IsUpload`) gets an **Uploaded** badge after its title, beside the explicit mark: `kit.UploadedBadge`, the house `Badge` in its outline variant with the upload glyph, 20px high, so it stays quiet beside the title and never competes with the playing row's amber.
+  - It shows in every list of songs: the track list (album, playlist, artist, Songs, the other library pages), a track shelf's rows, search (results, the best match and the suggestions), and the queue (the playing row included). The row's accessible name says it after the title ("Demo, uploaded"), so a screen reader hears the same distinction; in the queue it follows the artist ("Demo, Mia Vale, uploaded").
+  - It marks a song wherever it could be taken for a catalogue one, so a catalogue song and an upload of the same name are two rows that tell themselves apart. The one place it is left off (`TrackListOpts.HideUploadMark`) is a record whose songs are all uploads, where it would mark every row and tell none apart.
+  - An upload has no catalogue page, so its menu has none of what needs one (no Copy link, View credits or Create station), and its row opens no song page: it plays in place.
 - Queue rows have one menu, opened by right-click, Shift+F10 or the Menu key, or the ellipsis button that shares the hover and focus slot with the remove button (both replace the duration): Play, Play next (to the front of what plays next), Move to end (to the back of the user's songs, before AutoPlay's), then Remove. An item that would change nothing is left out (no Play next on the first song after the current one, no Move to end on the last of the user's), and the playing song has no menu. AutoPlay and station rows keep their place, so their menu is Play and Remove. A move is announced in a status region ("Airbag: moved to position 2 of 6") and a row with focus stays focused and in view.
 - **The queue panel is a running order in three groups**, each under a 14/600 heading. Each group is a list of its own for assistive technology, so a row says its place in its group.
   - **Now playing**: the playing song as one 72px row on a `--hover` fill at radius 8 (cover 56px, the title at 14/600 in `--amber-ink`, the artist and the album under it, the equaliser at the end).
@@ -251,6 +257,209 @@ A song or album with several artists keeps the one thing Apple writes, its artis
 - The same control is the artist in the player bar, Now Playing, the video view's caption, a track list's artist column and a track shelf's rows, the album, song and video headers and a station's songs. In a list it is not a Tab stop (the list is one), and Shift or Ctrl click on it selects the row like any other cell.
 - The song menu's "Go to artist" is a sub-menu of the artists when there are several (a plain row for one).
 
+## Choosing and playing: the interaction table
+
+One rule governs every list, shelf, row and tile that shows an item (a song, an album, a playlist, an artist, a station, a music video, a curator, an editorial card, a link):
+
+- **Choosing an item opens it.** A click, or Enter on the focused item, goes to its page, a song's too. An item with no page of its own does what it is: a station with no page (a local broadcaster) plays, a web-only link opens the browser, and each says so in its cue.
+- **Play plays.** A Play control (the disc on a cover, the triangle on a row, the amber disc beside a best match) starts the item, and does nothing else. Nothing else starts playback except a track row (below).
+- **A track row plays.** A row of songs in a list (album, playlist, library, a shelf's rows, search's Songs) is the one place a double-click or Enter plays: it is a list of songs, not a list of pages. A single click only selects.
+- **A modifier never does something the cue doesn't hint at.** Shift, Ctrl or Cmd with a click selects where the list selects; Shift+Enter plays only where the control shows it.
+- **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
+
+The table is what the code does on `main`, from the `TestInteraction…` tests (one or more per surface, in each package's `interaction_test.go`; they are `ui.Tester` tests that click, double-click and press the keys). A test that pins a departure from the rule has a `// DEPARTS:` comment at the assertion; when the departure is fixed, the test changes with it. Each departure is an issue, listed after the tables. Right-click menus are recorded by their presence only; their contents change in their own work.
+
+Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space does nothing on a link, a double-click is two clicks, and "menu" is opened by right-click, Shift+F10 or the Menu key.
+
+### Tiles, cards, rows and lists that show items
+
+| Surface (component) | Item | Click | Double-click | Enter | Shift+Enter | Space | Play | Menu | Cue |
+|---|---|---|---|---|---|---|---|---|---|
+| Cover tile: shelf, grid, library, search tiles (`kit` `CoverShelf`, `ItemGrid`) | song, album, playlist, video, station with a page | opens | opens (twice) | opens | none | none | disc, on hover and focus | yes | link, title underlines on hover |
+|  | artist, curator, room, grouping | opens | opens | opens | none | none | none ([#433]) | artist yes, curator no | link |
+|  | upcoming album | opens | opens | opens | none | none | none, release badge in its place | yes | link, "Out 19 Nov" |
+|  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play", play mark on hover |
+|  | web link | opens the browser | twice | same | none | none | none | no | link, no arrow ([#436]) |
+|  | unrouted page | none, but underlines ([#437]) | none | none | none | none | disc | yes | group |
+|  | any with an Item, Shift/Ctrl+click | selects ([#438]) | | | | | | | |
+| Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button, no right-click ([#447]) | link |
+|  | station with no page | plays | twice | plays | plays | plays | disc, and the card plays too ([#435]) | none | button |
+|  | web link | opens the browser | twice | same | same | same | none | none | button, no arrow ([#436]) |
+| Link list tile (`LinkList`: "More to Explore") | page link | opens, no `OnOpen` ([#434]) | opens | opens | opens | none | none, even a station with a page ([#446]) | none | link |
+|  | station with no page | plays | twice | plays | plays | plays | none | none | button "X Play", no visible mark ([#435]) |
+|  | web link | opens the browser | twice | same | same | same | none | none | button with the arrow out |
+| Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing, no pause ([#446]) | none | link |
+|  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
+| Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | none ([#441]) | plays from the row, the shelf is the queue | plays | none | none | cover button | More button, no right-click ([#447]) | list item, hover fill |
+|  | artist link in the row | opens the artist | twice | n/a | n/a | n/a | n/a | n/a | underline on hover |
+| Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects ([#439]) | number-column button | yes; none on the artist/album links ([#447]) | row; link cells underline |
+|  | artist or album cell | opens | twice | n/a | n/a | n/a | n/a | n/a | link |
+|  | Shift/Ctrl+click | range / toggle | | | | | | | |
+
+### Home, Discover and Radio
+
+| Surface | Item | Click | Enter | Space | Play | Cue |
+|---|---|---|---|---|---|---|
+| Home shelves (tiles) | as the cover tile above | | | | | |
+| Home strip rows (Recently played) and lead order | song, album, playlist, video, station with a page | opens | opens | plays ([#439]) | disc | link |
+|  | artist | opens | opens | none | none ([#433]) | link |
+|  | station with no page | plays | plays | plays | the name | button |
+|  | web link | opens the browser | same | none | none | button, no arrow ([#436]) |
+| Home lead pick, hero card | album, song, playlist, video, station | opens | opens | none | disc | link |
+|  | artist, curator | opens | opens | none | lead pick: a button that does nothing, hero: none ([#433]) | link |
+|  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
+| Home local shelves (Recently added, Your playlists) | album, playlist | opens | opens | none | none ([#445]) | link |
+| Home "See all" | | opens the shelf's page | | | | link |
+| Discover lead card | album, playlist, station, video | opens | opens | none | disc | link |
+|  | artist, curator | opens | opens | none | none ([#433]) | link |
+|  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
+| Discover strip cards | any | makes it the lead, does not open ([#442]) | same | same | disc where playable | button |
+| Discover bands and room tiles | as the cover tile | | | | | |
+| Discover Top songs, Charts | song | selects | plays from the row | none | number-column button | row; "Play Top songs" queues from the first, "See all" opens `/charts/songs` |
+| Radio board lane | station with a page | opens | opens | none | disc | link |
+|  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
+|  | tuned station with no page | toggles ([#440]) | toggles | toggles | equaliser | button |
+|  | unplayable | none | not focusable | | none | disabled, reason in text |
+| Radio programme box | | opens the station page | not a Tab stop | | | link |
+
+### Library pages
+
+| Surface | Item | Click | Double-click | Enter | Play | Menu |
+|---|---|---|---|---|---|---|
+| Songs, Favourites, History | song | selects | plays from the row | plays | number-column button | yes |
+| Albums, Playlists, Recently added grids | album, playlist | opens | opens | opens | none ([#445]) | yes |
+| Videos grid | music video | opens | opens | opens | disc where the platform plays videos | none ([#447]) |
+| Artists master list | artist | chooses it: the detail beside it changes and `?artist=` follows | same | same, Enter or Shift+Enter moves the focus to the detail | none on the row; the detail has Play and Shuffle | n/a |
+| Songs page head | | "Play your songs" plays from the first song, "Shuffle" shuffles | | | | |
+
+### Search
+
+| Surface | Item | Click | Enter | Shift+Enter | Play | Cue |
+|---|---|---|---|---|---|---|
+| Suggestion list: typed completion | term | searches | searches | searches | n/a | search icon, chevron when active |
+| Suggestion list: result | song with a page, library song with a catalogue copy | opens `/song/…` | opens | **plays** ([#426]) | none | chevron |
+|  | song with no page (a library upload) | plays | plays | plays | none | play triangle when active |
+|  | album, artist, playlist, curator, video, station with a page | opens | opens | opens | none | chevron |
+|  | station with no page | plays ([#425]) | plays | plays | none | chevron |
+|  | web link | opens the browser ([#425]) | same | same | none | chevron |
+| Suggestion list: recently searched | term | searches | searches | searches | none | clock icon, chevron when active |
+|  | album, artist, song with a page | opens | opens | opens (a suggested song plays, [#426]) | none | chevron |
+|  | library song | none ([#427]) | none | none | none | chevron |
+|  | station with no page | opens a station page that is not there ([#427]) | same | same | none | chevron |
+| Best match panel | song, album, playlist, station with a page, video | opens | opens | none | amber disc beside it | link |
+|  | artist, curator | opens | opens | none | none ([#433]) | link |
+|  | song with no page, station with no page | plays | plays | none | the disc is drawn into the panel | button "X, Play" |
+|  | web link | none ([#429]) | no control | | none | plain text |
+| Compact rows beside it | song | opens | opens | none | quiet Play button on hover and focus | link |
+|  | album, playlist, station with a page, video | opens | opens | none | none ([#430]) | link |
+|  | song or station with no page | plays | plays | none | play glyph on hover | button |
+| Group shelves ("Albums", See all grid, library scope) | as the cover tile | | | | | |
+| Songs group, See all, library songs | song | selects | plays | none | number-column button | row |
+| Recent searches shelf | term, album, artist, song with a page | opens | opens | none | none | link; the X forgets it |
+|  | library song, station with no page, the other scope's entries | not listed ([#427]) | | | | |
+| Command palette | artist, album, playlist | opens | opens | opens | none | cover and "Kind · subtitle", no trailing cue |
+|  | song | **plays** ([#423]) | plays | plays | none | the same look |
+|  | "Search Apple Music for …" | searches | searches (Enter before arrowing runs this one even when library hits arrive above it, [#424]) | searches | none | search icon |
+
+### The shell: sidebar, queue, player bar, mini player
+
+| Surface | Item | Click | Double-click | Enter | Shift+Enter | Space | Play | Menu | Cue |
+|---|---|---|---|---|---|---|---|---|---|
+| Sidebar nav links | page | opens | opens once | opens | none | none | none | none | link, active fill |
+| Sidebar playlist rows | playlist | opens | opens | opens | **shuffles** ([#443]) | none | glyph over the art shuffles ([#443]) | More button, no right-click ([#447]) | link; triangle on hover |
+| Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist: shuffles; others none ([#443]) | none | playlist: the glyph | More button | link |
+|  | any, set to Play or Shuffle | plays or shuffles ([#443]) | twice | same | same | same | the glyph (playlists) | More button | button; only the screen-reader name differs |
+|  | artist, any action | opens, the action is ignored ([#444]) | | opens | none | none | none | More button | link |
+|  | album pin set to Open with no page | plays ([#444]) | | plays | | | | | button |
+| Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button | disclosure |
+| Queue rows | song, AutoPlay, music video | focuses the row | plays from the row | plays | none | none | none | yes | hover fill and grip |
+|  | the playing song | none | restarts it | restarts it | none | none | none | none ([#447]) | amber title |
+|  | video title | opens its page | | | | | | | link |
+|  | song title and artist | plain text ([#448]) | | | | | | | |
+|  | "Playing from <station>" | opens the station | | not a Tab stop ([#448]) | | | | | link |
+| Player bar | cover | opens Now Playing (a video: the video view) | | opens | none | opens | n/a | yes | button |
+|  | title | song: its album with the song marked; station: its page; video: its page | | opens | none | none | n/a | yes | link |
+|  | artist, album | opens | | opens | none | none | n/a | yes | link |
+|  | play / pause | toggles | twice | toggles | none | toggles | n/a | none | button |
+| Mini player | cover, title, artist, album line | none ([#449]) | none | no Tab stop | | | n/a | yes, but not on the album line ([#449]) | plain text |
+
+### Page headers and pages
+
+| Surface | Control | What it does |
+|---|---|---|
+| Album and playlist head | Play | plays from the first song |
+|  | Shuffle | plays from a random song with shuffle on (not on an album not out yet, whose Play says "Play the N songs out now") |
+| Artist head | Play top songs, Shuffle | plays the eight top songs, or shuffles them |
+| Artist latest-release slip | the slip | opens the album; a dead button when the page is not routed ([#437]) |
+|  | disc | plays the album |
+| Artist release rows, discography tiles | row or tile | opens (Cmd or Shift selects); no Play ([#445]) |
+| Artist library page | Play | plays the artist's library songs |
+| Song page | Play | plays the one song (queue of one); no Shuffle |
+| Music video page | Play, "Play the song", "Watch in Apple Music" | plays the video, plays the song, hands the link to the browser |
+| Album, playlist, song, video pages | artist, album, curator links | open (a song's album link carries `?song=`) |
+
+Argued departures that stay (not issues):
+
+- **A pin set to Play or Shuffle plays on click.** The user chose it in the pin's menu ("When chosen"), and the pin's name says so to assistive technology; the visible cue is the only part owed (#443).
+- **The Now playing queue row restarts the song** on Enter or double-click: it is a row of songs, and `Jump` plays its own index from 0.
+- **The Artists master list chooses instead of opening**: it is a master-detail list, and the detail is the page.
+- **A tile's Shift/Ctrl+click selects** (a list of tiles can be dragged into a playlist and acted on as a group); only the open/play cue is owed (#438).
+- **Playing one tile plays that tile alone** even with three selected: Play is a control of the tile, not of the selection.
+
+### Departures
+
+| Issue | What |
+|---|---|
+| [#423] | the palette plays a library song |
+| [#424] | the palette's Enter right after typing |
+| [#425] | the suggestion list's chevron over a station that plays and a link that leaves Sona |
+| [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
+| [#427] | recent library songs and page-less stations |
+| [#429] | a web-only item on the results page is dead |
+| [#430] | only a song's compact row has Play |
+| [#433] | artists and curators have no Play control; Home's lead pick draws a dead one |
+| [#434] | Play on a tile, link tile or station row isn't remembered |
+| [#435] | a page-less station has two controls, no cue, or replays instead of pausing |
+| [#436] | no cue for a web link on tiles, cards and rows |
+| [#437] | unrouted pages: underline, navigation, dead artist slip |
+| [#438] | modifier-click selects on some, opens on others |
+| [#439] | Space plays, selects or does nothing |
+| [#440] | a double-click acts twice |
+| [#441] | a single click on a shelf's track row does nothing |
+| [#442] | Discover's strip card makes itself the lead |
+| [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
+| [#444] | pins: artists ignore the action, unrouted albums play |
+| [#445] | local shelves, library grids and release rows have no Play |
+| [#446] | station rows: pause, menu, link tile Play |
+| [#447] | right-click and More disagree |
+| [#448] | the queue's links and Tab stop |
+| [#449] | the mini player's inert text |
+
+[#423]: https://github.com/coredev-uk/sona-go/issues/423
+[#424]: https://github.com/coredev-uk/sona-go/issues/424
+[#425]: https://github.com/coredev-uk/sona-go/issues/425
+[#426]: https://github.com/coredev-uk/sona-go/issues/426
+[#427]: https://github.com/coredev-uk/sona-go/issues/427
+[#429]: https://github.com/coredev-uk/sona-go/issues/429
+[#430]: https://github.com/coredev-uk/sona-go/issues/430
+[#433]: https://github.com/coredev-uk/sona-go/issues/433
+[#434]: https://github.com/coredev-uk/sona-go/issues/434
+[#435]: https://github.com/coredev-uk/sona-go/issues/435
+[#436]: https://github.com/coredev-uk/sona-go/issues/436
+[#437]: https://github.com/coredev-uk/sona-go/issues/437
+[#438]: https://github.com/coredev-uk/sona-go/issues/438
+[#439]: https://github.com/coredev-uk/sona-go/issues/439
+[#440]: https://github.com/coredev-uk/sona-go/issues/440
+[#441]: https://github.com/coredev-uk/sona-go/issues/441
+[#442]: https://github.com/coredev-uk/sona-go/issues/442
+[#443]: https://github.com/coredev-uk/sona-go/issues/443
+[#444]: https://github.com/coredev-uk/sona-go/issues/444
+[#445]: https://github.com/coredev-uk/sona-go/issues/445
+[#446]: https://github.com/coredev-uk/sona-go/issues/446
+[#447]: https://github.com/coredev-uk/sona-go/issues/447
+[#448]: https://github.com/coredev-uk/sona-go/issues/448
+[#449]: https://github.com/coredev-uk/sona-go/issues/449
+
 ## Dates
 
 - **The user's own things are dated in calendar words** (`i18n.RelativeDay`): a playlist's "Updated 3 hr. ago", "Updated yesterday", "Updated on Tuesday", "Updated last week", "Updated earlier this month", "Updated in March", "Updated last year", "Updated in 2023". Days are calendar days in the computer's zone, never 24-hour spans, so a change at 23:50 is "yesterday" ten minutes after midnight, and a page left open relabels itself at midnight.
@@ -263,6 +472,32 @@ A song or album with several artists keeps the one thing Apple writes, its artis
 - Loading: the final layout with flat `--hover` bars at the real text sizes; no shimmer, no layout shift when data lands.
 - Errors live inside the block that failed: what failed, when data was last good, and a Retry text button. `--danger` only on a small icon.
 
+## Selectable text
+
+Nothing is selectable by default: a page of rows, tiles and links would fight its own clicks, drags and double-click to play. Text is selectable (MyGo's `Element.Selectable()`) only where people copy it, case by case. One rule decides how:
+
+- **Values, not names.** The value text (`--ink`) is selectable; the muted name beside it, a note, a role, a heading and a picture's initials are `Unselectable()`. MyGo paints the selection (`--selection`, the spot colour at 32%) under the text and leaves the text's colour alone. `theme.Validate` keeps `--ink` at 4.5:1 on it in every theme, but the muted tier falls below that on it in most (Sona dark: `--ink-muted` is 3.5 to 4.0:1; 16 of the 22 built-in variants fall below 4.5:1 somewhere), so muted text stays out of the selection until the selection can carry it (issue #411).
+- **A container for a block of values**, so a drag runs across rows and Ctrl/Cmd+A copies the block, joined by newlines. A control inside keeps its own behaviour (MyGo does not select text inside a button or a link), so a selectable block holds no link or row that opens something.
+- **An identifier also gets a Copy button** (`kit.CopyButton`: a 24px ghost icon button, named "Copy ISRC", with a toast "ISRC copied"): it is one Tab stop beside its value, for someone at the keyboard.
+- **Roles and names are unchanged**: `Selectable()` adds no role, so a screen reader reads the same tree. Selecting never clicks the parent: a selectable block is not in a clickable parent.
+
+| Candidate | Decision | Why |
+| --- | --- | --- |
+| Song page, Details: ISRC | Selectable, with a Copy button | The identifier people paste into a form or a report; the button serves the keyboard |
+| Song page, Details: released, duration, genre, track, disc, written by | Selectable (values; the names are not) | Plain facts people quote; no clickable parent. The song has no label or ℗ line in Apple's data |
+| Song page, Credits: people's names | Selectable (one selection across all groups) | Credits get pasted into notes and forms; names are `--ink` |
+| Song page, Credits: roles, group titles, initials | No | Muted type and decoration |
+| Album page, fine print: the label, release dates, genres, writers | Selectable (values; the names are not) | Plain facts people quote, in a column no row or link surrounds |
+| Album page, fine print: the ℗ and © line | No | It is `--ink-muted`, which the selection does not carry at 4.5:1 (issue #411) |
+| Album page, fine print: UPC | Not shown | Sona does not fetch the UPC; there is nothing to select |
+| Lyrics (song page, Now Playing, the full-screen sheet) | No | Apple's Developer Program License Agreement (3.3.6 D) allows MusicKit content only as the MusicKit APIs render it and says music-related text may not be used apart from playback; two of Sona's three lyrics sources (Musixmatch, LRCLIB) are licensed by others; and the Now Playing sheet's lines seek on a click. Unclear, so left unselectable |
+| Settings, Diagnostics: values (versions, paths, ids, sizes, pid) | Selectable, one selection per group | Single values are what someone pastes into a bug report; "Copy diagnostics" still copies the redacted whole |
+| Settings, Diagnostics: labels and the notes under a warning | No | Muted type |
+| Error and notice text | No | Go's own text and its codes never reach the screen: an error shows a sentence in muted type, and a toast leaves by itself. "Copy diagnostics" carries the codes |
+| About: the version and build | Selectable | Settings, Diagnostics, "Sona" group (the version, Go, platform); Sona has no About page of its own and the OS's About panel is the OS's |
+| Concerts: venue address | No | Sona's data has the venue's name and city, not an address; its rows are links and ticket buttons |
+| Track-list rows, tiles, sidebar, the player bar's title, buttons, links | No | They click, drag, double-click to play or open a menu |
+
 ## Playlist page
 
 The playlist is set like a tape's J-card: the cover is the front panel and the facts are its spine.
@@ -273,7 +508,7 @@ The playlist is set like a tape's J-card: the cover is the front panel and the f
   - Created and updated on the same day show one cell ("Created today"). An unknown date leaves its cell out.
   - "Find in playlist" sits at the strip's right end, with "N of M songs" to its left while it holds a query; there is no field above the table.
 - **Edit mode** keeps the table's columns: a header row (reorder, #, Title, Album, Starts, duration) over the rows, so the order being edited reads as a list of times.
-- **Suggested songs** are rows of the table's own height and columns (art under the numbers' edge, title, artist, Add under the album column, length), the playlist's next rows rather than a grid of tiles. **Featured artists** is a row of small round portraits (100px at least); more-from-curator keeps its covers (144px at least).
+- **Suggested songs** are rows of the table's own height and columns (art under the numbers' edge, title, artist, Add under the album column, length), the playlist's next rows rather than a grid of tiles. The shelf starts **collapsed**: its heading carries a Show/Hide suggestions disclosure (chevron), and nothing is fetched until it is opened (not remembered beyond the page). Open, the head also has **Refresh**, which draws another set (skeleton rows meanwhile, focus kept on the button, the result announced; songs of the replaced set and songs already in the playlist are left out). **Adding a song removes its row** at once, with the announcement and the focus moving to the next row's play button (the previous one, or Refresh when the list is empty); a failed add puts the row back in place with a toast. An empty or failed list shows a short note under the head, and Refresh stays in the head. **Featured artists** is a row of small round portraits (100px at least); more-from-curator keeps its covers (144px at least).
 - **States.** The loading skeleton is the final layout (cover, title, strip, rows). An empty playlist or an empty edit mode puts its title and sentence flush left under the strip, with the suggestions below as rows.
 
 ## The song page: a liner card
@@ -601,9 +836,12 @@ Other versions · Music videos · More to hear · More by · Featured in playlis
 - **The margin holds while the songs scroll** (from 860px of content): the disc index and the fine print, one left edge, are a 264px column 48px right of the songs, held 16px under the pane's top (`Element.Sticky`) while the songs go by and released when they end, whenever the pane shows all of the margin (measured from its height in the frame before, so a one-disc album holds in a shorter window than a three-disc one; a margin taller than the pane scrolls with the page). It is first in the tree, so Tab and the reading order meet the disc index before the songs. An album with neither discs nor facts has no margin and its songs take the width.
 - **The fine print** is the record's facts in meta type, each fact a muted name over its entry: released (the day in full), first released (the year of its oldest recording, when that is earlier: a reissue, a compilation), genres (all of Apple's, without the root "Music"), written by (every songwriter in Apple's composer credits, most credited first, eight named and the rest counted) or, on a classical album, composer, then the label unless the ℗ line names it, and the ℗ line last. In the margin from 860px of content; in the narrow layout after the songs.
 - **The disc index**: each disc in the catalogue line's form ("Disc 2 · 14 songs, 1 hr, 3 mins"); choosing one brings its heading to the top and focuses its first song. A list long enough to be virtualised (over 200 songs) has no disc headings, so no index either.
+- **A song with no disc number is on no disc.** An upload's file often has none (`DiscNumber` 0, which Apple's order by disc puts before disc 1), and "Disc 0" is never shown. A record whose songs all lack a disc is one disc with no index; on a record with discs, the songs without one follow the last disc (each group in its own order), under no heading of their own and out of the disc index (so a disc's count and running time are its own songs'). They are told from the disc's songs by their **Uploaded** badge, not by a sub-heading: the album page is an operating surface, and a "Your uploads" band would be a second heading level for what one pill already says, and would need wording for songs without a disc that are not uploads.
+- **Uploads among the songs** are listed in the record, badged (Lists, above): a catalogue song and an upload of the same name are two rows, the second with its badge. A record of uploads alone, with nothing to tell apart, carries no badges.
 - **Classical albums read by work**: where Apple names the work a track belongs to, each work gets a heading (14/500 ink, under the disc's) and its rows show the movement alone ("Aria", not "Goldberg Variations, BWV 988 (1955 Recording): Aria"); the row's play control and menu still name the song in full, and the queue and now playing show its full name. An album of several composers leads each work with its composer and names the composer under a piece outside any work.
 - **Rows explain themselves**: the line under a title names a credit other than the album artist's (an Artist column only for a real compilation, where most credited songs are someone else's; a song with no credit yet counts for neither) and why a song doesn't play: "Unavailable" or the account's explicit restriction (on an album not out yet its group's heading says when: Not out yet, below). An unpublished song's stand-in artist ("unknown") is dropped, and "Popular" only marks a song that plays.
 - **The catalogue line describes the record**: a library album holding some of its songs counts the whole album and says "2 of 13 songs in your library · Show complete album" in the status slot; an album not out yet leaves out a running time its unpublished songs can't add to.
+- **The catalogue line counts what plays**: the uploads among the songs are in its song count and running time (a partial library album adds them to the record's own count), though the "2 of 13 songs in your library" status counts only the record's songs.
 - **Not out yet** (an album Apple marks as a prerelease, from the catalogue or pre-added to the library): the page answers "when, and what can I do about it", in that order, and is the released layout with its head reordered and its songs in two groups, not a second page. In the band the head reads title, artist, catalogue line, **the release**, the actions, then Apple's badges and note (taller than the cover, so it starts at the top).
 
   ```text

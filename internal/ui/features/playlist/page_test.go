@@ -311,13 +311,55 @@ func TestPageEditModeWithNoSongsSaysNothingIsLeft(t *testing.T) {
 	r.shows("Nothing left to arrange", "Add songs with “Add to playlist” in any song, album or playlist menu.")
 }
 
-func TestPageSuggestionsAddAtOnceAndSerialise(t *testing.T) {
-	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
-	r.api.suggestions["p.1"] = []services.Song{
+// openSuggestions opens the collapsed shelf.
+func (r *pageRig) openSuggestions() {
+	r.t.Helper()
+	r.shows("Suggested songs", "Show suggestions")
+	r.click("Show suggestions")
+	r.shows("Hide suggestions")
+}
+
+func suggestionPair() []services.Song {
+	return []services.Song{
 		pgSong("s1", "Sugg One", "Singer", "Album S"),
 		pgSong("s2", "Sugg Two", "Singer", "Album S"),
 	}
-	r.shows("Suggested songs", "Sugg One", "Singer", "3:20", "Add Sugg One to Road Trip", "Play Sugg One")
+}
+
+// The shelf is closed when the page opens and asks Apple for nothing until
+// it is opened; closing it again hides the list.
+func TestPageSuggestionsStartCollapsedAndFetchWhenOpened(t *testing.T) {
+	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
+	r.api.suggestions["p.1"] = suggestionPair()
+	r.shows("Song A", "Suggested songs", "Show suggestions")
+	for range 10 {
+		r.tt.Drain()
+	}
+	if n := len(r.calls("Suggestions")); n != 0 {
+		t.Fatalf("a closed shelf asked Apple: %v", r.calls("Suggestions"))
+	}
+	if r.tt.HasText("Sugg One") {
+		t.Error("a closed shelf lists songs")
+	}
+	r.openSuggestions()
+	r.shows("Sugg One", "Sugg Two", "Refresh")
+	if n := len(r.calls("Suggestions")); n != 1 {
+		t.Errorf("opening asked %d times", n)
+	}
+	r.click("Hide suggestions")
+	r.shows("Show suggestions")
+	if r.tt.HasText("Sugg One") {
+		t.Error("a closed shelf still lists songs")
+	}
+}
+
+// A song added from the shelf leaves it at once, before Apple answers; the
+// adds are serialised; the focus moves to the next row.
+func TestPageSuggestionsAddRemovesTheRowAndSerialises(t *testing.T) {
+	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
+	r.api.suggestions["p.1"] = suggestionPair()
+	r.openSuggestions()
+	r.shows("Sugg One", "Singer", "3:20", "Add Sugg One to Road Trip", "Play Sugg One")
 
 	// Art plays that song.
 	r.click("Play Sugg Two")
@@ -326,13 +368,10 @@ func TestPageSuggestionsAddAtOnceAndSerialise(t *testing.T) {
 		t.Errorf("suggestion played %q", got)
 	}
 
-	// The add shows "Added" at once, before the answer; the second waits
-	// for the first.
 	r.api.gate = make(chan struct{})
 	r.click("Add Sugg One to Road Trip")
-	if !r.tt.HasText("Added") || r.tt.HasText("Add Sugg One to Road Trip") {
-		t.Errorf("no Added at once: %q", r.tt.Texts())
-	}
+	r.tt.Until("the row gone", func() bool { return !r.tt.HasText("Sugg One") })
+	r.tt.Until("the focus on the next row", func() bool { return r.tt.Focused("Play Sugg Two") })
 	r.click("Add Sugg Two to Road Trip")
 	r.did("Add p.1 [song:s1]")
 	for range 20 {
@@ -344,33 +383,87 @@ func TestPageSuggestionsAddAtOnceAndSerialise(t *testing.T) {
 	close(r.api.gate)
 	r.did("Add p.1 [song:s2]")
 	r.tt.Until("the edits done", func() bool { return !r.p.edits.editing("p.1") })
-	if r.tt.HasText("Add Sugg One to Road Trip") {
-		t.Error("an added song offers Add again")
+	if r.tt.HasText("Sugg One") || r.tt.HasText("Sugg Two") {
+		t.Error("an added song is back in the list")
 	}
 }
 
-func TestPageSuggestionFailureRestoresAddAndToasts(t *testing.T) {
+// Adding the last song leaves the empty state, with Refresh holding the focus.
+func TestPageSuggestionsEmptyStateAfterTheLastAdd(t *testing.T) {
 	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
 	r.api.suggestions["p.1"] = []services.Song{pgSong("s1", "Sugg One", "Singer", "Album S")}
+	r.openSuggestions()
+	r.shows("Add Sugg One to Road Trip")
+	r.click("Add Sugg One to Road Trip")
+	r.shows("No suggestions right now", "Refresh for another set.")
+	r.tt.Until("Refresh has the focus", func() bool { return r.tt.Focused("Refresh") })
+	r.tt.Until("the edits done", func() bool { return !r.p.edits.editing("p.1") })
+}
+
+// A failed add puts the row back in its place and says so.
+func TestPageSuggestionFailureRestoresTheRowAndToasts(t *testing.T) {
+	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
+	r.api.suggestions["p.1"] = suggestionPair()
+	r.openSuggestions()
 	r.shows("Add Sugg One to Road Trip")
 	r.api.err = errOffline
 	r.click("Add Sugg One to Road Trip")
-	r.shows("Couldn't add “Sugg One” to “Road Trip”", "Add Sugg One to Road Trip")
-	if r.tt.HasText("Added") {
-		t.Error("Added stayed after the failure")
+	r.shows("Couldn't add “Sugg One” to “Road Trip”", "Add Sugg One to Road Trip", "Add Sugg Two to Road Trip")
+	if got := r.order("Sugg One", "Sugg Two"); !slices.Equal(got, []string{"Sugg One", "Sugg Two"}) {
+		t.Errorf("the row did not come back in its place: %q", got)
 	}
 }
 
-func TestPageSuggestionsHiddenWhenEmptyOrEditing(t *testing.T) {
+// Refresh draws another set, leaves out the songs of the one it replaces and
+// the songs added since, and keeps the focus on the button.
+func TestPageSuggestionsRefreshReplacesTheList(t *testing.T) {
+	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
+	r.api.suggestSets["p.1"] = [][]services.Song{
+		suggestionPair(),
+		{pgSong("s2", "Sugg Two", "Singer", "Album S"), pgSong("s3", "Sugg Three", "Singer", "Album S"), pgSong("a", "Song A", "Artist A", "Album A")},
+	}
+	r.openSuggestions()
+	r.shows("Sugg One", "Sugg Two")
+	r.tt.Announcements()
+	r.click("Refresh")
+	r.shows("Sugg Three")
+	if r.tt.HasText("Sugg One") || r.tt.HasText("Sugg Two") {
+		t.Errorf("the old set stayed, or a shown song came back: %q", r.tt.Texts())
+	}
+	if r.tt.HasText("Add Song A to Road Trip") {
+		t.Error("a song already in the playlist is suggested")
+	}
+	if !r.tt.Focused("Refresh") {
+		t.Error("the focus left Refresh")
+	}
+	if got := r.tt.Announcements(); !slices.Contains(got, "Suggestions refreshed") {
+		t.Errorf("announcements %q", got)
+	}
+	if n := len(r.calls("Suggestions")); n != 2 {
+		t.Errorf("Refresh asked %d times in all, want 2", n)
+	}
+}
+
+// A Refresh that fails says so and keeps the set it had.
+func TestPageSuggestionsRefreshFailureKeepsTheList(t *testing.T) {
+	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
+	r.api.suggestions["p.1"] = suggestionPair()
+	r.openSuggestions()
+	r.shows("Sugg One")
+	r.api.mu.Lock()
+	r.api.failReads = true
+	r.api.err = errOffline
+	r.api.mu.Unlock()
+	r.click("Refresh")
+	r.shows("Couldn't refresh the suggestions", "Sugg One", "Sugg Two")
+}
+
+func TestPageSuggestionsHiddenWhileEditingAndEmptyWhenNoneCame(t *testing.T) {
 	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
 	r.shows("Song A")
+	r.openSuggestions()
 	r.did("Suggestions p.1")
-	for range 10 {
-		r.tt.Drain()
-	}
-	if r.tt.HasText("Suggested songs") {
-		t.Error("an empty suggestion list shows its shelf")
-	}
+	r.shows("No suggestions right now")
 
 	r = newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
 	r.api.suggestions["p.1"] = []services.Song{pgSong("s1", "Sugg One", "Singer", "Album S")}

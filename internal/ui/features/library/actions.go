@@ -67,13 +67,15 @@ func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool
 		_, ok := loadedState(a, state)
 		return ok
 	}
-	// inLibrary: the loaded state, else what the item's source says.
+	// inLibrary: the loaded state (LibraryService.States answers an item
+	// that names its library copy as in the library, whatever Apple's
+	// catalogue says), else what the item itself says.
 	inLibrary := func(a *kit.ActionContext) bool {
 		if s, ok := loadedState(a, state); ok {
 			return s.InLibrary
 		}
 		_, si, _ := stateOfItem(a.Item())
-		return si.Source == services.SourceLibrary
+		return namesLibraryCopy(si)
 	}
 	item := func(a *kit.ActionContext) (kit.StateItem, string) {
 		_, si, _ := stateOfItem(a.Item())
@@ -187,6 +189,13 @@ func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool
 	return defs
 }
 
+// namesLibraryCopy reports whether the item is a library item (or a
+// catalogue one that knows its library copy): in the library until its
+// state says it was removed.
+func namesLibraryCopy(si kit.StateItem) bool {
+	return si.Source == services.SourceLibrary || si.LibraryID != ""
+}
+
 // kinded is the selection with each item's state kind (stations and music
 // videos have none here).
 func kinded(items []kit.Item) []kit.KindedItem {
@@ -244,7 +253,7 @@ func (l *library) bulkActions() []kit.ActionDef {
 				if !x.InLibrary {
 					return false
 				}
-			} else if k.Item.Source != services.SourceLibrary {
+			} else if !namesLibraryCopy(k.Item) {
 				return false
 			}
 		}

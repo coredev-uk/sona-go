@@ -59,6 +59,21 @@ func TestStationPageLoadsAndFailsInPlace(t *testing.T) {
 	}
 }
 
+// At the narrowest window the skeleton stacks its identity over the slots,
+// and it is one loading status, as at full width.
+func TestStationPageLoadsAtTheNarrowestWindow(t *testing.T) {
+	hold := make(chan struct{})
+	defer close(hold)
+	rg := newRig(t, "/station/ra.1", 708, 800, fake(func(f *fakeRadio) {
+		f.hold = hold
+		f.details["ra.1"] = services.StationDetail{Station: liveStation("ra.1", "Apple Music 1")}
+	}))
+	rg.tt.Frame()
+	if rg.count("Loading") != 1 {
+		t.Errorf("want one loading status: %q", rg.tt.Texts())
+	}
+}
+
 func TestStationPageBylineLinksToTheShowOnlyWhereThePageExists(t *testing.T) {
 	ep := episodeStation("ra.ep", "Episode One")
 	ep.ShowID = "show.1"

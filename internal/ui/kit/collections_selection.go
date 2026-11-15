@@ -314,9 +314,10 @@ func (s *Selection) Click(index int, mods ClickMods) {
 	}
 }
 
-// MenuOn applies a context menu opened on row index.
+// MenuOn applies a context menu opened on row index (nothing for a nil
+// selection: an item outside a list).
 func (s *Selection) MenuOn(index int) {
-	if s.keys != nil {
+	if s != nil && s.keys != nil {
 		s.set(s.state.MenuOn(s.keys, index))
 	}
 }

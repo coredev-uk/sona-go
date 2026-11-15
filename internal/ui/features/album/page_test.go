@@ -1091,3 +1091,27 @@ func TestCompilationBylineIsTextNotAVariousArtistsPage(t *testing.T) {
 		}
 	}
 }
+
+// #336: the header menu acts on the album itself, as the library item it
+// is (its Source and library copy set), so Delete from library can act on it.
+func TestHeaderMenuTargetsTheLibraryAlbumItself(t *testing.T) {
+	r := newRig(t, "/album/l.9", 1132, 1000)
+	var got []services.Album
+	r.h.Env.Actions.Register(kit.ActionDef{
+		ID: "test.album-item", Target: kit.KindAlbum, Group: kit.GroupItem, Order: 1,
+		Label: func(*kit.ActionContext) string { return "Act on album" }, Icon: "trash-2",
+		Run: func(a *kit.ActionContext) { got = append(got, a.Item().Album()) },
+	})
+	r.lib.albums["l.9"] = services.AlbumDetail{
+		Album:  services.Album{ID: "l.9", Source: services.SourceLibrary, LibraryID: "l.9", Name: "Demos", Artist: "Mia Vale", ReleaseDate: "2017"},
+		Tracks: []services.Song{track(1, "First"), track(2, "Second")}, DurationMs: 400000,
+	}
+	r.shows("Demos", "First")
+	r.click("More for Demos")
+	r.tt.Until("the menu", r.tt.Shows("Act on album"))
+	r.click("Act on album")
+	r.tt.Until("the action ran", func() bool { return len(got) == 1 })
+	if a := got[0]; a.ID != "l.9" || a.Source != services.SourceLibrary || a.LibraryID != "l.9" {
+		t.Errorf("the menu acted on %+v, want the library album l.9", a)
+	}
+}

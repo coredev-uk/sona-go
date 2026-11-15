@@ -138,10 +138,9 @@ func (a *listApp) view(c *ui.Context) {
 			if slices.Contains(a.scope.sel, i) {
 				row.Background(theme.C("active"))
 			}
-			a.am.Row(row, tgt)
 			row.Children(func() {
 				ui.Text(c, it.Name()).Grow(1)
-				a.am.Trigger(c, tgt, TriggerOpts{Visible: row.Hovered() || row.FocusWithin()})
+				a.am.Trigger(c, row, tgt, TriggerOpts{Visible: row.Hovered() || row.FocusWithin()})
 			})
 		}
 	})
@@ -290,8 +289,9 @@ func (a *listApp) headerView(c *ui.Context) {
 	theme.Apply(c)
 	it := a.rows[0]
 	tgt := ActionTarget{Item: it, Name: it.Name(), Key: it.ID()}
-	ui.Column(c).Padding(20).Gap(4).Children(func() {
-		a.am.Trigger(c, tgt, TriggerOpts{Header: true})
+	head := ui.Column(c).Padding(20).Gap(4)
+	head.Children(func() {
+		a.am.Trigger(c, head, tgt, TriggerOpts{Header: true})
 	})
 	a.am.Popup(c)
 }

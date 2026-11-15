@@ -169,10 +169,6 @@ msgstr ""
 msgid "Add {songName} to {playlistName}"
 msgstr ""
 
-#: internal/ui/features/playlist/suggestions.go
-msgid "Added"
-msgstr ""
-
 #: internal/ui/kit/collections_tracklist.go
 msgid "Added by"
 msgstr ""
@@ -1182,6 +1178,10 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
+#: internal/ui/features/song/page.go
+msgid "Copy ISRC"
+msgstr ""
+
 #: internal/ui/app/menubar.go
 msgid "Copy an Apple Music link first."
 msgstr ""
@@ -1428,6 +1428,10 @@ msgstr ""
 
 #: internal/ui/features/search/groups.go
 msgid "Couldn't load stations"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Couldn't load suggestions"
 msgstr ""
 
 #: internal/ui/features/discover/players.go
@@ -1699,6 +1703,10 @@ msgstr ""
 
 #: internal/ui/features/library/gate.go
 msgid "Couldn't read your songs from this computer"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Couldn't refresh the suggestions"
 msgstr ""
 
 #: internal/ui/features/home/page.go
@@ -2575,10 +2583,6 @@ msgstr ""
 msgid "From"
 msgstr ""
 
-#: internal/ui/features/library/videos.go
-msgid "From Apple Music: needs a connection"
-msgstr ""
-
 #: internal/ui/features/library/artists.go
 msgid "Full artist page"
 msgstr ""
@@ -2771,6 +2775,10 @@ msgstr ""
 msgid "Hide Sona"
 msgstr ""
 
+#: internal/ui/features/playlist/suggestions.go
+msgid "Hide suggestions"
+msgstr ""
+
 #: internal/ui/features/settings/themes.go
 msgid "High contrast"
 msgstr ""
@@ -2826,6 +2834,10 @@ msgstr ""
 
 #: internal/ui/features/song/page.go
 msgid "ISRC"
+msgstr ""
+
+#: internal/ui/features/song/page.go
+msgid "ISRC copied"
 msgstr ""
 
 #: internal/ui/features/settings/settingsfile.go
@@ -3536,6 +3548,10 @@ msgid "Music videos in your library"
 msgstr ""
 
 #: internal/ui/features/library/videos.go
+msgid "Music videos need a connection"
+msgstr ""
+
+#: internal/ui/features/library/videos.go
 msgid "Music videos you add in Apple Music are listed here after you sign in."
 msgstr ""
 
@@ -3855,6 +3871,10 @@ msgstr ""
 
 #: internal/ui/features/search/groups.go
 msgid "No stations for “{q}”"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "No suggestions right now"
 msgstr ""
 
 #: internal/ui/features/search/groups.go
@@ -5050,7 +5070,16 @@ msgid "Reduced effects"
 msgstr ""
 
 #: internal/ui/features/home/page.go
+#: internal/ui/features/playlist/suggestions.go
 msgid "Refresh"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Refresh for another set."
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Refresh to try again."
 msgstr ""
 
 #: internal/ui/features/home/page.go
@@ -5607,6 +5636,10 @@ msgstr ""
 
 #: internal/ui/features/player/nowplaying_shortcuts.go
 msgid "Show or hide the video"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Show suggestions"
 msgstr ""
 
 #. Command in the command palette and the shortcut help.
@@ -6166,6 +6199,10 @@ msgstr ""
 msgid "Sona quits: it can't stay in the system tray on {platform} yet."
 msgstr ""
 
+#: internal/ui/features/library/videos.go
+msgid "Sona reads your music videos from Apple Music, so they appear once you're back online."
+msgstr ""
+
 #: internal/ui/account/section.go
 msgid "Sona refetches its developer token by itself; if this persists, Apple changed its web player."
 msgstr ""
@@ -6452,6 +6489,10 @@ msgstr ""
 msgid "Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. Neither logind nor the desktop portal answered, so sleep can't be blocked."
 msgstr ""
 
+#: internal/ui/features/settings/integrations_rows.go
+msgid "Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. {platform} refused the request, so sleep can't be blocked."
+msgstr ""
+
 #: internal/ui/features/settings/find.go
 msgid "Storage"
 msgstr ""
@@ -6484,6 +6525,10 @@ msgstr ""
 #: internal/ui/features/concerts/location.go
 #: internal/ui/features/search/field.go
 msgid "Suggestions"
+msgstr ""
+
+#: internal/ui/features/playlist/suggestions.go
+msgid "Suggestions refreshed"
 msgstr ""
 
 #: internal/ui/kit/overlays_palette.go
@@ -7101,6 +7146,7 @@ msgstr ""
 #: internal/ui/account/keyring.go
 #: internal/ui/features/auth/menu.go
 #: internal/ui/features/library/sync.go
+#: internal/ui/features/library/videos.go
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go
@@ -7278,6 +7324,11 @@ msgstr ""
 
 #: internal/ui/features/album/body.go
 msgid "Updating the songs"
+msgstr ""
+
+#: internal/ui/kit/controls_badge.go
+msgctxt "a song the user uploaded, as a badge"
+msgid "Uploaded"
 msgstr ""
 
 #: internal/ui/account/section.go
@@ -8343,6 +8394,10 @@ msgstr ""
 
 #: internal/ui/features/settings/shortcuts.go
 msgid "{key} moves between controls. Choose another key."
+msgstr ""
+
+#: internal/ui/kit/controls_badge.go
+msgid "{label}, uploaded"
 msgstr ""
 
 #: internal/ui/kit/controls_badge.go

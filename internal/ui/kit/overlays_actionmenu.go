@@ -41,6 +41,12 @@ type TriggerOpts struct {
 	// Visible: the row is hovered or has the focus within. The trigger is
 	// shown while its menu is open as well.
 	Visible bool
+	// Select is the enclosing list's selection (nil for an item outside a
+	// list): a right-click on an item outside the selection selects it alone
+	// first, so the menu acts on it and not on the selection. Index is the
+	// item's place in that list.
+	Select *Selection
+	Index  int
 }
 
 // ActionMenus is the "more" menu of a list's rows and tiles (v0.2.0's
@@ -51,10 +57,12 @@ type TriggerOpts struct {
 // under a muted "<what> selected" label.
 //
 // One ActionMenus serves a whole list or page; only one menu is open at a
-// time. Per row call Trigger (the button; it draws its own menu) and
-// Row (right-click, Shift+F10 or the Menu key open a menu at a point), and
-// call Popup once after the rows to draw point menus. Everything runs on
-// the main thread.
+// time. Per row call Trigger (the button; it draws its own menu), which also
+// wires the row it is given to open the same menu on a right-click, Shift+F10
+// or the Menu key, at a point: a "More" button always comes with the
+// right-click, because the row is Trigger's argument. Call Popup once after
+// the rows to draw point menus. Row alone wires an item with no button (a
+// surface with no room for one). Everything runs on the main thread.
 type ActionMenus struct {
 	reg  *ActionRegistry
 	sel  SelectionScope
@@ -284,16 +292,29 @@ func (a *ActionMenus) show(c *ui.Context, anchor ui.Element) {
 	}
 }
 
-// Trigger draws the row's "More for <name>" button and, while its menu is
-// open, the menu below it (aligned to its end, 224 DIPs wide). It draws
-// nothing for a kind with no registered actions. The row variant is a
+// Trigger draws the "More for <name>" button of row and, while its menu is
+// open, the menu below it (aligned to its end, 224 DIPs wide). It also wires
+// row to the same menu: a right-click on it (at the pointer) and Shift+F10 or
+// the Menu key while it has the focus within (below it), as Row does, or as
+// it does with TriggerOpts.Select. Every surface that shows the button
+// therefore answers a right-click too. row is the item the button belongs to:
+// a list row or tile, or a page's head (its artwork and title; the buttons on
+// it keep their own press). also are elements inside row that take the
+// pointer themselves (a title that is a link, a result row's open button) and
+// so would not pass a right-click on to it: a right-click on them opens the menu
+// too. Nothing is drawn or wired for a kind with no registered actions. The row
+// variant is a
 // quiet 24 DIP ghost button, visible while the row is hovered, has the
 // focus within or its menu is open; it is not a tab stop (a list is one
 // stop: Shift+F10 or the Menu key on the row open the same menu). The
 // header variant is an always-visible outline icon button.
-func (a *ActionMenus) Trigger(c *ui.Context, t ActionTarget, o TriggerOpts) ui.Element {
+func (a *ActionMenus) Trigger(c *ui.Context, row ui.Element, t ActionTarget, o TriggerOpts, also ...ui.Element) ui.Element {
 	if !a.HasMenu(t.Item) {
 		return ui.Element{}
+	}
+	a.wire(o.Select, row, t, o.Index)
+	for _, e := range also {
+		a.rightClick(o.Select, e, t, o.Index)
 	}
 	mine := a.menu.IsOpen() && a.cur.target.Key == t.Key && a.cur.target.Item.Kind == t.Item.Kind &&
 		a.cur.target.Item.ID() == t.Item.ID() && a.cur.anchored
@@ -339,17 +360,7 @@ func (a *ActionMenus) Trigger(c *ui.Context, t ActionTarget, o TriggerOpts) ui.E
 // the pointer is) and Shift+F10 or the Menu key while the row has the
 // focus within (below the row's start). Call it after building the row
 // element; draw the menu with Popup.
-func (a *ActionMenus) Row(row ui.Element, t ActionTarget) {
-	if row.RightClicked() {
-		x, y, _ := row.PointerPosition()
-		wx, wy := row.LocalToWindow(x, y)
-		a.OpenAt(t, wx, wy, false)
-	}
-	if row.Shortcut(ui.Shift, ui.KeyF10) || row.Shortcut(0, ui.KeyContextMenu) {
-		b := row.Bounds()
-		a.OpenAt(t, b.X+16, b.Y+b.H, true)
-	}
-}
+func (a *ActionMenus) Row(row ui.Element, t ActionTarget) { a.wire(nil, row, t, 0) }
 
 // HasMenu says whether the item has a more menu: a kind with actions, or one
 // the bulk actions take. False for nil menus or no registry.
@@ -357,21 +368,28 @@ func (a *ActionMenus) HasMenu(it Item) bool {
 	return a != nil && a.reg != nil && (a.reg.Has(it.Kind) || len(a.reg.BulkFor([]Item{it})) > 0)
 }
 
-// OpenFor opens an item's menu on a right-click on src (at the pointer), or on
-// Shift+F10 or the Menu key while opener has the focus (below it), as Row
-// does, but first selects the item alone when it is outside the selection (a
-// menu acts on the whole selection only when the item is in it).
-func (a *ActionMenus) OpenFor(sel *Selection, src, opener ui.Element, t ActionTarget, index int) {
+// wire opens an item's menu on a right-click on row (at the pointer), or on
+// Shift+F10 or the Menu key while row has the focus within (below it), but
+// first selects the item alone when it is outside the selection (a menu acts on
+// the whole selection only when the item is in it). A nil sel is no selection.
+func (a *ActionMenus) wire(sel *Selection, row ui.Element, t ActionTarget, index int) {
+	a.rightClick(sel, row, t, index)
+	if row.Shortcut(ui.Shift, ui.KeyF10) || row.Shortcut(0, ui.KeyContextMenu) {
+		sel.MenuOn(index)
+		b := row.Bounds()
+		a.OpenAt(t, b.X+16, b.Y+b.H, true)
+	}
+}
+
+// rightClick opens the item's menu at the pointer when src was right-clicked,
+// selecting the item alone first when it is outside the selection (sel may be
+// nil).
+func (a *ActionMenus) rightClick(sel *Selection, src ui.Element, t ActionTarget, index int) {
 	if src.RightClicked() {
 		sel.MenuOn(index)
 		x, y, _ := src.PointerPosition()
 		wx, wy := src.LocalToWindow(x, y)
 		a.OpenAt(t, wx, wy, false)
-	}
-	if opener.Shortcut(ui.Shift, ui.KeyF10) || opener.Shortcut(0, ui.KeyContextMenu) {
-		sel.MenuOn(index)
-		b := opener.Bounds()
-		a.OpenAt(t, b.X+16, b.Y+b.H, true)
 	}
 }
 

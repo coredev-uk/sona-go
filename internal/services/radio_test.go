@@ -51,3 +51,27 @@ func TestScheduleArtIsCentreSquare(t *testing.T) {
 		t.Errorf("programme without artwork: art = %+v", got[1].Art)
 	}
 }
+
+// Apple Music 1's artwork is 4320×1080 key art; a station's cover is square,
+// so it asks for the centre square, not the 4:1 strip (#309). Square art
+// stays as it is.
+func TestStationArtIsTheCentreSquareOfWideArt(t *testing.T) {
+	m := newMapper(t)
+	const base = "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/f2/ra1.png/"
+	var wide, square applemusic.Station
+	wide.Attributes.Artwork = &applemusic.Artwork{URL: base + "{w}x{h}sr.{f}", Width: 4320, Height: 1080}
+	square.Attributes.Artwork = &applemusic.Artwork{URL: base + "{w}x{h}bb.{f}", Width: 1200, Height: 1200}
+	for _, tc := range []struct {
+		name string
+		st   applemusic.Station
+		want string
+	}{
+		{"wide", wide, base + "{w}x{h}cc.{f}"},
+		{"square", square, base + "{w}x{h}bb.{f}"},
+	} {
+		got, want := m.amStation(tc.st).Art, m.art.URL(tc.want, 1000, 1000)
+		if got.Large != want {
+			t.Errorf("%s: large = %q, want %q", tc.name, got.Large, want)
+		}
+	}
+}

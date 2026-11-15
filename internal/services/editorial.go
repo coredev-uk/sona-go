@@ -621,14 +621,43 @@ func isDigits(s string) bool {
 	return true
 }
 
-// sentenceCase turns Apple's upper-case badges ("NEW ALBUM", "ONLY ON
-// APPLE MUSIC") into sentence case, keeping a few proper names.
+// badgeWords are the generic words of Apple's upper-case badges and
+// reasons. sentenceCase touches an all-caps string only when every word
+// is one of them: anything else may be a name (a show, a station, an
+// artist), and a name is shown exactly as Apple sends it.
+var badgeWords = map[string]bool{
+	"a": true, "album": true, "albums": true, "and": true, "apple": true, "artist": true, "artists": true,
+	"chart": true, "charts": true, "classic": true, "collection": true, "concert": true, "coming": true,
+	"daily": true, "deluxe": true, "dj": true, "edition": true, "ep": true, "episode": true, "episodes": true,
+	"essentials": true, "exclusive": true, "featured": true, "for": true, "from": true, "hear": true,
+	"in": true, "interview": true, "listen": true, "live": true, "made": true, "mix": true, "mood": true,
+	"music": true, "new": true, "now": true, "of": true, "on": true, "only": true, "out": true,
+	"playlist": true, "playlists": true, "popular": true, "premiere": true, "radio": true, "recommend": true,
+	"release": true, "releases": true, "remastered": true, "replay": true, "series": true, "session": true,
+	"show": true, "single": true, "song": true, "songs": true, "soon": true, "special": true, "station": true,
+	"the": true, "this": true, "to": true, "top": true, "trending": true, "uk": true, "updated": true,
+	"us": true, "video": true, "videos": true, "watch": true, "we": true, "week": true, "weekly": true,
+	"with": true, "you": true,
+	"documentary": true, "festival": true, "film": true, "livestream": true, "original": true, "originals": true,
+	"podcast": true, "podcasts": true, "trailer": true, "upcoming": true,
+}
+
+// sentenceCase turns Apple's generic upper-case badges ("NEW ALBUM", "ONLY
+// ON APPLE MUSIC") into sentence case, keeping a few proper names. A
+// string with any other word, and any string that is not all upper case,
+// is returned as Apple sent it: it may be the name of a show, a station or
+// an artist ("HIS MAJESTY THE KING ON ROCKET HOUR").
 func sentenceCase(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" || strings.ToUpper(s) != s {
 		return s
 	}
 	words := strings.Fields(strings.ToLower(s))
+	for _, w := range words {
+		if !badgeWords[w] {
+			return s
+		}
+	}
 	for i, w := range words {
 		switch w {
 		case "dj", "ep", "uk", "us":

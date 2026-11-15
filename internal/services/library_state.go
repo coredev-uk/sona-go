@@ -78,7 +78,9 @@ func itemState(r ItemRef, st applemusic.LibraryState) ItemState {
 // one batched Apple lookup for the items not seen in the last two minutes
 // (catalog items by catalog ID, library-only items by library ID, artists'
 // ratings by ID). After the user's own changes their outcome is reported
-// for five minutes, since Apple's answers lag. Signed out or offline, the
+// for five minutes, since Apple's answers lag. An item that names its
+// library copy (Source library, or a LibraryID) is in the library whatever
+// Apple's catalogue answers. Signed out or offline, the
 // answers come from the synced library and local ratings.
 func (s *LibraryService) States(ctx context.Context, refs []ItemRef) ([]ItemState, error) {
 	return s.states(ctx, refs, s.o.Auth.Status().State == auth.StateSignedIn)
@@ -109,6 +111,13 @@ func (s *LibraryService) states(ctx context.Context, refs []ItemRef, online bool
 		st, ok := s.o.members.state(keys[i])
 		if !ok {
 			st = s.localState(ctx, r)
+		}
+		// A library copy the item names is in the library whatever Apple's
+		// catalogue says (it reports a partly added album, or one just
+		// added, as not in the library); only the user's own removal, still
+		// held, says otherwise.
+		if _, lib := refIDs(r); lib != "" && !st.InLibrary && !s.o.members.isRemoved(keys[i]) {
+			st.InLibrary, st.LibraryID = true, lib
 		}
 		out[i] = itemState(r, st)
 	}
@@ -281,8 +290,8 @@ func (s *LibraryService) Remove(ctx context.Context, r ItemRef) (ItemState, erro
 		return ItemState{}, s.o.Fail(err)
 	}
 	st.InLibrary, st.LibraryID = false, ""
-	s.o.members.hold(k, st)
-	s.o.members.hold(applemusic.ItemKey{Type: "library-" + r.Kind, ID: lib}, st)
+	s.o.members.holdRemoved(k, st)
+	s.o.members.holdRemoved(applemusic.ItemKey{Type: "library-" + r.Kind, ID: lib}, st)
 	if cat != "" {
 		s.o.members.unmarkAdded(r.Kind, []string{cat})
 	}

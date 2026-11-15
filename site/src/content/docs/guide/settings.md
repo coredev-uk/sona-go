@@ -21,7 +21,7 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Title bar | Chooses Automatic, Sona's title bar with or without window buttons, or the desktop's. Applies the next time Sona starts. | _Linux_ _Windows_ |
 | Window size | Shows the size Sona opens at. Reset size puts it back to the default. | |
 | Track notifications | Shows the song and artist, with artwork and a Next button, when a track starts. Not shown while Sona's window is in front. | _macOS_ and _Windows_ show the song and artist only, and a click opens Sona. _macOS_ needs Sona.app. _Linux_ needs a notification service. |
-| Stay awake while playing | Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. | Not on _Windows_ yet. On _Linux_ needs logind or the desktop portal. |
+| Stay awake while playing | Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. | On _Linux_ needs logind or the desktop portal. |
 
 ### Updates
 
@@ -108,6 +108,8 @@ Lists every shortcut by group. Select one to record new keys, with a warning whe
 ## Diagnostics
 
 Runs checks of the playback host, database and keyring when you open it, and reports problems and warnings. Check again repeats them, Copy diagnostics copies a report with tokens and your email address removed, and Open log folder opens the logs. See [Troubleshooting](/guide/troubleshooting/).
+
+To copy one value, such as a version or a path, select it (triple-click takes a line) and press Ctrl+C, or right-click it and choose Copy. On a Mac, press Cmd+C.
 
 | Group | What it shows |
 | --- | --- |

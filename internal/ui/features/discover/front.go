@@ -314,16 +314,13 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			}
 		}
 		if hasMenu {
-			d.front.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(pager).Top(captionTop + 12)
+			d.front.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), card, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(pager).Top(captionTop + 12)
 		}
 		if pager > 0 {
 			d.pager(c, pg, captionTop+10)
 		}
 		if card.Clicked() && open != nil {
 			open()
-		}
-		if hasTarget && ctx.Menus != nil {
-			ctx.Menus.Row(card, menu)
 		}
 	})
 }
@@ -465,14 +462,11 @@ func (d *discover) featureRow(c *ui.Context, it services.Item, index int, curren
 			}
 		}
 		if hasMenu {
-			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(8).Top((lay.rowHeight - 24) / 2)
+			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), row, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(8).Top((lay.rowHeight - 24) / 2)
 		}
 	})
 	if row.Clicked() {
 		f.choose(index)
-	}
-	if hasTarget && ctx.Menus != nil {
-		ctx.Menus.Row(row, menu)
 	}
 }
 

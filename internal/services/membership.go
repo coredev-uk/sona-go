@@ -50,6 +50,7 @@ const (
 type stateEntry struct {
 	st    applemusic.LibraryState
 	until time.Time
+	gone  bool // the user removed the item from the library
 }
 
 // membership answers whether catalog items are in the user's library:
@@ -140,13 +141,29 @@ func (m *membership) state(k applemusic.ItemKey) (applemusic.LibraryState, bool)
 	return e.st, true
 }
 
+// holdRemoved is hold for the user's removal of k from the library.
+func (m *membership) holdRemoved(k applemusic.ItemKey, st applemusic.LibraryState) {
+	m.mu.Lock()
+	m.states[k] = stateEntry{st: st, until: m.now().Add(stateHold), gone: true}
+	m.mu.Unlock()
+}
+
+// isRemoved reports whether the user removed k from the library, still
+// held.
+func (m *membership) isRemoved(k applemusic.ItemKey) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e, ok := m.states[k]
+	return ok && e.gone && m.now().Before(e.until)
+}
+
 // remember caches Apple's answer for k for stateTTL, unless the user's
 // own change to k is still held.
 func (m *membership) remember(k applemusic.ItemKey, st applemusic.LibraryState) {
 	now := m.now()
 	m.mu.Lock()
 	if e, ok := m.states[k]; !ok || !now.Before(e.until) {
-		m.states[k] = stateEntry{st, now.Add(stateTTL)}
+		m.states[k] = stateEntry{st: st, until: now.Add(stateTTL)}
 	}
 	m.mu.Unlock()
 }
@@ -155,7 +172,7 @@ func (m *membership) remember(k applemusic.ItemKey, st applemusic.LibraryState) 
 // anything Apple reports meanwhile.
 func (m *membership) hold(k applemusic.ItemKey, st applemusic.LibraryState) {
 	m.mu.Lock()
-	m.states[k] = stateEntry{st, m.now().Add(stateHold)}
+	m.states[k] = stateEntry{st: st, until: m.now().Add(stateHold)}
 	m.mu.Unlock()
 }
 

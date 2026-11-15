@@ -420,13 +420,12 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 					}
 				}
 				if hasMenu {
-					p.menus.np.Trigger(c.Key("more"), target, kit.TriggerOpts{Header: true})
+					p.menus.np.Trigger(c.Key("more"), copy, target, kit.TriggerOpts{Header: true})
 				}
 			})
 		}
 		p.menus.np.PopupFor(c, cur != nil)
 	})
-	p.playingRow(copy, cur, &p.menus.np)
 }
 
 // liveLines is a live station's line: Live, and what is on air (the stream's

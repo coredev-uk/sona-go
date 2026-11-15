@@ -66,6 +66,7 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			target, hasTarget = kit.ActionTarget{Item: ai, Name: it.Name, Key: o.key}, true
 		}
 	}
+	var main ui.Element // the open button, when the row has one: it takes the right-click
 	row.Children(func() {
 		body := func() {
 			kit.Artwork(c, s.env.Art, it.Art.Small, size, kit.ArtOpts{Round: kit.ItemRound(it), Edge: true})
@@ -74,6 +75,9 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 					theme.Text(c, it.Name, "body").TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0)
 					if it.Explicit {
 						kit.ExplicitMark(c).Shrink(0)
+					}
+					if it.IsUpload() {
+						kit.UploadedBadge(c.Key("uploaded"))
 					}
 				})
 				if meta := itemMeta(it); meta != "" {
@@ -84,11 +88,11 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 		if run == nil {
 			ui.Row(c.Key("body")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Padding(6, 8).Children(body)
 		} else {
-			main := ui.ButtonBase(c.Key("open")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Padding(6, 8).
+			main = ui.ButtonBase(c.Key("open")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Padding(6, 8).
 				Radius(tk.Radius["md"]).Role(role)
 			if role == ui.RoleButton {
 				// Named by its visible text (WCAG 2.5.3), with the action after it.
-				main.Label(it.Name + ", " + i18n.T("Play"))
+				main.Label(accessibleName(it) + ", " + i18n.T("Play"))
 			}
 			main.Children(func() {
 				body()
@@ -101,12 +105,6 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			})
 			if o.focus {
 				main.Focus()
-			}
-			if hasTarget && main.RightClicked() {
-				// The open button takes the press, so the row never sees it.
-				x, y, _ := main.PointerPosition()
-				wx, wy := main.LocalToWindow(x, y)
-				o.menus.OpenAt(target, wx, wy, false)
 			}
 			if main.Clicked() {
 				if o.onOpen != nil {
@@ -133,10 +131,9 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 			}
 		}
 		if hasTarget {
-			o.menus.Trigger(c, target, kit.TriggerOpts{Visible: shown})
+			// The open button takes the press, so the row never sees it: it wires
+			// the menu as well.
+			o.menus.Trigger(c, row, target, kit.TriggerOpts{Visible: shown}, main)
 		}
 	})
-	if hasTarget {
-		o.menus.Row(row, target)
-	}
 }

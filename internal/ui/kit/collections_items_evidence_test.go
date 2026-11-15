@@ -130,7 +130,7 @@ func TestItemsEvidence(t *testing.T) {
 	}
 	hero := &WideRowState{}
 	shoot(t, "widerow", 1000, 470, func(c *ui.Context, ctx ItemsCtx) {
-		WideRow(c, hero, heroes, ctx, WideRowOpts{Title: "Featured Releases", Min: 420, Ratio: heroRatio, Crop: true, First: true})
+		WideRow(c, hero, heroes, ctx, WideRowOpts{Title: "Featured Releases", Min: 420, Ratio: heroRatio, First: true})
 	}, func(a *itemsApp, tt *ui.Tester) {
 		r, _ := tt.Find("Midnight Drive") // the card
 		tt.Move(r.X+r.W/2, r.Y+r.H/3)

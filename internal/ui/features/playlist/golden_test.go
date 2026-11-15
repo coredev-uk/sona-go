@@ -178,7 +178,11 @@ func TestPlaylistPageStatesGolden(t *testing.T) {
 				pgSong("s2", "Late Train", "Mira", "Night Shift"),
 				pgSong("s3", "Salt Air", "Wren", "Coast"),
 			}
-		}, func(r *pageRig) { r.shows("This playlist is empty", "Suggested songs", "Salt Air") })
+		}, func(r *pageRig) {
+			r.shows("This playlist is empty", "Suggested songs", "Show suggestions")
+			r.click("Show suggestions")
+			r.shows("Salt Air")
+		})
 	})
 	t.Run("featured", func(t *testing.T) {
 		d := catalogDetail("pl.1", "Apple's Mix", goldenDetail().Tracks...)
@@ -187,4 +191,42 @@ func TestPlaylistPageStatesGolden(t *testing.T) {
 		d.MoreByCurator = []services.Playlist{{ID: "pl.2", Name: "Another Mix", Curator: "Apple Music Pop"}}
 		golden(t, "playlist-featured-dark", 1132, theme.ModeDark, d, nil, func(r *pageRig) { r.shows("Featured artists", "Another Mix") })
 	})
+}
+
+func goldenSuggestions() []services.Song {
+	return []services.Song{
+		pgSong("s1", "Open Road", "Neon", "Drive"),
+		pgSong("s2", "Late Train", "Mira", "Night Shift"),
+		pgSong("s3", "Salt Air", "Wren", "Coast"),
+	}
+}
+
+// The Suggested songs shelf under a playlist with songs: closed as the page
+// opens, open with its list and Refresh, and empty after the last song was
+// added (or none came), in both modes.
+func TestPlaylistSuggestionsGolden(t *testing.T) {
+	for _, m := range []struct {
+		suffix string
+		mode   theme.Mode
+	}{{"light", theme.ModeLight}, {"dark", theme.ModeDark}} {
+		t.Run("collapsed-"+m.suffix, func(t *testing.T) {
+			golden(t, "playlist-suggestions-collapsed-"+m.suffix, 1132, m.mode, goldenDetail(), func(a *fakeAPI) {
+				a.suggestions["p.1"] = goldenSuggestions()
+			}, func(r *pageRig) { r.shows("Suggested songs", "Show suggestions") })
+		})
+		t.Run("open-"+m.suffix, func(t *testing.T) {
+			golden(t, "playlist-suggestions-open-"+m.suffix, 1132, m.mode, goldenDetail(), func(a *fakeAPI) {
+				a.suggestions["p.1"] = goldenSuggestions()
+			}, func(r *pageRig) {
+				r.openSuggestions()
+				r.shows("Salt Air", "Refresh")
+			})
+		})
+		t.Run("empty-"+m.suffix, func(t *testing.T) {
+			golden(t, "playlist-suggestions-empty-"+m.suffix, 1132, m.mode, goldenDetail(), nil, func(r *pageRig) {
+				r.openSuggestions()
+				r.shows("No suggestions right now", "Refresh")
+			})
+		})
+	}
 }
