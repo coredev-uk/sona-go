@@ -1,0 +1,96 @@
+# Repository, releases and dependencies
+
+Branch protection, how releases are cut by automation, how self-updates are built, and how dependencies are pinned and updated. The release checklist is `release.md`.
+
+## Branch protection
+
+- `main` is protected by a ruleset: changes land only through a pull request,
+  squash-merged (linear history), with these checks green: "Go vet and test
+  (-race)", "Conventional
+  Commits title" and "gitleaks". Nobody bypasses it but the review bot, and
+  only through a pull request. Force pushes and deleting `main` are
+  blocked. Release tags (`v*`) can't be moved or deleted. A first pull
+  request from someone outside the project waits for the maintainer to
+  approve its CI run. Report vulnerabilities privately (SECURITY.md).
+
+## Release automation
+
+Releases are automated with release-please
+(`.github/workflows/release-please.yml`, config in
+`release-please-config.json`). Your PR title is what it reads: PRs are
+squash-merged, so the title becomes the commit subject. `feat` titles land
+under Features, `fix` under Bug Fixes, `perf` under Performance and `revert`
+under Reverts in `CHANGELOG.md`; `refactor`, `docs`, `test`, `ci`, `build`
+and `chore` stay out of the changelog. Mark a breaking change with `!`
+(`feat!: …`) or a `BREAKING CHANGE:` footer. release-please keeps one
+release PR open that bumps `VERSION` and `CHANGELOG.md`; a maintainer merges
+it, which tags `v<VERSION>` and runs `release.yml`: the Linux packages
+(.deb, .rpm, Arch, AppImage), the macOS app for Apple silicon (`.dmg`,
+GStreamer bundled, ad-hoc signed; `build/darwin`) and the Windows x64
+installer and portable zip (`build/windows`), each smoke-tested, then the
+signed update manifests, one `SHA256SUMS` and build attestations, published
+with the release. Never edit `VERSION` or `CHANGELOG.md` by hand. Changing the packaging or
+`release.yml`? Dispatch `release.yml` on your branch (`gh workflow run
+release.yml --ref <branch>`): it builds and smoke-tests every platform and
+publishes nothing (`-f prerelease=rc.1` publishes a test prerelease instead).
+The release steps are maintainer documentation: `docs/maintainers/release.md`.
+
+
+## Self-updates (macOS and Windows)
+
+`internal/update` and `UpdatesService` update a macOS `.app` or a Windows
+folder in place (design: `docs/architecture.md`, "Updates"). What a release
+needs:
+
+- The public key is `internal/update/update.pub` (embedded; empty means
+  updates are off). The private key is the maintainer's, from `go tool mygo
+  keygen` (`docs/maintainers/ci-and-secrets.md`); losing it strands the
+  installs that exist. Never print it or commit it.
+- Release builds link MyGo's updater with `-ldflags "-X
+  github.com/egoist/mygo.packageUpdateFeed=https://github.com/coredev-uk/sona-go/releases/latest/download/update-<target>.json
+  -X github.com/egoist/mygo.packageUpdateKey=$(cat internal/update/update.pub)"`:
+  `build/darwin/bundle.sh` and `build/windows/package.sh` get both from
+  `build/ldflags.sh --update <target>` in CI when `update.pub` is not empty
+  (or from `UPDATE_FEED` and `UPDATE_KEY`). Other builds leave both unset.
+- The update archive is a gzip tar (`sona-<version>-darwin-arm64.tar.gz` with
+  one top-level `Sona.app`; `sona-<version>-windows-amd64.tar.gz` with the
+  folder's files at top level, made by `build/windows/update-archive.sh`:
+  never `tar -czf OUT .`, whose `./` entry MyGo's extractor refuses, which
+  made every Windows update fail). `update.CheckArchive` (`go run
+  ./cmd/releasesign -check -target T -archive FILE`) applies MyGo's
+  extraction rules and Sona's layout; `package.sh` runs it on what it made
+  and `releasesign` runs it before it signs. `go run ./cmd/releasesign
+  -target T -archive FILE -version V -url URL [-notes FILE] -out
+  update-T.json` signs it (key from `$SONA_UPDATE_KEY`); the publish job signs
+  last, after the archives are uploaded.
+- A prerelease's notes (and its manifests' notes) are `go run ./cmd/rcnotes
+  -exclude <tag>`: the changes since the previous `v*` tag, by Conventional
+  Commit type (`docs/maintainers/release.md`, "Prerelease notes").
+- Tests run against an `httptest` fake release server (`internal/update`,
+  `internal/services/updates_self_test.go`): the check, a bad signature
+  refused, no key (off), a development build never checking, the rollback
+  decision, a failed install leaving the kept version as it was, and the
+  archive rules (`archive_test.go`, pinned to what MyGo's extractor does with
+  the same entries; the Windows archive script is run on a folder and its
+  output checked). The real run (install, relaunch, rollback) is the phase 5
+  update and rollback runs on a Mac and a Windows machine.
+
+## Pinned inputs
+
+`devenv.yaml` pins nixpkgs to one nixos-unstable revision and devenv's
+modules to one revision, so every machine gets the same toolchain. To bump
+nixpkgs, put the current nixos-unstable head
+(`git ls-remote https://github.com/NixOS/nixpkgs refs/heads/nixos-unstable`)
+in `devenv.yaml` and in `flake.nix` (the flake's packages build with the same
+nixpkgs), run `devenv update` and `nix flake update`, then `check`, `tests`,
+`play-spike`, `nix build .#sona-source` and the app, and commit
+`devenv.yaml`, `devenv.lock`, `flake.nix` and `flake.lock` together.
+
+## Dependency updates
+
+Renovate opens pull requests for Go modules and GitHub
+Actions (MyGo's are always left for review), and a review bot checks and merges them; the pinned devenv inputs
+are bumped by hand (see "Pinned inputs" above). You
+don't need to update dependencies yourself; a change that needs a newer
+dependency bumps it in the same PR.
+

@@ -175,7 +175,7 @@ Reported in use: the featured lead on Discover doesn't move between slides. By d
 - **Acceptance:** in a headless live run with the window focused, the lead changes after one interval; the pause control and every hold still work.
 
 ### 14. The Albums probe on a large library
-#277's probe scrolled the 24-album fixture, about 590px. CONTRIBUTING.md suggests about 650 albums.
+#277's probe scrolled the 24-album fixture, about 590px. docs/performance.md suggests about 650 albums.
 - **Change:** run the interleaved probe (b259a43 against `main`) on a generated 650-album profile and record the result in `docs/maintainers/redesign/probe.md`.
 
 ## Polish and consistency

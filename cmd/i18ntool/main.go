@@ -2,7 +2,7 @@
 // messages (internal/i18n/l10n) into their English catalogue, collects the
 // interface's messages (internal/ui: i18n.T and i18n.TC calls) into the
 // UI's catalogue, and maps the UI's messages to Apple Music's string keys
-// (docs/ui-architecture.md, "Strings and locales"; CONTRIBUTING.md,
+// (docs/ui-architecture.md, "Strings and locales"; docs/translations.md,
 // "Strings and translations").
 //
 //	i18ntool extract          write both English catalogues: Go's

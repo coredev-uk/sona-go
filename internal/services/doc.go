@@ -62,7 +62,7 @@
 //   - Text Go shows itself, outside the UI (notification buttons,
 //     file chooser titles and filters, the sleep inhibitor's reason), is
 //     an l10n.Message shown through Deps.Language.Printer() when it is
-//     shown, so it follows the Language setting (CONTRIBUTING.md, "Go's
+//     shown, so it follows the Language setting (docs/translations.md, "Go's
 //     own text").
 //   - applemusic: one file per Apple domain; new amp-api endpoints are
 //     one-liners with applemusic.AMP / AMPResource / AMPResources and

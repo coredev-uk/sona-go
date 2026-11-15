@@ -48,7 +48,7 @@ Merging a release:
    ([permissions](ci-and-secrets.md#bot-cecil-app-permissions)), so CI
    and the PR title check start on it like on any other PR, and re-run on
    every push to its branch. Wait for the three required checks ("Go vet and
-   test (-race)", "Conventional Commits title", "gitleaks"; CONTRIBUTING.md,
+   test (-race)", "Conventional Commits title", "gitleaks"; site/src/content/docs/contributing/pull-requests.md,
    "Pull requests"). If a push changed nothing in
    the PR and the checks are missing (the release PR opened before the App
    token was in use), close and reopen it to start them.

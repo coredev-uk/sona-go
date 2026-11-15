@@ -1,6 +1,6 @@
 // Command typecheck type-checks every Sona package, tests included, for
 // another OS from source with cgo off, so a macOS or Windows break shows
-// up on Linux (CI runs it; see CONTRIBUTING.md, "Platforms").
+// up on Linux (CI runs it; see docs/platforms.md, "Platforms").
 //
 // `GOOS=windows CGO_ENABLED=0 go vet ./...` covers Windows; typecheck does
 // the same for macOS, where go vet would stop at the first dependency that
@@ -12,7 +12,7 @@
 //
 // With -cgo it type-checks with cgo on, through the C compiler in $CC and
 // $CXX, which must target that OS: this covers the code that builds only
-// with cgo there (the macOS CDM host engine; CONTRIBUTING.md has the zig
+// with cgo there (the macOS CDM host engine; docs/platforms.md has the zig
 // recipe). Third-party Objective-C that needs Apple's SDK still fails and is
 // named as third-party.
 package main
