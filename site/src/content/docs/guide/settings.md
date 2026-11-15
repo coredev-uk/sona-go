@@ -103,7 +103,7 @@ Lists every shortcut by group. Select one to record new keys, with a warning whe
 | Artwork cache | Limits the covers and backdrops kept on this computer. Above the limit, the artwork shown least recently is removed first. | |
 | Catalogue cache | Clear caches removes the Apple Music pages and the artwork cache. Your library and settings stay. | |
 | Library database | Compact now gives free space back to the disk. Sona also optimises it when it is idle and nothing is playing. | |
-| Settings file | Exports your settings to a file and imports one from another computer. The window size, audio output, rendering fixes and connected accounts stay with this computer. | Needs a file chooser: not on _Windows_ yet. |
+| Settings file | Exports your settings to a file and imports one from another computer. The window size, audio output, rendering fixes and connected accounts stay with this computer. | On _Linux_ needs the desktop portal's file chooser. |
 
 ## Diagnostics
 
