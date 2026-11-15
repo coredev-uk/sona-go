@@ -189,7 +189,7 @@ func (l *Library) StorePlaylist(ctx context.Context, p applemusic.Playlist, fold
 		if tracks == nil {
 			return nil
 		}
-		return l.storeTracks(ctx, q, id, p.ID, a.LastModifiedDate, tracks, now)
+		return l.storeTracks(ctx, q, id, p.ID, p.Modified(), tracks, now)
 	})
 }
 

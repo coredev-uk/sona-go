@@ -13,6 +13,14 @@ const (
 	StationPrefix         = "ra."
 )
 
+// PersonalMixPrefix starts the catalog ID of Apple's personal mixes
+// (Favourites Mix, New Music Mix, Chill Mix, Heavy Rotation…).
+const PersonalMixPrefix = "pl.pm-"
+
+// IsPersonalMix reports whether catalogID is a personal mix's ("pl.pm-…").
+// A mix's library copy names it by its catalog ID (Playlist.CatalogID).
+func IsPersonalMix(catalogID string) bool { return strings.HasPrefix(catalogID, PersonalMixPrefix) }
+
 // IsLibrarySongID reports whether id is a library song's ("i.…").
 func IsLibrarySongID(id string) bool { return strings.HasPrefix(id, LibrarySongPrefix) }
 

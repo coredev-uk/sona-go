@@ -715,7 +715,8 @@ The code is in `internal/library`.
 - **Incremental sync** (`library.Incremental`) runs at start-up and after edits, with the domains in parallel:
   - Songs and albums newest-added first (`sort=-dateAdded`), up to the first stored item.
   - The artist count.
-  - The playlist list (tracks and folders only for playlists whose `lastModifiedDate` moved).
+  - The playlist list (tracks and folders only for playlists whose `lastModifiedDate` moved). The list is read with `include=catalog`: a personal mix (`pl.pm-…`) takes its stamp from its catalogue copy (`applemusic.Playlist.Modified`), because Apple regenerates a mix there and never moves the library copy's stamp (`docs/apple-music-reference.md` §3.3). The stamp is also the playlist's "Updated" date.
+  - Opening a personal mix's page checks its catalogue stamp once (at most every 5 minutes) and refetches the mix's tracks if it moved, so a mix is current without waiting for a sync.
   - Ratings only for items stored since the last ratings run.
   - A domain whose local count then differs from Apple's runs fully at once.
 - **Full run** (removals, metadata edits, ratings changed elsewhere): on "Sync now" and every 72 hours (`library.FullSyncEvery`).
