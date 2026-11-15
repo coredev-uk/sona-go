@@ -17,7 +17,7 @@ packages, from the bundled GStreamer (below).
 
 The Widevine CDM is not third-party code in Sona: it is Google's proprietary
 software, never in this repository, the binary or any package. Sona downloads
-it from Google at runtime ([README](README.md#playback-and-the-widevine-cdm)).
+it from Google at runtime ([Privacy and Security](https://sona.coredev.uk/privacy-and-security/)).
 
 ## Lucide (ISC)
 

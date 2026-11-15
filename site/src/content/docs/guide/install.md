@@ -44,14 +44,14 @@ The flake has three packages:
    xattr -dr com.apple.quarantine /Applications/Sona.app
    ```
 
-Sona updates itself: Settings → Updates → "Install and restart".
+Sona updates itself: Settings → General → Updates → "Install and restart".
 
 ## Install on Windows
 
 1. Download `Sona-<version>-windows-x64-setup.exe` and run it. It installs for your user and needs no administrator rights. Or extract `Sona-<version>-windows-x64.zip` anywhere you can write to.
 2. If SmartScreen warns about an unknown publisher, choose "More info", then "Run anyway".
 
-Sona updates itself: Settings → Updates.
+Sona updates itself: Settings → General → Updates.
 
 The uninstaller removes Sona's playback sandbox. If you delete a portable folder instead, quit Sona and run `sona.exe --remove-sandbox` from that folder first. Your data stays.
 

@@ -10,7 +10,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Sona',
-      description: 'Sona is an Apple Music client for the desktop, built first for Linux.',
+      description: 'Sona is a native Apple Music client for Linux, macOS and Windows.',
       logo: { src: './src/assets/sona-mark.svg', alt: '' },
       favicon: '/favicon.svg',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/coredev-uk/sona-go' }],
@@ -23,10 +23,18 @@ export default defineConfig({
           items: [
             { slug: 'guide/install' },
             { slug: 'guide/first-run' },
+            { slug: 'guide/library' },
+            { slug: 'guide/playback' },
+            { slug: 'guide/keyboard-shortcuts' },
+            { slug: 'guide/scrobbling-and-discord' },
+            { slug: 'guide/private-listening' },
             { slug: 'guide/themes' },
             { slug: 'guide/cli' },
+            { slug: 'guide/troubleshooting' },
           ],
         },
+        { slug: 'accessibility' },
+        { slug: 'privacy-and-security' },
         {
           label: 'Contributing',
           items: [{ slug: 'contributing/documentation' }],
