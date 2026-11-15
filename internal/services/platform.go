@@ -65,7 +65,8 @@ type Platform struct {
 	// button (macOS and Windows: MyGo's notifications have neither).
 	PlainNotifications bool
 	// MotionArtwork: the build decodes motion artwork (internal/ui/media
-	// has a decoder: GStreamer on Linux and macOS, none on Windows).
+	// has a decoder: GStreamer on Linux, MyGo's ui/video on macOS
+	// (AVFoundation) and Windows (Media Foundation)).
 	MotionArtwork bool
 	// TitleBar is how the main window's title bar works here: the system's
 	// buttons inset into Sona's top bar (macOS), or Sona's own title bar
