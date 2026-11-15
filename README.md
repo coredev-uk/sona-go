@@ -1,56 +1,31 @@
-# Sona
+<img src="build/appicon.svg" alt="" width="100" align="left">
 
-An Apple Music client for the desktop, built first for Linux. Sona is a native
-Go app whose interface is drawn on the GPU by [MyGo](https://github.com/egoist/mygo),
-with no web view.
+### Sona
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="site/src/assets/home-dark.webp">
-    <img src="site/src/assets/home-light.webp" alt="Sona's Albums page: a sidebar, a grid of album covers and the player bar." width="720">
-  </picture>
-</p>
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="site/src/assets/miniplayer-dark.webp">
-    <img src="site/src/assets/miniplayer-light.webp" alt="Sona's mini player." width="360">
-  </picture>
-</p>
+[![Downloads](https://img.shields.io/github/downloads/coredev-uk/sona-go/total)](https://github.com/coredev-uk/sona-go/releases)
+[![Latest release](https://img.shields.io/github/v/release/coredev-uk/sona-go?include_prereleases)](https://github.com/coredev-uk/sona-go/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/coredev-uk/sona-go/ci.yml?branch=main)](https://github.com/coredev-uk/sona-go/actions/workflows/ci.yml)
 
-Sona is in early development, not a finished product. You need an Apple Music
-subscription. Sona is not affiliated with Apple or Google.
+A native Apple Music client for Linux, macOS and Windows.
 
-## Install
+[Download](https://github.com/coredev-uk/sona-go/releases) •
+[Documentation](https://sona.coredev.uk) •
+[Release notes](https://github.com/coredev-uk/sona-go/releases/latest)
 
-Linux (x86_64), macOS (Apple silicon) and Windows (x64) builds are on the
-[releases page](https://github.com/coredev-uk/sona-go/releases). The
-[install guide](https://sona.coredev.uk/guide/install/) has the steps for each
-system, including Nix.
+<br clear="left">
 
-## Features
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/src/assets/home-dark.webp">
+  <img src="site/src/assets/home-light.webp" alt="Sona's Albums page: a sidebar, a grid of album covers and the player bar.">
+</picture>
 
-- Your Apple Music library, with synced songs, albums, artists, playlists and history
-- Word-by-word lyrics, with translations
-- A queue with AutoPlay, crossfade, an equaliser and a sleep timer
-- A mini player, media keys and Now Playing, tray and notifications
-- Last.fm and ListenBrainz scrobbling, and Discord status
-- Private listening
-- Twelve themes, or write your own
-- A command line for scripts and status bars
+## Contributing
 
-## Playback and the Widevine CDM
+Report bugs with the [bug report form](https://github.com/coredev-uk/sona-go/issues/new?template=bug_report.yml)
+and suggest features with the [feature request form](https://github.com/coredev-uk/sona-go/issues/new?template=feature_request.yml);
+Discussions are off. To change the code, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Apple Music's tracks are protected with Widevine. On first start Sona
-downloads Google's Widevine CDM from Google's servers, verifies it, and runs
-it in a sandboxed process. The CDM is Google's software: it isn't part of
-this repository or any Sona build, and must never be bundled or modified.
+## Licence
 
-## Links
-
-- [Documentation](https://sona.coredev.uk)
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
-- [Third-party notices](THIRD_PARTY_NOTICES.md)
-
-Licensed under the GNU Affero General Public License v3.0 only
-([LICENSE](LICENSE)).
+Sona is licensed under the GNU Affero General Public License v3.0 only
+([LICENSE](LICENSE)). It is not affiliated with Apple or Google.

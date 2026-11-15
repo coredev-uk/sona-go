@@ -10,7 +10,7 @@ Goals:
 
 - Fast: a cold start renders cached library data before any network call; no UI jank on large libraries.
 - Functional: reliable sign-in, catalogue and library browsing, full-track playback, media keys and desktop integration.
-- Linux-first: MyGo on GTK3, Wayland-native, PipeWire audio, D-Bus MPRIS, XDG paths, Secret Service credentials. macOS and Windows sit behind the same seams (§9).
+- Linux: MyGo on GTK3, Wayland-native, PipeWire audio, D-Bus MPRIS, XDG paths, Secret Service credentials. macOS and Windows sit behind the same seams (§9).
 - Go owns all Apple Music networking, credentials, sync, caching and platform integration. The UI renders state; it never holds tokens or talks to Apple directly.
 
 The Apple Music web app is a reference for functionality only (`docs/apple-music-reference.md`): Sona matches Apple in capability, and every page is designed fresh under `docs/design.md`.
