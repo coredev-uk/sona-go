@@ -22,8 +22,9 @@ A native Apple Music client for Linux, macOS and Windows.
 ## Contributing
 
 Report bugs with the [bug report form](https://github.com/coredev-uk/sona-go/issues/new?template=bug_report.yml)
-and suggest features with the [feature request form](https://github.com/coredev-uk/sona-go/issues/new?template=feature_request.yml);
-Discussions are off. To change the code, read [CONTRIBUTING.md](CONTRIBUTING.md).
+and request features with the [feature request form](https://github.com/coredev-uk/sona-go/issues/new?template=feature_request.yml).
+Ask questions and share ideas in [Discussions](https://github.com/coredev-uk/sona-go/discussions).
+To change the code, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 

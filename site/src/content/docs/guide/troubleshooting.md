@@ -30,4 +30,6 @@ Settings → Diagnostics → Open log folder opens the folder. The log is `sona.
 3. Choose your platform and how you installed Sona. Describe what happened and the steps to reproduce it.
 4. Paste the diagnostics, and check them for anything personal.
 
+For a question rather than a bug, ask in [Discussions](https://github.com/coredev-uk/sona-go/discussions/categories/q-a).
+
 For a security problem, do not open an issue. See [Privacy and Security](/privacy-and-security/).
