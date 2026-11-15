@@ -271,12 +271,13 @@ One rule governs every list, shelf, row and tile that shows an item (a song, an 
 - **Choosing an item opens it.** A click, or Enter on the focused item, goes to its page, a song's too. An item with no page of its own does what it is: a station with no page (a local broadcaster) plays, a web-only link opens the browser, and each says so in its cue.
 - **Play plays.** A Play control (the disc on a cover, the triangle on a row, the amber disc beside a best match) starts the item, and does nothing else. Nothing else starts playback except a track row (below).
 - **A track row plays.** A row of songs in a list (album, playlist, library, a shelf's rows, search's Songs) is the one place a double-click or Enter plays: it is a list of songs, not a list of pages. A track row: click selects, double-click and Enter play. Every list of songs follows it, the shelf's rows included (Shift or Ctrl+click and Ctrl+Space select more than one).
+- **Space has one rule.** Space selects where the list selects (a track row; Ctrl+Space toggles), plays where the item is itself a Play control (a page-less station) or where the list's hint says "Space plays" (Home's strip and lead rows), and does nothing on a link (a tile, card or row that only opens). It never opens.
 - **A modifier never does something the cue doesn't hint at.** Shift, Ctrl or Cmd with a click selects where the list selects; Shift+Enter plays only where the control shows it.
 - **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
 
 The table is what the code does on `main`, from the `TestInteraction…` tests (one or more per surface, in each package's `interaction_test.go`; they are `ui.Tester` tests that click, double-click and press the keys). A test that pins a departure from the rule has a `// DEPARTS:` comment at the assertion; when the departure is fixed, the test changes with it. Each departure is an issue, listed after the tables. Right-click menus are recorded by their presence only; their contents change in their own work.
 
-Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space does nothing on a link, a double-click is two clicks, and "menu" is opened by right-click, Shift+F10 or the Menu key.
+Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space follows its rule above (nothing on a link), a double-click is two clicks, and "menu" is opened by right-click, Shift+F10 or the Menu key.
 
 ### Tiles, cards, rows and lists that show items
 
@@ -299,7 +300,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
 | Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | selects | plays from the row, the shelf is the queue | plays | none | selects | cover button | More button, no right-click ([#447]) | list item, hover fill |
 |  | artist link in the row | opens the artist | twice | n/a | n/a | n/a | n/a | n/a | underline on hover |
-| Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects ([#439]) | number-column button | yes; none on the artist/album links ([#447]) | row; link cells underline |
+| Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects | number-column button | yes; none on the artist/album links ([#447]) | row; link cells underline |
 |  | artist or album cell | opens | twice | n/a | n/a | n/a | n/a | n/a | link |
 |  | Shift/Ctrl+click | range / toggle | | | | | | | |
 
@@ -308,7 +309,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Surface | Item | Click | Enter | Space | Play | Cue |
 |---|---|---|---|---|---|---|
 | Home shelves (tiles) | as the cover tile above | | | | | |
-| Home strip rows (Recently played) and lead order | song, album, playlist, video, station with a page | opens | opens | plays ([#439]) | disc | link |
+| Home strip rows (Recently played) and lead order | song, album, playlist, video, station with a page | opens | opens | plays | disc | link |
 |  | artist | opens | opens | none | none ([#433]) | link |
 |  | station with no page | plays | plays | plays | the name | button |
 |  | web link | opens the browser | same | none | none | button, no arrow ([#436]) |
@@ -429,7 +430,6 @@ Argued departures that stay (not issues):
 | [#436] | no cue for a web link on tiles, cards and rows |
 | [#437] | unrouted pages: underline, navigation, dead artist slip |
 | [#438] | modifier-click selects on some, opens on others |
-| [#439] | Space plays, selects or does nothing |
 | [#440] | a double-click acts twice |
 | [#442] | Discover's strip card makes itself the lead |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
@@ -451,7 +451,6 @@ Argued departures that stay (not issues):
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
 [#437]: https://github.com/coredev-uk/sona-go/issues/437
 [#438]: https://github.com/coredev-uk/sona-go/issues/438
-[#439]: https://github.com/coredev-uk/sona-go/issues/439
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
 [#442]: https://github.com/coredev-uk/sona-go/issues/442
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
