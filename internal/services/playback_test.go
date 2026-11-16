@@ -27,11 +27,16 @@ type playEngine struct {
 	st     playback.Status
 	plays  []string
 	events chan playback.Event
+	// playErr, when set, is what Play fails with.
+	playErr error
 }
 
 func (e *playEngine) Play(_ context.Context, id string, _ time.Duration) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.playErr != nil {
+		return e.playErr
+	}
 	e.plays = append(e.plays, id)
 	e.st = playback.Status{State: playback.StatePlaying, ItemID: id, Duration: time.Minute, Volume: 1, UpdatedAt: time.Now()}
 	return nil

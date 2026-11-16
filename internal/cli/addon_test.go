@@ -951,6 +951,27 @@ func TestV1RefusesAddonMethods(t *testing.T) {
 	}
 }
 
+// After hello a v1-shaped frame (a command, not a method) is refused and
+// runs nothing.
+func TestAddonRefusesV1FramesAfterHello(t *testing.T) {
+	a := startAddon(t, AddonConfig{}, PermPlaybackRead, PermPlaybackControl)
+	a.hello(PermPlaybackRead, PermPlaybackControl)
+	for _, raw := range []string{
+		`{"command":"status"}`,
+		`{"id":7,"command":"pause","args":[]}`,
+		`{"command":"call","args":["status"]}`,
+	} {
+		a.send(raw)
+		f := a.recv()
+		wantCode(t, f, AddonErrBadFrame)
+	}
+	a.host.mu.Lock()
+	defer a.host.mu.Unlock()
+	if len(a.host.calls) != 0 {
+		t.Errorf("the host ran %+v", a.host.calls)
+	}
+}
+
 type countingServer struct{ calls int }
 
 func (s *countingServer) Call(context.Context, Request) (any, error) { s.calls++; return nil, nil }

@@ -27,6 +27,12 @@ type addonHost struct {
 	mu    sync.Mutex
 	uid   uint64    // the queue slot of the listen in progress
 	start time.Time // when Sona first saw it
+	// preview: the listen in progress has been a preview at some point; it
+	// stays one, whatever later snapshots say.
+	preview bool
+	// hiddenUIDs are the queue slots judged hidden (private or preview):
+	// a queue shown to an add-on leaves them out.
+	hiddenUIDs map[uint64]bool
 	// seen is the last status published to add-ons. While a listen is
 	// hidden it stays as it is (or goes idle once): nothing the user does
 	// meanwhile becomes an event.
@@ -34,7 +40,7 @@ type addonHost struct {
 }
 
 func newAddonHost(s *commandServer) *addonHost {
-	h := &addonHost{s: s, hub: cli.NewHub(), now: s.e.Now}
+	h := &addonHost{s: s, hub: cli.NewHub(), now: s.e.Now, hiddenUIDs: map[uint64]bool{}}
 	if h.now == nil {
 		h.now = time.Now
 	}
@@ -70,13 +76,51 @@ func (h *addonHost) run() {
 // not know of it, with when it started. A new queue slot is a new listen.
 func (h *addonHost) listenLocked(snap coordinator.Snapshot) (start time.Time, hidden bool) {
 	if snap.Current == nil {
-		h.uid, h.start = 0, time.Time{}
+		h.uid, h.start, h.preview = 0, time.Time{}, false
 		return h.start, false
 	}
 	if snap.Current.UID != h.uid {
-		h.uid, h.start = snap.Current.UID, h.now()
+		h.uid, h.start, h.preview = snap.Current.UID, h.now(), false
 	}
-	return h.start, snap.Preview || h.s.e.Private.Since(h.start)
+	h.preview = h.preview || snap.Preview
+	hidden = h.preview || h.s.e.Private.Since(h.start)
+	if hidden {
+		h.hiddenUIDs[h.uid] = true
+	}
+	return h.start, hidden
+}
+
+// queueLocked is snap's queue without the slots judged hidden, re-indexed.
+// Slots that left the queue are forgotten.
+func (h *addonHost) queueLocked(snap coordinator.Snapshot) cli.Queue {
+	q := cli.Queue{Index: -1, Tracks: make([]cli.QueueTrack, 0, len(snap.Queue))}
+	live := make(map[uint64]bool, len(snap.Queue))
+	for i, e := range snap.Queue {
+		live[e.UID] = true
+		if h.hiddenUIDs[e.UID] {
+			continue
+		}
+		if i == snap.Index && snap.Current != nil {
+			q.Index = len(q.Tracks)
+		}
+		q.Tracks = append(q.Tracks, cli.QueueTrack{Track: track(e.Item), AutoPlay: e.Auto})
+	}
+	for uid := range h.hiddenUIDs {
+		if !live[uid] {
+			delete(h.hiddenUIDs, uid)
+		}
+	}
+	return q
+}
+
+// verdict judges the listen of a fresh snapshot: its queue slot and whether
+// an add-on may not know of it.
+func (h *addonHost) verdict() (uid uint64, hidden bool) {
+	snap := h.s.e.Coord.Snapshot()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	_, hidden = h.listenLocked(snap)
+	return h.uid, hidden
 }
 
 // observe publishes what an add-on may see of snap. It runs on every
@@ -99,7 +143,7 @@ func (h *addonHost) observe(snap coordinator.Snapshot) {
 		q = cli.Queue{Index: -1, Tracks: []cli.QueueTrack{}}
 	} else {
 		st = h.visible(snap)
-		q = h.s.queue(snap)
+		q = h.queueLocked(snap)
 		if st.Track != nil {
 			np = cli.NowPlaying{Track: st.Track, StartedAt: start.UnixMilli()}
 		}
@@ -120,10 +164,13 @@ func (h *addonHost) idle(snap coordinator.Snapshot) cli.Status {
 }
 
 // visible is snap's status with the flags that would say why a listen is
-// hidden cleared: an add-on that is shown a song is shown a public one.
+// hidden and the error text cleared: an add-on that is shown a song is shown a public one.
 func (h *addonHost) visible(snap coordinator.Snapshot) cli.Status {
 	st := h.s.status(snap)
 	st.Private, st.Preview = false, false
+	// The error text can hold a URL, a path or a song ID of any listen,
+	// hidden ones included: an add-on gets none of it.
+	st.Error = ""
 	return st
 }
 
@@ -141,26 +188,41 @@ func (h *addonHost) statusNow() cli.Status {
 
 // Call implements cli.AddonHost.
 func (h *addonHost) Call(ctx context.Context, req cli.Request) (any, error) {
-	snap := h.s.e.Coord.Snapshot()
-	h.mu.Lock()
-	_, hidden := h.listenLocked(snap)
-	h.mu.Unlock()
-	if hidden && slices.Contains([]string{"lyrics", "like"}, req.Command) {
+	uid, hidden := h.verdict()
+	judged := slices.Contains([]string{"lyrics", "like"}, req.Command)
+	if hidden && judged {
 		return nil, &cli.Error{Code: cli.CodeNothingPlaying}
 	}
 	res, err := h.s.Call(ctx, req)
 	if err != nil {
 		return nil, err
 	}
+	if judged {
+		// The command took time, and private mode or the player may have
+		// moved on meanwhile: judge again, against the same queue slot.
+		if now, hidden := h.verdict(); hidden || now != uid {
+			return nil, &cli.Error{Code: cli.CodeNothingPlaying}
+		}
+		return res, nil
+	}
 	switch res.(type) {
 	case cli.Status:
 		return h.statusNow(), nil
 	case cli.Queue:
-		if hidden {
-			return cli.Queue{Index: -1, Tracks: []cli.QueueTrack{}}, nil
-		}
+		return h.queueNow(), nil
 	}
 	return res, nil
+}
+
+// queueNow is the queue an add-on's call gets.
+func (h *addonHost) queueNow() cli.Queue {
+	snap := h.s.e.Coord.Snapshot()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if _, hidden := h.listenLocked(snap); hidden {
+		return cli.Queue{Index: -1, Tracks: []cli.QueueTrack{}}
+	}
+	return h.queueLocked(snap)
 }
 
 // Watch implements cli.AddonHost.
