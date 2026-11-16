@@ -82,6 +82,12 @@ func (x *ItemsCtx) coverOpts(label string, min float32, video bool) CoverOpts {
 func OpenWithoutPage(it services.Item, ctx ItemsCtx) {
 	switch {
 	case PlaysWhenOpened(it, ctx.Players):
+		// The station the queue is on pauses or resumes instead of starting
+		// over.
+		if StationOn(it, ctx) && ctx.Toggle != nil {
+			ctx.Toggle()
+			return
+		}
 		ctx.Players.PlayItem(it)
 	case it.URL != "" && ctx.OpenURL != nil:
 		ctx.OpenURL(it.URL)
@@ -131,6 +137,7 @@ func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 	// shows the play mark, but has no second play control.
 	opens := PlaysWhenOpened(it, ctx.Players)
 	tile.PlaysOnOpen = opens
+	tile.Playing = opens && StationPlaying(it, ctx)
 	tile.Web = OpensInBrowser(it, ctx.Players)
 	if !opens && ctx.Players.CanPlay(it) {
 		tile.Play = &CoverPlay{Label: it.Name, Run: func() { ctx.Players.PlayItem(it) }, RunFrom: func(h *ui.Handle) { ctx.Players.PlayItemFrom(it, h) }}

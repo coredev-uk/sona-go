@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // The interaction rule under test: choosing a result opens it; Play plays; a
@@ -489,9 +490,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
-			// DEPARTS: a page-less station is played by its name and also has a separate Play button here; its tile and row have the name as the one control
-			play: "play station:sn1",
-			cue:  "button",
+			play:       "no play control",
+			cue:        "button",
 		},
 		"curator": {
 			click:      "nav /curator/cu1",
@@ -541,9 +541,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
-			// DEPARTS: a page-less station is played by its name and also has a separate Play button here; its tile and row have the name as the one control
-			play: "play station:sn1",
-			cue:  "button",
+			play:       "no play control",
+			cue:        "button",
 		},
 		"album": {
 			click:      "nav /album/al1",
@@ -582,9 +581,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
-			// DEPARTS: a page-less station is played by its name and also has a separate Play button here; its tile and row have the name as the one control
-			play: "play station:sn1",
-			cue:  "button",
+			play:       "no play control",
+			cue:        "button",
 		},
 	},
 	"tracks": {
@@ -724,5 +722,50 @@ func TestInteractionHomeGestures(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// accessNamed is whether an element for assistive technology is called name.
+func (r *rig) accessNamed(name string) bool {
+	for _, a := range r.tt.AccessAll() {
+		if a.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// A station with no page is one control on every surface that shows it: named
+// by its text and "Play", and "Pause" once the station plays, then "Play"
+// again when it is paused.
+func TestPagelessStationControlReadsPauseWhilePlaying(t *testing.T) {
+	it := kindItems()["station-nopage"]
+	for _, s := range surfaces() {
+		if _, ok := homeWant[s.name]["station-nopage"]; !ok {
+			continue
+		}
+		t.Run(s.name, func(t *testing.T) {
+			r := s.build(t, it)
+			label := it.Name
+			r.until("the item", label)
+			if !r.accessNamed(label+" Play") && s.name != "stationList" && s.name != "stationRows" {
+				t.Fatalf("not named %q before it plays; texts %q", label+" Play", r.tt.Texts())
+			}
+			r.h.Play(0, func(st *services.PlaybackState) { st.Current = &services.QueueItem{ID: it.Station.ID, Name: it.Name} })
+			r.tt.Drain()
+			if !r.accessNamed(label + " Pause") {
+				t.Errorf("not named %q while it plays; texts %q", label+" Pause", r.tt.Texts())
+			}
+			if r.accessNamed(label + " Play") {
+				t.Errorf("still named %q while it plays", label+" Play")
+			}
+			r.h.Play(0, func(st *services.PlaybackState) {
+				st.Current, st.State = &services.QueueItem{ID: it.Station.ID, Name: it.Name}, store.StatePaused
+			})
+			r.tt.Drain()
+			if !r.accessNamed(label + " Play") {
+				t.Errorf("not named %q while it is paused; texts %q", label+" Play", r.tt.Texts())
+			}
+		})
 	}
 }

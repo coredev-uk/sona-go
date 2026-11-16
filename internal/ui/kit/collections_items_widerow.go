@@ -145,7 +145,10 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 	hot := w.Hovered() || w.FocusWithin()
 	target, hasTarget := ActionItemOf(it, ctx.Players)
 	more := hasTarget && ctx.Menus != nil
-	canPlay := ctx.Players.CanPlay(it)
+	// A station with no page plays when the card is opened: the card is that
+	// one button and there is no second disc.
+	direct := PlaysWhenOpened(it, ctx.Players)
+	canPlay := ctx.Players.CanPlay(it) && !direct
 
 	web := OpensInBrowser(it, ctx.Players)
 	var card ui.Element
@@ -155,6 +158,8 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 			card.Role(ui.RoleLink)
 		} else if web {
 			card.Role(ui.RoleLink).Label(WebCueLabel(it.Name))
+		} else if direct {
+			card.Role(ui.RoleButton).Label(StationLabel(it, ctx))
 		}
 		card.Children(func() {
 			bg := theme.C("hover")
@@ -182,6 +187,9 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 				}
 				if web {
 					WebCue(c)
+				}
+				if direct {
+					StationCue(c, StationPlaying(it, ctx), hot)
 				}
 				if more {
 					ui.Box(c.Key("more-room")).Size(24, 1).Shrink(0) // where the more button sits

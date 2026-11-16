@@ -196,6 +196,10 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 			switch {
 			case tuned:
 				kit.EqualiserBars(c, ctx.Playing, ctx.Motion)
+			case s.Playable && !page:
+				// A station with no page plays from its one button, the row's
+				// hit area: this is its mark, not a second control.
+				kit.StationCue(c, false, hot)
 			case s.Playable:
 				play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
 					Variant: kit.Ghost, Size: kit.SizeSM, Icon: "play", Filled: true,

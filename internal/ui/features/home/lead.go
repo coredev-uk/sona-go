@@ -208,10 +208,12 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 	}, func(w, s ui.Element) {
 		kit.Artwork(c, h.env.Art, art, cover, kit.ArtOpts{Edge: true, Round: kit.ItemRound(it)})
 		ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
-			opener = h.titleBlock(c, it, "page", link)
+			opener = h.titleBlock(c, it, "page", link, ctx)
 			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
-				if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
-					ctx.Players.PlayItem(it)
+				if !kit.PlaysWhenOpened(it, ctx.Players) {
+					if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
+						ctx.Players.PlayItem(it)
+					}
 				}
 				if selectable {
 					menus.Trigger(c.Key("more"), s, at, kit.TriggerOpts{Header: true, Select: &st.sel}, opener)
@@ -245,7 +247,7 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 // when its page is served, plain text when it is not) in the type style, the
 // subtitle and the catalogue line. It returns the name's button, the zero
 // Element when the name is plain text.
-func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string) (opener ui.Element) {
+func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string, ctx kit.ItemsCtx) (opener ui.Element) {
 	tk := theme.Current()
 	if link != "" && !h.opens(link) {
 		// Its page is not served: the name is plain text.
@@ -255,10 +257,19 @@ func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string) (
 		if link != "" {
 			opener.Role(ui.RoleLink)
 		}
+		// A station with no page plays when its name is pressed and pauses
+		// while it plays: the name is that one button, with the mark after it.
+		direct := kit.PlaysWhenOpened(it, ctx.Players)
+		if direct {
+			opener.Role(ui.RoleButton).Label(kit.StationLabel(it, ctx))
+		}
 		opener.Children(func() {
 			t := theme.Text(c, it.Name, style).TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
 			if opener.Hovered() {
 				t.Underline()
+			}
+			if direct {
+				kit.StationCue(c, kit.StationPlaying(it, ctx), opener.Hovered() || opener.Focused()).Margin(0, 0, 0, 8)
 			}
 		})
 	}
