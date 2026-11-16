@@ -69,7 +69,7 @@ func (h *addonHost) run() {
 		cancel()
 		h.hub.Close()
 	})
-	h.observe(h.s.e.Coord.Snapshot())
+	h.observe()
 }
 
 // listenLocked tracks the listen of snap and reports whether an add-on may
@@ -116,19 +116,22 @@ func (h *addonHost) queueLocked(snap coordinator.Snapshot) cli.Queue {
 // verdict judges the listen of a fresh snapshot: its queue slot and whether
 // an add-on may not know of it.
 func (h *addonHost) verdict() (uid uint64, hidden bool) {
-	snap := h.s.e.Coord.Snapshot()
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	_, hidden = h.listenLocked(snap)
+	_, hidden = h.listenLocked(h.s.e.Coord.Snapshot())
 	return h.uid, hidden
 }
 
-// observe publishes what an add-on may see of snap. It runs on every
-// coordinator snapshot and every private mode change.
-func (h *addonHost) observe(snap coordinator.Snapshot) {
+// observe publishes what an add-on may see of the player now. It runs on
+// every coordinator snapshot and every private mode change. It takes its
+// own snapshot under mu rather than the one that woke it: callers hold
+// snapshots of different ages, and judging an old one after a newer one
+// would forget which slots were hidden and restart the listen.
+func (h *addonHost) observe() {
 	h.pub.Lock() // publishes one at a time, in order
 	defer h.pub.Unlock()
 	h.mu.Lock()
+	snap := h.s.e.Coord.Snapshot()
 	start, hidden := h.listenLocked(snap)
 	var (
 		st cli.Status
@@ -176,8 +179,8 @@ func (h *addonHost) visible(snap coordinator.Snapshot) cli.Status {
 
 // statusNow is the status an add-on's call gets.
 func (h *addonHost) statusNow() cli.Status {
-	snap := h.s.e.Coord.Snapshot()
 	h.mu.Lock()
+	snap := h.s.e.Coord.Snapshot()
 	_, hidden := h.listenLocked(snap)
 	h.mu.Unlock()
 	if hidden {
@@ -216,9 +219,9 @@ func (h *addonHost) Call(ctx context.Context, req cli.Request) (any, error) {
 
 // queueNow is the queue an add-on's call gets.
 func (h *addonHost) queueNow() cli.Queue {
-	snap := h.s.e.Coord.Snapshot()
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	snap := h.s.e.Coord.Snapshot()
 	if _, hidden := h.listenLocked(snap); hidden {
 		return cli.Queue{Index: -1, Tracks: []cli.QueueTrack{}}
 	}

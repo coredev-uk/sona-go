@@ -60,7 +60,7 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 	e.Private.OnChange(func(privatemode.State) {
 		snap := e.Coord.Snapshot()
 		s.feed.Publish(s.status(snap))
-		s.addon.observe(snap)
+		s.addon.observe()
 	})
 	snaps, cancel := e.Coord.Subscribe()
 	quit, done := make(chan struct{}), make(chan struct{})
@@ -76,7 +76,7 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 					return
 				}
 				s.feed.Publish(s.status(snap))
-				s.addon.observe(snap)
+				s.addon.observe()
 			}
 		}
 	})
