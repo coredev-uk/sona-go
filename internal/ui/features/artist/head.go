@@ -54,14 +54,20 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32, b
 	canPlay := a.env.Players.CanPlay(item)
 	// The link is named by the title; the lines ride in its description, as
 	// the one piece MyGo reads the link as holds no more.
-	slip := ui.ButtonBase(c.Key("latest")).MinWidth(0).Radius(tk.Radius["sm"]).Label(title).
-		Description(i18n.Meta(whenLine, kindLine))
+	routed := a.env.Routed(path)
+	var slip ui.Element
+	if routed {
+		slip = ui.ButtonBase(c.Key("latest"))
+	} else {
+		slip = ui.Box(c.Key("latest")) // no album page: not a control, no tab stop, no hover
+	}
+	slip.MinWidth(0).Radius(tk.Radius["sm"]).Label(title).Description(i18n.Meta(whenLine, kindLine))
 	if beside {
 		slip.Column().Width(size).Shrink(0).AlignItems(ui.Start).Gap(10)
 	} else {
 		slip.Row().Grow(1).Basis(0).Justify(ui.Start).AlignItems(ui.Center).Gap(16)
 	}
-	if a.env.Routed(path) {
+	if routed {
 		slip.Role(ui.RoleLink)
 	}
 	slip.Children(func() {
@@ -76,7 +82,7 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32, b
 			}
 			t := ui.Text(c, title).FontSize(tk.Type["heading"].Size).FixedLineHeight(tk.Type["heading"].LineHeight).
 				FontWeight(int(tk.Type["heading"].Weight)).TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
-			if slip.Hovered() {
+			if routed && slip.Hovered() {
 				t.Underline()
 			}
 			if beside {
@@ -85,7 +91,7 @@ func (a *artist) latestRelease(c *ui.Context, al services.Album, size float32, b
 			meta(kindLine, 1)
 		})
 	})
-	if slip.Clicked() && a.env.Routed(path) {
+	if routed && slip.Clicked() {
 		a.env.Nav.Push(path)
 	}
 	if canPlay {

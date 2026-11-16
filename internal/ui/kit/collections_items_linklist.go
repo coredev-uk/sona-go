@@ -78,17 +78,24 @@ func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Toke
 	link := ItemLink(it)
 	plays := PlaysWhenOpened(it, ctx.Players)
 	web := OpensInBrowser(it, ctx.Players)
-	tile := ui.ButtonBase(c).Grow(1).MinHeight(44).PaddingX(16).PaddingY(8).Gap(12).
+	routed := link == "" || ctx.HasRoute == nil || ctx.HasRoute(link)
+	var tile ui.Element
+	if routed {
+		tile = ui.ButtonBase(c)
+	} else {
+		tile = ui.Box(c) // its page is not routed: nothing to open, so no button, tab stop or hover
+	}
+	tile.Grow(1).MinHeight(44).PaddingX(16).PaddingY(8).Gap(12).
 		Justify(ui.SpaceBetween).Radius(tk.Radius["md"])
 	border := theme.C("link-tile-border")
 	bg := theme.C("hover")
-	if tile.Hovered() {
+	if routed && tile.Hovered() {
 		bg = theme.C("active")
 	}
 	tile.Border(1, border).Background(bg)
 	theme.Fade(tile, "feedback")
 	switch {
-	case link != "" || web:
+	case (link != "" && routed) || web:
 		tile.Role(ui.RoleLink) // a web link is named by its text and the cue after it
 	case plays:
 		// Named by its text, with the action after it.
@@ -105,7 +112,7 @@ func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Toke
 			StationCue(c, StationPlaying(it, ctx), tile.Hovered() || tile.Focused())
 		}
 	})
-	if ClickOnce(tile) {
+	if routed && ClickOnce(tile) {
 		ctx.opened(it)
 		if link != "" {
 			ctx.nav(link)
