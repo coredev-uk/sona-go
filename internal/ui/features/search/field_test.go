@@ -698,7 +698,9 @@ func TestFieldEnterOnASongOpensItsPage(t *testing.T) {
 	}
 }
 
-func TestFieldShiftEnterPlaysTheActiveSong(t *testing.T) {
+// TestFieldShiftEnterIsEnterOnTheActiveSong: no cue hints at Shift+Enter, so
+// it opens the song's page as Enter does and plays nothing (#426).
+func TestFieldShiftEnterIsEnterOnTheActiveSong(t *testing.T) {
 	r := newFieldRig(t, "/library/albums")
 	r.focusField()
 	r.typeAndWait("blu", "Blue Moon")
@@ -706,18 +708,17 @@ func TestFieldShiftEnterPlaysTheActiveSong(t *testing.T) {
 		r.key(ui.KeyDown)
 	}
 	r.tt.Key(ui.Shift, ui.KeyEnter)
-	r.tt.Until("playback", func() bool { return len(r.play.played()) == 1 })
-	got := r.play.played()[0]
-	if len(got) != 1 || got[0].ID != "1" {
-		t.Errorf("played %+v, want the song", got)
+	if got := r.router.Location(); got != "/song/1" {
+		t.Errorf("Shift+Enter on the song went to %q, want its page", got)
 	}
-	if loc := r.router.Location(); loc != "/library/albums" {
-		t.Errorf("playing a song navigated to %q", loc)
+	r.tt.Advance(100 * time.Millisecond)
+	if got := r.play.played(); len(got) != 0 {
+		t.Errorf("Shift+Enter on a song played %+v", got)
 	}
 	r.untilRecent("song:Blue Moon")
 }
 
-func TestFieldShiftEnterOnAnAlbumStillOpensIt(t *testing.T) {
+func TestFieldShiftEnterOnAnAlbumOpensIt(t *testing.T) {
 	r := newFieldRig(t, "/library/albums")
 	r.focusField()
 	r.typeAndWait("blu", "Blue Hour")
