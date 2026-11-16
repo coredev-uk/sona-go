@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/coredev-uk/sona-go/internal/ui/features/addons"
 	"github.com/coredev-uk/sona-go/internal/ui/features/album"
 	"github.com/coredev-uk/sona-go/internal/ui/features/artist"
 	"github.com/coredev-uk/sona-go/internal/ui/features/auth"
@@ -49,6 +50,7 @@ var factories = []module.Factory{
 	settings.New,   // the settings page
 	auth.New,       // sign-in state, the account menu and dialog
 	commands.New,   // the command palette and the shortcut help
+	addons.New,     // what running add-ons add: item actions and palette commands
 	updates.New,    // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
 	private.New,     // the player bar's private listening pill and its command

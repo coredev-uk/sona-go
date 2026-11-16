@@ -87,6 +87,9 @@ const (
 	// CodeIncompatible: the running Sona speaks another version of the
 	// protocol.
 	CodeIncompatible = "incompatible"
+	// CodeDenied: the person didn't confirm `addons dev` in Sona's window (or
+	// not in time).
+	CodeDenied = "denied"
 	// CodeFailed is any other failure.
 	CodeFailed = "failed"
 )

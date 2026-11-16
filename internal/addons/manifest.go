@@ -51,6 +51,10 @@ type Manifest struct {
 	// Permissions are what the add-on asks for; the user grants them when
 	// they enable it.
 	Permissions []string `json:"permissions"`
+	// Contributions are what the add-on adds to Sona's actions, palette and
+	// Settings (contributions.go); Strings are their labels by locale.
+	Contributions Contributions `json:"contributions,omitempty"`
+	Strings       Strings       `json:"strings,omitempty"`
 }
 
 // Problem codes: why an add-on is refused. The UI words each; Detail is for
@@ -70,6 +74,8 @@ const (
 	ProblemEscapes      = "executable_escapes" // a link leads out of the folder
 	ProblemUnsafe       = "unsafe_owner"       // another user's, or writable by others
 	ProblemTooMany      = "too_many_addons"
+	ProblemContribution = "bad_contribution"
+	ProblemStrings      = "bad_strings"
 )
 
 // Problem is why an add-on is refused.
@@ -157,7 +163,10 @@ func (m *Manifest) validate() error {
 		}
 		seen[p] = true
 	}
-	return nil
+	if err := m.Contributions.validate(); err != nil {
+		return err
+	}
+	return m.Strings.validate(m.Contributions)
 }
 
 // plainText accepts text of min to max runes without control characters,

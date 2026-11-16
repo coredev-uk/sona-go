@@ -30,6 +30,9 @@ type Env struct {
 	Dial func() (Transport, error)
 	// Version is Sona's version, for the manual page.
 	Version string
+	// Terminal: Stdout is a terminal, so what an add-on wrote is stripped of
+	// escape and control sequences before it is printed (`addons dev`).
+	Terminal bool
 	// Clock is the time `lyrics --follow` reads (nil: the system's).
 	Clock Clock
 	// Printer words help, the manual page, completions' descriptions,
@@ -68,6 +71,9 @@ func Run(ctx context.Context, argv []string, env Env) int {
 		return env.unreachable(in, err)
 	}
 	defer func() { _ = t.Close() }()
+	if in.cmd.name == "addons" {
+		return env.addonsDev(ctx, in, t)
+	}
 	if in.follow {
 		if in.cmd.name == "lyrics" {
 			return env.followLyrics(ctx, in, t)
@@ -269,6 +275,8 @@ func errorText(p *l10n.Printer, e *Error) string {
 		return e.Message
 	case CodeBadLink:
 		return p.T(msgBadLink)
+	case CodeDenied:
+		return p.T(msgDenied)
 	case CodeStarting:
 		return p.T(msgStarting)
 	case CodeShuttingDown:

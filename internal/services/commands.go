@@ -3,6 +3,7 @@ package services
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -42,6 +43,7 @@ type commandServer struct {
 	lyrics lyricsSource
 	feed   *cli.Feed
 	addon  *addonHost
+	addons *AddonsService
 
 	mu     sync.Mutex
 	closed bool
@@ -56,6 +58,7 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 		lyrics: instance[LyricsService](svcs),
 	}
 	s.feed = cli.NewFeed(func() cli.Status { return s.status(e.Coord.Snapshot()) })
+	s.addons, _ = lookup[AddonsService](svcs)
 	s.addon = newAddonHost(s)
 	e.Private.OnChange(func(privatemode.State) {
 		snap := e.Coord.Snapshot()
@@ -93,6 +96,17 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 }
 
 // instance finds the registered service of type T.
+// lookup is instance for a service that may be missing (a test's command
+// server holds only some).
+func lookup[T any](svcs []any) (*T, bool) {
+	for _, s := range svcs {
+		if t, ok := s.(*T); ok {
+			return t, true
+		}
+	}
+	return nil, false
+}
+
 func instance[T any](svcs []any) *T {
 	for _, s := range svcs {
 		if t, ok := s.(*T); ok {
@@ -141,12 +155,25 @@ func (s *commandServer) Call(ctx context.Context, req cli.Request) (any, error) 
 		return s.like(ctx, req.Args)
 	case "private":
 		return s.private(req.Args)
+	case "addons":
+		if s.addons == nil {
+			return nil, &cli.Error{Code: cli.CodeStarting}
+		}
+		res, err := s.addons.devCall(ctx, req)
+		if err != nil {
+			return nil, s.fail(err)
+		}
+		return res, nil
 	}
 	return nil, &cli.Error{Code: cli.CodeUnknownCommand, Message: req.Command}
 }
 
 // fail is err as the command's error, with Sona's error code.
 func (s *commandServer) fail(err error) error {
+	var ce *cli.Error
+	if errors.As(err, &ce) {
+		return ce // already a command's answer (denied, busy)
+	}
 	s.e.Report(err)
 	code := string(CodeOf(err))
 	if code == string(CodeUnknown) {

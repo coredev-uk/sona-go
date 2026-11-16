@@ -276,6 +276,11 @@ func CancelConfirm() {
 	settleConfirm(false)
 }
 
+// ConfirmCancel settles the pending question as cancelled, as Escape would:
+// for a question that is no longer being asked (its time ran out). A held
+// question that is busy is left to its caller.
+func ConfirmCancel() { settleConfirm(false) }
+
 // ConfirmClose ends a held question that worked: the dialog closes.
 func ConfirmClose() {
 	if p := pendingConfirm; p != nil && p.busy {

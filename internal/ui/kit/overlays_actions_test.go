@@ -290,3 +290,53 @@ func TestActionsNeedingAReleasedSongSkipSongsNotOut(t *testing.T) {
 		}
 	}
 }
+
+func TestReplacePrefixSwapsOnlyThatPrefix(t *testing.T) {
+	r := NewActionRegistry(
+		act("player.play", KindSong, GroupQueue, 1),
+		act("addon.a.old", KindSong, GroupAddon, 1),
+		act("addon.b.keep", KindAlbum, GroupAddon, 1),
+		bulkAct("addon.a.many", GroupAddon, 1, KindSong),
+	)
+	r.ReplacePrefix("addon.", act("addon.a.new", KindSong, GroupAddon, 1), act("addon.c.x", KindArtist, GroupAddon, 1))
+	if got := ids(r.For(KindSong)); !slices.Equal(got, []string{"player.play", "addon.a.new"}) {
+		t.Errorf("songs: %v", got)
+	}
+	if got := ids(r.For(KindAlbum)); len(got) != 0 {
+		t.Errorf("albums: %v", got)
+	}
+	if got := ids(r.For(KindArtist)); !slices.Equal(got, []string{"addon.c.x"}) {
+		t.Errorf("artists: %v", got)
+	}
+	if got := ids(r.BulkFor([]Item{song("a")})); len(got) != 0 {
+		t.Errorf("bulk: %v", got)
+	}
+	// An ID that is still there can be registered again after the swap, and a
+	// clash with an action outside the prefix still panics.
+	r.ReplacePrefix("addon.", act("addon.a.new", KindSong, GroupAddon, 1))
+	func() {
+		defer func() {
+			if v := recover(); v != "action player.play registered twice" {
+				t.Errorf("recovered %v", v)
+			}
+		}()
+		r.ReplacePrefix("addon.", act("player.play", KindSong, GroupQueue, 1))
+	}()
+}
+
+func TestAddonActionsListAfterSonasOwn(t *testing.T) {
+	r := NewActionRegistry(
+		act("addon.x.send", KindSong, GroupAddon, 1),
+		act("dev", KindSong, GroupDeveloper, 1),
+		act("rate", KindSong, GroupRating, 1),
+		act("queue", KindSong, GroupQueue, 1),
+	)
+	secs := Sections(r.For(KindSong))
+	var groups []ActionGroup
+	for _, s := range secs {
+		groups = append(groups, s.Group)
+	}
+	if !slices.Equal(groups, []ActionGroup{GroupQueue, GroupRating, GroupAddon, GroupDeveloper}) {
+		t.Errorf("groups = %v", groups)
+	}
+}

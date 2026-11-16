@@ -212,10 +212,14 @@ func TestAddonDocExamplesValidate(t *testing.T) {
 		t.Fatalf("only %d examples in the page", len(examples))
 	}
 	for _, ex := range examples {
-		if errs := validateDef(t, schema, ex.name, []byte(ex.body)); len(errs) != 0 {
+		def := ex.name
+		if strings.HasPrefix(def, "Manifest") {
+			def = "Manifest"
+		}
+		if errs := validateDef(t, schema, def, []byte(ex.body)); len(errs) != 0 {
 			t.Errorf("example %s %s: %v", ex.name, ex.body, errs)
 		}
-		if ex.name == "Manifest" {
+		if strings.HasPrefix(ex.name, "Manifest") {
 			continue // a manifest is a file, not a frame
 		}
 		if errs := validateDef(t, schema, "Frame", []byte(ex.body)); len(errs) != 0 {
@@ -258,7 +262,7 @@ func TestAddonDocCoversTheCode(t *testing.T) {
 	codes := AddonErrorCodes()
 	for _, r := range rows {
 		if !slices.Contains(codes, r[1]) && !slices.Contains(Permissions, r[1]) && !slices.Contains(Topics, r[1]) && r[1] != EventShutdown &&
-			!slices.Contains([]string{"id", "name", "version", "description", "command", "permissions"}, r[1]) { // the manifest's fields
+			!slices.Contains([]string{"id", "name", "version", "description", "command", "permissions", "contributions", "strings", "toast", "url"}, r[1]) { // the manifest's fields and an invoke result's
 			t.Errorf("the page's table has %q, which is not a code", r[1])
 		}
 	}

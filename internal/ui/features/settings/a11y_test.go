@@ -38,7 +38,7 @@ func stopLabels(stops []access.Stop) []string {
 // so in its description.
 func TestA11ySectionsAreOnTheTreeAndOnTheTabWalk(t *testing.T) {
 	first := map[string]string{
-		secGeneral: "Language", secPlayback: "Audio quality", secAppearance: "Reduce effects", secConnections: "Connect ListenBrainz",
+		secGeneral: "Language", secPlayback: "Audio quality", secAppearance: "Reduce effects", secConnections: "Connect ListenBrainz", secAddons: "Open add-ons folder",
 		secShortcuts: "Filter shortcuts", secStorage: "", secDiagnostics: "Copy diagnostics",
 	}
 	for _, section := range sections {

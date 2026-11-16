@@ -8,6 +8,12 @@ const (
 	// EventAddonsNotice carries an AddonNotice: an add-on Sona stopped
 	// without being asked.
 	EventAddonsNotice = "addons:notice"
+	// EventAddonsDevAsk carries an AddonDevAsk: `sona addons dev` waits for the
+	// person to confirm in the main window (AddonsService.AnswerDev).
+	EventAddonsDevAsk = "addons:dev-ask"
+	// EventAddonsDevAskEnd carries the token (a string) of a question that is
+	// over, answered or not: the window closes it.
+	EventAddonsDevAskEnd = "addons:dev-ask-end"
 )
 
 // AddonState is where an add-on is. It is a string enum the UI words.
@@ -70,4 +76,77 @@ type AddonResult struct {
 	Toast string `json:"toast"`
 	// URL is a link to offer the user; it opens only after a click.
 	URL string `json:"url"`
+}
+
+// AddonTarget is what an item action was chosen on. Name is the item's
+// name as Sona shows it; ID is its Apple Music catalogue ID, or the library
+// ID of a song only in the library.
+type AddonTarget struct {
+	// Kind is "song", "album", "artist" or "playlist".
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// AddonContribution is what one add-on adds to Sona's surfaces, in the
+// locale asked for (AddonsService.Contributions). Every text is plain and
+// clean of control and bidirectional characters.
+type AddonContribution struct {
+	// ID and Name are the add-on's; Name is shown beside everything it adds.
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Running: the add-on is up. Its actions and commands are offered only
+	// then; its settings rows always.
+	Running  bool           `json:"running"`
+	Actions  []AddonAction  `json:"actions"`
+	Commands []AddonCommand `json:"commands"`
+	Rows     []AddonRow     `json:"rows"`
+}
+
+// AddonAction is an item action. ID is the full action ID
+// ("addon.<add-on>.<name>"); Kinds are "song", "album", "artist", "playlist".
+type AddonAction struct {
+	ID    string   `json:"id"`
+	Label string   `json:"label"`
+	Kinds []string `json:"kinds"`
+	Icon  string   `json:"icon"`
+}
+
+// AddonCommand is a palette command.
+type AddonCommand struct {
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Keywords string `json:"keywords"`
+	Icon     string `json:"icon"`
+}
+
+// AddonRow is a settings row. Kind is "toggle", "text", "choice" or
+// "secret". Value is the row's current value ("" for a secret: it is never
+// sent to the UI; Saved says one is stored).
+type AddonRow struct {
+	ID          string        `json:"id"`
+	Kind        string        `json:"kind"`
+	Label       string        `json:"label"`
+	Description string        `json:"description"`
+	Value       string        `json:"value"`
+	Saved       bool          `json:"saved"`
+	Options     []AddonOption `json:"options"`
+}
+
+// AddonOption is one choice of a choice row.
+type AddonOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+// AddonDevAsk is the question of EventAddonsDevAsk: run the add-on in Dir for
+// this session, with these permissions? Every text is plain and clean.
+type AddonDevAsk struct {
+	// Token names the question; AnswerDev takes it back.
+	Token       string   `json:"token"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Version     string   `json:"version"`
+	Dir         string   `json:"dir"`
+	Permissions []string `json:"permissions"`
 }
