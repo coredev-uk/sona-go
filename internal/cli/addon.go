@@ -135,6 +135,19 @@ type Frame struct {
 	Data   json.RawMessage `json:"data,omitempty"`
 }
 
+// MarshalJSON writes an error frame with its id even when it is 0 (an
+// error that answers no request), as the schema's ErrorResponse requires.
+func (f Frame) MarshalJSON() ([]byte, error) {
+	type plain Frame
+	if f.Error == nil {
+		return json.Marshal(plain(f))
+	}
+	return json.Marshal(struct {
+		ID int64 `json:"id"`
+		plain
+	}{f.ID, plain(f)})
+}
+
 // HelloParams is the add-on's first frame.
 type HelloParams struct {
 	// ID is the add-on's ID: the one the supervisor started it as.

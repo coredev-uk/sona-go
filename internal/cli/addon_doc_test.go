@@ -402,6 +402,9 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 	a.send(`{"id":20,"method":"unsubscribe","params":{"topics":["queue"]}}`)
 	a.send(`{"id":21,"method":"call","params":{"command":"private","args":["off"]}}`)
 	a.send(`{"id":22,"method":"nope"}`)
+	a.send(`not json`)                 // bad_frame, answering no request: id 0
+	a.send(`{"command":"status"}`)     // a v1 frame after hello: bad_frame
+	a.send(`{"id":0,"method":"call"}`) // a request without an id: bad_frame
 
 	// An invoke, and its answer.
 	invoked := make(chan InvokeResult, 1)
@@ -455,5 +458,33 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 		if kinds[want] == 0 {
 			t.Errorf("no %s frame was checked (%v)", want, kinds)
 		}
+	}
+}
+
+// The frames that end a session before or without a request, and the
+// bad_frame answers, carry an id (0 when there is none) too.
+func TestAddonErrorFramesWithoutARequestMatchTheSchema(t *testing.T) {
+	schema, _, _ := docBlocks(t)
+	for name, send := range map[string]func(a *testAddon){
+		"no hello":        func(a *testAddon) { a.send(`{"method":"call","params":{"command":"status"}}`) },
+		"v1 before hello": func(a *testAddon) { a.send(`{"command":"status"}`) },
+		"too large":       func(a *testAddon) { a.send(strings.Repeat("x", 2048)) },
+		"bad after hello": func(a *testAddon) { a.hello(PermPlaybackRead); a.send(`nope`) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			a := startAddon(t, AddonConfig{Limits: AddonLimits{MaxFrame: 1024}}, PermPlaybackRead)
+			send(a)
+			_ = a.conn.SetReadDeadline(time.Now().Add(wait))
+			raw, err := a.r.ReadBytes('\n')
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(raw), `"id":`) {
+				t.Errorf("error frame without an id: %s", raw)
+			}
+			if errs := validateDef(t, schema, "Frame", raw); len(errs) != 0 {
+				t.Errorf("frame %s: %v", raw, errs)
+			}
+		})
 	}
 }

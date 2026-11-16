@@ -87,7 +87,14 @@ The user's private listening is the user's alone. For a **private** listen or a 
 - reads that answer as if nothing played: `status` is idle, `queue` is empty, `lyrics` and `like` fail with `nothing_playing`;
 - the same after private listening is switched **off** again: a listen that was private at any point since it started stays hidden until that listen ends. Turning private mode on in the middle of a listen is not recalled: what was already sent (its start) was already sent.
 
-Sona judges this once, in one place, with the time the listen started. An add-on is also never told `private: true` or `preview: true` in a status: those are always `false`, because a listen it may see is public.
+Sona judges this once, in one place, with the time the listen started.
+
+What an add-on never sees:
+
+- **`private: true` or `preview: true`.** Both are always `false` in a status: a listen it may see is public.
+- **Error text.** A status's `error` is always `""`. The text of a playback failure can hold a URL, a path or the ID of a hidden listen's song. The `state` still says `error`.
+- **Hidden queue slots.** The queue leaves out slots of hidden listens and numbers the rest from 0.
+- **A preview that looks public.** Once a listen has been a preview, it stays one.
 
 ## Messages
 
@@ -305,7 +312,7 @@ Sona reports its limits in the `hello` answer and enforces each. A refusal is an
         "repeat": {"enum": ["off", "all", "one"]},
         "private": {"const": false},
         "preview": {"const": false},
-        "error": {"type": "string"}
+        "error": {"const": ""}
       }
     },
     "NowPlaying": {
