@@ -512,21 +512,16 @@ func TestLeadIsFollowedByTheOtherPicksInAppleOrderWithoutNumerals(t *testing.T) 
 	requireNoTexts(t, r, "01", "02", "10", "11", "12")
 }
 
-// The lone hero card fills its row: the text keeps its column and the banner
-// takes the rest, in the hero card's shape until heroMaxHeight and wider from
-// there (never past 4:1), so no empty band opens between the two in a wide
-// window; a narrow one stacks the banner over the text.
-func TestHeroBoxFillsTheRowBesideTheText(t *testing.T) {
-	for _, width := range []float32{720, 900, 1200, 1568, 2400} {
-		w, bh, beside := heroBox(width)
-		if !beside || w+heroGap+heroText != width {
-			t.Errorf("at %v: banner %v beside %v, want the row less the text column", width, w, beside)
-		}
-		if a := w / bh; bh > max(heroMaxHeight, w/heroBanner+1) || a < heroRatio-0.01 || a > heroBanner+0.01 {
-			t.Errorf("at %v: banner %v×%v", width, w, bh)
-		}
+// The lone hero card shows the station's square art, not its wide banner
+// (for Apple's stations a gradient with the name in a corner); a card with
+// no cover shows the centre square of its banner.
+func TestHeroArtIsTheSquareCoverBeforeTheBanner(t *testing.T) {
+	it := services.Item{Art: services.Art{Medium: "/art/c/300x300.jpg", Large: "/art/c/600x600.jpg"}, Wide: services.Art{Large: "/art/w/2400x600.jpg"}}
+	if got := heroArt(it); got != "/art/c/600x600.jpg" {
+		t.Errorf("with a cover: %q, want the cover", got)
 	}
-	if w, bh, beside := heroBox(700); beside || w != 700 || bh != heroMaxHeight {
-		t.Errorf("at 700: %v×%v beside %v, want the whole row over the text", w, bh, beside)
+	it.Art = services.Art{}
+	if got := heroArt(it); got != "/art/w/2400x600.jpg" {
+		t.Errorf("without a cover: %q, want the banner", got)
 	}
 }
