@@ -162,7 +162,6 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 
 	link := kit.ItemLink(it)
 	withheld := ctx.Restricted && it.Explicit
-	playable := ctx.Players.CanPlay(it) && !withheld
 	art := it.Art.Large
 	if art == "" {
 		art = it.Art.Medium
@@ -210,8 +209,10 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 		ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
 			opener = h.titleBlock(c, it, "page", link, ctx)
 			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
-				if !kit.PlaysWhenOpened(it, ctx.Players) {
-					if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
+				// A kind with no player (an artist, a curator) has no Play control
+				// at all: no disabled one. A withheld explicit item shows it disabled.
+				if ctx.Players.CanPlay(it) && !kit.PlaysWhenOpened(it, ctx.Players) {
+					if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: withheld}); play {
 						ctx.Players.PlayItem(it)
 					}
 				}

@@ -282,6 +282,7 @@ One rule governs every list, shelf, row and tile that shows an item (a song, an 
 - **Space has one rule.** Space selects where the list selects (a track row; Ctrl+Space toggles), plays where the item is itself a Play control (a page-less station) or where the list's hint says "Space plays" (Home's strip and lead rows), and does nothing on a link (a tile, card or row that only opens). It never opens.
 - **Choosing or playing from a result is remembered.** A tile's Play, a link tile, a station row and a track shelf's artist link call `OnOpen` as opening does, so search's "Recently searched" fills the same way however the item was chosen.
 - **A modifier never does something the cue doesn't hint at.** Shift, Ctrl or Cmd with a click selects where the list selects; Shift+Enter plays only where the control shows it.
+- **Artists and curators open only.** No player is registered for them, so no tile, card, row, best match or lead pick draws a Play control for them, and no surface draws a disabled one. Chosen over an artist player because "play an artist" has no single meaning (top songs? shuffle?) and the artist page already offers Play top songs, Shuffle and Play library songs. A Play control exists exactly where `ItemPlayers.CanPlay` is true; a withheld explicit item shows it disabled.
 - **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
 
 The table is what the code does on `main`.
@@ -298,7 +299,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Surface (component) | Item | Click | Double-click | Enter | Shift+Enter | Space | Play | Menu | Cue |
 |---|---|---|---|---|---|---|---|---|---|
 | Cover tile: shelf, grid, library, search tiles (`kit` `CoverShelf`, `ItemGrid`) | song, album, playlist, video, station with a page | opens | opens (twice) | opens | none | none | disc, on hover and focus | yes | link, title underlines on hover |
-|  | artist, curator, room, grouping | opens | opens | opens | none | none | none ([#433]) | artist yes, curator no | link |
+|  | artist, curator, room, grouping | opens | opens | opens | none | none | none | artist yes, curator no | link |
 |  | upcoming album | opens | opens | opens | none | none | none, release badge in its place | yes | link, "Out 19 Nov" |
 |  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play" ("X Pause" while it plays and a press pauses), play (pause) mark on hover |
 |  | web link | opens the browser | twice | same | none | none | none | no | link, arrow out, named "X Opens in your browser" |
@@ -324,16 +325,16 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |---|---|---|---|---|---|---|
 | Home shelves (tiles) | as the cover tile above | | | | | |
 | Home strip rows (Recently played) and lead order | song, album, playlist, video, station with a page | opens | opens | plays | disc | link |
-|  | artist | opens | opens | none | none ([#433]) | link |
+|  | artist | opens | opens | none | none | link |
 |  | station with no page | plays, pauses while it plays | same | same | the name | button "X Play" / "X Pause", play (pause) mark over the cover on hover |
 |  | web link | opens the browser | same | none | none | link, arrow out, named "X Opens in your browser" |
 | Home lead pick, hero card | album, song, playlist, video, station | opens | opens | none | disc | link |
-|  | artist, curator | opens | opens | none | lead pick: a button that does nothing, hero: none ([#433]) | link |
+|  | artist, curator | opens | opens | none | none | link |
 |  | station with no page | plays, pauses while it plays | same | same | the name, no disc | button "X Play" / "X Pause", play (pause) mark after the name on hover and focus |
 | Home local shelves (Recently added, Your playlists) | album, playlist | opens | opens | none | none ([#445]) | link |
 | Home "See all" | | opens the shelf's page | | | | link |
 | Discover lead card, queue tiles | album, playlist, station, video | opens | opens | none | disc | link |
-|  | artist, curator | opens | opens | none | none ([#433]) | link |
+|  | artist, curator | opens | opens | none | none | link |
 |  | station with no page | plays | plays | plays | the name, and a second disc (Discover's lead is left, [#435]) | button |
 | Discover "Show in lead" (on a queue tile) | any | makes it the lead, the keyboard's focus going with it | same | same | | button |
 | Discover bands and room tiles | as the cover tile | | | | | |
@@ -369,7 +370,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | library song | none ([#427]) | none | none | none | chevron |
 |  | station with no page | opens a station page that is not there ([#427]) | same | same | none | chevron |
 | Best match panel | song, album, playlist, station with a page, video | opens | opens | none | amber disc beside it | link |
-|  | artist, curator | opens | opens | none | none ([#433]) | link |
+|  | artist, curator | opens | opens | none | none | link |
 |  | song with no page, station with no page | plays | plays | none | the disc is drawn into the panel | button "X, Play" |
 |  | web link | opens the browser | same | none | none | link, arrow-up-right at its end |
 | Compact rows beside it | song | opens | opens | none | quiet Play button on hover and focus | link |
@@ -437,7 +438,6 @@ Argued departures that stay (not issues):
 |---|---|
 | [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
 | [#427] | recent library songs and page-less stations |
-| [#433] | artists and curators have no Play control; Home's lead pick draws a dead one |
 | [#435] | a page-less station has two controls, no cue, or replays instead of pausing: Discover's lead and strip cards still have a second disc ([#442]) |
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
 | [#437] | unrouted pages: underline, navigation, dead artist slip |
@@ -449,7 +449,6 @@ Argued departures that stay (not issues):
 
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#427]: https://github.com/coredev-uk/sona-go/issues/427
-[#433]: https://github.com/coredev-uk/sona-go/issues/433
 [#435]: https://github.com/coredev-uk/sona-go/issues/435
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
 [#437]: https://github.com/coredev-uk/sona-go/issues/437
