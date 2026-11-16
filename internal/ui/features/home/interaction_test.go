@@ -339,9 +339,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:   "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -386,9 +385,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
-			// DEPARTS: the second click of a double-click fires again: the browser is asked twice
-			double:     "url https://example.test/interview/1; url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
+			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
 			space:      "nothing",
@@ -426,9 +424,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:  "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -436,9 +433,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:        "button",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
-			// DEPARTS: the second click of a double-click fires again: the browser is asked twice
-			double:     "url https://example.test/interview/1; url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
+			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
 			space:      "nothing",
@@ -457,9 +453,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -489,9 +484,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:  "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -531,9 +525,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:  "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -543,9 +536,8 @@ var homeWant = map[string]map[string]outcomes{
 	},
 	"hero": {
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -585,9 +577,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:   "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -620,9 +611,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:   "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -630,9 +620,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:        "button",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
-			// DEPARTS: the second click of a double-click fires again: the browser is asked twice
-			double:     "url https://example.test/interview/1; url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
+			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
 			space:      "nothing",
@@ -663,9 +652,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:   "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",

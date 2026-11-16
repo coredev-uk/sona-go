@@ -335,14 +335,14 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 	})
 
 	st.nav.Claim(s, i)
-	if s.Clicked() {
+	if clicked, again := ClickRun(s); clicked {
 		mods := ModsOf(s.ClickModifiers())
 		switch {
 		case mods.Range || mods.Toggle:
 			if selectable {
 				st.Sel.Click(i, mods)
 			}
-		case it.Open != nil:
+		case it.Open != nil && !again:
 			it.Open()
 		}
 	}

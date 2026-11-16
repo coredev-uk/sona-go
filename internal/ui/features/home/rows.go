@@ -377,7 +377,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 	})
 
 	st.nav.Claim(src, i)
-	if src.Clicked() {
+	if clicked, again := kit.ClickRun(src); clicked {
 		mods := kit.ModsOf(src.ClickModifiers())
 		st.nav.SetFocus(i)
 		if !src.Focused() {
@@ -388,7 +388,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			if selectable {
 				st.sel.Click(i, mods)
 			}
-		default:
+		case !again:
 			h.open(it, ctx)
 		}
 	}

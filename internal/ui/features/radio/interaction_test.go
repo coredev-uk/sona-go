@@ -290,9 +290,8 @@ var radioWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"nopage": {
-			click: "play ra.n",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play ra.n; play ra.n",
+			click:      "play ra.n",
+			double:     "play ra.n",
 			enter:      "play ra.n",
 			shiftEnter: "nothing",
 			space:      "play ra.n",
@@ -319,9 +318,8 @@ var radioWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"tuned-nopage": {
-			click: "toggle x1",
-			// DEPARTS: the second click of a double-click toggles playback again: the station pauses and resumes at once
-			double:     "toggle x2",
+			click:      "toggle x1",
+			double:     "toggle x1",
 			enter:      "toggle x1",
 			shiftEnter: "nothing",
 			space:      "toggle x1",
@@ -340,9 +338,8 @@ var radioWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"nopage": {
-			click: "play ra.y",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play ra.y; play ra.y",
+			click:      "play ra.y",
+			double:     "play ra.y",
 			enter:      "play ra.y",
 			shiftEnter: "nothing",
 			space:      "play ra.y",
@@ -361,9 +358,8 @@ var radioWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"nopage": {
-			click: "play ra.g",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play ra.g; play ra.g",
+			click:      "play ra.g",
+			double:     "play ra.g",
 			enter:      "play ra.g",
 			shiftEnter: "nothing",
 			space:      "play ra.g",
@@ -382,9 +378,8 @@ var radioWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"nopage": {
-			click: "play ra.b",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play ra.b; play ra.b",
+			click:      "play ra.b",
+			double:     "play ra.b",
 			enter:      "play ra.b",
 			shiftEnter: "nothing",
 			space:      "play ra.b",

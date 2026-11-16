@@ -98,7 +98,7 @@ func artistLink(c *ui.Context, id, text string, style func(ui.Element), o Artist
 	}
 	style(l)
 	o.underline(l, l.Hovered())
-	if l.Clicked() {
+	if ClickOnce(l) {
 		if m := ModsOf(l.ClickModifiers()); o.Click == nil || !o.Click(m) {
 			o.Open(id)
 		}
