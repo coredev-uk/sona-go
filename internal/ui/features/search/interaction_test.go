@@ -370,8 +370,8 @@ func TestInteractionFieldSuggestionRowsPerKind(t *testing.T) {
 		},
 		{
 			row: "Song Alpha", kind: "song",
-			click: "nav /song/s1; wrote item:song:s1",
-			enter: "nav /song/s1; wrote item:song:s1",
+			click:      "nav /song/s1; wrote item:song:s1",
+			enter:      "nav /song/s1; wrote item:song:s1",
 			shiftEnter: "nav /song/s1; wrote item:song:s1",
 		},
 		{
