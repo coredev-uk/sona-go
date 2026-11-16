@@ -104,7 +104,7 @@ func (s *search) recentEntry(c *ui.Context, pg *pageView, e services.RecentSearc
 			main.Children(func() {
 				body()
 				if plays {
-					glyph := theme.Glyph(c, "play", 14, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
+					glyph := kit.PlayGlyph(c, 14, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
 					if !main.Hovered() && !main.FocusVisible() {
 						glyph.Opacity(0)
 					}
