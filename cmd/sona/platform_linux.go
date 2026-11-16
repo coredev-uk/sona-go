@@ -171,11 +171,17 @@ func (p *platform) Serve(activate func(app.Activation, bool), commands cli.Serve
 	servePrimary(p.instance, activate, commands)
 }
 
-// Close releases the instance name and the bus.
-func (p *platform) Close() {
+// ReleaseInstance lets go of the instance name: at quit, before MyGo starts
+// the version an update installed. Close does it too; once is enough.
+func (p *platform) ReleaseInstance() {
 	if p.instance != nil {
 		closePrimary(p.instance, p.log)
 	}
+}
+
+// Close releases the instance name and the bus.
+func (p *platform) Close() {
+	p.ReleaseInstance()
 	if p.conn != nil {
 		_ = p.conn.Close()
 	}

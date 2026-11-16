@@ -1,11 +1,33 @@
 package main
 
 import (
+	"log/slog"
 	"slices"
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/app"
+	"github.com/coredev-uk/sona-go/internal/config"
 )
+
+// The first start of an update finds the version it replaced still holding
+// the single instance (it starts this one as it quits): it waits for it to
+// let go and takes over, where a plain start would hand its launch to the
+// instance on its way out and exit, leaving no Sona.
+func TestOpenPlatformAfterUpdateWaitsForTheReplacedVersionToQuit(t *testing.T) {
+	calls := 0
+	want := &platform{}
+	open := func(config.Paths, app.Activation, *slog.Logger) (*platform, error) {
+		calls++
+		if calls < 3 {
+			return nil, app.ErrForwarded // the old version is still quitting
+		}
+		return want, nil
+	}
+	got, err := openPlatformAfterUpdate(config.Paths{}, app.Activation{}, slog.New(slog.DiscardHandler), open)
+	if err != nil || got != want || calls != 3 {
+		t.Fatalf("got %v, %v after %d tries; want the platform on the third", got, err, calls)
+	}
+}
 
 func TestRelaunchArgs(t *testing.T) {
 	const link = "music://music.apple.com/us/album/x/1"

@@ -117,9 +117,13 @@ func (p *platform) Serve(activate func(app.Activation, bool), commands cli.Serve
 	servePrimary(p.instance, activate, commands)
 }
 
-// Close releases the socket and the lock.
-func (p *platform) Close() {
+// ReleaseInstance lets go of the socket and the lock: at quit, before MyGo
+// starts the version an update installed. Close does it too; once is enough.
+func (p *platform) ReleaseInstance() {
 	if p.instance != nil {
 		closePrimary(p.instance, p.log)
 	}
 }
+
+// Close releases the socket and the lock.
+func (p *platform) Close() { p.ReleaseInstance() }
