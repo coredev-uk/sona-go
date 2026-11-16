@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"maps"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -348,6 +350,22 @@ func TestAddonHostJudgesTheSameSlotAfterTheCall(t *testing.T) {
 // alone, at index 0, in the call and in the event.
 func TestAddonHostQueueDropsHiddenSlots(t *testing.T) {
 	ce := newCommandEnv(t, privatemode.Options{Save: func(bool) error { return nil }})
+	topic, cancel, err := ce.srv.addon.Watch(cli.TopicQueue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+	var (
+		mu     sync.Mutex
+		events []cli.Queue
+	)
+	go func() {
+		for v := range topic {
+			mu.Lock()
+			events = append(events, v.(cli.Queue))
+			mu.Unlock()
+		}
+	}()
 	if _, err := ce.call(t, "private", "on"); err != nil {
 		t.Fatal(err)
 	}
@@ -374,22 +392,26 @@ func TestAddonHostQueueDropsHiddenSlots(t *testing.T) {
 	if q.Index != 0 || len(q.Tracks) != 2 || q.Tracks[0].Title != "Something" || q.Tracks[1].Title != "Come Together" {
 		t.Errorf("queue = %+v, want P3 at index 0 and P4", q)
 	}
-	topic, cancel, err := ce.srv.addon.Watch(cli.TopicQueue)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
-	ev := (<-topic).(cli.Queue)
-	for ev.Index != 0 || len(ev.Tracks) != 2 {
-		select {
-		case v := <-topic:
-			ev = v.(cli.Queue)
-		case <-time.After(2 * time.Second):
-			t.Fatalf("queue event = %+v", ev)
+	// Every event that shows a playing song shows P3 at index 0 and P4:
+	// none ever lists P1 or P2. At least one such event arrives.
+	for deadline := time.Now().Add(2 * time.Second); ; time.Sleep(5 * time.Millisecond) {
+		mu.Lock()
+		got := slices.ContainsFunc(events, func(q cli.Queue) bool { return q.Index == 0 && len(q.Tracks) == 2 })
+		mu.Unlock()
+		if got {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("no filtered queue event arrived: %+v", events)
 		}
 	}
-	if ev.Index != 0 || ev.Tracks[0].Title != "Something" {
-		t.Errorf("queue event = %+v", ev)
+	time.Sleep(100 * time.Millisecond) // anything late
+	mu.Lock()
+	defer mu.Unlock()
+	for _, q := range events {
+		if q.Index >= 0 && (q.Index != 0 || len(q.Tracks) != 2 || q.Tracks[0].Title != "Something") {
+			t.Errorf("a queue event lists a hidden slot: %+v", q)
+		}
 	}
 }
 
