@@ -1365,7 +1365,7 @@ var iaStationWant = map[string]iaRow{
 		more:       "button",
 		menu:       "opens",
 		click:      "nav=/station/ra.1 opened=station:ra.1",
-		double:     "nav=/station/ra.1,/station/ra.1",
+		double:     "nav=/station/ra.1 opened=station:ra.1",
 		enter:      "nav=/station/ra.1 opened=station:ra.1",
 		shiftEnter: "nothing",
 		space:      "nothing",
