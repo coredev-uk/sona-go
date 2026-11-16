@@ -405,7 +405,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | title | song: its album with the song marked; station: its page; video: its page | | opens | none | none | n/a | yes | link |
 |  | artist, album | opens | | opens | none | none | n/a | yes | link |
 |  | play / pause | toggles | twice | toggles | none | toggles | n/a | none | button |
-| Mini player | cover, title, artist, album line | none ([#449]) | none | no Tab stop | | | n/a | yes, but not on the album line ([#449]) | plain text |
+| Mini player | cover, title, artist, album line | none | none | no Tab stop | | | n/a | yes, on every line of text | plain text |
 
 ### Page headers and pages
 
@@ -429,6 +429,7 @@ Argued departures that stay (not issues):
 - **The Artists master list chooses instead of opening**: it is a master-detail list, and the detail is the page.
 - **A tile's Shift/Ctrl+click selects** (a list of tiles can be dragged into a playlist and acted on as a group); only the open/play cue is owed (#438).
 - **Playing one tile plays that tile alone** even with three selected: Play is a control of the tile, not of the selection.
+- **The mini player is a remote: its cover, title, artist and album line are plain text.** It is a small frameless window that a press drags, so they take no click and are no Tab stop; the pages they could open (the album, the artist) live in the main window, which the player bar's links and Open Sona reach. Every line of the text block, and the cover, opens the playing item's menu on a right-click, Shift+F10 or the Menu key.
 
 ### Departures
 
@@ -445,7 +446,6 @@ Argued departures that stay (not issues):
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
 | [#445] | local shelves, library grids and release rows have no Play |
 | [#447] | right-click and More disagree |
-| [#449] | the mini player's inert text |
 
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#427]: https://github.com/coredev-uk/sona-go/issues/427
@@ -458,7 +458,6 @@ Argued departures that stay (not issues):
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
 [#445]: https://github.com/coredev-uk/sona-go/issues/445
 [#447]: https://github.com/coredev-uk/sona-go/issues/447
-[#449]: https://github.com/coredev-uk/sona-go/issues/449
 
 ## Dates
 
