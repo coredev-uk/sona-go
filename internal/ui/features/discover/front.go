@@ -3,6 +3,7 @@ package discover
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -400,9 +401,7 @@ func (d *discover) progress(c *ui.Context, pg pageState, w float32) {
 						box.W = max(seg*done, r.H)
 						p.Fill(box, ink, radius)
 					}
-					// Thirty frames a second moves the fill by under a pixel
-					// in any lead, at a quarter of a 120 Hz display's work.
-					p.AnimationFrameRate(30)
+					p.After(progressStep(seg, p.Scale()))
 				}
 			}
 		})
@@ -608,8 +607,18 @@ func (d *discover) tileProgress(c *ui.Context, w, top float32) {
 				r.W = max(r.W*done, r.H)
 				p.Fill(r, ink, r.H/2)
 			}
-			p.AnimationFrameRate(30)
+			p.After(progressStep(w, p.Scale()))
 		})
+}
+
+// progressStep is how long the fill of a w DIP wide progress line takes to
+// move by a device pixel: the next paint is asked for then, in a frame that
+// only paints (Painter.After), so a 150 DIP segment repaints about 21 times
+// a second and nothing waits on a frame that would draw the same picture.
+// At least a 60 Hz frame apart.
+func progressStep(w, scale float32) time.Duration {
+	px := max(w*scale, 1)
+	return max(time.Duration(float64(rotateEvery)/float64(px)), time.Second/60)
 }
 
 // frontSkeleton is the front page's frame while it loads: the lead, its
