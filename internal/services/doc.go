@@ -199,7 +199,10 @@
 // (library/release.go, in SQL, as of the clock the library is given), so
 // Songs, its count, an artist's songs, favourites and the library search
 // leave such songs out and only their album lists them (Song.Playable false,
-// no artist while Apple's stand-in is "unknown"). Reminders (reminders.go, table release_reminders)
+// no artist while Apple's stand-in is "unknown"). A song that is out can
+// still be Song.Playable false: a library-only one with no playParams and a
+// date of its own, which Apple refuses ("no longer available", mappers.go
+// withheld). Reminders (reminders.go, table release_reminders)
 // give one desktop notification when such an album comes out, or after
 // the first paint of the next start when Sona wasn't running then; the
 // notification's words come from the UI, and without
