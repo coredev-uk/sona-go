@@ -19,11 +19,18 @@ const (
 	// stripMin is the smallest cover of Recently Played, a strip of one row:
 	// squares of 112 to about 130 DIPs with the name and the line under.
 	stripMin = 112
-	// heroRatio is Apple's hero card shape (music.apple.com crops the 4:1
-	// banner to it), heroShare the banner's share of the row. The banner sits at the right end, the name
-	// and the play disc at the left edge the page's text keeps.
-	heroRatio float32 = 1060.0 / 608
-	heroShare float32 = 0.45
+	// The lone hero card (heroCard): the name, line and controls in a column
+	// heroText wide, heroGap from the banner, which fills the rest of the row
+	// in Apple's hero card shape (heroRatio: music.apple.com crops the 4:1
+	// banner to it) until heroMaxHeight, wider from there and never past the
+	// banner's own 4:1. Under heroStackUnder the banner takes the row and
+	// the text goes under it.
+	heroRatio      float32 = 1060.0 / 608
+	heroBanner     float32 = 4
+	heroText       float32 = 360
+	heroGap        float32 = 40
+	heroMaxHeight  float32 = 280
+	heroStackUnder float32 = 720
 )
 
 // captioned keeps the shelf's items without their shared caption between
@@ -200,10 +207,25 @@ type rowShelf struct {
 }
 
 // heroCard is an untitled hero shelf with one card (Apple's featured station
-// on Home): the banner beside its name, line and play control, filling the row
-// instead of leaving half of it empty.
+// on Home): its name, line and play control beside the banner, which takes
+// the rest of the row, so the row is the card and not a short text and a
+// picture with an empty band between.
 type heroCard struct {
 	width kit.WidthTracker
+}
+
+// heroBox is the hero card's banner at a row width: its width, its height and
+// whether the text stands beside it (else under it). Both are whole DIPs, so
+// the picture asked for at the box lands on whole pixels.
+func heroBox(width float32) (w, bh float32, beside bool) {
+	beside = width >= heroStackUnder
+	w = width
+	if beside {
+		w -= heroText + heroGap
+	}
+	w = float32(math.Round(float64(max(w, 0))))
+	bh = float32(math.Round(float64(max(min(w/heroRatio, heroMaxHeight), w/heroBanner))))
+	return w, bh, beside
 }
 
 func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.ItemsCtx, menus *kit.ActionMenus) {
@@ -220,10 +242,7 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 			src = it.Art.Medium
 		}
 	}
-	w := float32(math.Round(float64(width * heroShare)))
-	// The cover's box (kit.ArtBox) is whole DIPs in height too; its picture
-	// is asked for at it.
-	_, bh := kit.ArtBox(w, heroRatio)
+	w, bh, beside := heroBox(width)
 	link := kit.ItemLink(it)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	var opener ui.Element
@@ -231,9 +250,20 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 	// inside, so the group itself takes no press.
 	var inner ui.Element
 	root.Children(func() {
-		inner = ui.Row(c.Key("body")).FillWidth().Gap(40).AlignItems(ui.Center)
-		inner.Children(func() {
-			ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+		if width <= 0 {
+			return // the first frame measures; the next one lays it out
+		}
+		if beside {
+			inner = ui.Row(c.Key("body")).FillWidth().Gap(heroGap).AlignItems(ui.Center)
+		} else {
+			inner = ui.Column(c.Key("body")).FillWidth().Gap(16)
+		}
+		text := func() {
+			col := ui.Column(c.Key("text")).MinWidth(0)
+			if beside {
+				col.Width(heroText).Shrink(0)
+			}
+			col.Children(func() {
 				opener = h.titleBlock(c, it, "page", link, ctx)
 				if kit.ClickOnce(opener) {
 					h.open(it, ctx)
@@ -249,6 +279,8 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 					}
 				})
 			})
+		}
+		pic := func() {
 			bg := theme.C("hover")
 			if col, ok := kit.ParseHex(it.Color); ok {
 				bg = col
@@ -258,10 +290,19 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 					// The colour block stays while the picture loads and if it
 					// fails; a square cover is shown whole on it.
 					kit.Artwork(c, h.env.Art, src, w, kit.ArtOpts{
-						Aspect: heroRatio, Edge: true, Contain: banner == "", Fallback: func(*ui.Context) {},
+						Aspect: w / bh, Edge: true, Contain: banner == "", Fallback: func(*ui.Context) {},
 					})
 				}
 			})
+		}
+		inner.Children(func() {
+			if beside {
+				text()
+				pic()
+			} else {
+				pic()
+				text()
+			}
 		})
 		menus.Popup(c)
 	})
