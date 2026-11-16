@@ -153,3 +153,13 @@ func OnAirLine(on services.OnAir) string {
 	}
 	return on.Title
 }
+
+// CoverPlayOf is the play disc of item's tile: nil where the item has no play
+// control (CanPlay). Every tile of an album or playlist builds its disc here,
+// so a playable one plays from its disc on every surface.
+func (p *ItemPlayers) CoverPlayOf(item services.Item) *CoverPlay {
+	if !p.CanPlay(item) {
+		return nil
+	}
+	return &CoverPlay{Label: item.Name, Run: func() { p.PlayItem(item) }, RunFrom: func(h *ui.Handle) { p.PlayItemFrom(item, h) }}
+}

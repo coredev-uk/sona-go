@@ -198,10 +198,10 @@ func TestSortAndTypeChangeTheQuery(t *testing.T) {
 	r.tt.Until("all albums", r.tt.Shows("Zebra Crossing", "7 albums"))
 }
 
-func TestAnAlbumTileHasNoPlayButton(t *testing.T) {
+func TestAnAlbumTileHasNoPlayButtonWithoutAPlayer(t *testing.T) {
 	r := newRig(t, sevenAlbums, 1132, 1000)
 	r.tt.Until("the albums", r.tt.Shows("Mango Season"))
-	// v0.2.0's library albums are CoverTiles with no play control.
+	// No album player is registered here: the tile has no disc (the interaction tests register one).
 	if _, ok := r.tt.Find("Play Mango Season"); ok {
 		t.Error("an album tile has a play button")
 	}

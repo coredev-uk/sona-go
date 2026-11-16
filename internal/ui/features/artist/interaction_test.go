@@ -321,12 +321,17 @@ func TestInteractionArtistReleaseRows(t *testing.T) {
 			t.Errorf("no %q on the page: %q", disc, r.tt.Texts())
 		}
 	}
-	// DEPARTS: an album in a release list or the discography has no Play control (the latest release's slip, a playlist's tile and an artist's tile on the same page have a disc), so an album plays from here only by opening it first.
+	// A release has the Play disc a tile of the same album has: it plays the
+	// album through the item players and never opens it.
 	for _, album := range []string{"Play Kid A", "Play OK Computer", "Play In Rainbows"} {
-		if r.tt.HasText(album) {
-			t.Errorf("%q: a release has a Play control", album)
+		if !r.tt.HasText(album) {
+			t.Errorf("%q: a release has no Play control", album)
 		}
 	}
+	const play = "item album:kida"
+	iaWant(t, "Kid A's disc", pg.gestures("Play Kid A", iaTabStop), iaGest{
+		click: play, dbl: iaJoin(play, play), enter: play, shiftEnter: "nothing", space: play, right: "nothing",
+	})
 }
 
 // The discography's releases are the same links as the lists': a click opens the

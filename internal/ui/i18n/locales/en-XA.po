@@ -4904,6 +4904,7 @@ msgstr ""
 msgid "Play {label}"
 msgstr ""
 
+#: internal/ui/features/artist/releaselist.go
 #: internal/ui/features/discover/front.go
 #: internal/ui/features/home/rows.go
 #: internal/ui/features/radio/onair.go

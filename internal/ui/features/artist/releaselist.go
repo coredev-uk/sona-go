@@ -24,6 +24,8 @@ const (
 	releaseGap   = 12
 	// releaseMore is the size of a row's More button.
 	releaseMore = 24
+	// releasePlay is the size of a row's Play disc, over its cover.
+	releasePlay = 28
 	// releaseColGap is the gap between the list's columns.
 	releaseColGap = 24
 )
@@ -214,6 +216,19 @@ func (a *artist) releaseRow(c *ui.Context, st *releaseList, i int, al *services.
 				hot := w.Hovered() || w.FocusWithin()
 				st.menus.Trigger(c.Key("more"), s, target, kit.TriggerOpts{Visible: hot, Select: &st.sel, Index: i}).
 					Absolute().Right(releasePadX).Top((releaseRowH - releaseMore) / 2)
+				// The play disc sits on the cover, beside the opener (a button or
+				// link is a leaf on the accessibility tree), shown on hover and
+				// focus as a tile's is.
+				if item := albumItem(*al, ""); !withheld && a.env.Players.CanPlay(item) {
+					play := kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", al.Name), releasePlay).
+						Absolute().Left(releasePadX + (releaseCover-releasePlay)/2).Top((releaseRowH - releasePlay) / 2)
+					if !hot && !play.Focused() {
+						play.Opacity(0)
+					}
+					if play.Clicked() {
+						a.env.Players.PlayItem(item)
+					}
+				}
 			},
 		}, func(w, s ui.Element) {
 			kit.Artwork(c, a.env.Art, al.Art.Medium, releaseCover, kit.ArtOpts{Edge: true})
