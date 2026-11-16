@@ -199,6 +199,11 @@ func (p *player) queueRow(c *ui.Context, st *queueList, r queueRowIn) {
 	if src.DoubleClicked() && link == nil {
 		p.jumpTo(qi)
 	}
+	if r.current {
+		// The playing song's row opens the song's menu, as the bar and the
+		// cover do (the queue's own menu is for the songs still to play).
+		p.playingMenu(c, src, it, &p.menus.queue)
+	}
 	if !r.current && src.RightClicked() {
 		x, y, _ := src.PointerPosition()
 		wx, wy := src.LocalToWindow(x, y)
@@ -272,7 +277,7 @@ func (p *player) rowContent(c *ui.Context, links *rowLinks, r *queueRowIn, hot, 
 
 // playingRowContent is the inside of the playing song's row: a larger cover,
 // the title in amber ink over the artist and the album, the equaliser at the
-// end. The song playing has no menu or Remove.
+// end. The song playing has no Remove; its menu is the bar's (playingMenu).
 func (p *player) playingRowContent(c *ui.Context, links *rowLinks, r *queueRowIn) {
 	it := r.item
 	kit.Artwork(c.Key("art"), p.env.Art, it.Art.Small, queueNowArt, kit.ArtOpts{})

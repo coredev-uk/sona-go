@@ -306,7 +306,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | web link | opens the browser | twice | same | none | none | none | no | link, arrow out, named "X Opens in your browser" |
 |  | unrouted page | none, no underline | none | none | none | none | disc | yes | group |
 |  | any with an Item, Shift/Ctrl+click | selects ([#438]) | | | | | | | |
-| Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button, no right-click ([#447]) | link |
+| Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button and right-click, Shift+F10, Menu key | link |
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button, no right-click ([#447]) | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | none | none | none | none | link, arrow out, named "X Opens in your browser" |
 | Link list tile (`LinkList`: "More to Explore") | page link | opens, remembered (`OnOpen`) | opens | opens | opens | none | none: a link tile is a plain link, even for a station with a page (its cover tile, card and row have the Play control) | none | link |
@@ -314,9 +314,9 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | web link | opens the browser | twice | same | same | none | none | none | link with the arrow out, named "X Opens in your browser" |
 | Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing and is the pause and resume button, "Pause X" | More button, no right-click ([#447]) | link |
 |  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
-| Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | selects | plays from the row, the shelf is the queue | plays | none | selects | cover button | More button, no right-click ([#447]) | list item, hover fill |
+| Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | selects | plays from the row, the shelf is the queue | plays | none | selects | cover button | More button and right-click, Shift+F10, Menu key | list item, hover fill |
 |  | artist link in the row | opens the artist | twice | n/a | n/a | n/a | n/a | n/a | underline on hover |
-| Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects | number-column button | yes; none on the artist/album links ([#447]) | row; link cells underline |
+| Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects | number-column button | yes, also on the artist and album links | row; link cells underline |
 |  | artist or album cell | opens | twice | n/a | n/a | n/a | n/a | n/a | link |
 |  | Shift/Ctrl+click | range / toggle | | | | | | | |
 
@@ -352,7 +352,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |---|---|---|---|---|---|---|
 | Songs, Favourites, History | song | selects | plays from the row | plays | number-column button | yes |
 | Albums, Playlists, Recently added grids | album, playlist | opens | opens | opens | none ([#445]) | yes |
-| Videos grid | music video | opens | opens | opens | disc where the platform plays videos | none ([#447]) |
+| Videos grid | music video | opens | opens | opens | disc where the platform plays videos | yes where the platform plays videos (none otherwise) |
 | Artists master list | artist | chooses it: the detail beside it changes and `?artist=` follows | same | same, Enter or Shift+Enter moves the focus to the detail | none on the row; the detail has Play and Shuffle | n/a |
 | Songs page head | | "Play your songs" plays from the first song, "Shuffle" shuffles | | | | |
 
@@ -392,14 +392,14 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Surface | Item | Click | Double-click | Enter | Shift+Enter | Space | Play | Menu | Cue |
 |---|---|---|---|---|---|---|---|---|---|
 | Sidebar nav links | page | opens | opens once | opens | none | none | none | none | link, active fill |
-| Sidebar playlist rows | playlist | opens | opens | opens | shuffles | none | the shuffle glyph over the art shuffles | More button, no right-click ([#447]) | link; shuffle glyph on hover |
+| Sidebar playlist rows | playlist | opens | opens | opens | shuffles | none | the shuffle glyph over the art shuffles | More button and right-click, Shift+F10, Menu key | link; shuffle glyph on hover |
 | Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist, album: shuffles; song: none | none | playlist, album: the shuffle glyph over the art | More button | link; shuffle glyph on hover (playlist, album) |
 |  | playlist, album, song, set to Play or Shuffle | plays or shuffles | twice | same | same | same | same | More button | button; the play or shuffle glyph at the row's end |
 |  | artist, any action | opens | | opens | none | none | none | More button; no Play or Shuffle choice | link |
 |  | any, set to Open with no page | nothing | | nothing | | | | same as its kind; Open checked and off | plain row, disabled to assistive technology |
 | Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button | disclosure |
 | Queue rows | song, AutoPlay, music video | focuses the row | plays from the row | plays | none | none | none | yes | hover fill and grip |
-|  | the playing song | none | restarts it | restarts it | none | none | none | none ([#447]) | amber title |
+|  | the playing song | none | restarts it | restarts it | none | none | none | the song's menu, as the bar's | amber title |
 |  | song title, music video title | opens its album with the song marked, its page | | | none | none | none | the row's menu | link (a pointer shortcut, not a Tab stop) |
 |  | artist | opens the artist (several credited: plain text) | | | none | none | none | the row's menu | link (a pointer shortcut, not a Tab stop) |
 |  | "Playing from <station>" | opens the station | | opens | | | | | link, a Tab stop |
@@ -445,7 +445,7 @@ Argued departures that stay (not issues):
 | [#440] | a double-click acts twice |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
 | [#445] | local shelves, library grids and release rows have no Play |
-| [#447] | right-click and More disagree |
+| [#447] | curators, rooms and link tiles have no menu at all (no action is registered for them) |
 
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#427]: https://github.com/coredev-uk/sona-go/issues/427

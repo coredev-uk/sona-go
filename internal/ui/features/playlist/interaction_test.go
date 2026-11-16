@@ -559,8 +559,7 @@ func TestInteractionPlaylistPageRows(t *testing.T) {
 		}
 		iaWant(t, c.name, pg.gestures(c.name, iaPointer), iaGest{
 			click: iaNav(c.path), dbl: iaNav(c.path), enter: "n/a", shiftEnter: "n/a", space: "n/a",
-			// DEPARTS: right-click on the name opens no menu, though the rest of its row opens the song's.
-			right: "nothing",
+			right: "menu",
 		})
 	}
 }
