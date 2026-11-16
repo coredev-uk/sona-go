@@ -169,13 +169,19 @@ func TestThemesPollEmitsWhenTheFolderChanges(t *testing.T) {
 	if n := rec.count(EventThemesChanged); n != 1 {
 		t.Errorf("unchanged folder announced again: %d", n)
 	}
-	// An edit (same size, later time) is a change.
+	// An edit (same size, later time) is a change. It lands in one step, as an
+	// editor's save does: written and stamped beside the theme, then renamed over
+	// it, so no poll sees the write before its time is set and counts two edits.
 	path := filepath.Join(dir, "mine.json")
-	if err := os.WriteFile(path, []byte(`{"v":2}`), 0o600); err != nil {
+	tmp := filepath.Join(dir, ".mine.json.tmp")
+	if err := os.WriteFile(tmp, []byte(`{"v":2}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	later := time.Now().Add(time.Minute)
-	if err := os.Chtimes(path, later, later); err != nil {
+	if err := os.Chtimes(tmp, later, later); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
 		t.Fatal(err)
 	}
 	eventually(t, "the edit", func() bool { return rec.count(EventThemesChanged) == 2 })
