@@ -375,8 +375,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | web link | opens the browser | same | same | none | arrow-up-right when active |
 | Suggestion list: recently searched | term | searches | searches | searches | none | clock icon, chevron when active |
 |  | album, artist, song with a page | opens | opens | opens (a suggested song plays, [#426]) | none | chevron |
-|  | library song | none ([#427]) | none | none | none | chevron |
-|  | station with no page | opens a station page that is not there ([#427]) | same | same | none | chevron |
+|  | station with no page | plays | plays | plays | none | play triangle when active |
 | Best match panel | song, album, playlist, station with a page, video | opens | opens | none | amber disc beside it | link |
 |  | artist, curator | opens | opens | none | none | link |
 |  | song with no page, station with no page | plays | plays | none | the disc is drawn into the panel | button "X, Play" |
@@ -388,7 +387,8 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Group shelves ("Albums", See all grid, library scope) | as the cover tile | | | | | |
 | Songs group, See all, library songs | song | selects | plays | none | number-column button | row |
 | Recent searches shelf | term, album, artist, song with a page | opens | opens | none | none | link; the X forgets it |
-|  | library song, station with no page, the other scope's entries | not listed ([#427]) | | | | |
+|  | station with no page | plays | plays | none | none | button "X, Play"; play glyph on hover |
+|  | library song, the other scope's entries | not listed (in the field's list either) | | | | |
 | Command palette | artist, album, playlist | opens | opens | opens | none | cover and "Kind · subtitle"; the active row ends in a chevron |
 |  | song | opens its page | opens | opens, Shift+Enter plays (the foot names "Shift+Enter Play" while it is active) | none | the same look, chevron |
 |  | song with no page here (an upload) | plays | plays | plays | none | the same look, play triangle on the active row |
@@ -445,7 +445,6 @@ Argued departures that stay (not issues):
 | Issue | What |
 |---|---|
 | [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
-| [#427] | recent library songs and page-less stations |
 | [#435] | a page-less station has two controls, no cue, or replays instead of pausing: Discover's lead and strip cards still have a second disc ([#442]) |
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
 | [#440] | a double-click acts twice |
@@ -453,7 +452,6 @@ Argued departures that stay (not issues):
 | [#447] | curators, rooms and link tiles have no menu at all (no action is registered for them) |
 
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
-[#427]: https://github.com/coredev-uk/sona-go/issues/427
 [#435]: https://github.com/coredev-uk/sona-go/issues/435
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
 [#440]: https://github.com/coredev-uk/sona-go/issues/440

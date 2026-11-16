@@ -363,7 +363,7 @@ func (f *field) options(typed, scope string, h hintData, recent []services.Recen
 		return out
 	}
 	for _, r := range recent {
-		if r.Kind == services.RecentTerm && cleanScope(r.Scope) != scope {
+		if !recentVisible(r, scope) {
 			continue
 		}
 		out = append(out, option{kind: optRecent, key: "r:" + r.Key, entry: r})
@@ -431,12 +431,13 @@ func (f *field) pick(o option, scope string, play bool) {
 			return
 		}
 		f.close()
-		path := recentPath(r)
-		if path == "" {
-			return // a library song has no page
+		it := recentItem(r)
+		f.s.rememberItem(it, r.Source)
+		if path := recentPath(r); path != "" {
+			f.visit(path)
+		} else {
+			kit.OpenWithoutPage(it, f.s.env.ItemsCtx(nil)) // a station with no page plays
 		}
-		f.s.rememberItem(recentItem(r), r.Source)
-		f.visit(path)
 	}
 }
 
@@ -603,7 +604,7 @@ func (f *field) row(c *ui.Context, o option, active bool) ui.Element {
 				theme.Text(c.Key("meta"), itemMeta(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine()
 			})
 			enter := "chevron-right"
-			if o.kind == optItem {
+			if o.kind != optTerm {
 				enter = f.enterGlyph(it)
 			}
 			f.kindMark(c, kindIcon(it), enter, active)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -208,5 +209,30 @@ func TestSearchCatalogSections(t *testing.T) {
 	}
 	if empty, err := s.Catalog(ctx, " "); err != nil || len(empty.Sections) != 0 || empty.Sections == nil {
 		t.Errorf("blank = %+v, %v", empty, err)
+	}
+}
+
+func TestRecentRemembersAStationWithNoPage(t *testing.T) {
+	s, _, _ := newSearchEnv(t, http.NotFoundHandler())
+	ctx := t.Context()
+	for _, it := range []RecentItem{
+		{Kind: ItemStation, ID: "ra.2", Name: "Local FM", NoPage: true},
+		{Kind: ItemStation, ID: "ra.1", Name: "Hits"},
+		{Kind: ItemAlbum, ID: "a1", Name: "Not a station", NoPage: true},
+	} {
+		if err := s.RememberItem(ctx, it); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.Recent(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	flags := map[string]bool{}
+	for _, r := range got {
+		flags[r.ItemID] = r.NoPage
+	}
+	if want := map[string]bool{"ra.2": true, "ra.1": false, "a1": false}; !maps.Equal(flags, want) {
+		t.Errorf("NoPage by item = %v, want %v", flags, want)
 	}
 }

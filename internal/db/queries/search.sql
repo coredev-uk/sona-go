@@ -4,13 +4,14 @@
 SELECT * FROM recent_searches ORDER BY searched_at DESC, key LIMIT ?;
 
 -- name: PutRecentSearch :exec
-INSERT INTO recent_searches (key, kind, scope, term, item_id, name, subtitle, art_url, searched_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO recent_searches (key, kind, scope, term, item_id, name, subtitle, art_url, no_page, searched_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (key) DO UPDATE SET
     term = excluded.term,
     name = excluded.name,
     subtitle = excluded.subtitle,
     art_url = excluded.art_url,
+    no_page = excluded.no_page,
     searched_at = excluded.searched_at;
 
 -- name: TrimRecentSearches :exec
