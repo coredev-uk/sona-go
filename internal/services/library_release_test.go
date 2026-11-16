@@ -53,7 +53,8 @@ func TestLibAlbumRelease(t *testing.T) {
 	}
 }
 
-// A library song is playable unless the library says it is not out; a song
+// A library song is playable unless the library says it is not out or Apple
+// withheld it (library-only, no playParams, a date of its own); a song
 // with no IDs can't play. Apple's stand-in artist is no artist on a song not
 // out, and a real artist named so stays.
 func TestLibSongMapping(t *testing.T) {
@@ -70,6 +71,12 @@ func TestLibSongMapping(t *testing.T) {
 		{"a credited song not out", library.Song{LibraryID: "i.1", ArtistName: "Yung Lean", Unreleased: true}, false, "Yung Lean"},
 		{"an artist named unknown on a song out", library.Song{LibraryID: "i.1", ArtistName: "unknown"}, true, "unknown"},
 		{"no ID", library.Song{}, false, ""},
+		// Apple answers "no longer available" for a library-only song with
+		// no playParams and a date of its own (docs/apple-music-reference.md §3.1).
+		{"library-only, no playParams, dated", library.Song{LibraryID: "i.1", ArtistName: "Yung Lean", NoPlayParams: true, ReleaseDate: "2020-07-24"}, false, "Yung Lean"},
+		{"library-only, no playParams, no date: goes by its album", library.Song{LibraryID: "i.1", ArtistName: "Yung Lean", NoPlayParams: true}, true, "Yung Lean"},
+		{"with a catalogue copy, no playParams, dated", library.Song{LibraryID: "i.1", CatalogID: "1440", ArtistName: "Yung Lean", NoPlayParams: true, ReleaseDate: "2020-07-24"}, true, "Yung Lean"},
+		{"library-only with playParams, dated", library.Song{LibraryID: "i.1", ArtistName: "Yung Lean", ReleaseDate: "2020-07-24"}, true, "Yung Lean"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
