@@ -166,15 +166,19 @@ func TestTilePlaysOnOpenMarkKeepsItsInsetOnFluidTiles(t *testing.T) {
 }
 
 // A wide card's play disc keeps its 12 DIP inset from its frame's corner when
-// the frame's height (width over ratio) is a fraction of a DIP.
+// the frame's height (width over ratio) is a fraction of a DIP. The art is
+// held at its gate, so the frame is the bare item colour the layout gives it:
+// a decode that landed would paint the picture's 1 px edge line over the
+// frame's outermost pixels, and which of the two sizes asked for (the window
+// opens at another width) lands first is a race.
 func TestWideCardPlayDiscKeepsItsInsetOnAFractionalFrame(t *testing.T) {
 	collectionsFonts(t)
 	for _, w := range []int{301, 317, 333, 349} {
 		for _, sc := range overlayScales {
-			a, tt, _ := wideApp(t, nil, []services.Item{wideItem("1", artPath("1", 1000, 420), "")}, 2.4)
+			_, tt, _ := wideApp(t, &fakeArt{gate: make(chan struct{})}, []services.Item{wideItem("1", artPath("1", 1000, 420), "")}, 2.4)
 			tt.SetSize(w, 400)
 			tt.SetScale(sc)
-			a.load(t, tt, 1)
+			tt.Frame()
 			disc, ok := tt.Find("Play Item 1")
 			if !ok {
 				t.Fatalf("w %d: no play disc", w)
