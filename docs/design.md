@@ -281,7 +281,14 @@ One rule governs every list, shelf, row and tile that shows an item (a song, an 
 - **A track row plays.** A row of songs in a list (album, playlist, library, a shelf's rows, search's Songs) is the one place a double-click or Enter plays: it is a list of songs, not a list of pages. A track row: click selects, double-click and Enter play. Every list of songs follows it, the shelf's rows included (Shift or Ctrl+click and Ctrl+Space select more than one).
 - **Space has one rule.** Space selects where the list selects (a track row; Ctrl+Space toggles), plays where the item is itself a Play control (a page-less station) or where the list's hint says "Space plays" (Home's strip and lead rows), and does nothing on a link (a tile, card or row that only opens). It never opens.
 - **Choosing or playing from a result is remembered.** A tile's Play, a link tile, a station row and a track shelf's artist link call `OnOpen` as opening does, so search's "Recently searched" fills the same way however the item was chosen.
-- **A modifier never does something the cue doesn't hint at.** Shift, Ctrl or Cmd with a click selects where the list selects; Shift+Enter plays only where the control shows it.
+- **A modifier never does something the cue doesn't hint at.** Shift, Ctrl or Cmd with a click selects where the list selects and does exactly what the plain click does where it cannot, never both and never nothing; Shift+Enter plays only where the control shows it.
+
+  | List | Selects on Shift/Ctrl/Cmd+click | A modified click on |
+  |---|---|---|
+  | Cover tiles with an Item (`CoverShelf`, `ItemGrid`, library and search tiles) | yes | the tile selects it |
+  | Cover tiles with no Item (curator, room, web link) | no | the tile opens as a plain click does |
+  | Track lists and track shelves, Home's rows | yes | a row, and its artist and album links, select the row |
+  | Wide cards, link-list tiles, station rows | no | the card, tile or row opens or plays as a plain click does |
 - **Artists and curators open only.** No player is registered for them, so no tile, card, row, best match or lead pick draws a Play control for them, and no surface draws a disabled one. Chosen over an artist player because "play an artist" has no single meaning (top songs? shuffle?) and the artist page already offers Play top songs, Shuffle and Play library songs. A Play control exists exactly where `ItemPlayers.CanPlay` is true; a withheld explicit item shows it disabled.
 - **A page that is not routed is plain.** A tile keeps no underline; a wide card, link tile and the artist's latest-release slip are not built as a button at all (no tab stop, pointer, hover or navigation).
 - **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
@@ -305,8 +312,8 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play" ("X Pause" while it plays and a press pauses), play (pause) mark on hover |
 |  | web link | opens the browser | twice | same | none | none | none | no | link, arrow out, named "X Opens in your browser" |
 |  | unrouted page | none, no underline | none | none | none | none | disc | yes | group |
-|  | any with an Item, Shift/Ctrl+click | selects ([#438]) | | | | | | | |
-| Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button and right-click, Shift+F10, Menu key | link |
+|  | any with an Item, Shift/Ctrl+click | selects | | | | | | | |
+| Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored (cannot select) | opens | opens | opens | none | disc, except artist and curator | More button and right-click, Shift+F10, Menu key | link |
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button, no right-click ([#447]) | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | none | none | none | none | link, arrow out, named "X Opens in your browser" |
 | Link list tile (`LinkList`: "More to Explore") | page link | opens, remembered (`OnOpen`) | opens | opens | opens | none | none: a link tile is a plain link, even for a station with a page (its cover tile, card and row have the Play control) | none | link |
@@ -429,7 +436,7 @@ Argued departures that stay (not issues):
 - **A pin set to Play or Shuffle plays on click.** The user chose it in the pin's menu ("When chosen"), and the pin's name says so to assistive technology; its glyph at the row's end (Frame and sidebar) says so to everyone else.
 - **The Now playing queue row restarts the song** on Enter or double-click: it is a row of songs, and `Jump` plays its own index from 0.
 - **The Artists master list chooses instead of opening**: it is a master-detail list, and the detail is the page.
-- **A tile's Shift/Ctrl+click selects** (a list of tiles can be dragged into a playlist and acted on as a group); only the open/play cue is owed (#438).
+- **A tile's Shift/Ctrl+click selects** (a list of tiles can be dragged into a playlist and acted on as a group) where the tile has an Item; the open/play cue is the one owed.
 - **Playing one tile plays that tile alone** even with three selected: Play is a control of the tile, not of the selection.
 - **The mini player is a remote: its cover, title, artist and album line are plain text.** It is a small frameless window that a press drags, so they take no click and are no Tab stop; the pages they could open (the album, the artist) live in the main window, which the player bar's links and Open Sona reach. Every line of the text block, and the cover, opens the playing item's menu on a right-click, Shift+F10 or the Menu key.
 
@@ -441,7 +448,6 @@ Argued departures that stay (not issues):
 | [#427] | recent library songs and page-less stations |
 | [#435] | a page-less station has two controls, no cue, or replays instead of pausing: Discover's lead and strip cards still have a second disc ([#442]) |
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
-| [#438] | modifier-click selects on some, opens on others |
 | [#440] | a double-click acts twice |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
 | [#447] | curators, rooms and link tiles have no menu at all (no action is registered for them) |
@@ -450,7 +456,6 @@ Argued departures that stay (not issues):
 [#427]: https://github.com/coredev-uk/sona-go/issues/427
 [#435]: https://github.com/coredev-uk/sona-go/issues/435
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
-[#438]: https://github.com/coredev-uk/sona-go/issues/438
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
 [#447]: https://github.com/coredev-uk/sona-go/issues/447

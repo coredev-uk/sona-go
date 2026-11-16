@@ -186,6 +186,14 @@ func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play fun
 			}
 			ArtistLinks(c, artists, song.Artist, theme.C("ink-muted"), ArtistLinksOpts{
 				Open: open, Static: true, Hover: theme.C("ink"),
+				// The shelf selects, so a modified click on the artist selects the row.
+				Click: func(m ClickMods) bool {
+					if m.Range || m.Toggle {
+						sel.Click(i, m)
+						return true
+					}
+					return false
+				},
 				Style: func(e ui.Element) {
 					e.FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine().TextAlign(ui.Start)
 				},

@@ -679,8 +679,8 @@ func TestInteractionCoverShelfTilesFollowTheirOpenPlayAndPlaysOnOpen(t *testing.
 		{"Ctrl+click it", click("s2", ui.Cmd), "opened=[] played=[] sel=1"},
 		{"click a tile that plays on open", click("s3", 0), "opened=[] played=[c] sel=1"},
 		{"Enter on it", key("Plays Play", ui.KeyEnter), "opened=[] played=[c] sel=1"},
-		// DEPARTS: a modifier-click on a tile without an item is swallowed: it neither selects nor opens.
-		{"Ctrl+click a tile without an item", func() string { st.Row.Sel.Reset(); return click("s4", ui.Cmd) }(), "opened=[] played=[] sel=0"},
+		// A tile without an item cannot be selected: a modified click opens it.
+		{"Ctrl+click a tile without an item", func() string { st.Row.Sel.Reset(); return click("s4", ui.Cmd) }(), "opened=[d] played=[] sel=0"},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s: got %q, want %q", c.what, c.got, c.want)
@@ -705,7 +705,8 @@ func TestInteractionTrackShelfArtistLinkOpensTheArtistAndTheRowStaysQuiet(t *tes
 	}{
 		{"click the artist", func() { tt.ClickAt(x, y) }, "nav=/artist/ar1 opened=artist:ar1"},
 		{"double-click the artist", func() { tt.ClickAt(x, y); tt.ClickAt(x, y) }, "nav=/artist/ar1 opened=artist:ar1"},
-		{"Shift+click the artist", func() { tt.ClickAtWith(ui.Shift, x, y) }, "nav=/artist/ar1 opened=artist:ar1"},
+		// The shelf selects its rows, so a modified click on the artist selects the row and opens nothing.
+		{"Shift+click the artist", func() { tt.ClickAtWith(ui.Shift, x, y) }, "nothing"},
 	} {
 		iaReset(a.rec)
 		c.do()
@@ -842,9 +843,8 @@ var iaCoverWant = map[string]iaRow{
 		enter:      "nav=/curator/cu1 opened=curator:cu1",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click on a tile with no Item (curator, room, web link) is swallowed: it neither selects nor opens, while it selects an album tile and opens a WideRow card or LinkList tile (collections_cover.go:323-331: only a tile with an Item takes a modified click).
-		shiftClick: "nothing",
-		ctrlClick:  "nothing",
+		shiftClick: "nav=/curator/cu1 opened=curator:cu1",
+		ctrlClick:  "nav=/curator/cu1 opened=curator:cu1",
 		playDisc:   "no control",
 	},
 	"upcoming album": {
@@ -871,9 +871,8 @@ var iaCoverWant = map[string]iaRow{
 		enter:      "opened=link: urls=https://example.com/c",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click on a tile with no Item (curator, room, web link) is swallowed: it neither selects nor opens, while it selects an album tile and opens a WideRow card or LinkList tile (collections_cover.go:323-331: only a tile with an Item takes a modified click).
-		shiftClick: "nothing",
-		ctrlClick:  "nothing",
+		shiftClick: "opened=link: urls=https://example.com/c",
+		ctrlClick:  "opened=link: urls=https://example.com/c",
 		playDisc:   "no control",
 	},
 	"room": {
@@ -886,9 +885,8 @@ var iaCoverWant = map[string]iaRow{
 		enter:      "nav=/room/r1 opened=room:r1",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click on a tile with no Item (curator, room, web link) is swallowed: it neither selects nor opens, while it selects an album tile and opens a WideRow card or LinkList tile (collections_cover.go:323-331: only a tile with an Item takes a modified click).
-		shiftClick: "nothing",
-		ctrlClick:  "nothing",
+		shiftClick: "nav=/room/r1 opened=room:r1",
+		ctrlClick:  "nav=/room/r1 opened=room:r1",
 		playDisc:   "no control",
 	},
 	"song without a route": {
@@ -933,7 +931,7 @@ var iaWideWant = map[string]iaRow{
 		enter:      "nav=/album/1 opened=album:1",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click opens the card (modifiers are ignored); on a cover tile it selects instead (collections_items_widerow.go card.Clicked).
+		// A card (tile) that cannot be selected opens on a modified click as on a plain one.
 		shiftClick: "nav=/album/1 opened=album:1",
 		ctrlClick:  "nav=/album/1 opened=album:1",
 		playDisc:   "played=album:1",
@@ -1122,7 +1120,7 @@ var iaLinkWant = map[string]iaRow{
 		enter:      "nav=/album/1 opened=album:1",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click opens the tile (modifiers are ignored); a cover tile selects.
+		// A card (tile) that cannot be selected opens on a modified click as on a plain one.
 		shiftClick: "nav=/album/1 opened=album:1",
 		ctrlClick:  "nav=/album/1 opened=album:1",
 		playDisc:   "no control",
