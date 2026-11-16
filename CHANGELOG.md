@@ -1,5 +1,78 @@
 # Changelog
 
+## [0.6.0](https://github.com/coredev-uk/sona-go/compare/v0.5.0...v0.6.0) (2026-11-16)
+
+
+### Features
+
+* **addons:** manifests, permissions and the supervisor ([#492](https://github.com/coredev-uk/sona-go/issues/492)) ([79923e8](https://github.com/coredev-uk/sona-go/commit/79923e80d20b5fbeec77fd3f1abdce9f0231179a))
+* **addons:** protocol v2 and docs/addons.md ([#488](https://github.com/coredev-uk/sona-go/issues/488)) ([5903d44](https://github.com/coredev-uk/sona-go/commit/5903d44170ea1d347d85ee2cdf62f5f76332c986))
+* an opt-in artist tracker for new releases from favourite artists ([#456](https://github.com/coredev-uk/sona-go/issues/456)) ([45fe2e4](https://github.com/coredev-uk/sona-go/commit/45fe2e4c1461e1adc152f77253c5a478cc7b776d))
+* **discover:** the lead stands beside a queue of the next cards, with its progress ([#490](https://github.com/coredev-uk/sona-go/issues/490)) ([45811a3](https://github.com/coredev-uk/sona-go/commit/45811a3297f3e60bf27ddef01281b835b712e197))
+* **library:** pick up playlist changes from other devices ([#454](https://github.com/coredev-uk/sona-go/issues/454)) ([8f0100c](https://github.com/coredev-uk/sona-go/commit/8f0100c13a675cfd47346aa3176d4163ab2222dc))
+* **playlist:** suggested songs leave when added, refresh, and start collapsed ([#458](https://github.com/coredev-uk/sona-go/issues/458)) ([5aa2fb9](https://github.com/coredev-uk/sona-go/commit/5aa2fb92edd6e4b728e6698851561fb1ffe4da09))
+* **sidebar:** list collaborative playlists under Playlists ([#463](https://github.com/coredev-uk/sona-go/issues/463)) ([adea19a](https://github.com/coredev-uk/sona-go/commit/adea19ad565eae103d78e0e569b54b79a128b7fe))
+* **ui:** a page-less station is one control, one cue, and pauses while it plays ([#522](https://github.com/coredev-uk/sona-go/issues/522)) ([d2b50a4](https://github.com/coredev-uk/sona-go/commit/d2b50a4bb905b31c8766f3c8dd863c9f10ed9cd9))
+* **ui:** a web-only search result opens the browser ([#501](https://github.com/coredev-uk/sona-go/issues/501)) ([810a5dc](https://github.com/coredev-uk/sona-go/commit/810a5dce81f7496dbfb9567d48a6b8473ecc9c47))
+* **ui:** every playable compact result row has a Play button ([#513](https://github.com/coredev-uk/sona-go/issues/513)) ([5f4316d](https://github.com/coredev-uk/sona-go/commit/5f4316d79c1cba0e588c78b0ab38363641991c6f))
+* **ui:** inspect media items in development builds ([#465](https://github.com/coredev-uk/sona-go/issues/465)) ([1d28eac](https://github.com/coredev-uk/sona-go/commit/1d28eacfa92a6b6680a184570e147ae372cf7324))
+* **ui:** kit.TrackList gets a rank column and an extra column slot, used by Discover charts ([#380](https://github.com/coredev-uk/sona-go/issues/380)) ([72216e0](https://github.com/coredev-uk/sona-go/commit/72216e054619c04df519d5e73642f723ae12a733))
+* **ui:** mark uploaded songs among catalogue songs, and never show Disc 0 ([#398](https://github.com/coredev-uk/sona-go/issues/398)) ([0482363](https://github.com/coredev-uk/sona-go/commit/0482363d08cab77c977b3e3daaf3feaf465e3af6))
+* **ui:** merge Made for you and Apple Music into one sidebar section ([#394](https://github.com/coredev-uk/sona-go/issues/394)) ([d0df2a0](https://github.com/coredev-uk/sona-go/commit/d0df2a0c62fef75bc8186ba701b42744363db8d6))
+* **ui:** one 'opens in your browser' cue on tiles, cards and rows ([#494](https://github.com/coredev-uk/sona-go/issues/494)) ([697fcef](https://github.com/coredev-uk/sona-go/commit/697fcef53f3c6f5dddd45f80816efbc4747ab2c2))
+* **ui:** palette opens a library song's page and cues what Enter does ([#493](https://github.com/coredev-uk/sona-go/issues/493)) ([d4e10e9](https://github.com/coredev-uk/sona-go/commit/d4e10e92feec738ad21eba532e8d0406618a37fe))
+* **ui:** selectable text where people copy it, with an ISRC copy button ([#451](https://github.com/coredev-uk/sona-go/issues/451)) ([bcf3536](https://github.com/coredev-uk/sona-go/commit/bcf353611e6875145eb25c9be62fa3f90325b694))
+* **ui:** selectable text where people copy it, with an ISRC copy button ([#451](https://github.com/coredev-uk/sona-go/issues/451)) ([8325c7f](https://github.com/coredev-uk/sona-go/commit/8325c7f549080266dd92ab0f54f0bce2e678b2cf))
+* **ui:** station rows pause from the equaliser and have a menu ([#519](https://github.com/coredev-uk/sona-go/issues/519)) ([2ca8eb8](https://github.com/coredev-uk/sona-go/commit/2ca8eb8f837a02f4f2c7e93e0214e891cbf78ffb))
+* **ui:** suggestion rows cue play and leave-Sona, not just open ([#495](https://github.com/coredev-uk/sona-go/issues/495)) ([45f138b](https://github.com/coredev-uk/sona-go/commit/45f138b34206f6144d24b9b62d6b86700fcd8426))
+* **ui:** the playlist cover picker says up front that covers stay in Sona ([#381](https://github.com/coredev-uk/sona-go/issues/381)) ([5e02b60](https://github.com/coredev-uk/sona-go/commit/5e02b607208f6c2997bf5d22f957d67d0a3102bf))
+* **ui:** the queue's Playing from link is a Tab stop and rows link their title and artist ([#491](https://github.com/coredev-uk/sona-go/issues/491)) ([a0dfc2d](https://github.com/coredev-uk/sona-go/commit/a0dfc2dfb78ee6f8b3ce7cda56abd06bd95d3d99))
+* **ui:** titles in Title Case, in Apple's style ([#469](https://github.com/coredev-uk/sona-go/issues/469)) ([0f22b3a](https://github.com/coredev-uk/sona-go/commit/0f22b3acc4792f06c3a4060eb92922d98785d600))
+* **windows:** Discord status over the named pipe ([#412](https://github.com/coredev-uk/sona-go/issues/412)) ([9dc8df9](https://github.com/coredev-uk/sona-go/commit/9dc8df9a0c8f3e9882909d8998b9453fe0d19f24))
+* **windows:** open Apple Music links in Sona ([#471](https://github.com/coredev-uk/sona-go/issues/471)) ([fab99bb](https://github.com/coredev-uk/sona-go/commit/fab99bb446b7cf38c619d876175bae674f2bbd78))
+* **windows:** settings export and import through the file dialogs ([#470](https://github.com/coredev-uk/sona-go/issues/470)) ([9007e41](https://github.com/coredev-uk/sona-go/commit/9007e41dd0b0d7d644443a77c8da7577d63bc5de))
+* **windows:** start Sona when you log in ([#403](https://github.com/coredev-uk/sona-go/issues/403)) ([99cd43d](https://github.com/coredev-uk/sona-go/commit/99cd43d31b58fcaa08577928cac824235a386d8f))
+* **windows:** stay awake while playing and the on-battery state ([#455](https://github.com/coredev-uk/sona-go/issues/455)) ([e5ec46e](https://github.com/coredev-uk/sona-go/commit/e5ec46e272e925dc0dc59979269eebf73961f676))
+* **windows:** track notifications ([#401](https://github.com/coredev-uk/sona-go/issues/401)) ([88493b4](https://github.com/coredev-uk/sona-go/commit/88493b421761d0353021f03e3ab9464f2ed4b062))
+
+
+### Bug Fixes
+
+* **a11y:** drop announcements that repeat a status MyGo reads ([#393](https://github.com/coredev-uk/sona-go/issues/393)) ([40901f2](https://github.com/coredev-uk/sona-go/commit/40901f2e5cf6a9039fd7dcc61bea708cb0c09433))
+* **addons:** hide error text, judge answers again, drop hidden queue slots ([#517](https://github.com/coredev-uk/sona-go/issues/517)) ([e3ad6f0](https://github.com/coredev-uk/sona-go/commit/e3ad6f039bc81ec14c46bfea5a150fb3b206d44c))
+* **addons:** judge each add-on event on a fresh snapshot, not an old one ([#525](https://github.com/coredev-uk/sona-go/issues/525)) ([fc4bd27](https://github.com/coredev-uk/sona-go/commit/fc4bd2758394f048cabd25239e3210a7dccb598f))
+* **discover:** the hero shows Apple's line for each card ([#486](https://github.com/coredev-uk/sona-go/issues/486)) ([01894ee](https://github.com/coredev-uk/sona-go/commit/01894ee90b3efafc3d782365e08f0e148cb35dee))
+* **home:** Top Picks show Apple's editorial name and line for stations and episodes ([#477](https://github.com/coredev-uk/sona-go/issues/477)) ([62e87cd](https://github.com/coredev-uk/sona-go/commit/62e87cdf189019125505b5d20913aeeb38d16f6c))
+* **library:** a personal mix takes its freshness from its catalogue playlist ([#414](https://github.com/coredev-uk/sona-go/issues/414)) ([cba9a4d](https://github.com/coredev-uk/sona-go/commit/cba9a4de4515e1633bdd14bca0aae2bab2f81cb8))
+* **library:** deleting a library song removes it at once and drops its emptied album ([#468](https://github.com/coredev-uk/sona-go/issues/468)) ([8c53115](https://github.com/coredev-uk/sona-go/commit/8c531153c687cc19a2bdff317f66f46493c66bc5))
+* **library:** every library album offers Delete from library ([#457](https://github.com/coredev-uk/sona-go/issues/457)) ([357031b](https://github.com/coredev-uk/sona-go/commit/357031b68d523cfe49d5c83f7431e47eee9bbe8f))
+* **library:** leave unreleased placeholder songs out of every song list ([#428](https://github.com/coredev-uk/sona-go/issues/428)) ([0e64b7b](https://github.com/coredev-uk/sona-go/commit/0e64b7b03f56c6585f679de4b5e910f394652df2))
+* **library:** show an offline state on Music videos instead of a fixed note ([#400](https://github.com/coredev-uk/sona-go/issues/400)) ([5962905](https://github.com/coredev-uk/sona-go/commit/59629059dc2b653760b6c086586c330a3c58e191))
+* **radio:** the narrow station skeleton builds one loading root ([#452](https://github.com/coredev-uk/sona-go/issues/452)) ([294c837](https://github.com/coredev-uk/sona-go/commit/294c837b7924487531a2fa9c1edf8989a4869a0d))
+* **services:** keep the case of Apple's names; sentence-case only generic badge words ([#460](https://github.com/coredev-uk/sona-go/issues/460)) ([d500cc4](https://github.com/coredev-uk/sona-go/commit/d500cc4071dbd9cb1e8ea614d18672585711cf5d))
+* **services:** show a library playlist's own cover in Recently Played ([#395](https://github.com/coredev-uk/sona-go/issues/395)) ([863d92e](https://github.com/coredev-uk/sona-go/commit/863d92e195e7485e5e2a7dbedd46b336c35fc64a))
+* **services:** show a recently searched library playlist's own cover ([#422](https://github.com/coredev-uk/sona-go/issues/422)) ([d5d590e](https://github.com/coredev-uk/sona-go/commit/d5d590e190979fd8e3b05cfeef346727690e2d93))
+* **services:** show a wide station's cover as its centre square ([#431](https://github.com/coredev-uk/sona-go/issues/431)) ([4a9cf1c](https://github.com/coredev-uk/sona-go/commit/4a9cf1c47ef94d258a7d09f6b78f71192b255cd4))
+* **ui:** a double-click runs an item's action once ([#515](https://github.com/coredev-uk/sona-go/issues/515)) ([fb89439](https://github.com/coredev-uk/sona-go/commit/fb89439a880bb2de17ce2ec9c1172256a40c9db6))
+* **ui:** a sidebar pin offers only what it does ([#487](https://github.com/coredev-uk/sona-go/issues/487)) ([8dd78df](https://github.com/coredev-uk/sona-go/commit/8dd78df78f0815526274ba5e91e73a2ac5c50485))
+* **ui:** a tile's overlays are placed from the cover's whole box ([#506](https://github.com/coredev-uk/sona-go/issues/506)) ([e687009](https://github.com/coredev-uk/sona-go/commit/e687009561c48c092ddaf6adef4d5cdbde71f691))
+* **ui:** a track row's play wash and a wide card's play disc fade, and the wash shows on focus ([#504](https://github.com/coredev-uk/sona-go/issues/504)) ([792101c](https://github.com/coredev-uk/sona-go/commit/792101c2fa16afd1f1c3fef7167dee2c32b3b283))
+* **ui:** crop Discover bricks to their frame ([#450](https://github.com/coredev-uk/sona-go/issues/450)) ([c08550a](https://github.com/coredev-uk/sona-go/commit/c08550aa89514eebdb6ab1526d4db68c7efa5cbb))
+* **ui:** every play mark draws the solid triangle ([#496](https://github.com/coredev-uk/sona-go/issues/496)) ([bf73d25](https://github.com/coredev-uk/sona-go/commit/bf73d256275833ae5943d4b5be24a2f95184db88))
+* **ui:** kit.Artwork rounds its boxes to whole pixels ([#384](https://github.com/coredev-uk/sona-go/issues/384)) ([0eba8b2](https://github.com/coredev-uk/sona-go/commit/0eba8b2f932b3a708517deb9b0df0cb716a3ce5e))
+* **ui:** Music videos' Try again re-checks the connection and offline shows after a failed reload ([#499](https://github.com/coredev-uk/sona-go/issues/499)) ([587d872](https://github.com/coredev-uk/sona-go/commit/587d872ae098966c2b0e0a9a4a8170c6fdbda8f1))
+* **ui:** palette Enter runs the first entry the list shows ([#483](https://github.com/coredev-uk/sona-go/issues/483)) ([66c86b4](https://github.com/coredev-uk/sona-go/commit/66c86b47b6ea4704d9536446feae337417c4092f))
+* **ui:** Play on a tile, link tile, station row and artist link is remembered as recently searched ([#508](https://github.com/coredev-uk/sona-go/issues/508)) ([e396243](https://github.com/coredev-uk/sona-go/commit/e396243ad2ef0b61fd654237426fae0dfc17959a))
+* **ui:** playlist header says Added, not Created, for playlists the user didn't make ([#397](https://github.com/coredev-uk/sona-go/issues/397)) ([c01278c](https://github.com/coredev-uk/sona-go/commit/c01278c78884e4059a1007f20db3f4e1ce43cd59))
+* **ui:** put the equaliser bars on the device pixel grid ([#484](https://github.com/coredev-uk/sona-go/issues/484)) ([17a692a](https://github.com/coredev-uk/sona-go/commit/17a692a748394f00ff5cc077ba509ffd9b023f51))
+* **ui:** right-click opens the item menu wherever a ⋯ button does ([#392](https://github.com/coredev-uk/sona-go/issues/392)) ([89c8df2](https://github.com/coredev-uk/sona-go/commit/89c8df28e5a7cb87074af52be0a614017b33991e))
+* **ui:** shelf track rows select on click like track lists ([#485](https://github.com/coredev-uk/sona-go/issues/485)) ([d54f431](https://github.com/coredev-uk/sona-go/commit/d54f431a6841dfa11a328c68afd27c6c062335d4))
+
+
+### Performance
+
+* **artwork:** fetch sources at the sizes Apple's CDN already holds ([#420](https://github.com/coredev-uk/sona-go/issues/420)) ([859bedf](https://github.com/coredev-uk/sona-go/commit/859bedf45b25f006b278e83ecd8a86effeb640ea))
+
 ## [0.5.0](https://github.com/coredev-uk/sona-go/compare/v0.4.0...v0.5.0) (2026-11-15)
 
 
