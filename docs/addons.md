@@ -366,10 +366,7 @@ Sona runs the program by the absolute path it checked: never through `PATH` or t
   - on Windows, what a process needs to start: `SystemRoot`, `SystemDrive`, `TEMP`, `TMP`, `USERPROFILE`, `PATHEXT`, `ComSpec`;
   - `SONA_ADDON_ID` and `SONA_ADDON_PROTOCOL=2`.
   - A token, a key, a bus address or anything else in Sona's environment never reaches it. Its working directory is its folder.
-- **Its processes end with Sona's.** An add-on leads a process group of its own (a job object on Windows). When Sona quits, it:
-  1. sends the `shutdown` event, and closes the add-on's input;
-  2. gives it a second, then asks it to terminate;
-  3. gives it a second more, then kills the whole group and reaps it.
+- **Its processes end with Sona's.** An add-on leads a process group of its own (a job object on Windows). When Sona quits, it sends the `shutdown` event, closes the add-on's input, gives it a second, asks it to terminate, gives it a second more, then kills the whole group and reaps it.
 - On Linux the kernel also kills the add-on if Sona dies without quitting. macOS has no such signal: when Sona is killed the add-on's input closes, and **an add-on must exit when its input ends**. Do not start children that leave the group.
 - **It is restarted when it stops on its own**, after 1, 2, 5, 15 and then 30 seconds. After 5 stops in a row, with no run of a minute between, it is switched off and Sona tells you.
 - **Its log** is `addons/<id>.log` in Sona's state directory, beside `sona.log`:
