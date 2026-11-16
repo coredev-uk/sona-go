@@ -97,6 +97,10 @@ type CoverItem struct {
 	// opener is named "{title} Play" and the cover shows a play mark on
 	// hover, which is not a second control.
 	PlaysOnOpen bool
+	// Playing: the PlaysOnOpen station is playing, so opening the tile
+	// pauses it: the opener is named "{title} Pause" and the mark is the
+	// pause bars.
+	Playing bool
 	// Web: choosing the tile opens the browser (OpensInBrowser): the title
 	// row draws WebCue and the opener is named WebCueLabel.
 	Web bool
@@ -251,7 +255,7 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 	}
 	switch {
 	case it.PlaysOnOpen:
-		opener += " " + i18n.T("Play")
+		opener += " " + StationAction(it.Playing)
 	case it.Web:
 		opener = WebCueLabel(opener)
 	}
@@ -386,7 +390,11 @@ func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, ar
 				Radius(tk.Radius["full"]).Background(theme.C("play")).IgnoreInput(true)
 			Fade(mark, hot)
 			mark.Children(func() {
-				PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("on-play")})
+				icon := "play"
+				if it.Playing {
+					icon = "pause"
+				}
+				theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: theme.C("on-play"), Filled: true})
 			})
 		case it.Badge != "":
 			ui.Row(c.Key("badge")).Absolute().Left(8).Bottom(8).PaddingX(6).PaddingY(2).Radius(tk.Radius["md"]).

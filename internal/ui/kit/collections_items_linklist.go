@@ -92,7 +92,7 @@ func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Toke
 		tile.Role(ui.RoleLink) // a web link is named by its text and the cue after it
 	case plays:
 		// Named by its text, with the action after it.
-		tile.Label(it.Name + " " + i18n.T("Play"))
+		tile.Label(StationLabel(it, ctx))
 	}
 	body := tk.Type["ui"]
 	tile.Children(func() {
@@ -100,6 +100,9 @@ func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Toke
 			TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start).Grow(1).MinWidth(0)
 		if web {
 			WebCue(c)
+		}
+		if plays {
+			StationCue(c, StationPlaying(it, ctx), tile.Hovered() || tile.Focused())
 		}
 	})
 	if ClickOnce(tile) {

@@ -299,15 +299,15 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Cover tile: shelf, grid, library, search tiles (`kit` `CoverShelf`, `ItemGrid`) | song, album, playlist, video, station with a page | opens | opens (twice) | opens | none | none | disc, on hover and focus | yes | link, title underlines on hover |
 |  | artist, curator, room, grouping | opens | opens | opens | none | none | none ([#433]) | artist yes, curator no | link |
 |  | upcoming album | opens | opens | opens | none | none | none, release badge in its place | yes | link, "Out 19 Nov" |
-|  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play", play mark on hover |
+|  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play" ("X Pause" while it plays and a press pauses), play (pause) mark on hover |
 |  | web link | opens the browser | twice | same | none | none | none | no | link, arrow out, named "X Opens in your browser" |
 |  | unrouted page | none, but underlines ([#437]) | none | none | none | none | disc | yes | group |
 |  | any with an Item, Shift/Ctrl+click | selects ([#438]) | | | | | | | |
 | Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button, no right-click ([#447]) | link |
-|  | station with no page | plays | twice | plays | plays | plays | disc, and the card plays too ([#435]) | none | button |
+|  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button, no right-click ([#447]) | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | none | none | none | none | link, arrow out, named "X Opens in your browser" |
 | Link list tile (`LinkList`: "More to Explore") | page link | opens, no `OnOpen` ([#434]) | opens | opens | opens | none | none, even a station with a page ([#446]) | none | link |
-|  | station with no page | plays | twice | plays | plays | plays | none | none | button "X Play", no visible mark ([#435]) |
+|  | station with no page | plays, pauses while it plays | twice | same | same | same | none | none | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | same | none | none | none | link with the arrow out, named "X Opens in your browser" |
 | Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing, no pause ([#446]) | none | link |
 |  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
@@ -324,22 +324,22 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Home shelves (tiles) | as the cover tile above | | | | | |
 | Home strip rows (Recently played) and lead order | song, album, playlist, video, station with a page | opens | opens | plays | disc | link |
 |  | artist | opens | opens | none | none ([#433]) | link |
-|  | station with no page | plays | plays | plays | the name | button |
+|  | station with no page | plays, pauses while it plays | same | same | the name | button "X Play" / "X Pause", play (pause) mark over the cover on hover |
 |  | web link | opens the browser | same | none | none | link, arrow out, named "X Opens in your browser" |
 | Home lead pick, hero card | album, song, playlist, video, station | opens | opens | none | disc | link |
 |  | artist, curator | opens | opens | none | lead pick: a button that does nothing, hero: none ([#433]) | link |
-|  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
+|  | station with no page | plays, pauses while it plays | same | same | the name, no disc | button "X Play" / "X Pause", play (pause) mark after the name on hover and focus |
 | Home local shelves (Recently added, Your playlists) | album, playlist | opens | opens | none | none ([#445]) | link |
 | Home "See all" | | opens the shelf's page | | | | link |
 | Discover lead card, queue tiles | album, playlist, station, video | opens | opens | none | disc | link |
 |  | artist, curator | opens | opens | none | none ([#433]) | link |
-|  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
+|  | station with no page | plays | plays | plays | the name, and a second disc (Discover's lead is left, [#435]) | button |
 | Discover "Show in lead" (on a queue tile) | any | makes it the lead, the keyboard's focus going with it | same | same | | button |
 | Discover bands and room tiles | as the cover tile | | | | | |
 | Discover Top songs, Charts | song | selects | plays from the row | none | number-column button | row; "Play Top songs" queues from the first, "See all" opens `/charts/songs` |
 | Radio board lane | station with a page | opens | opens | none | disc | link |
-|  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
-|  | tuned station with no page | toggles ([#440]) | toggles | toggles | equaliser | button |
+|  | station with no page | plays | plays | plays | the name, play mark on hover | button "X Play" |
+|  | tuned station with no page | toggles ([#440]) | toggles | toggles | equaliser | button "X Pause" |
 |  | unplayable | none | not focusable | | none | disabled, reason in text |
 | Radio programme box | | opens the station page | not a Tab stop | | | link |
 
@@ -437,7 +437,7 @@ Argued departures that stay (not issues):
 | [#427] | recent library songs and page-less stations |
 | [#433] | artists and curators have no Play control; Home's lead pick draws a dead one |
 | [#434] | Play on a tile, link tile or station row isn't remembered |
-| [#435] | a page-less station has two controls, no cue, or replays instead of pausing |
+| [#435] | a page-less station has two controls, no cue, or replays instead of pausing: Discover's lead and strip cards still have a second disc ([#442]) |
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
 | [#437] | unrouted pages: underline, navigation, dead artist slip |
 | [#438] | modifier-click selects on some, opens on others |
@@ -1073,7 +1073,13 @@ Radio (`/radio`) answers what radio alone can: what is on air right now, and wha
   - A local broadcaster has no schedule, so it has no page. Its row (the shared station list) is a button, "Play {name}", the name stretched over the row, and the menu is beside it (Play, Copy link). The play mark is a hover cue, not a second control.
   - While it plays, the name button pauses it ("Pause {name}"), the equaliser stands in the mark's place, and the second line is the song on air ("Artist – Title", from its stream) instead of the tagline.
   - A live station whose schedule turns out empty is treated the same, in the guide too: its whole lane is the play button.
-  - Cover tiles do likewise (the tile is the button, named "Play {name}"). A link and a button are never mixed in one tile.
+  - Cover tiles do likewise (the tile is the button, named "{name} Play"). A link and a button are never mixed in one tile.
+  - **One shape everywhere** (`kit.StationLabel`, `StationCue`, `OpenWithoutPage`):
+    - One control, the name, named "{name} Play"; "{name} Pause" while the station plays.
+    - A press pauses a playing station and resumes a paused one; it never starts it over.
+    - The mark is a 16px play triangle (pause bars while it plays) in `--ink-muted`, shown on hover and focus, after the title on a wide card, a link tile and the lead; over the cover on a tile or row.
+    - No second disc: the wide card, Home's lead pick and hero card, Home's rows and the Radio board lane have none for a station with no page.
+    - Discover's lead and strip cards are left as they were ([#442]).
 - **What is on air.** For a local broadcaster the player bar's live line, the bar's cover, Now Playing and MPRIS show the song its stream names, with the catalog's cover when Apple has that exact song, else the station's. Now Playing puts the song first (title, artist), then "On air · {station} · {genre} · {place}", TuneIn's description when it has one and an Open website button. A song change is not announced to screen readers (the bar's line is not a live region); the line is read where it is.
 - **Controls that don't apply to a station.** Go says which controls apply (`controls` in the playback state) and every surface follows it. A live station is a stream; a station of songs (Hits Station, a song or artist station) is endless but made of real tracks. AutoPlay's own station is the user's queue and changes nothing.
 

@@ -295,9 +295,8 @@ var radioWant = map[string]map[string]outcomes{
 			enter:      "play ra.n",
 			shiftEnter: "nothing",
 			space:      "play ra.n",
-			// DEPARTS: a page-less live station is played by its whole lane and also has a Play button; the tile, shelf and list rows of a page-less station have its name as the one control (onair.go:203)
-			play: "play ra.n",
-			cue:  "button",
+			play:       "no play control",
+			cue:        "button",
 		},
 		"unplayable": {
 			click:      "nothing",

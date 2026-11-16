@@ -234,12 +234,12 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 		inner = ui.Row(c.Key("body")).FillWidth().Gap(40).AlignItems(ui.Center)
 		inner.Children(func() {
 			ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-				opener = h.titleBlock(c, it, "page", link)
+				opener = h.titleBlock(c, it, "page", link, ctx)
 				if kit.ClickOnce(opener) {
 					h.open(it, ctx)
 				}
 				ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
-					if ctx.Players.CanPlay(it) {
+					if ctx.Players.CanPlay(it) && !kit.PlaysWhenOpened(it, ctx.Players) {
 						if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name}); play {
 							ctx.Players.PlayItem(it)
 						}

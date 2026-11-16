@@ -4532,6 +4532,7 @@ msgstr "Paste your user token first."
 #: internal/ui/features/radio/onair.go
 #: internal/ui/kit/collections_items_stations.go
 #: internal/ui/kit/playback_controls.go
+#: internal/ui/kit/stationcue.go
 msgid "Pause"
 msgstr "Pause"
 
@@ -4624,7 +4625,6 @@ msgstr "Platform"
 #: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 #: internal/ui/features/artist/head.go
-#: internal/ui/features/home/rows.go
 #: internal/ui/features/player/queue_menu.go
 #: internal/ui/features/playlist/sidebar.go
 #: internal/ui/features/radio/onair.go
@@ -4632,11 +4632,10 @@ msgstr "Platform"
 #: internal/ui/features/search/itemrow.go
 #: internal/ui/features/search/results.go
 #: internal/ui/kit/button.go
-#: internal/ui/kit/collections_cover.go
-#: internal/ui/kit/collections_items_linklist.go
 #: internal/ui/kit/collections_items_stations.go
 #: internal/ui/kit/overlays_palette.go
 #: internal/ui/kit/playback_controls.go
+#: internal/ui/kit/stationcue.go
 msgid "Play"
 msgstr "Play"
 

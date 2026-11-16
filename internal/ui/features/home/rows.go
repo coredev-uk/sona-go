@@ -272,7 +272,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			}
 			switch {
 			case direct:
-				e.Role(ui.RoleButton).Label(name + " " + i18n.T("Play"))
+				e.Role(ui.RoleButton).Label(kit.StationLabel(it, ctx))
 			case web:
 				e.Role(ui.RoleLink).Label(kit.WebCueLabel(name))
 			case link != "" && canOpen:
@@ -335,7 +335,11 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 				kit.Fade(mark, hot)
 				mark.Children(func() {
-					kit.PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink")})
+					icon := "play"
+					if kit.StationPlaying(it, ctx) {
+						icon = "pause"
+					}
+					theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true})
 				})
 			}
 		})

@@ -123,12 +123,15 @@ func TestOnAirRowPlaysFromItsButtonAndMarksTheStationPlaying(t *testing.T) {
 	}
 }
 
-func TestOnAirRowOfAStationWithNoPagePlaysFromItsLaneAndItsButton(t *testing.T) {
+func TestOnAirRowOfAStationWithNoPagePlaysFromItsLaneAlone(t *testing.T) {
 	quiet := liveStation("ra.2", "Quiet FM", func(s *services.Station) { s.HasPage = false })
 	rg := boardRig(t, []services.Station{quiet}, map[string]services.StationDetail{"ra.2": {Station: quiet, Schedule: []services.StationEvent{}}})
-	rg.tt.Until("the row", rg.tt.Shows("Quiet FM", "Play Quiet FM"))
-	// Its lane is a button that plays it, and the row's own play control
-	// sits beside the name.
+	rg.tt.Until("the row", rg.tt.Shows("Quiet FM", "Quiet FM Play"))
+	// Its lane is the one button that plays it: no second play control sits
+	// beside the name.
+	if _, ok := rg.tt.Find("Play Quiet FM"); ok {
+		t.Error("the station with no page has a second play control")
+	}
 	rg.click("Quiet FM Play")
 	rg.tt.Until("the play", func() bool { return slices.Equal(rg.api.plays(), []string{"ra.2"}) })
 	if rg.router.Path() != radioPath {

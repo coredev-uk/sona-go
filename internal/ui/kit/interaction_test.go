@@ -982,9 +982,8 @@ var iaWideWant = map[string]iaRow{
 		playDisc:   "played=station:ra.1",
 	},
 	"station without a page": {
-		role: "button",
-		// DEPARTS: a page-less station card has a Play disc and the card plays on click too (two controls for one action), and the card is named "Local FM" where the cover tile, with no disc, is named "Local FM Play" (collections_items_widerow.go:174 canPlay vs PlaysWhenOpened in collections_items_cover.go).
-		play:       "disc",
+		role:       "button",
+		play:       "none",
 		more:       "button",
 		menu:       "opens",
 		click:      "opened=station:ra.1 played=station:ra.1",
@@ -994,7 +993,7 @@ var iaWideWant = map[string]iaRow{
 		space:      "opened=station:ra.1 played=station:ra.1",
 		shiftClick: "opened=station:ra.1 played=station:ra.1",
 		ctrlClick:  "opened=station:ra.1 played=station:ra.1",
-		playDisc:   "played=station:ra.1",
+		playDisc:   "no control",
 	},
 	"unplayable station without a page": {
 		role:       "link",
@@ -1174,11 +1173,10 @@ var iaLinkWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"station without a page": {
-		role: "button",
-		play: "none",
-		more: "none",
-		menu: "none",
-		// DEPARTS: the tile looks like every link tile (text only, no play glyph; "Play" is only in the accessible name) but plays audio on click, and does not pause the station while it plays (collections_items_linklist.go:79-94).
+		role:       "button",
+		play:       "none",
+		more:       "none",
+		menu:       "none",
 		click:      "played=station:ra.1",
 		double:     "played=station:ra.1",
 		enter:      "played=station:ra.1",
@@ -1415,16 +1413,15 @@ var iaTrackShelfWant = map[string]iaRow{
 // iaCoverPlayingWant is the tile of the station that plays.
 var iaCoverPlayingWant = map[string]iaRow{
 	"station without a page, playing": {
-		role: "button",
-		play: "none",
-		more: "button",
-		menu: "opens",
-		// DEPARTS: a click on the tile of the station that plays plays it again from the start; StationList toggles pause (ctx.Toggle) and the tile still reads "Local FM Play" while it plays, StationList "Local FM Pause" (collections_items_cover.go:130-136: the tile has no Toggle).
-		click:      "opened=station:ra.1 played=station:ra.1",
-		double:     "opened=station:ra.1 played=station:ra.1",
-		enter:      "opened=station:ra.1 played=station:ra.1",
+		role:       "button",
+		play:       "none",
+		more:       "button",
+		menu:       "opens",
+		click:      "opened=station:ra.1 toggles=1",
+		double:     "opened=station:ra.1 toggles=1",
+		enter:      "opened=station:ra.1 toggles=1",
 		shiftEnter: "nothing",
-		space:      "opened=station:ra.1 played=station:ra.1",
+		space:      "opened=station:ra.1 toggles=1",
 		shiftClick: "sel=1",
 		ctrlClick:  "sel=1",
 		playDisc:   "no control",
@@ -1468,15 +1465,62 @@ func TestInteractionCoverTiles(t *testing.T) {
 func TestInteractionCoverTileOfThePlayingStation(t *testing.T) {
 	k := iaKinds()[5]
 	playing := func(ctx *ItemsCtx) { ctx.Current, ctx.Playing = &services.QueueItem{ID: "ra.1"}, true }
-	iaDiff(t, "playing", iaDrive(t, iaCoverShelf(k.item, k.cover, "Play "+k.item.Name, playing)), iaCoverPlayingWant["station without a page, playing"])
+	iaDiff(t, "playing", iaDrive(t, iaCoverShelf(k.item, k.item.Name+" Pause", "Play "+k.item.Name, playing)), iaCoverPlayingWant["station without a page, playing"])
+}
+
+// iaWidePlayingWant is the wide card of the station that plays: its one
+// control reads "Pause" and every press pauses it.
+var iaWidePlayingWant = iaRow{
+	role:       "button",
+	play:       "none",
+	more:       "button",
+	menu:       "opens",
+	click:      "opened=station:ra.1 toggles=1",
+	double:     "opened=station:ra.1 toggles=1",
+	enter:      "opened=station:ra.1 toggles=1",
+	shiftEnter: "nothing",
+	space:      "opened=station:ra.1 toggles=1",
+	shiftClick: "opened=station:ra.1 toggles=1",
+	ctrlClick:  "opened=station:ra.1 toggles=1",
+	playDisc:   "no control",
+}
+
+// iaLinkPlayingWant is the link tile of the station that plays.
+var iaLinkPlayingWant = iaRow{
+	role:       "button",
+	play:       "none",
+	more:       "none",
+	menu:       "none",
+	click:      "toggles=1",
+	double:     "toggles=1",
+	enter:      "toggles=1",
+	shiftEnter: "nothing",
+	space:      "toggles=1",
+	shiftClick: "toggles=1",
+	ctrlClick:  "toggles=1",
+	playDisc:   "no control",
+}
+
+func TestInteractionWideRowAndLinkTileOfThePlayingStation(t *testing.T) {
+	k := iaKinds()[5]
+	playing := func(ctx *ItemsCtx) { ctx.Current, ctx.Playing = &services.QueueItem{ID: "ra.1"}, true }
+	iaDiff(t, "wide card", iaDrive(t, iaWideRow(k.item, k.item.Name+" Pause", "Play "+k.item.Name, playing)), iaWidePlayingWant)
+	iaDiff(t, "link tile", iaDrive(t, iaLinkList(k.item, k.item.Name+" Pause", playing)), iaLinkPlayingWant)
+}
+
+// A station that is on but paused offers Play again, and pressing it resumes.
+func TestStationControlReadsPlayWhilePaused(t *testing.T) {
+	k := iaKinds()[5]
+	paused := func(ctx *ItemsCtx) { ctx.Current, ctx.Playing = &services.QueueItem{ID: "ra.1"}, false }
+	iaDiff(t, "paused link tile", iaDrive(t, iaLinkList(k.item, k.item.Name+" Play", paused)), iaLinkPlayingWant)
 }
 
 func TestInteractionWideRowCards(t *testing.T) {
 	for _, k := range iaKinds() {
 		t.Run(k.name, func(t *testing.T) {
 			opener := k.item.Name
-			if strings.HasSuffix(k.link, "Opens in your browser") {
-				opener = k.link // a web-only card is named as its link tile is
+			if strings.HasSuffix(k.link, "Opens in your browser") || k.name == "station without a page" {
+				opener = k.link // a web-only or page-less card is named as its link tile is
 			}
 			iaDiff(t, k.name, iaDrive(t, iaWideRow(k.item, opener, "Play "+k.item.Name, nil)), iaWideWant[k.name])
 		})
