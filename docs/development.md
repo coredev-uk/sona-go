@@ -91,7 +91,7 @@ Run each as `devenv shell -- <script>`, or bare under direnv.
 | `docs` | Runs the documentation site with live reload: `cd site && npm ci && npm run dev`. |
 | `gen` | `sqlc generate`. Commit the result. |
 | `fmt` | gofumpt on every tracked Go file except `internal/db/dbq`. |
-| `check` | The static checks. |
+| `check` | The static checks, gofumpt formatting included. |
 | `tests` | `go test -race ./...` and the tests of dev-only code. |
 | `release` | `build/linux/release/release.sh`, the same as Taskfile's `release`. |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`). `play-spike -preview` needs none. |

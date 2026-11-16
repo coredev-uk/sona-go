@@ -42,8 +42,10 @@ func TestDocManifestExamplesParse(t *testing.T) {
 	if MaxManifestBytes != 64<<10 || MaxNameRunes != 60 || MaxDescRunes != 300 || MaxCommandBytes != 200 || MaxScanned != 100 || LogBytes != 1<<20 || logBackups != 1 || MaxLogLine != 4096 {
 		t.Error("a limit changed; update docs/addons.md")
 	}
-	for _, code := range []string{ProblemUnreadable, ProblemTooLarge, ProblemManifest, ProblemID, ProblemReservedID, ProblemIDMismatch, ProblemName,
-		ProblemVersion, ProblemCommand, ProblemPermission, ProblemNoExecutable, ProblemEscapes, ProblemUnsafe, ProblemTooMany} {
+	for _, code := range []string{
+		ProblemUnreadable, ProblemTooLarge, ProblemManifest, ProblemID, ProblemReservedID, ProblemIDMismatch, ProblemName,
+		ProblemVersion, ProblemCommand, ProblemPermission, ProblemNoExecutable, ProblemEscapes, ProblemUnsafe, ProblemTooMany,
+	} {
 		if !strings.Contains(text, "`"+code+"`") {
 			t.Errorf("the page doesn't list the problem %q", code)
 		}

@@ -17,7 +17,7 @@ func (s *settings) releaseRows(c *ui.Context, cfg config.Settings, caps services
 	s.switchRow(c, rowOpts{
 		ID:    "artist-tracker",
 		Title: i18n.T("Track new releases from favourite artists"),
-		Desc: i18n.T("Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."),
+		Desc:  i18n.T("Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."),
 	}, t.Enabled, false, func(v bool) {
 		s.save(func(st *config.Settings) { st.ArtistTracker.Enabled = v })
 	})

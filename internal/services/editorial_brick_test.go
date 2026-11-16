@@ -62,10 +62,16 @@ func TestBrickKeyChoice(t *testing.T) {
 		wantLarge string // suffix of the banner's Large URL
 		wantColor string
 	}{
-		{"hero beats cover", map[string]string{"subscriptionCover": "4320x1080#2a2a2a", "subscriptionHero": "4320x1080#000000", "bannerUber": "4320x1080#2a2a2a"},
-			"subscriptionHero", "/1000x250.jpg", "#000000"},
-		{"only a square cover", map[string]string{"subscriptionCover": "1080x1080#112233", "brandLogo": "1080x1080#f4f4f4"},
-			"subscriptionCover", "/1000x1000.jpg", "#112233"},
+		{
+			"hero beats cover",
+			map[string]string{"subscriptionCover": "4320x1080#2a2a2a", "subscriptionHero": "4320x1080#000000", "bannerUber": "4320x1080#2a2a2a"},
+			"subscriptionHero", "/1000x250.jpg", "#000000",
+		},
+		{
+			"only a square cover",
+			map[string]string{"subscriptionCover": "1080x1080#112233", "brandLogo": "1080x1080#f4f4f4"},
+			"subscriptionCover", "/1000x1000.jpg", "#112233",
+		},
 		{"no wide flavour", map[string]string{"brandLogo": "1080x1080#f4f4f4"}, "", "", ""},
 	} {
 		res, tile := brickFixture(t, tc.flavours)

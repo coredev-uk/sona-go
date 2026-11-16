@@ -196,8 +196,14 @@ func TestInteractionQueueRows(t *testing.T) {
 	} {
 		q := iaQueueRig(t, c.kind)
 		for _, g := range []struct{ name, want string }{
-			{"click", c.want.click}, {"double-click", c.want.dbl}, {"Enter", c.want.enter}, {"Shift+Enter", c.want.shiftEnter},
-			{"Space", c.want.space}, {"right-click", c.want.right}, {"Menu key", "menu"}, {"Shift+F10", "menu"},
+			{"click", c.want.click},
+			{"double-click", c.want.dbl},
+			{"Enter", c.want.enter},
+			{"Shift+Enter", c.want.shiftEnter},
+			{"Space", c.want.space},
+			{"right-click", c.want.right},
+			{"Menu key", "menu"},
+			{"Shift+F10", "menu"},
 		} {
 			if got := q.gesture(g.name, c.label); got != g.want {
 				t.Errorf("%s row, %s: %s, want %s", c.kind, g.name, got, g.want)

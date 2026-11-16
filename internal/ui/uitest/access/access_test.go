@@ -176,8 +176,11 @@ func TestLandmarksAndTabPanelsHoldControls(t *testing.T) {
 		role ui.Role
 		name string
 	}{
-		{ui.RoleTabPanel, "tabpanel"}, {ui.RoleMain, "main"}, {ui.RoleBanner, "banner"},
-		{ui.RoleContentInfo, "contentinfo"}, {ui.RoleComplementary, "complementary"},
+		{ui.RoleTabPanel, "tabpanel"},
+		{ui.RoleMain, "main"},
+		{ui.RoleBanner, "banner"},
+		{ui.RoleContentInfo, "contentinfo"},
+		{ui.RoleComplementary, "complementary"},
 	}
 	tt := ui.NewTester(func(c *ui.Context) {
 		ui.Column(c).Gap(4).Children(func() {

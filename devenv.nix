@@ -160,6 +160,13 @@ in
       # "Add or change a UI string").
       go run ./cmd/i18ntool extract -check
       go run ./cmd/pathcase
+      # Every tracked Go file is formatted the way `fmt` leaves it (#409).
+      unformatted=$(gofumpt -l $(git ls-files '*.go' | grep -v '^internal/db/dbq/'))
+      if [ -n "$unformatted" ]; then
+        echo "check: not gofumpt-formatted (run devenv shell -- fmt):" >&2
+        echo "$unformatted" >&2
+        exit 1
+      fi
     '';
     # Not `test`: the shell's `test` builtin would shadow it.
     tests.exec = ''
