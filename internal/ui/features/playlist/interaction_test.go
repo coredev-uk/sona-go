@@ -182,24 +182,27 @@ func TestInteractionSidebarPlaylistRows(t *testing.T) {
 	}
 }
 
-// The glyph over a row's artwork is the play triangle, but what it does is
-// shuffle (its name and tooltip say "Shuffle <name>"): it plays without
-// opening the page; a double-click on it shuffles twice.
+// The glyph over a row's artwork is the shuffle glyph (the play triangle is for
+// what plays in order) and shuffles (its name and tooltip say "Shuffle
+// <name>"): it plays without opening the page; a double-click on it shuffles
+// twice. An album pin has it too, as a playlist pin does.
 func TestInteractionSidebarShuffleGlyph(t *testing.T) {
-	e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.pin"))
-	e.api.pinTracks["p.own"] = []services.Song{song("s1", "One", "A"), song("s2", "Two", "A")}
-	e.api.pinTracks["p.pin"] = []services.Song{song("s1", "One", "A"), song("s2", "Two", "A")}
-	e.shows("Road Trip", "p.pin")
+	pins := append(sbPlaylistPins("p.pin"), services.Pin{Kind: "album", ID: "l.pin", Name: "l.pin", Action: "drillIn"})
+	e := sbSetup(t, sbLibrary(), pins)
+	for _, id := range []string{"p.own", "p.pin", "l.pin"} {
+		e.api.pinTracks[id] = []services.Song{song("s1", "One", "A"), song("s2", "Two", "A")}
+	}
+	e.shows("Road Trip", "p.pin", "l.pin")
 	for _, c := range []struct{ row, glyph, from string }{
 		{"Road Trip", "Shuffle Road Trip", "playlist:p.own"},
 		{"p.pin", "Shuffle p.pin", "playlist:p.pin"},
+		{"l.pin", "Shuffle l.pin", "album:l.pin"},
 	} {
 		e.iaReset()
 		e.hover(c.row)
 		if err := e.tt.Click(c.glyph); err != nil {
 			t.Fatal(err)
 		}
-		// DEPARTS: the glyph is the play triangle, but the control shuffles; "Play" never plays from the sidebar's row art, so the cue promises Play and delivers Shuffle.
 		if got, want := e.iaFx(), iaJoin(iaPlay(c.from), "shuffle on"); got != want {
 			t.Errorf("%s: click on the glyph: %s, want %s", c.row, got, want)
 		}
@@ -218,9 +221,11 @@ func TestInteractionSidebarShuffleGlyph(t *testing.T) {
 }
 
 // Pins: a pin set to Open is a link, so choosing it opens its page (an
-// artist's does so whatever its action: there is no artist player); one that
-// plays or shuffles is a button whose only cue is the words a screen reader
-// adds (", plays", ", shuffles"): it looks the same as a row that opens.
+// artist's, whatever its action: there is no artist player); one that plays
+// or shuffles is a button with the play or shuffle glyph at its end and the
+// words a screen reader adds (", plays", ", shuffles"). Shift+Enter shuffles
+// where the shuffle glyph is over the art (a playlist or an album), and does
+// nothing on a song or an artist.
 func TestInteractionSidebarPins(t *testing.T) {
 	pins := []services.Pin{
 		{Kind: "playlist", ID: "p.drill", Name: "PL open", Action: "drillIn"},
@@ -263,7 +268,6 @@ func TestInteractionSidebarPins(t *testing.T) {
 			one, two = append(one, "shuffle on"), append(two, "shuffle on")
 		}
 		return pinCase{label, ui.RoleButton, iaGest{
-			// DEPARTS: a click plays or shuffles with no visible cue: the row looks as the link that opens (only the words a screen reader adds, ", plays" or ", shuffles", tell them apart).
 			click:      iaJoin(one...),
 			dbl:        iaJoin(two...), // each click is a play: the queue starts twice
 			enter:      iaJoin(one...),
@@ -274,19 +278,18 @@ func TestInteractionSidebarPins(t *testing.T) {
 	}
 	shuffled := func(from string) string { return iaJoin(iaPlay(from), "shuffle on") }
 	for _, c := range []pinCase{
-		link("PL open", "/playlist/p.drill", shuffled("playlist:p.drill")), // hinted by the hover glyph (a shuffle)
+		link("PL open", "/playlist/p.drill", shuffled("playlist:p.drill")),
 		button("PL play, plays", "playlist:p.play", false, shuffled("playlist:p.play")),
 		button("PL shuffle, shuffles", "playlist:p.shuf", true, shuffled("playlist:p.shuf")),
-		link("AL open", "/album/l.drill", "nothing"),                    // DEPARTS: Shift+Enter shuffles a playlist pin but does nothing on an album pin, which has no glyph or other cue either
-		button("AL play, plays", "album:l.play", false, "nothing"),      // DEPARTS: as above, Shift+Enter does nothing on an album pin
-		button("AL shuffle, shuffles", "album:l.shuf", true, "nothing"), // DEPARTS: a pin that shuffles on a click does not shuffle on Shift+Enter, which a playlist pin does
-		link("SG open", "/album/l.cc", "nothing"),                       // a song opens its album; DEPARTS: Shift+Enter does nothing on a song pin
-		button("SG play, plays", ":i.play", false, "nothing"),           // DEPARTS: Shift+Enter does nothing on a song pin
-		button("SG shuffle, shuffles", ":i.shuf", true, "nothing"),      // DEPARTS: Shift+Enter does nothing on a song pin that shuffles on a click
+		link("AL open", "/album/l.drill", shuffled("album:l.drill")),
+		button("AL play, plays", "album:l.play", false, shuffled("album:l.play")),
+		button("AL shuffle, shuffles", "album:l.shuf", true, shuffled("album:l.shuf")),
+		link("SG open", "/album/l.cc", "nothing"), // a song opens its album; it is one track, so no shuffle
+		button("SG play, plays", ":i.play", false, "nothing"),
+		button("SG shuffle, shuffles", ":i.shuf", true, "nothing"),
 		// A song with no album page to open is a button that plays.
 		button("SG lone, plays", ":i.lone", false, "nothing"),
-		// An artist pin opens whatever its action says; its menu does not
-		// offer Play or Shuffle.
+		// An artist pin opens whatever its action says; its menu does not offer Play or Shuffle.
 		link("AR open", "/artist/r.drill", "nothing"),
 		link("AR play", "/artist/r.play", "nothing"),
 		link("AR shuffle", "/artist/r.shuf", "nothing"),
@@ -556,8 +559,7 @@ func TestInteractionPlaylistPageRows(t *testing.T) {
 		}
 		iaWant(t, c.name, pg.gestures(c.name, iaPointer), iaGest{
 			click: iaNav(c.path), dbl: iaNav(c.path), enter: "n/a", shiftEnter: "n/a", space: "n/a",
-			// DEPARTS: right-click on the name opens no menu, though the rest of its row opens the song's.
-			right: "nothing",
+			right: "menu",
 		})
 	}
 }

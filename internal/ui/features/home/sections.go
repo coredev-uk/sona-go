@@ -1,8 +1,6 @@
 package home
 
 import (
-	"math"
-
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
@@ -19,11 +17,15 @@ const (
 	// stripMin is the smallest cover of Recently Played, a strip of one row:
 	// squares of 112 to about 130 DIPs with the name and the line under.
 	stripMin = 112
-	// heroRatio is Apple's hero card shape (music.apple.com crops the 4:1
-	// banner to it), heroShare the banner's share of the row. The banner sits at the right end, the name
-	// and the play disc at the left edge the page's text keeps.
-	heroRatio float32 = 1060.0 / 608
-	heroShare float32 = 0.45
+	// The lone hero card (heroCard): the item's square art, heroTile (or
+	// heroTileNarrow in a row under heroNarrowUnder), and its name, line
+	// and controls beside it, heroGap apart, on a band washed in the art's
+	// colour with heroPad inside it.
+	heroTile        = 200
+	heroTileNarrow  = 128
+	heroNarrowUnder = 560
+	heroGap         = 24
+	heroPad         = 32
 )
 
 // captioned keeps the shelf's items without their shared caption between
@@ -200,30 +202,39 @@ type rowShelf struct {
 }
 
 // heroCard is an untitled hero shelf with one card (Apple's featured station
-// on Home): the banner beside its name, line and play control, filling the row
-// instead of leaving half of it empty.
+// on Home): a band across the row washed in the card's colour (the art's
+// pre-blurred backdrop under the ground scrim, as the lead band is), holding
+// its square art and, beside it, its name, line and play control. The wide
+// banner is not used: for Apple's stations it is a gradient with the name
+// in a corner, and shown large it is mostly empty colour.
 type heroCard struct {
 	width kit.WidthTracker
 }
 
-func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.ItemsCtx, menus *kit.ActionMenus) {
-	tk := theme.Current()
-	root := ui.Row(c.Key("hero")).Margin(shelfGapTop, 0, 0, 0).Role(ui.RoleGroup).Label(i18n.T("Featured"))
-	width := hc.width.Track(c, root)
-	banner := it.Wide.Large
-	if banner == "" {
-		banner = it.Wide.Medium
-	}
-	src := banner
-	if src == "" {
-		if src = it.Art.Large; src == "" {
-			src = it.Art.Medium
+// heroArt is the hero card's square picture: its cover, else the centre
+// square of its banner, which the CDN crops to the box.
+func heroArt(it services.Item) string {
+	for _, src := range []string{it.Art.Large, it.Art.Medium, it.Wide.Large, it.Wide.Medium} {
+		if src != "" {
+			return src
 		}
 	}
-	w := float32(math.Round(float64(width * heroShare)))
-	// The cover's box (kit.ArtBox) is whole DIPs in height too; its picture
-	// is asked for at it.
-	_, bh := kit.ArtBox(w, heroRatio)
+	return ""
+}
+
+func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.ItemsCtx, menus *kit.ActionMenus) {
+	tk := theme.Current()
+	root := ui.Column(c.Key("hero")).Margin(shelfGapTop, 0, 0, 0).Role(ui.RoleGroup).Label(i18n.T("Featured"))
+	width := hc.width.Track(c, root)
+	src := heroArt(it)
+	tile := float32(heroTile)
+	if width < heroNarrowUnder {
+		tile = heroTileNarrow
+	}
+	wash := it.Art.Medium
+	if wash == "" {
+		wash = it.Art.Large
+	}
 	link := kit.ItemLink(it)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	var opener ui.Element
@@ -231,38 +242,40 @@ func (h *home) heroCard(c *ui.Context, hc *heroCard, it services.Item, ctx kit.I
 	// inside, so the group itself takes no press.
 	var inner ui.Element
 	root.Children(func() {
-		inner = ui.Row(c.Key("body")).FillWidth().Gap(40).AlignItems(ui.Center)
-		inner.Children(func() {
-			ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-				opener = h.titleBlock(c, it, "page", link, ctx)
-				if kit.ClickOnce(opener) {
-					h.open(it, ctx)
+		band := kit.Backdrop(c.Key("band"), h.env.Art, kit.BackdropOpts{Src: backdropURL(wash), Color: it.Color, Tone: kit.ToneGround}, func() {
+			inner = ui.Row(c.Key("body")).Gap(heroGap).AlignItems(ui.Center)
+			inner.Children(func() {
+				bg := theme.C("hover")
+				if col, ok := kit.ParseHex(it.Color); ok {
+					bg = col
 				}
-				ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
-					if ctx.Players.CanPlay(it) && !kit.PlaysWhenOpened(it, ctx.Players) {
-						if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name}); play {
-							ctx.Players.PlayItem(it)
-						}
-					}
-					if hasTarget {
-						menus.Trigger(c.Key("more"), inner, kit.ActionTarget{Item: target, Name: it.Name}, kit.TriggerOpts{Header: true}, opener)
+				sh := tk.Shadow["float"]
+				ui.Box(c.Key("art")).Size(tile, tile).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg).Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color).Children(func() {
+					if src != "" {
+						// The colour block stays while the picture loads and
+						// if it fails.
+						kit.Artwork(c, h.env.Art, src, tile, kit.ArtOpts{Aspect: 1, Edge: true, Fallback: func(*ui.Context) {}})
 					}
 				})
-			})
-			bg := theme.C("hover")
-			if col, ok := kit.ParseHex(it.Color); ok {
-				bg = col
-			}
-			ui.Box(c.Key("banner")).Size(w, bh).Shrink(0).Radius(tk.Radius["sm"]).ClipX().ClipY().Background(bg).Children(func() {
-				if bh > 0 && src != "" {
-					// The colour block stays while the picture loads and if it
-					// fails; a square cover is shown whole on it.
-					kit.Artwork(c, h.env.Art, src, w, kit.ArtOpts{
-						Aspect: heroRatio, Edge: true, Contain: banner == "", Fallback: func(*ui.Context) {},
+				ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
+					opener = h.titleBlock(c, it, "page", link, ctx)
+					if kit.ClickOnce(opener) {
+						h.open(it, ctx)
+					}
+					ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
+						if ctx.Players.CanPlay(it) && !kit.PlaysWhenOpened(it, ctx.Players) {
+							if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name}); play {
+								ctx.Players.PlayItem(it)
+							}
+						}
+						if hasTarget {
+							menus.Trigger(c.Key("more"), inner, kit.ActionTarget{Item: target, Name: it.Name}, kit.TriggerOpts{Header: true}, opener)
+						}
 					})
-				}
+				})
 			})
 		})
+		band.FillWidth().Padding(heroPad, heroPad, heroPad, heroPad)
 		menus.Popup(c)
 	})
 }

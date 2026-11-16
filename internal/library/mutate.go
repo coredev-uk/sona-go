@@ -135,8 +135,22 @@ func (l *Library) Remove(ctx context.Context, kind, libraryID string, changed fu
 	if l.api == nil {
 		return errNoAPI
 	}
+	if kind == applemusic.TypeMusicVideos {
+		// Apple's answer first: a music video has no ratings, playlists or
+		// search entry to put back, so there is nothing to hide meanwhile.
+		if err := l.api.DeleteFromLibrary(ctx, kind, libraryID); err != nil {
+			return err
+		}
+		if err := l.db.Q.DeleteLibraryMusicVideo(ctx, libraryID); err != nil {
+			return fmt.Errorf("library: forget music video: %w", err)
+		}
+		if changed != nil {
+			changed()
+		}
+		return nil
+	}
 	if _, ok := itemKinds[kind]; !ok {
-		return l.api.DeleteFromLibrary(ctx, kind, libraryID) // music videos are not stored locally
+		return l.api.DeleteFromLibrary(ctx, kind, libraryID)
 	}
 	hidden, err := l.Hide(ctx, kind, libraryID)
 	if err != nil {

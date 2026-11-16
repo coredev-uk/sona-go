@@ -1204,6 +1204,28 @@ The account menu, Settings, the setup, the player bar and an album page use thos
 - It is listed for upcoming albums with a full release date, a catalogue ID and notifications, and greyed out until the list has loaded with the menu.
 - The album page's button is `kit.RemindButton`, which sets and removes through the same `kit.SetReminder` ("Out now · {artist}" is the notification's body).
 
+**Add-ons** (`features/addons`)
+
+- It shows what running add-ons add (docs/addons.md). Settings → Add-ons is the settings feature's; the two never import each other.
+- It reads `AddonsService.Contributions` off the main thread at start, on `addons:changed` and when the language changes. One read runs at a time; a change meanwhile asks for one more.
+- **Item actions.** `ActionRegistry.ReplacePrefix("addon.", …)` swaps every add-on action in one step. Each is in `kit.GroupAddon`, after Sona's own and before the developer's. The entry reads "{label} · {add-on name}". An action for two kinds is registered once per kind, as `<action id>/<kind>`.
+- **Commands.** `Env.AddonCommands` feeds the palette's "Add-ons" group (`module.AddonsGroup`). They have no keys and are not in the shortcut help or Settings → Shortcuts.
+- **Text.** Every label is cleaned again here (control and bidirectional characters out, at most 60 bytes), whatever the service did.
+- **Invocation.** Never on the main thread. The same action chosen again while it runs does nothing. The answer is a toast titled with the add-on's name, at most one a second per add-on, with a fixed ID so it never stacks.
+- **Links.** `cli.SafeLink` is checked when the answer arrives and again when the button is clicked. The button reads "Open {host}". Nothing opens before the click.
+- **Notices.** `addons:notice` shows a warning toast when Sona switches an add-on off.
+- **`sona addons dev`.** `addons:dev-ask` opens a `kit.Confirm` with the add-on's name, the folder and the permissions; `AnswerDev` carries the answer. A question of the person's own is never replaced: the answer is no. `addons:dev-ask-end` closes the dialog if it is still the one on screen.
+
+**Settings → Add-ons** (`features/settings/addons.go`, section `addons`)
+
+- A trust note, "Add-ons folder" (Open and Look again), then one group per add-on under an h3 of its name.
+- Rows of a valid add-on: the switch, Permissions, its settings rows, Log. A refused add-on has the reason and nothing to turn on.
+- **The switch.** Turning it on opens an approval panel under the row, announced as a group. "Turn on" enables with exactly the permissions listed. Cancel and Escape do nothing. Turning it off calls `Disable` at once.
+- **Rows.** A toggle and a choice save at once, a text row with Save or Enter. A secret is never sent to the window: it shows "Saved" and a Remove button.
+- **Names.** Every button carries the add-on's name, so two add-ons never share an accessible name.
+- The list and the rows are two queries, `["addons","list"]` and `["addons","rows"]`, fresh for 2 seconds so that coming back to the page reads the folder again.
+- Goldens: `settings-addons-light`, `settings-addons-dark`, `settings-addons-approval-light`.
+
 **Motion** has no feature package. The policy, the power mirror and the provider are `kit.MotionPolicy` (`Env.Motion`: the setting, Reduce effects, reduced motion, `power:changed` and the decoder probe) and the app's motion code, whose `Report()` feeds the bug-report bundle (`MotionService.Report`).
 
 - Settings → Diagnostics builds its motion group from `Report()` once `MotionPolicy.Probed()` is true. Before the decoder probe answers, an empty codec would read as "cannot decode", so the page shows no group.
@@ -1313,10 +1335,11 @@ A master and detail page.
 
 - **Recently added** files the list under Today, Past week, Past month and Earlier by `DateAdded` (calendar days, as History counts them), one `kit.CoverGrid` and one selection per group. The groups come from the first page; what lies past it is older than all of it, so it joins Earlier. The pages fetched follow the union of the groups' built tiles.
 - **History** groups `LibraryService.History(days)` by day (30 days; "Show earlier days" adds 30 while the earlier days keep showing) as a timeline. Each day is a row with the day's heading and counts in a 168 DIP rail, a 1px line down the rail's right edge with a dot at the heading, and one `kit.TrackList` to the right. The query sits under `["library","recent"]` so a new playing song refreshes it.
-- **Music videos** page through `MusicVideos` in 100s (stale after 10 minutes) and play where the platform plays videos. They are read live from Apple and kept nowhere.
-  - **Offline state.** When the request fails for lack of a connection (loaded videos or not), or the auth status says `Offline` and nothing has loaded, the page shows "Music videos need a connection" with Try again in place of the grid.
+- **Music videos** page through `MusicVideos` in 100s (stale after 10 minutes) and play where the platform plays videos. The service reads the synced copy (the `music-videos` sync domain), so the page lists them with no connection and the app's `Offline` flag does not hide them. Playing still needs a connection.
+  - **Reloads.** The page reloads when a sync finishes the domain, and when an item is removed or the flag clears.
+  - **Offline state.** Before the first sync of them has completed the list comes from Apple, so when that request fails for lack of a connection (loaded videos or not), or the auth status says `Offline` and nothing has loaded, the page shows "Music videos need a connection" with Try again in place of the grid.
   - **Try again** while offline re-runs the sign-in check (`AuthService.Revalidate`, as Account's Check now does) and then reads the videos. The page leaves the state as soon as Apple answers, rather than when the check's own retry (2 s doubling to 5 minutes) clears the flag.
-  - **Recovery.** A successful load shows the grid whatever the flag says, and the page also reloads by itself when the flag clears.
+  - **Recovery.** A successful load shows the grid whatever the flag says.
   - Online it carries no note, like every other library page.
 
 #### Sync
@@ -1631,7 +1654,7 @@ Registered after video and before radio and the player. It owns:
 - A header click cycles ascending, descending, playlist order (`TrackSortState.Toggle`) and is announced.
 - The `kit.SearchField` ("Find in playlist", in a search landmark) shows "N of M songs" while it holds a query, announces its count, replaces the table with a message when nothing matches, and Escape clears it.
 - `page.view` memoises the answer per tracks, key and query.
-- Everything the page does with a song goes through the listed songs or maps back. Play, Shuffle and row activation queue the songs as listed (a query narrows the queue to the songs found). Remove from playlist (`ActionContainer.Order`) and "Added by" use the songs' positions in the playlist, because `RemoveTracks` and `MoveTrack` are positional.
+- Everything the page does with a song goes through the listed songs or maps back. Play, Shuffle and row activation queue the songs as listed (a query narrows the queue to the songs found). While a query is active `headerActions` names Play and Shuffle for them (`kit.PlayButtonsOpts.PlayLabel` and `ShuffleLabel`: "Play the N songs found", "Shuffle the N songs found"). Remove from playlist (`ActionContainer.Order`) and "Added by" use the songs' positions in the playlist, because `RemoveTracks` and `MoveTrack` are positional.
 - Edit mode shows the playlist whole and in its own order: entering or leaving it clears sort and query and hides the controls. The state resets in `page.enter` with the rest of the page's.
 
 **Decisions**

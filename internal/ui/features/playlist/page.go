@@ -384,7 +384,13 @@ func (p *playlists) headerActions(c *ui.Context, head ui.Element, id string, d s
 			break
 		}
 	}
-	play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: pl.Name, Shuffle: true, Disabled: !playable})
+	opts := kit.PlayButtonsOpts{Label: pl.Name, Shuffle: true, Disabled: !playable}
+	if pg.filtering() {
+		// Name the controls for what they queue: the songs found.
+		opts.PlayLabel = i18n.T("{found, plural, one {Play the # song found} other {Play the # songs found}}", "found", len(songs))
+		opts.ShuffleLabel = i18n.T("{found, plural, one {Shuffle the # song found} other {Shuffle the # songs found}}", "found", len(songs))
+	}
+	play, shuffle := kit.PlayButtons(c, opts)
 	if play {
 		p.playList(id, songs, 0, false)
 	}

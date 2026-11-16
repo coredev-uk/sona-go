@@ -193,8 +193,8 @@ func TestRecentEntryEnumerationHelpers(t *testing.T) {
 	if p := recentPath(services.RecentSearch{Kind: services.ItemSong, ItemID: "3", Source: services.SourceCatalog}); p != "/song/3" {
 		t.Errorf("catalog song path %q", p)
 	}
-	if p := recentPath(services.RecentSearch{Kind: services.ItemSong, ItemID: "i.3", Source: services.SourceLibrary}); p != "" {
-		t.Errorf("library song path %q", p)
+	if recentVisible(services.RecentSearch{Kind: services.ItemSong, ItemID: "i.3", Source: services.SourceLibrary}, scopeLibrary) {
+		t.Error("a remembered library song is listed")
 	}
 	if p := recentPath(services.RecentSearch{Kind: services.ItemAlbum, ItemID: "l.1", Source: services.SourceLibrary}); p != "/album/l.1" {
 		t.Errorf("library album path %q", p)

@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -110,7 +111,15 @@ type Cache struct {
 	keys       map[string]*entry // on-disk index
 	total      int64
 	colors     map[string][]Color
+	busyKeys   int         // keys with an operation in flight
+	scavenger  *time.Timer // returns the heap's idle pages once artwork work stops
 }
+
+// scavengeDelay is how long artwork work must stay quiet before the heap's
+// idle pages go back to the OS. A page of covers decodes and resizes a few
+// hundred buffers in a burst; the runtime would keep that peak resident for
+// minutes, because its own pacing is relative to the peak.
+const scavengeDelay = 5 * time.Second
 
 // entry indexes one key directory.
 type entry struct {
@@ -464,6 +473,12 @@ func (c *Cache) acquire(key string) {
 		e = &entry{files: map[string]int64{}}
 		c.keys[key] = e
 	}
+	if e.busy == 0 {
+		c.busyKeys++
+		if c.scavenger != nil {
+			c.scavenger.Stop()
+		}
+	}
 	e.busy++
 }
 
@@ -472,8 +487,20 @@ func (c *Cache) release(key string) {
 	defer c.mu.Unlock()
 	e := c.keys[key]
 	e.busy--
-	if e.busy == 0 && len(e.files) == 0 {
+	if e.busy > 0 {
+		return
+	}
+	if len(e.files) == 0 {
 		delete(c.keys, key)
+	}
+	if c.busyKeys--; c.busyKeys == 0 {
+		// The burst is over: one collection and a scavenge, not one per
+		// cover and never one per frame.
+		if c.scavenger == nil {
+			c.scavenger = time.AfterFunc(scavengeDelay, debug.FreeOSMemory)
+		} else {
+			c.scavenger.Reset(scavengeDelay)
+		}
 	}
 }
 

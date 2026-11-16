@@ -142,9 +142,9 @@ func (l *library) albumList(q listQuery) *listView[services.Album] {
 }
 
 // albumTile is CoverTile of a library album: its page when one exists and the
-// album as the tile's menu target; a pre-added album not out yet says when it
-// is ("Out 19 Nov"), as a catalogue tile does. v0.2.0's tiles have no play
-// control.
+// album as the tile's menu target, and a play disc for an album that plays; a
+// pre-added album not out yet says when it is ("Out 19 Nov"), as a catalogue
+// tile does.
 func (l *library) albumTile() func(a *services.Album) kit.CoverItem {
 	return func(a *services.Album) kit.CoverItem {
 		it := *a
@@ -158,6 +158,7 @@ func (l *library) albumTile() func(a *services.Album) kit.CoverItem {
 			Item:     &kit.Item{Kind: kit.KindAlbum, Target: it},
 		}
 		l.openTo(&tile, "/album/"+a.ID)
+		tile.Play = l.env.Players.CoverPlayOf(services.Item{Kind: services.ItemAlbum, ID: a.ID, Name: a.Name, Album: &it})
 		return tile
 	}
 }

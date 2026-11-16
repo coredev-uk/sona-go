@@ -511,3 +511,17 @@ func TestLeadIsFollowedByTheOtherPicksInAppleOrderWithoutNumerals(t *testing.T) 
 	r.tt.Until("every pick", r.tt.Shows("Pick 12"))
 	requireNoTexts(t, r, "01", "02", "10", "11", "12")
 }
+
+// The lone hero card shows the station's square art, not its wide banner
+// (for Apple's stations a gradient with the name in a corner); a card with
+// no cover shows the centre square of its banner.
+func TestHeroArtIsTheSquareCoverBeforeTheBanner(t *testing.T) {
+	it := services.Item{Art: services.Art{Medium: "/art/c/300x300.jpg", Large: "/art/c/600x600.jpg"}, Wide: services.Art{Large: "/art/w/2400x600.jpg"}}
+	if got := heroArt(it); got != "/art/c/600x600.jpg" {
+		t.Errorf("with a cover: %q, want the cover", got)
+	}
+	it.Art = services.Art{}
+	if got := heroArt(it); got != "/art/w/2400x600.jpg" {
+		t.Errorf("without a cover: %q, want the banner", got)
+	}
+}

@@ -31,12 +31,13 @@ func TestIncrementalResyncTakesOnlyNewItems(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	// Nothing changed: a handful of small requests, no rewrites.
+	// Nothing changed: a handful of small requests, no rewrites (the music
+	// videos, always read whole, probe with one).
 	e.fake.reset()
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
 	}
-	if n := libraryRequests(e.fake.seen()); n != 3 {
+	if n := libraryRequests(e.fake.seen()); n != 4 {
 		t.Fatalf("no-change resync made %d library requests: %v", n, e.fake.seen())
 	}
 	if reqs := e.fake.reqs("/v1/me/library/playlists/p.big/tracks"); len(reqs) != 0 {

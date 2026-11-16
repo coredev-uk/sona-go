@@ -124,6 +124,8 @@ type Song struct {
 	Genre           string `json:"genre"`
 	Explicit        bool   `json:"explicit"`
 	HasLyrics       bool   `json:"hasLyrics"`
+	// NoPlayParams: Apple gave the song no playParams.
+	NoPlayParams bool `json:"noPlayParams"`
 	// Unreleased: the song is not out yet (a placeholder of a pre-added
 	// album: release.go's rule, as of the library's clock). It is listed
 	// only on its album.
@@ -207,7 +209,7 @@ type DomainStatus struct {
 func trackColumns(today string) string {
 	return `t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name,
 	t.album_library_id, t.artist_library_id, t.artwork_template, t.duration_ms,
-	t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics,
+	t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.no_play_params,
 	` + unreleased(today)
 }
 
@@ -215,11 +217,11 @@ func scanSong(sc scanner) (Song, error) {
 	var s Song
 	var lib, cat, alb, art sql.NullString
 	var rating string
-	var lyrics, notOut int64
+	var lyrics, noParams, notOut int64
 	err := sc.Scan(&lib, &cat, &s.Name, &s.ArtistName, &s.AlbumName, &alb, &art, &s.ArtworkTemplate,
-		&s.DurationMS, &s.TrackNumber, &s.DiscNumber, &s.ReleaseDate, &s.Genre, &rating, &lyrics, &notOut)
+		&s.DurationMS, &s.TrackNumber, &s.DiscNumber, &s.ReleaseDate, &s.Genre, &rating, &lyrics, &noParams, &notOut)
 	s.LibraryID, s.CatalogID, s.AlbumLibraryID, s.ArtistLibraryID = lib.String, cat.String, alb.String, art.String
-	s.Explicit, s.HasLyrics, s.Unreleased = rating == "explicit", lyrics != 0, notOut != 0
+	s.Explicit, s.HasLyrics, s.NoPlayParams, s.Unreleased = rating == "explicit", lyrics != 0, noParams != 0, notOut != 0
 	return s, err
 }
 

@@ -25,6 +25,9 @@ import (
 // sidebarContainer is the ActionContainer kind of the sidebar's rows.
 const sidebarContainer = "sidebar"
 
+// shuffleGlyph is the shuffle glyph's size over a row's art.
+const shuffleGlyph = 14
+
 const (
 	// rowArt is a row's picture and rowArtGap the space after it: with the
 	// 10 DIP padding, the name starts where the navigation's labels do.
@@ -353,10 +356,16 @@ func clickOf(pin services.Pin, path string) pinClick {
 	return pinPlay
 }
 
-// pinRow is one pin: a link (it opens), a button (it plays or shuffles) or,
-// for an Open pin with no page, a row that does nothing, with a "More for
-// <name>" menu. A pinned playlist the user can edit takes drops like its row
-// would.
+// pinShuffles reports whether a pin holds a queue that Shift+Enter and the
+// shuffle glyph over its art can shuffle (a playlist or an album; a song is
+// one track and an artist has no player).
+func pinShuffles(pin services.Pin) bool { return pin.Kind == "playlist" || pin.Kind == "album" }
+
+// pinRow is one pin: a link (it opens), a button (it plays or shuffles, with
+// its glyph at the row's end) or, for an Open pin with no page, a row that
+// does nothing, with a "More for <name>" menu. A playlist or album pin has
+// the shuffle glyph over its art and shuffles on Shift+Enter. A pinned
+// playlist the user can edit takes drops like its row would.
 func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAfter string, canUp, editable bool) {
 	path := p.pinPath(pin)
 	click := clickOf(pin, path)
@@ -397,17 +406,39 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAft
 				p.playPin(pin.ID, pin.Name, click == pinShuffle)
 			}
 		}
-		if pin.Kind == "playlist" && row.Focused() && row.Shortcut(ui.Shift, ui.KeyEnter) && p.shuffleReason(-1) == "" {
+		if pinShuffles(pin) && row.Focused() && row.Shortcut(ui.Shift, ui.KeyEnter) && p.shuffleReason(-1) == "" {
 			p.playPin(pin.ID, pin.Name, true)
 		}
 		row.Children(func() { p.rowContent(c, pin.Art.Small, pin.Kind == "artist", pin.Name, fg, active) })
-		if pin.Kind == "playlist" {
+		if pinShuffles(pin) {
 			p.shuffleButton(c, pin.ID, pin.Name, -1, rowArtLeft(0), hot)
 		}
 
-		p.moreMenu(c, row, "pin:"+pin.ID, i18n.T("More for {pinName}", "pinName", pin.Name), hot, func() []kit.MenuItem {
+		menuKey := "pin:" + pin.ID
+		if click == pinPlay || click == pinShuffle {
+			p.pinCue(c, click, hot || p.side.menu(menuKey).IsOpen())
+		}
+
+		p.moreMenu(c, row, menuKey, i18n.T("More for {pinName}", "pinName", pin.Name), hot, func() []kit.MenuItem {
 			return p.pinMenu(pin, path, click == pinOpen, upAfter, canUp)
 		})
+	})
+}
+
+// pinCue is the glyph at the end of a pin that plays or shuffles on a click:
+// the play triangle or the shuffle glyph, in the faint ink, so the row does
+// not read as a link. It gives way to the More button while the row is hot.
+func (p *playlists) pinCue(c *ui.Context, click pinClick, hide bool) {
+	const size = 12
+	box := ui.Box(c.Key("cue")).Absolute().Top((theme.Current().Metric["nav-row"] - size) / 2).Right(10).IgnoreInput(true)
+	kit.Fade(box, !hide)
+	box.Children(func() {
+		o := theme.GlyphOpts{Color: theme.C("ink-faint")}
+		if click == pinShuffle {
+			theme.Glyph(c, "shuffle", size, o)
+			return
+		}
+		kit.PlayGlyph(c, size, o)
 	})
 }
 
@@ -507,8 +538,9 @@ func (p *playlists) shuffleReason(songs int) string {
 	return ""
 }
 
-// shuffleButton is a playlist row's shuffle control, over its artwork (left:
-// where the artwork starts): a small play glyph in ink on a wash of the ground, so it
+// shuffleButton is a playlist or album row's shuffle control, over its artwork
+// (left: where the artwork starts): the shuffle glyph (the play triangle is for
+// what plays in order) in ink on a wash of the ground, so it
 // reads on any cover and is not amber (amber marks what plays). It is a
 // sibling of the row's link, not inside it. It fades in while the row is
 // hovered or has the focus within and takes no input while hidden. It is no
@@ -527,7 +559,7 @@ func (p *playlists) shuffleButton(c *ui.Context, id, plName string, songs int, l
 		ink = theme.C("ink-faint")
 	}
 	btn.Children(func() {
-		kit.PlayGlyph(c, 12, theme.GlyphOpts{Color: ink})
+		theme.Glyph(c, "shuffle", shuffleGlyph, theme.GlyphOpts{Color: ink})
 	})
 	if reason != "" {
 		btn.AccessDisabled(true)

@@ -91,6 +91,7 @@ func iaQueueRig(t *testing.T, kind string) *iaQueue {
 	t.Helper()
 	r := newQueueRig(t, false)
 	r.h.Env.HasRoute = func(string) bool { return true }
+	iaMarkActions(r.h.Env) // the Now playing row opens the song's menu, as the bar does
 	r.seed(5, 0, func(s *services.PlaybackState, q *services.QueueState) {
 		switch kind {
 		case "auto":
@@ -120,7 +121,7 @@ func (q *iaQueue) fx() string {
 	for _, p := range q.r.nav.Pushed[q.pushes:] {
 		out = append(out, "nav "+p)
 	}
-	if q.r.p.queue.menu.IsOpen() {
+	if q.r.p.queue.menu.IsOpen() || q.r.p.menus.queue != nil && q.r.p.menus.queue.IsOpen() {
 		out = append(out, "menu")
 	}
 	if len(out) == 0 {
@@ -141,6 +142,9 @@ func (q *iaQueue) gesture(g, label string) string {
 	q.t.Helper()
 	if q.r.p.queue.menu.IsOpen() {
 		q.r.p.queue.menu.Close()
+	}
+	if m := q.r.p.menus.queue; m != nil && m.IsOpen() {
+		m.Close()
 	}
 	q.r.tt.Frame()
 	x, y := q.r.at(q.t, label)
@@ -214,7 +218,7 @@ func TestInteractionQueueRows(t *testing.T) {
 
 // The song playing has a row of its own ("Now playing"): a double-click or
 // Enter on it plays it again from the start (the service jumps to its own
-// index); it has no menu and no Remove.
+// index); its menu is the song's, as the bar's, and it has no Remove.
 func TestInteractionQueueNowPlayingRow(t *testing.T) {
 	q := iaQueueRig(t, "current")
 	for _, c := range []struct{ gesture, want string }{
@@ -223,11 +227,9 @@ func TestInteractionQueueNowPlayingRow(t *testing.T) {
 		{"Enter", "jump 0"},
 		{"Shift+Enter", "nothing"},
 		{"Space", "nothing"},
-		// DEPARTS: right-click opens no menu on the Now playing row, though the same song's bar and cover open its menu and every other row opens one.
-		{"right-click", "nothing"},
-		// DEPARTS: nor do the menu keys, so the playing song's menu is out of the keyboard's reach here.
-		{"Menu key", "nothing"},
-		{"Shift+F10", "nothing"},
+		{"right-click", "menu"},
+		{"Menu key", "menu"},
+		{"Shift+F10", "menu"},
 	} {
 		if got := q.gesture(c.gesture, "Song 1, Artist 1"); got != c.want {
 			t.Errorf("Now playing row, %s: %s, want %s", c.gesture, got, c.want)

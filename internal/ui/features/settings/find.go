@@ -22,12 +22,13 @@ const (
 	secPlayback    = "playback"
 	secAppearance  = "appearance"
 	secConnections = "connections"
+	secAddons      = "addons"
 	secShortcuts   = "shortcuts"
 	secStorage     = "storage"
 	secDiagnostics = "diagnostics"
 )
 
-var sections = []string{secGeneral, secPlayback, secAppearance, secConnections, secShortcuts, secStorage, secDiagnostics}
+var sections = []string{secGeneral, secPlayback, secAppearance, secConnections, secAddons, secShortcuts, secStorage, secDiagnostics}
 
 // sectionTitle is a section's name: in the section list, its heading and
 // Find a setting's results.
@@ -41,6 +42,8 @@ func sectionTitle(section string) string {
 		return i18n.T("Appearance")
 	case secConnections:
 		return i18n.T("Connections")
+	case secAddons:
+		return i18n.T("Add-ons")
 	case secShortcuts:
 		return i18n.T("Shortcuts")
 	case secStorage:
@@ -225,6 +228,10 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 		{ID: "scrobble-lastfm", Section: secConnections, Group: scrobbling, Title: i18n.T("Last.fm")},
 		{ID: "scrobble-listenbrainz", Section: secConnections, Group: scrobbling, Title: i18n.T("ListenBrainz")},
 		{ID: "discord-presence", Section: secConnections, Group: discord, Title: i18n.T("Discord status")},
+		{
+			ID: "addons-folder", Section: secAddons, Group: sectionTitle(secAddons), Title: i18n.T("Add-ons folder"),
+			Keywords: i18n.T("install, plugin, extension, open add-ons folder"),
+		},
 
 		{ID: "art-cache", Section: secStorage, Group: storage, Title: i18n.T("Artwork cache"), Keywords: i18n.T("disk, space")},
 		{

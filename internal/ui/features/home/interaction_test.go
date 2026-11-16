@@ -325,7 +325,7 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /artist/ar1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: an artist has no Play control (no artist player is registered, kit CanPlay) although song, album, playlist and station siblings have one
+			// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 			play: "no play control",
 			cue:  "link",
 		},
@@ -420,7 +420,7 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /artist/ar1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: an artist has no Play control (no artist player is registered, kit CanPlay) although song, album, playlist and station siblings have one
+			// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 			play: "no play control",
 			cue:  "link",
 		},
@@ -480,9 +480,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /artist/ar1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: the lead pick shows a Play button that does nothing for an item that cannot play (lead.go Disabled); the hero card and the tiles omit it
-			play: "nothing",
-			cue:  "link",
+			play:       "no play control", // the lead pick draws no Play control for a kind that cannot play, as the hero card and the tiles
+			cue:        "link",
 		},
 		"station-nopage": {
 			click:      "play station:sn1",
@@ -499,9 +498,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /curator/cu1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: the lead pick shows a Play button that does nothing for an item that cannot play (lead.go Disabled); the hero card and the tiles omit it
-			play: "nothing",
-			cue:  "link",
+			play:       "no play control", // the lead pick draws no Play control for a kind that cannot play, as the hero card and the tiles
+			cue:        "link",
 		},
 	},
 	"leadOrder": {
@@ -520,7 +518,7 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /artist/ar1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: an artist has no Play control (no artist player is registered, kit CanPlay) although song, album, playlist and station siblings have one
+			// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 			play: "no play control",
 			cue:  "link",
 		},
@@ -678,9 +676,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /album/al1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: no Play control on this local shelf's tile although the same album or playlist has one on Apple's shelves (local.go CoverItem has no Item or Play)
-			play: "no play control",
-			cue:  "link",
+			play:       "play album:al1",
+			cue:        "link",
 		},
 	},
 	"recentPlaylists": {
@@ -690,9 +687,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /playlist/pl1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: no Play control on this local shelf's tile although the same album or playlist has one on Apple's shelves (local.go CoverItem has no Item or Play)
-			play: "no play control",
-			cue:  "link",
+			play:       "play playlist:pl1",
+			cue:        "link",
 		},
 	},
 }

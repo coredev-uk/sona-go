@@ -163,10 +163,21 @@ func (m mapper) libSong(s library.Song) Song {
 		Genre:       s.Genre,
 		Explicit:    s.Explicit,
 		HasLyrics:   s.HasLyrics,
-		// Uploads play from their library ID; songs not out yet don't.
-		Playable: (s.CatalogID != "" || s.LibraryID != "") && !s.Unreleased,
+		// Uploads play from their library ID; songs not out yet don't, and
+		// neither does a library-only song Apple withheld (apple-music-reference §3.1).
+		Playable: (s.CatalogID != "" || s.LibraryID != "") && !s.Unreleased && !withheld(s),
 		Art:      m.artOf(s.ArtworkTemplate),
 	}
+}
+
+// withheld reports a library song Apple answers "no longer available" for:
+// no catalogue copy, no playParams, and a release date of its own. Its
+// webPlayback by library ID fails with 3077, where an upload (which has
+// playParams) plays. A song with no date of its own and no playParams goes by
+// its album (library.SongUnreleased) and is left alone: a pre-added album's
+// song that has just come out waits for the next sync to give it playParams.
+func withheld(s library.Song) bool {
+	return s.CatalogID == "" && s.NoPlayParams && s.ReleaseDate != ""
 }
 
 // playSong maps a play recorded on this computer: a catalog song, or the
@@ -419,6 +430,27 @@ func (m mapper) amMusicVideo(v applemusic.MusicVideo) MusicVideo {
 		out.ArtistID = d[0].ID
 	}
 	return out
+}
+
+// libMusicVideo maps a stored library music video.
+func (m mapper) libMusicVideo(v library.MusicVideo) MusicVideo {
+	return MusicVideo{
+		ID:          v.LibraryID,
+		Source:      SourceLibrary,
+		CatalogID:   v.CatalogID,
+		LibraryID:   v.LibraryID,
+		Name:        v.Name,
+		Artist:      v.ArtistName,
+		Album:       v.AlbumName,
+		DurationMs:  v.DurationMS,
+		ReleaseDate: v.ReleaseDate,
+		Genre:       v.Genre,
+		Explicit:    v.Explicit,
+		Has4K:       v.Has4K,
+		HasHDR:      v.HasHDR,
+		URL:         v.URL,
+		Art:         m.artwork(&applemusic.Artwork{URL: v.ArtworkTemplate, Width: v.ArtworkWidth, Height: v.ArtworkHeight}),
+	}
 }
 
 // stationArt maps a station's artwork, which is shown as a square cover. A

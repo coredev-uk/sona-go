@@ -149,12 +149,18 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 	// one button and there is no second disc.
 	direct := PlaysWhenOpened(it, ctx.Players)
 	canPlay := ctx.Players.CanPlay(it) && !direct
+	routed := link == "" || ctx.HasRoute == nil || ctx.HasRoute(link)
 
 	web := OpensInBrowser(it, ctx.Players)
 	var card ui.Element
 	w.Children(func() {
-		card = ui.ButtonBase(c.Key("open")).Column().AlignItems(ui.Stretch).Justify(ui.Start).Label(it.Name)
-		if link != "" {
+		if routed {
+			card = ui.ButtonBase(c.Key("open"))
+		} else {
+			card = ui.Box(c.Key("open")) // its page is not routed: nothing to open, so no button, tab stop or underline
+		}
+		card.Column().AlignItems(ui.Stretch).Justify(ui.Start).Label(it.Name)
+		if link != "" && routed {
 			card.Role(ui.RoleLink)
 		} else if web {
 			card.Role(ui.RoleLink).Label(WebCueLabel(it.Name))
@@ -234,7 +240,7 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 				Absolute().Right(0).Top(fh + 6)
 		}
 	})
-	if ClickOnce(card) {
+	if routed && ClickOnce(card) {
 		ctx.opened(it)
 		if link != "" {
 			ctx.nav(link)

@@ -282,7 +282,6 @@ func TestInteractionAlbumCompilationArtistColumn(t *testing.T) {
 	const to = "nav /artist/a1"
 	iaWant(t, "Ana", iaPage{r, "/album/100"}.gestures("Ana", iaPointer), iaGest{
 		click: to, dbl: to, enter: "n/a", shiftEnter: "n/a", space: "n/a",
-		// DEPARTS: right-click on the name opens no menu, though the rest of its row opens the song's.
-		right: "nothing",
+		right: "menu",
 	})
 }

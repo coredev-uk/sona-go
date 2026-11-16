@@ -29,6 +29,8 @@ type localState struct {
 	menus     *kit.ActionMenus
 	added     kit.CoverState
 	playlists kit.CoverState
+	// addedMenus and playlistMenus are the item menus of the two cover rows.
+	addedMenus, playlistMenus *kit.ActionMenus
 }
 
 // localShelves is what Sona knows without Apple's recommendations: recent
@@ -145,14 +147,17 @@ func (h *home) recentlyAdded(c *ui.Context, ctx kit.ItemsCtx) {
 	}
 	var tiles []kit.CoverItem
 	open := h.env.Routed("/album/x")
-	for _, a := range res.Data.Items {
-		t := kit.CoverItem{Key: a.ID, Title: a.Name, Subtitle: a.Artist, Art: a.Art.Medium}
-		if open {
-			t.Open = func() { ctx.Nav("/album/" + a.ID) }
+	for i, a := range res.Data.Items {
+		it := services.Item{Kind: services.ItemAlbum, ID: a.ID, Name: a.Name, Subtitle: a.Artist, Art: a.Art, Explicit: a.Explicit, Album: &a}
+		t := kit.CoverItemOf(it, ctx, i)
+		t.Key = a.ID
+		t.Art = a.Art.Medium
+		if !open {
+			t.Open = nil
 		}
 		tiles = append(tiles, t)
 	}
-	h.coverShelf(c, &h.local.added, title, i18n.T("Albums recently added to your library"), "/library/albums", tiles, ctx)
+	h.coverShelf(c, &h.local.added, kit.MenusIn(&h.local.addedMenus, h.env.Actions, &h.local.added.Sel), title, i18n.T("Albums recently added to your library"), "/library/albums", tiles, ctx)
 }
 
 // recentPlaylists is the 12 playlists last modified, as a row of covers: the
@@ -166,30 +171,33 @@ func (h *home) recentPlaylists(c *ui.Context, ctx kit.ItemsCtx) {
 	}
 	var tiles []kit.CoverItem
 	open := h.env.Routed("/playlist/x")
-	for _, p := range res.Data.Items {
+	for i, p := range res.Data.Items {
 		sub := p.Curator
 		if p.TrackCount > 0 {
 			sub = i18n.SongCount(p.TrackCount)
 		}
-		t := kit.CoverItem{Key: p.ID, Title: p.Name, Subtitle: sub, Art: p.Art.Medium}
-		if open {
-			t.Open = func() { ctx.Nav("/playlist/" + p.ID) }
+		it := services.Item{Kind: services.ItemPlaylist, ID: p.ID, Name: p.Name, Subtitle: sub, Art: p.Art, Playlist: &p}
+		t := kit.CoverItemOf(it, ctx, i)
+		t.Key = p.ID
+		t.Art = p.Art.Medium
+		if !open {
+			t.Open = nil
 		}
 		tiles = append(tiles, t)
 	}
-	h.coverShelf(c, &h.local.playlists, i18n.T("Your Playlists"), i18n.T("Recently updated playlists"), "/library/playlists", tiles, ctx)
+	h.coverShelf(c, &h.local.playlists, kit.MenusIn(&h.local.playlistMenus, h.env.Actions, &h.local.playlists.Sel), i18n.T("Your Playlists"), i18n.T("Recently updated playlists"), "/library/playlists", tiles, ctx)
 }
 
 // coverShelf is a titled row of tiles with "See all" to a library page, where
 // a module serves it.
-func (h *home) coverShelf(c *ui.Context, st *kit.CoverState, title, label, all string, tiles []kit.CoverItem, ctx kit.ItemsCtx) {
+func (h *home) coverShelf(c *ui.Context, st *kit.CoverState, menus *kit.ActionMenus, title, label, all string, tiles []kit.CoverItem, ctx kit.ItemsCtx) {
 	so := ruledOpts{Title: title}
 	if h.env.Routed(all) {
 		so.More = func() { ctx.Nav(all) }
 	}
 	ruledShelf(c, so, func() {
 		kit.CoverRow(c, st, tiles, kit.CoverRowOpts{
-			CoverOpts: kit.CoverOpts{Label: label, Art: h.env.Art, Motion: h.env.Motion, Restricted: ctx.Restricted},
+			CoverOpts: kit.CoverOpts{Label: label, Art: h.env.Art, Motion: h.env.Motion, Menus: menus, Restricted: ctx.Restricted},
 		})
 	})
 }

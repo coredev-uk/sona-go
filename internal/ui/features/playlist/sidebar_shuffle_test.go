@@ -70,20 +70,27 @@ func TestEveryPlaylistRowHasAShuffleButton(t *testing.T) {
 	}
 }
 
-// A playlist pin has one too; the pins of other kinds do not.
-func TestPlaylistPinsHaveAShuffleButtonAndOtherPinsDoNot(t *testing.T) {
+// A playlist pin has one too, and so does an album pin (both shuffle on
+// Shift+Enter); a song pin (one track) and an artist pin (no player) do not.
+func TestPlaylistAndAlbumPinsHaveAShuffleButtonAndOtherPinsDoNot(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), []services.Pin{
 		{Kind: "playlist", ID: "p.a", Name: "Alpha", Action: "drillIn"},
 		{Kind: "album", ID: "l.b", Name: "Beta", Action: "play"},
+		{Kind: "song", ID: "i.c", Name: "Gamma", Action: "play", AlbumID: "l.cc"},
+		{Kind: "artist", ID: "r.d", Name: "Delta", Action: "drillIn"},
 	})
 	e.api.pinTracks["p.a"] = []services.Song{song("s1", "One", "A")}
-	e.shows("Alpha", "Beta, plays")
+	e.shows("Alpha", "Beta, plays", "Gamma, plays", "Delta")
 	tr := access.Read(t, e.tt.Tester)
-	if _, ok := tr.Find(ui.RoleButton, "Shuffle Alpha"); !ok {
-		t.Errorf("no shuffle button for Alpha:\n%s", tr.Dump())
+	for _, name := range []string{"Alpha", "Beta"} {
+		if _, ok := tr.Find(ui.RoleButton, "Shuffle "+name); !ok {
+			t.Errorf("no shuffle button for %s:\n%s", name, tr.Dump())
+		}
 	}
-	if _, ok := tr.Find(ui.RoleButton, "Shuffle Beta"); ok {
-		t.Error("an album pin has a shuffle button")
+	for _, name := range []string{"Gamma", "Delta"} {
+		if _, ok := tr.Find(ui.RoleButton, "Shuffle "+name); ok {
+			t.Errorf("the pin %s has a shuffle button", name)
+		}
 	}
 	e.hover("Alpha")
 	if err := e.tt.Click("Shuffle Alpha"); err != nil {
@@ -176,14 +183,49 @@ func TestShuffleButtonIsOffWhileSignedOut(t *testing.T) {
 	}
 }
 
-// A row hovered, as the sidebar draws it: the glyph on its wash over the
-// artwork, in ink.
+// A row hovered, as the sidebar draws it, in both themes: the shuffle glyph
+// (not the play triangle) on its wash over the artwork, in ink.
 func TestPlaylistSidebarHoverGolden(t *testing.T) {
-	goldenFont(t)
-	e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.own"))
-	theme.SetMode(theme.ModeLight)
-	e.shows("Pinned", "Apple Music", "Playlists", "Running")
-	e.hover("Quiet Hours")
-	e.tt.Settle()
-	uitest.Golden(t, e.tt.Image(), "playlist-sidebar-hover-light")
+	for _, tc := range []struct {
+		name string
+		mode theme.Mode
+	}{{"playlist-sidebar-hover-light", theme.ModeLight}, {"playlist-sidebar-hover-dark", theme.ModeDark}} {
+		t.Run(tc.name, func(t *testing.T) {
+			goldenFont(t)
+			e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.own"))
+			theme.SetMode(tc.mode)
+			e.shows("Pinned", "Apple Music", "Playlists", "Running")
+			e.hover("Quiet Hours")
+			e.tt.Settle()
+			uitest.Golden(t, e.tt.Image(), tc.name)
+		})
+	}
+}
+
+// The pins of each kind and setting, in both themes: a pin that opens is a
+// bare link; one that plays carries the play triangle at its end, one that
+// shuffles the shuffle glyph (so neither reads as a link). The pin hovered
+// shows the shuffle glyph over its art and gives its end to the More button.
+func TestPlaylistSidebarPinsGolden(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode theme.Mode
+	}{{"playlist-sidebar-pins-light", theme.ModeLight}, {"playlist-sidebar-pins-dark", theme.ModeDark}} {
+		t.Run(tc.name, func(t *testing.T) {
+			goldenFont(t)
+			pins := []services.Pin{
+				{Kind: "playlist", ID: "p.a", Name: "Opens", Action: "drillIn", Art: fixtureArt(1)},
+				{Kind: "album", ID: "l.a", Name: "Plays", Action: "play", Art: fixtureArt(2)},
+				{Kind: "playlist", ID: "p.b", Name: "Shuffles", Action: "shuffle", Art: fixtureArt(3)},
+				{Kind: "artist", ID: "r.a", Name: "Artist opens", Action: "play", Art: fixtureArt(4)},
+				{Kind: "song", ID: "i.a", Name: "Song plays", Action: "play", Art: fixtureArt(5)},
+			}
+			e := sbSetupWith(t, sbLibrary(), pins, nil)
+			theme.SetMode(tc.mode)
+			e.shows("Pinned", "Opens", "Artist opens")
+			e.hover("Opens")
+			e.tt.Settle()
+			uitest.Golden(t, e.tt.Image(), tc.name)
+		})
+	}
 }

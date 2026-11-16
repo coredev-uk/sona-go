@@ -77,16 +77,19 @@ type LibrarySearch struct {
 // is the item's kind, ItemID its ID in Source). Key identifies the entry
 // for SearchService.ForgetRecent.
 type RecentSearch struct {
-	Key        string `json:"key"`
-	Kind       string `json:"kind"`
-	Scope      string `json:"scope"` // terms only
-	Term       string `json:"term"`
-	ItemID     string `json:"itemId"`
-	Source     Source `json:"source"` // items only
-	Name       string `json:"name"`
-	Subtitle   string `json:"subtitle"`
-	Art        string `json:"art"` // Go-served small artwork URL, "" for terms
-	SearchedAt int64  `json:"searchedAt"`
+	Key      string `json:"key"`
+	Kind     string `json:"kind"`
+	Scope    string `json:"scope"` // terms only
+	Term     string `json:"term"`
+	ItemID   string `json:"itemId"`
+	Source   Source `json:"source"` // items only
+	Name     string `json:"name"`
+	Subtitle string `json:"subtitle"`
+	Art      string `json:"art"` // Go-served small artwork URL, "" for terms
+	// NoPage: a station that had no page of its own when it was remembered;
+	// it plays when chosen.
+	NoPage     bool  `json:"noPage"`
+	SearchedAt int64 `json:"searchedAt"`
 }
 
 // RecentItem is an item opened from search, to remember (SearchService.RememberItem).
@@ -97,6 +100,8 @@ type RecentItem struct {
 	Name     string `json:"name"`
 	Subtitle string `json:"subtitle"`
 	Art      string `json:"art"` // the Go-served URL the result showed
+	// NoPage: a station with no page of its own (it plays when chosen).
+	NoPage bool `json:"noPage"`
 }
 
 // ProfileDetail is a profile page: the profile and its public playlists.

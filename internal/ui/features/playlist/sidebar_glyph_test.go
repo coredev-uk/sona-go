@@ -20,7 +20,7 @@ func fixtureArt(n int) services.Art {
 	return services.Art{Small: u, Medium: u, Large: u}
 }
 
-// glyphCentres are the middle of the dark triangle's box and its centre of
+// glyphCentres are the middle of the dark glyph's box and its centre of
 // mass inside r, in DIPs.
 func glyphCentres(im *image.RGBA, sc float32, r ui.Rect) (box, mass [2]float64) {
 	x0, y0 := int(r.X*sc), int(r.Y*sc)
@@ -43,9 +43,9 @@ func glyphCentres(im *image.RGBA, sc float32, r ui.Rect) (box, mass [2]float64) 
 }
 
 // The shuffle button lies exactly on the artwork (a pinned row, a plain one
-// and one inside a folder, at device scales 1 and 2), and its triangle is
-// optically centred: the middle of its box within half a pixel to the right
-// of the button's, and its mass within half a pixel of it either way.
+// and one inside a folder, at device scales 1 and 2), and its shuffle glyph
+// is centred: the middle of its box within 0.6px of the button's, and its
+// mass (which the arrowheads pull right) within 1.6px of it.
 func TestShuffleButtonLiesOnTheArtworkAndItsGlyphIsCentred(t *testing.T) {
 	goldenFont(t)
 	tree := sbLibrary()
@@ -81,11 +81,12 @@ func TestShuffleButtonLiesOnTheArtworkAndItsGlyphIsCentred(t *testing.T) {
 			e.tt.Settle()
 			box, mass := glyphCentres(e.tt.Image(), sc, btn)
 			cx, cy := float64(btn.X+btn.W/2), float64(btn.Y+btn.H/2)
-			if d := box[0] - cx; d < -0.01 || d > 0.51 || math.Abs(box[1]-cy) > 0.01 {
-				t.Errorf("scale %v, %s: the triangle's box is off the button's middle by (%.2f, %.2f)", sc, name, d, box[1]-cy)
+			if dx, dy := box[0]-cx, box[1]-cy; math.Abs(dx) > 0.6 || math.Abs(dy) > 0.6 {
+				t.Errorf("scale %v, %s: the glyph's box is off the button's middle by (%.2f, %.2f)", sc, name, dx, dy)
 			}
-			if dx, dy := mass[0]-cx, mass[1]-cy; math.Abs(dx) > 0.6 || math.Abs(dy) > 0.1 {
-				t.Errorf("scale %v, %s: the triangle's mass is off the button's middle by (%.2f, %.2f)", sc, name, dx, dy)
+			// The arrowheads sit at its right, so its mass lies to the right of its box's middle.
+			if dx, dy := mass[0]-cx, mass[1]-cy; dx < 0 || dx > 1.6 || math.Abs(dy) > 0.6 {
+				t.Errorf("scale %v, %s: the glyph's mass is off the button's middle by (%.2f, %.2f)", sc, name, dx, dy)
 			}
 		}
 	}

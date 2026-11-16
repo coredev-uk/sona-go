@@ -29,7 +29,7 @@ func (q *Queries) DeleteRecentSearch(ctx context.Context, key string) error {
 
 const listRecentSearches = `-- name: ListRecentSearches :many
 
-SELECT "key", kind, scope, term, item_id, name, subtitle, art_url, searched_at FROM recent_searches ORDER BY searched_at DESC, key LIMIT ?
+SELECT "key", kind, scope, term, item_id, name, subtitle, art_url, searched_at, no_page FROM recent_searches ORDER BY searched_at DESC, key LIMIT ?
 `
 
 // Recent searches (newest first).
@@ -52,6 +52,7 @@ func (q *Queries) ListRecentSearches(ctx context.Context, limit int64) ([]Recent
 			&i.Subtitle,
 			&i.ArtUrl,
 			&i.SearchedAt,
+			&i.NoPage,
 		); err != nil {
 			return nil, err
 		}
@@ -67,13 +68,14 @@ func (q *Queries) ListRecentSearches(ctx context.Context, limit int64) ([]Recent
 }
 
 const putRecentSearch = `-- name: PutRecentSearch :exec
-INSERT INTO recent_searches (key, kind, scope, term, item_id, name, subtitle, art_url, searched_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO recent_searches (key, kind, scope, term, item_id, name, subtitle, art_url, no_page, searched_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (key) DO UPDATE SET
     term = excluded.term,
     name = excluded.name,
     subtitle = excluded.subtitle,
     art_url = excluded.art_url,
+    no_page = excluded.no_page,
     searched_at = excluded.searched_at
 `
 
@@ -86,6 +88,7 @@ type PutRecentSearchParams struct {
 	Name       string
 	Subtitle   string
 	ArtUrl     string
+	NoPage     int64
 	SearchedAt int64
 }
 
@@ -99,6 +102,7 @@ func (q *Queries) PutRecentSearch(ctx context.Context, arg PutRecentSearchParams
 		arg.Name,
 		arg.Subtitle,
 		arg.ArtUrl,
+		arg.NoPage,
 		arg.SearchedAt,
 	)
 	return err

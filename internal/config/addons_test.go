@@ -81,3 +81,23 @@ func TestStoreHandsOutCopiesOfAddons(t *testing.T) {
 		t.Errorf("a copy's edit reached the store: %+v", b.Addons)
 	}
 }
+
+func TestAddonValuesNormaliseAndAreCopied(t *testing.T) {
+	in := Addons{"demo": {Values: map[string]string{"url": "https://x", "": "no id", "long": strings.Repeat("v", maxAddonValueBytes+1)}}}
+	got := in.normalized()
+	if want := map[string]string{"url": "https://x"}; !reflect.DeepEqual(got["demo"].Values, want) {
+		t.Errorf("values = %v, want %v", got["demo"].Values, want)
+	}
+	many := map[string]string{}
+	for i := range maxAddonValues + 10 {
+		many[strings.Repeat("k", 3)+string(rune('a'+i/26))+string(rune('a'+i%26))] = "v"
+	}
+	if n := len((Addons{"demo": {Values: many}}).normalized()["demo"].Values); n != maxAddonValues {
+		t.Errorf("kept %d values", n)
+	}
+	c := got.clone()
+	c["demo"].Values["url"] = "changed"
+	if got["demo"].Values["url"] != "https://x" {
+		t.Error("clone shares the values map")
+	}
+}

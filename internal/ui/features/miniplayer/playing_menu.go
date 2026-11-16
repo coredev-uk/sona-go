@@ -26,7 +26,7 @@ func (m *mini) menusFor() *kit.ActionMenus {
 }
 
 // playingRow gives el, a part of the window that shows the playing item (the
-// cover, the title and artist), the item's action menu on a right-click: the
+// cover and every line of the text block), the item's action menu on a right-click: the
 // one the player bar and a song row open. Only the secondary press is taken
 // (Element.RightClicked would make el interactive, and a press on it would no
 // longer drag the window). Draw it with PopupFor. Nothing playing, or no

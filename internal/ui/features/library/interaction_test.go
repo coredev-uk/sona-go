@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
@@ -157,6 +158,16 @@ func engineIDs(r *pageRig) func() string {
 	}
 }
 
+// itemPlays registers the album and playlist players, as the app does, and
+// says what they played: "album:l.a3".
+func itemPlays(r *pageRig) func() string {
+	var got []string
+	for _, kind := range []string{services.ItemAlbum, services.ItemPlaylist} {
+		r.h.Env.Players.Register(kind, func(it services.Item) { got = append(got, it.Kind+":"+it.ID) })
+	}
+	return func() string { return strings.Join(got, ",") }
+}
+
 // surface is one Library page, over a library that holds the items.
 type surface struct {
 	name string
@@ -209,20 +220,25 @@ func surfaces() []surface {
 		{"albums", false, map[string]string{"album": "Mango Season"}, func(t *testing.T) *iaCtx {
 			r := newGridRig(t, albumsPath, nil, uitest.Albums(sevenAlbums...))
 			r.tt.Until("the albums", r.tt.Shows("7 albums", "Mango Season"))
-			return &iaCtx{r: r.pageRig, start: albumsPath, played: engineIDs(r.pageRig)}
+			return &iaCtx{r: r.pageRig, start: albumsPath, played: itemPlays(r.pageRig)}
 		}},
 		{"playlists", false, map[string]string{"playlist": "Focus"}, func(t *testing.T) *iaCtx {
 			r := newGridRig(t, playlistsPath, nil)
 			r.tt.Until("the playlists", r.tt.Shows("3 playlists", "Focus"))
-			return &iaCtx{r: r.pageRig, start: playlistsPath, played: engineIDs(r.pageRig)}
+			return &iaCtx{r: r.pageRig, start: playlistsPath, played: itemPlays(r.pageRig)}
 		}},
 		{"recentlyAdded", false, map[string]string{"album": "Fieldnotes", "playlist": "Focus"}, func(t *testing.T) *iaCtx {
 			r := newGridRigH(t, recentPath, 2400, nil)
 			r.tt.Until("the entries", r.tt.Shows("27 albums and playlists", "Fieldnotes", "Focus"))
-			return &iaCtx{r: r.pageRig, start: recentPath, played: engineIDs(r.pageRig)}
+			return &iaCtx{r: r.pageRig, start: recentPath, played: itemPlays(r.pageRig)}
 		}},
 		{"videos", false, map[string]string{"video": "Video 0"}, func(t *testing.T) *iaCtx {
 			r, plays := newVideosRig(t, videoFixtures(3), true)
+			// The player module's actions for a music video (the app registers them beside the library's).
+			r.h.Env.Actions.Register(kit.ActionDef{
+				ID: "test.play-next.video", Target: kit.KindMusicVideo, Group: kit.GroupQueue, Order: 10,
+				Label: func(*kit.ActionContext) string { return "Play next" }, Run: func(*kit.ActionContext) {},
+			})
 			r.tt.Until("the videos", r.tt.Shows("3 music videos", "Video 0"))
 			return &iaCtx{r: r.pageRig, start: videosPath, played: func() string {
 				if n := plays.played(); n > 0 {
@@ -315,10 +331,9 @@ var libraryWant = map[string]map[string]outcomes{
 			enter:      "nav /album/l.a3",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: this tile has no Play control although the same album or playlist has one on Home's and Discover's shelves (albums.go albumTile and playlists.go playlistTile set no Play)
-			play: "no play control",
-			menu: "menu",
-			cue:  "link",
+			play:       "play album:l.a3",
+			menu:       "menu",
+			cue:        "link",
 		},
 	},
 	"playlists": {
@@ -328,10 +343,9 @@ var libraryWant = map[string]map[string]outcomes{
 			enter:      "nav /playlist/p.a1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: this tile has no Play control although the same album or playlist has one on Home's and Discover's shelves (albums.go albumTile and playlists.go playlistTile set no Play)
-			play: "no play control",
-			menu: "menu",
-			cue:  "link",
+			play:       "play playlist:p.a1",
+			menu:       "menu",
+			cue:        "link",
 		},
 	},
 	"recentlyAdded": {
@@ -341,10 +355,9 @@ var libraryWant = map[string]map[string]outcomes{
 			enter:      "nav /album/l.a23",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: this tile has no Play control although the same album or playlist has one on Home's and Discover's shelves (albums.go albumTile and playlists.go playlistTile set no Play)
-			play: "no play control",
-			menu: "menu",
-			cue:  "link",
+			play:       "play album:l.a23",
+			menu:       "menu",
+			cue:        "link",
 		},
 		"playlist": {
 			click:      "nav /playlist/p.a1",
@@ -352,10 +365,9 @@ var libraryWant = map[string]map[string]outcomes{
 			enter:      "nav /playlist/p.a1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: this tile has no Play control although the same album or playlist has one on Home's and Discover's shelves (playlists.go playlistTile sets no Play)
-			play: "no play control",
-			menu: "menu",
-			cue:  "link",
+			play:       "play playlist:p.a1",
+			menu:       "menu",
+			cue:        "link",
 		},
 	},
 	"videos": {
@@ -366,7 +378,7 @@ var libraryWant = map[string]map[string]outcomes{
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "play 1 video queue",
-			menu:       "no menu",
+			menu:       "menu",
 			cue:        "link",
 		},
 	},

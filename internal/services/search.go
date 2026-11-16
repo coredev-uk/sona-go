@@ -266,8 +266,16 @@ func (s *SearchService) RememberItem(ctx context.Context, it RecentItem) error {
 	}
 	return s.remember(ctx, dbq.PutRecentSearchParams{
 		Key: "item:" + it.Kind + ":" + string(it.Source) + ":" + it.ID, Kind: it.Kind, Scope: string(it.Source),
-		ItemID: it.ID, Name: it.Name, Subtitle: it.Subtitle, ArtUrl: it.Art,
+		ItemID: it.ID, Name: it.Name, Subtitle: it.Subtitle, ArtUrl: it.Art, NoPage: noPage(it),
 	})
+}
+
+// noPage is the no_page column of an item: only a station has a page to lack.
+func noPage(it RecentItem) int64 {
+	if it.NoPage && it.Kind == ItemStation {
+		return 1
+	}
+	return 0
 }
 
 func (s *SearchService) remember(ctx context.Context, p dbq.PutRecentSearchParams) error {
@@ -293,7 +301,7 @@ func (s *SearchService) ClearRecent(ctx context.Context) error {
 func recentDTO(r dbq.RecentSearch) RecentSearch {
 	out := RecentSearch{
 		Key: r.Key, Kind: r.Kind, Term: r.Term, ItemID: r.ItemID, Name: r.Name, Subtitle: r.Subtitle,
-		Art: r.ArtUrl, SearchedAt: r.SearchedAt,
+		Art: r.ArtUrl, NoPage: r.NoPage != 0, SearchedAt: r.SearchedAt,
 	}
 	if r.Kind == RecentTerm {
 		out.Scope = r.Scope

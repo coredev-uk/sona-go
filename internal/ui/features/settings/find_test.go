@@ -20,7 +20,7 @@ func linuxCaps() services.Capabilities {
 			Crossfade: true, OutputDevice: true, PrivateListening: true, Video: true,
 		},
 		MediaControls: true, Notifications: true, Tray: true, Autostart: true, SleepInhibit: true,
-		PowerState: true, FileChooser: true, CLI: true, DiscordPresence: true, DeveloperTools: true,
+		PowerState: true, FileChooser: true, CLI: true, DiscordPresence: true, DeveloperTools: true, Addons: true,
 		WindowControls: services.WindowControls{Native: "frame", Automatic: "desktop", Style: "auto"},
 	}
 }

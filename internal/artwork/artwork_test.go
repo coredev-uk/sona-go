@@ -1016,3 +1016,30 @@ func TestGeneratedCoverFetchesCachedSizes(t *testing.T) {
 		t.Errorf("fetches = %d, want 3 (64, 256 and 1200)", s.total())
 	}
 }
+
+func TestScavengeArmsOnlyWhenWorkStops(t *testing.T) {
+	s := newImageServer(t)
+	c := newCache(t, s, t.TempDir(), 0)
+	c.acquire("a")
+	c.acquire("a")
+	c.acquire("b")
+	c.mu.Lock()
+	if c.busyKeys != 2 {
+		t.Fatalf("busyKeys = %d with two keys busy, want 2", c.busyKeys)
+	}
+	c.mu.Unlock()
+	c.release("a")
+	c.release("b")
+	c.mu.Lock()
+	if c.busyKeys != 1 || c.scavenger != nil {
+		t.Fatalf("busyKeys = %d, scavenger armed = %v while key a is still busy", c.busyKeys, c.scavenger != nil)
+	}
+	c.mu.Unlock()
+	c.release("a")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.busyKeys != 0 || c.scavenger == nil {
+		t.Fatalf("busyKeys = %d, scavenger armed = %v after the last release", c.busyKeys, c.scavenger != nil)
+	}
+	c.scavenger.Stop()
+}

@@ -326,7 +326,7 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 	}, func(w, s ui.Element) {
 		hot := w.Hovered() || s.FocusWithin()
 		st.cover(c, o, it, size, artH, hot, !w.Hovered() && s.FocusWithin(), withheld)
-		st.titleRow(c, o, it, w.Hovered(), hot, withheld, s.FocusVisible())
+		st.titleRow(c, o, it, w.Hovered() && it.Open != nil, hot, withheld, s.FocusVisible())
 		if it.Subtitle == "" {
 			ui.Box(c).Height(18)
 			return
@@ -342,11 +342,11 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 	if clicked, again := ClickRun(s); clicked {
 		mods := ModsOf(s.ClickModifiers())
 		switch {
-		case mods.Range || mods.Toggle:
-			if selectable {
-				st.Sel.Click(i, mods)
-			}
+		case (mods.Range || mods.Toggle) && selectable:
+			st.Sel.Click(i, mods)
 		case it.Open != nil && !again:
+			// A tile that cannot be selected (no Item) opens on a modified click
+			// as on a plain one: the modifier is never swallowed.
 			it.Open()
 		}
 	}

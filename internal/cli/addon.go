@@ -31,6 +31,7 @@ const (
 	AddonMethodSubscribe   = "subscribe"
 	AddonMethodUnsubscribe = "unsubscribe"
 	AddonMethodCall        = "call"
+	AddonMethodSecret      = "secret"
 	AddonMethodInvoke      = "invoke"
 )
 
@@ -95,23 +96,45 @@ const (
 	TopicNowPlaying = "now-playing"
 	// TopicQueue carries the Queue each time it changes.
 	TopicQueue = "queue"
+	// TopicSettings carries the add-on's own settings rows' values
+	// (SettingsValues) each time one changes. It needs no permission: the
+	// values are the add-on's own.
+	TopicSettings = "settings"
 )
 
 // Topics lists every topic, in documentation order.
-var Topics = []string{TopicStatus, TopicNowPlaying, TopicQueue}
+var Topics = []string{TopicStatus, TopicNowPlaying, TopicQueue, TopicSettings}
 
 var topicPermission = map[string]string{
-	TopicStatus: PermPlaybackRead, TopicNowPlaying: PermPlaybackRead, TopicQueue: PermQueueRead,
+	TopicStatus: PermPlaybackRead, TopicNowPlaying: PermPlaybackRead, TopicQueue: PermQueueRead, TopicSettings: "",
 }
 
-// TopicPermission is the permission a subscription to topic needs; false
-// for a topic that doesn't exist.
+// TopicPermission is the permission a subscription to topic needs ("" for
+// none); false for a topic that doesn't exist.
 func TopicPermission(topic string) (string, bool) {
 	p, ok := topicPermission[topic]
 	return p, ok
 }
 
-// NowPlaying is the payload of TopicNowPlaying.
+// SettingsValues is the payload of TopicSettings: the value of every
+// non-secret settings row the manifest declares, by row ID (a toggle is
+// "true" or "false"; a row the user never set has its default). Secrets are
+// not here: the add-on asks for one with the secret method.
+type SettingsValues struct {
+	Values map[string]string `json:"values"`
+}
+
+// SecretParams is the params of secret, and SecretResult its result.
+type SecretParams struct {
+	// Key is the ID of one of the add-on's own secret rows.
+	Key string `json:"key"`
+}
+
+// SecretResult is what the user saved in the secret row; the method fails
+// with not_found while there is none.
+type SecretResult struct {
+	Value string `json:"value"`
+}
 type NowPlaying struct {
 	// Track is the song that plays; null when none does (nothing is
 	// selected, or the listen is not one an add-on may know of).
@@ -466,9 +489,9 @@ func PublicShareURL(u string) string {
 	return u
 }
 
-// maxToast and maxResultURL bound an InvokeResult's fields.
+// MaxToast and maxResultURL bound an InvokeResult's fields.
 const (
-	maxToast     = 500
+	MaxToast     = 500
 	maxResultURL = 2048
 )
 
@@ -482,16 +505,36 @@ func ParseInvokeResult(raw json.RawMessage) (InvokeResult, bool) {
 			return InvokeResult{}, false
 		}
 	}
-	if len(r.Toast) > maxToast || len(r.URL) > maxResultURL {
+	if len(r.Toast) > MaxToast || len(r.URL) > maxResultURL {
 		return InvokeResult{}, false
 	}
 	if r.URL != "" {
-		p, err := url.Parse(r.URL)
-		if err != nil || (p.Scheme != "http" && p.Scheme != "https") || p.User != nil || p.Hostname() == "" {
+		if _, ok := SafeLink(r.URL); !ok {
 			return InvokeResult{}, false
 		}
 	}
 	return r, true
+}
+
+// SafeLink reports whether raw is a link an add-on may ask Sona to offer:
+// http or https with a host, no user name or password, plain ASCII with no
+// control or space characters, at most 2048 bytes. It returns the link's host
+// (the user is shown where the link goes). It never means the link may be
+// opened unasked: it opens only when the user clicks it.
+func SafeLink(raw string) (host string, ok bool) {
+	if raw == "" || len(raw) > maxResultURL {
+		return "", false
+	}
+	for _, r := range raw {
+		if r <= ' ' || r >= 0x7f {
+			return "", false
+		}
+	}
+	p, err := url.Parse(raw)
+	if err != nil || (p.Scheme != "http" && p.Scheme != "https") || p.User != nil || p.Hostname() == "" {
+		return "", false
+	}
+	return p.Hostname(), true
 }
 
 // forAddon is v, a result or an event payload, as an add-on may see it:

@@ -253,24 +253,28 @@ func TestInteractionArtistLatestRelease(t *testing.T) {
 	})
 }
 
-// With no page for the album the slip is not a link, but it is still a button
-// that takes the focus and the pointer (the disc plays all the same).
+// With no page for the album the slip is plain: not a link, not a button, no
+// tab stop and no underline under the pointer (the disc plays all the same).
 func TestInteractionArtistLatestReleaseWithoutItsAlbumPage(t *testing.T) {
 	const title = "Hail to the Thief (Live Recordings 2003-2009)"
 	r := catalogRig(t, nil)
 	pg := iaPageOf(r)
 	r.shows("Latest release · May 3, 2016")
 	r.tt.Drain()
-	// The slip is built from the route table: no page, no link.
+	// The slip is built from the route table: no page, no control.
 	hasPage := r.h.Env.HasRoute
 	r.h.Env.HasRoute = func(path string) bool { return !strings.HasPrefix(path, "/album/") && hasPage(path) }
 	r.tt.Frame()
-	info, ok := r.tt.Access(title)
-	if !ok || info.Role != ui.RoleButton {
-		t.Errorf("the slip: role %v (found %v), want a button", info.Role, ok)
+	if info, ok := r.tt.Access(title); ok && (info.Role == ui.RoleButton || info.Role == ui.RoleLink) {
+		t.Errorf("the slip: role %v, want no control", info.Role)
 	}
-	// DEPARTS: the slip is a focusable, hoverable, underlined button that does nothing without its page: a control whose cue promises opening.
-	iaWant(t, "the slip", pg.gestures(title, iaTabStop), iaGest{
+	for range 160 {
+		if tr := access.Read(t, r.tt.Tester); tr.Focus != nil && tr.Focus.Label == title {
+			t.Fatalf("Tab reached the slip of an album with no page")
+		}
+		r.tt.Key(0, ui.KeyTab)
+	}
+	iaWant(t, "the slip", pg.gestures(title, iaRow), iaGest{
 		click: "nothing", dbl: "nothing", enter: "nothing", shiftEnter: "nothing", space: "nothing", right: "nothing",
 	})
 }
@@ -317,12 +321,17 @@ func TestInteractionArtistReleaseRows(t *testing.T) {
 			t.Errorf("no %q on the page: %q", disc, r.tt.Texts())
 		}
 	}
-	// DEPARTS: an album in a release list or the discography has no Play control (the latest release's slip, a playlist's tile and an artist's tile on the same page have a disc), so an album plays from here only by opening it first.
+	// A release has the Play disc a tile of the same album has: it plays the
+	// album through the item players and never opens it.
 	for _, album := range []string{"Play Kid A", "Play OK Computer", "Play In Rainbows"} {
-		if r.tt.HasText(album) {
-			t.Errorf("%q: a release has a Play control", album)
+		if !r.tt.HasText(album) {
+			t.Errorf("%q: a release has no Play control", album)
 		}
 	}
+	const play = "item album:kida"
+	iaWant(t, "Kid A's disc", pg.gestures("Play Kid A", iaTabStop), iaGest{
+		click: play, dbl: iaJoin(play, play), enter: play, shiftEnter: "nothing", space: play, right: "nothing",
+	})
 }
 
 // The discography's releases are the same links as the lists': a click opens the

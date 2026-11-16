@@ -304,6 +304,9 @@ type PlayButtonsOpts struct {
 	// PlayLabel is the Play button's whole accessible name when what plays
 	// is not a name ("Play your songs"); it wins over Label.
 	PlayLabel string
+	// ShuffleLabel is the Shuffle button's whole accessible name when what
+	// shuffles is not a name; its visible text stays "Shuffle".
+	ShuffleLabel string
 	// Shuffle offers the Shuffle button; leave it off for a single item
 	// (a song).
 	Shuffle  bool
@@ -332,7 +335,9 @@ func PlayButtons(c *ui.Context, o PlayButtonsOpts) (play, shuffle bool) {
 	}
 	play = btn.Clicked()
 	if o.Shuffle {
-		shuffle = Button(c.Key("shuffle"), i18n.T("Shuffle"), ButtonOpts{Variant: Outline, Size: SizeSM, Icon: "shuffle", Disabled: o.Disabled}).Clicked()
+		shuffle = Button(c.Key("shuffle"), i18n.T("Shuffle"), ButtonOpts{
+			Variant: Outline, Size: SizeSM, Icon: "shuffle", Disabled: o.Disabled, A11yLabel: o.ShuffleLabel,
+		}).Clicked()
 	}
 	return play, shuffle
 }

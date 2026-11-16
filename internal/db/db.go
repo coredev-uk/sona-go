@@ -123,6 +123,7 @@ func (d *DB) Tx(ctx context.Context, fn func(q *dbq.Queries) error) error {
 
 const wipeUserData = `
 DELETE FROM library_items;
+DELETE FROM library_music_videos;
 DELETE FROM playlist_tracks;
 DELETE FROM playlists WHERE library_id IS NOT NULL;
 DELETE FROM tracks WHERE library_id IS NOT NULL;
@@ -144,7 +145,7 @@ DELETE FROM discover_cache WHERE personal = 1;
 `
 
 // WipeUserData deletes everything tied to the signed-in user (library rows
-// and membership, playlists, history, ratings, pins, sync checkpoints, the
+// and membership, music videos, playlists, history, ratings, pins, sync checkpoints, the
 // account row, the search index, recent searches, release reminders and the artist tracker's state)
 // for sign-out. Catalog rows and the catalog response cache are storefront
 // data, not user data, and are kept.
@@ -167,6 +168,7 @@ SELECT artwork_template FROM playlists WHERE library_id IS NOT NULL
 UNION SELECT artwork_template FROM tracks WHERE library_id IS NOT NULL
 UNION SELECT artwork_template FROM albums WHERE library_id IS NOT NULL
 UNION SELECT artwork_template FROM artists WHERE library_id IS NOT NULL
+UNION SELECT artwork_template FROM library_music_videos
 UNION SELECT artwork_template FROM pins
 UNION SELECT artwork_template FROM playback_history
 UNION SELECT art_url FROM recent_searches

@@ -31,6 +31,11 @@ msgstr ""
 msgid "%s / %s"
 msgstr ""
 
+#: internal/cli/messages.go
+#, go-format
+msgid "%s ended: %s."
+msgstr ""
+
 #. a song, then its artist
 #: internal/cli/messages.go
 #, go-format
@@ -86,6 +91,11 @@ msgstr ""
 #: internal/cli/messages.go
 #, go-format
 msgid "%s: missing %s"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "%s: the folder must be a path (for example ./my-addon)"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -331,6 +341,15 @@ msgid "Resumes playback, or starts the queue Sona saved when it last quit. Print
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "Run an add-on from a folder while you build it"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "Running %s (%s) from %s. Press Ctrl+C to stop."
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "Search Apple Music"
 msgstr ""
 
@@ -442,6 +461,11 @@ msgstr ""
 msgid "Status bars"
 msgstr ""
 
+#: internal/cli/messages.go
+#, go-format
+msgid "Stopped %s."
+msgstr ""
+
 #. a manual page's section, shown in capitals
 #: internal/cli/messages.go
 msgid "Synopsis"
@@ -453,6 +477,10 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "Without a value, shows the volume. A number from 0 to 100 sets it; +N or -N changes it by N."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "`sona addons dev <folder>` runs the add-on in a folder without installing it and prints its log until you press Ctrl+C. Sona asks you to confirm in its window, naming the folder and the permissions its manifest asks for; nothing is saved and the permissions end with the run. The add-on's ID can't be one you have installed, it gets none of your saved secrets, and the folder must be yours and not writable by others. It needs Linux for now."
 msgstr ""
 
 #: internal/cli/messages.go
@@ -499,6 +527,10 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "control the running Sona from the command line"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "dev, then the add-on's folder"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -748,6 +780,10 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "yes"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "you didn't confirm it in Sona's window"
 msgstr ""
 
 #: internal/cli/messages.go

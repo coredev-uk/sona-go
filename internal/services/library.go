@@ -225,9 +225,22 @@ func (s *LibraryService) FavoriteSongs(ctx context.Context, offset, limit int) (
 	return SongPage{Items: mapSlice(songs, s.m.libSong), Total: total}, nil
 }
 
-// MusicVideos lists the library's music videos from Apple (up to 100 per
-// page; needs sign-in and the network).
+// MusicVideos lists the library's music videos, in Apple's order: from the
+// synced copy, so with no connection too. Before the first sync of them has
+// completed there is no copy to read, and the list comes from Apple (up to
+// 100 per page; needs sign-in and the network).
 func (s *LibraryService) MusicVideos(ctx context.Context, offset, limit int) (MusicVideoPage, error) {
+	synced, err := s.o.Library.MusicVideosSynced(ctx)
+	if err != nil {
+		return MusicVideoPage{}, err
+	}
+	if synced {
+		rows, total, err := s.o.Library.MusicVideos(ctx, library.ListOptions{Offset: offset, Limit: limit})
+		if err != nil {
+			return MusicVideoPage{}, err
+		}
+		return MusicVideoPage{Items: mapSlice(rows, s.m.libMusicVideo), Total: total}, nil
+	}
 	page, err := s.o.API.LibraryMusicVideos(ctx, limit, offset)
 	if err != nil {
 		return MusicVideoPage{}, s.o.Fail(err)
@@ -326,13 +339,12 @@ func (s *LibraryService) recentlyPlayedAll(ctx context.Context) ([]applemusic.So
 	return out, nil
 }
 
-// addDomains are the library domains an add changes, by catalog type
-// (music videos are not stored locally).
+// addDomains are the library domains an add changes, by catalog type.
 var addDomains = map[string][]library.Domain{
 	applemusic.TypeSongs:       {library.DomainAlbums, library.DomainSongs, library.DomainRatings},
 	applemusic.TypeAlbums:      {library.DomainAlbums, library.DomainSongs, library.DomainRatings},
 	applemusic.TypePlaylists:   {library.DomainPlaylists, library.DomainPlaylistTracks},
-	applemusic.TypeMusicVideos: {},
+	applemusic.TypeMusicVideos: {library.DomainMusicVideos},
 }
 
 // Add adds catalog items of type typ ("songs", "albums", "playlists" or

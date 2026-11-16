@@ -70,6 +70,9 @@ Extend `internal/cli`:
   - add-on strings come from the manifest (English fallback), outside the generated `.po` catalogues.
 - **Settings → Add-ons:** each add-on with its permissions, an on/off switch, its log and its problems, plus "Open add-ons folder".
 - **`sona addons dev <dir>`:** runs an add-on from a folder without installing it and streams its log.
+- **Beyond this plan, decided in the PR for #300:**
+  - the protocol gained a `settings` topic and a `secret` method, so an add-on can read its rows' values and its secrets (stored under `addon.<id>`);
+  - `sona addons dev` is a client of the running Sona (`addons dev`, with `dev-log` and `dev-stop` as the client's own requests): Sona asks in its window, runs the add-on from the checked file and keeps the log; it is Linux only until the other platforms can run the checked file.
 - **Acceptance:**
   - `ui.Tester` tests for the page and its a11y tree;
   - an item action from a test add-on shows in the album menu, invokes the add-on and shows its answer as a toast;
@@ -96,6 +99,52 @@ They ship bundled, enabled by default, and signed by Sona.
   - the scrobble queue tests still pass;
   - Settings → Connections still drives them;
   - no behaviour visible to the user changes.
+
+#### Threat-model requirements (from #362)
+
+- **One private filter.** A single host-side filter replaces both existing checks (`services/integrations.go`, `scrobble/track.go`). The old tests move with it. The retry queue stores only listens that passed it.
+- **Bundled add-ons load only from the read-only install.** Never from `<config>`. Reserved IDs (`lastfm`, `listenbrainz`, `discord`) keep a user-folder copy from claiming them.
+- **Any signature uses a new Ed25519 key.** Never `SONA_UPDATE_KEY`. It has a domain-separation string, is signed only in `release.yml` under `environment: release`, and its public key is pinned in the binary.
+- **F4's tests still pass for Discord.** The Discord socket is the only sandbox exception under #304.
+- **Secrets migrate atomically** from `lastfm` and the others to `addon.<id>`, and the old entry is removed. Build credentials go over the channel, not the environment (F10).
+
+#### What the code does today
+
+| Part | Where | Notes |
+| --- | --- | --- |
+| Listen pipeline | `scrobble.Scrobbler`, `Tracker`, `queue` | Threshold, private check, persistent queue (`scrobble-queue.json`), backoff. Providers implement `scrobble.Provider`. |
+| Last.fm, ListenBrainz | `scrobble/lastfm.go`, `listenbrainz.go` | HTTP clients in Sona's process. Sign-in secrets are keyring items `lastfm` and `listenbrainz`. |
+| Connect flows | `services/scrobble.go` | Last.fm's browser approval, the ListenBrainz token check, disconnect. |
+| Discord presence | `services/integrations.go`, `discord/` | Plans the activity, speaks Discord's IPC (F4's checks). The application ID is compiled in. |
+| Private check | `Mode.Since` | Called from three places: the tracker, the presence plan and the add-on host (#298). |
+
+#### Proposed design (needs the maintainer's decision, see below)
+
+1. **The host keeps the pipeline.** The tracker, the filter, the queue and the backoff stay in Sona. A proxy implements `scrobble.Provider` and sends `scrobble.now-playing` and `scrobble.submit` to the add-on (a host-to-add-on request, like `invoke`). The add-on only does the HTTP. The queue tests keep passing as they are.
+2. **One filter.** One function says whether a listen may be seen (a preview, or `Mode.Since(start)`). The tracker, the presence plan and the add-on host all call it. The tests of the three checks move to it.
+3. **Bundled add-ons are Sona's own executable.** They are registered in code with embedded manifests. Their command is `os.Executable()` with `--addon <id>`. Nothing is read from `<config>`, and the code is the signed release itself.
+4. **Secrets.** A bundled add-on reads its sign-in with the `secret` method. A one-time step copies the old keyring item to `addon.<id>`, checks it, then removes the old one. A crash between the steps leaves both, and the next start finishes.
+5. **Build credentials** (Last.fm key and secret, Discord application ID) are in the `hello` answer to bundled add-ons only. They never reach the environment or the log.
+6. **Settings → Connections is unchanged.** `ScrobbleService` keeps its methods. It asks the add-on for the account and the connection's state (`scrobble.status`), and stores the sign-in under `addon.<id>`.
+7. **Discord** subscribes to `now-playing` and `status`, which are already private-aware, and speaks IPC with F4's checks. It is the one add-on that needs the sandbox exception under #304.
+
+#### Decisions needed
+
+| Decision | Options | Recommendation |
+| --- | --- | --- |
+| How bundled add-ons are signed | (a) They are the signed Sona executable. (b) Separate binaries with their own Ed25519 signature: a new key, a release secret and a pinned public key. | (a). It needs no new key, and the release already signs the executable. |
+| Where the HTTP runs | (a) In the add-on. (b) In Sona, with the add-on only holding the secret. | (a). It is what moving onto the API means. |
+| Discord's sandbox exception | Allow it for the `discord` add-on only, or keep Discord in Sona. | Keep Discord in Sona until #304 lands. Move Last.fm and ListenBrainz first. |
+| The host-to-add-on request shape | `scrobble.*` requests, or a general `host.call` with a name. | `scrobble.*`. A general call is a new attack surface. |
+
+#### Order of work
+
+1. The single filter, with the old tests ported. No user-visible change.
+2. Bundled registry: embedded manifests, reserved IDs, the self-exec entry point, enabled by default.
+3. Secrets migration, with the crash test.
+4. ListenBrainz on the proxy. It is the smaller client.
+5. Last.fm on the proxy, with its connect flow.
+6. Discord, once #304 settles the exception.
 
 ### 6. WASM host (#303)
 - Same protocol through `wazero` host functions; the manifest's `runtime: "wasm"` picks it.

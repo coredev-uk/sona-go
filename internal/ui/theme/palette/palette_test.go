@@ -90,22 +90,25 @@ func TestEveryPairIsReadable(t *testing.T) {
 				}
 				tk := Of(th)
 				ac := a.Accent
-				atLeast(t, "glyph on fill", Contrast(ac.OnFill, ac.Fill), TextContrast)
-				floor := float64(UIContrast)
-				if th == Light {
-					floor = coverAccentFloorLight
+				atLeast(t, "glyph on disc", Contrast(ac.OnFill, ac.Fill), TextContrast)
+				atLeast(t, "glyph on mark", Contrast(ac.OnMark, ac.Mark), TextContrast)
+				// The mark sits on the ground, in both themes.
+				atLeast(t, "mark on ground", Contrast(ac.Mark, tk.Ground), UIContrast-1e-9)
+				if ac.Fill != tk.Amber {
+					atLeast(t, "beside-layout disc on ground", Contrast(ac.Fill, tk.Ground), UIContrast-1e-9)
 				}
-				atLeast(t, "fill on ground", Contrast(ac.Fill, tk.Ground), floor-1e-9)
 				for _, bg := range PageBackgrounds(th) {
 					atLeast(t, "accent ink on "+bg, Contrast(ac.Ink, bg), TextContrast)
 				}
-				// In the narrow layout the play control sits on the sleeve.
+				// In the narrow layout the disc sits on the sleeve.
 				n, _ := ForAlbum(cover, nil, th, true)
 				narrow := n.Accent
-				atLeast(t, "narrow glyph on fill", Contrast(narrow.OnFill, narrow.Fill), TextContrast)
+				atLeast(t, "narrow glyph on disc", Contrast(narrow.OnFill, narrow.Fill), TextContrast)
 				if narrow.Fill != tk.Amber {
-					atLeast(t, "narrow fill on sleeve", Contrast(narrow.Fill, s.Surface), floor-1e-9)
-					atLeast(t, "narrow fill on ground", Contrast(narrow.Fill, tk.Ground), floor-1e-9)
+					atLeast(t, "narrow disc on sleeve", Contrast(narrow.Fill, s.Surface), UIContrast-1e-9)
+					if th == Dark {
+						atLeast(t, "narrow disc on ground", Contrast(narrow.Fill, tk.Ground), UIContrast-1e-9)
+					}
 				}
 			})
 		}
@@ -188,9 +191,20 @@ func TestEveryPairIsReadableForEveryCoverColourOnA6LevelGrid(t *testing.T) {
 				}
 			}
 			if ac := a.Accent; ac != nil {
-				if Contrast(ac.OnFill, ac.Fill) < TextContrast {
+				if Contrast(ac.OnFill, ac.Fill) < TextContrast || Contrast(ac.OnMark, ac.Mark) < TextContrast {
 					failures++
-					t.Errorf("%s %s: glyph %s on %s", bg, name(th), ac.OnFill, ac.Fill)
+					t.Errorf("%s %s: glyph %s on %s, %s on %s", bg, name(th), ac.OnFill, ac.Fill, ac.OnMark, ac.Mark)
+				}
+				n, _ := ForAlbum(apple(bg, text...), []string{grid[(i*5)%len(grid)]}, th, true)
+				if na := n.Accent; na != nil {
+					if Contrast(na.Fill, n.Sleeve.Surface) < UIContrast-1e-9 && na.Fill != Of(th).Amber {
+						failures++
+						t.Errorf("%s %s: disc %s on sleeve %s", bg, name(th), na.Fill, n.Sleeve.Surface)
+					}
+					if Contrast(na.Mark, Of(th).Ground) < UIContrast-1e-9 && na.Mark != Of(th).Amber {
+						failures++
+						t.Errorf("%s %s: mark %s on ground", bg, name(th), na.Mark)
+					}
 				}
 				for _, b := range PageBackgrounds(th) {
 					if Contrast(ac.Ink, b) < TextContrast {
@@ -287,7 +301,7 @@ func TestOverridesDeclareTheRolesBuiltOnTheSleeve(t *testing.T) {
 		t.Error("a greyscale sleeve overrides amber's ink")
 	}
 	acc := a.Accent.Overrides()
-	if acc["amber"] != ui.Hex(a.Accent.Fill) || acc["play"] != acc["amber"] || acc["on-play"] != ui.Hex(a.Accent.OnFill) {
+	if acc["amber"] != ui.Hex(a.Accent.Mark) || acc["play"] != ui.Hex(a.Accent.Fill) || acc["on-amber"] != ui.Hex(a.Accent.OnMark) || acc["on-play"] != ui.Hex(a.Accent.OnFill) {
 		t.Errorf("accent overrides: %v", acc)
 	}
 }
@@ -318,5 +332,25 @@ func TestOfReadsTheCurrentTheme(t *testing.T) {
 	}
 	if bgs := PageBackgrounds(Light); bgs[0] != "#fafafa" {
 		t.Errorf("page backgrounds = %v", bgs)
+	}
+}
+
+// On a light album page the cover's colour reaches both roles: no saturated
+// cover, dark sleeve or light, falls back to amber for the disc on its sleeve
+// or the mark on the ground.
+func TestLightCoversKeepTheirColourAtThreeToOne(t *testing.T) {
+	tk := Of(Light)
+	for _, bg := range []string{"#ff0000", "#00ff00", "#0000ff", "#ffff00", "#00ffff", "#ff00ff", "#8a1c1c", "#1c3d8a", "#2f6b2f", "#d9a300", "#5b2a86", "#e86a92"} {
+		a, ok := ForAlbum(apple(bg), nil, Light, true)
+		if !ok || a.Accent == nil {
+			t.Fatalf("%s: no accent", bg)
+		}
+		ac := a.Accent
+		if ac.Fill == tk.Amber || ac.Mark == tk.Amber {
+			t.Errorf("%s: fell back to amber (disc %s, mark %s)", bg, ac.Fill, ac.Mark)
+		}
+		atLeast(t, bg+" disc on sleeve", Contrast(ac.Fill, a.Sleeve.Surface), UIContrast-1e-9)
+		atLeast(t, bg+" mark on ground", Contrast(ac.Mark, tk.Ground), UIContrast-1e-9)
+		atLeast(t, bg+" glyph on disc", Contrast(ac.OnFill, ac.Fill), TextContrast)
 	}
 }

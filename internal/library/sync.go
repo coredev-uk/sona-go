@@ -30,7 +30,9 @@ import (
 type Domain string
 
 // Sync domains, in the order Sync runs them. Ratings and playlist tracks
-// depend on the songs, albums and playlists domains having run.
+// depend on the songs, albums and playlists domains having run. Music videos
+// depend on none and are always read whole (a library rarely holds more than
+// a page of them).
 const (
 	DomainArtists        Domain = "artists"
 	DomainAlbums         Domain = "albums"
@@ -38,10 +40,11 @@ const (
 	DomainPlaylists      Domain = "playlists"
 	DomainPlaylistTracks Domain = "playlist-tracks"
 	DomainRatings        Domain = "ratings"
+	DomainMusicVideos    Domain = "music-videos"
 )
 
 // AllDomains lists every domain in dependency order.
-var AllDomains = []Domain{DomainArtists, DomainAlbums, DomainSongs, DomainPlaylists, DomainPlaylistTracks, DomainRatings}
+var AllDomains = []Domain{DomainArtists, DomainAlbums, DomainSongs, DomainPlaylists, DomainPlaylistTracks, DomainRatings, DomainMusicVideos}
 
 // ErrSyncRunning is returned by Sync while another sync is in progress.
 var ErrSyncRunning = errors.New("library: sync already running")
@@ -230,7 +233,7 @@ func (s *Syncer) Sync(ctx context.Context, mode Mode, progress func(Progress), d
 // small requests per domain, so the independent ones overlap.
 func stages(mode Mode) [][]Domain {
 	if mode == Incremental {
-		return [][]Domain{{DomainArtists, DomainAlbums, DomainSongs, DomainPlaylists}, {DomainPlaylistTracks}, {DomainRatings}}
+		return [][]Domain{{DomainArtists, DomainAlbums, DomainSongs, DomainPlaylists, DomainMusicVideos}, {DomainPlaylistTracks}, {DomainRatings}}
 	}
 	out := make([][]Domain, len(AllDomains))
 	for i, d := range AllDomains {
@@ -241,10 +244,15 @@ func stages(mode Mode) [][]Domain {
 
 // fullDue reports whether an incremental sync of domains must run fully: a
 // domain never completed a full run, has an interrupted run, or last ran
-// fully more than FullSyncEvery ago.
+// fully more than FullSyncEvery ago. Music videos are left out: they are
+// always read whole, so they never make the other domains run fully (a
+// library synced before they were stored would otherwise be fetched again).
 func (s *Syncer) fullDue(ctx context.Context, domains []Domain) (bool, error) {
 	now := db.Millis(s.now())
 	for _, d := range domains {
+		if d == DomainMusicVideos {
+			continue
+		}
 		st, err := s.db.Q.GetSyncState(ctx, string(d))
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -325,6 +333,9 @@ func (s *Syncer) syncDomain(ctx context.Context, d Domain, mode Mode, progress f
 		return total, false, err
 	case DomainRatings:
 		total, err = s.syncRatings(ctx, mode, progress)
+		return total, false, err
+	case DomainMusicVideos:
+		total, err = s.syncMusicVideos(ctx, progress)
 		return total, false, err
 	case DomainArtists, DomainAlbums, DomainSongs:
 		if mode == Incremental {
@@ -719,6 +730,63 @@ func (s *Syncer) syncAll(ctx context.Context, d Domain, mode Mode, progress func
 		return 0, false, err
 	}
 	return total, true, s.finish(ctx, d, kind, gen, total, mode == Full)
+}
+
+// syncMusicVideos copies the library's music videos, in Apple's order, with a
+// resumable checkpoint, and removes the ones Apple no longer lists. Every run
+// is whole (the list is short and Apple cannot list it by date), so it counts
+// as full.
+func (s *Syncer) syncMusicVideos(ctx context.Context, progress func(Progress)) (int, error) {
+	d := DomainMusicVideos
+	gen, start, err := s.begin(ctx, d)
+	if err != nil {
+		return 0, err
+	}
+	total := 0
+	opt := applemusic.PageOptions{Start: start, Parallel: s.parallel, OnTotal: func(n int) { total = n }}
+	_, err = s.api.LibraryMusicVideosWalk(ctx, opt, func(offset int, items []applemusic.MusicVideo) error {
+		err := s.db.Tx(ctx, func(q *dbq.Queries) error {
+			now := db.Millis(s.now())
+			for i, it := range items {
+				if err := q.UpsertLibraryMusicVideo(ctx, libraryMusicVideoParams(it, int64(offset+i), gen, now)); err != nil {
+					return fmt.Errorf("music video %s: %w", it.ID, err)
+				}
+			}
+			return q.CheckpointSync(ctx, dbq.CheckpointSyncParams{NextOffset: int64(offset + len(items)), Total: int64(total), Domain: string(d)})
+		})
+		if err == nil {
+			progress(Progress{Domain: d, Done: min(offset+len(items), total), Total: total})
+		}
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+	err = s.db.Tx(ctx, func(q *dbq.Queries) error {
+		n, err := q.DeleteStaleLibraryMusicVideos(ctx, gen)
+		if err != nil {
+			return err
+		}
+		if n > 0 {
+			s.log.Info("library sync removed items", "domain", d, "removed", n)
+		}
+		return s.finishSync(ctx, q, d, total, true)
+	})
+	return total, err
+}
+
+func libraryMusicVideoParams(it applemusic.MusicVideo, position, gen, now int64) dbq.UpsertLibraryMusicVideoParams {
+	a := it.Attributes
+	p := dbq.UpsertLibraryMusicVideoParams{
+		LibraryID: it.ID, CatalogID: it.CatalogID(), Name: a.Name, ArtistName: a.ArtistName, AlbumName: a.AlbumName,
+		DurationMs: a.DurationInMillis, ReleaseDate: a.ReleaseDate, Genre: cmp.Or(a.GenreNames...),
+		Explicit: db.Bool(a.ContentRating == "explicit"), Has4k: db.Bool(a.Has4K), HasHdr: db.Bool(a.HasHDR), Url: a.URL,
+		Position: position, Generation: gen, UpdatedAt: now,
+	}
+	if a.Artwork != nil {
+		p.ArtworkTemplate, p.ArtworkWidth, p.ArtworkHeight = a.Artwork.URL, int64(a.Artwork.Width), int64(a.Artwork.Height)
+	}
+	return p
 }
 
 // syncPlaylists is the incremental run of the playlists domain. Apple

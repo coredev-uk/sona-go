@@ -68,8 +68,7 @@ func playlistSubtitle(p *services.Playlist) string {
 }
 
 // playlistTile is CoverTile of a library playlist: its page when one exists
-// and the playlist as the tile's menu target. As in v0.2.0 it has no play
-// control: a playlist plays from its page.
+// and the playlist as the tile's menu target, with a play disc.
 func (l *library) playlistTile() func(p *services.Playlist) kit.CoverItem {
 	return func(p *services.Playlist) kit.CoverItem {
 		item := kit.PlaylistItem(*p)
@@ -81,6 +80,7 @@ func (l *library) playlistTile() func(p *services.Playlist) kit.CoverItem {
 			Item:     &item,
 		}
 		l.openTo(&tile, "/playlist/"+p.ID)
+		tile.Play = l.env.Players.CoverPlayOf(services.Item{Kind: services.ItemPlaylist, ID: p.ID, Name: p.Name, Playlist: p})
 		return tile
 	}
 }

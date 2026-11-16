@@ -31,6 +31,9 @@ type settings struct {
 	integrations integrationsAPI
 	cdm          cdmAPI
 	updates      updatesAPI
+	// addons is AddonsService, set where the feature is built; nil in a
+	// test that has none (the section then has nothing to ask).
+	addons addonsAPI
 	// clock is time.Now; tests move it.
 	clock func() time.Time
 
@@ -74,6 +77,7 @@ func New(env *module.Env) module.Module {
 		services.Service[services.IntegrationsService](env.Core),
 		services.Service[services.CDMService](env.Core),
 		services.Service[services.UpdatesService](env.Core))
+	s.addons = services.Service[services.AddonsService](env.Core)
 	return module.Module{
 		ID: "settings",
 		Routes: []module.Route{{
@@ -125,6 +129,10 @@ func (s *settings) init() {
 	})
 	store.On(s.env.Bus, services.EventScrobbleChanged, func(v services.ScrobbleStatus) {
 		store.Set(q, keyScrobble, v)
+	})
+	store.On(s.env.Bus, services.EventAddonsChanged, func(v []services.AddonInfo) {
+		store.Set(q, keyAddons, v)
+		q.Invalidate(keyAddonRows)
 	})
 	store.On(s.env.Bus, services.EventAppleLanguages, func(services.AppleLanguages) {
 		q.Invalidate(store.Key{"translations", "languages"})

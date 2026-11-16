@@ -581,9 +581,9 @@ func TestInteractionCoverTilesSelectOnlyWithModifiersAndKeys(t *testing.T) {
 	})
 }
 
-// A tile's title underlines under the pointer, and nothing else tells a tile
-// that opens from one that does nothing.
-func TestInteractionCoverTitlesUnderlineUnderThePointerWhetherOrNotTheTileOpens(t *testing.T) {
+// A tile's title underlines under the pointer when the tile opens, and not
+// when its page is not routed.
+func TestInteractionCoverTitlesUnderlineUnderThePointerOnlyWhenTheTileOpens(t *testing.T) {
 	kinds := iaKinds()
 	for _, k := range kinds {
 		if !iaUnderlined(t, iaCoverShelf(k.item, k.cover, "", nil)) {
@@ -591,9 +591,10 @@ func TestInteractionCoverTitlesUnderlineUnderThePointerWhetherOrNotTheTileOpens(
 		}
 	}
 	song := kinds[0]
-	// DEPARTS: a tile whose page is not routed has no Open and is a plain group, yet its title underlines under the pointer like a link.
-	if !iaUnderlined(t, iaCoverShelf(song.item, song.cover, "", iaNoRoute)) {
-		t.Errorf("a tile with no route is not underlined")
+	// A tile whose page is not routed has no Open and is a plain group: its
+	// title does not promise a link.
+	if iaUnderlined(t, iaCoverShelf(song.item, song.cover, "", iaNoRoute)) {
+		t.Errorf("a tile with no route is underlined under the pointer")
 	}
 }
 
@@ -678,8 +679,8 @@ func TestInteractionCoverShelfTilesFollowTheirOpenPlayAndPlaysOnOpen(t *testing.
 		{"Ctrl+click it", click("s2", ui.Cmd), "opened=[] played=[] sel=1"},
 		{"click a tile that plays on open", click("s3", 0), "opened=[] played=[c] sel=1"},
 		{"Enter on it", key("Plays Play", ui.KeyEnter), "opened=[] played=[c] sel=1"},
-		// DEPARTS: a modifier-click on a tile without an item is swallowed: it neither selects nor opens.
-		{"Ctrl+click a tile without an item", func() string { st.Row.Sel.Reset(); return click("s4", ui.Cmd) }(), "opened=[] played=[] sel=0"},
+		// A tile without an item cannot be selected: a modified click opens it.
+		{"Ctrl+click a tile without an item", func() string { st.Row.Sel.Reset(); return click("s4", ui.Cmd) }(), "opened=[d] played=[] sel=0"},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s: got %q, want %q", c.what, c.got, c.want)
@@ -704,7 +705,8 @@ func TestInteractionTrackShelfArtistLinkOpensTheArtistAndTheRowStaysQuiet(t *tes
 	}{
 		{"click the artist", func() { tt.ClickAt(x, y) }, "nav=/artist/ar1 opened=artist:ar1"},
 		{"double-click the artist", func() { tt.ClickAt(x, y); tt.ClickAt(x, y) }, "nav=/artist/ar1 opened=artist:ar1"},
-		{"Shift+click the artist", func() { tt.ClickAtWith(ui.Shift, x, y) }, "nav=/artist/ar1 opened=artist:ar1"},
+		// The shelf selects its rows, so a modified click on the artist selects the row and opens nothing.
+		{"Shift+click the artist", func() { tt.ClickAtWith(ui.Shift, x, y) }, "nothing"},
 	} {
 		iaReset(a.rec)
 		c.do()
@@ -761,7 +763,7 @@ var iaCoverWant = map[string]iaRow{
 	},
 	"artist": {
 		role: "link",
-		// DEPARTS: no Play control for this kind while song, album, playlist, station and music video tiles have one: no player is registered for it (features/discover/players.go registerPlayers), so ItemPlayers.CanPlay is false; fix: register an artist/curator player or leave it out of the rule.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play:       "none",
 		more:       "button",
 		menu:       "opens",
@@ -832,7 +834,7 @@ var iaCoverWant = map[string]iaRow{
 	},
 	"curator": {
 		role: "link",
-		// DEPARTS: no Play control for this kind while song, album, playlist, station and music video tiles have one: no player is registered for it (features/discover/players.go registerPlayers), so ItemPlayers.CanPlay is false; fix: register an artist/curator player or leave it out of the rule.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play:       "none",
 		more:       "none",
 		menu:       "none",
@@ -841,9 +843,8 @@ var iaCoverWant = map[string]iaRow{
 		enter:      "nav=/curator/cu1 opened=curator:cu1",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click on a tile with no Item (curator, room, web link) is swallowed: it neither selects nor opens, while it selects an album tile and opens a WideRow card or LinkList tile (collections_cover.go:323-331: only a tile with an Item takes a modified click).
-		shiftClick: "nothing",
-		ctrlClick:  "nothing",
+		shiftClick: "nav=/curator/cu1 opened=curator:cu1",
+		ctrlClick:  "nav=/curator/cu1 opened=curator:cu1",
 		playDisc:   "no control",
 	},
 	"upcoming album": {
@@ -870,9 +871,8 @@ var iaCoverWant = map[string]iaRow{
 		enter:      "opened=link: urls=https://example.com/c",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click on a tile with no Item (curator, room, web link) is swallowed: it neither selects nor opens, while it selects an album tile and opens a WideRow card or LinkList tile (collections_cover.go:323-331: only a tile with an Item takes a modified click).
-		shiftClick: "nothing",
-		ctrlClick:  "nothing",
+		shiftClick: "opened=link: urls=https://example.com/c",
+		ctrlClick:  "opened=link: urls=https://example.com/c",
 		playDisc:   "no control",
 	},
 	"room": {
@@ -885,17 +885,15 @@ var iaCoverWant = map[string]iaRow{
 		enter:      "nav=/room/r1 opened=room:r1",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click on a tile with no Item (curator, room, web link) is swallowed: it neither selects nor opens, while it selects an album tile and opens a WideRow card or LinkList tile (collections_cover.go:323-331: only a tile with an Item takes a modified click).
-		shiftClick: "nothing",
-		ctrlClick:  "nothing",
+		shiftClick: "nav=/room/r1 opened=room:r1",
+		ctrlClick:  "nav=/room/r1 opened=room:r1",
 		playDisc:   "no control",
 	},
 	"song without a route": {
-		role: "group",
-		play: "disc",
-		more: "button",
-		menu: "opens",
-		// DEPARTS: with no route for its page the tile still looks like a link (title underlines on hover, focusable) but a click and Enter do nothing and it is a plain group; its Play disc stays (collections_items_cover.go:118-123: no Open when HasRoute says no).
+		role:       "group",
+		play:       "disc",
+		more:       "button",
+		menu:       "opens",
 		click:      "nothing",
 		double:     "nothing",
 		enter:      "nothing",
@@ -933,7 +931,7 @@ var iaWideWant = map[string]iaRow{
 		enter:      "nav=/album/1 opened=album:1",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click opens the card (modifiers are ignored); on a cover tile it selects instead (collections_items_widerow.go card.Clicked).
+		// A card (tile) that cannot be selected opens on a modified click as on a plain one.
 		shiftClick: "nav=/album/1 opened=album:1",
 		ctrlClick:  "nav=/album/1 opened=album:1",
 		playDisc:   "played=album:1",
@@ -954,7 +952,7 @@ var iaWideWant = map[string]iaRow{
 	},
 	"artist": {
 		role: "link",
-		// DEPARTS: no Play control for this kind while song, album, playlist, station and music video tiles have one: no player is registered for it (features/discover/players.go registerPlayers), so ItemPlayers.CanPlay is false; fix: register an artist/curator player or leave it out of the rule.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play:       "none",
 		more:       "button",
 		menu:       "opens",
@@ -1025,7 +1023,7 @@ var iaWideWant = map[string]iaRow{
 	},
 	"curator": {
 		role: "link",
-		// DEPARTS: no Play control for this kind while song, album, playlist, station and music video tiles have one: no player is registered for it (features/discover/players.go registerPlayers), so ItemPlayers.CanPlay is false; fix: register an artist/curator player or leave it out of the rule.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play:       "none",
 		more:       "none",
 		menu:       "none",
@@ -1081,18 +1079,17 @@ var iaWideWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"song without a route": {
-		role: "link",
-		play: "disc",
-		more: "button",
-		menu: "opens",
-		// DEPARTS: WideRow ignores ItemsCtx.HasRoute: a card whose page is not routed still navigates to it (the start page, in the app) where the cover tile builds without Open (collections_items_widerow.go:235-238 card.Clicked, ctx.nav(link)).
-		click:      "nav=/song/1 opened=song:1",
-		double:     "nav=/song/1 opened=song:1",
-		enter:      "nav=/song/1 opened=song:1",
-		shiftEnter: "nothing",
-		space:      "nothing",
-		shiftClick: "nav=/song/1 opened=song:1",
-		ctrlClick:  "nav=/song/1 opened=song:1",
+		role:       "group",
+		play:       "disc",
+		more:       "button",
+		menu:       "opens",
+		click:      "nothing",
+		double:     "nothing",
+		enter:      "not focusable",
+		shiftEnter: "not focusable",
+		space:      "not focusable",
+		shiftClick: "nothing",
+		ctrlClick:  "nothing",
 		playDisc:   "played=song:1",
 	},
 }
@@ -1123,7 +1120,7 @@ var iaLinkWant = map[string]iaRow{
 		enter:      "nav=/album/1 opened=album:1",
 		shiftEnter: "nothing",
 		space:      "nothing",
-		// DEPARTS: a Shift/Ctrl+click opens the tile (modifiers are ignored); a cover tile selects.
+		// A card (tile) that cannot be selected opens on a modified click as on a plain one.
 		shiftClick: "nav=/album/1 opened=album:1",
 		ctrlClick:  "nav=/album/1 opened=album:1",
 		playDisc:   "no control",
@@ -1270,18 +1267,17 @@ var iaLinkWant = map[string]iaRow{
 		playDisc:   "no control",
 	},
 	"room without a route": {
-		role: "link",
-		play: "none",
-		more: "none",
-		menu: "none",
-		// DEPARTS: LinkList ignores ItemsCtx.HasRoute: a link to a page that is not routed navigates to it (the start page, in the app); cover tiles build without Open (collections_items_linklist.go:104-109).
-		click:      "nav=/room/r1 opened=room:r1",
-		double:     "nav=/room/r1 opened=room:r1",
-		enter:      "nav=/room/r1 opened=room:r1",
-		shiftEnter: "nothing",
-		space:      "nothing",
-		shiftClick: "nav=/room/r1 opened=room:r1",
-		ctrlClick:  "nav=/room/r1 opened=room:r1",
+		role:       "list item",
+		play:       "none",
+		more:       "none",
+		menu:       "none",
+		click:      "nothing",
+		double:     "nothing",
+		enter:      "not focusable",
+		shiftEnter: "not focusable",
+		space:      "not focusable",
+		shiftClick: "nothing",
+		ctrlClick:  "nothing",
 		playDisc:   "no control",
 	},
 }
