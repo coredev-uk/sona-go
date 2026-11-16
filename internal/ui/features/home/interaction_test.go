@@ -480,8 +480,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /artist/ar1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			play: "no play control", // the lead pick draws no Play control for a kind that cannot play, as the hero card and the tiles
-			cue:  "link",
+			play:       "no play control", // the lead pick draws no Play control for a kind that cannot play, as the hero card and the tiles
+			cue:        "link",
 		},
 		"station-nopage": {
 			click:      "play station:sn1",
@@ -498,8 +498,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /curator/cu1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			play: "no play control", // the lead pick draws no Play control for a kind that cannot play, as the hero card and the tiles
-			cue:  "link",
+			play:       "no play control", // the lead pick draws no Play control for a kind that cannot play, as the hero card and the tiles
+			cue:        "link",
 		},
 	},
 	"leadOrder": {
