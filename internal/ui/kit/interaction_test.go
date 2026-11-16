@@ -761,7 +761,7 @@ var iaCoverWant = map[string]iaRow{
 	},
 	"artist": {
 		role: "link",
-		// DEPARTS: no Play control for this kind while song, album, playlist, station and music video tiles have one: no player is registered for it (features/discover/players.go registerPlayers), so ItemPlayers.CanPlay is false; fix: register an artist/curator player or leave it out of the rule.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play:       "none",
 		more:       "button",
 		menu:       "opens",
@@ -832,7 +832,7 @@ var iaCoverWant = map[string]iaRow{
 	},
 	"curator": {
 		role: "link",
-		// DEPARTS: no Play control for this kind while song, album, playlist, station and music video tiles have one: no player is registered for it (features/discover/players.go registerPlayers), so ItemPlayers.CanPlay is false; fix: register an artist/curator player or leave it out of the rule.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play:       "none",
 		more:       "none",
 		menu:       "none",
@@ -954,7 +954,7 @@ var iaWideWant = map[string]iaRow{
 	},
 	"artist": {
 		role: "link",
-		// DEPARTS: no Play control for this kind while song, album, playlist, station and music video tiles have one: no player is registered for it (features/discover/players.go registerPlayers), so ItemPlayers.CanPlay is false; fix: register an artist/curator player or leave it out of the rule.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play:       "none",
 		more:       "button",
 		menu:       "opens",
@@ -1025,7 +1025,7 @@ var iaWideWant = map[string]iaRow{
 	},
 	"curator": {
 		role: "link",
-		// DEPARTS: no Play control for this kind while song, album, playlist, station and music video tiles have one: no player is registered for it (features/discover/players.go registerPlayers), so ItemPlayers.CanPlay is false; fix: register an artist/curator player or leave it out of the rule.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play:       "none",
 		more:       "none",
 		menu:       "none",

@@ -1007,7 +1007,7 @@ var ixBestWant = map[string]ixCell{
 	"artist": {
 		role:  "link",
 		click: ixOpen("/artist/ar1", "artist:ar1"), enter: ixOpen("/artist/ar1", "artist:ar1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: an artist has no Play disc though an album, a playlist, a station and a video do (no artist player is registered).
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play: "nothing",
 	},
 	"playlist": {
@@ -1034,7 +1034,7 @@ var ixBestWant = map[string]ixCell{
 	"curator": {
 		role:  "link",
 		click: ixOpen("/curator/cu1", "curator:cu1"), enter: ixOpen("/curator/cu1", "curator:cu1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: a curator has no Play disc (no curator player exists), like an artist.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play: "nothing",
 	},
 	"link": {
@@ -1163,7 +1163,7 @@ var ixTileWant = map[string]ixCell{
 	"artist": {
 		role:  "link",
 		click: ixOpen("/artist/ar1", "artist:ar1"), enter: ixOpen("/artist/ar1", "artist:ar1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: an artist tile has no Play control though album, playlist, station and video tiles do (no artist player is registered).
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play: "nothing",
 	},
 	"album": {
@@ -1195,7 +1195,7 @@ var ixTileWant = map[string]ixCell{
 	"curator": {
 		role:  "link",
 		click: ixOpen("/curator/cu1", "curator:cu1"), enter: ixOpen("/curator/cu1", "curator:cu1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: a curator tile has no Play control (no curator player exists), like an artist's.
+		// Artists and curators open only: no player is registered for them, so no tile, card or row draws a Play control (design.md, "Artists and curators open only").
 		play: "nothing",
 	},
 	"link": {
@@ -1416,7 +1416,7 @@ func TestInteractionResultsLibraryTiles(t *testing.T) {
 	x.show("Lib Album")
 	const term = "wrote term:library:blue"
 	cases := []struct{ name, path, item, play string }{
-		{"Lib Artist", "/artist/l.ar", "artist:l.ar", "nothing"}, // DEPARTS: no Play on the artist tile, as in the catalogue.
+		{"Lib Artist", "/artist/l.ar", "artist:l.ar", "nothing"}, // artists open only: no Play on the artist tile, as in the catalogue.
 		{"Lib Album", "/album/l.al", "album:l.al", "item album:l.al; wrote item:album:l.al; " + term},
 		{"Lib List", "/playlist/p.pl", "playlist:p.pl", "item playlist:p.pl; wrote item:playlist:p.pl; " + term},
 	}
