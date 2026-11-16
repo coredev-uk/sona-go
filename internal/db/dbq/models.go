@@ -223,6 +223,7 @@ type RecentSearch struct {
 	Subtitle   string
 	ArtUrl     string
 	SearchedAt int64
+	NoPage     int64
 }
 
 type ReleaseReminder struct {

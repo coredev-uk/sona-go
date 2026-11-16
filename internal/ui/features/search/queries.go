@@ -142,6 +142,7 @@ func (s *search) rememberItem(it services.Item, source services.Source) {
 	entry := services.RecentItem{
 		Kind: it.Kind, ID: it.ID, Source: source,
 		Name: it.Name, Subtitle: it.Subtitle, Art: it.Art.Small,
+		NoPage: it.Kind == services.ItemStation && it.Station != nil && !it.Station.HasPage,
 	}
 	go func() {
 		if err := s.api.RememberItem(context.Background(), entry); err == nil {

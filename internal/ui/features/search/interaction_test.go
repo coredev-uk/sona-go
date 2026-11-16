@@ -639,7 +639,8 @@ func ixRecent() []services.RecentSearch {
 		{Key: "i1", Kind: services.ItemAlbum, ItemID: "a1", Source: services.SourceCatalog, Name: "Recent Album", Subtitle: "Ann"},
 		{Key: "i2", Kind: services.ItemSong, ItemID: "s1", Source: services.SourceCatalog, Name: "Recent Song", Subtitle: "Ann"},
 		{Key: "i3", Kind: services.ItemSong, ItemID: "u1", Source: services.SourceLibrary, Name: "Recent Upload", Subtitle: "Ann"},
-		{Key: "i4", Kind: services.ItemStation, ItemID: "ra.2", Source: services.SourceCatalog, Name: "Recent Radio", Subtitle: "Radio Co"},
+		{Key: "i4", Kind: services.ItemStation, ItemID: "ra.2", Source: services.SourceCatalog, Name: "Recent Radio", Subtitle: "Radio Co", NoPage: true},
+		{Key: "i7", Kind: services.ItemStation, ItemID: "ra.1", Source: services.SourceCatalog, Name: "Recent Station", Subtitle: "Radio Co"},
 		{Key: "i5", Kind: services.ItemArtist, ItemID: "ar1", Source: services.SourceCatalog, Name: "Recent Artist"},
 	}
 }
@@ -664,28 +665,22 @@ func TestInteractionFieldRecentRows(t *testing.T) {
 			shiftEnter: "nav /album/a1; wrote item:album:a1",
 		},
 		{
-			row:   "Recent Song",
-			click: "nav /song/s1; wrote item:song:s1",
-			enter: "nav /song/s1; wrote item:song:s1",
-			// DEPARTS: Shift+Enter plays a song suggestion but only opens a recent song: the same kind and cue behave differently in the same list.
+			row:        "Recent Song",
+			click:      "nav /song/s1; wrote item:song:s1",
+			enter:      "nav /song/s1; wrote item:song:s1",
 			shiftEnter: "nav /song/s1; wrote item:song:s1",
 		},
 		{
-			row: "Recent Upload",
-			// DEPARTS: a recent library song shows the open chevron but choosing it does nothing at all (it has no page and is not played).
-			click: "nothing",
-			// DEPARTS: as the click: Enter on the active row does nothing.
-			enter: "nothing",
-			// DEPARTS: as the click: Shift+Enter does nothing.
-			shiftEnter: "nothing",
+			row:        "Recent Radio",
+			click:      "item station:ra.2; wrote item:station:ra.2",
+			enter:      "item station:ra.2; wrote item:station:ra.2",
+			shiftEnter: "item station:ra.2; wrote item:station:ra.2",
 		},
 		{
-			row: "Recent Radio",
-			// DEPARTS: a page-less station plays when chosen as a suggestion but, remembered, opens /station/ra.2 (the recent entry keeps no station, so it assumes a page).
-			click: "nav /station/ra.2; wrote item:station:ra.2",
-			enter: "nav /station/ra.2; wrote item:station:ra.2",
-			// as the click
-			shiftEnter: "nav /station/ra.2; wrote item:station:ra.2",
+			row:        "Recent Station",
+			click:      "nav /station/ra.1; wrote item:station:ra.1",
+			enter:      "nav /station/ra.1; wrote item:station:ra.1",
+			shiftEnter: "nav /station/ra.1; wrote item:station:ra.1",
 		},
 		{
 			row:        "Recent Artist",
@@ -710,18 +705,46 @@ func TestInteractionFieldRecentRows(t *testing.T) {
 	}
 }
 
-// TestInteractionFieldRecentCue: a recent library song's active cue is the
-// chevron though it opens nothing.
+// TestInteractionFieldRecentCue: a recent station with no page plays when
+// chosen and its active cue is the play triangle, an album's the chevron; a
+// remembered library song is listed nowhere.
 func TestInteractionFieldRecentCue(t *testing.T) {
 	ref := newIxField(t, "/library/albums", &ixAPI{recent: ixRecent()})
 	ref.focusField()
 	ref.tt.Until("the recent entries", ref.tt.Shows("Recently Searched", "Recent Album"))
 	ref.activate("Recent Album")
 	chevron := ref.ixGlyph("Recent Album")
-	ref.activate("Recent Upload")
-	if got := ref.ixGlyph("Recent Upload"); got != chevron {
-		// DEPARTS: (see TestInteractionFieldRecentRows) the cue would be play or nothing if it were honest; today it is the same chevron as an album.
-		t.Errorf("the recent upload's cue differs from an album's chevron")
+	ref.activate("Recent Station")
+	if got := ref.ixGlyph("Recent Station"); got != chevron {
+		t.Error("a recent station with a page does not end in the chevron")
+	}
+	ref.activate("Recent Radio")
+	if got := ref.ixGlyph("Recent Radio"); got == chevron {
+		t.Error("a recent station with no page ends in the open chevron, not the play triangle")
+	}
+	if ref.tt.HasText("Recent Upload") {
+		t.Error("the field lists a remembered library song, which has no page and nothing to play it")
+	}
+}
+
+// TestInteractionFieldAndShelfListTheSameRecentEntries: for each scope the
+// field's list and the results page's shelf name the same entries.
+func TestInteractionFieldAndShelfListTheSameRecentEntries(t *testing.T) {
+	all := []string{"alpha term", "library term", "Recent Album", "Recent Song", "Recent Upload", "Recent Radio", "Recent Station", "Recent Artist", "Recent Lib Album"}
+	for scope, start := range map[string]string{scopeCatalog: "/search", scopeLibrary: "/search?scope=library"} {
+		t.Run(scope, func(t *testing.T) {
+			p := newIxPage(t, start, &ixAPI{recent: ixRecentAll()}, nil)
+			p.show("Recently Searched")
+			f := newIxField(t, start, &ixAPI{recent: ixRecentAll()})
+			f.focusField()
+			f.tt.Until("the field's entries", f.tt.Shows("Recently Searched"))
+			f.tt.Frame()
+			for _, name := range all {
+				if shelf, field := p.r.tt.HasText(name), f.tt.HasText(name); shelf != field {
+					t.Errorf("%q: shelf %v, field %v", name, shelf, field)
+				}
+			}
+		})
 	}
 }
 
@@ -1452,7 +1475,8 @@ func ixRecentAll() []services.RecentSearch {
 		{Key: "i1", Kind: services.ItemAlbum, ItemID: "a1", Source: services.SourceCatalog, Name: "Recent Album", Subtitle: "Ann"},
 		{Key: "i2", Kind: services.ItemSong, ItemID: "s1", Source: services.SourceCatalog, Name: "Recent Song", Subtitle: "Ann"},
 		{Key: "i3", Kind: services.ItemSong, ItemID: "u1", Source: services.SourceLibrary, Name: "Recent Upload", Subtitle: "Ann"},
-		{Key: "i4", Kind: services.ItemStation, ItemID: "ra.2", Source: services.SourceCatalog, Name: "Recent Radio", Subtitle: "Radio Co"},
+		{Key: "i4", Kind: services.ItemStation, ItemID: "ra.2", Source: services.SourceCatalog, Name: "Recent Radio", Subtitle: "Radio Co", NoPage: true},
+		{Key: "i7", Kind: services.ItemStation, ItemID: "ra.1", Source: services.SourceCatalog, Name: "Recent Station", Subtitle: "Radio Co"},
 		{Key: "i5", Kind: services.ItemArtist, ItemID: "ar1", Source: services.SourceCatalog, Name: "Recent Artist"},
 		{Key: "i6", Kind: services.ItemAlbum, ItemID: "l.al", Source: services.SourceLibrary, Name: "Recent Lib Album", Subtitle: "Ann"},
 	}
@@ -1471,25 +1495,27 @@ func TestInteractionResultsRecentShelf(t *testing.T) {
 			t.Errorf("the catalogue scope's shelf shows %q", hidden)
 		}
 	}
-	for _, shown := range []string{"alpha term", "Recent Album", "Recent Song", "Recent Radio", "Recent Artist"} {
+	for _, shown := range []string{"alpha term", "Recent Album", "Recent Song", "Recent Radio", "Recent Station", "Recent Artist"} {
 		if !x.r.tt.HasText(shown) {
 			t.Errorf("the catalogue scope's shelf lacks %q", shown)
 		}
 	}
 	wants := map[string]string{
-		"alpha term/click":   "nav /search?q=alpha+term; wrote term:catalog:alpha term",
-		"alpha term/X":       "wrote forget:t1",
-		"Recent Album/click": "nav /album/a1; wrote item:album:a1",
-		"Recent Album/X":     "wrote forget:i1",
-		"Recent Song/click":  "nav /song/s1; wrote item:song:s1",
-		"Recent Song/X":      "wrote forget:i2",
-		// DEPARTS: a page-less station plays when chosen from the field's suggestions, but remembered it opens /station/ra.2 (the entry keeps no station, so it assumes a page).
-		"Recent Radio/click":  "nav /station/ra.2; wrote item:station:ra.2",
-		"Recent Radio/X":      "wrote forget:i4",
-		"Recent Artist/click": "nav /artist/ar1; wrote item:artist:ar1",
-		"Recent Artist/X":     "wrote forget:i5",
+		"alpha term/click":     "nav /search?q=alpha+term; wrote term:catalog:alpha term",
+		"alpha term/X":         "wrote forget:t1",
+		"Recent Album/click":   "nav /album/a1; wrote item:album:a1",
+		"Recent Album/X":       "wrote forget:i1",
+		"Recent Song/click":    "nav /song/s1; wrote item:song:s1",
+		"Recent Song/X":        "wrote forget:i2",
+		"Recent Radio/click":   "item station:ra.2; wrote item:station:ra.2",
+		"Recent Radio/Space":   "item station:ra.2; wrote item:station:ra.2", // a button: Space plays
+		"Recent Radio/X":       "wrote forget:i4",
+		"Recent Station/click": "nav /station/ra.1; wrote item:station:ra.1",
+		"Recent Station/X":     "wrote forget:i7",
+		"Recent Artist/click":  "nav /artist/ar1; wrote item:artist:ar1",
+		"Recent Artist/X":      "wrote forget:i5",
 	}
-	for _, name := range []string{"alpha term", "Recent Album", "Recent Song", "Recent Radio", "Recent Artist"} {
+	for _, name := range []string{"alpha term", "Recent Album", "Recent Song", "Recent Radio", "Recent Station", "Recent Artist"} {
 		t.Run(name, func(t *testing.T) {
 			x.t = t
 			do := func(what string, f func()) {

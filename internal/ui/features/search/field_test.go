@@ -787,16 +787,13 @@ func TestFieldPickingRecentEntries(t *testing.T) {
 		t.Fatalf("a recent album went to %q", got)
 	}
 
-	// A library song has no page: picking it opens nothing.
+	// A remembered library song has no page and nothing to play it from: it is not listed.
 	r.router.Replace("/library/albums")
 	r.tt.Frame()
 	r.focusField()
-	r.tt.Until("the recent entries", r.tt.Shows("Library Song"))
-	if err := r.tt.Click("Library Song"); err != nil {
-		t.Fatal(err)
-	}
-	if got := r.router.Location(); got != "/library/albums" {
-		t.Errorf("a recent library song went to %q", got)
+	r.tt.Until("the recent entries", r.tt.Shows("alpha"))
+	if r.tt.HasText("Library Song") {
+		t.Error("the field lists a remembered library song")
 	}
 
 	// A recent term runs again.

@@ -17,13 +17,7 @@ const maxShelf = 12
 func recentEntries(all []services.RecentSearch, scope string) []services.RecentSearch {
 	var out []services.RecentSearch
 	for _, r := range all {
-		var ok bool
-		if r.Kind == services.RecentTerm {
-			ok = r.Scope == scope
-		} else {
-			ok = isLibraryEntry(r) == (scope == scopeLibrary)
-		}
-		if ok {
+		if recentVisible(r, scope) {
 			out = append(out, r)
 		}
 	}
@@ -62,6 +56,7 @@ func (s *search) recentEntry(c *ui.Context, pg *pageView, e services.RecentSearc
 		label  string
 		onOpen func()
 		art    func()
+		plays  bool // a station with no page: choosing it plays it
 	)
 	if e.Kind == services.RecentTerm {
 		label = e.Term
@@ -74,15 +69,13 @@ func (s *search) recentEntry(c *ui.Context, pg *pageView, e services.RecentSearc
 		}
 	} else {
 		path = recentPath(e)
-		if path == "" {
-			return // a library song has no page to return to
-		}
 		label = e.Name
 		it := recentItem(e)
+		plays = kit.PlaysWhenOpened(it, s.env.Players)
 		onOpen = func() { s.rememberItem(it, e.Source) }
 		art = func() { kit.Artwork(c, s.env.Art, e.Art, 40, kit.ArtOpts{Round: kit.ItemRound(it), Edge: true}) }
 	}
-	linked := e.Kind == services.RecentTerm || s.env.Routed(path)
+	linked := e.Kind == services.RecentTerm || (path != "" && s.env.Routed(path))
 
 	row := ui.Row(c.Key(e.Key)).FillWidth().AlignItems(ui.Center).Radius(tk.Radius["md"]).PaddingEnd(4)
 	shown := kit.HoverRow(row)
@@ -98,16 +91,32 @@ func (s *search) recentEntry(c *ui.Context, pg *pageView, e services.RecentSearc
 				}
 			})
 		}
-		if linked {
+		if linked || plays {
 			main := ui.ButtonBase(c.Key("open")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Padding(6, 8).
 				Radius(tk.Radius["md"]).Role(ui.RoleLink)
+			if plays {
+				// Named by its visible text (WCAG 2.5.3), with the action after it.
+				main.Role(ui.RoleButton).Label(e.Name + ", " + i18n.T("Play"))
+			}
 			if pg.claim() {
 				main.Focus()
 			}
-			main.Children(body)
+			main.Children(func() {
+				body()
+				if plays {
+					glyph := theme.Glyph(c, "play", 14, theme.GlyphOpts{Color: theme.C("ink-muted")}).Shrink(0)
+					if !main.Hovered() && !main.FocusVisible() {
+						glyph.Opacity(0)
+					}
+				}
+			})
 			if main.Clicked() {
 				onOpen()
-				s.env.Nav.Push(path)
+				if plays {
+					kit.OpenWithoutPage(recentItem(e), s.env.ItemsCtx(nil))
+				} else {
+					s.env.Nav.Push(path)
+				}
 			}
 		} else {
 			ui.Row(c.Key("body")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Padding(6, 8).Children(body)

@@ -4847,6 +4847,7 @@ msgstr ""
 #: internal/ui/features/radio/onair.go
 #: internal/ui/features/radio/radio.go
 #: internal/ui/features/search/itemrow.go
+#: internal/ui/features/search/recentshelf.go
 #: internal/ui/features/search/results.go
 #: internal/ui/kit/button.go
 #: internal/ui/kit/collections_items_stations.go
