@@ -390,9 +390,9 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Surface | Item | Click | Double-click | Enter | Shift+Enter | Space | Play | Menu | Cue |
 |---|---|---|---|---|---|---|---|---|---|
 | Sidebar nav links | page | opens | opens once | opens | none | none | none | none | link, active fill |
-| Sidebar playlist rows | playlist | opens | opens | opens | **shuffles** ([#443]) | none | glyph over the art shuffles ([#443]) | More button, no right-click ([#447]) | link; triangle on hover |
-| Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist: shuffles; others none ([#443]) | none | playlist: the glyph | More button | link |
-|  | any, set to Play or Shuffle | plays or shuffles ([#443]) | twice | same | same | same | the glyph (playlists) | More button | button; only the screen-reader name differs |
+| Sidebar playlist rows | playlist | opens | opens | opens | shuffles | none | the shuffle glyph over the art shuffles | More button, no right-click ([#447]) | link; shuffle glyph on hover |
+| Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist, album: shuffles; song: none | none | playlist, album: the shuffle glyph over the art | More button | link; shuffle glyph on hover (playlist, album) |
+|  | playlist, album, song, set to Play or Shuffle | plays or shuffles | twice | same | same | same | same | More button | button; the play or shuffle glyph at the row's end |
 |  | artist, any action | opens | | opens | none | none | none | More button; no Play or Shuffle choice | link |
 |  | any, set to Open with no page | nothing | | nothing | | | | same as its kind; Open checked and off | plain row, disabled to assistive technology |
 | Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button | disclosure |
@@ -424,7 +424,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 
 Argued departures that stay (not issues):
 
-- **A pin set to Play or Shuffle plays on click.** The user chose it in the pin's menu ("When chosen"), and the pin's name says so to assistive technology; the visible cue is the only part owed (#443).
+- **A pin set to Play or Shuffle plays on click.** The user chose it in the pin's menu ("When chosen"), and the pin's name says so to assistive technology; its glyph at the row's end (Frame and sidebar) says so to everyone else.
 - **The Now playing queue row restarts the song** on Enter or double-click: it is a row of songs, and `Jump` plays its own index from 0.
 - **The Artists master list chooses instead of opening**: it is a master-detail list, and the detail is the page.
 - **A tile's Shift/Ctrl+click selects** (a list of tiles can be dragged into a playlist and acted on as a group); only the open/play cue is owed (#438).
@@ -615,9 +615,10 @@ Home ("For You") answers one question first: what shall I play now. It is set li
   - **Pinned**, **Apple Music** (the playlists Apple provides, in one list: first its personal mixes, the library copies whose catalog ID starts `pl.pm-`, in Apple's order, then the playlists the user added that they cannot edit, from Apple Music or another curator, Replay and others, by name) and **Playlists** (the user's own, editable playlists and their folders, and every collaborative playlist, whether the user hosts it or joined it; a joined one sits in its folder like the rest, and offers no edit, move or drag-in because Apple says it is not editable).
   - A pinned playlist shows under Pinned only, whichever section it belongs to. A section with nothing left in it is not drawn.
   - Apple Music is a flat list with no "New playlist" button, no folders, no drops and no rename. The mixes and the added playlists share one list with no divider or sub-label: the mixes are named for what they are and the order says the rest. Its heading is a button that folds the list shut (state kept across restarts, `config.Sidebar`), with a chevron that turns, as a folder's does. Playlists keeps the "+" menu and the drop row.
-  - Over a playlist row's 20px cover a small play glyph fades in with the row's hover (`kit.Fade`, at once under reduced motion) on a `--ground` wash at 85%, so it reads on any cover. The glyph is `--ink`, never amber (amber marks what plays).
-  - Clicking the glyph shuffles that playlist and does not open it. A playlist with no songs, or while the account needs signing in again, shows it in `--ink-faint` with the reason as its tooltip. Folders have no cover and no button.
+  - Over the cover of a playlist row, and of a playlist or album pin, a small **shuffle** glyph (the design system's `shuffle`; the play triangle is for what plays in order) fades in with the row's hover (`kit.Fade`, at once under reduced motion) on a `--ground` wash at 85%, so it reads on any cover. The glyph is `--ink`, never amber (amber marks what plays).
+  - Clicking the glyph shuffles that playlist or album and does not open it; Shift+Enter on the focused row does the same, so the glyph is the cue for the key, and a row without the glyph (a song or artist pin, a folder) does nothing on Shift+Enter. A playlist with no songs, or while the account needs signing in again, shows it in `--ink-faint` with the reason as its tooltip. Folders have no cover and no button.
   - **Pins.** A pin set to Open with no page of its own (an album or song whose page is not ported) does nothing when chosen, never plays. The pin's menu offers what its kind does: Play, Shuffle and Open for a playlist, album or song (Open is off, and checked when that is the setting, while there is no page), and no "When chosen" group for an artist, which only opens (there is no artist player yet).
+  - A pin set to Open is a link, as a library row is. A pin set to Play or Shuffle is a button and draws its action at the row's end: the play triangle or the shuffle glyph, 12px in `--ink-faint`, which gives way to the More button while the row is hovered or focused.
 
 ### Top bar and account
 
