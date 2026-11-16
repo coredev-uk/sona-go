@@ -114,7 +114,7 @@ func TestPlayControlTakesTheCoversAccent(t *testing.T) {
 			r.addCatalog(saltFlats(coloured("#3f546a", "#fdc14c", "#fcb92d", "#d7ab52", "#d6a539")))
 			r.shows("Quiet Records")
 			r.tt.Settle()
-			pal, _ := palette.ForAlbum(&palette.Cover{Background: "#3f546a", Text1: "#fdc14c", Text2: "#fcb92d", Text3: "#d7ab52", Text4: "#d6a539"}, nil, th, false)
+			pal, _ := palette.ForAlbum(&palette.Cover{Background: "#3f546a", Text1: "#fdc14c", Text2: "#fcb92d", Text3: "#d7ab52", Text4: "#d6a539"}, nil, th, true)
 			if pal.Accent == nil {
 				t.Fatal("the fixture has no accent")
 			}
