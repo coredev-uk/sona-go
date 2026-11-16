@@ -238,6 +238,7 @@ It is the recommended setting on software rendering.
 
 - A list that can exceed ~200 rows (library songs, albums, artists, long playlists) builds only the rows in view and a few beyond (`kit.Pane`, or the list's own `ui.Scroll`). The content pane is the scroll element, so the shell never scrolls.
 - Fixed row heights (44px, or the grid's computed row height) so virtualisation never measures.
+- **A cover's play control fades in** on hover or keyboard focus, over the `press` duration (`kit.Fade`; at once under reduced motion): a track row's cover wash and a wide card's play disc, as a tile's disc does. It stays in the accessibility tree while hidden.
 - **The playing track's row is marked in place** wherever it appears: its index is replaced by an amber equaliser glyph (`kit.EqualiserBars`) and its title takes `--amber-ink`. It keeps that mark while the list scrolls or re-sorts.
   - While a song plays the glyph's bars each rise and fall between a quarter of the height and all of it on a period of their own (0.8 to 1.1 s, none a multiple of another, so the three drift in and out of step), quick through the middle of a stroke and slow at the turns, with no randomness.
   - A bar's top edge moves by fractions of a pixel: the bar is squeezed from its foot, not resized, since a resized rectangle's edges snap to whole device pixels and step at 1x.

@@ -144,9 +144,9 @@ func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play fun
 				btn := ui.Row(c.Key("play")).Absolute().Left(0).Top(0).Size(trackArt, trackArt).Center().Radius(tk.Radius["sm"]).
 					Background(wash).TextColor(theme.C("ink")).Role(ui.RoleButton).Label(i18n.T("Play {name}", "name", name)).
 					Cursor(ui.CursorPointer)
-				if !row.Hovered() {
-					btn.Opacity(0)
-				}
+				// Hover or keyboard focus shows it, over the press duration:
+				// the button stays in the tree at rest.
+				Fade(btn, row.Hovered() || row.FocusWithin())
 				btn.Children(func() { PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink"), Inherit: true}) })
 				if btn.Clicked() {
 					play()
