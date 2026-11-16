@@ -1446,8 +1446,8 @@ var iaTrackListWant = iaTrackRow{
 	playButton: "played=[2]",
 	menu:       "opens",
 	artist:     "artists=[ar2]",
-	// DEPARTS: double-click on the artist link opens the artist twice and does not play the row; the second click lands on the artist page in the app.
-	artistDouble: "artists=[ar2 ar2]",
+	// A double-click on the artist link opens the artist once and does not play the row.
+	artistDouble: "artists=[ar2]",
 	artistShift:  "sel=1",
 	album:        "albums=[al2]",
 	albumShift:   "sel=1",

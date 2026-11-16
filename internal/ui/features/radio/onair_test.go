@@ -137,6 +137,8 @@ func TestOnAirRowOfAStationWithNoPagePlaysFromItsLaneAndItsButton(t *testing.T) 
 	// Once tuned, the same button pauses.
 	rg.playing("ra.2", "playing")
 	rg.tt.Drain()
+	// A second click on the same spot right away would be a double-click.
+	rg.advance(time.Second)
 	rg.click("Quiet FM Pause")
 	rg.tt.Until("the toggle", func() bool { n, _ := rg.pb.counts(); return n == 1 })
 	if got := rg.api.plays(); len(got) != 1 {
