@@ -308,6 +308,35 @@ func TestStationPageListsTheSongsItPlaysFirst(t *testing.T) {
 	}
 }
 
+func TestStationPageStartsASongsArtistsUnderItsName(t *testing.T) {
+	s := trackStation("ra.78", "Radiohead Station")
+	d := services.StationDetail{Station: s, Upcoming: []services.Song{
+		{
+			ID: "s1", Name: "Lullaby", Artist: "Sigala & Paloma Faith", Album: "The Collection", DurationMs: 200000,
+			Artists: []services.Artist{{ID: "1", Name: "Sigala"}, {ID: "2", Name: "Paloma Faith"}},
+		},
+	}}
+	rg := stationRig(t, d)
+	rg.tt.Until("the song", rg.tt.Shows("Lullaby", "Sigala & Paloma Faith"))
+	// Several artists are a chooser: its text starts where the song's name
+	// does, not centred across the column.
+	name, _ := rg.tt.Find("Lullaby")
+	credit, _ := rg.tt.Find("Sigala & Paloma Faith")
+	bg := pixel(rg, name.X-4, credit.Y+credit.H/2)
+	inked := false
+	for x := name.X; x < name.X+24 && !inked; x++ {
+		for y := credit.Y; y < credit.Y+credit.H; y++ {
+			if !near(pixel(rg, x, y), bg) {
+				inked = true
+				break
+			}
+		}
+	}
+	if !inked {
+		t.Errorf("the artists do not start under the name at x=%v (box %v)", name.X, credit)
+	}
+}
+
 func scheduleDetail(s services.Station, t0 time.Time) services.StationDetail {
 	return services.StationDetail{Station: s, Schedule: []services.StationEvent{
 		stationEvent("Ended", t0.Add(-2*time.Hour), t0, "Already over."),

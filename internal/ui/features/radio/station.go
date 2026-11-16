@@ -330,10 +330,12 @@ func (r *radio) upcoming(c *ui.Context, songs []services.Song, ruled bool) {
 						} else {
 							theme.Text(c, song.Name, "ui").TextColor(ink).SingleLine()
 						}
+						// AlignSelf on what ArtistLinks returns: with several artists it is a
+						// button, which stretched across the column would centre its text.
 						kit.ArtistLinks(c, r.env.SongArtists.OfSong(song), song.Artist, muted, kit.ArtistLinksOpts{
 							Open:  r.env.ArtistOpener(),
-							Style: func(e ui.Element) { theme.StyleText(e, "sub").SingleLine().AlignSelf(ui.Start) },
-						})
+							Style: func(e ui.Element) { theme.StyleText(e, "sub").SingleLine() },
+						}).AlignSelf(ui.Start)
 					})
 					theme.Text(c, song.Album, "sub").TextColor(theme.C("ink-muted")).Grow(0.8).Basis(0).MinWidth(0).SingleLine().TextAlign(ui.Start)
 					theme.Text(c, i18n.FormatDuration(time.Duration(song.DurationMs)*time.Millisecond), "meta").TextColor(theme.C("ink-muted")).Shrink(0)
