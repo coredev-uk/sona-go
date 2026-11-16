@@ -87,6 +87,9 @@ type Options struct {
 	OpenURL func(url string) error
 	// Copy puts text on the system clipboard (Env.Copy); nil reports failure.
 	Copy func(text string) bool
+	// windowed: New is making the app, which opens MyGo's main window (the
+	// tests make it with newApp, and no window).
+	windowed bool
 }
 
 // App is the native UI: the main window and what it shows.
@@ -160,6 +163,9 @@ type App struct {
 	win       *mygo.Window
 	miniWin   *mygo.Window
 	miniShown bool
+	// early holds what was posted before the main window existed, which
+	// openWindow hands to it, in order (post).
+	early []func()
 
 	locale *localizer
 
@@ -171,6 +177,7 @@ type App struct {
 // (hidden with Options.Hidden and a tray). Call it in MyGo's WhenReady,
 // which is on the main thread.
 func New(opts Options) *App {
+	opts.windowed = true
 	a := newApp(opts, factories)
 	if opts.Windows != nil {
 		icon, template := opts.TrayIcon, false
@@ -391,6 +398,12 @@ func (a *App) openWindow() {
 	}
 	a.mu.Lock()
 	a.win = win
+	// What was posted before the window existed goes first, in order; a
+	// post from now on finds the window, so it comes after.
+	for _, fn := range a.early {
+		win.Update(fn)
+	}
+	a.early = nil
 	a.mu.Unlock()
 	if a.opts.Windows != nil {
 		hooks := windowHooks{
@@ -502,11 +515,23 @@ func (a *App) postFunc() store.Poster {
 
 // post runs fn on the main thread and redraws the windows (store.Poster):
 // the main window, and the mini player while it shows.
+//
+// Before the main window exists (New starts the artwork workers, the store
+// and the bus before openWindow), fn waits for it: running it on the
+// caller's goroutine, which is a worker's, would race the main thread, as
+// an artwork finished during a slow window creation did on Windows (a
+// concurrent map write in ArtLoader.finish). An app made without MyGo's
+// window (newApp, the tests) runs it at once, as before.
 func (a *App) post(fn func()) {
 	a.mu.Lock()
 	win, mini := a.win, a.miniWin
 	if !a.miniShown {
 		mini = nil
+	}
+	if win == nil && a.opts.windowed {
+		a.early = append(a.early, fn)
+		a.mu.Unlock()
+		return
 	}
 	a.mu.Unlock()
 	if win == nil {

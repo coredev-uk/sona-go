@@ -513,3 +513,32 @@ func defaultChord(chord string) string {
 	}
 	return chord
 }
+
+// Before the main window exists, a post from another goroutine (an artwork
+// worker's) waits for the window instead of running there: run there, it
+// raced the main thread over the loader's maps, which crashed Sona on
+// Windows when the window took long to appear (a concurrent map write in
+// ArtLoader.finish). openWindow hands the held posts to the window, in order.
+func TestPostBeforeTheWindowWaitsForItInsteadOfRunningOnTheCaller(t *testing.T) {
+	h := uitest.New(t)
+	// As New makes it, short of opening the window.
+	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Now: h.Clock.Now, windowed: true}, nil)
+	t.Cleanup(a.env.Art.Close)
+	var ran []int
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		a.post(func() { ran = append(ran, 1) })
+		a.post(func() { ran = append(ran, 2) })
+	}()
+	<-done
+	if len(ran) != 0 {
+		t.Fatalf("a post before the window ran on the worker: %v", ran)
+	}
+	a.mu.Lock()
+	held := len(a.early)
+	a.mu.Unlock()
+	if held != 2 {
+		t.Fatalf("%d posts held for the window, want 2", held)
+	}
+}
