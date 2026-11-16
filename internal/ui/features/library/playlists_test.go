@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -90,7 +91,9 @@ func (s *gridStub) MusicVideos(ctx context.Context, off, limit int) (services.Mu
 	videos := s.videos
 	s.mu.Unlock()
 	if videos == nil {
-		return s.libraryAPI.MusicVideos(ctx, off, limit)
+		// No fixture: Apple is unreachable, as the live read finds it with no
+		// connection (the synced copy is not under test here).
+		return services.MusicVideoPage{}, &url.Error{Op: "Get", URL: "https://amp-api.music.apple.com", Err: errors.New("no route to host")}
 	}
 	page := services.MusicVideoPage{Total: len(videos)}
 	if off < len(videos) {
