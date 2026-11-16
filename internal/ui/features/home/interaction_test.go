@@ -676,9 +676,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /album/al1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: no Play control on this local shelf's tile although the same album or playlist has one on Apple's shelves (local.go CoverItem has no Item or Play)
-			play: "no play control",
-			cue:  "link",
+			play:       "play album:al1",
+			cue:        "link",
 		},
 	},
 	"recentPlaylists": {
@@ -688,9 +687,8 @@ var homeWant = map[string]map[string]outcomes{
 			enter:      "nav /playlist/pl1",
 			shiftEnter: "nothing",
 			space:      "nothing",
-			// DEPARTS: no Play control on this local shelf's tile although the same album or playlist has one on Apple's shelves (local.go CoverItem has no Item or Play)
-			play: "no play control",
-			cue:  "link",
+			play:       "play playlist:pl1",
+			cue:        "link",
 		},
 	},
 }

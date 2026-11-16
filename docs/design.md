@@ -332,7 +332,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Home lead pick, hero card | album, song, playlist, video, station | opens | opens | none | disc | link |
 |  | artist, curator | opens | opens | none | none | link |
 |  | station with no page | plays, pauses while it plays | same | same | the name, no disc | button "X Play" / "X Pause", play (pause) mark after the name on hover and focus |
-| Home local shelves (Recently added, Your playlists) | album, playlist | opens | opens | none | none ([#445]) | link |
+| Home local shelves (Recently added, Your playlists) | album, playlist | opens | opens | none | disc, on hover and focus; More menu | link |
 | Home "See all" | | opens the shelf's page | | | | link |
 | Discover lead card, queue tiles | album, playlist, station, video | opens | opens | none | disc | link |
 |  | artist, curator | opens | opens | none | none | link |
@@ -351,7 +351,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Surface | Item | Click | Double-click | Enter | Play | Menu |
 |---|---|---|---|---|---|---|
 | Songs, Favourites, History | song | selects | plays from the row | plays | number-column button | yes |
-| Albums, Playlists, Recently added grids | album, playlist | opens | opens | opens | none ([#445]) | yes |
+| Albums, Playlists, Recently added grids | album, playlist | opens | opens | opens | disc, on hover and focus | yes |
 | Videos grid | music video | opens | opens | opens | disc where the platform plays videos | yes where the platform plays videos (none otherwise) |
 | Artists master list | artist | chooses it: the detail beside it changes and `?artist=` follows | same | same, Enter or Shift+Enter moves the focus to the detail | none on the row; the detail has Play and Shuffle | n/a |
 | Songs page head | | "Play your songs" plays from the first song, "Shuffle" shuffles | | | | |
@@ -418,7 +418,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Artist head | Play top songs, Shuffle | plays the eight top songs, or shuffles them |
 | Artist latest-release slip | the slip | opens the album; plain (no button, tab stop or underline) when the page is not routed |
 |  | disc | plays the album |
-| Artist release rows, discography tiles | row or tile | opens (Cmd or Shift selects); no Play ([#445]) |
+| Artist release rows, discography tiles | row or tile | opens (Cmd or Shift selects); disc over the cover, on hover and focus, plays the album |
 | Artist library page | Play | plays the artist's library songs |
 | Song page | Play | plays the one song (queue of one); no Shuffle |
 | Music video page | Play, "Play the song", "Watch in Apple Music" | plays the video, plays the song, hands the link to the browser |
@@ -444,7 +444,6 @@ Argued departures that stay (not issues):
 | [#438] | modifier-click selects on some, opens on others |
 | [#440] | a double-click acts twice |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
-| [#445] | local shelves, library grids and release rows have no Play |
 | [#447] | curators, rooms and link tiles have no menu at all (no action is registered for them) |
 
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
@@ -454,7 +453,6 @@ Argued departures that stay (not issues):
 [#438]: https://github.com/coredev-uk/sona-go/issues/438
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
-[#445]: https://github.com/coredev-uk/sona-go/issues/445
 [#447]: https://github.com/coredev-uk/sona-go/issues/447
 
 ## Dates

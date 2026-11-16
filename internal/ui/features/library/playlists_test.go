@@ -166,7 +166,7 @@ func TestPlaylistsPageShowsThePlaylists(t *testing.T) {
 	if asks := r.stub.asks(); len(asks) == 0 || asks[0] != "playlists dateAdded desc=true offset=0" {
 		t.Errorf("first query %q", asks)
 	}
-	// Library playlists play from their page: no play control on the tile.
+	// No playlist player is registered here: no disc on the tile (the interaction tests register one).
 	if _, ok := r.tt.Find("Play Focus"); ok {
 		t.Error("a playlist tile has a play control")
 	}
