@@ -141,7 +141,8 @@ func run(started time.Time) error {
 	log.Info("startup: process start", "version", version, "pid", os.Getpid())
 	// An update that keeps failing before its first paint is undone here,
 	// before anything else starts.
-	if rollBackFailedUpdate(paths, version, log) {
+	restored, onTrial := rollBackFailedUpdate(paths, version, log)
+	if restored {
 		return nil
 	}
 	// Fatal crashes (in any goroutine) also go to the state dir's crash
@@ -156,9 +157,16 @@ func run(started time.Time) error {
 		log.Warn("settings unreadable, using defaults", "path", paths.SettingsFile(), "err", err)
 	}
 
-	// Single instance: a second launch forwards its arguments and exits.
+	// Single instance: a second launch forwards its arguments and exits. The
+	// first starts of an update wait for the version it replaced to quit.
 	act := app.CurrentActivation(os.Args[1:])
-	plat, err := openPlatform(paths, act, log)
+	open := openPlatform
+	if onTrial {
+		open = func(p config.Paths, a app.Activation, l *slog.Logger) (*platform, error) {
+			return openPlatformAfterUpdate(p, a, l, openPlatform)
+		}
+	}
+	plat, err := open(paths, act, log)
 	if errors.Is(err, app.ErrForwarded) {
 		log.Info("forwarded to the running instance")
 		return nil
@@ -406,6 +414,10 @@ func run(started time.Time) error {
 	// quit listeners return, and Run never does: save the queue and report the
 	// end of the play here (sessionend.go).
 	mygo.App.OnWillQuit(flushOnSessionEnd(coord, reporter, sessionEndBudget, log))
+	// The single instance goes at OnQuit, before MyGo starts the version an
+	// update installed (Relaunch), which would otherwise find this instance
+	// still holding it and hand its launch to it (openPlatformAfterUpdate).
+	mygo.App.OnQuit(plat.ReleaseInstance)
 	err = mygo.App.Run()
 	if ui != nil {
 		ui.Close() // before core.Close and coord.Close

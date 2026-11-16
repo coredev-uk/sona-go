@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/egoist/mygo"
 
@@ -76,32 +77,63 @@ func relaunchArgs(started []string) []string {
 // installed gets update.MaxStarts starts to reach its first paint (which
 // clears update-pending, services.UpdatesService); after that this start
 // restores the version the update replaced and starts it. It reports
-// whether it did, and the caller then exits.
-func rollBackFailedUpdate(paths config.Paths, current string, log *slog.Logger) bool {
+// whether it did, when the caller exits, and whether this is one of those
+// starts of an update on trial (onTrial).
+func rollBackFailedUpdate(paths config.Paths, current string, log *slog.Logger) (restored, onTrial bool) {
 	exe, err := os.Executable()
 	if err != nil {
-		return false
+		return false, false
 	}
 	g, ok := update.NewGuard(paths.State, exe, runtime.GOOS)
 	if !ok {
-		return false
+		return false, false
 	}
 	act, err := g.Begin(current)
 	if err != nil {
 		log.Warn("update guard", "err", err)
 	}
 	if act != update.Restore {
-		return false
+		return false, act == update.Counted
 	}
 	log.Error("the updated version never reached its first paint: restoring the previous version", "version", current)
 	if err := g.Rollback(); err != nil {
 		log.Error("update rollback failed", "err", err)
-		return false
+		return false, false
 	}
 	if err := update.Relaunch(runtime.GOOS, g.Root, exe); err != nil {
 		log.Error("restarting the restored version", "err", err)
 	}
-	return true
+	return true, false
+}
+
+// replacedQuitWait is how long the first starts of an update wait for the
+// version it replaced to let go of the single instance, and replacedQuitPoll
+// how often they look.
+const (
+	replacedQuitWait = 10 * time.Second
+	replacedQuitPoll = 250 * time.Millisecond
+)
+
+// openPlatformAfterUpdate is openPlatform for a start of an update on trial.
+// The version the update replaced starts this one as it quits, after its
+// quit handlers (MyGo's Relaunch), and Sona before 0.6.1 let go of the
+// single instance only after that, once run returned: the first launch of
+// the new version went to the instance on its way out and exited, and no
+// Sona was left. So a start of an update that finds an instance running
+// waits, up to replacedQuitWait, for it to quit and takes over.
+func openPlatformAfterUpdate(paths config.Paths, act app.Activation, log *slog.Logger, open func(config.Paths, app.Activation, *slog.Logger) (*platform, error)) (*platform, error) {
+	plat, err := open(paths, act, log)
+	if !errors.Is(err, app.ErrForwarded) {
+		return plat, err
+	}
+	log.Info("update: the version it replaced is still running; waiting for it to quit")
+	for deadline := time.Now().Add(replacedQuitWait); time.Now().Before(deadline); {
+		time.Sleep(replacedQuitPoll)
+		if plat, err = open(paths, act, log); !errors.Is(err, app.ErrForwarded) {
+			return plat, err
+		}
+	}
+	return nil, err
 }
 
 // selfUpdater is the updater where Sona updates itself, else a nil
