@@ -12,6 +12,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/home"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/miniplayer"
+	"github.com/coredev-uk/sona-go/internal/ui/features/newreleases"
 	"github.com/coredev-uk/sona-go/internal/ui/features/onboarding"
 	"github.com/coredev-uk/sona-go/internal/ui/features/player"
 	"github.com/coredev-uk/sona-go/internal/ui/features/playlist"
@@ -50,8 +51,9 @@ var factories = []module.Factory{
 	commands.New,   // the command palette and the shortcut help
 	updates.New,    // the sidebar's update notice
 	// motion has no module: the policy is kit.MotionPolicy (Env.Motion), kept by the shell
-	private.New,    // the player bar's private listening pill and its command
-	cdm.New,        // the Widevine mirror and the player bar's notice
-	reminders.New,  // release reminders' album action
-	onboarding.New, // the first-run setup layer
+	private.New,     // the player bar's private listening pill and its command
+	cdm.New,         // the Widevine mirror and the player bar's notice
+	reminders.New,   // release reminders' album action
+	newreleases.New, // the artist tracker's new releases page and its unread count
+	onboarding.New,  // the first-run setup layer
 }

@@ -229,7 +229,7 @@ func TestReplacingALongQueueAsksFirstWhenSettingsSayConfirm(t *testing.T) {
 	r.replaceMode = config.ReplaceConfirm
 	seedQueue(r, 4)
 	r.env.Players.PlaySongList(songs(2), 0, "Charts")
-	r.tt.Until("the question", r.tt.Shows("Replace your queue?", "The 4 songs you added to the queue will be removed.", "Replace queue"))
+	r.tt.Until("the question", r.tt.Shows("Replace Your Queue?", "The 4 songs you added to the queue will be removed.", "Replace queue"))
 	if got := r.play.plays(); len(got) != 0 {
 		t.Fatalf("played %+v before the answer", got)
 	}
@@ -263,13 +263,13 @@ func TestAShortQueueIsReplacedWithoutAsking(t *testing.T) {
 
 func TestShuffleTurnsShuffleOnAndStartsFromARandomPlayableSong(t *testing.T) {
 	r := playersRig(t)
-	r.env.Queue.ShuffleSongs(songs(6, 0), services.PlayFrom{ID: "Top songs"})
+	r.env.Queue.ShuffleSongs(songs(6, 0), services.PlayFrom{ID: "Top Songs"})
 	// Shuffle shows on at once, while the command is in flight.
 	if !r.env.Play.State().Shuffle {
 		t.Error("the mirror does not show shuffle on while the command is in flight")
 	}
 	got := r.waitPlays(1)[0]
-	if len(got.refs) != 5 || got.start < 0 || got.start >= 5 || got.from != (services.PlayFrom{ID: "Top songs"}) {
+	if len(got.refs) != 5 || got.start < 0 || got.start >= 5 || got.from != (services.PlayFrom{ID: "Top Songs"}) {
 		t.Errorf("played %+v", got)
 	}
 	r.play.mu.Lock()

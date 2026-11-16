@@ -75,7 +75,7 @@ func TestA11yCatalogueArtist(t *testing.T) {
 	if h, ok := tr.Find(ui.RoleHeading, "Radiohead"); !ok || h.Level != 1 {
 		t.Errorf("the name is not the h1: %+v", h)
 	}
-	for _, h2 := range []string{"Top songs", "Essential albums by Radiohead", "Discography", "Related", "About Radiohead"} {
+	for _, h2 := range []string{"Top Songs", "Essential albums by Radiohead", "Discography", "Related", "About Radiohead"} {
 		if h, ok := tr.Find(ui.RoleHeading, h2); !ok || h.Level != 2 {
 			t.Errorf("no h2 %q: %+v", h2, h)
 		}
@@ -187,9 +187,9 @@ func TestA11yConcertsShelfSitsAfterTheLead(t *testing.T) {
 // A library artist: the library's shelves come first, then the catalogue's.
 func TestA11yLibraryArtist(t *testing.T) {
 	r := libraryRig(t, true)
-	r.shows("Albums in your library", "Songs in your library")
+	r.shows("Albums in Your Library", "Songs in Your Library")
 	_, tr := r.walk("Read more", "Play Mia", "Own Album", "Second Album", "Short One", "Mine 1", "See all", "Song 1")
-	for _, name := range []string{"Albums in your library", "Singles and EPs in your library", "Songs in your library"} {
+	for _, name := range []string{"Albums in Your Library", "Singles and EPs in Your Library", "Songs in Your Library"} {
 		if h, ok := tr.Find(ui.RoleHeading, name); !ok || h.Level != 2 {
 			t.Errorf("no h2 %q", name)
 		}

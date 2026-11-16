@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/coredev-uk/sona-go/internal/addons"
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 	"github.com/coredev-uk/sona-go/internal/discord"
@@ -48,7 +49,7 @@ type Platform struct {
 	Files FileChooser
 	// LinkHandler is the system's choice of the app that opens Apple Music
 	// links (music://, musics://, itms://, itmss://): whether it is Sona
-	// and making it Sona. Nil where Sona can't be chosen (Windows).
+	// and making it Sona. Nil where Sona can't be chosen.
 	LinkHandler LinkHandler
 	// Commands: `sona <command>` (Core.Commands) reaches the running
 	// instance and a second launch forwards its links to it (internal/app:
@@ -203,6 +204,7 @@ func newPlatformService(e *Env) *PlatformService {
 		NeedsAppBundle:     p.NeedsAppBundle,
 		PlainNotifications: p.PlainNotifications,
 		DiscordPresence:    discord.Supported,
+		Addons:             addons.Supported(),
 		DeveloperTools:     e.Windows != nil && e.Windows.DeveloperTools(),
 		WindowControls: WindowControls{
 			Native:    p.TitleBar.Native,

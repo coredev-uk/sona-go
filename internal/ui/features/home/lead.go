@@ -100,7 +100,7 @@ func (h *home) homeLead(c *ui.Context, sec services.Section, ctx kit.ItemsCtx) {
 	first, rest := items[0], items[1:]
 	title := sec.Title
 	if title == "" {
-		title = i18n.T("Top picks")
+		title = i18n.T("Top Picks")
 	}
 	root := ui.Column(c.Key("lead")).Role(ui.RoleGroup).Label(title)
 	width := st.width.Track(c, root)
@@ -208,10 +208,12 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 	}, func(w, s ui.Element) {
 		kit.Artwork(c, h.env.Art, art, cover, kit.ArtOpts{Edge: true, Round: kit.ItemRound(it)})
 		ui.Column(c.Key("words")).Grow(1).Shrink(1).MinWidth(0).Padding(0, 0, 4, 0).Children(func() {
-			opener = h.titleBlock(c, it, "page", link)
+			opener = h.titleBlock(c, it, "page", link, ctx)
 			ui.Row(c.Key("controls")).Margin(20, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
-				if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
-					ctx.Players.PlayItem(it)
+				if !kit.PlaysWhenOpened(it, ctx.Players) {
+					if play, _ := kit.PlayButtons(c, kit.PlayButtonsOpts{Label: it.Name, Disabled: !playable}); play {
+						ctx.Players.PlayItem(it)
+					}
 				}
 				if selectable {
 					menus.Trigger(c.Key("more"), s, at, kit.TriggerOpts{Header: true, Select: &st.sel}, opener)
@@ -222,12 +224,13 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 
 	open := func() { h.open(it, ctx) }
 	for _, e := range [...]ui.Element{src, opener} {
-		if !e.Clicked() {
+		clicked, again := kit.ClickRun(e)
+		if !clicked {
 			continue
 		}
 		if mods := kit.ModsOf(e.ClickModifiers()); (mods.Range || mods.Toggle) && selectable {
 			st.sel.Click(0, mods)
-		} else {
+		} else if !again {
 			open()
 		}
 	}
@@ -244,7 +247,7 @@ func (h *home) leadPick(c *ui.Context, it services.Item, cover float32, ctx kit.
 // when its page is served, plain text when it is not) in the type style, the
 // subtitle and the catalogue line. It returns the name's button, the zero
 // Element when the name is plain text.
-func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string) (opener ui.Element) {
+func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string, ctx kit.ItemsCtx) (opener ui.Element) {
 	tk := theme.Current()
 	if link != "" && !h.opens(link) {
 		// Its page is not served: the name is plain text.
@@ -254,15 +257,31 @@ func (h *home) titleBlock(c *ui.Context, it services.Item, style, link string) (
 		if link != "" {
 			opener.Role(ui.RoleLink)
 		}
+		// A station with no page plays when its name is pressed and pauses
+		// while it plays: the name is that one button, with the mark after it.
+		direct := kit.PlaysWhenOpened(it, ctx.Players)
+		if direct {
+			opener.Role(ui.RoleButton).Label(kit.StationLabel(it, ctx))
+		}
 		opener.Children(func() {
 			t := theme.Text(c, it.Name, style).TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start)
 			if opener.Hovered() {
 				t.Underline()
 			}
+			if direct {
+				kit.StationCue(c, kit.StationPlaying(it, ctx), opener.Hovered() || opener.Focused()).Margin(0, 0, 0, 8)
+			}
 		})
 	}
-	if it.Subtitle != "" {
-		theme.Text(c, it.Subtitle, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0)
+	// One line, clipped: the full text is its tooltip. A hero card's line is
+	// Apple's line about it (Description); otherwise the artist or curator.
+	// A line that only repeats the name is left out.
+	line := it.Subtitle
+	if it.Description != "" {
+		line = it.Description
+	}
+	if !kit.Repeats(it.Name, line) {
+		theme.Text(c, line, "heading").FontWeight(500).TextColor(theme.C("ink")).SingleLine().Margin(6, 0, 0, 0).Tooltip(line)
 	}
 	if meta := catalogueLine(it); meta != "" {
 		theme.Text(c, meta, "meta").TextColor(theme.C("ink-muted")).SingleLine().Margin(4, 0, 0, 0)

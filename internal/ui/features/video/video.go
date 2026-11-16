@@ -101,7 +101,7 @@ func (v *video) module() module.Module {
 		ID: "video",
 		Routes: []module.Route{{
 			Pattern: videoPath,
-			Title:   func(*ui.Route) string { return i18n.T("Music video") },
+			Title:   func(*ui.Route) string { return i18n.T("Music Video") },
 			Build:   v.page,
 		}},
 		Slots: module.Slots{Layer: v.layer, LayerOpen: v.layerOpen},

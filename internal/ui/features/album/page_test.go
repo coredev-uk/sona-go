@@ -148,7 +148,7 @@ func TestLibraryOnlyAlbumHasNoCatalogueExtras(t *testing.T) {
 		Tracks: []services.Song{track(1, "First"), track(2, "Second")}, DurationMs: 400000,
 	}
 	r.shows("Demos", "First")
-	r.wantNoTexts("Popular", "Notes", "Other versions", "More by Mia Vale", "You might also like")
+	r.wantNoTexts("Popular", "Notes", "Other Versions", "More by Mia Vale", "You Might Also Like")
 	// No catalogue page, so the byline links to the library artist.
 	r.click("Mia Vale")
 	if got := r.path(); got != "/artist/r.1" {
@@ -193,6 +193,30 @@ func TestNotFoundAlbumSaysSoAndGoesBack(t *testing.T) {
 	r.shows("This album isn't available", "Go to Albums")
 	r.click("Go to Albums")
 	if got := r.path(); got != "/library/albums" {
+		t.Errorf("went to %q", got)
+	}
+}
+
+// #350: the last song of the open library album is deleted: the page says the
+// album left the library, with its Apple Music page, not an empty track list.
+func TestAlbumLeavingTheLibraryUnderTheOpenPageSaysSo(t *testing.T) {
+	r := newRig(t, "/album/l.9", 1132, 1000)
+	r.addCatalog(saltFlats())
+	r.lib.mu.Lock()
+	r.lib.albums["l.9"] = services.AlbumDetail{
+		Album:  services.Album{ID: "l.9", Source: services.SourceLibrary, CatalogID: "100", Name: "Salt Flats", Artist: "Mia Vale", ReleaseDate: "2019-03-08"},
+		Tracks: fiveTracks(), DurationMs: 1000000, InLibrary: true,
+	}
+	r.lib.mu.Unlock()
+	r.shows("Salt Flats", "Low Tide")
+	r.lib.mu.Lock()
+	delete(r.lib.albums, "l.9") // what the library answers once its last song is gone
+	r.lib.mu.Unlock()
+	r.h.Env.Queries.Invalidate(store.LibraryAlbum("l.9"))
+	r.shows("This album is no longer in your library", "Open on Apple Music")
+	r.wantNoTexts("Low Tide", "Play Salt Flats")
+	r.click("Open on Apple Music")
+	if got := r.path(); got != "/album/100" {
 		t.Errorf("went to %q", got)
 	}
 }
@@ -859,7 +883,7 @@ func TestCatalogueSections(t *testing.T) {
 		p.AppearsOn = []services.Playlist{{ID: "pl.1", Name: "Road Trip", Curator: "Apple Music Indie"}}
 		p.Similar = []services.Album{{ID: "300", Name: "Dust", Artist: "Cy Moor"}}
 	}))
-	r.shows("Other versions", "Music videos", "More to hear", "More by Mia Vale", "Featured in playlists", "You might also like")
+	r.shows("Other Versions", "Music Videos", "More to Hear", "More by Mia Vale", "Featured in Playlists", "You Might Also Like")
 	r.tt.Scroll(600, 300, 0, 2400)
 	r.tt.Settle()
 	r.wantTexts("Salt Flats (Deluxe)", "Low Tide (Video)", "Salt Flats, the story", "Record Club", "Blue Hour", "2021", "Road Trip", "Dust", "Cy Moor")

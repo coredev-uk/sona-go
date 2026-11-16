@@ -144,7 +144,7 @@ func TestControlsAreOnTheTree(t *testing.T) {
 	r = newRig(t, services.AuthStatus{State: "signing_in", BrowserSignIn: true})
 	r.tt.Frame()
 	tr = access.Read(t, r.tt.Tester)
-	if _, ok := tr.Find(ui.RoleHeading, "Finish signing in in your browser"); !ok {
+	if _, ok := tr.Find(ui.RoleHeading, "Finish Signing in in Your Browser"); !ok {
 		t.Errorf("no heading:\n%s", tr.Dump())
 	}
 	for _, n := range tr.Nodes {
@@ -296,7 +296,7 @@ func TestSignOutDialogTakesTheFocusAndEscapeGivesItBack(t *testing.T) {
 	r.tt.Drain()
 	r.tt.Frame()
 	tr := access.Read(t, r.tt.Tester)
-	d, ok := tr.Find(ui.RoleAlertDialog, "Sign out of Apple Music?")
+	d, ok := tr.Find(ui.RoleAlertDialog, "Sign Out of Apple Music?")
 	if !ok {
 		t.Fatalf("no alert dialog:\n%s", tr.Dump())
 	}
@@ -316,7 +316,7 @@ func TestSignOutDialogTakesTheFocusAndEscapeGivesItBack(t *testing.T) {
 	r.tt.Key(0, ui.KeyEscape)
 	r.tt.Advance(300 * time.Millisecond)
 	r.tt.Drain()
-	r.hides("Sign out of Apple Music?")
+	r.hides("Sign Out of Apple Music?")
 	tr = access.Read(t, r.tt.Tester)
 	if tr.Focus == nil || tr.Focus.Role != ui.RoleButton || tr.Focus.Label != "Sign out" || tr.Within(*tr.Focus, ui.RoleAlertDialog) {
 		t.Errorf("the focus did not return to the page's Sign out button: %+v", tr.Focus)

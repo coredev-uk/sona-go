@@ -52,7 +52,7 @@ func (p *player) queueSummary(c *ui.Context, leave func()) {
 }
 
 // playingFrom is "Playing from <station>": the station's name links to its
-// page when that page is ported.
+// page when that page is ported, and is then a Tab stop.
 func (p *player) playingFrom(c *ui.Context, st *services.QueueStation, leave func()) {
 	whole := i18n.T("Playing from <0>{playingFrom}</0>", "playingFrom", st.Name)
 	before, station, after, ok := i18n.SplitLink(whole)
@@ -70,9 +70,12 @@ func (p *player) playingFrom(c *ui.Context, st *services.QueueStation, leave fun
 		if before != "" {
 			text("before", before, muted)
 		}
-		name := text("station", station, theme.C("ink")).Shrink(1).MinWidth(0)
 		if p.env.Routed(path) {
-			name.Role(ui.RoleLink).Cursor(ui.CursorPointer).Underline().DecorationColor(theme.C("ink").Alpha(0.4))
+			// A link outside a page has no URL for the browser: the click
+			// opens the page. It is a Tab stop, as the bar's links are.
+			name := ui.Link(c.Key("station"), station, "").FontSize(t.Size).FixedLineHeight(t.LineHeight).
+				SingleLine().Shrink(1).MinWidth(0).TextColor(theme.C("ink")).Cursor(ui.CursorPointer).
+				Underline().DecorationColor(theme.C("ink").Alpha(0.4))
 			if name.Hovered() {
 				name.DecorationColor(theme.C("ink"))
 			}
@@ -82,6 +85,8 @@ func (p *player) playingFrom(c *ui.Context, st *services.QueueStation, leave fun
 				}
 				p.env.Nav.Push(path)
 			}
+		} else {
+			text("station", station, theme.C("ink")).Shrink(1).MinWidth(0)
 		}
 		if after != "" {
 			text("after", after, muted)

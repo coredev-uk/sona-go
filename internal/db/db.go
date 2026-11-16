@@ -137,12 +137,15 @@ DELETE FROM accounts;
 DELETE FROM search_fts;
 DELETE FROM recent_searches;
 DELETE FROM release_reminders;
+DELETE FROM artist_releases;
+DELETE FROM tracked_artists;
+DELETE FROM artist_tracker_state;
 DELETE FROM discover_cache WHERE personal = 1;
 `
 
 // WipeUserData deletes everything tied to the signed-in user (library rows
 // and membership, playlists, history, ratings, pins, sync checkpoints, the
-// account row, the search index, recent searches and release reminders)
+// account row, the search index, recent searches, release reminders and the artist tracker's state)
 // for sign-out. Catalog rows and the catalog response cache are storefront
 // data, not user data, and are kept.
 func (d *DB) WipeUserData(ctx context.Context) error {
@@ -168,6 +171,7 @@ UNION SELECT artwork_template FROM pins
 UNION SELECT artwork_template FROM playback_history
 UNION SELECT art_url FROM recent_searches
 UNION SELECT artwork_template FROM release_reminders
+UNION SELECT artwork_template FROM artist_releases
 `
 
 // catalogArtwork lists the artwork templates of catalog rows.

@@ -132,12 +132,12 @@ msgstr ""
 msgid "Add"
 msgstr ""
 
-#: internal/ui/features/library/artists.go
-msgid "Add music by {name} to collect it here."
+#: internal/ui/features/playlist/dialogs.go
+msgid "Add Songs From Any Album, Playlist or Search Result."
 msgstr ""
 
-#: internal/ui/features/playlist/dialogs.go
-msgid "Add songs from any album, playlist or search result."
+#: internal/ui/features/library/artists.go
+msgid "Add music by {name} to collect it here."
 msgstr ""
 
 #: internal/ui/features/playlist/page.go
@@ -148,12 +148,15 @@ msgstr ""
 msgid "Add songs with “Add to playlist” in any song, album or playlist menu."
 msgstr ""
 
+#: internal/ui/features/playlist/dialogs.go
+msgid "Add to Playlist"
+msgstr ""
+
 #: internal/ui/features/library/actions.go
 msgid "Add to library"
 msgstr ""
 
 #: internal/ui/features/playlist/actions.go
-#: internal/ui/features/playlist/dialogs.go
 msgid "Add to playlist"
 msgstr ""
 
@@ -170,7 +173,19 @@ msgid "Add {songName} to {playlistName}"
 msgstr ""
 
 #: internal/ui/kit/collections_tracklist.go
-msgid "Added by"
+msgid "Added By"
+msgstr ""
+
+#: internal/ui/features/playlist/page.go
+msgid "Added today"
+msgstr ""
+
+#: internal/ui/features/playlist/page.go
+msgid "Added yesterday"
+msgstr ""
+
+#: internal/ui/features/playlist/page.go
+msgid "Added {date}"
 msgstr ""
 
 #: internal/ui/features/playlist/commands.go
@@ -243,6 +258,7 @@ msgstr ""
 #: internal/ui/features/commands/palette.go
 #: internal/ui/features/home/catalogue.go
 #: internal/ui/features/library/query.go
+#: internal/ui/features/newreleases/row.go
 #: internal/ui/features/playlist/editor.go
 #: internal/ui/features/playlist/page.go
 #: internal/ui/features/search/groups.go
@@ -279,6 +295,9 @@ msgid "Albums featuring {artist}"
 msgstr ""
 
 #: internal/ui/features/artist/page.go
+msgid "Albums in Your Library"
+msgstr ""
+
 #: internal/ui/features/library/albums.go
 #: internal/ui/features/library/artists.go
 msgid "Albums in your library"
@@ -320,6 +339,12 @@ msgstr ""
 
 #: internal/ui/features/settings/updates.go
 msgid "Also offers release candidates and other test versions, so a test build updates to the next one."
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/releases.go
+#: internal/ui/features/settings/settingsfile.go
+msgid "Also show a desktop notification"
 msgstr ""
 
 #: internal/ui/features/settings/shortcuts.go
@@ -382,10 +407,6 @@ msgstr ""
 
 #: internal/ui/app/banner.go
 msgid "Apple Music asked Sona to sign in again. Your library is still here."
-msgstr ""
-
-#: internal/ui/features/playlist/covers.go
-msgid "Apple Music can't keep a playlist cover from here, so your choice stays on this computer and shows in Sona only."
 msgstr ""
 
 #: internal/ui/features/song/page.go
@@ -635,6 +656,10 @@ msgstr ""
 msgid "At the end of this song"
 msgstr ""
 
+#: internal/ui/features/onboarding/playback.go
+msgid "Audio Quality"
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Audio may skip while the computer is under heavy load."
 msgstr ""
@@ -647,7 +672,6 @@ msgstr ""
 msgid "Audio priority"
 msgstr ""
 
-#: internal/ui/features/onboarding/playback.go
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/quality.go
 #: internal/ui/features/settings/settingsfile.go
@@ -765,7 +789,7 @@ msgid "Browse"
 msgstr ""
 
 #: internal/ui/features/search/page.go
-msgid "Browse categories"
+msgid "Browse Categories"
 msgstr ""
 
 #: internal/ui/features/onboarding/widevine.go
@@ -830,7 +854,7 @@ msgid "Change cover…"
 msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
-msgid "Changes appear in Apple Music on all your devices."
+msgid "Changes Appear in Apple Music on All Your Devices."
 msgstr ""
 
 #: internal/ui/features/playlist/header.go
@@ -893,6 +917,10 @@ msgstr ""
 
 #: internal/ui/features/settings/updates.go
 msgid "Checked {checked}."
+msgstr ""
+
+#: internal/ui/features/newreleases/page.go
+msgid "Checked {when}"
 msgstr ""
 
 #: internal/ui/features/settings/diagnostics.go
@@ -991,6 +1019,10 @@ msgstr ""
 msgid "Clear filters"
 msgstr ""
 
+#: internal/ui/features/newreleases/page.go
+msgid "Clear list"
+msgstr ""
+
 #: internal/ui/features/search/field.go
 #: internal/ui/kit/controls_input.go
 msgid "Clear search"
@@ -1074,6 +1106,10 @@ msgstr ""
 msgid "Coming days"
 msgstr ""
 
+#: internal/ui/features/newreleases/page.go
+msgid "Coming soon"
+msgstr ""
+
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
 msgid "Comma"
@@ -1085,11 +1121,8 @@ msgid "Command"
 msgstr ""
 
 #: internal/ui/app/menubar.go
-msgid "Command Palette"
-msgstr ""
-
 #: internal/ui/kit/overlays_palette.go
-msgid "Command palette"
+msgid "Command Palette"
 msgstr ""
 
 #: internal/ui/features/commands/palette.go
@@ -1097,7 +1130,7 @@ msgid "Commands"
 msgstr ""
 
 #: internal/ui/features/settings/themes.go
-msgid "Community palettes"
+msgid "Community Palettes"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
@@ -1118,7 +1151,7 @@ msgid "Compilations featuring {artist}"
 msgstr ""
 
 #: internal/ui/features/song/credits.go
-msgid "Composition and lyrics"
+msgid "Composition and Lyrics"
 msgstr ""
 
 #: internal/ui/features/concerts/concerts.go
@@ -1468,6 +1501,10 @@ msgstr ""
 msgid "Couldn't load the lyrics"
 msgstr ""
 
+#: internal/ui/features/newreleases/page.go
+msgid "Couldn't load the new releases"
+msgstr ""
+
 #: internal/ui/features/discover/players.go
 msgid "Couldn't load the playlist"
 msgstr ""
@@ -1629,6 +1666,7 @@ msgstr ""
 #: internal/ui/account/signedin.go
 #: internal/ui/account/signin.go
 #: internal/ui/features/auth/menu.go
+#: internal/ui/features/library/videos.go
 msgid "Couldn't reach Apple"
 msgstr ""
 
@@ -2006,15 +2044,15 @@ msgid "Delete playlist"
 msgstr ""
 
 #: internal/ui/features/playlist/commands.go
-msgid "Delete the folder “{name}”?"
+msgid "Delete the Folder “{name}”?"
 msgstr ""
 
 #: internal/ui/kit/song_itemstate.go
-msgid "Delete {what} from your library?"
+msgid "Delete {what} From Your Library?"
 msgstr ""
 
 #: internal/ui/kit/song_itemstate.go
-msgid "Delete “{name}” from your library?"
+msgid "Delete “{name}” From Your Library?"
 msgstr ""
 
 #: internal/ui/features/playlist/commands.go
@@ -2055,7 +2093,7 @@ msgstr ""
 
 #: internal/ui/features/settings/devtools.go
 #: internal/ui/features/settings/find.go
-msgid "Developer tools"
+msgid "Developer Tools"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
@@ -2225,6 +2263,7 @@ msgstr ""
 #: internal/ui/features/artist/releaselist.go
 #: internal/ui/features/artist/timeline.go
 #: internal/ui/features/library/artists.go
+#: internal/ui/features/newreleases/row.go
 msgid "EP"
 msgstr ""
 
@@ -2233,6 +2272,7 @@ msgid "Each choice applies at once, to the app behind."
 msgstr ""
 
 #: internal/ui/features/library/recent.go
+#: internal/ui/features/newreleases/page.go
 msgid "Earlier"
 msgstr ""
 
@@ -2246,12 +2286,12 @@ msgstr ""
 msgid "Edit"
 msgstr ""
 
-#: internal/ui/features/playlist/actions.go
-msgid "Edit details…"
+#: internal/ui/features/playlist/dialogs.go
+msgid "Edit Playlist"
 msgstr ""
 
-#: internal/ui/features/playlist/dialogs.go
-msgid "Edit playlist"
+#: internal/ui/features/playlist/actions.go
+msgid "Edit details…"
 msgstr ""
 
 #: internal/ui/features/playlist/editor.go
@@ -2321,12 +2361,12 @@ msgstr ""
 msgid "Enter plays the song, Delete removes it, Shift+F10 opens its menu, Escape closes the queue."
 msgstr ""
 
-#: internal/ui/account/signin.go
-msgid "Enter the latest code you received. Older codes stop working once a new one is sent."
+#: internal/ui/account/code.go
+msgid "Enter the Verification Code"
 msgstr ""
 
-#: internal/ui/account/code.go
-msgid "Enter the verification code"
+#: internal/ui/account/signin.go
+msgid "Enter the latest code you received. Older codes stop working once a new one is sent."
 msgstr ""
 
 #: internal/ui/features/radio/schedule.go
@@ -2391,6 +2431,7 @@ msgstr ""
 #: internal/ui/features/artist/releaselist.go
 #: internal/ui/features/home/lead.go
 #: internal/ui/features/home/rows.go
+#: internal/ui/features/newreleases/row.go
 #: internal/ui/kit/collections_cover.go
 #: internal/ui/kit/collections_items_tracks.go
 #: internal/ui/kit/collections_tracklist.go
@@ -2434,6 +2475,10 @@ msgstr ""
 
 #: internal/ui/features/library/favourites.go
 #: internal/ui/features/library/library.go
+msgid "Favourite Songs"
+msgstr ""
+
+#: internal/ui/features/library/favourites.go
 msgid "Favourite songs"
 msgstr ""
 
@@ -2452,11 +2497,11 @@ msgid "Featured"
 msgstr ""
 
 #: internal/ui/features/playlist/page.go
-msgid "Featured artists"
+msgid "Featured Artists"
 msgstr ""
 
 #: internal/ui/features/album/sections.go
-msgid "Featured in playlists"
+msgid "Featured in Playlists"
 msgstr ""
 
 #: internal/ui/app/menubar.go
@@ -2518,7 +2563,7 @@ msgid "Find…"
 msgstr ""
 
 #: internal/ui/account/browser.go
-msgid "Finish signing in in your browser"
+msgid "Finish Signing in in Your Browser"
 msgstr ""
 
 #: internal/ui/features/album/model.go
@@ -2556,7 +2601,7 @@ msgstr ""
 #: internal/ui/features/home/page.go
 #: internal/ui/features/home/shelfpage.go
 #: internal/ui/features/settings/summaries.go
-msgid "For you"
+msgid "For You"
 msgstr ""
 
 #: internal/ui/features/settings/themes.go
@@ -2564,7 +2609,7 @@ msgid "Format {format} is not one Sona reads"
 msgstr ""
 
 #: internal/ui/features/playlist/collaborators.go
-msgid "Former collaborators"
+msgid "Former Collaborators"
 msgstr ""
 
 #: internal/ui/app/menubar.go
@@ -2581,6 +2626,10 @@ msgstr ""
 #: internal/ui/features/artist/page.go
 #: internal/ui/features/concerts/page.go
 msgid "From"
+msgstr ""
+
+#: internal/ui/features/newreleases/page.go
+msgid "From the artists you've favourited"
 msgstr ""
 
 #: internal/ui/features/library/artists.go
@@ -2652,12 +2701,12 @@ msgstr ""
 msgid "Go Back 10 Seconds"
 msgstr ""
 
-#: internal/ui/features/player/shortcuts.go
-msgid "Go back 10 seconds"
+#: internal/ui/features/settings/previous.go
+msgid "Go Back to the Previous Version?"
 msgstr ""
 
-#: internal/ui/features/settings/previous.go
-msgid "Go back to the previous version?"
+#: internal/ui/features/player/shortcuts.go
+msgid "Go back 10 seconds"
 msgstr ""
 
 #: internal/ui/features/settings/previous.go
@@ -2876,6 +2925,11 @@ msgstr ""
 msgid "In 45 minutes"
 msgstr ""
 
+#: internal/ui/features/commands/palette.go
+#: internal/ui/features/search/field.go
+msgid "In Your Library"
+msgstr ""
+
 #: internal/ui/kit/controls_actions.go
 msgid "In library"
 msgstr ""
@@ -2886,11 +2940,6 @@ msgstr ""
 
 #: internal/ui/features/settings/desktop.go
 msgid "In the background, music keeps playing and Sona stays in the system tray. Open it again from the tray, your media keys' player or the app launcher."
-msgstr ""
-
-#: internal/ui/features/commands/palette.go
-#: internal/ui/features/search/field.go
-msgid "In your library"
 msgstr ""
 
 #: internal/ui/kit/overlays_palette.go
@@ -2989,6 +3038,10 @@ msgstr ""
 msgid "Items"
 msgstr ""
 
+#: internal/ui/features/album/page.go
+msgid "Its last song was deleted from your library."
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Its seccomp filter isn't installed."
 msgstr ""
@@ -3039,11 +3092,11 @@ msgid "Keeps playing when closed"
 msgstr ""
 
 #: internal/ui/app/menubar.go
+#: internal/ui/features/commands/help.go
 msgid "Keyboard Shortcuts"
 msgstr ""
 
 #: internal/ui/features/commands/commands.go
-#: internal/ui/features/commands/help.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "Keyboard shortcuts"
 msgstr ""
@@ -3121,6 +3174,9 @@ msgid "Library"
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
+msgid "Library Database"
+msgstr ""
+
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/storage.go
 msgid "Library database"
@@ -3165,7 +3221,7 @@ msgid "Lime"
 msgstr ""
 
 #: internal/ui/features/settings/storage.go
-msgid "Limit and cleanup"
+msgid "Limit and Cleanup"
 msgstr ""
 
 #: internal/ui/features/settings/lyrics.go
@@ -3208,17 +3264,17 @@ msgstr ""
 msgid "Live"
 msgstr ""
 
+#: internal/ui/features/radio/onair.go
+#: internal/ui/features/radio/rail.go
+msgid "Live Now"
+msgstr ""
+
 #: internal/ui/features/artist/views.go
 msgid "Live albums by {artist}"
 msgstr ""
 
 #: internal/ui/features/radio/schedule.go
 msgid "Live broadcast"
-msgstr ""
-
-#: internal/ui/features/radio/onair.go
-#: internal/ui/features/radio/rail.go
-msgid "Live now"
 msgstr ""
 
 #: internal/ui/features/miniplayer/view.go
@@ -3239,6 +3295,7 @@ msgstr ""
 #: internal/ui/features/home/lead.go
 #: internal/ui/features/home/local.go
 #: internal/ui/features/home/shelfpage.go
+#: internal/ui/features/newreleases/page.go
 #: internal/ui/features/onboarding/parts.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/playlist/header.go
@@ -3359,7 +3416,6 @@ msgid "Lyrics, full screen"
 msgstr ""
 
 #: internal/ui/features/playlist/header.go
-#: internal/ui/features/playlist/sidebar.go
 msgid "Made for you"
 msgstr ""
 
@@ -3377,6 +3433,14 @@ msgstr ""
 
 #: internal/ui/features/settings/linkhandler.go
 msgid "Make Sona the default"
+msgstr ""
+
+#: internal/ui/features/newreleases/page.go
+msgid "Mark all as read"
+msgstr ""
+
+#: internal/ui/features/newreleases/newreleases.go
+msgid "Mark as read"
 msgstr ""
 
 #. Tray menu items: "Show Sona" brings the main window back, "Mini Player" opens the small always-on-top player, "Quit Sona" exits. Menu items are in title case.
@@ -3398,6 +3462,11 @@ msgstr ""
 msgid "Mode"
 msgstr ""
 
+#: internal/ui/features/playlist/page.go
+#: internal/ui/features/video/page.go
+msgid "More Like This"
+msgstr ""
+
 #: internal/ui/features/album/sections.go
 #: internal/ui/features/song/page.go
 #: internal/ui/features/video/page.go
@@ -3408,12 +3477,12 @@ msgstr ""
 msgid "More concerts near {city}"
 msgstr ""
 
-#: internal/ui/features/playlist/sidebar.go
-msgid "More for the folder {folderName}"
+#: internal/ui/features/home/index.go
+msgid "More for You"
 msgstr ""
 
-#: internal/ui/features/home/index.go
-msgid "More for you"
+#: internal/ui/features/playlist/sidebar.go
+msgid "More for the folder {folderName}"
 msgstr ""
 
 #: internal/ui/features/player/queue_menu.go
@@ -3430,11 +3499,6 @@ msgstr ""
 msgid "More from {curatorName}"
 msgstr ""
 
-#: internal/ui/features/playlist/page.go
-#: internal/ui/features/video/page.go
-msgid "More like this"
-msgstr ""
-
 #: internal/ui/kit/collections_items_linklist.go
 msgid "More links"
 msgstr ""
@@ -3448,7 +3512,11 @@ msgid "More themes, including OLED and community palettes, are in Settings → A
 msgstr ""
 
 #: internal/ui/features/album/sections.go
-msgid "More to hear"
+msgid "More to Hear"
+msgstr ""
+
+#: internal/ui/features/settings/motiondiag.go
+msgid "Motion Artwork"
 msgstr ""
 
 #: internal/ui/features/onboarding/appearance.go
@@ -3476,13 +3544,13 @@ msgstr ""
 msgid "Move here"
 msgstr ""
 
+#: internal/ui/features/playlist/dialogs.go
+msgid "Move to Folder"
+msgstr ""
+
 #. Queue row menu: moves the song to the end of the songs the user queued, before AutoPlay's. Apple has no such item.
 #: internal/ui/features/player/queue_menu.go
 msgid "Move to end"
-msgstr ""
-
-#: internal/ui/features/playlist/dialogs.go
-msgid "Move to folder"
 msgstr ""
 
 #: internal/ui/features/playlist/actions.go
@@ -3517,14 +3585,8 @@ msgstr ""
 msgid "Music User Token"
 msgstr ""
 
-#: internal/ui/features/home/catalogue.go
-#: internal/ui/features/miniplayer/view.go
-#: internal/ui/features/player/queue_row.go
-#: internal/ui/features/search/groups.go
-#: internal/ui/features/video/page.go
 #: internal/ui/features/video/video.go
-#: internal/ui/features/video/view.go
-msgid "Music video"
+msgid "Music Video"
 msgstr ""
 
 #: internal/ui/features/album/sections.go
@@ -3532,7 +3594,16 @@ msgstr ""
 #: internal/ui/features/library/videos.go
 #: internal/ui/features/search/groups.go
 #: internal/ui/features/song/page.go
-msgid "Music videos"
+msgid "Music Videos"
+msgstr ""
+
+#: internal/ui/features/home/catalogue.go
+#: internal/ui/features/miniplayer/view.go
+#: internal/ui/features/player/queue_row.go
+#: internal/ui/features/search/groups.go
+#: internal/ui/features/video/page.go
+#: internal/ui/features/video/view.go
+msgid "Music video"
 msgstr ""
 
 #: internal/ui/features/artist/views.go
@@ -3606,12 +3677,18 @@ msgstr ""
 msgid "Never"
 msgstr ""
 
+#: internal/ui/features/playlist/dialogs.go
+msgid "New Folder"
+msgstr ""
+
 #: internal/ui/app/menubar.go
+#: internal/ui/features/playlist/dialogs.go
 msgid "New Playlist"
 msgstr ""
 
-#: internal/ui/features/playlist/dialogs.go
-msgid "New folder"
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/general.go
+msgid "New Releases"
 msgstr ""
 
 #: internal/ui/features/playlist/sidebar.go
@@ -3632,6 +3709,12 @@ msgstr ""
 
 #: internal/ui/features/playlist/sidebar.go
 msgid "New playlist or folder"
+msgstr ""
+
+#: internal/ui/features/newreleases/newreleases.go
+#: internal/ui/features/newreleases/page.go
+#: internal/ui/features/newreleases/row.go
+msgid "New releases"
 msgstr ""
 
 #: internal/ui/features/updates/updates.go
@@ -3916,6 +3999,10 @@ msgstr ""
 msgid "Normal"
 msgstr ""
 
+#: internal/ui/features/artist/viewpage.go
+msgid "Not Found"
+msgstr ""
+
 #. Tray menu item on macOS, where menu items are in title case, shown while nothing plays. Same meaning as the sentence-case "Not playing" of Linux and Windows.
 #: internal/ui/app/tray.go
 msgid "Not Playing"
@@ -3958,6 +4045,7 @@ msgstr ""
 msgid "Not available while listening to a station"
 msgstr ""
 
+#: internal/ui/features/newreleases/page.go
 #: internal/ui/features/settings/diag_rows.go
 msgid "Not checked yet"
 msgstr ""
@@ -4069,6 +4157,10 @@ msgstr ""
 msgid "Nothing left to arrange"
 msgstr ""
 
+#: internal/ui/features/newreleases/page.go
+msgid "Nothing new yet"
+msgstr ""
+
 #: internal/ui/features/search/page.go
 msgid "Nothing on Apple Music for “{q}”"
 msgstr ""
@@ -4099,11 +4191,11 @@ msgid "Notifications"
 msgstr ""
 
 #: internal/ui/app/menubar.go
+#: internal/ui/features/player/queue_list.go
 msgid "Now Playing"
 msgstr ""
 
 #: internal/ui/features/player/nowplaying_view.go
-#: internal/ui/features/player/queue_list.go
 #: internal/ui/kit/media_equaliser.go
 msgid "Now playing"
 msgstr ""
@@ -4179,6 +4271,14 @@ msgstr ""
 msgid "On"
 msgstr ""
 
+#: internal/ui/features/radio/station.go
+msgid "On Air"
+msgstr ""
+
+#: internal/ui/features/settings/storage.go
+msgid "On This Computer"
+msgstr ""
+
 #: internal/ui/features/settings/motiondiag.go
 msgid "On UPS battery: motion artwork pauses"
 msgstr ""
@@ -4210,7 +4310,6 @@ msgid "On in development builds; switching it here lasts until Sona quits."
 msgstr ""
 
 #: internal/ui/features/library/history.go
-#: internal/ui/features/settings/storage.go
 msgid "On this computer"
 msgstr ""
 
@@ -4224,6 +4323,19 @@ msgstr ""
 
 #: internal/ui/features/discover/newpage.go
 msgid "On this page"
+msgstr ""
+
+#: internal/ui/features/settings/releases.go
+msgid "Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
+msgstr ""
+
+#: internal/ui/features/settings/releases.go
+msgid "One notification for each new release, or one summary when several arrive together. Click it to open the release."
+msgstr ""
+
+#. Notice at the top of the playlist cover picker: the chosen cover is kept on this computer only; Apple Music and the user's other devices do not get it.
+#: internal/ui/features/playlist/covers.go
+msgid "Only in Sona: Apple Music can't keep covers set here."
 msgstr ""
 
 #: internal/ui/features/settings/linkhandler.go
@@ -4258,6 +4370,10 @@ msgstr ""
 msgid "Open Link from Clipboard…"
 msgstr ""
 
+#: internal/ui/features/newreleases/page.go
+msgid "Open Settings"
+msgstr ""
+
 #. Button of the small player: brings the main window back.
 #: internal/ui/features/miniplayer/view.go
 msgid "Open Sona"
@@ -4280,6 +4396,10 @@ msgstr ""
 #: internal/ui/features/settings/general.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "Open on"
+msgstr ""
+
+#: internal/ui/features/album/page.go
+msgid "Open on Apple Music"
 msgstr ""
 
 #: internal/ui/features/commands/commands.go
@@ -4308,7 +4428,8 @@ msgid "Open website"
 msgstr ""
 
 #: internal/ui/features/concerts/row.go
-#: internal/ui/kit/collections_items_linklist.go
+#: internal/ui/features/search/itemrow.go
+#: internal/ui/kit/webcue.go
 msgid "Opens in your browser"
 msgstr ""
 
@@ -4333,7 +4454,7 @@ msgid "Order"
 msgstr ""
 
 #: internal/ui/features/album/sections.go
-msgid "Other versions"
+msgid "Other Versions"
 msgstr ""
 
 #: internal/ui/features/album/body.go
@@ -4411,11 +4532,16 @@ msgstr ""
 #: internal/ui/features/radio/onair.go
 #: internal/ui/kit/collections_items_stations.go
 #: internal/ui/kit/playback_controls.go
+#: internal/ui/kit/stationcue.go
 msgid "Pause"
 msgstr ""
 
 #: internal/ui/features/discover/front.go
 msgid "Pause featured rotation"
+msgstr ""
+
+#: internal/ui/kit/collections_items_stations.go
+msgid "Pause {name}"
 msgstr ""
 
 #: internal/ui/kit/media_equaliser.go
@@ -4503,7 +4629,6 @@ msgstr ""
 #: internal/ui/app/menubar.go
 #: internal/ui/app/tray.go
 #: internal/ui/features/artist/head.go
-#: internal/ui/features/home/rows.go
 #: internal/ui/features/player/queue_menu.go
 #: internal/ui/features/playlist/sidebar.go
 #: internal/ui/features/radio/onair.go
@@ -4511,10 +4636,10 @@ msgstr ""
 #: internal/ui/features/search/itemrow.go
 #: internal/ui/features/search/results.go
 #: internal/ui/kit/button.go
-#: internal/ui/kit/collections_cover.go
-#: internal/ui/kit/collections_items_linklist.go
 #: internal/ui/kit/collections_items_stations.go
+#: internal/ui/kit/overlays_palette.go
 #: internal/ui/kit/playback_controls.go
+#: internal/ui/kit/stationcue.go
 msgid "Play"
 msgstr ""
 
@@ -4613,7 +4738,7 @@ msgid "Playback isn't available on this platform yet"
 msgstr ""
 
 #: internal/ui/features/home/local.go
-msgid "Played on this computer"
+msgid "Played on This Computer"
 msgstr ""
 
 #: internal/ui/features/library/history.go
@@ -4646,7 +4771,7 @@ msgid "Playlist"
 msgstr ""
 
 #: internal/ui/features/playlist/covers.go
-msgid "Playlist cover"
+msgid "Playlist Cover"
 msgstr ""
 
 #: internal/ui/features/discover/bands.go
@@ -4661,7 +4786,7 @@ msgid "Playlists"
 msgstr ""
 
 #: internal/ui/features/search/groups.go
-msgid "Playlists by listeners"
+msgid "Playlists by Listeners"
 msgstr ""
 
 #: internal/ui/features/artist/views.go
@@ -4680,16 +4805,16 @@ msgstr ""
 msgid "Playlists you make or add in Apple Music appear here after the next sync."
 msgstr ""
 
+#: internal/ui/features/radio/station.go
+msgid "Plays First"
+msgstr ""
+
 #: internal/ui/features/settings/audio.go
 msgid "Plays every song at about the same loudness, using the loudness Apple measured for it. Uploaded songs use their own Sound Check tag, if iTunes or Music wrote one."
 msgstr ""
 
 #: internal/ui/features/onboarding/playback.go
 msgid "Plays every song at about the same loudness."
-msgstr ""
-
-#: internal/ui/features/radio/station.go
-msgid "Plays first"
 msgstr ""
 
 #: internal/ui/features/library/history.go
@@ -4883,7 +5008,7 @@ msgid "Problem"
 msgstr ""
 
 #: internal/ui/features/song/credits.go
-msgid "Production and engineering"
+msgid "Production and Engineering"
 msgstr ""
 
 #: internal/ui/features/search/groups.go
@@ -4900,7 +5025,7 @@ msgid "Pronunciation"
 msgstr ""
 
 #: internal/ui/features/search/profile.go
-msgid "Public playlists"
+msgid "Public Playlists"
 msgstr ""
 
 #: internal/ui/features/settings/themes.go
@@ -4950,15 +5075,15 @@ msgid "Radio"
 msgstr ""
 
 #: internal/ui/features/search/groups.go
+msgid "Radio Episodes"
+msgstr ""
+
+#: internal/ui/features/search/groups.go
+msgid "Radio Shows"
+msgstr ""
+
+#: internal/ui/features/search/groups.go
 msgid "Radio episode"
-msgstr ""
-
-#: internal/ui/features/search/groups.go
-msgid "Radio episodes"
-msgstr ""
-
-#: internal/ui/features/search/groups.go
-msgid "Radio shows"
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
@@ -5005,9 +5130,21 @@ msgstr ""
 
 #: internal/ui/features/home/local.go
 #: internal/ui/features/library/library.go
-#: internal/ui/features/library/query.go
 #: internal/ui/features/library/recent.go
 #: internal/ui/features/settings/summaries.go
+msgid "Recently Added"
+msgstr ""
+
+#: internal/ui/features/home/local.go
+msgid "Recently Played"
+msgstr ""
+
+#: internal/ui/features/search/field.go
+#: internal/ui/features/search/recentshelf.go
+msgid "Recently Searched"
+msgstr ""
+
+#: internal/ui/features/library/query.go
 msgid "Recently added"
 msgstr ""
 
@@ -5016,16 +5153,7 @@ msgid "Recently added, {when}"
 msgstr ""
 
 #: internal/ui/features/home/local.go
-msgid "Recently played"
-msgstr ""
-
-#: internal/ui/features/home/local.go
 msgid "Recently played songs"
-msgstr ""
-
-#: internal/ui/features/search/field.go
-#: internal/ui/features/search/recentshelf.go
-msgid "Recently searched"
 msgstr ""
 
 #: internal/ui/features/library/query.go
@@ -5098,6 +5226,10 @@ msgstr ""
 msgid "Release date"
 msgstr ""
 
+#: internal/ui/features/newreleases/page.go
+msgid "Release tracking is off"
+msgstr ""
+
 #: internal/ui/features/album/model.go
 #: internal/ui/features/song/page.go
 msgid "Released"
@@ -5125,6 +5257,10 @@ msgstr ""
 msgid "Remove"
 msgstr ""
 
+#: internal/ui/features/newreleases/newreleases.go
+msgid "Remove from New releases"
+msgstr ""
+
 #: internal/ui/features/playlist/actions.go
 msgid "Remove from playlist"
 msgstr ""
@@ -5135,6 +5271,10 @@ msgstr ""
 
 #: internal/ui/features/search/recentshelf.go
 msgid "Remove {label} from recent searches"
+msgstr ""
+
+#: internal/ui/features/newreleases/row.go
+msgid "Remove {name}"
 msgstr ""
 
 #: internal/ui/features/player/queue_row.go
@@ -5154,7 +5294,7 @@ msgid "Rename"
 msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
-msgid "Rename folder"
+msgid "Rename Folder"
 msgstr ""
 
 #: internal/ui/features/playlist/sidebar.go
@@ -5194,11 +5334,11 @@ msgid "Repeat one"
 msgstr ""
 
 #: internal/ui/kit/playerqueue_commands.go
-msgid "Replace queue"
+msgid "Replace Your Queue?"
 msgstr ""
 
 #: internal/ui/kit/playerqueue_commands.go
-msgid "Replace your queue?"
+msgid "Replace queue"
 msgstr ""
 
 #: internal/ui/features/settings/queue.go
@@ -5228,11 +5368,11 @@ msgid "Requested when playback starts"
 msgstr ""
 
 #: internal/ui/features/settings/shortcuts.go
-msgid "Reset all"
+msgid "Reset Every Shortcut?"
 msgstr ""
 
 #: internal/ui/features/settings/shortcuts.go
-msgid "Reset every shortcut?"
+msgid "Reset all"
 msgstr ""
 
 #: internal/ui/features/settings/desktop.go
@@ -5463,14 +5603,14 @@ msgstr ""
 msgid "Services"
 msgstr ""
 
+#: internal/ui/features/onboarding/layer.go
+#: internal/ui/features/onboarding/onboarding.go
+msgid "Set Up Sona"
+msgstr ""
+
 #: internal/ui/features/concerts/page.go
 #: internal/ui/features/concerts/upcoming.go
 msgid "Set location"
-msgstr ""
-
-#: internal/ui/features/onboarding/layer.go
-#: internal/ui/features/onboarding/onboarding.go
-msgid "Set up Sona"
 msgstr ""
 
 #: internal/ui/features/settings/setuprow.go
@@ -5521,7 +5661,7 @@ msgid "Setting…"
 msgstr ""
 
 #: internal/ui/features/onboarding/layer.go
-msgid "Setup is done"
+msgid "Setup Is Done"
 msgstr ""
 
 #: internal/ui/features/onboarding/progress.go
@@ -5587,6 +5727,14 @@ msgstr ""
 #: internal/ui/kit/collections_items_shelf.go
 #: internal/ui/kit/collections_shelf.go
 msgid "Show fewer"
+msgstr ""
+
+#: internal/ui/features/discover/front.go
+msgid "Show in lead"
+msgstr ""
+
+#: internal/ui/features/discover/front.go
+msgid "Show in lead: {name}"
 msgstr ""
 
 #: internal/ui/features/song/page.go
@@ -5657,7 +5805,7 @@ msgid "Shown under each line where a source has a translation into this language
 msgstr ""
 
 #: internal/ui/features/radio/bands.go
-msgid "Shows and episodes"
+msgid "Shows and Episodes"
 msgstr ""
 
 #: internal/ui/features/settings/devtools.go
@@ -5713,6 +5861,10 @@ msgstr ""
 
 #: internal/ui/features/playlist/sidebar.go
 msgid "Shuffle {playlist}"
+msgstr ""
+
+#: internal/ui/account/signedin.go
+msgid "Sign Out of Apple Music?"
 msgstr ""
 
 #: internal/ui/account/credentials.go
@@ -5802,10 +5954,6 @@ msgstr ""
 msgid "Sign out"
 msgstr ""
 
-#: internal/ui/account/signedin.go
-msgid "Sign out of Apple Music?"
-msgstr ""
-
 #: internal/ui/account/signin.go
 msgid "Sign-in didn't work"
 msgstr ""
@@ -5873,6 +6021,7 @@ msgstr ""
 #: internal/ui/features/artist/releaselist.go
 #: internal/ui/features/artist/timeline.go
 #: internal/ui/features/library/artists.go
+#: internal/ui/features/newreleases/row.go
 msgid "Single"
 msgstr ""
 
@@ -5893,6 +6042,9 @@ msgid "Singles and EPs featuring {artist}"
 msgstr ""
 
 #: internal/ui/features/artist/page.go
+msgid "Singles and EPs in Your Library"
+msgstr ""
+
 #: internal/ui/features/library/albums.go
 msgid "Singles and EPs in your library"
 msgstr ""
@@ -5918,7 +6070,7 @@ msgid "Skip setup"
 msgstr ""
 
 #: internal/ui/features/onboarding/layer.go
-msgid "Skip the rest of the setup?"
+msgid "Skip the Rest of the Setup?"
 msgstr ""
 
 #: internal/ui/features/settings/accents.go
@@ -5992,6 +6144,13 @@ msgstr ""
 #: internal/ui/features/settings/diag_rows.go
 #: internal/ui/features/settings/themes.go
 msgid "Sona"
+msgstr ""
+
+#. Title of the small always-on-top player window, read by window lists and screen readers.
+#: internal/ui/app/app.go
+#: internal/ui/app/shell.go
+#: internal/ui/features/miniplayer/view.go
+msgid "Sona Mini Player"
 msgstr ""
 
 #: internal/ui/features/onboarding/widevine.go
@@ -6160,11 +6319,8 @@ msgstr ""
 msgid "Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play."
 msgstr ""
 
-#. Title of the small always-on-top player window, read by window lists and screen readers.
-#: internal/ui/app/app.go
-#: internal/ui/app/shell.go
-#: internal/ui/features/miniplayer/view.go
-msgid "Sona mini player"
+#: internal/ui/features/newreleases/page.go
+msgid "Sona looks about once a day. When an artist you've favourited puts something out, it shows up here."
 msgstr ""
 
 #: internal/ui/i18n/errors.go
@@ -6252,12 +6408,12 @@ msgstr ""
 msgid "Sona {latest} is available"
 msgstr ""
 
-#: internal/ui/features/settings/linkhandler.go
-msgid "Sona's desktop entry isn't installed (a source build, a Flatpak or an AppImage that isn't integrated), so your desktop can't choose Sona for them."
+#: internal/ui/features/settings/themes.go
+msgid "Sona's Own"
 msgstr ""
 
-#: internal/ui/features/settings/themes.go
-msgid "Sona's own"
+#: internal/ui/features/settings/linkhandler.go
+msgid "Sona's desktop entry isn't installed (a source build, a Flatpak or an AppImage that isn't integrated), so your desktop can't choose Sona for them."
 msgstr ""
 
 #: internal/ui/features/settings/desktop.go
@@ -6287,7 +6443,7 @@ msgid "Songs added to it in Apple Music on any device appear here after the next
 msgstr ""
 
 #: internal/ui/features/discover/bands.go
-msgid "Songs and albums"
+msgid "Songs and Albums"
 msgstr ""
 
 #: internal/ui/features/artist/page.go
@@ -6302,12 +6458,15 @@ msgstr ""
 msgid "Songs can't play on this computer"
 msgstr ""
 
+#: internal/ui/features/artist/page.go
+#: internal/ui/features/library/artists.go
+msgid "Songs in Your Library"
+msgstr ""
+
 #: internal/ui/features/playlist/page.go
 msgid "Songs in playlist order"
 msgstr ""
 
-#: internal/ui/features/artist/page.go
-#: internal/ui/features/library/artists.go
 #: internal/ui/features/library/songs.go
 msgid "Songs in your library"
 msgstr ""
@@ -6470,7 +6629,7 @@ msgid "Stay awake while playing"
 msgstr ""
 
 #: internal/ui/features/onboarding/done.go
-msgid "Still to do"
+msgid "Still to Do"
 msgstr ""
 
 #: internal/ui/features/player/sleep_timer.go
@@ -6519,7 +6678,7 @@ msgid "Suggest less like {name}"
 msgstr ""
 
 #: internal/ui/features/playlist/suggestions.go
-msgid "Suggested songs"
+msgid "Suggested Songs"
 msgstr ""
 
 #: internal/ui/features/concerts/location.go
@@ -6642,6 +6801,10 @@ msgstr ""
 
 #: internal/ui/account/signin.go
 msgid "That Apple Account or password isn't right"
+msgstr ""
+
+#: internal/ui/i18n/errors.go
+msgid "That add-on isn't running."
 msgstr ""
 
 #: internal/ui/account/signin.go
@@ -6905,12 +7068,20 @@ msgstr ""
 msgid "This Apple Account is locked or temporarily unavailable."
 msgstr ""
 
+#: internal/ui/features/playlist/trackedits.go
+msgid "This Playlist Changed on Another Device"
+msgstr ""
+
 #: internal/ui/account/signin.go
 msgid "This account needs your browser to sign in"
 msgstr ""
 
 #: internal/ui/i18n/errors.go
 msgid "This account's two-factor method can't be completed inside Sona."
+msgstr ""
+
+#: internal/ui/features/album/page.go
+msgid "This album is no longer in your library"
 msgstr ""
 
 #: internal/ui/kit/controls_states.go
@@ -6975,10 +7146,6 @@ msgstr ""
 msgid "This platform's player reports plays to Apple itself, so Sona can't hold them back."
 msgstr ""
 
-#: internal/ui/features/playlist/trackedits.go
-msgid "This playlist changed on another device"
-msgstr ""
-
 #: internal/ui/features/playlist/page.go
 msgid "This playlist is empty"
 msgstr ""
@@ -7012,6 +7179,7 @@ msgid "This stream isn't offered with Widevine, the only protection Sona can pla
 msgstr ""
 
 #: internal/ui/features/concerts/page.go
+#: internal/ui/features/newreleases/page.go
 msgid "This week"
 msgstr ""
 
@@ -7062,41 +7230,41 @@ msgid "Tokens and your e-mail address are removed. A copy is saved as {file} in 
 msgstr ""
 
 #: internal/ui/features/discover/titles.go
-msgid "Top 100 songs by country"
+msgid "Top 100 Songs by Country"
 msgstr ""
 
 #: internal/ui/features/discover/titles.go
-msgid "Top 25 songs by city"
+msgid "Top 25 Songs by City"
 msgstr ""
 
 #: internal/ui/features/discover/titles.go
-msgid "Top albums"
-msgstr ""
-
-#: internal/ui/features/playlist/dialogs.go
-msgid "Top level"
+msgid "Top Albums"
 msgstr ""
 
 #: internal/ui/features/discover/titles.go
-msgid "Top music videos"
+msgid "Top Music Videos"
 msgstr ""
 
 #: internal/ui/features/home/lead.go
-msgid "Top picks"
+msgid "Top Picks"
 msgstr ""
 
 #: internal/ui/features/discover/titles.go
-msgid "Top playlists"
+msgid "Top Playlists"
 msgstr ""
 
 #: internal/ui/features/search/field.go
 #: internal/ui/features/search/groups.go
-msgid "Top results"
+msgid "Top Results"
 msgstr ""
 
 #: internal/ui/features/artist/page.go
 #: internal/ui/features/discover/titles.go
-msgid "Top songs"
+msgid "Top Songs"
+msgstr ""
+
+#: internal/ui/features/playlist/dialogs.go
+msgid "Top level"
 msgstr ""
 
 #: internal/ui/features/artist/page.go
@@ -7109,6 +7277,12 @@ msgstr ""
 
 #: internal/ui/features/song/page.go
 msgid "Track"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/releases.go
+#: internal/ui/features/settings/settingsfile.go
+msgid "Track new releases from favourite artists"
 msgstr ""
 
 #: internal/ui/features/onboarding/desktop.go
@@ -7196,6 +7370,10 @@ msgstr ""
 msgid "Turn on private listening"
 msgstr ""
 
+#: internal/ui/features/newreleases/page.go
+msgid "Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here."
+msgstr ""
+
 #: internal/ui/features/settings/motiondiag.go
 msgid "UPower didn't answer. Sona's log says why."
 msgstr ""
@@ -7279,6 +7457,10 @@ msgstr ""
 msgid "Unpin song"
 msgstr ""
 
+#: internal/ui/features/newreleases/row.go
+msgid "Unread"
+msgstr ""
+
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
 msgid "Up Arrow"
@@ -7297,7 +7479,7 @@ msgid "Up to {size}"
 msgstr ""
 
 #: internal/ui/features/concerts/upcoming.go
-msgid "Upcoming concerts"
+msgid "Upcoming Concerts"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
@@ -7472,16 +7654,20 @@ msgstr ""
 msgid "Welcome to Sona"
 msgstr ""
 
+#: internal/ui/features/onboarding/welcome.go
+msgid "What Whole Songs Need"
+msgstr ""
+
 #: internal/ui/features/onboarding/layer.go
 msgid "What plays your music and how it sounds."
 msgstr ""
 
-#: internal/ui/features/onboarding/welcome.go
-msgid "What whole songs need"
-msgstr ""
-
 #: internal/ui/features/onboarding/layer.go
 msgid "What you've chosen so far is kept. Settings → General runs the setup again."
+msgstr ""
+
+#: internal/ui/features/onboarding/desktop.go
+msgid "When You Close the Window"
 msgstr ""
 
 #: internal/ui/features/playlist/sidebar.go
@@ -7492,10 +7678,6 @@ msgstr ""
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "When the window is closed"
-msgstr ""
-
-#: internal/ui/features/onboarding/desktop.go
-msgid "When you close the window"
 msgstr ""
 
 #: internal/ui/features/settings/queue.go
@@ -7511,16 +7693,16 @@ msgid "Where your token is kept"
 msgstr ""
 
 #: internal/ui/account/code.go
-msgid "Which number should Apple call?"
+msgid "Which Number Should Apple Call?"
 msgstr ""
 
 #: internal/ui/account/code.go
-msgid "Which number should Apple text?"
+msgid "Which Number Should Apple Text?"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/general.go
-msgid "While music plays"
+msgid "While Music Plays"
 msgstr ""
 
 #: internal/ui/features/auth/dialog.go
@@ -7640,6 +7822,10 @@ msgstr ""
 msgid "You"
 msgstr ""
 
+#: internal/ui/features/album/sections.go
+msgid "You Might Also Like"
+msgstr ""
+
 #: internal/ui/features/playlist/dialogs.go
 msgid "You have no folders yet. Create one from the sidebar’s Playlists menu."
 msgstr ""
@@ -7650,10 +7836,6 @@ msgstr ""
 
 #: internal/ui/i18n/errors.go
 msgid "You have six pins. Unpin one to make room."
-msgstr ""
-
-#: internal/ui/features/album/sections.go
-msgid "You might also like"
 msgstr ""
 
 #: internal/ui/features/library/favourites.go
@@ -7676,16 +7858,16 @@ msgstr ""
 msgid "You'll get a notification on {releaseDate}"
 msgstr ""
 
+#: internal/ui/features/onboarding/layer.go
+msgid "You're All Set"
+msgstr ""
+
 #: internal/ui/features/playlist/header.go
 msgid "You're a collaborator"
 msgstr ""
 
 #: internal/ui/features/playlist/collaborators.go
 msgid "You're a collaborator."
-msgstr ""
-
-#: internal/ui/features/onboarding/layer.go
-msgid "You're all set"
 msgstr ""
 
 #: internal/ui/account/section.go
@@ -7726,6 +7908,18 @@ msgstr ""
 
 #: internal/ui/kit/keyring_copy.go
 msgid "Your Keychain didn't answer or refused, so you're signed out. Unlock your login keychain in Keychain Access, then try again."
+msgstr ""
+
+#: internal/ui/features/home/local.go
+msgid "Your Playlists"
+msgstr ""
+
+#: internal/ui/features/radio/rail.go
+msgid "Your Stations"
+msgstr ""
+
+#: internal/ui/features/settings/themes.go
+msgid "Your Themes"
 msgstr ""
 
 #: internal/ui/features/library/gate.go
@@ -7806,10 +8000,6 @@ msgstr ""
 msgid "Your own themes"
 msgstr ""
 
-#: internal/ui/features/home/local.go
-msgid "Your playlists"
-msgstr ""
-
 #: internal/ui/features/library/gate.go
 msgid "Your playlists appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."
 msgstr ""
@@ -7834,10 +8024,6 @@ msgstr ""
 msgid "Your songs appear here as Sona copies them from Apple Music. Large libraries take a minute or two the first time."
 msgstr ""
 
-#: internal/ui/features/radio/rail.go
-msgid "Your stations"
-msgstr ""
-
 #: internal/ui/features/settings/storage.go
 msgid "Your synced library, history and the catalogue cache. Sona optimises it when it is idle and nothing is playing (last {lastMaintenance})."
 msgstr ""
@@ -7856,10 +8042,6 @@ msgstr ""
 
 #: internal/ui/features/settings/themes.go
 msgid "Your theme"
-msgstr ""
-
-#: internal/ui/features/settings/themes.go
-msgid "Your themes"
 msgstr ""
 
 #: internal/ui/account/section.go
@@ -7882,6 +8064,14 @@ msgstr ""
 
 #: internal/ui/features/settings/find.go
 msgid "animation, motion, blur"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+msgid "artist tracker, new albums, singles, EPs, follow, notify"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+msgid "artist tracker, new releases, notification"
 msgstr ""
 
 #: internal/ui/features/player/shortcuts.go
@@ -8537,6 +8727,10 @@ msgstr ""
 
 #: internal/ui/features/playlist/collaborators.go
 msgid "{others, plural, one {{lead} & # other} other {{lead} & # others}}"
+msgstr ""
+
+#: internal/ui/app/view.go
+msgid "{page}, {count} new"
 msgstr ""
 
 #: internal/ui/features/settings/connections.go

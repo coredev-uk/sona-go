@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"math"
 	"regexp"
 	"strconv"
 
@@ -31,7 +32,8 @@ type ArtOpts struct {
 	// are decorations without it.
 	A11yLabel string
 	// Aspect is the box's width over its height (16.0/9 for a video frame);
-	// 0 is square. size is the width.
+	// 0 is square. size is the width. The height is rounded to whole DIPs
+	// (ArtBox), so any ratio, raw or worked out, lands on whole pixels.
 	Aspect float32
 	// Contain shows the whole picture inside the box at its own shape, read
 	// from the "<w>x<h>.jpg" of the URL (a banner stays wide), where the
@@ -80,7 +82,7 @@ func containBox(w, h, aspect float32) (float32, float32) {
 // it fails (it is asked for again after 5 s and 30 s). The CPU copy of the
 // pixels is dropped once the cover has been drawn twice.
 func Artwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) ui.Element {
-	w, h := artBox(size, o)
+	w, h := ArtBox(size, o.Aspect)
 	return artFrame(c, l, src, w, h, o, false)
 }
 
@@ -90,7 +92,7 @@ func Artwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) u
 // stays exact, and the box scales it down to the width it gets. The
 // placeholder glyph is 40% of size.
 func FluidArtwork(c *ui.Context, l *ArtLoader, src string, size float32, o ArtOpts) ui.Element {
-	w, h := artBox(size, o)
+	w, h := ArtBox(size, o.Aspect)
 	return artFrame(c, l, src, w, h, o, true)
 }
 
@@ -105,18 +107,21 @@ func PrefetchArtwork(c *ui.Context, l *ArtLoader, src string, size float32, o Ar
 	if l == nil {
 		return
 	}
-	w, h := artBox(size, o)
+	w, h := ArtBox(size, o.Aspect)
 	pw, ph := artPicture(src, w, h, o)
 	l.cover(l.view(c), rankAhead, src, pw, ph)
 }
 
-// artBox is the box of the width size that Artwork builds for o.
-func artBox(size float32, o ArtOpts) (w, h float32) {
-	w, h = size, size
-	if o.Aspect > 0 {
-		h = size / o.Aspect
+// ArtBox is the box Artwork and FluidArtwork build for a cover size wide at
+// aspect (width over height; 0 is square): its height is rounded to whole
+// DIPs, so the picture, asked for at the box, lands on whole pixels and is
+// not resampled. A caller that frames the cover in a box of its own sizes it
+// with this.
+func ArtBox(size, aspect float32) (w, h float32) {
+	if aspect <= 0 {
+		return size, size
 	}
-	return w, h
+	return size, float32(math.Round(float64(size / aspect)))
 }
 
 // artPicture is the size the picture of src is asked for in a box of w×h: the

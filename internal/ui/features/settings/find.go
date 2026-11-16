@@ -94,7 +94,8 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 	general := sectionTitle(secGeneral)
 	starting := i18n.T("Starting Sona")
 	window := i18n.T("Window")
-	playing := i18n.T("While music plays")
+	playing := i18n.T("While Music Plays")
+	releases := i18n.T("New Releases")
 	updates := i18n.T("Updates")
 	sound := i18n.T("Sound")
 	listening := i18n.T("Listening")
@@ -105,7 +106,7 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 	discord := i18n.T("Discord")
 	storage := sectionTitle(secStorage)
 	diagnostics := sectionTitle(secDiagnostics)
-	developerTools := i18n.T("Developer tools")
+	developerTools := i18n.T("Developer Tools")
 
 	e := []settingEntry{
 		{
@@ -146,6 +147,14 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 		},
 		{ID: "window-size", Section: secGeneral, Group: window, Title: i18n.T("Window size")},
 		{ID: "track-notifications", Section: secGeneral, Group: playing, Title: i18n.T("Track notifications")},
+		{
+			ID: "artist-tracker", Section: secGeneral, Group: releases, Title: i18n.T("Track new releases from favourite artists"),
+			Keywords: i18n.T("artist tracker, new albums, singles, EPs, follow, notify"),
+		},
+		{
+			ID: "artist-tracker-notify", Section: secGeneral, Group: releases, Title: i18n.T("Also show a desktop notification"),
+			Keywords: i18n.T("artist tracker, new releases, notification"),
+		},
 		{
 			ID: "inhibit-sleep", Section: secGeneral, Group: playing, Title: i18n.T("Stay awake while playing"),
 			Keywords: i18n.T("sleep, suspend"),

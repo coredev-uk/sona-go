@@ -278,7 +278,7 @@ func TestPageEditModeSwapsPlayForDoneAndReturnsFocus(t *testing.T) {
 	r.shows("Songs in Road Trip")
 	r.click("Edit")
 	r.shows("Done", "Name and description", "Edit the songs in Road Trip")
-	for _, gone := range []string{"Play Road Trip", "Shuffle", "Songs in Road Trip", "Suggested songs"} {
+	for _, gone := range []string{"Play Road Trip", "Shuffle", "Songs in Road Trip", "Suggested Songs"} {
 		if r.tt.HasText(gone) {
 			t.Errorf("edit mode still shows %q", gone)
 		}
@@ -314,7 +314,7 @@ func TestPageEditModeWithNoSongsSaysNothingIsLeft(t *testing.T) {
 // openSuggestions opens the collapsed shelf.
 func (r *pageRig) openSuggestions() {
 	r.t.Helper()
-	r.shows("Suggested songs", "Show suggestions")
+	r.shows("Suggested Songs", "Show suggestions")
 	r.click("Show suggestions")
 	r.shows("Hide suggestions")
 }
@@ -331,7 +331,7 @@ func suggestionPair() []services.Song {
 func TestPageSuggestionsStartCollapsedAndFetchWhenOpened(t *testing.T) {
 	r := newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
 	r.api.suggestions["p.1"] = suggestionPair()
-	r.shows("Song A", "Suggested songs", "Show suggestions")
+	r.shows("Song A", "Suggested Songs", "Show suggestions")
 	for range 10 {
 		r.tt.Drain()
 	}
@@ -467,10 +467,10 @@ func TestPageSuggestionsHiddenWhileEditingAndEmptyWhenNoneCame(t *testing.T) {
 
 	r = newPageRig(t, "p.1", libraryDetail("p.1", "Road Trip", threeSongs()...))
 	r.api.suggestions["p.1"] = []services.Song{pgSong("s1", "Sugg One", "Singer", "Album S")}
-	r.shows("Suggested songs")
+	r.shows("Suggested Songs")
 	r.click("Edit")
 	r.shows("Done")
-	if r.tt.HasText("Suggested songs") {
+	if r.tt.HasText("Suggested Songs") {
 		t.Error("the suggestions show while editing")
 	}
 }
@@ -495,13 +495,13 @@ func TestPageCollaborativePlaylistShowsTheStackDialogAndAddedBy(t *testing.T) {
 		Viewer:  services.RoleListener,
 		AddedBy: []services.TrackAddedBy{{SongID: "cb", ProfileID: "sp.2"}},
 	}
-	r.shows("Collaborative playlist", "3 songs", "10 min", "Ada & 2 others", "Added by", "Song B")
+	r.shows("Collaborative playlist", "3 songs", "10 min", "Ada & 2 others", "Added By", "Song B")
 	if !r.tt.HasText("Bo") {
 		t.Errorf("no adder in the Added by column: %q", r.tt.Texts())
 	}
 
 	r.click("Ada & 2 others")
-	r.shows("Collaborators", "3 people can add songs to this playlist.", "Former collaborators", "Dee", "@ada", "Owner")
+	r.shows("Collaborators", "3 people can add songs to this playlist.", "Former Collaborators", "Dee", "@ada", "Owner")
 	// A person opens their profile and the dialog goes.
 	r.click("Cy")
 	if got := r.router.Path(); got != "/profile/sp.3" {
@@ -564,7 +564,7 @@ func shelfDetail() services.PlaylistDetail {
 
 func TestPageShelvesLinkToArtistsAndPlaylists(t *testing.T) {
 	r := newPageRig(t, "pl.1", shelfDetail())
-	r.shows("Featured artists", "Zed", "More from Cur", "Other mix")
+	r.shows("Featured Artists", "Zed", "More from Cur", "Other mix")
 	r.click("Zed")
 	if got := r.router.Path(); got != "/artist/ar.1" {
 		t.Errorf("an artist tile went to %q", got)
@@ -593,7 +593,7 @@ func TestPageMoreLikeThisWithNoCurator(t *testing.T) {
 	d.Curator = services.PlaylistCurator{}
 	d.Playlist.Curator = ""
 	r := newPageRig(t, "pl.1", d)
-	r.shows("More like this", "Other mix")
+	r.shows("More Like This", "Other mix")
 	if r.tt.HasText("More from") {
 		t.Error("a curator-less shelf names a curator")
 	}
@@ -614,11 +614,12 @@ func TestHeadArtIsOneOfThreeClasses(t *testing.T) {
 	}
 }
 
-// "Created …" is a calendar date once it is two days old, "today" or
-// "yesterday" before; with the same day as the last change only one cell is
-// shown, and what Apple does not give is left out. Each carries the exact
-// date and time.
-func TestStampCellsWordCreatedAndUpdated(t *testing.T) {
+// The dated cell is a calendar date once it is two days old, "today" or
+// "yesterday" before, "Created" for what the user made and "Added" for what
+// they added or joined; an update on its day (one cell) or before it is left
+// out, a personal mix has no such cell, and what Apple does not give is left
+// out. Each carries the exact date and time.
+func TestStampCellsWordCreatedAddedAndUpdated(t *testing.T) {
 	now := time.Date(2026, 11, 10, 15, 0, 0, 0, time.Local)
 	at := func(y int, m time.Month, d, h int) *time.Time {
 		v := time.Date(y, m, d, h, 0, 0, 0, time.Local)
@@ -635,21 +636,125 @@ func TestStampCellsWordCreatedAndUpdated(t *testing.T) {
 		return strings.Join(out, " | ")
 	}
 	for _, c := range []struct {
-		name             string
-		created, updated *time.Time
-		want             string
+		name           string
+		dated, updated *time.Time
+		kind           stampKind
+		want           string
 	}{
-		{"old and recent", at(2024, 3, 3, 9), at(2026, 11, 9, 21), "Created March 3, 2024 | Updated yesterday"},
-		{"same day today", at(2026, 11, 10, 9), at(2026, 11, 10, 12), "Created today"},
-		{"same day long ago", at(2024, 3, 3, 9), at(2024, 3, 3, 18), "Created March 3, 2024"},
-		{"yesterday", at(2026, 11, 9, 9), at(2026, 11, 10, 12), "Created yesterday | Updated 3 hr. ago"},
-		{"no creation date", nil, at(2026, 11, 9, 21), "Updated yesterday"},
-		{"no update date", at(2024, 3, 3, 9), nil, "Created March 3, 2024"},
-		{"neither", nil, nil, ""},
+		{"created long ago, updated recently", at(2024, 3, 3, 9), at(2026, 11, 9, 21), stampCreated, "Created March 3, 2024 | Updated yesterday"},
+		{"same day today", at(2026, 11, 10, 9), at(2026, 11, 10, 12), stampCreated, "Created today"},
+		{"same day long ago", at(2024, 3, 3, 9), at(2024, 3, 3, 18), stampCreated, "Created March 3, 2024"},
+		{"created yesterday", at(2026, 11, 9, 9), at(2026, 11, 10, 12), stampCreated, "Created yesterday | Updated 3 hr. ago"},
+		{"no creation date", nil, at(2026, 11, 9, 21), stampCreated, "Updated yesterday"},
+		{"no update date", at(2024, 3, 3, 9), nil, stampCreated, "Created March 3, 2024"},
+		{"neither", nil, nil, stampCreated, ""},
+		{"added long ago", at(2024, 9, 8, 9), at(2026, 11, 9, 21), stampAdded, "Added September 8, 2024 | Updated yesterday"},
+		{"added today", at(2026, 11, 10, 9), nil, stampAdded, "Added today"},
+		{"added yesterday", at(2026, 11, 9, 9), nil, stampAdded, "Added yesterday"},
+		{"added the day it was updated", at(2024, 9, 8, 9), at(2024, 9, 8, 18), stampAdded, "Added September 8, 2024"},
+		{"updated before it was added", at(2024, 9, 8, 9), at(2023, 5, 1, 9), stampAdded, "Added September 8, 2024"},
+		{"created, updated before", at(2024, 9, 8, 9), at(2023, 5, 1, 9), stampCreated, "Created September 8, 2024"},
+		{"updated an hour earlier the same day", at(2026, 11, 10, 14), at(2026, 11, 10, 13), stampAdded, "Added today"},
+		{"updated the next day", at(2026, 11, 9, 23), at(2026, 11, 10, 1), stampAdded, "Added yesterday | Updated 14 hr. ago"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if got := texts(stampCells(c.created, c.updated, now)); got != c.want {
+			if got := texts(stampCells(c.dated, c.kind, c.updated, now)); got != c.want {
 				t.Errorf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// What the date means follows who made the playlist: the user's editable
+// playlists and the collaborative ones they host are "Created"; those added
+// from Apple Music or a curator and joined collaborative ones are "Added";
+// Apple's personal mixes have no such cell.
+func TestStampKindOfFollowsWhoMadeThePlaylist(t *testing.T) {
+	collab := func(role services.CollaborationRole) *services.PlaylistCollaboration {
+		return &services.PlaylistCollaboration{Collaborative: true, Viewer: role}
+	}
+	for _, c := range []struct {
+		name   string
+		pl     services.Playlist
+		collab *services.PlaylistCollaboration
+		want   stampKind
+	}{
+		{"own", services.Playlist{CanEdit: true}, nil, stampCreated},
+		{"added from Apple Music", services.Playlist{CatalogID: "pl.f4d"}, nil, stampAdded},
+		{"read-only library playlist", services.Playlist{}, nil, stampAdded},
+		{"hosted collaborative", services.Playlist{CatalogID: "pl.u-1", CanEdit: true}, collab(services.RoleOwner), stampCreated},
+		{"hosted, editing not reported", services.Playlist{CatalogID: "pl.u-1"}, collab(services.RoleOwner), stampCreated},
+		{"joined as collaborator", services.Playlist{CatalogID: "pl.u-1"}, collab(services.RoleCollaborator), stampAdded},
+		{"joined, shown editable", services.Playlist{CatalogID: "pl.u-1", CanEdit: true}, collab(services.RoleCollaborator), stampAdded},
+		{"joined as listener", services.Playlist{CatalogID: "pl.u-1"}, collab(services.RoleListener), stampAdded},
+		{"personal mix", services.Playlist{CatalogID: "pl.pm-1"}, nil, stampNone},
+		{"editable personal mix", services.Playlist{CatalogID: "pl.pm-1", CanEdit: true}, nil, stampNone},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := stampKindOf(c.pl, c.collab); got != c.want {
+				t.Errorf("stampKindOf = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
+// The header words the dates by who made the playlist, end to end: a joined
+// collaborative playlist reads "Added …" (and no "Updated" from before it was
+// joined), an own one "Created …", a personal mix only "Updated …".
+func TestPageLedgerDatesByWhoMadeThePlaylist(t *testing.T) {
+	now := time.Date(2026, 11, 10, 14, 30, 0, 0, time.Local)
+	ms := func(y int, m time.Month, d int) int64 { return time.Date(y, m, d, 9, 0, 0, 0, time.Local).UnixMilli() }
+	for _, c := range []struct {
+		name   string
+		mod    func(*services.PlaylistDetail)
+		collab *services.PlaylistCollaboration
+		shows  []string
+		hides  []string
+	}{
+		{"own", func(d *services.PlaylistDetail) {
+			d.Playlist.DateAdded, d.Playlist.LastModified = ms(2024, 9, 8), ms(2026, 11, 9)
+		}, nil, []string{"Created September 8, 2024", "Updated yesterday"}, []string{"Added"}},
+		{
+			"joined collaborative, updated before joining", func(d *services.PlaylistDetail) {
+				d.Playlist.CatalogID, d.Playlist.CanEdit, d.Kind = "pl.u-9", false, "library"
+				d.Playlist.DateAdded, d.Playlist.LastModified = ms(2024, 9, 8), ms(2023, 5, 1)
+			}, &services.PlaylistCollaboration{Collaborative: true, Viewer: services.RoleCollaborator},
+			[]string{"Collaborative playlist", "Added September 8, 2024"},
+			[]string{"Created", "Updated"},
+		},
+		{
+			"hosted collaborative", func(d *services.PlaylistDetail) {
+				d.Playlist.CatalogID = "pl.u-9"
+				d.Playlist.DateAdded, d.Playlist.LastModified = ms(2024, 9, 8), ms(2026, 11, 9)
+			}, &services.PlaylistCollaboration{Collaborative: true, Viewer: services.RoleOwner},
+			[]string{"Created September 8, 2024", "Updated yesterday"},
+			[]string{"Added"},
+		},
+		{"added from Apple Music", func(d *services.PlaylistDetail) {
+			d.Playlist.CatalogID, d.Playlist.CanEdit = "pl.f4d", false
+			d.Playlist.DateAdded, d.Playlist.LastModified = ms(2026, 11, 9), ms(2026, 11, 10)
+		}, nil, []string{"Added yesterday", "Updated"}, []string{"Created"}},
+		{"personal mix", func(d *services.PlaylistDetail) {
+			d.Playlist.CatalogID, d.Playlist.CanEdit, d.Kind = "pl.pm-1", false, "personal-mix"
+			d.Playlist.DateAdded, d.Playlist.LastModified = ms(2024, 9, 8), ms(2026, 11, 9)
+		}, nil, []string{"Made for you", "Updated yesterday"}, []string{"Created", "Added"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			d := libraryDetail("p.1", "Road Trip", threeSongs()...)
+			c.mod(&d)
+			r := newPageRigWith(t, "p.1", func(api *fakeAPI) {
+				if c.collab != nil {
+					api.collab["p.1"] = *c.collab
+				}
+			}, d)
+			r.p.now = func() time.Time { return now }
+			r.shows(append([]string{"Road Trip"}, c.shows...)...)
+			for _, h := range c.hides {
+				for _, text := range r.tt.Texts() {
+					if strings.HasPrefix(text, h) {
+						t.Errorf("the header shows %q, which should not read %q", text, h)
+					}
+				}
 			}
 		})
 	}

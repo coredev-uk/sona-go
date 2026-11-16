@@ -98,8 +98,12 @@ type Song struct {
 }
 
 // IsUpload reports whether the song is one the user uploaded: in the library
-// with no catalogue copy. It has no song page and plays in place.
-func (s Song) IsUpload() bool { return s.Source == SourceLibrary && s.CatalogID == "" }
+// with no catalogue copy. It has no song page and plays in place. A
+// pre-added album's song not out yet has no catalogue copy either, but it
+// doesn't play: it is Apple's, not an upload.
+func (s Song) IsUpload() bool {
+	return s.Source == SourceLibrary && s.CatalogID == "" && s.Playable
+}
 
 // Album is an album from the library or the catalog.
 type Album struct {
@@ -314,6 +318,10 @@ type Item struct {
 	// Caption is Apple's reason or editorial badge in sentence case ("Made
 	// for you", "New album"), "" when none.
 	Caption string `json:"caption"`
+	// Description is the one line Apple writes for the item on an editorial
+	// hero card: the content's notes ("Don Toliver just wants to …"), or the
+	// card's own tagline. "" when none, and on other cards.
+	Description string `json:"description"`
 	// Art is the item's own artwork: square, round for artists, 16:9 for
 	// videos.
 	Art Art `json:"art"`

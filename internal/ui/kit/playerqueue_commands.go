@@ -163,7 +163,7 @@ func (c *QueueCommands) Replace(failTitle string, start func(ctx context.Context
 				return
 			}
 			Confirm(ConfirmOptions{
-				Title:        i18n.T("Replace your queue?"),
+				Title:        i18n.T("Replace Your Queue?"),
 				Body:         i18n.T("{added, plural, one {The # song you added to the queue will be removed.} other {The # songs you added to the queue will be removed.}}", "added", added),
 				ConfirmLabel: i18n.T("Replace queue"),
 			}, func(ok bool) {

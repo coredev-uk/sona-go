@@ -26,7 +26,7 @@ func (o *onboarding) doneStep(c *ui.Context) {
 	noPlayback := view == viewUnavailable || view == viewUnsupported
 
 	if !signedIn || pending || failed {
-		stepGroup(c, "left", i18n.T("Still to do"), func() {
+		stepGroup(c, "left", i18n.T("Still to Do"), func() {
 			var rows []func()
 			if !signedIn {
 				rows = append(rows, func() {

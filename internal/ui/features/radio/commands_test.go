@@ -219,7 +219,7 @@ func TestPlayStationAsksFirstWhenTheSettingSaysConfirm(t *testing.T) {
 	started := make(chan bool, 2)
 	play := func() { rg.r.playStation("ra.1", func(ok bool) { started <- ok }) }
 	play()
-	rg.tt.Until("the question", rg.tt.Shows("Replace your queue?", "The 5 songs you added to the queue will be removed."))
+	rg.tt.Until("the question", rg.tt.Shows("Replace Your Queue?", "The 5 songs you added to the queue will be removed."))
 	if n := len(rg.api.plays()); n != 0 {
 		t.Fatal("the queue was replaced before the answer")
 	}
@@ -230,7 +230,7 @@ func TestPlayStationAsksFirstWhenTheSettingSaysConfirm(t *testing.T) {
 	}
 	// Yes: it starts, and with the question answered there is no Undo.
 	play()
-	rg.tt.Until("the question", rg.tt.Shows("Replace your queue?"))
+	rg.tt.Until("the question", rg.tt.Shows("Replace Your Queue?"))
 	rg.click("Replace queue")
 	rg.tt.Until("started", func() bool { return len(started) == 1 })
 	if ok := <-started; !ok || len(rg.api.plays()) != 1 {

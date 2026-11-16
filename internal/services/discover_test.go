@@ -318,16 +318,21 @@ func TestNewSections(t *testing.T) {
 		t.Fatalf("sections = %s\nwant       %s", got, want)
 	}
 	hero := page.Sections[0].Items
-	if hero[0].Caption != "Updated playlist" || hero[0].Kind != ItemPlaylist || hero[0].Wide.Large == "" {
-		t.Errorf("hero card 0 = %+v", hero[0])
+	// What Apple's hero card shows: badge, name, artist or curator, and one
+	// line about it. A 317 card's line is its content's short note.
+	if h := hero[0]; h.Caption != "Updated playlist" || h.Kind != ItemPlaylist || h.Wide.Large == "" ||
+		h.Name != "A-List Pop" || h.Subtitle != "Apple Music Pop" || h.Description != "Remi Wolf drowns her sorrows in “Champagne”." {
+		t.Errorf("hero card 0 = %+v", h)
 	}
 	// Apple's hero shelf shows the 4:1 subscriptionHero, not superHeroWide.
 	if !strings.HasSuffix(hero[0].Wide.Large, "/1000x250.jpg") {
 		t.Errorf("hero card 0 wide art = %q, want the 4:1 subscriptionHero", hero[0].Wide.Large)
 	}
-	// 320 cards carry their own art and tagline.
-	if hero[1].Kind != ItemCurator || !strings.HasPrefix(hero[1].Subtitle, "Hear Overmono") || hero[1].Caption != "Upcoming livestream" {
-		t.Errorf("hero card 1 = %+v", hero[1])
+	// A 320 card carries its own art, and its tagline is the line: the
+	// curator's own line stays its subtitle.
+	if h := hero[1]; h.Kind != ItemCurator || h.Subtitle != "Curator" || h.Caption != "Upcoming livestream" ||
+		h.Description != "Hear Overmono and Andy C at The Warehouse Project at 12 am GMT." {
+		t.Errorf("hero card 1 = %+v", h)
 	}
 	if s := page.Sections[1]; s.Room != "6828645880" || s.Items[0].Song == nil {
 		t.Errorf("tracks = %+v", s)

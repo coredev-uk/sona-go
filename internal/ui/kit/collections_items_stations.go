@@ -37,10 +37,11 @@ type StationListOpts struct {
 // its tagline or provider, and a play control; the one playing carries the
 // equaliser. Radio's "Live now" and Apple's broadcaster sections share it.
 //
-// A station with a page (HasPage) links to it and has a play button. A station
+// A station with a page (HasPage) links to it and has a play button, which
+// the equaliser takes over while it plays: it pauses and resumes. A station
 // without one (a local broadcaster has no schedule) is itself the play control:
 // its name is a button that plays it (and pauses it while it plays), and its
-// menu is beside it. What plays is ctx.Current, ctx.Playing and
+// menu is beside it; a station with a page has the menu too. What plays is ctx.Current, ctx.Playing and
 // ctx.OnAir; ctx.Toggle pauses or resumes.
 func StationList(c *ui.Context, st *StationListState, stations []services.Station, ctx ItemsCtx, o StationListOpts) {
 	root := ui.Grid(c.Key("kit.stations." + o.Label)).GapX(stationGapX).GapY(stationGapY).MarginX(-stationBleed).
@@ -118,7 +119,19 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 
 		if s.HasPage {
 			if on {
-				ui.Row(c.Key("eq")).Margin(0, 10, 0, 0).Children(func() { EqualiserBars(c, ctx.Playing, ctx.Motion) })
+				// The equaliser replaces the Play button once the station
+				// plays, and is its pause and resume control.
+				action := i18n.T("Play {name}", "name", s.Name)
+				if ctx.Playing {
+					action = i18n.T("Pause {name}", "name", s.Name)
+				}
+				eq := ui.ButtonBase(c.Key("eq")).Role(ui.RoleButton).Label(action).Margin(0, 10, 0, 0).Shrink(0).
+					Padding(4).Radius(tk.Radius["full"]).AlignItems(ui.Center)
+				eq.Children(func() { EqualiserBars(c, ctx.Playing, ctx.Motion) })
+				if eq.Clicked() && ctx.Toggle != nil {
+					hit.Focus()
+					ctx.Toggle()
+				}
 			} else {
 				// Revealed on hover or focus; the equaliser replaces it once
 				// the station plays, so focus stays in the row, on the link.
@@ -130,13 +143,14 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 				}
 				box.Children(func() {
 					play := Button(c, "", ButtonOpts{
-						Variant: Ghost, Size: SizeSM, Icon: "play", Disabled: !s.Playable,
+						Variant: Ghost, Size: SizeSM, Icon: "play", Filled: true, Disabled: !s.Playable,
 						A11yLabel: i18n.T("Play {name}", "name", s.Name),
 					}).Radius(tk.Radius["full"])
 					if !hot && !play.Focused() {
 						play.Opacity(0)
 					}
 					if play.Clicked() && o.OnPlay != nil {
+						ctx.opened(stationResult(s))
 						hit.Focus()
 						o.OnPlay(s)
 					}
@@ -151,14 +165,16 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 				if !hot {
 					mark.Opacity(0)
 				}
-				mark.Children(func() { theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink-muted"), Inherit: true}) })
-			}
-			if ctx.Menus != nil {
-				ctx.Menus.Trigger(c.Key("more"), hit, ActionTarget{Item: StationItem(s), Name: s.Name}, TriggerOpts{Visible: hot})
+				mark.Children(func() { PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink-muted"), Inherit: true}) })
 			}
 		}
+		// Every row has the station's menu, beside its play control.
+		if ctx.Menus != nil {
+			ctx.Menus.Trigger(c.Key("more"), hit, ActionTarget{Item: StationItem(s), Name: s.Name}, TriggerOpts{Visible: hot})
+		}
 
-		if hit.Clicked() {
+		if ClickOnce(hit) {
+			ctx.opened(stationResult(s))
 			switch {
 			case s.HasPage:
 				ctx.nav(itemsPage("/station/", s.ID))
@@ -171,6 +187,11 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 			}
 		}
 	})
+}
+
+// stationResult is a station as a result item, what OnOpen remembers.
+func stationResult(s services.Station) services.Item {
+	return services.Item{Kind: services.ItemStation, ID: s.ID, Name: s.Name, Art: s.Art, Station: &s}
 }
 
 // itemsArtwork is Artwork that tolerates a missing loader: a plain --hover

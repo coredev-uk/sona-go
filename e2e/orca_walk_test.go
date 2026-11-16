@@ -15,7 +15,7 @@ import (
 // TestOrcaWalk is a person's walk with Orca, by keyboard, through the
 // sidebar, the account menu and dialog, the Albums page, an album, the queue,
 // Now Playing and the player bar's Seek slider, with what Orca says for each
-// key checked against docs/accessibility.md (E2E_ORCA=1, `orca-walk`).
+// key checked against site/src/content/docs/contributing/accessibility.md (E2E_ORCA=1, `orca-walk`).
 //
 // Two things are checked on every key (orca.press): nothing is said twice in
 // a row (a name and the text it is made of), and no key is answered with a
@@ -39,10 +39,10 @@ func TestOrcaWalk(t *testing.T) {
 	const side = "Sidebar"
 	n := len(o.steps)
 	sp := o.press(side, "Tab")
-	o.want(side, "Tab", sp, "Main", "For you", "link")
+	o.want(side, "Tab", sp, "Main", "For You", "link")
 	o.tabTo(side, "Tab", "Settings", 30)
-	o.wantOrder(side, n, "For you", "Discover", "Charts", "Radio", "Search", "Concerts",
-		"Recently added", "Artists", "Albums", "Songs", "Music videos", "Favourite songs", "History", "Playlists",
+	o.wantOrder(side, n, "For You", "Discover", "Charts", "Radio", "Search", "Concerts",
+		"Recently Added", "Artists", "Albums", "Songs", "Music Videos", "Favourite Songs", "History", "Playlists",
 		"New playlist or folder", "Playlists", "Focus", "Road trip", "Sunday morning", "Settings")
 	o.wantOnce(side, "Tab", o.heard(n), "Current page")
 	o.want(side, "Tab", o.heard(n), "push button menu", "List with 3 items")
@@ -172,7 +172,7 @@ func TestOrcaWalk(t *testing.T) {
 		t.Error(err)
 	}
 	if o.focus != "DEAD" {
-		// Known gap (docs/accessibility.md): a view a key opened has no opener.
+		// Known gap (site/src/content/docs/contributing/accessibility.md): a view a key opened has no opener.
 		t.Logf("the focus after Escape is [%s]: a key-opened Now Playing now gives it back; update the docs' Known gaps", o.focus)
 	}
 
@@ -200,7 +200,7 @@ func TestOrcaSetup(t *testing.T) {
 	_ = orcaBin(t)
 	a := startAppWith(t, "-first-run")
 	if _, err := a.client.Wait(startTimeout, "the first-run setup", func(tr *automation.Tree) bool {
-		return tr.HasText("Set up Sona") && tr.HasText("Welcome to Sona")
+		return tr.HasText("Set Up Sona") && tr.HasText("Welcome to Sona")
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -230,11 +230,11 @@ func TestOrcaSetup(t *testing.T) {
 	const confirm = "Setup confirmation"
 	o.tabTo(step, "Tab", "Apple Music", 4)
 	sp = o.press(confirm, "Escape")
-	o.want(confirm, "Escape", sp, "alert", "Skip the rest of the setup?", "Skip setup", "button")
+	o.want(confirm, "Escape", sp, "alert", "Skip the Rest of the Setup?", "Skip setup", "button")
 	sp = o.press(confirm, "Tab")
 	o.want(confirm, "Tab", sp, "Cancel", "button")
 	o.press(confirm, "Escape")
-	// Known gap (docs/accessibility.md): the focus returns to the setup's
+	// Known gap (site/src/content/docs/contributing/accessibility.md): the focus returns to the setup's
 	// first control, not to what asked.
 	t.Logf("the focus after cancelling the confirmation is [%s]", o.focus)
 }

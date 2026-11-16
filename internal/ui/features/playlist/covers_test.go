@@ -21,10 +21,34 @@ var coverStyles = []string{"Gradient", "Disc", "Split", "Bars", "Fold", "Eclipse
 // noDesigns is what the picker says when Apple made the playlist no cover.
 const noDesigns = "Apple Music's designs show once it makes this playlist's cover: when the playlist has songs and no photo of its own."
 
+// coverNotice is what the picker says, before the tiles, about where a cover
+// lives.
+const coverNotice = "Only in Sona: Apple Music can't keep covers set here."
+
+// The limitation is a status at the top of the dialog and the dialog's own
+// description, so a screen reader hears it with the dialog's name as the
+// focus enters; with a screen reader on, nothing announces it a second time.
+func TestCoverDialogNoticeIsExposedToAssistiveTech(t *testing.T) {
+	r := newDialogsRig(t)
+	r.tt.UseScreenReader()
+	r.showCover()
+	tr := access.Read(t, r.tt.Tester)
+	if _, ok := tr.Find(ui.RoleStatus, coverNotice); !ok {
+		t.Fatalf("no status says %q", coverNotice)
+	}
+	dlg, ok := tr.Find(ui.RoleDialog, "Playlist Cover")
+	if !ok || dlg.Description != coverNotice {
+		t.Fatalf("dialog = %+v, want it described by the notice", dlg)
+	}
+	if got := r.tt.Announcements(); slices.Contains(got, coverNotice) {
+		t.Errorf("announcements %q repeat the notice a status already carries", got)
+	}
+}
+
 // showCover opens the cover picker of playlist p.a and waits for its options.
 func (r *dialogsRig) showCover() {
 	r.show(dialogState{kind: dialogCover, id: "p.a", name: "Road Trip"})
-	r.shows("Playlist cover", "Automatic", "None", "Done")
+	r.shows("Playlist Cover", "Automatic", "None", "Done")
 }
 
 // chosenCover is the label of the radio the tree says is checked ("" none).
@@ -50,7 +74,7 @@ func TestCoverDialogOffersEveryChoiceAndSaysWhereTheCoverLives(t *testing.T) {
 	r := newDialogsRig(t)
 	r.showCover()
 	r.shows(append([]string{
-		"Apple Music can't keep a playlist cover from here, so your choice stays on this computer and shows in Sona only.",
+		coverNotice,
 		"Choose an image…",
 		"JPEG or PNG, up to 20 MB and 40 megapixels, at least 300 px wide and tall. Sona crops it to a square from the centre.",
 	}, coverStyles...)...)
@@ -286,12 +310,12 @@ func TestCoverDialogRemembersTheChoice(t *testing.T) {
 	r.tt.Until("closed", r.closed)
 
 	r.show(dialogState{kind: dialogCover, id: "p.a", name: "Road Trip"})
-	r.shows("Playlist cover", "Eclipse")
+	r.shows("Playlist Cover", "Eclipse")
 	if got := r.chosenCover(t); got != "Eclipse" {
 		t.Errorf("reopened with %q chosen, want Eclipse", got)
 	}
 	r.show(dialogState{kind: dialogCover, id: "p.b", name: "Gym"})
-	r.shows("Playlist cover")
+	r.shows("Playlist Cover")
 	r.tt.Until("another playlist starts with the automatic cover", func() bool { return r.chosenCover(t) == "Automatic" })
 }
 
@@ -335,7 +359,7 @@ func TestEditModeHasACoverButton(t *testing.T) {
 	if s := r.p.dialogs.s; !r.p.dialogs.open || s.kind != dialogCover || s.id != "p.1" || s.name != "Road Trip" {
 		t.Errorf("the cover button opened %+v (open %v)", s, r.p.dialogs.open)
 	}
-	r.shows("Playlist cover", "Automatic")
+	r.shows("Playlist Cover", "Automatic")
 }
 
 // The picker's names and states: a named dialog with a radio group of radios,
@@ -345,10 +369,10 @@ func TestA11yCoverDialog(t *testing.T) {
 	r.showCover()
 	r.tt.Settle()
 	tr := access.Read(t, r.tt.Tester)
-	if _, ok := tr.Find(ui.RoleDialog, "Playlist cover"); !ok {
+	if _, ok := tr.Find(ui.RoleDialog, "Playlist Cover"); !ok {
 		t.Fatalf("no dialog:\n%s", tr.Dump())
 	}
-	if h, ok := tr.Find(ui.RoleHeading, "Playlist cover"); !ok || h.Level != 2 {
+	if h, ok := tr.Find(ui.RoleHeading, "Playlist Cover"); !ok || h.Level != 2 {
 		t.Errorf("heading %+v", h)
 	}
 	if tr.Focus == nil || tr.Focus.Label != "Automatic" || tr.Focus.Role != ui.RoleRadio {

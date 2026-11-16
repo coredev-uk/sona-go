@@ -47,12 +47,13 @@ func (p *playlists) treeData() kit.MenuData {
 
 func (p *playlists) addTo(kind kit.ItemKind) kit.ActionDef {
 	return kit.ActionDef{
-		ID:     "playlists.add-to." + string(kind),
-		Target: kind,
-		Label:  func(*kit.ActionContext) string { return i18n.T("Add to playlist") },
-		Icon:   "list-plus",
-		Group:  kit.GroupItem,
-		Order:  40,
+		ID:           "playlists.add-to." + string(kind),
+		Target:       kind,
+		NeedsRelease: true,
+		Label:        func(*kit.ActionContext) string { return i18n.T("Add to playlist") },
+		Icon:         "list-plus",
+		Group:        kit.GroupItem,
+		Order:        40,
 		Run: func(a *kit.ActionContext) {
 			it := a.Item()
 			p.addToPlaylist(playlistItems([]kit.Item{it}), kit.DescribeItems([]kit.Item{it}))
@@ -92,14 +93,15 @@ func (p *playlists) pinAction(kind kit.ItemKind) kit.ActionDef {
 		return set[libraryIDOf(a.Item())]
 	}
 	return kit.ActionDef{
-		ID:        "playlists.pin." + string(kind),
-		Target:    kind,
-		Label:     func(a *kit.ActionContext) string { return pinLabel(kind, isPinned(a)) },
-		Icon:      "pin",
-		Group:     kit.GroupItem,
-		Order:     60,
-		Available: func(a *kit.ActionContext) bool { return libraryIDOf(a.Item()) != "" },
-		Data:      []kit.MenuData{data},
+		ID:           "playlists.pin." + string(kind),
+		Target:       kind,
+		NeedsRelease: true,
+		Label:        func(a *kit.ActionContext) string { return pinLabel(kind, isPinned(a)) },
+		Icon:         "pin",
+		Group:        kit.GroupItem,
+		Order:        60,
+		Available:    func(a *kit.ActionContext) bool { return libraryIDOf(a.Item()) != "" },
+		Data:         []kit.MenuData{data},
 		Run: func(a *kit.ActionContext) {
 			it := a.Item()
 			id := libraryIDOf(it)
@@ -158,13 +160,14 @@ func (p *playlists) actions() []kit.ActionDef {
 		p.addTo(kit.KindAlbum),
 		p.addTo(kit.KindPlaylist),
 		{
-			ID:     "playlists.add-to.many",
-			Target: kit.KindSelection,
-			Kinds:  []kit.ItemKind{kit.KindSong, kit.KindAlbum, kit.KindPlaylist},
-			Label:  func(*kit.ActionContext) string { return i18n.T("Add to playlist") },
-			Icon:   "list-plus",
-			Group:  kit.GroupItem,
-			Order:  40,
+			ID:           "playlists.add-to.many",
+			NeedsRelease: true,
+			Target:       kit.KindSelection,
+			Kinds:        []kit.ItemKind{kit.KindSong, kit.KindAlbum, kit.KindPlaylist},
+			Label:        func(*kit.ActionContext) string { return i18n.T("Add to playlist") },
+			Icon:         "list-plus",
+			Group:        kit.GroupItem,
+			Order:        40,
 			Run: func(a *kit.ActionContext) {
 				p.addToPlaylist(playlistItems(a.Items), kit.DescribeItems(a.Items))
 			},
@@ -249,7 +252,7 @@ func (p *playlists) actions() []kit.ActionDef {
 			// added can go.
 			Available: func(a *kit.ActionContext) bool {
 				pl := a.Item().Playlist()
-				return isLibraryPlaylist(pl) && playlistSection(pl) != sectionMadeForYou
+				return isLibraryPlaylist(pl) && !isPersonalMix(pl)
 			},
 			Enabled: func(a *kit.ActionContext) bool {
 				byID, _ := kit.DataOf[map[string]services.TreePlaylist](a, tree)

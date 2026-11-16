@@ -10,10 +10,10 @@ import (
 
 func TestGroupTitles(t *testing.T) {
 	for group, want := range map[string]string{
-		"top": "Top results", "artist": "Artists", "album": "Albums", "song": "Songs", "playlist": "Playlists",
-		"radio_show": "Radio shows", "radio_episode": "Radio episodes", "station": "Stations",
-		"music_video": "Music videos", "category": "Categories", "curator": "Curators", "record_label": "Labels",
-		"profile": "Profiles", "shared_playlist": "Playlists by listeners",
+		"top": "Top Results", "artist": "Artists", "album": "Albums", "song": "Songs", "playlist": "Playlists",
+		"radio_show": "Radio Shows", "radio_episode": "Radio Episodes", "station": "Stations",
+		"music_video": "Music Videos", "category": "Categories", "curator": "Curators", "record_label": "Labels",
+		"profile": "Profiles", "shared_playlist": "Playlists by Listeners",
 		// An unknown group: its key in sentence case.
 		"podcast": "Podcasts", "live_show": "Live shows", "tv-show": "Tv shows", "": "Results", "__": "Results",
 	} {
@@ -202,7 +202,7 @@ func TestAccessibleNameSaysUploadedForUploadsOnly(t *testing.T) {
 		it   services.Item
 		want string
 	}{
-		{"upload", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceLibrary}}, "Demo, uploaded"},
+		{"upload", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceLibrary, Playable: true}}, "Demo, uploaded"},
 		{"library song with a catalogue copy", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceLibrary, CatalogID: "44"}}, "Demo"},
 		{"catalogue song", services.Item{Kind: services.ItemSong, Name: "Demo", Song: &services.Song{Source: services.SourceCatalog}}, "Demo"},
 		{"album", services.Item{Kind: services.ItemAlbum, Name: "Demo"}, "Demo"},

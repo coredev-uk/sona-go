@@ -8,8 +8,8 @@ import (
 )
 
 // The shared mirrors of what Go reports about the account's side of the
-// app: private listening, the Widevine CDM, the update check and the release
-// reminders. v0.2.0 kept the first two in zustand stores and the others in
+// app: private listening, the Widevine CDM, the update check, the release
+// reminders and the artist tracker's new releases. v0.2.0 kept the first two in zustand stores and the others in
 // TanStack queries; here they are all queries under these keys, so a
 // feature that shows one (the account menu, Settings, the player bar, an
 // album page) reads it with the UseX below and the module that owns it
@@ -23,6 +23,8 @@ var (
 	KeyCDM       = Key{"cdm"}
 	KeyUpdates   = Key{"updates"}
 	KeyReminders = Key{"reminders"}
+	// KeyNewReleases is the artist tracker's list.
+	KeyNewReleases = Key{"new-releases"}
 )
 
 // UseAuth is the account's sign-in status (AuthService.Status), never stale:
@@ -111,6 +113,17 @@ func ReminderFor(list []services.Reminder, catalogID string) (services.Reminder,
 		}
 	}
 	return services.Reminder{}, false
+}
+
+// UseNewReleases is the artist tracker's list of new releases and how many
+// are unread (ArtistTrackerService.Releases, then "artisttracker:changed").
+func UseNewReleases(cl *Client, core *services.Core) Result[services.NewReleases] {
+	return Use(cl, KeyNewReleases, func(ctx context.Context) (services.NewReleases, error) {
+		if core == nil {
+			return services.NewReleases{}, errNoCore
+		}
+		return services.Service[services.ArtistTrackerService](core).Releases(ctx)
+	}, Options{Stale: Forever})
 }
 
 // Peek is the data cached under key, without starting a fetch or marking the

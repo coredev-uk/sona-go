@@ -120,7 +120,7 @@ func (s *song) content(c *ui.Context, page services.CatalogSong) {
 				Subtitle: i18n.YearOf(v.ReleaseDate), Art: v.Art, Explicit: v.Explicit, MusicVideo: &v,
 			}
 		}
-		kit.ItemShelf(c, &pg.videos, i18n.T("Music videos"), items, ictx, kit.ItemShelfOpts{})
+		kit.ItemShelf(c, &pg.videos, i18n.T("Music Videos"), items, ictx, kit.ItemShelfOpts{})
 	}
 	if len(page.MoreByArtist) > 0 && s.env.Routed("/album/x") {
 		items := make([]services.Item, len(page.MoreByArtist))

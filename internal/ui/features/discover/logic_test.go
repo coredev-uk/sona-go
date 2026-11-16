@@ -172,12 +172,12 @@ func TestIssueHasNoFrontPageWithoutAHeroAndAnotherHeroIsASection(t *testing.T) {
 
 func TestChartTitlesAreSonasWordsForKnownKeysAndAppleTitlesForTheRest(t *testing.T) {
 	for key, want := range map[string]string{
-		"songs":                "Top songs",
-		"albums":               "Top albums",
-		"playlists":            "Top playlists",
-		"music-videos":         "Top music videos",
-		"cityCharts":           "Top 25 songs by city",
-		"dailyGlobalTopCharts": "Top 100 songs by country",
+		"songs":                "Top Songs",
+		"albums":               "Top Albums",
+		"playlists":            "Top Playlists",
+		"music-videos":         "Top Music Videos",
+		"cityCharts":           "Top 25 Songs by City",
+		"dailyGlobalTopCharts": "Top 100 Songs by Country",
 		"somethingNew":         "Apple's title",
 	} {
 		if got := chartTitle(services.Chart{Key: key, Title: "Apple's title"}); got != want {
@@ -228,47 +228,74 @@ func TestRouteURLsCarryOnlyWhatIsSet(t *testing.T) {
 	}
 }
 
-// The front page's layout: the lead takes the column's whole width, in the
-// hero shape until that reaches leadMaxHeight and wider from there (never
-// wider than the banner's 4:1), and the strip under it shows four cards a
-// page, in a row of four or two rows of two.
-func TestFrontLayoutAtTheWidthsOfTheReferencePage(t *testing.T) {
-	l := layoutFor(1200, 0)
-	if l.lead != 1200 || l.perPage != 4 || l.columns != 4 || l.rows != 1 {
-		t.Errorf("at 1200: %+v", l)
-	}
-	for _, tc := range []struct{ width, view, height float32 }{
-		{800, 0, 458},   // the hero shape: 800 / (1060/608)
-		{941, 0, 539},   // still the hero shape, just under the cap
-		{1200, 0, 540},  // capped: the box widens
-		{1600, 0, 540},  // capped
-		{2400, 0, 600},  // the banner's own 4:1, never wider
-		{920, 700, 315}, // a short window: 45% of the page, so the strip shows
-		{920, 400, 280}, // never under 280
-		{1920, 1100, 495},
-		{1920, 1400, 540}, // a tall window keeps the cap
-	} {
-		if h := layoutFor(tc.width, tc.view).artHeight(); h != tc.height {
-			t.Errorf("at %v x %v: lead art height %v, want %v", tc.width, tc.view, h, tc.height)
+// The front page's layout: from queueBeside the queue stands beside the lead
+// in two rows of two, the two filling the column, and the lead ends with the
+// queue's second row while its picture stays between the banner's 4:1 and
+// the hero card's shape; narrower, the lead takes the column (the hero shape
+// until leadMaxHeight or 45% of the page) over a row of four tiles, two in
+// the narrowest.
+func TestFrontLayoutSetsTheQueueBesideTheLeadOrUnderIt(t *testing.T) {
+	for _, w := range []float32{900, 1056, 1200, 1600, 2400} {
+		l := layoutFor(w, 900)
+		if !l.beside || l.columns != 2 {
+			t.Fatalf("at %v the queue is not beside the lead: %+v", w, l)
+		}
+		if got := l.lead + queueGap + 2*l.tile + tileGapX; got > w || got < w-1 {
+			t.Errorf("at %v the lead and the queue take %v", w, got)
+		}
+		if a := l.lead / l.art; a < heroRatio-0.01 || a > bannerRatio+0.01 || l.art > leadMaxHeight {
+			t.Errorf("at %v the lead's picture is %v x %v", w, l.lead, l.art)
+		}
+		if l.tileArt != floorf(l.tile/heroRatio) {
+			t.Errorf("at %v a tile's picture is %v x %v, want the hero card's shape", w, l.tile, l.tileArt)
 		}
 	}
-	// The strip reaches 8 past the lead's edges on each side.
-	if got := float32(l.columns)*l.card + float32(l.columns-1)*stripGap; got > l.lead+16 || got < l.lead+16-float32(l.columns) {
-		t.Errorf("the strip is %v wide, want the lead's width and 16", got)
+	// Where nothing clamps it, the lead ends with the queue's second row.
+	l := layoutFor(1056, 900)
+	if lead, queue := l.art+leadChrome, 2*(l.tileArt+tileCaption)+tileGapY; lead != queue {
+		t.Errorf("at 1056 the lead is %v high and the queue %v", lead, queue)
 	}
 	for _, tc := range []struct {
-		width, lead   float32
-		columns, rows int
+		width, view, height float32
+		columns             int
 	}{
-		{1056, 1056, 4, 1},
-		{880, 880, 4, 1},
-		{879, 879, 2, 2},
-		{648, 648, 2, 2},
+		{800, 0, 458, 4},   // the hero shape: 800 / (1060/608)
+		{880, 700, 315, 4}, // a short window: 45% of the page
+		{880, 400, 280, 4}, // never under 280
+		{899, 0, 515, 4},
+		{560, 0, 321, 4},
+		{559, 0, 320, 2},
 	} {
-		l := layoutFor(tc.width, 0)
-		if l.lead != tc.lead || l.columns != tc.columns || l.rows != tc.rows || l.perPage != 4 || l.rowHeight != listRow {
-			t.Errorf("at %v: %+v", tc.width, l)
+		l := layoutFor(tc.width, tc.view)
+		if l.beside || l.lead != tc.width || l.art != tc.height || l.columns != tc.columns {
+			t.Errorf("at %v x %v: %+v, want the lead %v high over %d tiles", tc.width, tc.view, l, tc.height, tc.columns)
 		}
+		if got := float32(l.columns)*l.tile + float32(l.columns-1)*queueNarrowGap; got > tc.width || got < tc.width-float32(l.columns) {
+			t.Errorf("at %v the queue is %v wide", tc.width, got)
+		}
+	}
+}
+
+// The progress under the lead runs from 0 to 1 over the interval, and is 0
+// while nothing is waiting.
+func TestRotationProgressRunsOverTheIntervalAndIsNoneWhileItHolds(t *testing.T) {
+	var r rotation
+	t0 := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	if p := r.progress(t0); p != 0 {
+		t.Errorf("not armed: %v", p)
+	}
+	r.restart(t0, 0)
+	for _, tc := range []struct {
+		after time.Duration
+		want  float32
+	}{{0, 0}, {rotateEvery / 2, 0.5}, {rotateEvery, 1}, {rotateEvery + time.Second, 1}} {
+		if p := r.progress(t0.Add(tc.after)); p < tc.want-0.001 || p > tc.want+0.001 {
+			t.Errorf("after %v: %v, want %v", tc.after, p, tc.want)
+		}
+	}
+	r.step(t0.Add(time.Second), false, 0, func() bool { return false })
+	if p := r.progress(t0.Add(2 * time.Second)); p != 0 {
+		t.Errorf("held: %v", p)
 	}
 }
 

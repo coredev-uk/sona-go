@@ -24,7 +24,7 @@ func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
 	out.Inhibitor = func(why func() string) services.SleepInhibitor { return newDesktopInhibitor(why) }
 	out.KeepRunning = func(why func() string) services.RunningKeeper { return newMacKeeper(why) }
 	out.Power = openDesktopPower
-	out.Files = newMacFiles(windows.Main)
+	out.Files = newDesktopFiles(windows.Main)
 	if !runsFromAppBundle() {
 		out.NeedsAppBundle = true
 		return

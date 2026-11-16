@@ -96,6 +96,7 @@ func TestArtistIndex(t *testing.T) {
 		song("i.2", "Two", "Zed", "Alpha", "l.2", "r.a"),
 		song("i.3", "Three", "Zed", "Alpha", "l.2", "r.a"),
 		song("i.4", "Four", "abba", "Elsewhere", "l.x", "r.b"), // songs without an album in the library
+		song("i.5", "Five", "Étienne", "Gamma", "l.3", "r.c"),
 	}
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
@@ -113,7 +114,7 @@ func TestArtistIndex(t *testing.T) {
 	}
 	// Counts are the library's albums and songs. Case never decides the
 	// order (accents are the UI's to fold: SQLite's NOCASE is ASCII only).
-	counts := map[string][2]int{"r.a": {2, 3}, "r.b": {0, 1}, "r.c": {1, 0}, "r.d": {0, 0}}
+	counts := map[string][2]int{"r.a": {2, 3}, "r.b": {0, 1}, "r.c": {1, 1}, "r.d": {0, 0}}
 	for id, want := range counts {
 		if a, ok := byID[id]; !ok || [2]int{a.Albums, a.Songs} != want {
 			t.Errorf("artist %s albums, songs = %d, %d (listed %v), want %v", id, a.Albums, a.Songs, ok, want)
@@ -459,6 +460,9 @@ func TestAlbumTypeFilter(t *testing.T) {
 	}
 	f.albums[0]["attributes"].(map[string]any)["releaseDate"] = "2024-04-30"
 	f.albums[2]["attributes"].(map[string]any)["releaseDate"] = "2019-03-01"
+	for i, a := range f.albums { // an album with no song is not stored
+		f.songs = append(f.songs, song(fmt.Sprintf("i.%d", i+1), "Track", "Zed", "x", a["id"].(string), "r.a"))
+	}
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
 	}
@@ -545,11 +549,17 @@ func TestAllPagesCollectsEveryRow(t *testing.T) {
 }
 
 // TestAlbumTracksListSongsWithNoDiscLast: an upload has no disc (0), and an
-// order by disc alone would put it before disc 1. Every source of an album's
-// songs (the page, a queue, a playlist) gets Apple's songs first.
+// order by disc alone would put it before disc 1. The album page gets
+// Apple's songs first.
 func TestAlbumTracksListSongsWithNoDiscLast(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
+	if _, err := e.db.W.ExecContext(ctx, `INSERT INTO albums (id, library_id, name, updated_at) VALUES (1, 'l.1', 'Record', 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.W.ExecContext(ctx, `INSERT INTO library_items (kind, ref, generation) VALUES ('album', 1, 1)`); err != nil {
+		t.Fatal(err)
+	}
 	for _, r := range []struct {
 		id        string
 		disc, num int
@@ -566,13 +576,13 @@ func TestAlbumTracksListSongsWithNoDiscLast(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	rows, err := e.db.RQ.LibraryAlbumTracks(ctx, db.NullString("l.1"))
+	_, songs, err := e.lib.Album(ctx, "l.1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got []string
-	for _, r := range rows {
-		got = append(got, r.Name)
+	for _, s := range songs {
+		got = append(got, s.Name)
 	}
 	if want := "First, Second, Disc two, alpha demo, Zed demo"; strings.Join(got, ", ") != want {
 		t.Errorf("album tracks %q, want %q", got, want)

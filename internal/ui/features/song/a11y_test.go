@@ -70,7 +70,7 @@ func TestA11ySongPage(t *testing.T) {
 			t.Errorf("%q is not a link", name)
 		}
 	}
-	for _, h2 := range []string{"Lyrics", "Credits", "Music videos", "More by Radiohead"} {
+	for _, h2 := range []string{"Lyrics", "Credits", "Music Videos", "More by Radiohead"} {
 		if h, ok := tr.Find(ui.RoleHeading, h2); !ok || h.Level != 2 {
 			t.Errorf("no h2 %q: %+v", h2, h)
 		}
@@ -146,11 +146,11 @@ func TestA11yRemoveQuestionReturnsTheFocus(t *testing.T) {
 	r.open()
 	r.tt.Until("In library", r.tt.Shows("In library"))
 	r.click("In library")
-	r.tt.Until("the question", r.tt.Shows("Delete “Airbag” from your library?"))
+	r.tt.Until("the question", r.tt.Shows("Delete “Airbag” From Your Library?"))
 	r.tt.Key(0, ui.KeyEscape)
 	r.tt.Advance(300 * time.Millisecond)
 	r.tt.Drain()
-	if r.tt.HasText("Delete “Airbag” from your library?") {
+	if r.tt.HasText("Delete “Airbag” From Your Library?") {
 		t.Fatal("Escape left the question open")
 	}
 	if r.library.has("remove") {

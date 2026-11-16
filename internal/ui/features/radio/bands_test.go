@@ -145,7 +145,7 @@ func TestPlaceSectionsPutsParagraphsOnlyAmongShows(t *testing.T) {
 }
 
 func TestBandTitles(t *testing.T) {
-	for id, want := range map[bandID]string{bandStations: "Stations", bandShows: "Shows and episodes", bandBrowse: "Browse"} {
+	for id, want := range map[bandID]string{bandStations: "Stations", bandShows: "Shows and Episodes", bandBrowse: "Browse"} {
 		if got := bandTitle(id); got != want {
 			t.Errorf("bandTitle(%s) = %q, want %q", id, got, want)
 		}

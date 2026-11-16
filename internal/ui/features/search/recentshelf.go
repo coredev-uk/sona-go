@@ -39,7 +39,7 @@ func (s *search) recentShelf(c *ui.Context, pg *pageView, scope string) bool {
 	if len(entries) == 0 {
 		return false
 	}
-	title := i18n.T("Recently searched")
+	title := i18n.T("Recently Searched")
 	kit.Shelf(c, kit.ShelfOpts{Title: title, First: true, Actions: func() {
 		if kit.Button(c.Key("clear"), i18n.T("Clear"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeXS}).Clicked() {
 			s.clearRecent()

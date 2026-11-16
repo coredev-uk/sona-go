@@ -27,6 +27,9 @@ const (
 	trackOverscan = 12
 )
 
+// TrackRankWidth is the width of the leading column of a ranked list.
+const TrackRankWidth = 56
+
 // TrackSort keys of the sortable columns.
 const (
 	SortTitle    = "title"
@@ -43,6 +46,17 @@ type TrackColumns struct {
 	Artwork    bool
 	Artist     bool
 	Album      bool
+}
+
+// TrackRank turns the leading "#" column into big rank numerals (a chart's
+// positions): the title type style (24), in tabular figures, aligned right.
+// The play button still replaces the numeral on a hovered row.
+type TrackRank struct {
+	// Of is the rank of row i. nil: i+1, the position in the list as given.
+	// A host that sorts the rows itself passes the song's chart position here
+	// so the numerals travel with the songs; with nil they follow the shown
+	// order, so a re-sorted list is numbered afresh.
+	Of func(i int) int
 }
 
 // TrackSortState is the list's order, for the sortable headers (Title,
@@ -86,6 +100,9 @@ type TrackListOpts struct {
 	// Label names the table: "Songs in OK Computer".
 	Label   string
 	Columns TrackColumns
+	// Rank gives the leading column's numbers the rank style (nil: the
+	// small row or track numbers). RowNumbers is ignored when it is set.
+	Rank *TrackRank
 	// Hold keeps a press outside the list from clearing the selection (a
 	// feature's own dialog); open menus and a pending confirmation always do.
 	Hold func() bool
@@ -465,12 +482,15 @@ func (st *TrackListState) headings(c *ui.Context, o *TrackListOpts, i int, s *se
 }
 
 // columns lays a row's or the header's cells out: the widths of
-// gridTemplate (# 40, title 2fr, artist 1fr, album 1fr, added by 0.8fr,
+// gridTemplate (# 40, or 56 for a ranked list, title 2fr, artist 1fr, album 1fr, added by 0.8fr,
 // duration 56, actions 32), 16 apart.
 func (o *TrackListOpts) cell(e ui.Element, kind int) ui.Element {
 	e = e.ColumnIndex(o.columnIndex(kind))
 	switch kind {
 	case cellNumber:
+		if o.Rank != nil {
+			return e.Width(TrackRankWidth).Shrink(0)
+		}
 		return e.Width(trackNumberW).Shrink(0)
 	case cellTitle:
 		return e.Grow(2).Basis(0).MinWidth(0)
@@ -545,7 +565,7 @@ func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Toke
 			st.headerCell(c, o, cellAlbum, i18n.T("Album"), SortAlbum, meta)
 		}
 		if o.AddedBy != nil {
-			st.headerCell(c, o, cellAddedBy, i18n.T("Added by"), "", meta)
+			st.headerCell(c, o, cellAddedBy, i18n.T("Added By"), "", meta)
 		}
 		st.durationHeader(c, o)
 		o.cell(ui.Box(c.Key("h-act")).Role(ui.RoleColumnHeader).Label(i18n.T("Actions")), cellActions).Height(1)
@@ -676,7 +696,12 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 	highlighted := i == st.hlIndex && o.Highlight != ""
 	key := st.rows.Key(i)
 	number := i + 1
-	if !cols.RowNumbers && s.TrackNumber > 0 {
+	switch {
+	case o.Rank != nil:
+		if o.Rank.Of != nil {
+			number = o.Rank.Of(i)
+		}
+	case !cols.RowNumbers && s.TrackNumber > 0:
 		number = s.TrackNumber
 	}
 	sub := ""
@@ -784,12 +809,16 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 				if !shown {
 					play.Absolute().Right(0).Top(0).Bottom(0).IgnoreInput(true).Opacity(0)
 				}
-				play.Children(func() { theme.Glyph(c, "play", 14, theme.GlyphOpts{Color: ink}) })
+				play.Children(func() { PlayGlyph(c, 14, theme.GlyphOpts{Color: ink}) })
 				if play.Clicked() && o.OnPlay != nil {
 					o.OnPlay(i)
 				}
 			}
 			if !shown {
+				if o.Rank != nil {
+					theme.StyleText(ui.Text(c, strconv.Itoa(number)), "title").TextColor(ink).FontFeatures("tnum").SingleLine()
+					return
+				}
 				ui.Text(c, strconv.Itoa(number)).FontSize(tk.Type["sub"].Size).FixedLineHeight(tk.Type["sub"].LineHeight).
 					TextColor(faint).FontFeatures("tnum")
 			}

@@ -160,6 +160,13 @@ in
       # "Add or change a UI string").
       go run ./cmd/i18ntool extract -check
       go run ./cmd/pathcase
+      # Every tracked Go file is formatted the way `fmt` leaves it (#409).
+      unformatted=$(gofumpt -l $(git ls-files '*.go' | grep -v '^internal/db/dbq/'))
+      if [ -n "$unformatted" ]; then
+        echo "check: not gofumpt-formatted (run devenv shell -- fmt):" >&2
+        echo "$unformatted" >&2
+        exit 1
+      fi
     '';
     # Not `test`: the shell's `test` builtin would shadow it.
     tests.exec = ''
@@ -169,7 +176,7 @@ in
       # guards against a hang. An argument of yours comes later and wins.
       ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -timeout 30m ./... "$@"
       # The packages with dev-only code, in a development build.
-      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -timeout 30m -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris
+      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -timeout 30m -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/ui/features/inspect ./internal/ui/features/discover ./internal/app ./internal/mpris
     '';
     auth-spike.exec = ''go run ./cmd/authspike "$@"'';
     play-spike.exec = ''go run ./cmd/playspike "$@"'';
@@ -178,7 +185,7 @@ in
     # end-to-end smoke"); `e2e` runs the end-to-end smoke in it.
     headless.exec = ''bash e2e/headless.sh "$@"'';
     e2e.exec = ''headless -- go test -tags e2e -count=1 ./e2e/... "$@"'';
-    # A real Orca walked through the app in `headless` (docs/accessibility.md,
+    # A real Orca walked through the app in `headless` (site/src/content/docs/contributing/accessibility.md,
     # "Listening with Orca"). Orca comes from the pinned nixpkgs and is built
     # on first use, so it is not part of everyone's dev shell; what it said
     # is kept in bin/orca-out (E2E_OUT).

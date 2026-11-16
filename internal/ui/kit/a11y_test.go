@@ -226,6 +226,25 @@ func TestWideCardsMoreButtonAndSubtitleAreReadBesideTheLink(t *testing.T) {
 	}
 }
 
+func TestWideCardShowsAppleLineUnderTheBylineAndReadsBoth(t *testing.T) {
+	it := wideItem("1", "", "")
+	it.Caption, it.Subtitle = "Upcoming livestream", "Curator"
+	it.Description = "Hear Overmono at 12 am GMT."
+	_, tt, _ := wideApp(t, nil, []services.Item{it}, 4)
+	tt.Frame()
+	if countText(tt, "Upcoming livestream · Curator") != 1 || countText(tt, it.Description) != 1 {
+		t.Errorf("the card shows %q, want the byline and Apple's line", tt.Texts())
+	}
+	tr := access.Read(t, tt)
+	link, ok := tr.Find(ui.RoleLink, "Item 1")
+	if !ok {
+		t.Fatalf("no link:\n%s", tr.Dump())
+	}
+	if want := "Upcoming livestream · Curator. Hear Overmono at 12 am GMT."; link.Description != want {
+		t.Errorf("the link is described %q, want %q", link.Description, want)
+	}
+}
+
 // TestTrackListControlsAreOnTheTreeAtRest is the list the kit builds every
 // song list from: the play button of a row, the artist and album links and
 // the sort buttons are elements of their own, found without the pointer.
@@ -474,7 +493,7 @@ func TestTrackListIsAMultiselectableTableWithItsFullSize(t *testing.T) {
 	if h, ok := tr.Find(ui.RoleColumnHeader, "Title"); !ok || h.ColIndex != 2 {
 		t.Errorf("the Title header is column %d, want 2", h.ColIndex)
 	}
-	if h, ok := tr.Find(ui.RoleColumnHeader, "Added by"); !ok || h.ColIndex != 5 {
+	if h, ok := tr.Find(ui.RoleColumnHeader, "Added By"); !ok || h.ColIndex != 5 {
 		t.Errorf("the Added by header is column %d, want 5", h.ColIndex)
 	}
 	if h, ok := tr.Find(ui.RoleColumnHeader, "Actions"); !ok || h.ColIndex != 7 {

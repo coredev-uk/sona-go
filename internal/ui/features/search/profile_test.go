@@ -4,7 +4,7 @@ import "testing"
 
 func TestProfileShowsWhoTheyAreAndTheirPlaylists(t *testing.T) {
 	r := newPageRig(t, "/profile/sp.1", rigOpts{signedIn: true, setup: func(a *pageApple) { a.verified = true }})
-	r.tt.Until("the profile", r.tt.Shows("Taylor Listener", "@taylor", "Public playlists", "Shared Mix 1", "Shared Mix 2"))
+	r.tt.Until("the profile", r.tt.Shows("Taylor Listener", "@taylor", "Public Playlists", "Shared Mix 1", "Shared Mix 2"))
 	if _, ok := r.tt.Find("Verified"); !ok {
 		t.Error("a verified profile lacks the badge")
 	}
@@ -29,7 +29,7 @@ func TestProfilePrivateMarkAndEmptyPlaylists(t *testing.T) {
 	r := newPageRig(t, "/profile/sp.1", rigOpts{signedIn: true, setup: func(a *pageApple) { a.private, a.playlists = true, 0 }})
 	r.tt.Until("the empty state", r.tt.Shows("@taylor", "Private profile", "No public playlists",
 		"Taylor Listener keeps their profile private, so only followers see what they share."))
-	if r.tt.HasText("Public playlists") {
+	if r.tt.HasText("Public Playlists") {
 		t.Error("an empty profile has the shelf")
 	}
 

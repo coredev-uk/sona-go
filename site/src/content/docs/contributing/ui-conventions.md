@@ -3,7 +3,7 @@ title: UI Conventions
 description: The UI's modules, kit, design tokens, performance rules and accessibility checks.
 ---
 
-Sona's interface is Go all the way down: no web view and no IPC. A view calls a typed service and reads the result. Full references: [docs/ui-architecture.md](https://github.com/coredev-uk/sona-go/blob/main/docs/ui-architecture.md), [docs/design.md](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md) and [docs/accessibility.md](https://github.com/coredev-uk/sona-go/blob/main/docs/accessibility.md).
+Sona's interface is Go all the way down: no web view and no IPC. A view calls a typed service and reads the result. Full references: [docs/ui-architecture.md](https://github.com/coredev-uk/sona-go/blob/main/docs/ui-architecture.md), [docs/design.md](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md) and [Accessibility Rules](/contributing/accessibility/).
 
 ## Modules
 
@@ -68,4 +68,4 @@ The checks run in `tests` and `e2e`:
 - `TestContrastFloors` checks the text tokens' contrast.
 - `e2e` reads the real app's tree over AT-SPI.
 
-A person with a screen reader still checks what these can't. The rules and the `orca-walk` script are in [docs/accessibility.md](https://github.com/coredev-uk/sona-go/blob/main/docs/accessibility.md).
+A person with a screen reader still checks what these can't. The rules and the `orca-walk` script are in [Accessibility Rules](/contributing/accessibility/).

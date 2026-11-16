@@ -3,8 +3,6 @@ package discover
 import (
 	"math"
 	"time"
-
-	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
 
 // The front page's geometry, in DIPs.
@@ -27,28 +25,44 @@ const (
 	// takes, and leadMinHeight the least it is cut to by that.
 	leadShare     = 0.45
 	leadMinHeight = 280
-	// leadCaption is the lead's caption under its art: a 12 gap, a 30 title
-	// line and an 18 line.
-	leadCaption = 60
+	// leadCaptionGap is the room between the lead's progress and its
+	// caption, whose rows are a 30 title, Apple's one line (leadLine, 2
+	// below it) and an 18 byline.
+	leadCaptionGap = 12
+	leadLine       = 20
+	// progressGap is the room between the lead's art and the rotation's
+	// progress, a row of progressHeight segments, one a card, segmentGap
+	// apart.
+	progressGap    = 12
+	progressHeight = 3
+	segmentGap     = 4
+	// leadChrome is the lead's height under its art: the progress and the
+	// caption.
+	leadChrome = progressGap + progressHeight + leadCaptionGap + 30 + 2 + leadLine + 18
 	// moreReserve is the room the caption keeps at its end, beside the
 	// pager's, for the card's menu button.
 	moreReserve = 28
-	// listRow is a strip card's height; stripGap the space between cards.
-	listRow  = 72
-	stripGap = 8
-	// stripPerPage is how many featured cards the strip shows at a time.
-	stripPerPage = 4
-	// listThumb is the strip thumbnail's slot: the item's square cover fills
-	// it. A picture that is not square keeps its shape inside it (thumbBox).
-	listThumb = 64
-	// thumbSquare is how far a picture's shape may be from square (as a
-	// ratio of width to height) and still fill the slot: Apple crops a
-	// request to the box it is given, so a nearly square one loses nothing
-	// that matters.
-	thumbSquare = 1.15
-	// stripWide is the narrowest front column that sets the strip's four
-	// cards in one row (two rows of two below it).
-	stripWide = 880
+	// queueSize is how many cards the queue beside the lead shows: the next
+	// ones in the rotation.
+	queueSize = 4
+	// queueBeside is the narrowest front column that sets the queue beside
+	// the lead, in two rows of two taking queueShare of the column,
+	// queueGap from the lead; narrower, the queue is a row under the lead,
+	// queueNarrowGap apart, of four (two from queueTwoUnder down).
+	queueBeside    = 900
+	queueShare     = 0.40
+	queueGap       = 24
+	queueNarrowGap = 12
+	queueTwoUnder  = 560
+	// tileGapX and tileGapY are the gaps between the queue's tiles beside
+	// the lead; tileCaption is a tile's height under its picture: an 8 gap,
+	// a 20 title and an 18 byline.
+	tileGapX    = 16
+	tileGapY    = 20
+	tileCaption = 8 + 20 + 18
+	// tileMark is how far the lead's tile's mark reaches past it all round;
+	// the lead's progress runs along its bottom, in that margin.
+	tileMark = 6
 	// marginAt is the page width (the scroll pane's) from which a band's
 	// heading stands in a margin column beside its shelves, marginWidth wide
 	// with marginGap to the shelves; narrower, it stands above them.
@@ -69,52 +83,66 @@ const (
 
 // frontLayout is how the front page sets out at a width.
 type frontLayout struct {
-	// lead is the lead's width, which its art is requested at; the caption and
-	// the strip are as wide.
-	lead float32
-	// view is the page's visible height (0 before it is known).
-	view float32
-	// columns and rows are the strip's cards in a row and the rows of a page
-	// (perPage = columns × rows); card is a card's width.
-	columns, rows, perPage int
-	card                   float32
-	rowHeight              float32
+	// lead is the lead's width and art its picture's height, which the
+	// picture is requested at.
+	lead, art float32
+	// beside: the queue stands beside the lead; else it is a row under it.
+	beside bool
+	// columns is the queue's tiles in a row; tile a tile's width and
+	// tileArt its picture's height (the hero card's shape).
+	columns       int
+	tile, tileArt float32
 }
 
-// layoutFor is the layout at a content width. The lead takes the whole width,
-// in Apple's hero shape until that reaches leadMaxHeight, wider than it from
-// there (artHeight); the strip of featured cards under it shows four a page:
-// in one row of four, or two rows of two in a narrow window.
+// layoutFor is the layout at a content width and the page's visible height
+// (0 before it is known). From queueBeside the queue of the next cards
+// stands beside the lead in two rows of two, and the lead's picture is as
+// tall as makes the lead (picture, progress and caption) end with the
+// queue's second row, kept between the banner's own 4:1 and the hero
+// card's shape. Narrower, the lead takes the whole width, in the hero
+// card's shape until that reaches leadMaxHeight or leadShare of the visible
+// height, wider than it from there, with the queue in a row under it.
 func layoutFor(width, view float32) frontLayout {
-	lead := float32(math.Floor(float64(max(width, 0))))
-	columns, rows := stripPerPage, 1
-	if lead < stripWide {
-		columns, rows = 2, 2
+	w := floorf(max(width, 0))
+	if w >= queueBeside {
+		tile := floorf((w*queueShare - tileGapX) / 2)
+		tileArt := floorf(tile / heroRatio)
+		lead := w - (2*tile + tileGapX) - queueGap
+		art := 2*(tileArt+tileCaption) + tileGapY - leadChrome
+		art = floorf(min(max(art, lead/bannerRatio), lead/heroRatio, leadMaxHeight))
+		return frontLayout{lead: lead, art: art, beside: true, columns: 2, tile: tile, tileArt: tileArt}
 	}
-	// The strip reaches 8 past the lead's edges on each side (frontPage).
-	card := float32(math.Floor(float64((lead + 16 - float32(columns-1)*stripGap) / float32(columns))))
-	return frontLayout{lead: lead, view: view, columns: columns, rows: rows, perPage: columns * rows, card: card, rowHeight: listRow}
+	art := max(w/bannerRatio, min(w/heroRatio, leadMaxHeight))
+	if view > 0 {
+		art = min(art, max(leadMinHeight, view*leadShare))
+	}
+	columns := queueSize
+	if w < queueTwoUnder {
+		columns = 2
+	}
+	tile := floorf((w - float32(columns-1)*queueNarrowGap) / float32(columns))
+	return frontLayout{lead: w, art: floorf(art), columns: columns, tile: tile, tileArt: floorf(tile / heroRatio)}
 }
 
-// artHeight is the lead art's height at its width: the hero shape, at most
-// leadMaxHeight, and never wider than the banner itself; and, so that the
-// featured strip shows under it, at most leadShare of the page's visible
-// height (leadMinHeight at the least).
-func (l frontLayout) artHeight() float32 {
-	h := max(l.lead/bannerRatio, min(l.lead/heroRatio, leadMaxHeight))
-	if l.view > 0 {
-		h = min(h, max(leadMinHeight, l.view*leadShare))
-	}
-	return float32(math.Floor(float64(h)))
-}
+func floorf(v float32) float32 { return float32(math.Floor(float64(v))) }
 
 // artAspect is the lead art box's width over its height, which its picture
 // is requested at.
 func (l frontLayout) artAspect() float32 {
-	if h := l.artHeight(); h > 0 {
-		return l.lead / h
+	if l.art > 0 {
+		return l.lead / l.art
 	}
 	return heroRatio
+}
+
+// progress is how far the lead is through its interval, 0 to 1, at now:
+// 0 while nothing is waiting (the rotation holds or is paused).
+func (r *rotation) progress(now time.Time) float32 {
+	if !r.armed {
+		return 0
+	}
+	left := r.due.Sub(now)
+	return min(max(1-float32(left)/float32(rotateEvery), 0), 1)
 }
 
 // rotation is the lead's timer: one deadline, no per-frame work (v0.2.0's
@@ -169,22 +197,4 @@ func (r *rotation) step(now time.Time, running bool, at int, occupied func() boo
 		return false, rotateEvery
 	}
 	return true, 0
-}
-
-// thumbBox is the box the picture at src fills in the list's listThumb slot,
-// from the shape its URL names. A square cover fills the slot. A wide picture
-// (a station's key art, a card that has only its banner) is shown as the lead
-// shows it (Apple's centre crop at the hero card's shape), across the slot's
-// width and centred, where filling the slot would cut a square out of the
-// middle of a 4:1 banner and show that, enlarged. A tall one fits the slot's
-// height. The box is whole DIPs, so the picture (asked for at the box)
-// lands on whole pixels and is not resampled.
-func thumbBox(src string) (w, h float32) {
-	switch a := kit.ArtAspect(src); {
-	case a > thumbSquare:
-		return listThumb, float32(math.Round(listThumb / heroRatio))
-	case a < 1/thumbSquare:
-		return float32(math.Round(float64(listThumb * a))), listThumb
-	}
-	return listThumb, listThumb
 }

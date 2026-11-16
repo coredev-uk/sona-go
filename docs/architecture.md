@@ -13,6 +13,7 @@ How Sona is built and why: scope, process model, playback and DRM, authenticatio
   - [Artwork](#artwork)
   - [Private mode](#private-mode)
   - [Concerts](#concerts)
+  - [Artist tracker](#artist-tracker)
   - [Updates](#updates)
   - [Themes](#themes)
   - [Lyrics](#lyrics)
@@ -188,7 +189,7 @@ A user's choice for a library playlist beats both a mosaic and Apple's cover. Th
 | `cover:<32 hex>` | An image the user chose from a file. `artwork.SaveCover` crops the centre square, scales to at most 1024 px and stores a JPEG in `<data>/covers/`. This is user data and is never evicted with the cache. |
 
 - Apple's generated cover (`…/gen/1200x1200AM.PDCXS1n.jpg?c1…c4&t=<name>&signature…`) becomes a `{w}x{h}` template in `applemusic.Artwork.Template`, since its CDN fills any size. The design is outside the signature.
-- A library playlist outside the library's own lists (a card in For you's Recently Played, which Apple sends with its own artwork or none; a recent search, which stored the artwork it showed when remembered) gets the same cover when the page is built: `Env.playlistCover` takes the choice (`chosenPlaylistCover`, which pins use too), else `library.AutoCover` (Apple's artwork or the mosaic). Both resolve on every read, so a changed choice shows the next time the list is read.
+- A library playlist outside the library's own lists (a card in For You's Recently Played, which Apple sends with its own artwork or none; a recent search, which stored the artwork it showed when remembered) gets the same cover when the page is built: `Env.playlistCover` takes the choice (`chosenPlaylistCover`, which pins use too), else `library.AutoCover` (Apple's artwork or the mosaic). Both resolve on every read, so a changed choice shows the next time the list is read.
 - Sign-out and a playlist's removal delete the cover files. Sign-out also removes every cached generated cover in any design, which carry playlist names (`Cache.RemovePatterns`).
 
 ### Private mode
@@ -203,6 +204,18 @@ A user's choice for a library playlist beats both a mosaic and Apple's cover. Th
 - **Setting**: the choice is `concerts.city`, kept out of settings exports. Only the geohash of its area goes to Apple, in the concerts requests alone, never in the personal recommendations.
 - **Cache**: lists are cached in `discover_cache` (3 hours, per area, filters and day). The one with the user's artists is personal and wiped on sign-out. A list is served stale when Apple can't be reached.
 - **Tickets**: the links are Apple's, https only, opened in the browser.
+
+### Artist tracker
+
+`ArtistTrackerService` (`internal/services/artisttracker.go`) is the opt-in tracker of new releases from the artists the user has favourited. It is off until Settings → General turns it on (`artistTracker.enabled`; `artistTracker.desktop` adds a desktop notification where the platform has notifications). Nothing is asked of Apple while it is off or nobody is signed in, and nothing before the first paint: the loop starts from `Env.OnNetwork`, waits 30 seconds, and only then looks. A check never reports a play: it reads the catalogue, so private listening changes nothing in it.
+
+- **Schedule**: one check about every 24 hours (when the last complete one finished is kept in `artist_tracker_state`, so a restart does not repeat it), and one when the setting is turned on. A failed check is tried again after 15 minutes, doubling up to 6 hours; the client's own 429 and 5xx backoff runs inside each request. Sign-out and shutdown stop it, a check in progress included.
+- **Favourite artists**: Apple has no call that lists them (`GET /v1/me/ratings/artists` answers only for the IDs it is given). The candidates are the synced library's artists that have a catalogue ID and the artists favourited in Sona (`favorites`, kind `artists`); `applemusic.Client.Ratings` keeps those rated 1. A favourite that is neither in the library nor favourited in Sona is not found.
+- **Releases**: one batched amp-api call per 25 artists (`/v1/catalog/{sf}/artists?ids=…&views=latest-release,full-albums,singles`), 2 seconds apart, so a long list never bursts. The views come newest first and carry the artist's latest release, newest albums and newest singles and EPs; only the album attributes the tracker keeps are asked for (`docs/apple-music-reference.md`, "Artist tracker").
+- **Seeding**: an artist not yet in `tracked_artists` is being seeded. What is out is recorded as seen and never shown; a release still to come is listed, already read, so its Remind me is there. Turning the setting on empties `tracked_artists`, so the releases that came out while it was off are not announced either. A release found for the first time that came out more than 90 days ago is recorded silently too (the catalogue growing, not news). An artist that stops being a favourite leaves, with its records.
+- **State** (`artist_releases`, `tracked_artists`, `artist_tracker_state`; user data, wiped on sign-out and by `db.WipeUserData`): every release seen, when it was found, read and dismissed. A dismissed or seeded release stays, which is what keeps it from being found again, across checks and restarts. Records older than 180 days go.
+- **Surfaces**: `artisttracker:changed` carries the list (`NewReleases`: items, unread count, when it was last checked) to the New releases page and the sidebar's count (`docs/ui-architecture.md`). A release still to come carries the album's Remind me (`RemindersService`); the tracker has no notification of its own for it.
+- **Desktop notification**: one per new release, or one summary when several arrive in one check, shown by the notifier `RemindersService` uses (`clickNotices`): a click raises the window and emits `app:open` for the album (a summary opens the list, `OpenNewReleases`). The text is Go's own (`l10n`).
 
 ### Updates
 
@@ -368,7 +381,7 @@ What Go shows outside the UI packages is a typed `l10n.Message` in Go's own gett
 
 ### Settings export and import
 
-`config.Export` and `ParseExport`: Go asks for the file through the platform's file chooser (xdg-desktop-portal on Linux) and reads or writes it itself.
+`config.Export` and `ParseExport`: Go asks for the file through the platform's file chooser (xdg-desktop-portal on Linux, MyGo's `Dialog` on macOS and Windows) and reads or writes it itself.
 
 - The document leaves out what belongs to one computer or session (volume, diagnostics, scrobbling accounts, window, autostart, last route, output device, the sidebar's open folders) and never holds secrets.
 - Import rejects anything that isn't an export, a newer version or a wrongly typed value. It applies the rest through `Store.Update`, so values are normalised and observers run.
@@ -703,6 +716,7 @@ SQLite, libSQL-compatible, with migrations in `internal/db/migrations` numbered 
 - `search_fts`: FTS5 over titles, artists and albums.
 - `recent_searches`: searched terms and opened results (user data, wiped on sign-out).
 - `release_reminders`: pre-release albums to notify about on release day, or at the next start after it (user data, wiped on sign-out).
+- `tracked_artists`, `artist_releases`, `artist_tracker_state`: the artist tracker's seeded artists, the releases it has seen (found, read and dismissed times) and when its last check finished (user data, wiped on sign-out; [Artist tracker](#artist-tracker)).
 - `accounts`: storefront, its default and supported content languages, restricted flag, when the MUT was obtained and last validated. Never tokens.
 - A catalogue response cache (key, fetched at, expiry).
 
@@ -726,25 +740,41 @@ The code is in `internal/library`.
   - On sign-in.
   - After an add to the library made in Sona (only the domains it touches; favouriting a song adds it).
   - On "Sync now".
-  - Nothing syncs on a timer while Sona stays open.
+  - Shallow checks while Sona stays open (next section).
+
+### Checks for changes made on other devices
+
+Apple has no change feed and no cheap change signal (`docs/apple-music-reference.md` §3.4: no sort by modification, `ETag` ignored on a conditional request). The one stamp that users edit elsewhere is a playlist's `lastModifiedDate`, which comes with the playlist list, so a check is the playlists part of an incremental sync and nothing more.
+
+- **Periodic**: every 5 minutes (`remoteCheckEvery`) while the main window is shown and focused. The period is a few small requests an hour and shows a change made on a phone within minutes. Hidden or minimised, nothing runs.
+- **On focus gained**: when the window gains the focus and keeps it for 2 seconds, since that is when someone comes back from another device.
+- **On opening a library playlist**: the page shows the stored copy, then asks Apple for that playlist's attributes (`PlaylistsService.CheckRemote`, one request). If its stamp moved it refetches the tracks, stores them and the page swaps to the new order with no spinner. Not asked again within 30 seconds, and not while edits made here are still on their way (the UI skips it; the service waits for an edit in flight).
+- **Cost**: the check reads the playlist list (one request per 100 playlists) and, for each playlist whose stamp moved, its tracks, plus the folder tree if anything changed. Any two checks are at least 2 minutes apart (`remoteCheckGap`), whatever started them.
+- **What it will not do**: it never runs before first paint or before the library has had its first complete sync, never signed out or offline, and never while a sync runs (it skips and tries at the next trigger). It runs off the main thread through `Syncer.Sync` with the playlists domains (`startSync`'s quiet mode).
+- **What it shows**: no progress and no sync result. It compares the stored playlists before and after and emits `playlists:changed` for the ones that changed (and the tree only when a name, place or count changed), so only those pages and lists refetch.
+- **What it misses**: albums, songs, artists and ratings (no stamp: they wait for the next sync), and folder renames and moves that leave every playlist's stamp alone. A personal mix is judged by its catalogue copy's stamp, which the list includes (§3.3 of the reference, #359), so its weekly refresh shows.
+- **Logs**: each check logs at debug level: reason, duration, playlists seen and changed.
 
 ### Pre-added (unreleased) albums
 
 - The albums walk asks the web host (`amp-api`, `platform=web`) for the included catalogue album's `isSingle,releaseDate,isPrerelease`. It stores `albums.is_prerelease` and `albums.catalog_release_date`.
 - A song stores `tracks.no_play_params`, because Apple gives a song not out no `playParams`.
-- The incremental run also asks again, by ID, for the albums still ahead and their songs without `playParams` (`UpcomingLibraryAlbums`). The newest-first walk stops at the first row it has, so this is how the flag clears once the album is out.
+- The incremental run also asks again, by ID, for the albums still ahead (`UpcomingLibraryAlbums`) and for every song without `playParams` (`UnplayableLibrarySongs`, whatever its album's state: the albums and songs domains run side by side, so a song must not wait for its album's flag to still be set). The newest-first walk stops at the first row it has, so this is how the flag clears and the real names arrive once the album, or a song, is out.
+- Whether a library song is **out** is one rule, in SQL (`internal/library/release.go`): its own date, else its `playParams`, else its album's date as the catalogue gave it, by the library's clock (`Library.SetClock`; `services` gives it `Deps.Now`). The query applies it, not a stored flag, because it changes with the clock: Songs, its count, an artist's songs, the favourites and the library search (the index holds the placeholders; the query filters them) leave a song not out out, `Library.Album` lists all of an album's songs with `Song.Unreleased` set, and `library.SongUnreleased` answers playback. Migration 00013's indexes let SQLite find the songs not out without reading every song.
+- Apple credits the placeholders to an artist named "unknown": the mappers (`shownArtist`) show them no artist.
 - The shapes: `docs/apple-music-reference.md` §3.1.
 
 ### How stale a delete made elsewhere can be
 
-- **A playlist** leaves at the next sync: the incremental run reads the whole playlist list and removes what it no longer lists.
+- **A playlist** leaves at the next sync or shallow check: the incremental run reads the whole playlist list and removes what it no longer lists.
 - **An album or song** does too, as long as the removal shows in the counts. The incremental run takes the new items first, so a removal leaves the local count above Apple's and the domain runs fully in the same sync.
 - **A removal the counts don't show** waits for the next full run (the first sync more than 72 hours after the last full one, or "Sync now"). That covers an artist, which is only counted, and an album or song offset by an add the newest-first walk stops before.
-- **So** Recently added, Albums, Songs and Playlists are as old as the last sync: at most 6 hours old after launch, with no bound while the app stays open. Apple has no change feed to follow, and "Sync now" refreshes everything on demand. A periodic sync while open would bound it and is not done yet.
-- **A delete made in Sona** leaves at once (`Library.DropPlaylist`, `Library.Remove`, and the UI's invalidations).
+- **So** Recently added, Albums, Songs and Artists are as old as the last sync: at most 6 hours old after launch, with no bound while the app stays open. Playlists are at most a few minutes old while the window is focused, and current when a playlist opens (the checks above). Apple has no change feed to follow, and "Sync now" refreshes everything on demand.
+- **A delete made in Sona** leaves at once, before Apple answers (`Library.DropPlaylist`; `Library.Remove` hides the item locally, `Library.Restore` puts it back if Apple refuses), and the UI's invalidations (`library:changed`).
 
 ### Albums and songs
 
+- **Albums with no songs**: a library album with no library song is not stored (pre-added albums excepted, which may hold none yet). `Library.Forget` and `Library.Hide` also forget the albums left with no library songs and the artists left with no library albums or songs, in the same transaction, and a sync that ran both the albums and the songs domains drops any album with no song (`pruneEmpty`), so an album Apple keeps listing after its last song was deleted does not come back. Artists stay as Apple lists them.
 - **Album type**: library albums carry no `isSingle` or `isCompilation`, and their `trackCount` is the number of tracks in the library. The albums walk therefore includes each catalog album with `isSingle` only (`include=catalog&fields[albums]=isSingle`).
 - **The rule**: `library.IsSingleRelease` stores `albums.is_single` for every library album: the catalog album's flag, else Apple's name suffix " - Single" or " - EP". The suffix is English only, hence the flag first. Apple's catalog does not flag EPs; the suffix does. An album with neither is a standard album.
 - **Where it shows**: Library → Albums' type filter (`library.AlbumType`: all, standard albums, singles and EPs) and the library artist page's Singles and EPs shelf. Compilations are not offered: `isCompilation` exists only for albums with a catalog album.
@@ -930,6 +960,8 @@ These are MyGo's (`cmd/sona/integrations_windows.go`). Where a type is the same 
 | Discord status | Sona's own client (`internal/discord/ipc_windows.go`, not MyGo's): the named pipes `\\.\pipe\discord-ipc-0` to `-9`, each used only when its server process runs as the current user (`docs/security-review.md`, F4). |
 | Stay awake while playing | `Power.KeepAwake`: a power request with `SystemRequired` that `powercfg /requests` lists under SYSTEM while music plays (`inhibit_desktop.go`, shared with macOS). The display may still sleep. |
 | Power source for motion artwork | `Power.IsOnBattery` (the AC line of `GetSystemPowerStatus`), polled and read again on resume and screen unlock (`power_desktop.go`, `internal/power.Poller`). |
+| File chooser for settings export and import | `Dialog`: the shell's IFileOpenDialog and IFileSaveDialog, owned by the main window while it shows (`files_desktop.go`, shared with macOS). Filters are by extension (`*.json`). |
+| Open Apple Music links in Sona | The user's classes `HKCU\Software\Classes\<scheme>` for `music`, `musics`, `itms` and `itmss`, whose open command runs `sona.exe` with the link: the installer writes them for its folder, and **Make Sona the default** rewrites them for the running copy (MyGo's `RegisterURLScheme`; a moved portable folder needs it again). A link starts Sona with the URL as an argument, or a second launch hands it to the running one over the single-instance socket. Sona isn't the default while the user's choice in Windows' settings (`UserChoice`, which no app may write) names another app, or Windows resolves the scheme to a packaged app such as Apple Music: the row names that app and the user changes it in Settings → Apps → Default apps (`app.WindowsLinkHandler`, `linkhandler_windows.go`). The uninstaller deletes the classes that run its folder. |
 | Throttling while hidden | Not handled: MyGo's `Power.KeepRunning` does nothing on Windows yet (power throttling and EcoQoS stay on), so `Platform.KeepRunning` is nil there. Audio plays in the CDM host child. |
 
 #### Uninstalling
@@ -963,7 +995,7 @@ CI runners are shared and run everything under `-race`, and so does a workstatio
 
 ### UI
 
-`ui.Tester` renders views headless (no window). Behaviour (focus, keys, selection, drag slots) is asserted, and image snapshots land in `testdata/` for review. Query and event logic is plain Go tests. Accessibility rules and how to check them: `docs/accessibility.md`.
+`ui.Tester` renders views headless (no window). Behaviour (focus, keys, selection, drag slots) is asserted, and image snapshots land in `testdata/` for review. Query and event logic is plain Go tests. Accessibility rules and how to check them: `site/src/content/docs/contributing/accessibility.md`.
 
 ### Cross-platform
 

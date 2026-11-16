@@ -50,7 +50,7 @@ func TestRecentClearFailureToastsAndKeepsTheShelf(t *testing.T) {
 	r.tt.Until("the entries", r.tt.Shows("Clear", "alpha"))
 	r.click("Clear")
 	r.tt.Until("the toast", r.tt.Shows("Couldn't clear recent searches", i18n.ErrorText(services.CodeTimeout)))
-	if !r.tt.HasText("Recently searched") || !r.tt.HasText("alpha") {
+	if !r.tt.HasText("Recently Searched") || !r.tt.HasText("alpha") {
 		t.Errorf("Clear emptied the shelf although the service refused: %q", r.tt.Texts())
 	}
 }
@@ -73,7 +73,7 @@ func registerArtistAction(r *pageRig) *[]string {
 func TestResultRowOpensItsItemMenuAndRunsAnAction(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
 	ran := registerArtistAction(r)
-	r.tt.Until("the results", r.tt.Shows("Top results", "Album · Blue Band"))
+	r.tt.Until("the results", r.tt.Shows("Top Results", "Album · Blue Band"))
 
 	rect, ok := r.tt.Find("Blue Band")
 	if !ok {
@@ -100,7 +100,7 @@ func TestResultRowOpensItsItemMenuAndRunsAnAction(t *testing.T) {
 func TestResultRowOpensItsItemMenuFromTheKeyboard(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
 	ran := registerArtistAction(r)
-	r.tt.Until("the results", r.tt.Shows("Top results", "Album · Blue Band"))
+	r.tt.Until("the results", r.tt.Shows("Top Results", "Album · Blue Band"))
 	for range 30 {
 		if r.tt.Focused("Blue Band") {
 			break

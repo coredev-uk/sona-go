@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // The interaction rule under test: choosing a result opens it; Play plays; a
@@ -36,16 +37,22 @@ var allGestures = []gesture{gClick, gDouble, gEnter, gShiftEnter, gSpace, gPlay}
 func kindItems() map[string]services.Item {
 	art := coverArt(7)
 	return map[string]services.Item{
-		"song": {Kind: services.ItemSong, ID: "s1", Name: "Song One", Subtitle: "Artist S", Art: art,
-			Song: &services.Song{ID: "s1", Name: "Song One", Artist: "Artist S", Playable: true}},
+		"song": {
+			Kind: services.ItemSong, ID: "s1", Name: "Song One", Subtitle: "Artist S", Art: art,
+			Song: &services.Song{ID: "s1", Name: "Song One", Artist: "Artist S", Playable: true},
+		},
 		"album":    albumItem("al1", "Album One", "Artist A", 1),
 		"playlist": playlistItem("pl1", "Playlist One", "Curator P", 2),
-		"artist": {Kind: services.ItemArtist, ID: "ar1", Name: "Artist One", Art: art,
-			Artist: &services.Artist{ID: "ar1", Name: "Artist One"}},
+		"artist": {
+			Kind: services.ItemArtist, ID: "ar1", Name: "Artist One", Art: art,
+			Artist: &services.Artist{ID: "ar1", Name: "Artist One"},
+		},
 		"station":        stationItem("sp1", "Station Page", 3, true),
 		"station-nopage": stationItem("sn1", "Station Plain", 4, false),
-		"video": {Kind: services.ItemMusicVideo, ID: "v1", Name: "Video One", Subtitle: "Artist V", Art: art,
-			MusicVideo: &services.MusicVideo{ID: "v1", Name: "Video One", Artist: "Artist V"}},
+		"video": {
+			Kind: services.ItemMusicVideo, ID: "v1", Name: "Video One", Subtitle: "Artist V", Art: art,
+			MusicVideo: &services.MusicVideo{ID: "v1", Name: "Video One", Artist: "Artist V"},
+		},
 		"curator":  {Kind: services.ItemCurator, ID: "cu1", Name: "Curator One", Art: art},
 		"grouping": {Kind: services.ItemGrouping, ID: "g1", Name: "Grouping One", Art: art},
 		"room":     {Kind: services.ItemRoom, ID: "ro1", Name: "Room One", Art: art},
@@ -151,7 +158,7 @@ func (r *rig) do(g gesture, label string, track bool) string {
 // link, a button, a group or a row tells a user it will do.
 func (r *rig) cue(label string) string {
 	named := func(name string) bool {
-		return name == label || name == label+" Play" || name == label+" Pause" || strings.HasPrefix(name, label+", ")
+		return name == label || name == label+" Play" || name == label+" Pause" || name == label+" Opens in your browser" || strings.HasPrefix(name, label+", ")
 	}
 	for _, role := range []struct {
 		r    ui.Role
@@ -333,9 +340,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:   "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -380,15 +386,13 @@ var homeWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
-			// DEPARTS: the second click of a double-click fires again: the browser is asked twice
-			double:     "url https://example.test/interview/1; url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
+			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "no play control",
-			// DEPARTS: the tile is a link for assistive technology, but choosing it leaves the app for the browser, and nothing says so (the strip's row is a button; the links tile has an "Opens in your browser" icon)
-			cue: "link",
+			cue:        "link",
 		},
 	},
 	"strip": {
@@ -421,9 +425,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:  "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -431,14 +434,13 @@ var homeWant = map[string]map[string]outcomes{
 			cue:        "button",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
-			// DEPARTS: the second click of a double-click fires again: the browser is asked twice
-			double:     "url https://example.test/interview/1; url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
+			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "no play control",
-			cue:        "button",
+			cue:        "link",
 		},
 	},
 	"stationRows": {
@@ -452,9 +454,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -484,15 +485,13 @@ var homeWant = map[string]map[string]outcomes{
 			cue:  "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
-			// DEPARTS: a page-less station is played by its name and also has a separate Play button here; its tile and row have the name as the one control
-			play: "play station:sn1",
-			cue:  "button",
+			play:       "no play control",
+			cue:        "button",
 		},
 		"curator": {
 			click:      "nav /curator/cu1",
@@ -526,9 +525,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:  "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -538,15 +536,13 @@ var homeWant = map[string]map[string]outcomes{
 	},
 	"hero": {
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
-			// DEPARTS: a page-less station is played by its name and also has a separate Play button here; its tile and row have the name as the one control
-			play: "play station:sn1",
-			cue:  "button",
+			play:       "no play control",
+			cue:        "button",
 		},
 		"album": {
 			click:      "nav /album/al1",
@@ -580,15 +576,13 @@ var homeWant = map[string]map[string]outcomes{
 			cue:   "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
-			// DEPARTS: a page-less station is played by its name and also has a separate Play button here; its tile and row have the name as the one control
-			play: "play station:sn1",
-			cue:  "button",
+			play:       "no play control",
+			cue:        "button",
 		},
 	},
 	"tracks": {
@@ -615,9 +609,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:   "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -625,14 +618,13 @@ var homeWant = map[string]map[string]outcomes{
 			cue:        "button",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
-			// DEPARTS: the second click of a double-click fires again: the browser is asked twice
-			double:     "url https://example.test/interview/1; url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
+			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
-			space:      "url https://example.test/interview/1",
+			space:      "nothing",
 			play:       "no play control",
-			cue:        "none",
+			cue:        "link",
 		},
 	},
 	"bricks": {
@@ -658,9 +650,8 @@ var homeWant = map[string]map[string]outcomes{
 			cue:   "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -731,5 +722,50 @@ func TestInteractionHomeGestures(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// accessNamed is whether an element for assistive technology is called name.
+func (r *rig) accessNamed(name string) bool {
+	for _, a := range r.tt.AccessAll() {
+		if a.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// A station with no page is one control on every surface that shows it: named
+// by its text and "Play", and "Pause" once the station plays, then "Play"
+// again when it is paused.
+func TestPagelessStationControlReadsPauseWhilePlaying(t *testing.T) {
+	it := kindItems()["station-nopage"]
+	for _, s := range surfaces() {
+		if _, ok := homeWant[s.name]["station-nopage"]; !ok {
+			continue
+		}
+		t.Run(s.name, func(t *testing.T) {
+			r := s.build(t, it)
+			label := it.Name
+			r.until("the item", label)
+			if !r.accessNamed(label+" Play") && s.name != "stationList" && s.name != "stationRows" {
+				t.Fatalf("not named %q before it plays; texts %q", label+" Play", r.tt.Texts())
+			}
+			r.h.Play(0, func(st *services.PlaybackState) { st.Current = &services.QueueItem{ID: it.Station.ID, Name: it.Name} })
+			r.tt.Drain()
+			if !r.accessNamed(label + " Pause") {
+				t.Errorf("not named %q while it plays; texts %q", label+" Pause", r.tt.Texts())
+			}
+			if r.accessNamed(label + " Play") {
+				t.Errorf("still named %q while it plays", label+" Play")
+			}
+			r.h.Play(0, func(st *services.PlaybackState) {
+				st.Current, st.State = &services.QueueItem{ID: it.Station.ID, Name: it.Name}, store.StatePaused
+			})
+			r.tt.Drain()
+			if !r.accessNamed(label + " Play") {
+				t.Errorf("not named %q while it is paused; texts %q", label+" Play", r.tt.Texts())
+			}
+		})
 	}
 }

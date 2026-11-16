@@ -214,7 +214,7 @@ func TestTheQueueIsARunningOrderInGroups(t *testing.T) {
 		}
 		return b.Y, b.H
 	}
-	nowY, _ := y("Now playing") // the heading (the equaliser is below it)
+	nowY, _ := y("Now Playing") // the heading (the equaliser is below it)
 	playingY, _ := y("Song 2, Artist 2")
 	nextY, _ := y("Next")
 	firstY, _ := y("Up next: Song 3, Artist 3")
@@ -581,6 +581,33 @@ func TestDraggingARowReordersTheQueue(t *testing.T) {
 	r.tt.Frame()
 	if got := r.fake.Snapshot(); len(got) != 0 {
 		t.Errorf("a drop on its own gap called %v", got)
+	}
+}
+
+// A row can be dragged by its title and its artist, though they are links: a
+// press on a link takes nothing from the row's drag, and the drag opens no page.
+func TestDraggingARowByItsLinksReordersTheQueue(t *testing.T) {
+	for _, grab := range []string{"Song 2", "Artist 2"} {
+		r := newQueueRig(t, false)
+		r.h.Env.HasRoute = func(string) bool { return true }
+		r.seed(6, 0, func(_ *services.PlaybackState, q *services.QueueState) {
+			for i := range q.Items {
+				k := fmt.Sprint(i + 1)
+				q.Items[i].AlbumID, q.Items[i].ArtistID = "al."+k, "ar."+k
+			}
+		})
+		fx, fy := r.at(t, grab)
+		b, ok := r.tt.Find("Song 4, Artist 4")
+		if !ok {
+			t.Fatal("no Song 4")
+		}
+		r.dragTo(fx, fy, fx, b.Y+b.H-8)
+		if got := r.fake.Wait(t, 1); got[0] != "move 1 3" {
+			t.Errorf("dragging by %q: calls %v", grab, got)
+		}
+		if len(r.nav.Pushed) != 0 {
+			t.Errorf("dragging by %q opened %v", grab, r.nav.Pushed)
+		}
 	}
 }
 

@@ -62,7 +62,7 @@ func (m *mini) content(c *ui.Context) {
 			m.menus.PopupFor(c, cur != nil)
 		})
 		m.seekLine(c, s)
-	}).Fill().Background(theme.C("surface")).DragWindow().Role(ui.RoleGroup).Label(i18n.T("Sona mini player"))
+	}).Fill().Background(theme.C("surface")).DragWindow().Role(ui.RoleGroup).Label(i18n.T("Sona Mini Player"))
 	m.playingKeys(root, cur)
 }
 

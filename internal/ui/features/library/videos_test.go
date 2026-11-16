@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -83,7 +84,7 @@ func newVideosRig(t *testing.T, videos []services.MusicVideo, canPlay bool, opts
 
 func TestMusicVideosPageShowsTheVideos(t *testing.T) {
 	r, _ := newVideosRig(t, videoFixtures(3), false)
-	r.tt.Until("the videos", r.tt.Shows("Music videos", "3 music videos", "Video 0", "Video 1", "Video 2",
+	r.tt.Until("the videos", r.tt.Shows("Music Videos", "3 music videos", "Video 0", "Video 1", "Video 2",
 		"Band 0 · 3:25", "Band 1 · 4:25", "Band 2 · 5:25"))
 	want := []string{"Video 0", "Video 1", "Video 2"}
 	if got := r.order(want...); !slices.Equal(got, want) {
@@ -118,8 +119,8 @@ func TestMusicVideosLoadingShowsNoStateYet(t *testing.T) {
 	for range 20 {
 		r.tt.Drain()
 	}
-	for _, w := range []string{"Music videos", "No music videos in your library", "Sign in to see your music videos"} {
-		if got := r.tt.HasText(w); got != (w == "Music videos") {
+	for _, w := range []string{"Music Videos", "No music videos in your library", "Sign in to see your music videos"} {
+		if got := r.tt.HasText(w); got != (w == "Music Videos") {
 			t.Errorf("while loading %q shown: %v", w, got)
 		}
 	}
@@ -289,7 +290,7 @@ func TestMusicVideosGateStates(t *testing.T) {
 			l.openAccount = func() { opened = true }
 		}, uitest.Empty())
 		r.tt.Until("the sign-in text", r.tt.Shows("Sign in to see your music videos",
-			"Music videos you add in Apple Music are listed here after you sign in.", "Music videos"))
+			"Music videos you add in Apple Music are listed here after you sign in.", "Music Videos"))
 		r.settle()
 		if err := r.tt.Click("Sign in"); err != nil {
 			t.Fatal(err)
@@ -346,11 +347,108 @@ func TestMusicVideosShowNoConnectionNoteOnline(t *testing.T) {
 }
 
 func TestMusicVideosOfflineShowsTheStateAndReloadsWhenBack(t *testing.T) {
-	r, _ := newVideosRig(t, videoFixtures(2), false)
+	r, _ := newVideosRig(t, nil, false)
 	fakeOffline(r.l, true)
 	r.tt.Until("the offline state", r.tt.Shows("Music videos need a connection", "Try again"))
+	r.stub.setVideos(videoFixtures(2))
 	fakeOffline(r.l, false)
 	r.tt.Until("the videos", r.tt.Shows("Video 0", "2 music videos"))
+}
+
+// connection is a fake sign-in check: it counts its runs and, when ok, brings
+// the connection back (the videos load, the offline flag clears) as Apple
+// answering the real check does.
+type connection struct {
+	r      *gridRig
+	mu     sync.Mutex
+	runs   int
+	ok     bool
+	videos []services.MusicVideo
+}
+
+func (c *connection) Revalidate(context.Context) error {
+	c.mu.Lock()
+	c.runs++
+	ok := c.ok
+	c.mu.Unlock()
+	if !ok {
+		return errors.New("no connection")
+	}
+	c.r.stub.setVideos(c.videos)
+	c.r.l.env.Post(func() { fakeOffline(c.r.l, false) })
+	return nil
+}
+
+func (c *connection) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.runs
+}
+
+// Try again on the offline state re-runs the connection check and then reads
+// the videos, so it leaves the state at once when the connection is back,
+// rather than minutes later when the check's own retry does.
+func TestMusicVideosTryAgainChecksTheConnectionThenShowsTheGrid(t *testing.T) {
+	r, _ := newVideosRig(t, nil, false)
+	conn := &connection{r: r, ok: true, videos: videoFixtures(2)}
+	r.l.auth = conn
+	fakeOffline(r.l, true)
+	r.tt.Until("the offline state", r.tt.Shows("Music videos need a connection", "Try again"))
+	r.settle()
+	if err := r.tt.Click("Try again"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the videos", r.tt.Shows("Video 0", "2 music videos"))
+	if r.tt.HasText("Music videos need a connection") {
+		t.Error("the offline state stays after the videos loaded")
+	}
+	if got := conn.count(); got != 1 {
+		t.Errorf("Try again ran the connection check %d times, want 1", got)
+	}
+}
+
+// With the connection still down, Try again checks it, says why not, and the
+// page keeps its offline state.
+func TestMusicVideosTryAgainWithNoConnectionKeepsTheOfflineState(t *testing.T) {
+	r, _ := newVideosRig(t, nil, false)
+	conn := &connection{r: r}
+	r.l.auth = conn
+	fakeOffline(r.l, true)
+	r.tt.Until("the offline state", r.tt.Shows("Music videos need a connection", "Try again"))
+	r.settle()
+	if err := r.tt.Click("Try again"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("a check", func() bool { return conn.count() == 1 })
+	r.settle()
+	if !r.tt.HasText("Music videos need a connection") {
+		t.Errorf("the offline state went with no connection: %q", r.tt.Texts())
+	}
+}
+
+// A stale offline flag does not hide videos that have loaded: the connection
+// is plainly there.
+func TestMusicVideosLoadedShowRegardlessOfAStaleOfflineFlag(t *testing.T) {
+	r, _ := newVideosRig(t, videoFixtures(2), false)
+	r.tt.Until("the videos", r.tt.Shows("Video 0", "2 music videos"))
+	fakeOffline(r.l, true)
+	r.settle()
+	if !r.tt.HasText("Video 0") || r.tt.HasText("Music videos need a connection") {
+		t.Errorf("a loaded page with a stale offline flag shows %q", r.tt.Texts())
+	}
+}
+
+// Videos loaded, then a reload fails for lack of a connection: the offline
+// state, with Try again, not the generic error.
+func TestMusicVideosReloadWithNoConnectionAfterLoadingShowsTheOfflineState(t *testing.T) {
+	r, _ := newVideosRig(t, videoFixtures(2), false)
+	r.tt.Until("the videos", r.tt.Shows("Video 0", "2 music videos"))
+	r.stub.setVideos(nil) // the library's call needs Apple, and the test network has none
+	r.l.env.Queries.Invalidate(keyMusicVideos)
+	r.tt.Until("the offline state", r.tt.Shows("Music videos need a connection", "Try again"))
+	if r.tt.HasText("Couldn't load your music videos from Apple Music") {
+		t.Error("the reload's network failure shows the generic error")
+	}
 }
 
 func TestMusicVideosNetworkErrorShowsTheStateAndTryAgainReloads(t *testing.T) {

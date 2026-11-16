@@ -2,9 +2,8 @@ package services
 
 import (
 	"errors"
+	"strings"
 	"time"
-
-	"github.com/coredev-uk/sona-go/internal/library"
 )
 
 // Pre-release albums. Apple lists an album before it comes out
@@ -18,6 +17,9 @@ import (
 // ahead says it is not, and only a song with neither falls back to its
 // album's date. Apple releases at midnight in the storefront's time zone;
 // Sona takes the computer's, which is the storefront's for nearly everyone.
+// Whether a library song is out is library's one rule (library/release.go,
+// in SQL, so the lists and the search apply it too); songs not out are not
+// listed outside their album, nor credited to Apple's placeholder artist.
 
 // ErrNotReleased is a play of a song that isn't out yet (code
 // "not_released").
@@ -53,20 +55,15 @@ func libraryRelease(date, catalogDate string, flagged bool, now time.Time) (stri
 	return date, upcoming(date, flagged, now)
 }
 
-// songUnreleased reports whether library song s is not out at now: by its
-// own date when it has one, else out when Apple gave it playParams (a
-// single of a pre-added album can have no date of its own), else by its
-// album's release state, which Library.Songs loads with the song
-// (libraryRelease). It is the rule PlaybackService applies to stored songs
-// (storedReleased), so a song listed as playable plays and one listed as
-// unplayable is refused.
-func songUnreleased(s library.Song, now time.Time) bool {
-	switch {
-	case s.ReleaseDate != "":
-		return upcoming(s.ReleaseDate, false, now)
-	case !s.NoPlayParams:
-		return false
+// placeholderArtist is the artist Apple credits a song it has not published
+// yet to: the literal "unknown".
+const placeholderArtist = "unknown"
+
+// shownArtist is the artist to show for a song: its credit, but not Apple's
+// stand-in for a song that is not out yet, which names no one ("" then).
+func shownArtist(artist string, notOut bool) string {
+	if notOut && strings.EqualFold(strings.TrimSpace(artist), placeholderArtist) {
+		return ""
 	}
-	_, up := libraryRelease(s.Album.Date, s.Album.CatalogDate, s.Album.Prerelease, now)
-	return up
+	return artist
 }

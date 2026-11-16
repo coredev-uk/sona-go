@@ -79,7 +79,7 @@ func TestA11yHomeHasNoControlInsideAnotherAndEverySectionIsNamed(t *testing.T) {
 
 	// Headings by level: the page title, then the sections.
 	for label, level := range map[string]int{
-		"For you": 1, "Top Picks for You": 2, "Recently Played": 2, "Made for You": 2, "Find Your Mood": 2, "More for you": 2,
+		"For You": 1, "Top Picks for You": 2, "Recently Played": 2, "Made for You": 2, "Find Your Mood": 2, "More for You": 2,
 	} {
 		h, ok := tr.Find(ui.RoleHeading, label)
 		if !ok {
@@ -89,7 +89,7 @@ func TestA11yHomeHasNoControlInsideAnotherAndEverySectionIsNamed(t *testing.T) {
 		}
 	}
 	// Each section is a group named by its title, and the hero card's is "Featured".
-	for _, label := range []string{"Top Picks for You", "Recently Played", "Featured", "Made for You", "Find Your Mood", "More for you"} {
+	for _, label := range []string{"Top Picks for You", "Recently Played", "Featured", "Made for You", "Find Your Mood", "More for You"} {
 		if _, ok := tr.Find(ui.RoleGroup, label); !ok {
 			t.Errorf("no group %q", label)
 		}
@@ -222,7 +222,7 @@ func TestA11yHomeSignedOutIsReadAndWalkedInOrder(t *testing.T) {
 	r.until("the notice", "Recommendations need Apple Music", "Shelf Album")
 	access.NoNestedControls(t, r.tt.Tester)
 	tr := access.Read(t, r.tt.Tester)
-	if h, ok := tr.Find(ui.RoleHeading, "For you"); !ok || h.Level != 1 {
+	if h, ok := tr.Find(ui.RoleHeading, "For You"); !ok || h.Level != 1 {
 		t.Errorf("no level 1 heading \"For you\": %v", h)
 	}
 	if h, ok := tr.Find(ui.RoleHeading, "Recommendations need Apple Music"); !ok || h.Level != 2 {
@@ -244,7 +244,7 @@ func TestA11yHomeLoadingIsAStatusAndTheFailureIsAnnouncedOnce(t *testing.T) {
 			close(gate)
 		}
 	})
-	r.until("the header", "For you")
+	r.until("the header", "For You")
 	for range 3 {
 		r.tt.Drain()
 	}

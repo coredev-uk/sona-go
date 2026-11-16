@@ -14,7 +14,7 @@ import (
 // SONA_INSPECTOR=1); elsewhere the row says so.
 func (s *settings) developerTools(c *ui.Context, enabled bool) {
 	title := i18n.T("Open the inspector")
-	s.group(c, "developer-tools", i18n.T("Developer tools"), "", func() {
+	s.group(c, "developer-tools", i18n.T("Developer Tools"), "", func() {
 		if !enabled {
 			s.unavailableRow(c, "developer-tools", title,
 				i18n.T("Available in development builds started with SONA_INSPECTOR=1."))

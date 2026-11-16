@@ -30,6 +30,11 @@ type LibraryService struct {
 	closed     bool
 
 	setClipboard func(string) bool // CopyLink; Deps.Clipboard
+	// remote schedules the shallow checks for changes made on other devices
+	// (library_remote.go).
+	remote remoteChecks
+	// signedIn reports whether a sync may start.
+	signedIn func() bool
 	// removeRecheck is how long after a removal Remove checks that Apple
 	// really dropped the item (see confirmRemoved).
 	removeRecheck time.Duration
@@ -39,8 +44,11 @@ type LibraryService struct {
 // and on sign-in when stale, cancelled before the sign-out wipe.
 func newLibraryService(e *Env) *LibraryService {
 	s := &LibraryService{o: e, m: e.m, setClipboard: e.Clipboard, removeRecheck: 10 * time.Second}
+	s.signedIn = func() bool { return e.Auth.Status().State == auth.StateSignedIn }
+	s.remote.init(s)
 	e.OnNetwork(func() {
 		go s.syncIfStale(context.Background())
+		s.startRemoteChecks()
 		if e.History != nil {
 			go e.History.trim(context.Background())
 		}
@@ -444,7 +452,21 @@ func (s *LibraryService) syncIfStale(ctx context.Context) {
 }
 
 func (s *LibraryService) startSync(mode library.Mode, domains ...library.Domain) error {
-	if s.o.Auth.Status().State != auth.StateSignedIn {
+	return s.start(syncRun{mode: mode, domains: domains})
+}
+
+// syncRun is one background sync. A quiet run (the shallow check for
+// changes made elsewhere) shows no progress and sends no "sync:done": it
+// announces only the playlists it changed.
+type syncRun struct {
+	mode    library.Mode
+	domains []library.Domain
+	quiet   bool
+}
+
+func (s *LibraryService) start(run syncRun) error {
+	mode, domains := run.mode, run.domains
+	if !s.signedIn() {
 		return auth.ErrNotSignedIn
 	}
 	s.mu.Lock()
@@ -465,31 +487,45 @@ func (s *LibraryService) startSync(mode library.Mode, domains ...library.Domain)
 		defer close(done)
 		defer cancel()
 		start := s.o.Now()
-		s.o.Logger.Info("library: sync started", "full", mode == library.Full, "domains", domains)
-		err := s.o.Syncer.Sync(ctx, mode, func(p library.Progress) {
-			ev := SyncProgress{Domain: string(p.Domain), Done: p.Done, Total: p.Total, Finished: p.Finished}
-			ev.ErrorCode = CodeOf(p.Err)
-			s.o.Emit.Emit(EventSyncProgress, ev)
-		}, domains...)
+		var (
+			progress func(library.Progress)
+			before   playlistSnapshot
+		)
+		if run.quiet {
+			before = s.playlistSnapshot(ctx)
+		} else {
+			s.o.Logger.Info("library: sync started", "full", mode == library.Full, "domains", domains)
+			progress = func(p library.Progress) {
+				ev := SyncProgress{Domain: string(p.Domain), Done: p.Done, Total: p.Total, Finished: p.Finished}
+				ev.ErrorCode = CodeOf(p.Err)
+				s.o.Emit.Emit(EventSyncProgress, ev)
+			}
+		}
+		err := s.o.Syncer.Sync(ctx, mode, progress, domains...)
 		s.mu.Lock()
 		s.syncCancel, s.syncDone = nil, nil
 		again := s.resync
 		s.resync = nil
 		s.mu.Unlock()
-		if err != nil {
+		switch {
+		case err != nil:
 			s.o.Report(err)
-		} else {
+		case !run.quiet:
 			s.o.members.synced(start)
 			pruneCoverFiles(context.Background(), s.o) // playlists removed elsewhere
 		}
-		c, cerr := s.o.Library.Counts(context.Background())
-		if cerr != nil {
-			s.o.Logger.Warn("library: counts", "err", cerr)
+		if run.quiet {
+			s.announceRemote(before, start, err)
+		} else {
+			c, cerr := s.o.Library.Counts(context.Background())
+			if cerr != nil {
+				s.o.Logger.Warn("library: counts", "err", cerr)
+			}
+			ev := SyncDone{OK: err == nil, Counts: Counts(c), FinishedAt: unixMs(s.o.Now())}
+			ev.ErrorCode = CodeOf(err)
+			s.o.Logger.Info("library: sync finished", "ok", err == nil, "took", s.o.Now().Sub(start).Round(time.Millisecond), "counts", c)
+			s.o.Emit.Emit(EventSyncDone, ev)
 		}
-		ev := SyncDone{OK: err == nil, Counts: Counts(c), FinishedAt: unixMs(s.o.Now())}
-		ev.ErrorCode = CodeOf(err)
-		s.o.Logger.Info("library: sync finished", "ok", err == nil, "took", s.o.Now().Sub(start).Round(time.Millisecond), "counts", c)
-		s.o.Emit.Emit(EventSyncDone, ev)
 		if len(again) > 0 && ctx.Err() == nil {
 			if err := s.startSync(library.Incremental, again...); err != nil {
 				s.o.Logger.Warn("library: sync after add", "err", err)
@@ -513,6 +549,7 @@ func (s *LibraryService) stopSync() {
 
 // close stops any sync and refuses new ones.
 func (s *LibraryService) close() {
+	s.remote.close()
 	s.mu.Lock()
 	s.closed = true
 	s.mu.Unlock()

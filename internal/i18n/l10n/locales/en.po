@@ -179,6 +179,12 @@ msgstr ""
 msgid "Files"
 msgstr ""
 
+#. a desktop notification: the body when several arrived at once; %d is 2 or more
+#: internal/services/artisttracker.go
+#, go-format
+msgid "From your favourite artists: %d"
+msgstr ""
+
 #. the file chooser's file type
 #: internal/services/playlists_covers.go
 msgid "Images (JPEG or PNG)"
@@ -212,6 +218,29 @@ msgstr ""
 #. a manual page's section, shown in capitals
 #: internal/cli/messages.go
 msgid "Name"
+msgstr ""
+
+#. a desktop notification: the body; %s is the artist
+#: internal/services/artisttracker.go
+#, go-format
+msgid "New EP by %s"
+msgstr ""
+
+#. a desktop notification: the body; %s is the artist
+#: internal/services/artisttracker.go
+#, go-format
+msgid "New album by %s"
+msgstr ""
+
+#. a desktop notification: the title when several releases arrived at once
+#: internal/services/artisttracker.go
+msgid "New releases"
+msgstr ""
+
+#. a desktop notification: the body; %s is the artist
+#: internal/services/artisttracker.go
+#, go-format
+msgid "New single by %s"
 msgstr ""
 
 #. a track notification's button: plays the next song
@@ -320,6 +349,11 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "Show help for Sona's commands"
+msgstr ""
+
+#. a desktop notification: its click, which opens the list
+#: internal/services/artisttracker.go
+msgid "Show new releases"
 msgstr ""
 
 #: internal/cli/messages.go

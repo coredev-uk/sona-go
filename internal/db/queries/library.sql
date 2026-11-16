@@ -171,23 +171,21 @@ FROM albums a JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
 WHERE a.library_id IS NOT NULL
   AND (a.is_prerelease = 1 OR a.release_date > ?1 OR a.catalog_release_date > ?1);
 
--- The songs of those albums that Apple gave no playParams yet.
--- name: UnplayableUpcomingLibrarySongs :many
+-- The songs Apple gave no playParams yet, whatever their album's state now:
+-- a song is asked for until it has them, so one still a placeholder when its
+-- album's flag clears (the albums and songs domains run side by side) is not
+-- left behind with its stand-in name.
+-- name: UnplayableLibrarySongs :many
 SELECT t.library_id
 FROM tracks t
 JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
-JOIN albums a ON a.library_id = t.album_library_id
-WHERE t.library_id IS NOT NULL AND t.no_play_params = 1
-  AND (a.is_prerelease = 1 OR a.release_date > ?1 OR a.catalog_release_date > ?1);
+WHERE t.library_id IS NOT NULL AND t.no_play_params = 1;
 
 -- name: MinSongAddedRank :one
 SELECT CAST(coalesce(min(added_rank), 0) AS INTEGER) FROM library_items WHERE kind = 'song';
 
 -- name: CountLibraryKind :one
 SELECT count(*) FROM library_items WHERE kind = ?;
-
--- name: CountLibraryItems :many
-SELECT kind, count(*) AS n FROM library_items GROUP BY kind;
 
 -- name: GetTrackByLibraryID :one
 SELECT * FROM tracks WHERE library_id = ?;
@@ -197,17 +195,6 @@ SELECT * FROM albums WHERE library_id = ?;
 
 -- name: GetPlaylistByLibraryID :one
 SELECT * FROM playlists WHERE library_id = ?;
-
--- name: LibraryAlbumTracks :many
-SELECT * FROM tracks
-WHERE album_library_id = ?
-ORDER BY disc_number = 0, disc_number, track_number, name COLLATE NOCASE;
-
--- name: LibraryArtistTracks :many
-SELECT t.* FROM tracks t
-JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
-WHERE t.artist_library_id = ?
-ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number;
 
 -- name: ClearSearchIndex :exec
 DELETE FROM search_fts;

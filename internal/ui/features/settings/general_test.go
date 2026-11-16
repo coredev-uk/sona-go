@@ -207,9 +207,10 @@ func (g *generalRig) until(what string, ok func() bool) {
 
 func TestGeneralShowsEveryGroupAndRowInOrder(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Desktop.Autostart = false })
-	g.tt.Until("rows", g.tt.Shows("Starting Sona", "Window", "While music plays", "Updates", "Start Sona when you log in",
+	g.tt.Until("rows", g.tt.Shows("Starting Sona", "Window", "While Music Plays", "Updates", "Start Sona when you log in",
 		"Open on", "First-run setup", "When the window is closed", "Title bar", "Window size", "Track notifications",
-		"Stay awake while playing", "Check for updates when Sona starts"))
+		"Stay awake while playing", "New releases", "Track new releases from favourite artists", "Also show a desktop notification",
+		"Check for updates when Sona starts"))
 	if g.tt.HasText("Start in the tray") {
 		t.Error("Start in the tray shows with autostart off")
 	}
@@ -376,7 +377,7 @@ func TestAutostartIsAnUnavailableRowWithoutTheCapability(t *testing.T) {
 	caps.Autostart, caps.Notifications, caps.SleepInhibit = false, false, false
 	g := newGeneralRig(t, caps, nil)
 	g.tt.Until("unavailable", g.tt.Shows("Start Sona when you log in", "Track notifications", "Stay awake while playing",
-		"Not available on Linux yet."))
+		"Also show a desktop notification", "Not available on Linux yet."))
 }
 
 func TestTitleBarSelectSavesTheStyleAndSaysItAppliesFromTheNextStart(t *testing.T) {
@@ -481,6 +482,61 @@ func TestNotificationsAndStayAwakeSave(t *testing.T) {
 	g.until("notifications", func() bool { return !g.saved().Integrations.Notifications })
 	g.toggle("inhibit-sleep")
 	g.until("inhibit", func() bool { return !g.saved().Integrations.InhibitSleep })
+}
+
+// The artist tracker is off until it is turned on; its second switch, the
+// desktop notification, waits for the first and only exists where the
+// platform has notifications.
+func TestArtistTrackerSwitchesSave(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	if st := g.saved().ArtistTracker; st.Enabled || st.Desktop {
+		t.Fatalf("the tracker is on by default: %+v", st)
+	}
+	g.tt.Until("both rows", g.tt.Shows("Track new releases from favourite artists", "Also show a desktop notification",
+		"One notification for each new release"))
+	g.toggle("artist-tracker")
+	g.until("tracking on", func() bool { return g.saved().ArtistTracker.Enabled })
+	if g.saved().ArtistTracker.Desktop {
+		t.Error("turning the tracker on turned the notification on")
+	}
+	g.toggle("artist-tracker-notify")
+	g.until("notification on", func() bool { return g.saved().ArtistTracker.Desktop })
+	g.toggle("artist-tracker")
+	g.until("tracking off", func() bool { return !g.saved().ArtistTracker.Enabled })
+}
+
+func TestArtistTrackerNotificationSwitchWaitsForTheTracker(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	g.tt.Until("row", g.tt.Shows("Also show a desktop notification"))
+	g.focus("artist-tracker-notify")
+	g.tt.Key(0, ui.KeySpace)
+	g.tt.Drain()
+	if g.saved().ArtistTracker.Desktop {
+		t.Error("the notification switch works with the tracker off")
+	}
+}
+
+func TestArtistTrackerNotificationRowFollowsTheCapability(t *testing.T) {
+	with := newGeneralRig(t, linuxCaps(), nil)
+	with.tt.Until("row", with.tt.Shows("Also show a desktop notification", "One notification for each new release, or one summary when several arrive together."))
+	if with.tt.HasText("Not available on Linux yet.") {
+		t.Error("the unavailable line shows with notifications")
+	}
+
+	caps := linuxCaps()
+	caps.Notifications = false
+	without := newGeneralRig(t, caps, nil)
+	without.tt.Until("row", without.tt.Shows("Track new releases from favourite artists", "Also show a desktop notification", "Not available on Linux yet."))
+	if without.tt.HasText("One notification for each new release") {
+		t.Error("the notification switch shows without notifications")
+	}
+	// The tracker itself needs none: it still lists.
+	without.toggle("artist-tracker")
+	without.until("tracking on", func() bool { return without.saved().ArtistTracker.Enabled })
+
+	caps.NeedsAppBundle = true
+	bundle := newGeneralRig(t, caps, nil)
+	bundle.tt.Until("row", bundle.tt.Shows("Also show a desktop notification", "Only when Sona runs from Sona.app, not from a source build."))
 }
 
 func TestIntegrationsNotesSayWhenTheDesktopLacksTheService(t *testing.T) {

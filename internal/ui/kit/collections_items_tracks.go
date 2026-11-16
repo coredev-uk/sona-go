@@ -19,7 +19,12 @@ const (
 )
 
 // TrackShelfState is the state of a TrackShelf: the width its columns follow.
-type TrackShelfState struct{ width WidthTracker }
+type TrackShelfState struct {
+	width WidthTracker
+	// Sel is the selected rows: a click or Space selects, as a TrackList row
+	// does (Shift+click and Ctrl+click too, Ctrl+Space toggles).
+	Sel Selection
+}
 
 // TrackShelfOpts are the options of TrackShelf.
 type TrackShelfOpts struct {
@@ -35,7 +40,8 @@ type TrackShelfOpts struct {
 }
 
 // TrackShelf is songs as a compact block of rows that fills the width in
-// columns of Rows songs, reading down each column (v0.2.0's TrackShelf). Double
+// columns of Rows songs, reading down each column (v0.2.0's TrackShelf). A click
+// or Space selects the row, as in a TrackList. Double
 // click, Enter or the cover's play button plays from that song with the shelf's
 // songs as the queue, labelled by the title. A song that cannot play (or is
 // withheld from a restricted account) is dimmed and does nothing. The song
@@ -70,6 +76,8 @@ func TrackShelf(c *ui.Context, st *TrackShelfState, items []services.Item, ctx I
 			}
 			shown := songs[:min(len(songs), cols*rows)]
 			down := min(rows, len(shown))
+			st.Sel.Hold = collectionsHold(ctx.Menus, nil)
+			st.Sel.Rows(KeysOf(len(shown), func(i int) string { return shown[i].ID }), nil)
 			for i, song := range shown {
 				// Filled down each column, so Tab follows the eye.
 				play := func() {
@@ -79,18 +87,19 @@ func TrackShelf(c *ui.Context, st *TrackShelfState, items []services.Item, ctx I
 					}
 					ctx.Players.PlaySongList(all, i, o.Title)
 				}
-				trackRow(c, *song, i, play, ctx, i/down, i%down)
+				trackRow(c, &st.Sel, *song, i, play, ctx, i/down, i%down)
 			}
 			if ctx.Menus != nil && !ctx.NoPopup {
 				ctx.Menus.Popup(c)
 			}
 		})
+		st.Sel.OutsidePress(grid)
 	})
 }
 
 // trackRow is one song: a 40 DIP cover, the title with its explicit mark, the
 // artist and the song's menu. play starts the queue from it.
-func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCtx, col, rowAt int) {
+func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play func(), ctx ItemsCtx, col, rowAt int) {
 	tk := theme.Current()
 	current := SongIsCurrent(&song, ctx.Current)
 	withheld := ctx.Restricted && song.Explicit
@@ -103,6 +112,10 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 	row := ui.Row(c.Key(strconv.Itoa(i) + ":" + song.ID)).Height(trackRowH).MinWidth(0).Gap(12).PaddingX(8).
 		Radius(tk.Radius["md"]).Focusable().Role(ui.RoleListItem).Label(name).ColumnStart(col + 1).RowStart(rowAt + 1)
 	hot := HoverRow(row)
+	if run := sel.Run(i); run != RunNone {
+		row.Draw(func(p *ui.Painter, r ui.Rect) { p.Fill(r, theme.C("ink").Alpha(0.12), tk.Radius["md"]) })
+		row.Checked(true)
+	}
 	if disabled {
 		row.Opacity(0.5)
 	}
@@ -111,6 +124,10 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 	}
 	// Only the row itself takes the keys: the cover's play button and the
 	// artist link are not tab stops.
+	if row.Clicked() {
+		sel.Click(i, ModsOf(row.ClickModifiers()))
+	}
+	sel.Keys(row, i)
 	if !disabled && (row.DoubleClicked() || row.Shortcut(0, ui.KeyEnter)) {
 		play()
 	}
@@ -118,7 +135,7 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 	row.Children(func() {
 		ui.Box(c.Key("art")).Size(trackArt, trackArt).Shrink(0).Children(func() {
 			itemsArtwork(c, ctx.Art, song.Art.Small, trackArt, ArtOpts{Edge: true})
-			wash := theme.C("ground").Alpha(0.7)
+			wash := ArtworkWash(false)
 			switch {
 			case current:
 				ui.Row(c.Key("now")).Absolute().Left(0).Top(0).Size(trackArt, trackArt).Center().Radius(tk.Radius["sm"]).
@@ -127,10 +144,10 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 				btn := ui.Row(c.Key("play")).Absolute().Left(0).Top(0).Size(trackArt, trackArt).Center().Radius(tk.Radius["sm"]).
 					Background(wash).TextColor(theme.C("ink")).Role(ui.RoleButton).Label(i18n.T("Play {name}", "name", name)).
 					Cursor(ui.CursorPointer)
-				if !row.Hovered() {
-					btn.Opacity(0)
-				}
-				btn.Children(func() { theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("ink"), Inherit: true}) })
+				// Hover or keyboard focus shows it, over the press duration:
+				// the button stays in the tree at rest.
+				Fade(btn, row.Hovered() || row.FocusWithin())
+				btn.Children(func() { PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink"), Inherit: true}) })
 				if btn.Clicked() {
 					play()
 				}
@@ -154,10 +171,20 @@ func trackRow(c *ui.Context, song services.Song, i int, play func(), ctx ItemsCt
 				}
 			})
 			var open func(id string)
+			artists := ctx.Artists.OfSong(song)
 			if ctx.HasRoute == nil || ctx.HasRoute("/artist/x") {
-				open = func(id string) { ctx.nav(itemsPage("/artist/", id)) }
+				open = func(id string) {
+					name := song.Artist
+					for _, a := range artists {
+						if a.ID == id {
+							name = a.Name
+						}
+					}
+					ctx.opened(services.Item{Kind: services.ItemArtist, ID: id, Name: name})
+					ctx.nav(itemsPage("/artist/", id))
+				}
 			}
-			ArtistLinks(c, ctx.Artists.OfSong(song), song.Artist, theme.C("ink-muted"), ArtistLinksOpts{
+			ArtistLinks(c, artists, song.Artist, theme.C("ink-muted"), ArtistLinksOpts{
 				Open: open, Static: true, Hover: theme.C("ink"),
 				Style: func(e ui.Element) {
 					e.FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine().TextAlign(ui.Start)

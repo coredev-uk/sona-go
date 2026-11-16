@@ -457,7 +457,7 @@ func TestLinksToUnportedPagesAreText(t *testing.T) {
 		t.Errorf("navigated to %q with no album or artist route", got)
 	}
 	// And the shelves that only link to those pages are not drawn.
-	for _, no := range []string{"Music videos", "More by Radiohead"} {
+	for _, no := range []string{"Music Videos", "More by Radiohead"} {
 		if r.tt.HasText(no) {
 			t.Errorf("%q shows with no page to open", no)
 		}
@@ -524,7 +524,7 @@ func TestInLibraryAsksBeforeRemoving(t *testing.T) {
 	r.open()
 	r.tt.Until("In library", r.tt.Shows("In library"))
 	r.click("In library")
-	r.tt.Until("the question", r.tt.Shows("Delete “Airbag” from your library?"))
+	r.tt.Until("the question", r.tt.Shows("Delete “Airbag” From Your Library?"))
 	if r.library.has("remove") {
 		t.Fatal("removed without asking")
 	}
@@ -860,7 +860,7 @@ func TestNeitherLyricsNorCreditsSaysSo(t *testing.T) {
 func TestShelvesOfVideosAndMoreByTheArtist(t *testing.T) {
 	r := newRig(t, 1132, 1600, airbag())
 	r.open()
-	r.tt.Until("the shelves", r.tt.Shows("Music videos", "Airbag (Live)", "2001", "More by Radiohead", "Kid A", "2000", "Amnesiac", "See all"))
+	r.tt.Until("the shelves", r.tt.Shows("Music Videos", "Airbag (Live)", "2001", "More by Radiohead", "Kid A", "2000", "Amnesiac", "See all"))
 	r.click("Kid A")
 	r.tt.Until("the album", r.tt.Shows("ALBUM PAGE al2 song="))
 	r.router.Back()
@@ -916,7 +916,7 @@ func TestMoreByHasNoSeeAllWithoutAnArtistID(t *testing.T) {
 func TestNoShelvesWhenTheSongHasNone(t *testing.T) {
 	r := newRig(t, 1132, 1000, bare())
 	r.open()
-	if r.tt.HasText("Music videos") || r.tt.HasText("More by Radiohead") {
+	if r.tt.HasText("Music Videos") || r.tt.HasText("More by Radiohead") {
 		t.Errorf("empty shelves are drawn: %q", r.tt.Texts())
 	}
 }

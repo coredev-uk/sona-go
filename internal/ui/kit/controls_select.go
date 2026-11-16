@@ -35,7 +35,7 @@ func controlsOption(c *ui.Context, item ui.Element, label string, highlighted, c
 	item.Padding(6, 8, 6, 8).Gap(8).Radius(controlsRadius("sm")).AlignItems(ui.Center).FillWidth()
 	if highlighted && !disabled {
 		// The tint alone is about 1.1:1 on the popover: the inset ring is the
-		// keyboard highlight (docs/accessibility.md, "Focus").
+		// keyboard highlight (site/src/content/docs/contributing/accessibility.md, "Focus").
 		ring, radius := theme.C("ring"), controlsRadius("sm")
 		item.Background(theme.C("accent")).TextColor(theme.C("accent-foreground")).
 			DrawOver(func(p *ui.Painter, r ui.Rect) { p.Stroke(r, ring, radius, 2) })

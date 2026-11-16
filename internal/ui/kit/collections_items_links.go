@@ -104,16 +104,30 @@ func RowAspect(items []services.Item) ItemAspect {
 }
 
 // ItemSubtitle is the line under an item's title: Apple's reason or badge,
-// then the artist, curator or host ("New release · Radiohead"); empty parts
-// are dropped.
+// then the artist, curator or host ("New release · Radiohead"); empty parts,
+// and parts that only repeat the title (Repeats), are dropped.
 func ItemSubtitle(it services.Item) string {
-	switch {
-	case it.Caption == "":
-		return it.Subtitle
-	case it.Subtitle == "":
-		return it.Caption
+	caption, sub := it.Caption, it.Subtitle
+	if Repeats(it.Name, sub) {
+		sub = ""
 	}
-	return it.Caption + " · " + it.Subtitle
+	if Repeats(it.Name, caption) || Repeats(sub, caption) {
+		caption = ""
+	}
+	switch {
+	case caption == "":
+		return sub
+	case sub == "":
+		return caption
+	}
+	return caption + " · " + sub
+}
+
+// Repeats reports whether line says nothing title does not already say: it
+// is empty, or the title holds it, ignoring case and outer spaces.
+func Repeats(title, line string) bool {
+	line = strings.ToLower(strings.TrimSpace(line))
+	return line == "" || strings.Contains(strings.ToLower(title), line)
 }
 
 // RoomLink is a section's "See all": its editorial room as a route path, ""

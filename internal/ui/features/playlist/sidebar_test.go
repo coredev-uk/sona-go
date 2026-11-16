@@ -3,12 +3,12 @@ package playlist
 import (
 	"context"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 )
@@ -17,14 +17,13 @@ import (
 
 func TestSidebarListsTheSectionsInOrder(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
-	e.shows("Made for you", "Apple Music", "Playlists", "Road Trip")
+	e.shows("Apple Music", "Playlists", "Road Trip")
 	if e.tt.HasText("Pinned") {
 		t.Error("Pinned shows with no pins")
 	}
-	e.above("Made for you", "Morning Mix")
+	e.above("Apple Music", "Morning Mix")
 	e.above("Morning Mix", "Discovery Mix")
-	e.above("Discovery Mix", "Apple Music")
-	e.above("Apple Music", "Quiet Hours")
+	e.above("Discovery Mix", "Quiet Hours")
 	e.above("Quiet Hours", "Playlists")
 	e.above("Playlists", "Road Trip")
 	// The user's own playlists are the only ones under Playlists: a mix is
@@ -40,12 +39,30 @@ func TestSidebarListsTheSectionsInOrder(t *testing.T) {
 	}
 }
 
+// A collaborative playlist the user joined is listed under Playlists, not
+// under Apple Music.
+func TestSidebarListsAJoinedCollaborativePlaylistUnderPlaylists(t *testing.T) {
+	tree := sbLibrary()
+	joined := treePlaylist("p.joined", "Road Crew", "", 5, false)
+	joined.Playlist.CatalogID = "pl.u-9"
+	joined.Collaborative = true
+	tree.Playlists = append(tree.Playlists, joined)
+	e := sbSetup(t, tree, nil)
+	e.shows("Apple Music", "Playlists", "Road Trip", "Road Crew")
+	e.above("Playlists", "Road Crew")
+	e.above("Apple Music", "Quiet Hours")
+	e.above("Quiet Hours", "Playlists")
+	if e.y("Road Crew") < e.y("Playlists") {
+		t.Errorf("Road Crew (y=%v) is above the Playlists heading (y=%v)", e.y("Road Crew"), e.y("Playlists"))
+	}
+}
+
 func TestSidebarOmitsEmptySections(t *testing.T) {
 	tree := sbLibrary()
 	tree.Playlists = []services.TreePlaylist{treePlaylist("p.own", "Road Trip", "", 0, true)}
 	e := sbSetup(t, tree, nil)
 	e.shows("Road Trip")
-	for _, h := range []string{"Made for you", "Apple Music", "Pinned"} {
+	for _, h := range []string{"Apple Music", "Pinned"} {
 		if e.tt.HasText(h) {
 			t.Errorf("%q shows with nothing in it", h)
 		}
@@ -56,7 +73,7 @@ func TestSidebarWaitsForThePinsBeforeListing(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.mix1", "p.mix2", "p.ed"))
 	// The first frame has no answer yet: no list, no empty message.
 	e.tt.Frame()
-	for _, s := range []string{"Morning Mix", "Made for you", "Your playlists appear here.", "Road Trip"} {
+	for _, s := range []string{"Morning Mix", "Apple Music", "Your playlists appear here.", "Road Trip"} {
 		if e.tt.HasText(s) {
 			t.Fatalf("%q shows before the tree and pins arrived", s)
 		}
@@ -80,7 +97,7 @@ func sidebarDoesNotFlashAPinnedPlaylistInItsSection(t *testing.T) {
 	close(gate)
 	e.shows("Pinned", "Road Trip")
 	e.above("Pinned", "Morning Mix")
-	e.above("Morning Mix", "Made for you")
+	e.above("Morning Mix", "Apple Music")
 }
 
 // sbSlowPins holds the pins back until gate is closed.
@@ -98,7 +115,7 @@ func TestSidebarShowsAPinnedPlaylistUnderPinnedOnly(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.mix1", "p.mix2", "p.ed"))
 	e.shows("Pinned", "Playlists", "Road Trip")
 	// Every mix and the Apple Music playlist are pinned: their sections go.
-	for _, h := range []string{"Made for you", "Apple Music"} {
+	for _, h := range []string{"Apple Music"} {
 		if e.tt.HasText(h) {
 			t.Errorf("%q shows with all its playlists pinned", h)
 		}
@@ -108,10 +125,10 @@ func TestSidebarShowsAPinnedPlaylistUnderPinnedOnly(t *testing.T) {
 
 func TestSidebarKeepsTheUnpinnedOnesOfASection(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), []services.Pin{{Kind: "playlist", ID: "p.mix1", Name: "Morning Mix", Action: "drillIn"}})
-	e.shows("Pinned", "Made for you", "Apple Music", "Playlists", "Discovery Mix")
+	e.shows("Pinned", "Apple Music", "Playlists", "Discovery Mix")
 	e.above("Pinned", "Morning Mix")
-	e.above("Morning Mix", "Made for you")
-	e.above("Made for you", "Discovery Mix")
+	e.above("Morning Mix", "Apple Music")
+	e.above("Apple Music", "Discovery Mix")
 }
 
 func TestSidebarOwnSectionMessages(t *testing.T) {
@@ -130,7 +147,7 @@ func TestSidebarOwnSectionMessages(t *testing.T) {
 
 func TestSidebarNewPlaylistOrFolderIsOnTheOwnSectionOnly(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
-	e.shows("Made for you", "Playlists", "Road Trip")
+	e.shows("Apple Music", "Playlists", "Road Trip")
 	// One button, level with the Playlists heading.
 	r, ok := e.tt.Find("New playlist or folder")
 	if !ok {
@@ -139,7 +156,7 @@ func TestSidebarNewPlaylistOrFolderIsOnTheOwnSectionOnly(t *testing.T) {
 	if h := e.y("Playlists"); r.Y < h-10 || r.Y > h+10 {
 		t.Errorf("the button is at y=%v, the Playlists heading at %v", r.Y, h)
 	}
-	if e.y("Made for you") > e.y("Playlists") {
+	if e.y("Apple Music") > e.y("Playlists") {
 		t.Fatal("sections out of order")
 	}
 
@@ -254,7 +271,7 @@ func TestSidebarFolderMenuAndItsDisabledDelete(t *testing.T) {
 	}
 	_ = e.tt.Click("Delete (move its playlists out first)")
 	e.settle()
-	if e.tt.HasText("Delete the folder") {
+	if e.tt.HasText("Delete the Folder") {
 		t.Error("the disabled Delete asked for confirmation")
 	}
 	e.tt.Key(0, ui.KeyEscape)
@@ -279,7 +296,7 @@ func TestSidebarFolderMenuAndItsDisabledDelete(t *testing.T) {
 	// An empty folder can go, after the question.
 	e.more("Nothing", "More for the folder Nothing")
 	e.choose("Delete…")
-	e.shows("Delete the folder “Nothing”?")
+	e.shows("Delete the Folder “Nothing”?")
 	if err := e.tt.Click("Delete folder"); err != nil {
 		t.Fatal(err)
 	}
@@ -288,29 +305,29 @@ func TestSidebarFolderMenuAndItsDisabledDelete(t *testing.T) {
 
 // Section folding.
 
-func TestSidebarFoldsAReadOnlySectionAndRemembersIt(t *testing.T) {
+func TestSidebarFoldsTheAppleMusicSectionAndRemembersIt(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
 	e.shows("Apple Music", "Quiet Hours", "Morning Mix")
 	if err := e.tt.Click("Apple Music"); err != nil {
 		t.Fatal(err)
 	}
 	e.tt.Frame()
-	if e.tt.HasText("Quiet Hours") {
+	if e.tt.HasText("Quiet Hours") || e.tt.HasText("Morning Mix") {
 		t.Error("the folded list is still built")
 	}
-	if !e.tt.HasText("Morning Mix") {
-		t.Error("folding Apple Music folded Made for you")
-	}
-	if !e.p.prefs.Collapsed("apple-music") || e.p.prefs.Collapsed("made-for-you") {
+	if !e.p.prefs.Collapsed("apple-music") {
 		t.Error("the fold state is not kept")
+	}
+	if got := e.p.prefs.snapshot().FoldedSections; !slices.Equal(got, []string{"apple-music"}) {
+		t.Errorf("folded sections %q", got)
 	}
 
 	// A new run: the same file, a new feature state.
 	again := newPlaylists(e.h.Env, e.api, newPrefs(e.p.prefs.snapshot(), nil))
 	e2 := &sbEnv{t: t, p: again, api: e.api, play: e.play, h: e.h, router: e.router}
 	e2.tt = e.h.Tester(t, e2.view, 520, 900)
-	e2.shows("Apple Music", "Morning Mix")
-	if e2.tt.HasText("Quiet Hours") {
+	e2.shows("Apple Music")
+	if e2.tt.HasText("Quiet Hours") || e2.tt.HasText("Morning Mix") {
 		t.Error("the section did not start folded")
 	}
 
@@ -318,9 +335,28 @@ func TestSidebarFoldsAReadOnlySectionAndRemembersIt(t *testing.T) {
 	if err := e2.tt.Click("Apple Music"); err != nil {
 		t.Fatal(err)
 	}
-	e2.shows("Quiet Hours")
+	e2.shows("Morning Mix", "Quiet Hours")
 	if again.prefs.Collapsed("apple-music") {
 		t.Error("the unfolded section is still remembered folded")
+	}
+}
+
+// A user who had Made for you folded, under its old ID, starts with the
+// merged section folded; the old ID is not written back.
+func TestSidebarStartsFoldedForAFoldedMadeForYou(t *testing.T) {
+	e := sbSetup(t, sbLibrary(), nil)
+	old := config.Settings{Sidebar: config.Sidebar{FoldedSections: []string{"made-for-you"}}}.Normalized().Sidebar
+	var saved []config.Sidebar
+	again := newPlaylists(e.h.Env, e.api, newPrefs(old, func(s config.Sidebar) { saved = append(saved, s) }))
+	e2 := &sbEnv{t: t, p: again, api: e.api, play: e.play, h: e.h, router: e.router}
+	e2.tt = e.h.Tester(t, e2.view, 520, 900)
+	e2.shows("Apple Music", "Playlists")
+	if e2.tt.HasText("Morning Mix") || e2.tt.HasText("Quiet Hours") {
+		t.Error("a folded Made for you left Apple Music open")
+	}
+	again.prefs.SetFolderOpen("f.run", true)
+	if len(saved) != 1 || !slices.Equal(saved[0].FoldedSections, []string{"apple-music"}) {
+		t.Errorf("saved %+v, want only the merged ID", saved)
 	}
 }
 
@@ -374,20 +410,6 @@ func TestPinsOpenOrPlayPerTheirAction(t *testing.T) {
 	e.play.mu.Unlock()
 	if !shuffled {
 		t.Error("a shuffle pin did not turn shuffle on")
-	}
-}
-
-func TestAPinWithNoRouteForItsPageIsAButton(t *testing.T) {
-	e := sbSetup(t, sbLibrary(), []services.Pin{{Kind: "album", ID: "l.b", Name: "Beta", Action: "drillIn"}})
-	e.h.Env.HasRoute = func(path string) bool { return !strings.HasPrefix(path, "/album/") }
-	e.api.pinTracks["l.b"] = []services.Song{song("s1", "One", "A")}
-	e.shows("Beta, plays")
-	if err := e.tt.Click("Beta, plays"); err != nil {
-		t.Fatal(err)
-	}
-	e.did("PinTracks l.b")
-	if got := e.router.Path(); got != "/library/albums" {
-		t.Errorf("a pin whose page is not ported navigated to %q", got)
 	}
 }
 
@@ -620,7 +642,9 @@ func TestAFailedDropToastsTheError(t *testing.T) {
 
 func TestAPinnedEditablePlaylistTakesDrops(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), []services.Pin{{Kind: "playlist", ID: "p.own", Name: "Road Trip", Action: "drillIn"}})
-	e.shows("Pinned", "Road Trip")
+	// The pins list a row before the tree says whether it can be edited:
+	// wait for a section only the tree gives, or the row has no drop yet.
+	e.shows("Pinned", "Road Trip", "Apple Music")
 	e.grab(sbSongPayload(song("s1", "Airbag", "Radiohead")))
 	e.over("Road Trip")
 	if !e.tt.HasText("Add to “Road Trip”") {
@@ -782,8 +806,8 @@ func aFolderIsNotADropTarget(t *testing.T) {
 	}
 }
 
-// A pin set to Open whose page is not ported plays when chosen, and its menu
-// says so: Open is off and Play is the checked row.
+// A pin set to Open whose page is not ported does nothing when chosen, and its
+// menu says so: Open is checked and off, and Play is not the checked row.
 func TestPinMenuDoesNotOfferOpenForAPinWithoutAPage(t *testing.T) {
 	p, _, _, _, _ := testPlaylists(t, "/")
 	pin := services.Pin{Kind: "album", ID: "l.1", Name: "Album", Action: "drillIn"}
@@ -797,14 +821,49 @@ func TestPinMenuDoesNotOfferOpenForAPinWithoutAPage(t *testing.T) {
 		return kit.MenuItem{}
 	}
 	items := p.pinMenu(pin, "", false, "", false)
-	if open := row(items, "drillIn"); open.Checked || !open.Disabled {
+	if open := row(items, "drillIn"); !open.Checked || !open.Disabled {
 		t.Errorf("Open: checked=%v disabled=%v without a page", open.Checked, open.Disabled)
 	}
-	if !row(items, "play").Checked {
-		t.Error("Play is not the checked row of a pin that plays")
+	if row(items, "play").Checked {
+		t.Error("Play is checked for a pin set to Open that does nothing")
 	}
 	items = p.pinMenu(pin, "/album/l.1", true, "", false)
 	if open := row(items, "drillIn"); !open.Checked || open.Disabled {
 		t.Errorf("Open: checked=%v disabled=%v with a page", open.Checked, open.Disabled)
 	}
+}
+
+// The sidebar reads Pinned, Apple Music, Playlists, each with how many it
+// holds beside the heading.
+func TestSidebarShowsTheThreeSectionsWithTheirCounts(t *testing.T) {
+	tree := sbLibrary()
+	tree.Playlists = append(tree.Playlists,
+		treePL("p.rp", "Replay 2025", "", 5, false, "pl.rp-1"),
+		treePlaylist("p.a", "Aria", "", 5, true),
+		treePlaylist("p.b", "Bolero", "", 6, true),
+		treePlaylist("p.c", "Canon", "", 7, true),
+		treePlaylist("p.d", "Duet", "", 8, true),
+	)
+	// Two pinned (one mix, one own); Apple Music keeps the other mix, Quiet
+	// Hours and Replay; Playlists holds Tempo, in its folder, and the four.
+	e := sbSetup(t, tree, sbPlaylistPins("p.mix1", "p.own"))
+	e.shows("Pinned", "Apple Music", "Playlists", "Replay 2025", "Aria")
+	e.above("Pinned", "Apple Music")
+	e.above("Apple Music", "Playlists")
+	for _, h := range []struct{ title, count string }{{"Pinned", "2"}, {"Apple Music", "3"}, {"Playlists", "5"}} {
+		head, count := e.y(h.title), e.y(h.count)
+		if count < head-6 || count > head+6 {
+			t.Errorf("%s: the count %q is at y=%v, the heading at y=%v", h.title, h.count, count, head)
+		}
+	}
+	for _, gone := range []string{"Made for You"} {
+		if e.tt.HasText(gone) {
+			t.Errorf("%q still shows", gone)
+		}
+	}
+	// One list holds the mixes and then the added playlists.
+	e.above("Apple Music", "Discovery Mix")
+	e.above("Discovery Mix", "Quiet Hours")
+	e.above("Quiet Hours", "Replay 2025")
+	e.above("Replay 2025", "Playlists")
 }

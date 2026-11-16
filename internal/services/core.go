@@ -79,6 +79,11 @@ type Deps struct {
 	Focus   func()             // raise the main window
 	// Focused reports whether the main window is shown and focused.
 	Focused func() bool
+	// OnFocusChange registers fn to run, on any goroutine and without
+	// blocking, when the main window gains or loses the keyboard focus (nil:
+	// no events; the check for changes from other devices then runs only on
+	// its period).
+	OnFocusChange func(fn func(focused bool))
 	// Windows is the main window's control (internal/ui/app.Windows).
 	Windows Windows
 	// Platform is the OS integrations (main's platform_<os>.go); nil
@@ -115,6 +120,10 @@ func New(d Deps) *Core {
 	if d.Logger == nil {
 		d.Logger = slog.New(slog.DiscardHandler)
 	}
+	if d.Library != nil {
+		// The library's lists leave out the songs not out yet by the same clock.
+		d.Library.SetClock(d.Now)
+	}
 	env := &Env{Deps: d, m: mapper{art: d.Art, motion: d.Motion, now: d.Now}, members: newMembership(d.DB)}
 	c := &Core{env: env, open: &opener{emit: d.Emit, focus: d.Focus, log: d.Logger}}
 	env.firstPaint = c.firstPaint
@@ -129,6 +138,7 @@ func New(d Deps) *Core {
 		return d.DB.WipeUserData(ctx)
 	})
 	c.commands = newCommandServer(env, c.open, c.services)
+	instance[AddonsService](c.services).attach(c.commands.addon)
 	return c
 }
 
@@ -171,6 +181,11 @@ func (c *Core) Activate(act app.Activation, forwarded bool) { c.open.activate(ac
 // Commands answers `sona <command>` (internal/cli) for the platform's
 // command transport.
 func (c *Core) Commands() cli.Server { return c.commands }
+
+// AddonHost is what add-on sessions (cli.Session) are served from: the
+// commands and topics of the running Sona, with private listens and
+// previews hidden (addonhost.go).
+func (c *Core) AddonHost() cli.AddonHost { return c.commands.addon }
 
 // Close stops background work (features' OnClose steps, then the media
 // controls). The caller then closes the coordinator, engine and database.

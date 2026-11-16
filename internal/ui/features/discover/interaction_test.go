@@ -55,20 +55,34 @@ func (r *iaRec) all() []string {
 // iaItems are one synthetic item per kind Discover meets.
 func iaItems() map[string]services.Item {
 	return map[string]services.Item{
-		"song": {Kind: services.ItemSong, ID: "s1", Name: "Song One", Subtitle: "Artist S",
-			Song: &services.Song{ID: "s1", Name: "Song One", Artist: "Artist S", Playable: true}},
-		"album": {Kind: services.ItemAlbum, ID: "al1", Name: "Album One", Subtitle: "Artist A",
-			Album: &services.Album{ID: "al1", Name: "Album One", Artist: "Artist A"}},
-		"playlist": {Kind: services.ItemPlaylist, ID: "pl1", Name: "Playlist One", Subtitle: "Curator P",
-			Playlist: &services.Playlist{ID: "pl1", Name: "Playlist One", Curator: "Curator P"}},
-		"artist": {Kind: services.ItemArtist, ID: "ar1", Name: "Artist One",
-			Artist: &services.Artist{ID: "ar1", Name: "Artist One"}},
-		"station": {Kind: services.ItemStation, ID: "sp1", Name: "Station Page",
-			Station: &services.Station{ID: "sp1", Name: "Station Page", Playable: true, HasPage: true, Kind: services.StationTracks}},
-		"station-nopage": {Kind: services.ItemStation, ID: "sn1", Name: "Station Plain",
-			Station: &services.Station{ID: "sn1", Name: "Station Plain", Playable: true, HasPage: false, Kind: services.StationTracks}},
-		"video": {Kind: services.ItemMusicVideo, ID: "v1", Name: "Video One", Subtitle: "Artist V",
-			MusicVideo: &services.MusicVideo{ID: "v1", Name: "Video One", Artist: "Artist V"}},
+		"song": {
+			Kind: services.ItemSong, ID: "s1", Name: "Song One", Subtitle: "Artist S",
+			Song: &services.Song{ID: "s1", Name: "Song One", Artist: "Artist S", Playable: true},
+		},
+		"album": {
+			Kind: services.ItemAlbum, ID: "al1", Name: "Album One", Subtitle: "Artist A",
+			Album: &services.Album{ID: "al1", Name: "Album One", Artist: "Artist A"},
+		},
+		"playlist": {
+			Kind: services.ItemPlaylist, ID: "pl1", Name: "Playlist One", Subtitle: "Curator P",
+			Playlist: &services.Playlist{ID: "pl1", Name: "Playlist One", Curator: "Curator P"},
+		},
+		"artist": {
+			Kind: services.ItemArtist, ID: "ar1", Name: "Artist One",
+			Artist: &services.Artist{ID: "ar1", Name: "Artist One"},
+		},
+		"station": {
+			Kind: services.ItemStation, ID: "sp1", Name: "Station Page",
+			Station: &services.Station{ID: "sp1", Name: "Station Page", Playable: true, HasPage: true, Kind: services.StationTracks},
+		},
+		"station-nopage": {
+			Kind: services.ItemStation, ID: "sn1", Name: "Station Plain",
+			Station: &services.Station{ID: "sn1", Name: "Station Plain", Playable: true, HasPage: false, Kind: services.StationTracks},
+		},
+		"video": {
+			Kind: services.ItemMusicVideo, ID: "v1", Name: "Video One", Subtitle: "Artist V",
+			MusicVideo: &services.MusicVideo{ID: "v1", Name: "Video One", Artist: "Artist V"},
+		},
 		"curator":  {Kind: services.ItemCurator, ID: "cu1", Name: "Curator One"},
 		"grouping": {Kind: services.ItemGrouping, ID: "g1", Name: "Grouping One"},
 		"room":     {Kind: services.ItemRoom, ID: "ro1", Name: "Room One"},
@@ -198,7 +212,7 @@ func (x *iaCtx) do(g gesture, label string, track bool) string {
 // link, a button, a group or a row tells a user it will do.
 func (x *iaCtx) cue(label string) string {
 	named := func(name string) bool {
-		return name == label || name == label+" Play" || name == label+" Pause" || strings.HasPrefix(name, label+", ")
+		return name == label || name == label+" Play" || name == label+" Pause" || name == label+" Opens in your browser" || strings.HasPrefix(name, label+", ")
 	}
 	for _, role := range []struct {
 		r    ui.Role
@@ -227,7 +241,7 @@ func surfaces() []surface {
 		{"lead", false, func(t *testing.T, it services.Item) *iaCtx {
 			return frontOf(t, append([]services.Item{it}, iaFiller(3)...))
 		}},
-		{"strip", false, func(t *testing.T, it services.Item) *iaCtx {
+		{"queue", false, func(t *testing.T, it services.Item) *iaCtx {
 			cards := iaFiller(4)
 			cards[1] = it
 			return frontOf(t, cards)
@@ -251,7 +265,7 @@ func surfaces() []surface {
 			page := services.ChartsPage{Charts: []services.Chart{{Key: services.ChartSongs, Title: "Songs", Items: songItems(0, 3)}}}
 			r, _ := newCharts(t, "/charts", page)
 			rec := iaPlayers(r)
-			r.tt.Until("the chart", r.tt.Shows("Top songs", "Song 0"))
+			r.tt.Until("the chart", r.tt.Shows("Top Songs", "Song 0"))
 			return &iaCtx{r: r, rec: rec, start: "/charts"}
 		}},
 	}
@@ -362,59 +376,45 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "button",
 		},
 	},
-	"strip": {
+	"queue": {
 		"album": {
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			click: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			double: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			enter:      "lead is card 1",
+			click:      "nav /album/al1",
+			double:     "nav /album/al1",
+			enter:      "nav /album/al1",
 			shiftEnter: "nothing",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			space: "lead is card 1",
-			play:  "play album:al1",
-			cue:   "button",
+			space:      "nothing",
+			play:       "play album:al1",
+			cue:        "link",
 		},
 		"artist": {
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			click: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			double: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			enter:      "lead is card 1",
+			click:      "nav /artist/ar1",
+			double:     "nav /artist/ar1",
+			enter:      "nav /artist/ar1",
 			shiftEnter: "nothing",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			space: "lead is card 1",
+			space:      "nothing",
 			// DEPARTS: an artist has no Play control (no artist player is registered, kit CanPlay) although album, playlist and station siblings have one
 			play: "no play control",
-			cue:  "button",
+			cue:  "link",
 		},
 		"station-nopage": {
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			click: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			double: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			enter:      "lead is card 1",
+			click: "play station:sn1",
+			// DEPARTS: the second click of a double-click fires again: the station is started twice
+			double:     "play station:sn1; play station:sn1",
+			enter:      "play station:sn1",
 			shiftEnter: "nothing",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			space: "lead is card 1",
-			play:  "play station:sn1",
-			cue:   "button",
+			space:      "play station:sn1",
+			// DEPARTS: a page-less station is played by its name and also has a separate Play button on its tile, as on the lead
+			play: "play station:sn1",
+			cue:  "button",
 		},
 		"curator": {
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			click: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			double: "lead is card 1",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			enter:      "lead is card 1",
+			click:      "nav /curator/cu1",
+			double:     "nav /curator/cu1",
+			enter:      "nav /curator/cu1",
 			shiftEnter: "nothing",
-			// DEPARTS: choosing a strip card makes it the lead instead of opening it (front.go:472); Home's Recently Played strip and every other tile open the item, and nothing in the cue (a button with a play disc) says the card only promotes itself
-			space: "lead is card 1",
-			play:  "no play control",
-			cue:   "button",
+			space:      "nothing",
+			play:       "no play control",
+			cue:        "link",
 		},
 	},
 	"band": {
@@ -428,9 +428,8 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -447,15 +446,13 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
-			// DEPARTS: the second click of a double-click fires again: the browser is asked twice
-			double:     "url https://example.test/interview/1; url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
+			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "no play control",
-			// DEPARTS: the tile is a link for assistive technology, but choosing it leaves the app for the browser, and nothing says so (the lead card is a button; the links tile has an "Opens in your browser" icon)
-			cue: "link",
+			cue:        "link",
 		},
 	},
 	"room": {
@@ -469,9 +466,8 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
-			// DEPARTS: the second click of a double-click fires again: the station is started twice
-			double:     "play station:sn1; play station:sn1",
+			click:      "play station:sn1",
+			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
@@ -488,15 +484,13 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
-			// DEPARTS: the second click of a double-click fires again: the browser is asked twice
-			double:     "url https://example.test/interview/1; url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
+			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "no play control",
-			// DEPARTS: the tile is a link for assistive technology, but choosing it leaves the app for the browser, and nothing says so (the lead card is a button; the links tile has an "Opens in your browser" icon)
-			cue: "link",
+			cue:        "link",
 		},
 	},
 	"topSongs": {
@@ -540,17 +534,17 @@ func TestInteractionDiscoverGestures(t *testing.T) {
 	}
 }
 
-// The Top songs chart's own controls: Play queues the chart from its first
+// The Top Songs chart's own controls: Play queues the chart from its first
 // song, See all opens the whole chart.
 func TestInteractionDiscoverTopSongsControls(t *testing.T) {
 	for name, want := range map[string]string{
-		"Play Top songs": "queue 3 songs from 0",
+		"Play Top Songs": "queue 3 songs from 0",
 		"See all":        "nav /charts/songs",
 	} {
 		page := services.ChartsPage{Charts: []services.Chart{{Key: services.ChartSongs, Title: "Songs", Items: songItems(0, 3)}}}
 		r, _ := newCharts(t, "/charts", page)
 		x := &iaCtx{r: r, rec: iaPlayers(r), start: "/charts"}
-		r.tt.Until("the chart", r.tt.Shows("Top songs", "Song 0"))
+		r.tt.Until("the chart", r.tt.Shows("Top Songs", "Song 0"))
 		if got := x.do(gClick, name, false); got != want {
 			t.Errorf("click on %q did %q, want %q", name, got, want)
 		}

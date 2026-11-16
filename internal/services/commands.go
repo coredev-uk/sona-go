@@ -41,6 +41,7 @@ type commandServer struct {
 	search *SearchService
 	lyrics lyricsSource
 	feed   *cli.Feed
+	addon  *addonHost
 
 	mu     sync.Mutex
 	closed bool
@@ -55,7 +56,12 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 		lyrics: instance[LyricsService](svcs),
 	}
 	s.feed = cli.NewFeed(func() cli.Status { return s.status(e.Coord.Snapshot()) })
-	e.Private.OnChange(func(privatemode.State) { s.feed.Publish(s.status(e.Coord.Snapshot())) })
+	s.addon = newAddonHost(s)
+	e.Private.OnChange(func(privatemode.State) {
+		snap := e.Coord.Snapshot()
+		s.feed.Publish(s.status(snap))
+		s.addon.observe()
+	})
 	snaps, cancel := e.Coord.Subscribe()
 	quit, done := make(chan struct{}), make(chan struct{})
 	e.Go("command status", func() {
@@ -70,6 +76,7 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 					return
 				}
 				s.feed.Publish(s.status(snap))
+				s.addon.observe()
 			}
 		}
 	})
@@ -81,6 +88,7 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 		<-done
 		s.feed.Close()
 	})
+	s.addon.run()
 	return s
 }
 

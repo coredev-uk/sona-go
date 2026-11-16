@@ -109,6 +109,21 @@
 // checks and applies a file, keeping the last good theme when an edit is
 // refused (site/src/content/docs/reference/theme-format.md).
 //
+// Add-ons (addons.go, addonhost.go; docs/addons.md) are programs Sona runs
+// beside itself. AddonsService lists the folders of the user's add-ons
+// directory (internal/addons validates each manifest and its executable),
+// grants the permissions the user approves when they enable one, and after
+// the first paint runs the enabled ones: one supervising goroutine each,
+// locked to its OS thread so the add-on dies with Sona, restarting with a
+// growing wait and switching an add-on off after repeated crashes
+// ("addons:notice"). "addons:changed" carries the list. An add-on talks
+// protocol v2 (cli.Session) over its standard streams; addonHost is what it
+// is served from: the v1 commands and topics with private listens and
+// previews hidden. The grant is read from the settings at every call.
+// Nothing here waits on an add-on but Invoke, which waits at most its
+// deadline: the UI calls it off its thread. Permissions are advisory until
+// the OS sandbox (#304).
+//
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls
 // (MPRIS), notifications, the sleep inhibitor, the on-battery monitor, the
@@ -180,13 +195,28 @@
 // the library walk stored them (library.Album.CatalogReleaseDate,
 // Prerelease). A song follows itself, not its album: a dated one by its
 // date, playParams or not, one with playParams and no date is out, and
-// only one with neither goes by its album (songUnreleased,
-// PlaybackService). Reminders (reminders.go, table release_reminders)
+// only one with neither goes by its album: that rule is the library's
+// (library/release.go, in SQL, as of the clock the library is given), so
+// Songs, its count, an artist's songs, favourites and the library search
+// leave such songs out and only their album lists them (Song.Playable false,
+// no artist while Apple's stand-in is "unknown"). Reminders (reminders.go, table release_reminders)
 // give one desktop notification when such an album comes out, or after
 // the first paint of the next start when Sona wasn't running then; the
 // notification's words come from the UI, and without
 // Platform.Notifications Set fails with "unsupported". Pre-add is
 // LibraryService.Add: Apple's web player pre-adds with the same call.
+//
+// The artist tracker (artisttracker.go, tables tracked_artists,
+// artist_releases and artist_tracker_state) is opt-in
+// (config.ArtistTracker, off by default): after the first paint and about
+// once a day it asks Apple which of the library's artists and the artists
+// favourited in Sona are rated 1, reads their latest releases in batches
+// (applemusic.AMPResources) and lists what is new as NewReleases
+// ("artisttracker:changed"). An artist's first check records what is out as
+// seen and announces nothing. The optional desktop notification is shown by
+// the notifier the reminders use (notices.go); a release still to come
+// carries the album's Remind me. Nothing is asked while it is off or signed
+// out; its state is user data, cleared on sign-out.
 //
 // Lyrics (lyrics.go): LyricsService.Lyrics(songID) asks the lyrics
 // sources switched on in config.Settings.Lyrics (internal/lyrics: Apple

@@ -42,7 +42,7 @@ func TestFavouriteSongsListTheRatedSongsNewestFirst(t *testing.T) {
 	favouriteSong(r, 4, 1, 20) // Blue Hour song 2
 	// A rating changed outside the UI (`sona like`) refreshes the list.
 	r.h.Env.Bus.Emit(services.EventItemState, services.ItemState{Kind: "song", ID: "x"})
-	r.tt.Until("two favourites", r.tt.Shows("Favourite songs", "2 songs", "Blue Hour song 2", "Apple Orchard song 1"))
+	r.tt.Until("two favourites", r.tt.Shows("Favourite Songs", "2 songs", "Blue Hour song 2", "Apple Orchard song 1"))
 	if got, want := songsOrder(r), []string{"Blue Hour song 2", "Apple Orchard song 1"}; !slices.Equal(got, want) {
 		t.Errorf("favourites shown %q, want %q", got, want)
 	}
@@ -124,7 +124,7 @@ func TestFavouriteSongsKeyboardAndSelection(t *testing.T) {
 
 func TestFavouriteSongsEmptyStates(t *testing.T) {
 	r := newFavouritesRig(t, nil)
-	r.tt.Until("the empty text", r.tt.Shows("Favourite songs", "No favourite songs yet",
+	r.tt.Until("the empty text", r.tt.Shows("Favourite Songs", "No favourite songs yet",
 		"Choose Favourite on any song, here or in Apple Music, and it is kept here and in your library."))
 	if r.tt.HasText("0 songs") {
 		t.Error("an empty list counts its songs")

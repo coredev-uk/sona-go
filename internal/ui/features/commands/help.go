@@ -79,12 +79,12 @@ func (h *helpSheet) show(c *ui.Context, env *module.Env) {
 		}
 	}
 	panel := kit.Dialog(c.Key("help"), &h.open, kit.DialogOpts{
-		Title: i18n.T("Keyboard shortcuts"), Description: plainAbout(), HideHeader: true, MaxWidth: 820, Top: wh * 0.1, Padding: 0, Gap: 0, Bare: true, Raised: true,
+		Title: i18n.T("Keyboard Shortcuts"), Description: plainAbout(), HideHeader: true, MaxWidth: 820, Top: wh * 0.1, Padding: 0, Gap: 0, Bare: true, Raised: true,
 	}, func() {
 		closeOwn() // the sheet's own chord closes it again, which only the dialog sees
 		var field ui.Element
 		ui.Row(c.Key("help:head")).FillWidth().Padding(18, 56, 16, 24).Gap(16).AlignItems(ui.Center).Children(func() {
-			theme.Text(c.Key("title"), i18n.T("Keyboard shortcuts"), "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2).Grow(1).MinWidth(0)
+			theme.Text(c.Key("title"), i18n.T("Keyboard Shortcuts"), "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2).Grow(1).MinWidth(0)
 			ui.Row(c.Key("help:filter")).Width(268).MinWidth(150).Shrink(1).Children(func() {
 				field = kit.SearchField(c.Key("filter"), &h.query, kit.SearchFieldOpts{Placeholder: i18n.T("Filter shortcuts")})
 			})

@@ -53,6 +53,29 @@ type Artist struct {
 	UpdatedAt       int64
 }
 
+type ArtistRelease struct {
+	AlbumID         string
+	ArtistID        string
+	Name            string
+	ArtistName      string
+	ArtworkTemplate string
+	Kind            string
+	ReleaseDate     string
+	ReleaseAt       int64
+	Prerelease      int64
+	TrackCount      int64
+	Explicit        int64
+	Listed          int64
+	FoundAt         int64
+	ReadAt          sql.NullInt64
+	DismissedAt     sql.NullInt64
+}
+
+type ArtistTrackerState struct {
+	ID        int64
+	CheckedAt int64
+}
+
 type CatalogCache struct {
 	Key        string
 	Storefront string
@@ -123,24 +146,26 @@ type PlaybackHistory struct {
 }
 
 type Playlist struct {
-	ID              int64
-	LibraryID       sql.NullString
-	CatalogID       sql.NullString
-	Name            string
-	Description     string
-	CuratorName     string
-	ArtworkTemplate string
-	CanEdit         int64
-	IsPublic        int64
-	LastModified    string
-	TracksModified  string
-	TrackCount      int64
-	Url             string
-	UpdatedAt       int64
-	FolderID        string
-	FolderPosition  int64
-	CanDelete       int64
-	Favorited       int64
+	ID                int64
+	LibraryID         sql.NullString
+	CatalogID         sql.NullString
+	Name              string
+	Description       string
+	CuratorName       string
+	ArtworkTemplate   string
+	CanEdit           int64
+	IsPublic          int64
+	LastModified      string
+	TracksModified    string
+	TrackCount        int64
+	Url               string
+	UpdatedAt         int64
+	FolderID          string
+	FolderPosition    int64
+	CanDelete         int64
+	Favorited         int64
+	IsCollaborative   int64
+	CollaborativeHost int64
 }
 
 type PlaylistCover struct {
@@ -233,4 +258,10 @@ type Track struct {
 	Composer        string
 	UpdatedAt       int64
 	NoPlayParams    int64
+}
+
+type TrackedArtist struct {
+	ArtistID string
+	Name     string
+	SeededAt int64
 }

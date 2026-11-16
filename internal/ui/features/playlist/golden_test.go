@@ -125,7 +125,7 @@ func TestPlaylistSidebarGolden(t *testing.T) {
 			goldenFont(t)
 			e := sbSetup(t, sbLibrary(), sbPlaylistPins("p.own"))
 			theme.SetMode(tc.mode)
-			e.shows("Pinned", "Made for you", "Apple Music", "Playlists", "Running")
+			e.shows("Pinned", "Apple Music", "Playlists", "Running")
 			// An open folder: its contents hang from a hairline.
 			if err := e.tt.Click("Running"); err != nil {
 				t.Fatal(err)
@@ -179,7 +179,7 @@ func TestPlaylistPageStatesGolden(t *testing.T) {
 				pgSong("s3", "Salt Air", "Wren", "Coast"),
 			}
 		}, func(r *pageRig) {
-			r.shows("This playlist is empty", "Suggested songs", "Show suggestions")
+			r.shows("This playlist is empty", "Suggested Songs", "Show suggestions")
 			r.click("Show suggestions")
 			r.shows("Salt Air")
 		})
@@ -189,7 +189,7 @@ func TestPlaylistPageStatesGolden(t *testing.T) {
 		d.Curator = services.PlaylistCurator{Name: "Apple Music Pop"}
 		d.FeaturedArtists = []services.Artist{{ID: "a1", Name: "Mia"}, {ID: "a2", Name: "Di Lemma"}, {ID: "a3", Name: "Al"}}
 		d.MoreByCurator = []services.Playlist{{ID: "pl.2", Name: "Another Mix", Curator: "Apple Music Pop"}}
-		golden(t, "playlist-featured-dark", 1132, theme.ModeDark, d, nil, func(r *pageRig) { r.shows("Featured artists", "Another Mix") })
+		golden(t, "playlist-featured-dark", 1132, theme.ModeDark, d, nil, func(r *pageRig) { r.shows("Featured Artists", "Another Mix") })
 	})
 }
 
@@ -212,7 +212,7 @@ func TestPlaylistSuggestionsGolden(t *testing.T) {
 		t.Run("collapsed-"+m.suffix, func(t *testing.T) {
 			golden(t, "playlist-suggestions-collapsed-"+m.suffix, 1132, m.mode, goldenDetail(), func(a *fakeAPI) {
 				a.suggestions["p.1"] = goldenSuggestions()
-			}, func(r *pageRig) { r.shows("Suggested songs", "Show suggestions") })
+			}, func(r *pageRig) { r.shows("Suggested Songs", "Show suggestions") })
 		})
 		t.Run("open-"+m.suffix, func(t *testing.T) {
 			golden(t, "playlist-suggestions-open-"+m.suffix, 1132, m.mode, goldenDetail(), func(a *fakeAPI) {
@@ -227,6 +227,42 @@ func TestPlaylistSuggestionsGolden(t *testing.T) {
 				r.openSuggestions()
 				r.shows("No suggestions right now", "Refresh")
 			})
+		})
+	}
+}
+
+// The header of a collaborative playlist the user joined: "Added …" with no
+// "Updated" (Apple's date is from before they joined), not "Created".
+func TestPlaylistJoinedCollaborativeGolden(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode theme.Mode
+	}{{"playlist-joined-light", theme.ModeLight}, {"playlist-joined-dark", theme.ModeDark}} {
+		t.Run(tc.name, func(t *testing.T) {
+			goldenFont(t)
+			d := goldenDetail()
+			d.Playlist.CatalogID, d.Playlist.CanEdit = "pl.u-9", false
+			d.Playlist.DateAdded = time.Date(2024, 9, 8, 10, 0, 0, 0, time.Local).UnixMilli()
+			d.Playlist.LastModified = time.Date(2023, 5, 1, 10, 0, 0, 0, time.Local).UnixMilli()
+			r := newPageRigWith(t, "p.1", func(api *fakeAPI) {
+				api.collab["p.1"] = services.PlaylistCollaboration{
+					Collaborative: true,
+					OwnerID:       "sp.1",
+					Collaborators: []services.SocialProfile{
+						{ID: "sp.1", Name: "Ada", Handle: "ada"},
+						{ID: "sp.2", Name: "Bo", Handle: "bo"},
+					},
+					Viewer: services.RoleCollaborator,
+				}
+			}, d)
+			r.p.now = func() time.Time { return goldenNow }
+			theme.SetMode(tc.mode)
+			r.shows("Road Trip", "Collaborative playlist", "Added September 8, 2024")
+			if r.tt.HasText("Updated") {
+				t.Errorf("an update from before the join shows: %q", r.tt.Texts())
+			}
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), tc.name)
 		})
 	}
 }

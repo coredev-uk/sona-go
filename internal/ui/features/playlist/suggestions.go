@@ -60,7 +60,7 @@ type suggestState struct {
 // suggestions.
 func (p *playlists) suggestionsShelf(c *ui.Context, id, playlist string, tracks []services.Song) {
 	st := &p.page.suggest
-	title := i18n.T("Suggested songs")
+	title := i18n.T("Suggested Songs")
 	var res store.Result[[]services.Song]
 	if st.open {
 		res = p.suggestions(id)

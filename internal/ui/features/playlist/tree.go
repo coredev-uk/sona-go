@@ -38,24 +38,35 @@ func (n *treeNode) name() string {
 type section int
 
 const (
-	sectionMadeForYou section = iota
-	sectionApple
+	// sectionApple is the playlists Apple provides: its personal mixes and
+	// the playlists the user added and cannot edit.
+	sectionApple section = iota
 	sectionOwn
 )
 
-// personalMix is the catalogue ID prefix of Apple's personal mixes
+// personalMixPrefix is the catalogue ID prefix of Apple's personal mixes
 // (Favourites Mix, New Music Mix, Chill Mix…).
-const personalMix = "pl.pm-"
+const personalMixPrefix = "pl.pm-"
+
+// isPersonalMix reports whether a library playlist is one of Apple's
+// personal mixes. Apple makes and keeps them, so the library copy names one
+// by its catalogue ID `pl.pm-…`. The test does not depend on where the
+// sidebar lists the playlist: the delete rule uses it on its own.
+func isPersonalMix(p services.Playlist) bool {
+	return strings.HasPrefix(p.CatalogID, personalMixPrefix)
+}
 
 // playlistSection is where a library playlist belongs. Apple's personal
-// mixes are catalogue playlists `pl.pm-…`, so the library copy names one by
-// its catalogue ID. Any other playlist the user cannot edit was added from
-// Apple Music (or another curator); the rest are the user's own.
-func playlistSection(p services.Playlist) section {
-	if strings.HasPrefix(p.CatalogID, personalMix) {
-		return sectionMadeForYou
-	}
-	if p.CanEdit {
+// mixes are Apple's. A collaborative playlist is the user's own, whether they
+// host it or joined it (a joined one is not editable). Any other playlist
+// the user cannot edit was added from Apple Music (or another curator) and
+// is Apple's too; the rest are the user's own.
+func playlistSection(item services.TreePlaylist) section {
+	p := item.Playlist
+	switch {
+	case isPersonalMix(p):
+		return sectionApple
+	case item.Collaborative || p.CanEdit:
 		return sectionOwn
 	}
 	return sectionApple
@@ -128,9 +139,9 @@ func buildTree(tree services.PlaylistTree, hidden map[string]bool) []*treeNode {
 
 // sidebarLists are the sidebar's playlist sections.
 type sidebarLists struct {
-	// MadeForYou are Apple's personal mixes, in Apple's order.
-	MadeForYou []services.TreePlaylist
-	// Apple are the playlists the user added but cannot edit, by name.
+	// Apple are the playlists Apple provides: its personal mixes first, in
+	// Apple's order, then the playlists the user added but cannot edit, by
+	// name.
 	Apple []services.TreePlaylist
 	// Own are the user's own playlists and folders.
 	Own []*treeNode
@@ -148,27 +159,27 @@ func sidebarPlaylists(tree services.PlaylistTree, pinned map[string]bool) sideba
 		hidden[id] = true
 	}
 	for _, item := range tree.Playlists {
-		sec := playlistSection(item.Playlist)
-		if sec == sectionOwn {
+		if playlistSection(item) == sectionOwn {
 			continue
 		}
 		hidden[item.Playlist.ID] = true
-		if pinned[item.Playlist.ID] {
-			continue
-		}
-		if sec == sectionMadeForYou {
-			out.MadeForYou = append(out.MadeForYou, item)
-		} else {
+		if !pinned[item.Playlist.ID] {
 			out.Apple = append(out.Apple, item)
 		}
 	}
-	slices.SortStableFunc(out.MadeForYou, func(a, b services.TreePlaylist) int {
-		if d := a.Position - b.Position; d != 0 {
-			return d
-		}
-		return compareNames(a.Playlist.Name, b.Playlist.Name)
-	})
 	slices.SortStableFunc(out.Apple, func(a, b services.TreePlaylist) int {
+		// Personal mixes first, in Apple's order; then the others by name.
+		ma, mb := isPersonalMix(a.Playlist), isPersonalMix(b.Playlist)
+		switch {
+		case ma && !mb:
+			return -1
+		case mb && !ma:
+			return 1
+		case ma:
+			if d := a.Position - b.Position; d != 0 {
+				return d
+			}
+		}
 		return compareNames(a.Playlist.Name, b.Playlist.Name)
 	})
 	out.Own = buildTree(tree, hidden)

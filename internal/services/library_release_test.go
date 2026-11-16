@@ -53,38 +53,29 @@ func TestLibAlbumRelease(t *testing.T) {
 	}
 }
 
-// A song of a pre-added album that is not out is in the library with no
-// playParams and no releaseDate; one already out has both. Without an album
-// not out, a song with neither is as playable as it was.
-func TestLibSongRelease(t *testing.T) {
-	release := localDay(t, "2026-11-20")
-	ahead := library.ReleaseState{CatalogDate: "2026-11-20", Prerelease: true}
+// A library song is playable unless the library says it is not out; a song
+// with no IDs can't play. Apple's stand-in artist is no artist on a song not
+// out, and a real artist named so stays.
+func TestLibSongMapping(t *testing.T) {
+	m := mapper{}
 	tests := []struct {
-		name string
-		s    library.Song
-		now  time.Time
-		want bool
+		name       string
+		s          library.Song
+		playable   bool
+		artistName string
 	}{
-		{"no playParams on an album ahead", library.Song{LibraryID: "i.1", NoPlayParams: true, Album: ahead}, release.Add(-time.Hour), false},
-		{"no playParams, no date, the album's date has passed", library.Song{LibraryID: "i.1", NoPlayParams: true, Album: ahead}, release, true},
-		{"no playParams, a year-only album still flagged", library.Song{LibraryID: "i.1", NoPlayParams: true, Album: library.ReleaseState{CatalogDate: "2027", Prerelease: true}}, release, false},
-		// Apple gives some singles playParams and no releaseDate (Flower In A
-		// Hurricane, GTA VI): the song is out whatever its album says.
-		{"playParams but no date of its own on an album ahead", library.Song{LibraryID: "i.1", Album: ahead}, release.Add(-time.Hour), true},
-		{"a song out, on an album ahead", library.Song{LibraryID: "i.1", ReleaseDate: "2026-09-17", Album: ahead}, release.Add(-time.Hour), true},
-		{"a song dated ahead", library.Song{LibraryID: "i.1", ReleaseDate: "2026-12-01"}, release, false},
-		// Apple dates only the songs already out, and PlaybackService plays a
-		// dated song whatever its album says: the list says so too.
-		{"no playParams but dated and out, on an album ahead", library.Song{LibraryID: "i.1", NoPlayParams: true, ReleaseDate: "2026-09-17", Album: ahead}, release.Add(-time.Hour), true},
-		{"no playParams on an album that is out", library.Song{LibraryID: "i.1", NoPlayParams: true, Album: library.ReleaseState{Date: "2020-01-01"}}, release, true},
-		{"no playParams, no stored album", library.Song{LibraryID: "i.1", NoPlayParams: true}, release, true},
-		{"no ID", library.Song{NoPlayParams: false}, release, false},
+		{"a song out", library.Song{LibraryID: "i.1", ArtistName: "Yung Lean"}, true, "Yung Lean"},
+		{"a placeholder", library.Song{LibraryID: "i.1", ArtistName: "unknown", Unreleased: true}, false, ""},
+		{"a placeholder in other case", library.Song{LibraryID: "i.1", ArtistName: "Unknown", Unreleased: true}, false, ""},
+		{"a credited song not out", library.Song{LibraryID: "i.1", ArtistName: "Yung Lean", Unreleased: true}, false, "Yung Lean"},
+		{"an artist named unknown on a song out", library.Song{LibraryID: "i.1", ArtistName: "unknown"}, true, "unknown"},
+		{"no ID", library.Song{}, false, ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := mapper{now: func() time.Time { return tc.now }}
-			if got := m.libSong(tc.s).Playable; got != tc.want {
-				t.Fatalf("Playable = %v, want %v", got, tc.want)
+			got := m.libSong(tc.s)
+			if got.Playable != tc.playable || got.Artist != tc.artistName {
+				t.Fatalf("Playable %v, artist %q; want %v, %q", got.Playable, got.Artist, tc.playable, tc.artistName)
 			}
 		})
 	}
@@ -135,7 +126,7 @@ func TestLibraryAlbumDetailOfAPreAddedAlbum(t *testing.T) {
 	d := preAddedStore(t)
 	release := localDay(t, "2026-11-20")
 	now := release.Add(-5 * time.Hour)
-	e := &Env{Deps: Deps{DB: d, Library: library.New(d, nil), Logger: discard(), Now: func() time.Time { return now }}}
+	e := &Env{Deps: Deps{DB: d, Library: libraryAt(d, &now), Logger: discard(), Now: func() time.Time { return now }}}
 	s := &LibraryService{o: e, m: mapper{now: e.Now}}
 
 	got, err := s.Album(ctx, "l.soon")
@@ -148,13 +139,23 @@ func TestLibraryAlbumDetailOfAPreAddedAlbum(t *testing.T) {
 	if p := playables(got.Tracks); !slices.Equal(p, []bool{true, false, false, true}) {
 		t.Fatalf("playable = %v, want the songs already out (dated, or with playParams)", p)
 	}
-	// The song list shows the same, without the album page's help.
+	// The song list has only the songs out, and counts only them: the others
+	// are listed on their album alone.
 	songs, err := s.Songs(ctx, "title", false, 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p := playables(songs.Items); !slices.Equal(p, []bool{false, false, true, true}) {
-		t.Fatalf("songs playable = %v (title order: i.last, i.later, i.out, i.single)", p)
+	if p := playables(songs.Items); !slices.Equal(p, []bool{true, true}) || songs.Total != 2 {
+		t.Fatalf("songs playable = %v of %d (title order: i.out, i.single)", p, songs.Total)
+	}
+	if c, err := s.Counts(ctx); err != nil || c.Songs != 2 {
+		t.Fatalf("counts = %+v, %v, want the 2 songs out", c, err)
+	}
+	// Apple's stand-in artist is no one: the placeholders on the album name none.
+	for _, tr := range got.Tracks {
+		if !tr.Playable && tr.Artist != "" {
+			t.Fatalf("a song not out is credited to %q", tr.Artist)
+		}
 	}
 
 	// At midnight on the day it is out, and its songs play.
@@ -166,6 +167,10 @@ func TestLibraryAlbumDetailOfAPreAddedAlbum(t *testing.T) {
 	if got.Album.Prerelease || got.Album.ReleaseAt != release.UnixMilli() || !slices.Equal(playables(got.Tracks), []bool{true, true, true, true}) {
 		t.Fatalf("released = %+v, playable %v", got.Album, playables(got.Tracks))
 	}
+	// And they are songs of the library: listed, counted.
+	if songs, err = s.Songs(ctx, "title", false, 0, 10); err != nil || len(songs.Items) != 4 || songs.Total != 4 {
+		t.Fatalf("songs on release day = %+v, %v", songs, err)
+	}
 }
 
 // Playback guards a pre-added library song the way it guards a catalog one:
@@ -176,7 +181,7 @@ func TestPlaybackRefusesPreAddedLibrarySongs(t *testing.T) {
 	ctx := t.Context()
 	d := preAddedStore(t)
 	now := localDay(t, "2026-11-01")
-	e := &Env{Deps: Deps{DB: d, Logger: discard(), Now: func() time.Time { return now }}}
+	e := &Env{Deps: Deps{DB: d, Library: libraryAt(d, &now), Logger: discard(), Now: func() time.Time { return now }}}
 	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
 	refs := []TrackRef{{ID: "i.out", Source: SourceLibrary}, {ID: "i.later", Source: SourceLibrary}, {ID: "i.last", Source: SourceLibrary}, {ID: "i.single", Source: SourceLibrary}}
 
@@ -206,8 +211,16 @@ func playables(songs []Song) []bool {
 }
 
 // Library → Songs plays the song list (PlayLibrary), which goes by the same
-// rule: starting on a song not out is refused, and starting on one that is
-// out queues only the songs out.
+// rule as the list: the songs not out are not in it, so the queue holds only
+// the songs out.
+
+// libraryAt is the library over d reading the clock at *now.
+func libraryAt(d *db.DB, now *time.Time) *library.Library {
+	l := library.New(d, nil)
+	l.SetClock(func() time.Time { return *now })
+	return l
+}
+
 func TestPlayLibraryRefusesPreAddedSongs(t *testing.T) {
 	ctx := t.Context()
 	d := preAddedStore(t)
@@ -218,16 +231,15 @@ func TestPlayLibraryRefusesPreAddedSongs(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = coord.Close() })
 	now := localDay(t, "2026-11-01")
-	e := &Env{Deps: Deps{DB: d, Library: library.New(d, nil), Coord: coord, Logger: discard(), Now: func() time.Time { return now }}}
+	e := &Env{Deps: Deps{DB: d, Library: libraryAt(d, &now), Coord: coord, Logger: discard(), Now: func() time.Time { return now }}}
 	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
 
-	// By title: i.last, i.later (neither out), i.out, i.single (out).
-	for _, start := range []int{0, 1} {
-		if err := s.PlayLibrary(ctx, "title", false, start); CodeOf(err) != CodeNotReleased {
-			t.Fatalf("start %d: %v, want not_released", start, err)
-		}
+	// By title: i.last, i.later (neither out), i.out, i.single (out). The
+	// list has only the two out, so the rows are 0 and 1.
+	if err := s.PlayLibrary(ctx, "title", false, 2); CodeOf(err) != CodeInvalidArgument {
+		t.Fatalf("start 2 of the 2 songs out: %v, want invalid_argument", err)
 	}
-	if err := s.PlayLibrary(ctx, "title", false, 2); err != nil {
+	if err := s.PlayLibrary(ctx, "title", false, 0); err != nil {
 		t.Fatal(err)
 	}
 	var ids []string
@@ -244,5 +256,39 @@ func TestPlayLibraryRefusesPreAddedSongs(t *testing.T) {
 	}
 	if n := len(s.Queue().Items); n != 4 {
 		t.Fatalf("queue on release day has %d songs, want 4", n)
+	}
+}
+
+// The library search offers the songs that are out only: a pre-added album's
+// placeholders are in the search index, but nobody can find them by name until
+// their day. The album's page (LibraryService.Album) lists them all.
+func TestLibrarySearchLeavesOutPreAddedSongsUntilTheyAreOut(t *testing.T) {
+	ctx := t.Context()
+	d := preAddedStore(t)
+	if err := library.RebuildSearch(ctx, d); err != nil {
+		t.Fatal(err)
+	}
+	now := localDay(t, "2026-11-01")
+	e := &Env{Deps: Deps{DB: d, Library: libraryAt(d, &now), Logger: discard(), Now: func() time.Time { return now }}}
+	s := &SearchService{e: e, m: mapper{now: e.Now}}
+	names := func() []string {
+		t.Helper()
+		got, err := s.Library(ctx, "i", 25)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, so := range got.Songs {
+			out = append(out, so.Name)
+		}
+		slices.Sort(out)
+		return out
+	}
+	if got := names(); !slices.Equal(got, []string{"i.out", "i.single"}) {
+		t.Fatalf("before the release: found %v, want the two songs out", got)
+	}
+	now = localDay(t, "2026-11-20")
+	if got := names(); !slices.Equal(got, []string{"i.last", "i.later", "i.out", "i.single"}) {
+		t.Fatalf("on release day: found %v, want all four", got)
 	}
 }

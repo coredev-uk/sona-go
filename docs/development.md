@@ -91,7 +91,7 @@ Run each as `devenv shell -- <script>`, or bare under direnv.
 | `docs` | Runs the documentation site with live reload: `cd site && npm ci && npm run dev`. |
 | `gen` | `sqlc generate`. Commit the result. |
 | `fmt` | gofumpt on every tracked Go file except `internal/db/dbq`. |
-| `check` | The static checks. |
+| `check` | The static checks, gofumpt formatting included. |
 | `tests` | `go test -race ./...` and the tests of dev-only code. |
 | `release` | `build/linux/release/release.sh`, the same as Taskfile's `release`. |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`). `play-spike -preview` needs none. |
@@ -149,7 +149,7 @@ There is no inspector in the binary and MyGo runs in production mode. `build/ldf
 It then runs the tests of dev-only code:
 
 ```sh
-go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/app ./internal/mpris
+go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/ui/features/inspect ./internal/ui/features/discover ./internal/app ./internal/mpris
 ```
 
 The script is not named `test` because the shell's `test` builtin would shadow it.
@@ -174,7 +174,7 @@ The script is not named `test` because the shell's `test` builtin would shadow i
 E2E_ORCA=1 E2E_ORCA_BIN=<orca> headless -- go test -tags e2e -count=1 -v -run '^TestOrca' ./e2e/
 ```
 
-Orca is built from the pinned nixpkgs on first use; it is not in the dev shell. What it says is written to `bin/orca-out` (`E2E_OUT`); see [accessibility.md](accessibility.md), "Listening with Orca". It is not part of `e2e` or `tests`: it only runs when asked.
+Orca is built from the pinned nixpkgs on first use; it is not in the dev shell. What it says is written to `bin/orca-out` (`E2E_OUT`); see [the accessibility rules](../site/src/content/docs/contributing/accessibility.md), "Listening with Orca". It is not part of `e2e` or `tests`: it only runs when asked.
 
 ### probe
 
@@ -259,6 +259,7 @@ Separately, after the first paint a short-lived child readies GStreamer's plugin
 ## Debugging the UI
 
 - Development builds (`-tags dev`, as the `dev` script makes) start private. `SONA_INSPECTOR=1 dev` opens MyGo's inspector; F12 or Ctrl+Shift+I toggles it. Other builds never show it.
+- Development builds add **Inspect** to every item's menu (right-click a song, album, playlist, artist, station or music video). It shows the item's IDs, artwork URLs, what Sona mapped and what Apple sent as Go's cache holds it, with Copy as JSON, Copy ID and Copy artwork URL. Redacted like the logs; release builds have no such action (`docs/ui-architecture.md`, "Developer actions").
 - `bin/sona` (or `go run ./cmd/sona`) starts the app from a checkout: `SONA_PRIVATE=1 SONA_PREVIEW=1 bin/sona` plays 30-second previews without an account.
 - MyGo loads GTK3 and the GL libraries by soname. Inside devenv `LD_LIBRARY_PATH` carries them; elsewhere install GTK 3, Pango, libepoxy and a GL driver.
 - `go tool mygo vet internal/ui` finds build values kept past their frame, the usual cause of a view that updates one frame late.

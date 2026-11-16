@@ -82,6 +82,12 @@ func (x *ItemsCtx) coverOpts(label string, min float32, video bool) CoverOpts {
 func OpenWithoutPage(it services.Item, ctx ItemsCtx) {
 	switch {
 	case PlaysWhenOpened(it, ctx.Players):
+		// The station the queue is on pauses or resumes instead of starting
+		// over.
+		if StationOn(it, ctx) && ctx.Toggle != nil {
+			ctx.Toggle()
+			return
+		}
 		ctx.Players.PlayItem(it)
 	case it.URL != "" && ctx.OpenURL != nil:
 		ctx.OpenURL(it.URL)
@@ -97,7 +103,7 @@ func PlaysWhenOpened(it services.Item, p *ItemPlayers) bool {
 // CoverItemOf is an Item as a cover tile (v0.2.0's toCoverItem): its page, a
 // play control when it plays directly, an upcoming album's release date, and
 // its "more" target. index is the item's place in its list, for the tile's
-// key. ctx.OnOpen runs whenever the tile is opened.
+// key. ctx.OnOpen runs whenever the tile is opened or played.
 func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 	link := ItemLink(it)
 	id := it.ID
@@ -131,8 +137,14 @@ func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 	// shows the play mark, but has no second play control.
 	opens := PlaysWhenOpened(it, ctx.Players)
 	tile.PlaysOnOpen = opens
+	tile.Playing = opens && StationPlaying(it, ctx)
+	tile.Web = OpensInBrowser(it, ctx.Players)
 	if !opens && ctx.Players.CanPlay(it) {
-		tile.Play = &CoverPlay{Label: it.Name, Run: func() { ctx.Players.PlayItem(it) }, RunFrom: func(h *ui.Handle) { ctx.Players.PlayItemFrom(it, h) }}
+		tile.Play = &CoverPlay{
+			Label:   it.Name,
+			Run:     func() { ctx.opened(it); ctx.Players.PlayItem(it) },
+			RunFrom: func(h *ui.Handle) { ctx.opened(it); ctx.Players.PlayItemFrom(it, h) },
+		}
 	}
 	if it.Album != nil {
 		tile.Badge = ReleaseBadge(*it.Album, ctx.Players.now())

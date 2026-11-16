@@ -38,9 +38,10 @@ golangci-lint run --new-from-rev=origin/main ./...   # must be clean
 go tool mygo vet internal/ui   # build values kept past their frame
 go run ./cmd/i18ntool extract -check   # the catalogue; go test checks it too
 go run ./cmd/pathcase                  # no paths differing only by case
+gofumpt -l $(git ls-files '*.go' | grep -v '^internal/db/dbq/')   # must print nothing; `fmt` fixes it
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same on every push and pull request, except `golangci-lint`, `go tool mygo vet internal/ui` and the catalogue check. Run those yourself.
+CI (`.github/workflows/ci.yml`) runs the same on every push and pull request, except `golangci-lint`, `go tool mygo vet internal/ui`, the catalogue check and the gofumpt check. Run those yourself.
 
 ### Real-CDM tests
 
@@ -197,6 +198,8 @@ A failing run keeps the picture and a diff in the test's artifact directory:
 
 Tests get the directory from `internal/ui/uitest/artifacts`, and only when they fail, because `go test` never caches a run that uses `-artifacts`.
 
+Run a golden's test binary inside `devenv shell` (`devenv shell -- go test …`, or `devenv shell -- /path/to/pkg.test`). MyGo draws Linux text with Pango, which it finds through the shell's `LD_LIBRARY_PATH`. A binary started outside it has no text engine: registering the font fails with "this system has no text engine to add fonts to" (the kit's goldens report it on every test), and a picture drawn anyway has boxes, icons and fills but no text at all.
+
 On a Mac, or any machine whose text differs from CI's, update goldens in the CI image:
 
 ```sh
@@ -264,7 +267,7 @@ How it reads Orca:
 
 What it checks and keeps:
 
-- The test checks what Orca said against [accessibility.md](accessibility.md).
+- The test checks what Orca said against [the accessibility rules](../site/src/content/docs/contributing/accessibility.md).
 - `E2E_OUT` keeps `orca-walk.md` and `orca-setup.md` (what each key was answered with, and where Orca put the focus) and Orca's whole log.
 
 How to run it:

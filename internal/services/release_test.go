@@ -10,7 +10,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
-	"github.com/coredev-uk/sona-go/internal/library"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 )
@@ -155,15 +154,15 @@ func TestPlayLibrarySkipsUnreleasedSongs(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = coord.Close() })
 	now := localDay(t, "2026-11-01")
-	e := &Env{Deps: Deps{DB: d, Library: library.New(d, nil), Coord: coord, Logger: discard(), Now: func() time.Time { return now }}}
+	e := &Env{Deps: Deps{DB: d, Library: libraryAt(d, &now), Coord: coord, Logger: discard(), Now: func() time.Time { return now }}}
 	s := &PlaybackService{o: e, m: mapper{now: e.Now}, meta: map[string]trackMeta{}}
 
-	for _, start := range []int{1, 4} {
-		if err := s.PlayLibrary(ctx, "title", false, start); CodeOf(err) != CodeNotReleased {
-			t.Fatalf("start %d: %v, want not_released", start, err)
-		}
+	// The list leaves the songs not out yet out (B and E): A, C, D and F are
+	// rows 0 to 3, and every row starts the same queue.
+	if err := s.PlayLibrary(ctx, "title", false, 4); CodeOf(err) != CodeInvalidArgument {
+		t.Fatalf("start 4 of the 4 songs out: %v, want invalid_argument", err)
 	}
-	if err := s.PlayLibrary(ctx, "title", false, 2); err != nil {
+	if err := s.PlayLibrary(ctx, "title", false, 1); err != nil {
 		t.Fatal(err)
 	}
 	var ids []string

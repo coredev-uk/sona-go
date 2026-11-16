@@ -55,12 +55,12 @@ func (r *radio) onAirBoard(c *ui.Context, b *board, stations []services.Station,
 		trackW := width - whoW - whoGap
 		if trackW < 120 {
 			// The first frame measures; the next builds the lanes.
-			r.ruler(c, guide{}, i18n.T("Live now"))
+			r.ruler(c, guide{}, i18n.T("Live Now"))
 			return
 		}
 		g := newGuide(now, trackW)
-		r.ruler(c, g, i18n.T("Live now"))
-		ui.Column(c.Key("lanes")).FillWidth().Role(ui.RoleList).Label(i18n.T("Live now")).Children(func() {
+		r.ruler(c, g, i18n.T("Live Now"))
+		ui.Column(c.Key("lanes")).FillWidth().Role(ui.RoleList).Label(i18n.T("Live Now")).Children(func() {
 			for _, s := range stations {
 				var detail *services.StationDetail
 				if res := r.station(s.ID); res.HasData {
@@ -196,6 +196,10 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 			switch {
 			case tuned:
 				kit.EqualiserBars(c, ctx.Playing, ctx.Motion)
+			case s.Playable && !page:
+				// A station with no page plays from its one button, the row's
+				// hit area: this is its mark, not a second control.
+				kit.StationCue(c, false, hot)
 			case s.Playable:
 				play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
 					Variant: kit.Ghost, Size: kit.SizeSM, Icon: "play", Filled: true,
@@ -238,7 +242,7 @@ func (r *radio) lane(c *ui.Context, s services.Station, detail *services.Station
 			}
 		})
 
-		if hit.Clicked() {
+		if kit.ClickOnce(hit) {
 			switch {
 			case page:
 				r.env.Nav.Push(stationURL(s.ID))
@@ -360,7 +364,7 @@ func (r *radio) cell(c *ui.Context, cl cell, link func()) {
 			})
 		}
 	})
-	if link != nil && el.Clicked() {
+	if link != nil && kit.ClickOnce(el) {
 		link()
 	}
 }
@@ -383,7 +387,7 @@ func (r *radio) onAirSkeleton(c *ui.Context, w *kit.WidthTracker) {
 	root := ui.Column(c.Key("board-skeleton")).FillWidth().Margin(0, 0, 0, -boardBleed).Role(ui.RoleStatus).Label(i18n.T("Loading"))
 	width := w.Track(c, root)
 	root.Children(func() {
-		r.ruler(c, guide{}, i18n.T("Live now"))
+		r.ruler(c, guide{}, i18n.T("Live Now"))
 		trackW := width - whoW - whoGap
 		if trackW < 120 {
 			return

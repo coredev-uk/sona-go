@@ -24,3 +24,7 @@ internal/ui/probe/measure TestTreeUsageOfThisProcess
 # The marks contact sheet is a picture with no concurrency in it: about 5 min
 # under -race, so only the shards without -race draw it.
 internal/ui/app TestMarksContactSheet runs without -race only
+# Add-ons: the parent-death signal is Linux's, and handing a folder to another
+# user needs root, which a macOS runner's user isn't.
+internal/addons TestLinuxParentDeathKillsTheAddon
+internal/addons TestScanRefusesAnotherUsersFolder needs root

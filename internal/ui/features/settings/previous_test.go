@@ -41,7 +41,7 @@ func (g *diagRig) confirm() {
 
 func TestPreviousVersionIsHiddenWhereNoneIsKept(t *testing.T) {
 	g := newDiagRig(t, linuxCaps(), engineReport(), nil) // Linux, a development build, nothing kept
-	g.tt.Until("the page", g.tt.Shows("Everything Sona needs is working", "Developer tools"))
+	g.tt.Until("the page", g.tt.Shows("Everything Sona needs is working", "Developer Tools"))
 	if g.tt.HasText("Previous version") || g.tt.HasText("Restore…") {
 		t.Errorf("the row shows with nothing to restore: %q", g.tt.Texts())
 	}
@@ -62,7 +62,7 @@ func TestPreviousVersionWithoutANumberStillOffersTheRestore(t *testing.T) {
 	g := kept(t, "", nil)
 	g.tt.Until("the row", g.tt.Shows("The version from your last update is kept."))
 	g.click("Restore…")
-	g.tt.Until("the question", g.tt.Shows("Go back to the previous version?",
+	g.tt.Until("the question", g.tt.Shows("Go Back to the Previous Version?",
 		"Sona restarts on the previous version. Your settings, sign-in and library are kept."))
 }
 

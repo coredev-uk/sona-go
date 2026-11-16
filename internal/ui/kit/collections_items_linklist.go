@@ -77,6 +77,7 @@ func LinkList(c *ui.Context, st *LinkListState, items []services.Item, ctx Items
 func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Tokens) {
 	link := ItemLink(it)
 	plays := PlaysWhenOpened(it, ctx.Players)
+	web := OpensInBrowser(it, ctx.Players)
 	tile := ui.ButtonBase(c).Grow(1).MinHeight(44).PaddingX(16).PaddingY(8).Gap(12).
 		Justify(ui.SpaceBetween).Radius(tk.Radius["md"])
 	border := theme.C("link-tile-border")
@@ -87,22 +88,25 @@ func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Toke
 	tile.Border(1, border).Background(bg)
 	theme.Fade(tile, "feedback")
 	switch {
-	case link != "":
-		tile.Role(ui.RoleLink)
+	case link != "" || web:
+		tile.Role(ui.RoleLink) // a web link is named by its text and the cue after it
 	case plays:
 		// Named by its text, with the action after it.
-		tile.Label(it.Name + " " + i18n.T("Play"))
+		tile.Label(StationLabel(it, ctx))
 	}
 	body := tk.Type["ui"]
 	tile.Children(func() {
 		ui.Text(c, it.Name).FontSize(body.Size).FixedLineHeight(body.LineHeight).FontWeight(500).
 			TextColor(theme.C("ink")).MaxLines(2).TextAlign(ui.Start).Grow(1).MinWidth(0)
-		if link == "" && !plays {
-			ui.Row(c.Key("out")).Size(16, 16).Shrink(0).Center().Role(ui.RoleImage).Label(i18n.T("Opens in your browser")).
-				TextColor(theme.C("ink-muted")).Children(func() { ui.Icon(c, theme.Icon("arrow-up-right")).FontSize(16) })
+		if web {
+			WebCue(c)
+		}
+		if plays {
+			StationCue(c, StationPlaying(it, ctx), tile.Hovered() || tile.Focused())
 		}
 	})
-	if tile.Clicked() {
+	if ClickOnce(tile) {
+		ctx.opened(it)
 		if link != "" {
 			ctx.nav(link)
 		} else {

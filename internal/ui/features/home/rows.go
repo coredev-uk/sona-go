@@ -14,13 +14,12 @@ import (
 
 // Geometry of the item rows (v0.2.0's ItemRows), in DIPs.
 const (
-	rowMin   = 264 // the smallest column
-	rowH     = 56  // h-14
-	rowArt   = 40
-	rowPadX  = 8
-	rowGap   = 12
-	rowGapX  = kit.TileGapX
-	rowMarkA = 0.7 // the play mark's ground wash
+	rowMin  = 264 // the smallest column
+	rowH    = 56  // h-14
+	rowArt  = 40
+	rowPadX = 8
+	rowGap  = 12
+	rowGapX = kit.TileGapX
 	// rowInline is the column width from which an inline row (a running
 	// order) sets its reason beside its name instead of under it.
 	rowInline = 480
@@ -187,6 +186,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 	// A station with no page plays when it is opened: the name is that
 	// button, and the cover's play mark is not a second control.
 	direct := playable && kit.PlaysWhenOpened(it, ctx.Players)
+	web := kit.OpensInBrowser(it, ctx.Players)
 	round := kit.ItemRound(it)
 	subtitle := kit.ItemSubtitle(it)
 	name := it.Name
@@ -272,7 +272,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			}
 			switch {
 			case direct:
-				e.Role(ui.RoleButton).Label(name + " " + i18n.T("Play"))
+				e.Role(ui.RoleButton).Label(kit.StationLabel(it, ctx))
+			case web:
+				e.Role(ui.RoleLink).Label(kit.WebCueLabel(name))
 			case link != "" && canOpen:
 				e.Role(ui.RoleLink)
 			case link != "":
@@ -294,7 +296,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			hover := w.Hovered()
 			if playable && !direct {
 				play := ui.ButtonBase(c.Key("play")).Absolute().Left(rowPadX).Top((rowH-rowArt)/2).Size(rowArt, rowArt).Center().Radius(radius).
-					Background(theme.C("ground").Alpha(rowMarkA)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
+					Background(kit.ArtworkWash(false)).Label(i18n.T("Play {name}", "name", name)).IgnoreInput(!hover)
 				if o.Tile {
 					// A disc at the middle of the cover.
 					play.Left(tilePad+(tileArt-tileDisc)/2).Top(tilePad+(tileArt-tileDisc)/2).Size(tileDisc, tileDisc).Radius(tk.Radius["full"])
@@ -327,13 +329,17 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				// A station with no page plays when it is opened: the mark is
 				// the name's button, not a second control.
 				mark := ui.Row(c.Key("mark")).Absolute().Left(0).Top(0).Size(artSize, artSize).Center().Radius(radius).
-					Background(theme.C("ground").Alpha(rowMarkA)).IgnoreInput(true)
+					Background(kit.ArtworkWash(false)).IgnoreInput(true)
 				if o.Tile {
 					mark.Left((artSize-tileDisc)/2).Top((artSize-tileDisc)/2).Size(tileDisc, tileDisc).Radius(tk.Radius["full"])
 				}
 				kit.Fade(mark, hot)
 				mark.Children(func() {
-					kit.PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink")})
+					icon := "play"
+					if kit.StationPlaying(it, ctx) {
+						icon = "pause"
+					}
+					theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: theme.C("ink"), Filled: true})
 				})
 			}
 		})
@@ -351,16 +357,19 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			nameRow.Children(func() {
 				label := tk.Type["label"]
 				t := ui.Text(c, name).FontSize(tk.Type["ui"].Size).FixedLineHeight(tk.Type["ui"].LineHeight).FontWeight(int(label.Weight)).
-					TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).TextAlign(ui.Start)
+					TextColor(theme.C("ink")).SingleLine().Shrink(1).MinWidth(0).TextAlign(ui.Start).Tooltip(name) // clipped: the full name
 				if w.Hovered() && canOpen {
 					t.Underline()
 				}
 				if it.Explicit {
 					kit.ExplicitMark(c.Key("explicit"))
 				}
+				if web {
+					kit.WebCue(c)
+				}
 			})
 			if subtitle != "" {
-				sub := theme.Text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+				sub := theme.Text(c, subtitle, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start).Tooltip(subtitle)
 				if inline {
 					sub.Grow(1).Basis(0).MinWidth(0)
 				}
@@ -372,7 +381,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 	})
 
 	st.nav.Claim(src, i)
-	if src.Clicked() {
+	if clicked, again := kit.ClickRun(src); clicked {
 		mods := kit.ModsOf(src.ClickModifiers())
 		st.nav.SetFocus(i)
 		if !src.Focused() {
@@ -383,7 +392,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			if selectable {
 				st.sel.Click(i, mods)
 			}
-		default:
+		case !again:
 			h.open(it, ctx)
 		}
 	}

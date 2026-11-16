@@ -57,7 +57,7 @@ func TestKeyboardWalk(t *testing.T) {
 					s.State, s.Version, s.Received, s.Total = "downloading", "", 42, 100
 				}))
 			},
-			[]string{"Audio quality", "Crossfade", "Private listening"},
+			[]string{"Audio Quality", "Crossfade", "Private listening"},
 			[]string{"Skip setup", "Welcome", "High quality", "Sound Check", "Crossfade", "Private listening", "Back", "Continue"},
 		},
 		{
@@ -75,12 +75,12 @@ func TestKeyboardWalk(t *testing.T) {
 		},
 		{
 			"desktop", "desktop", nil,
-			[]string{"When you close the window", "Start Sona when you log in"},
+			[]string{"When You Close the Window", "Start Sona when you log in"},
 			[]string{"Skip setup", "Welcome", "Keep playing", "Start Sona when you log in", "Track notifications", "Back", "Continue"},
 		},
 		{
 			"done", "done", nil,
-			[]string{"Still to do", "Sign in"},
+			[]string{"Still to Do", "Sign in"},
 			[]string{"Welcome", "Sign in", "Back", "Done"},
 		},
 	}
@@ -187,7 +187,7 @@ func TestSkipConfirmKeepsTheFocusInsideTheSetupDialog(t *testing.T) {
 			r.key(0, ui.KeyEscape)
 			r.tt.Frame()
 			tr := access.Read(t, r.tt.Tester)
-			if _, ok := tr.Find(ui.RoleAlertDialog, "Skip the rest of the setup?"); !ok {
+			if _, ok := tr.Find(ui.RoleAlertDialog, "Skip the Rest of the Setup?"); !ok {
 				t.Fatalf("no alert dialog:\n%s", tr.Dump())
 			}
 			if tr.Focus == nil || tr.Focus.Label != "Skip setup" || tr.Focus.Role != ui.RoleButton {
@@ -204,7 +204,7 @@ func TestSkipConfirmKeepsTheFocusInsideTheSetupDialog(t *testing.T) {
 			}
 			r.tt.Advance(300 * time.Millisecond)
 			r.tt.Frame()
-			if r.tt.HasText("Skip the rest of the setup?") || !r.h.Env.Surfaces.SetupOpen() {
+			if r.tt.HasText("Skip the Rest of the Setup?") || !r.h.Env.Surfaces.SetupOpen() {
 				t.Fatalf("%s did not close the question and keep the setup", how)
 			}
 			// The focus stays inside the setup (never lost to the page
@@ -245,7 +245,7 @@ func TestWidevineDownloadIsAProgressNode(t *testing.T) {
 func TestSwitchesAndChoicesCarryTheirState(t *testing.T) {
 	r := newRig(t, 900, 1300)
 	r.open("playback")
-	r.tt.Until("the controls", r.tt.Shows("Audio quality", "Sound Check", "Crossfade", "Private listening"))
+	r.tt.Until("the controls", r.tt.Shows("Audio Quality", "Sound Check", "Crossfade", "Private listening"))
 	r.clickSwitch("Sound Check")
 	r.tt.Until("Sound Check saved", func() bool { return r.h.Settings.Get().Audio.SoundCheck })
 	r.tt.Frame()
@@ -256,7 +256,7 @@ func TestSwitchesAndChoicesCarryTheirState(t *testing.T) {
 	if n, ok := tr.Find(ui.RoleSwitch, "Crossfade"); !ok || n.Has(access.Checked) {
 		t.Errorf("Crossfade: %+v", n)
 	}
-	if _, ok := tr.Find(ui.RoleRadioGroup, "Audio quality"); !ok {
+	if _, ok := tr.Find(ui.RoleRadioGroup, "Audio Quality"); !ok {
 		t.Errorf("no Audio quality radio group:\n%s", tr.Dump())
 	}
 	if n, ok := tr.Find(ui.RoleRadio, "High quality"); !ok || !n.Has(access.Checked) {

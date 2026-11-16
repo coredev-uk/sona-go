@@ -209,10 +209,14 @@ func (s *ItemStates) Remember(st services.ItemState) {
 	s.q.Invalidate(store.KeyLibraryFavourites)
 }
 
-// Follow subscribes the states to "library:item-state": call it from a
-// module's Init.
+// Follow subscribes the states to "library:item-state" and the lists to
+// "library:changed" (a removal hides the item before Apple answers, and
+// puts it back when Apple refuses): call it from a module's Init.
 func (s *ItemStates) Follow(bus *store.Bus) {
 	store.On(bus, services.EventItemState, s.Remember)
+	store.On(bus, services.EventLibraryChanged, func(services.LibraryChanged) {
+		s.q.Invalidate(membershipLists...)
+	})
 }
 
 // learn records what Go answered to a load begun when the item had gen
@@ -543,7 +547,7 @@ func removeNote(kind string) string {
 // way. The question is Confirm's: the shell hosts it. Main thread only.
 func (s *ItemStates) Remove(kind string, it StateItem, name string) {
 	Confirm(ConfirmOptions{
-		Title:        i18n.T("Delete “{name}” from your library?", "name", name),
+		Title:        i18n.T("Delete “{name}” From Your Library?", "name", name),
 		Body:         removeNote(kind),
 		ConfirmLabel: i18n.T("Delete"),
 		Destructive:  true,
@@ -568,7 +572,7 @@ func (s *ItemStates) RemoveMany(items []KindedItem, what string) {
 		return
 	}
 	Confirm(ConfirmOptions{
-		Title:        i18n.T("Delete {what} from your library?", "what", what),
+		Title:        i18n.T("Delete {what} From Your Library?", "what", what),
 		Body:         i18n.T("They also leave any playlists they're in."),
 		ConfirmLabel: i18n.T("Delete"),
 		Destructive:  true,

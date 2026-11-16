@@ -426,13 +426,13 @@ func TestQueuePanelKeyboardWalkAndTree(t *testing.T) {
 				panel := tr.MustFind(t, ui.RoleGroup, "Queue")
 				// The playing song and what follows are lists of their own, each
 				// under a heading.
-				for _, g := range []string{"Now playing", "Next"} {
+				for _, g := range []string{"Now Playing", "Next"} {
 					if h := tr.MustFind(t, ui.RoleHeading, g); h.Level != 3 {
 						t.Errorf("%s's heading is level %d", g, h.Level)
 					}
 				}
 				list := tr.MustFind(t, ui.RoleList, "Next")
-				if n := tr.Children(tr.MustFind(t, ui.RoleList, "Now playing")); len(n) != 1 || n[0].Role != ui.RoleListItem {
+				if n := tr.Children(tr.MustFind(t, ui.RoleList, "Now Playing")); len(n) != 1 || n[0].Role != ui.RoleListItem {
 					t.Errorf("the playing song's list holds %v", n)
 				}
 				if !tr.Within(list, ui.RoleGroup) || list.Index < panel.Index {
@@ -742,4 +742,39 @@ func TestFocusedSeekHoldsTheValueAssistiveTechnologyReads(t *testing.T) {
 	if got := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleSlider, "Seek"); got.Now < 42 {
 		t.Errorf("Seek still reads %v once the focus is gone", got.Now)
 	}
+}
+
+// The queue's links: "Playing from <station>" is a Tab stop that the keyboard
+// reaches; a row's title and artist, and the playing row's title, artist and
+// album, are named links inside their list items that are not Tab stops (the
+// list is one), and nothing nests a control in another.
+func TestQueueLinksAreNamedAndOnlyThePlayingFromLinkIsATabStop(t *testing.T) {
+	r := newQueueRig(t, true)
+	r.h.Env.HasRoute = func(string) bool { return true }
+	r.seed(4, 0, func(s *services.PlaybackState, q *services.QueueState) {
+		for i := range q.Items {
+			k := string(rune('1' + i))
+			q.Items[i].AlbumID, q.Items[i].Album, q.Items[i].ArtistID = "al."+k, "Album "+k, "ar."+k
+		}
+		q.Station = &services.QueueStation{ID: "st.1", Name: "Chill"}
+	})
+	tr := access.Read(t, r.tt.Tester)
+	for _, l := range []struct{ item, name string }{
+		{"Song 1, Artist 1", "Song 1"},
+		{"Song 1, Artist 1", "Artist 1"},
+		{"Song 1, Artist 1", "Album 1"},
+		{"Up next: Song 2, Artist 2", "Song 2"},
+		{"Up next: Song 2, Artist 2", "Artist 2"},
+	} {
+		n := inItem(t, tr, l.item, ui.RoleLink, l.name)
+		if n.Has(access.Focusable) {
+			t.Errorf("the link %q in %q is a Tab stop", l.name, l.item)
+		}
+	}
+	station := tr.MustFind(t, ui.RoleLink, "Chill")
+	if !station.Has(access.Focusable) {
+		t.Errorf("the Playing from link is not a Tab stop: %+v", station)
+	}
+	iaTab(t, r.tt.Tester, "Chill")
+	access.NoNestedControls(t, r.tt.Tester)
 }

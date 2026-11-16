@@ -8,7 +8,7 @@ import "testing"
 func TestRightClickOnAResultRowOpensItsItemMenu(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
 	ran := registerArtistAction(r)
-	r.tt.Until("the results", r.tt.Shows("Top results", "Album · Blue Band"))
+	r.tt.Until("the results", r.tt.Shows("Top Results", "Album · Blue Band"))
 	if err := r.tt.RightClick("Blue Band"); err != nil {
 		t.Fatal(err)
 	}

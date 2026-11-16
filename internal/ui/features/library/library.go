@@ -71,6 +71,10 @@ type library struct {
 	// library); nil without Env.Surfaces, which hides the action.
 	openAccount func()
 
+	// auth re-checks the connection (the Music videos page's Try again); nil
+	// without the core.
+	auth connectionChecker
+
 	sync syncStore
 
 	albums    albumsPage
@@ -88,6 +92,7 @@ func New(env *module.Env) module.Module {
 	l := newLibrary(env,
 		services.Service[services.LibraryService](env.Core),
 		services.Service[services.PlaybackService](env.Core))
+	l.auth = services.Service[services.AuthService](env.Core)
 	return l.module()
 }
 
@@ -110,12 +115,12 @@ func (l *library) module() module.Module {
 	nav := func(msg func() string, icon, to string, order int) module.NavItem {
 		return module.NavItem{Section: module.NavLibrary, Label: msg, Icon: icon, To: to, Order: order}
 	}
-	recently := func() string { return i18n.T("Recently added") }
+	recently := func() string { return i18n.T("Recently Added") }
 	artists := func() string { return i18n.T("Artists") }
 	albums := func() string { return i18n.T("Albums") }
 	songs := func() string { return i18n.T("Songs") }
-	videos := func() string { return i18n.T("Music videos") }
-	favourite := func() string { return i18n.T("Favourite songs") }
+	videos := func() string { return i18n.T("Music Videos") }
+	favourite := func() string { return i18n.T("Favourite Songs") }
 	history := func() string { return i18n.T("History") }
 	playlists := func() string { return i18n.T("Playlists") }
 	return module.Module{

@@ -103,8 +103,8 @@ func TestStationListLinksAStationThatHasAPageAndPlaysItFromItsOwnButton(t *testi
 	if !tt.Focused("Apple FM") {
 		t.Errorf("focus is not on the station's link")
 	}
-	if _, ok := tt.Find("More for Apple FM"); ok {
-		t.Error("a station with a page has its menu in the row")
+	if _, ok := tt.Find("More for Apple FM"); !ok {
+		t.Error("a station with a page has no menu in the row")
 	}
 }
 

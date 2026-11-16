@@ -89,23 +89,33 @@ func (r *rig) away() {
 // leadBox is the box the lead's art is requested at.
 func (r *rig) leadBox() [2]int {
 	lay := layoutFor(r.d.newPg.pg.Inner(), r.d.newPg.pg.Height)
-	return [2]int{int(lay.lead), int(lay.artHeight())}
+	return [2]int{int(lay.lead), int(lay.art)}
 }
 
-// rowCentre is the centre of the nth card (0-based) of the strip's page the
-// lead is on. The section and the strip are both labelled "Featured" (as
-// v0.2.0's are); a card other than the lead is found by its title, which only
-// its strip card shows.
-func (r *rig) rowCentre(n int) (float32, float32) {
+// tileBox is the box a queued card's art is requested at.
+func (r *rig) tileBox() [2]int {
 	lay := layoutFor(r.d.newPg.pg.Inner(), r.d.newPg.pg.Height)
-	k := r.lead()/lay.perPage*lay.perPage + n
-	for _, name := range []string{"Card %d", "List %d"} { // the names these tests give their cards
-		if row, ok := r.tt.Find(fmt.Sprintf(name, k+1)); ok {
-			return row.X + row.W/2, row.Y + row.H/2
-		}
+	return [2]int{int(lay.tile), int(lay.tileArt)}
+}
+
+// showInLead presses the "Show in lead" button of the queued card named.
+func (r *rig) showInLead(name string) {
+	r.t.Helper()
+	if err := r.tt.Click("Show in lead: " + name); err != nil {
+		r.t.Fatalf("no Show in lead for %q: %v: %q", name, err, r.tt.Texts())
 	}
-	r.t.Fatalf("no strip card %d: %q", n, r.tt.Texts())
-	return 0, 0
+	r.tt.Drain()
+}
+
+// tileCentre is the centre of the queued card named: only its tile shows
+// the name while another card leads.
+func (r *rig) tileCentre(name string) (float32, float32) {
+	r.t.Helper()
+	tile, ok := r.tt.Find(name)
+	if !ok {
+		r.t.Fatalf("no queued card %q: %q", name, r.tt.Texts())
+	}
+	return tile.X + tile.W/2, tile.Y + tile.H/2
 }
 
 func (r *rig) heroCentre() (float32, float32) {
@@ -116,27 +126,26 @@ func (r *rig) heroCentre() (float32, float32) {
 	return hero.X + hero.W/4, hero.Y + hero.H/3
 }
 
-func TestFrontLeadsWithTheFirstCardAtTheLeadsWidthAndListsThemAPageAtATime(t *testing.T) {
+func TestFrontLeadsWithTheFirstCardAndQueuesTheFirstFour(t *testing.T) {
 	src := newCoverSource()
 	r := newFrontWith(t, 16, src)
-	for _, w := range []string{"Featured", "Card 1", "Card 4", "1 of 4", "Previous in Featured", "Next in Featured"} {
+	for _, w := range []string{"Featured", "Card 1", "Card 2", "Card 4", "1 of 16", "Previous in Featured", "Next in Featured"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("the front page lacks %q: %q", w, r.tt.Texts())
 		}
 	}
-	// The fourth card is the last in the strip's first page.
+	// The queue is the first four, the lead among them.
 	for _, w := range []string{"Card 5", "Card 16"} {
 		if r.tt.HasText(w) {
-			t.Errorf("the first page lists %q", w)
+			t.Errorf("the queue shows %q", w)
 		}
 	}
-	// The column's whole 1200, at the lead's art height (the page is short
-	// enough for the page's share to cap it): Apple's centre crop of the
-	// banner at the box the lead shows it in.
-	box := r.leadBox()
-	if got := src.requested(bannerOf(1)); !slices.Contains(got, box) {
+	// Apple's centre crop of the banner at the box the lead shows it in, and
+	// at the box of a tile for a queued card.
+	if box, got := r.leadBox(), src.requested(bannerOf(1)); !slices.Contains(got, box) {
 		t.Errorf("the lead's art was asked for at %v, want %v", got, box)
 	}
+	r.tt.Until("a tile's art", func() bool { return slices.Contains(src.requested(bannerOf(3)), r.tileBox()) })
 	if r.d.front.at != 0 {
 		t.Errorf("the lead is %d, want the first card", r.d.front.at)
 	}
@@ -160,21 +169,87 @@ func TestFrontRotatesToTheNextCardEveryIntervalAndWrapsRound(t *testing.T) {
 	}
 }
 
-func TestFrontBringsTheListToThePageTheLeadIsOn(t *testing.T) {
-	r := newFront(t, 8)
-	if !r.tt.HasText("1 of 2") {
-		t.Fatalf("not on the first page: %q", r.tt.Texts())
+// The lead's segment of the progress fills as its interval runs, and is a
+// whole muted mark while the rotation holds.
+func TestFrontProgressFillsTheLeadsSegmentAsTheIntervalRuns(t *testing.T) {
+	r := newFront(t, 4)
+	hero, ok := r.tt.Find("Featured")
+	if !ok {
+		t.Fatal("no hero")
 	}
-	for range 6 {
-		r.tick(rotateEvery)
+	lay := layoutFor(r.d.newPg.pg.Inner(), r.d.newPg.pg.Height)
+	seg := (lay.lead - 3*segmentGap) / 4
+	y := int(hero.Y + lay.art + progressGap + progressHeight/2)
+	// filled is the share of the lead's segment drawn darker than its track,
+	// and dark says whether the darkest of it is near the ink.
+	filled := func() (share float64, dark bool) {
+		img := r.tt.Image()
+		n, lo := 0, 255
+		x0, x1 := int(hero.X)+1, int(hero.X+seg)-1
+		for x := x0; x < x1; x++ {
+			c := img.RGBAAt(x, y)
+			if c.R < 160 {
+				n++
+			}
+			lo = min(lo, int(c.R))
+		}
+		return float64(n) / float64(x1-x0), lo < 80
 	}
-	if r.lead() != 6 {
-		t.Fatalf("lead %d, want the seventh card", r.lead())
-	}
+	r.tick(rotateEvery / 2)
 	r.tt.Drain()
-	if !r.tt.HasText("2 of 2") || !r.tt.HasText("Card 8") {
-		t.Errorf("the list did not turn to the lead's page: %q", r.tt.Texts())
+	if share, dark := filled(); share < 0.4 || share > 0.6 || !dark {
+		t.Errorf("half way through the interval the lead's segment is %.0f%% filled (ink %v), want half in ink", share*100, dark)
 	}
+	x, yy := r.heroCentre()
+	r.tt.Move(x, yy) // the pointer holds the rotation
+	r.tt.Drain()
+	if share, dark := filled(); share < 0.95 || dark {
+		t.Errorf("held, the lead's segment is %.0f%% filled (ink %v), want a whole muted mark", share*100, dark)
+	}
+}
+
+// The queue stays still while the lead goes through it, its tile marked, and
+// moves on to start at the lead only when the lead leaves it.
+func TestFrontQueueStaysStillUntilTheLeadLeavesIt(t *testing.T) {
+	r := newFront(t, 8)
+	shows := func(want, not []string) {
+		t.Helper()
+		for _, w := range want {
+			if !r.tt.HasText(w) {
+				t.Errorf("lead %d: lacks %q: %q", r.lead(), w, r.tt.Texts())
+			}
+		}
+		for _, w := range not {
+			if r.tt.HasText(w) {
+				t.Errorf("lead %d: shows %q", r.lead(), w)
+			}
+		}
+	}
+	r.tick(rotateEvery)
+	r.tick(rotateEvery)
+	r.tt.Drain()
+	if r.lead() != 2 || r.d.front.window != 0 {
+		t.Fatalf("lead %d, window %d: the queue moved while the lead was in it", r.lead(), r.d.front.window)
+	}
+	shows([]string{"Card 1", "Card 2", "Card 3", "Card 4"}, []string{"Card 5"})
+	r.tick(rotateEvery)
+	r.tick(rotateEvery)
+	r.tt.Drain()
+	if r.lead() != 4 || r.d.front.window != 4 {
+		t.Fatalf("lead %d, window %d: the queue did not move on when the lead left it", r.lead(), r.d.front.window)
+	}
+	shows([]string{"5 of 8", "Card 5", "Card 6", "Card 7", "Card 8"}, []string{"Card 1", "Card 4"})
+	// Chosen out of the queue, the lead starts it again.
+	r.d.front.choose(2)
+	r.tt.Drain()
+	if r.d.front.window != 2 {
+		t.Errorf("window %d after the lead left it for the third card", r.d.front.window)
+	}
+	shows([]string{"Card 3", "Card 4", "Card 5", "Card 6"}, []string{"Card 2", "Card 7"})
+	// Round the end: the queue wraps to the first cards.
+	r.d.front.choose(6)
+	r.tt.Drain()
+	shows([]string{"Card 7", "Card 8", "Card 1", "Card 2"}, []string{"Card 3", "Card 6"})
 }
 
 func TestFrontCrossFadesTheOldLeadOutAndKeepsItInertOnlyUntilTheFadeEnds(t *testing.T) {
@@ -184,6 +259,9 @@ func TestFrontCrossFadesTheOldLeadOutAndKeepsItInertOnlyUntilTheFadeEnds(t *test
 	if r.lead() != 1 {
 		t.Fatalf("after a tick: lead %d", r.lead())
 	}
+	// Paused, the progress under the lead stands still: only the fade moves.
+	r.d.front.paused = true
+	r.tt.Drain()
 	named := func() int {
 		n := 0
 		for _, nd := range access.Read(t, r.tt.Tester).Nodes {
@@ -217,12 +295,10 @@ func TestFrontCrossFadesTheOldLeadOutAndKeepsItInertOnlyUntilTheFadeEnds(t *test
 	}
 }
 
-func TestFrontMakesAChosenRowTheLeadAndGivesItAWholeInterval(t *testing.T) {
+func TestFrontShowsAQueuedCardInTheLeadAndGivesItAWholeInterval(t *testing.T) {
 	r := newFront(t, 8)
 	r.tick(rotateEvery - time.Second)
-	x, y := r.rowCentre(3)
-	r.tt.ClickAt(x, y)
-	r.tt.Drain()
+	r.showInLead("Card 4")
 	if r.lead() != 3 {
 		t.Fatalf("lead %d after choosing Card 4", r.lead())
 	}
@@ -297,7 +373,7 @@ func TestFrontHoldsWhileFocusIsAnywhereInsideTheHeroAndGoesOnWhenItLeaves(t *tes
 		t.Fatalf("lead %d after focus moved to another control of the hero", r.lead())
 	}
 	// Out of the hero: the contents' first button.
-	for i := 0; i < 40 && r.tt.Focused("Featured") && !r.tt.Focused("Songs and albums"); i++ {
+	for i := 0; i < 40 && r.tt.Focused("Featured") && !r.tt.Focused("Songs and Albums"); i++ {
 		r.tt.Key(0, ui.KeyTab)
 		r.tt.Drain()
 	}
@@ -316,9 +392,10 @@ func TestFrontGoesOnWhenTheFocusIsOnlyWhereAClickLeftIt(t *testing.T) {
 	for name, c := range map[string]struct {
 		clicks  []string
 		focused string // the control's name once the clicks are done
+		lead    int    // the lead after the clicks and a whole interval
 	}{
-		"the pager":                {[]string{"Next in Featured"}, "Next in Featured"},
-		"the pause control, twice": {[]string{"Pause featured rotation", "Play featured rotation"}, "Pause featured rotation"},
+		"the pager":                {[]string{"Next in Featured"}, "Next in Featured", 2},
+		"the pause control, twice": {[]string{"Pause featured rotation", "Play featured rotation"}, "Pause featured rotation", 1},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := newFront(t, 8)
@@ -333,8 +410,8 @@ func TestFrontGoesOnWhenTheFocusIsOnlyWhereAClickLeftIt(t *testing.T) {
 				t.Fatalf("the click did not leave the focus on %q", c.focused)
 			}
 			r.tick(rotateEvery)
-			if r.lead() != 1 {
-				t.Errorf("lead %d after a whole interval, want 1: a click's focus holds the rotation", r.lead())
+			if r.lead() != c.lead {
+				t.Errorf("lead %d after a whole interval, want %d: a click's focus holds the rotation", r.lead(), c.lead)
 			}
 		})
 	}
@@ -534,8 +611,8 @@ func TestFrontSaysOnlyWhatTheUserDidAndTheRotationsOwnChangesStaySilent(t *testi
 	if got := click("Play featured rotation"); !slices.Equal(got, []string{"Rotation playing"}) {
 		t.Errorf("resuming announced %q", got)
 	}
-	if got := click("Next in Featured"); !slices.Equal(got, []string{"2 of 2"}) {
-		t.Errorf("turning the page announced %q", got)
+	if got := click("Next in Featured"); !slices.Equal(got, []string{"5 of 8"}) {
+		t.Errorf("the next card announced %q", got)
 	}
 }
 
@@ -545,15 +622,15 @@ func TestFrontPagerWrapsRoundSoItNeverDisablesTheFocusedButton(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Drain()
-	if !r.tt.HasText("4 of 4") || !r.tt.HasText("Card 13") || !r.tt.HasText("Card 16") || r.tt.HasText("Card 12") {
-		t.Fatalf("Previous from the first page did not wrap to the last: %q", r.tt.Texts())
+	if r.lead() != 15 || !r.tt.HasText("16 of 16") {
+		t.Fatalf("Previous from the first card did not wrap to the last: lead %d, %q", r.lead(), r.tt.Texts())
 	}
 	if err := r.tt.Click("Next in Featured"); err != nil {
 		t.Fatal(err)
 	}
 	r.tt.Drain()
-	if !r.tt.HasText("1 of 4") {
-		t.Errorf("Next from the last page did not wrap to the first: %q", r.tt.Texts())
+	if r.lead() != 0 || !r.tt.HasText("1 of 16") {
+		t.Errorf("Next from the last card did not wrap to the first: lead %d, %q", r.lead(), r.tt.Texts())
 	}
 }
 
@@ -569,7 +646,7 @@ func TestFrontAnOnlyCardHasNoRotationControlAndNeverRotates(t *testing.T) {
 			featured++
 		}
 	}
-	if r.tt.HasText("rotation") || featured != 1 { // the section's own name; a list would be a second
+	if r.tt.HasText("rotation") || featured != 1 { // the section's own name; the queue's list would be a second
 		t.Errorf("a single card has a list or a rotation control: %q", r.tt.Texts())
 	}
 	if !r.tt.HasText("Card 1") {
@@ -577,7 +654,7 @@ func TestFrontAnOnlyCardHasNoRotationControlAndNeverRotates(t *testing.T) {
 	}
 }
 
-func TestFrontReducedMotionKeepsTheLeadStillWithTheListToChangeIt(t *testing.T) {
+func TestFrontReducedMotionKeepsTheLeadStillWithTheQueueToChangeIt(t *testing.T) {
 	for name, set := range map[string]func(*testing.T){
 		"Reduce effects":               func(t *testing.T) { reduceEffects(t, true) },
 		"the setting's reduced motion": func(t *testing.T) { reduceMotion(t, true) },
@@ -592,11 +669,9 @@ func TestFrontReducedMotionKeepsTheLeadStillWithTheListToChangeIt(t *testing.T) 
 			if r.tt.HasText("rotation") {
 				t.Errorf("a rotation control under %s: %q", name, r.tt.Texts())
 			}
-			x, y := r.rowCentre(3)
-			r.tt.ClickAt(x, y)
-			r.tt.Drain()
+			r.showInLead("Card 4")
 			if r.lead() != 3 {
-				t.Errorf("lead %d after choosing Card 4: the list must still change it", r.lead())
+				t.Errorf("lead %d after showing Card 4: the queue must still change it", r.lead())
 			}
 			r.away()
 			r.tick(rotateEvery * 3)
@@ -617,7 +692,9 @@ func TestFrontReducedMotionOfTheDesktopKeepsTheLeadStill(t *testing.T) {
 	}
 }
 
-func TestFrontTheLeadOpensItsPageAndARowOnlyChoosesIt(t *testing.T) {
+// #442: a queued card opens its page as the lead does; its "Show in lead"
+// button is what brings it into the lead.
+func TestFrontTheLeadAndAQueuedCardOpenTheirPagesAndShowInLeadOnlyChoosesIt(t *testing.T) {
 	r := newFront(t, 8)
 	if err := r.tt.Click("Card 1"); err != nil { // the lead card
 		t.Fatal(err)
@@ -627,11 +704,17 @@ func TestFrontTheLeadOpensItsPageAndARowOnlyChoosesIt(t *testing.T) {
 		t.Errorf("the lead opened %q, want /curator/1", got)
 	}
 	r2 := newFront(t, 8)
-	x, y := r2.rowCentre(2)
-	r2.tt.ClickAt(x, y)
+	if err := r2.tt.Click("Card 3"); err != nil { // its tile
+		t.Fatal(err)
+	}
 	r2.tt.Drain()
-	if got := r2.path(); got != "/new" || r2.lead() != 2 {
-		t.Errorf("a row led to %q with lead %d: it must only choose its card", got, r2.lead())
+	if got := r2.path(); got != "/curator/3" || r2.lead() != 0 {
+		t.Errorf("a queued card led to %q with lead %d, want its page", got, r2.lead())
+	}
+	r3 := newFront(t, 8)
+	r3.showInLead("Card 3")
+	if got := r3.path(); got != "/new" || r3.lead() != 2 {
+		t.Errorf("Show in lead led to %q with lead %d: it must only choose its card", got, r3.lead())
 	}
 }
 
@@ -723,8 +806,8 @@ func (r *rig) registerPlaylistAction() {
 	})
 }
 
-// A card that plays has a play control named by it, on the lead and on its row.
-func TestFrontCardsThatPlayHaveAPlayControlOnTheLeadAndTheirRow(t *testing.T) {
+// A card that plays has a play control named by it, on the lead and on its tile.
+func TestFrontCardsThatPlayHaveAPlayControlOnTheLeadAndTheirTile(t *testing.T) {
 	api := &fakeAPI{}
 	cards := make([]services.Item, 3)
 	for i := range cards {
@@ -734,7 +817,7 @@ func TestFrontCardsThatPlayHaveAPlayControlOnTheLeadAndTheirRow(t *testing.T) {
 	r := newRig(t, "/new", withAPI(api), wideWindow(), withTracks(fakeTracks{songs: map[string][]services.Song{"playlist:1": songs(2), "playlist:2": songs(3)}}))
 	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
 	r.tt.Until("the front page", r.tt.Shows("Play List 1", "Play List 2"))
-	if err := r.tt.Click("Play List 2"); err != nil { // its row's control (the lead is List 1)
+	if err := r.tt.Click("Play List 2"); err != nil { // its tile's control (the lead is List 1)
 		t.Fatal(err)
 	}
 	got := r.waitPlays(1)[0]
@@ -742,11 +825,12 @@ func TestFrontCardsThatPlayHaveAPlayControlOnTheLeadAndTheirRow(t *testing.T) {
 		t.Errorf("played %+v", got)
 	}
 	if r.lead() != 0 {
-		t.Errorf("playing a row's card made it the lead: %d", r.lead())
+		t.Errorf("playing a queued card made it the lead: %d", r.lead())
 	}
 }
 
-// The item's menu opens on a right-click and on Shift+F10 of the focused card.
+// The item's menu opens on a right-click of a queued card, and on Shift+F10
+// of the card the keyboard has focused.
 func TestFrontCardMenuOpensOnRightClickAndShiftF10(t *testing.T) {
 	api := &fakeAPI{}
 	cards := make([]services.Item, 3)
@@ -758,23 +842,32 @@ func TestFrontCardMenuOpensOnRightClickAndShiftF10(t *testing.T) {
 	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
 	r.tt.Until("the front page", r.tt.Shows("Featured"))
 	r.d.front.paused = true
-	x, y := r.rowCentre(1)
+	x, y := r.tileCentre("List 2")
 	r.tt.RightClickAt(x, y)
 	r.tt.Drain()
 	if !r.d.front.menus.IsOpen() || !r.tt.HasText("Do something") {
-		t.Fatalf("a right-click on a row opened no menu: %q", r.tt.Texts())
+		t.Fatalf("a right-click on a queued card opened no menu: %q", r.tt.Texts())
 	}
 	r.tt.Key(0, ui.KeyEscape)
+	r.advance(300e6)
 	r.tt.Drain()
 	if r.d.front.menus.IsOpen() {
 		t.Fatal("Escape did not close the menu")
 	}
-	// The row's own focus, then the menu key chord.
-	r.tt.ClickAt(x, y)
+	// The tile's own focus, from the keyboard, then the menu key chord.
+	for range 12 {
+		r.tt.Key(0, ui.KeyTab)
+		if r.tt.Focused("List 2") {
+			break
+		}
+	}
+	if !r.tt.Focused("List 2") {
+		t.Fatal("Tab never reached the queued card")
+	}
 	r.tt.Key(ui.Shift, ui.KeyF10)
 	r.tt.Drain()
 	if !r.d.front.menus.IsOpen() {
-		t.Errorf("Shift+F10 on the focused row opened no menu: %q", r.tt.Texts())
+		t.Errorf("Shift+F10 on the focused card opened no menu: %q", r.tt.Texts())
 	}
 }
 
@@ -785,9 +878,7 @@ func TestFrontStartsOverWhenThePageIsBuiltAgain(t *testing.T) {
 	_ = r.tt.Click("Pause featured rotation")
 	r.away()
 	r.tick(rotateEvery)
-	x, y := r.rowCentre(3)
-	r.tt.ClickAt(x, y)
-	r.tt.Drain()
+	r.showInLead("Card 4")
 	if r.lead() != 3 || !r.d.front.paused {
 		t.Fatalf("set up: lead %d paused %v", r.lead(), r.d.front.paused)
 	}
@@ -801,99 +892,37 @@ func TestFrontStartsOverWhenThePageIsBuiltAgain(t *testing.T) {
 	}
 }
 
-// artOf is a card's art path: its own key at the shape the DTO names.
-func artOf(n, w, h int) string {
-	return fmt.Sprintf("/art/0123456789abcdef0123456789ab%04d/%dx%d.jpg", n, w, h)
-}
-
-// thumbRect is where the picture of the card's list row is drawn: the slot's
-// top left (8 in from the row, centred in its height) and the part of the
-// slot that is the cover's colour (coverSource's), found by looking.
-func (r *rig) thumbRect(name string) (x0, y0, x1, y1 int) {
-	r.t.Helper()
-	row, ok := r.tt.Find(name)
-	if !ok {
-		r.t.Fatalf("no row %q: %q", name, r.tt.Texts())
-	}
-	sx, sy := int(row.X)+8, int(row.Y+(row.H-listThumb)/2)
-	img := r.tt.Image()
-	x0, y0, x1, y1 = sx+listThumb, sy+listThumb, sx-1, sy-1
-	for y := sy; y < sy+listThumb; y++ {
-		for x := sx; x < sx+listThumb; x++ {
-			if c := img.RGBAAt(x, y); c.R > 150 && c.G < 120 && c.B < 90 { // the cover's 200, 80, 40
-				x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
-			}
-		}
-	}
-	return x0 - sx, y0 - sy, x1 - sx + 1, y1 - sy + 1
-}
-
-// A list thumbnail keeps the shape of its picture, never a square cut of it
-// enlarged to fill the slot: the cover that is square fills the
-// slot, and art that is wide (a card with only its banner, a station whose own
-// art is a 4:1 banner) is the lead's picture in miniature, at the hero card's
-// shape across the slot. The loader is asked for exactly the box that shows.
-func TestFrontThumbnailsShowTheirPictureWholeAtItsOwnShape(t *testing.T) {
-	src := newCoverSource()
-	cards := heroCards(6)
-	cards[1].Name, cards[1].Art = "Square", services.Art{Medium: artOf(102, 400, 400), Large: artOf(102, 1000, 1000)}
-	cards[2].Name, cards[2].Art = "Station", services.Art{Medium: artOf(103, 400, 100), Large: artOf(103, 1000, 250)}
-	cards[3].Name = "Banner only" // no cover: its row falls back to the banner
-	cards[5].Name, cards[5].Art = "Poster", services.Art{Medium: artOf(105, 300, 400), Large: artOf(105, 750, 1000)}
+// The lead's caption carries what Apple's hero card does: the name, Apple's
+// one line about the card (Description) and the byline. The line's row is
+// kept for a card without one, so the queue under the lead (in a narrow
+// window) does not move as the lead rotates.
+func TestFrontLeadShowsApplesLineAndKeepsItsRowForACardWithout(t *testing.T) {
 	api := &fakeAPI{}
-	r := newRig(t, "/new", withAPI(api), wideWindow())
-	loader := kit.NewArtLoaderFrom(src, r.h.Main.Post)
-	t.Cleanup(func() { loader.Close(); loader.Wait() })
-	r.env.Art = loader
-	r.tt.Art = append(r.tt.Art, loader)
+	r := newRig(t, "/new", withAPI(api), withSize(708, 1253))
+	cards := heroCards(5)
+	cards[0].Description = "Remi Wolf drowns her sorrows in “Champagne”."
+	cards[0].Caption, cards[0].Subtitle = "Updated playlist", "Apple Music Pop"
 	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
-	r.tt.Until("the front page", r.tt.Shows("Featured", "Square", "Station", "Banner only"))
+	r.tt.Until("the front page", r.tt.Shows("Featured", "Remi Wolf drowns her sorrows in “Champagne”.", "Updated playlist · Apple Music Pop"))
 	r.d.front.paused = true
-	r.tt.Until("the thumbnails", func() bool {
-		return len(src.requested(artOf(102, 400, 400))) > 0 && len(src.requested(artOf(103, 400, 100))) > 0 &&
-			len(src.requested(bannerOf(4))) > 0
-	})
-	r.settle()
-	// The strip is four cards a page: the poster is on the second, which the
-	// lead's moving to its fifth card turns to.
-	check := func(tc thumbCase) {
-		if got := src.requested(tc.src); !slices.Contains(got, tc.ask) {
-			t.Errorf("%s: the thumbnail was asked for at %v, want %d×%d", tc.name, got, tc.ask[0], tc.ask[1])
-		}
-		x0, y0, x1, y1 := r.thumbRect(tc.name)
-		if w, h := x1-x0, y1-y0; w != tc.w || h != tc.h {
-			t.Errorf("%s: the picture covers %d×%d of its slot, want %d×%d", tc.name, w, h, tc.w, tc.h)
-		}
-		// Centred in the slot.
-		if l, r, tp, b := x0, listThumb-x1, y0, listThumb-y1; abs(l-r) > 1 || abs(tp-b) > 1 {
-			t.Errorf("%s: the picture sits %d, %d, %d, %d from the slot's edges, want it centred", tc.name, l, tp, r, b)
-		}
+	r.tt.Drain()
+	lead, ok := access.Read(t, r.tt.Tester).Find(ui.RoleLink, "Card 1")
+	if !ok || !strings.HasPrefix(lead.Description, "Remi Wolf drowns her sorrows") {
+		t.Errorf("the lead's description %q does not start with Apple's line", lead.Description)
 	}
-
-	for _, tc := range []thumbCase{
-		{"Square", artOf(102, 400, 400), [2]int{64, 64}, 64, 64},
-		{"Station", artOf(103, 400, 100), [2]int{64, 37}, 64, 37},
-		{"Banner only", bannerOf(4), [2]int{64, 37}, 64, 37},
-	} {
-		check(tc)
+	// Card 3's tile: the queue holds the first four whichever of them leads.
+	queue := func() float32 {
+		_, y := r.tileCentre("Card 3")
+		return y
 	}
-	r.d.front.at = 4
-	r.tt.Until("the poster", func() bool { return len(src.requested(artOf(105, 300, 400))) > 0 })
-	r.settle()
-	check(thumbCase{"Poster", artOf(105, 300, 400), [2]int{48, 64}, 48, 64})
-}
-
-// thumbCase is a strip thumbnail: the card's name, its picture, what the
-// loader is asked for (the box) and what the picture covers of the 64×64 slot.
-type thumbCase struct {
-	name, src string
-	ask       [2]int
-	w, h      int
-}
-
-func abs(n int) int {
-	if n < 0 {
-		return -n
+	before := queue()
+	r.d.front.choose(1) // a card with no line
+	r.tt.Drain()
+	r.tt.Drain()
+	if r.tt.HasText("Remi Wolf drowns her sorrows in “Champagne”.") {
+		t.Error("the line of the card before stayed")
 	}
-	return n
+	if after := queue(); after != before {
+		t.Errorf("the queue moved from y=%v to y=%v when the lead had no line", before, after)
+	}
 }

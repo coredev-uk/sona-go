@@ -15,13 +15,20 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Start Sona when you log in | Adds Sona to your desktop's startup applications. | Needs Sona.app on _macOS_, not a source build. On _Windows_ Task Manager's startup apps list it; a portable copy must stay in its folder, or be turned on again after a move. |
 | Start in the tray | Starts Sona without a window at login, ready to play from the tray or your media keys. Shown when Start Sona when you log in is on. | Needs a tray icon |
 | Open on | Chooses the page Sona shows when it starts: the page you were last on, or a fixed page. Your queue is always kept. | |
-| Open Apple Music links in Sona | Makes Sona the app that opens `music://` and `itms://` links. Links that start with `https://` stay with your browser. | Needs Sona.app on _macOS_; needs Sona's desktop entry on _Linux_, so not a source build, Flatpak or AppImage that isn't integrated. Not on _Windows_ yet. |
+| Open Apple Music links in Sona | Makes Sona the app that opens `music://` and `itms://` links. Links that start with `https://` stay with your browser. | Needs Sona.app on _macOS_; needs Sona's desktop entry on _Linux_, so not a source build, Flatpak or AppImage that isn't integrated. On _Windows_ an app you chose in Settings → Apps → Default apps, or the Apple Music app, keeps the links until you choose Sona there. |
 | First-run setup | Runs "Set up Sona again": the steps of [first-run setup](/guide/first-run/). | |
 | When the window is closed | Keeps playing in the background or quits Sona. In the background, Sona stays in the system tray. | Without a tray icon Sona quits. |
 | Title bar | Chooses Automatic, Sona's title bar with or without window buttons, or the desktop's. Applies the next time Sona starts. | _Linux_ _Windows_ |
 | Window size | Shows the size Sona opens at. Reset size puts it back to the default. | |
 | Track notifications | Shows the song and artist, with artwork and a Next button, when a track starts. Not shown while Sona's window is in front. | _macOS_ and _Windows_ show the song and artist only, and a click opens Sona. _macOS_ needs Sona.app. _Linux_ needs a notification service. |
 | Stay awake while playing | Stops the computer from suspending on its own while music plays. The screen can still lock and turn off. | On _Linux_ needs logind or the desktop portal. |
+
+### New releases
+
+| Setting | What it does | Platform |
+| --- | --- | --- |
+| Track new releases from favourite artists | Once a day, looks at the artists you've favourited and lists their new albums, EPs and singles in [New releases](/guide/new-releases/). Off until you turn it on. Releases that are out when you turn it on aren't listed, only the ones that come out afterwards. | |
+| Also show a desktop notification | Shows a notification for a new release, or one summary when several arrive together. Click it to open the release. Needs the first setting. | Needs a notification service on _Linux_ and Sona.app on _macOS_. Not on _Windows_ yet. |
 
 ### Updates
 
@@ -103,7 +110,7 @@ Lists every shortcut by group. Select one to record new keys, with a warning whe
 | Artwork cache | Limits the covers and backdrops kept on this computer. Above the limit, the artwork shown least recently is removed first. | |
 | Catalogue cache | Clear caches removes the Apple Music pages and the artwork cache. Your library and settings stay. | |
 | Library database | Compact now gives free space back to the disk. Sona also optimises it when it is idle and nothing is playing. | |
-| Settings file | Exports your settings to a file and imports one from another computer. The window size, audio output, rendering fixes and connected accounts stay with this computer. | Needs a file chooser: not on _Windows_ yet. |
+| Settings file | Exports your settings to a file and imports one from another computer. The window size, audio output, rendering fixes and connected accounts stay with this computer. | On _Linux_ needs the desktop portal's file chooser. |
 
 ## Diagnostics
 

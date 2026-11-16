@@ -29,6 +29,7 @@ const playlistsPath = "/library/playlists"
 type playlistsAPI interface {
 	Playlist(ctx context.Context, id string) (services.PlaylistDetail, error)
 	Collaboration(ctx context.Context, id string) (services.PlaylistCollaboration, error)
+	CheckRemote(ctx context.Context, id string) (bool, error)
 	Suggestions(ctx context.Context, id string) ([]services.Song, error)
 	Tree(ctx context.Context) (services.PlaylistTree, error)
 	RecentTargets(ctx context.Context) ([]string, error)
@@ -164,6 +165,26 @@ func (p *playlists) detail(id string) store.Result[services.PlaylistDetail] {
 	return store.Use(p.env.Queries, keyDetail(id), func(ctx context.Context) (services.PlaylistDetail, error) {
 		return p.api.Playlist(ctx, id)
 	}, store.Options{Stale: store.Forever})
+}
+
+// keyRemote is a library playlist's check for changes made on another
+// device. It is not under keyDetail: a change it finds invalidates the
+// detail, which must not ask again.
+func keyRemote(id string) store.Key { return store.Key{"library", "playlist-remote", id} }
+
+// remote asks Apple, as a library playlist page opens (a mount), whether the
+// playlist changed on another device; the service stores the new copy and
+// announces it ("playlists:changed"), which refreshes the detail. The stored
+// copy stays on screen meanwhile. Nothing is asked while edits made here are
+// still on their way, so they are not overwritten. Network, once a minute,
+// no retry.
+func (p *playlists) remote(id string) store.Result[bool] {
+	return store.Use(p.env.Queries, keyRemote(id), func(ctx context.Context) (bool, error) {
+		if p.edits.editing(id) {
+			return false, nil
+		}
+		return p.api.CheckRemote(ctx, id)
+	}, store.Options{Stale: time.Minute, NoRetry: true})
 }
 
 // collaboration is who works on a shared user playlist (network, 5 min, no

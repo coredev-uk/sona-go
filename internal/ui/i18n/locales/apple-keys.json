@@ -22,6 +22,10 @@
     }
   },
   {
+    "message": "Add to Playlist",
+    "key": "ASE.Web.Music.ContextualMenu.AddToPlaylist"
+  },
+  {
     "message": "Add to library",
     "key": "ASE.Web.Music.VO.AddToLibraryLabel"
   },
@@ -30,7 +34,7 @@
     "key": "ASE.Web.Music.ContextualMenu.AddToPlaylist"
   },
   {
-    "message": "Added by",
+    "message": "Added By",
     "key": "FUSE.SongsListHeaders.contributor"
   },
   {
@@ -169,7 +173,7 @@
     "key": "ASE.Web.Music.ContextualMenu.Edit"
   },
   {
-    "message": "Edit playlist",
+    "message": "Edit Playlist",
     "key": "ASE.Web.Music.Library.PlaylistEdition.Header"
   },
   {
@@ -265,7 +269,7 @@
     }
   },
   {
-    "message": "Music videos",
+    "message": "Music Videos",
     "key": "ASE.Web.Music.SideBar.MusicVideos"
   },
   {
@@ -282,6 +286,10 @@
   {
     "message": "Name",
     "key": "ASE.Web.Music.SharePlay.Name"
+  },
+  {
+    "message": "New Playlist",
+    "key": "ASE.Web.Music.ContextualMenu.NewPlaylist"
   },
   {
     "message": "New playlist",
@@ -306,6 +314,10 @@
   {
     "message": "Not now",
     "key": "FUSE.NotNow"
+  },
+  {
+    "message": "Now Playing",
+    "key": "ASE.Web.IPod.Menu.NowPlaying"
   },
   {
     "message": "Now playing",
@@ -416,12 +428,16 @@
     "key": "ASE.Web.IPod.Status.Ready"
   },
   {
-    "message": "Recently added",
+    "message": "Recently Added",
     "key": "ASE.Web.Music.Sorts.RecentlyAdded"
   },
   {
-    "message": "Recently searched",
+    "message": "Recently Searched",
     "key": "FUSE.Search.RecentlySearched"
+  },
+  {
+    "message": "Recently added",
+    "key": "ASE.Web.Music.Sorts.RecentlyAdded"
   },
   {
     "message": "Refresh",
@@ -438,6 +454,14 @@
   {
     "message": "Remove from playlist",
     "key": "ASE.Web.Music.ContextualMenu.RemoveFromPlaylist"
+  },
+  {
+    "message": "Repeat All",
+    "key": "ASE.Web.IPod.NowPlaying.RepeatAll"
+  },
+  {
+    "message": "Repeat One",
+    "key": "ASE.Web.IPod.NowPlaying.RepeatOne"
   },
   {
     "message": "Repeat all",
@@ -542,7 +566,7 @@
     "key": "ASE.Web.Music.Shared.ContextualMenu.SuggestLess"
   },
   {
-    "message": "Suggested songs",
+    "message": "Suggested Songs",
     "key": "ASE.Web.Music.Library.Playlists.Suggested"
   },
   {
@@ -562,11 +586,11 @@
     "key": "ASE.Web.Music.DatePicker.Preset.Today"
   },
   {
-    "message": "Top 100 songs by country",
+    "message": "Top 100 Songs by Country",
     "key": "FUSE.TopCharts.SectionTitle.Country"
   },
   {
-    "message": "Top 25 songs by city",
+    "message": "Top 25 Songs by City",
     "key": "FUSE.TopCharts.SectionTitle.City"
   },
   {
@@ -620,7 +644,7 @@
     "key": "ASE.Web.Music.UpNext.Heading"
   },
   {
-    "message": "Upcoming concerts",
+    "message": "Upcoming Concerts",
     "key": "MusicUI.ArtistConcertsPage.Eyebrow"
   },
   {

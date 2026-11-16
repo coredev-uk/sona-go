@@ -236,7 +236,7 @@ func newCharts(t *testing.T, path string, page services.ChartsPage, opts ...rigO
 
 func TestChartsShowTopSongsRankedAndTheOtherChartsAsShelves(t *testing.T) {
 	r, _ := newCharts(t, "/charts", chartsFixture())
-	r.tt.Until("the charts", r.tt.Shows("Charts", "Top songs", "Song 9", "Top 25 songs by city", "Top albums", "Top music videos", "Genre", "All genres"))
+	r.tt.Until("the charts", r.tt.Shows("Charts", "Top Songs", "Song 9", "Top 25 Songs by City", "Top Albums", "Top Music Videos", "Genre", "All genres"))
 	if r.tt.HasText("Song 10") {
 		t.Error("the overview lists more than the ten top songs")
 	}
@@ -278,7 +278,7 @@ func TestChartsSeeAllOpensTheChartInFull(t *testing.T) {
 	page.Genre = ""
 	page.Charts = page.Charts[1:] // no top songs: the first See all is the city chart's
 	r, _ := newCharts(t, "/charts?genre=14", page)
-	r.tt.Until("the charts", r.tt.Shows("Top 25 songs by city", "See all"))
+	r.tt.Until("the charts", r.tt.Shows("Top 25 Songs by City", "See all"))
 	if err := r.tt.Click("See all"); err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +288,7 @@ func TestChartsSeeAllOpensTheChartInFull(t *testing.T) {
 	}
 
 	r2, _ := newCharts(t, "/charts", chartsFixture())
-	r2.tt.Until("the charts", r2.tt.Shows("Top songs", "See all"))
+	r2.tt.Until("the charts", r2.tt.Shows("Top Songs", "See all"))
 	if err := r2.tt.Click("See all"); err != nil {
 		t.Fatal(err)
 	}
@@ -300,25 +300,25 @@ func TestChartsSeeAllOpensTheChartInFull(t *testing.T) {
 
 func TestChartsTopSongsPlayAndShuffleTheFirstPageWithTheChartTitleAsSource(t *testing.T) {
 	r, _ := newCharts(t, "/charts", chartsFixture())
-	r.tt.Until("the charts", r.tt.Shows("Play Top songs"))
-	if err := r.tt.Click("Play Top songs"); err != nil {
+	r.tt.Until("the charts", r.tt.Shows("Play Top Songs"))
+	if err := r.tt.Click("Play Top Songs"); err != nil {
 		t.Fatal(err)
 	}
 	got := r.waitPlays(1)[0]
-	if len(got.refs) != 12 || got.start != 0 || got.from != (services.PlayFrom{ID: "Top songs"}) {
+	if len(got.refs) != 12 || got.start != 0 || got.from != (services.PlayFrom{ID: "Top Songs"}) {
 		t.Errorf("played %d songs from %d as %+v: the chart's first page is the queue", len(got.refs), got.start, got.from)
 	}
 	if err := r.tt.Click("Shuffle"); err != nil {
 		t.Fatal(err)
 	}
-	if got := r.waitPlays(2)[1]; len(got.refs) != 12 || got.from.ID != "Top songs" {
+	if got := r.waitPlays(2)[1]; len(got.refs) != 12 || got.from.ID != "Top Songs" {
 		t.Errorf("shuffled %+v", got)
 	}
 }
 
 func TestChartsTopSongsRowsAreOneTabStopTheArrowsMoveAndEnterPlaysFromTheRow(t *testing.T) {
 	r, _ := newCharts(t, "/charts", chartsFixture())
-	r.tt.Until("the charts", r.tt.Shows("Top songs", "Song 9"))
+	r.tt.Until("the charts", r.tt.Shows("Top Songs", "Song 9"))
 	focus := func() string {
 		if f := access.Read(t, r.tt.Tester).Focus; f != nil {
 			return f.Label
@@ -339,7 +339,7 @@ func TestChartsTopSongsRowsAreOneTabStopTheArrowsMoveAndEnterPlaysFromTheRow(t *
 	}
 	r.tt.Key(0, ui.KeyEnter)
 	got := r.waitPlays(1)[0]
-	if got.start != 1 || len(got.refs) != 12 || got.from != (services.PlayFrom{ID: "Top songs"}) {
+	if got.start != 1 || len(got.refs) != 12 || got.from != (services.PlayFrom{ID: "Top Songs"}) {
 		t.Errorf("Enter played %d songs from %d as %+v", len(got.refs), got.start, got.from)
 	}
 }
@@ -348,8 +348,8 @@ func TestChartsTopSongsWithNoPlayableSongCannotPlay(t *testing.T) {
 	page := chartsFixture()
 	page.Charts[0].Items = []services.Item{songItem(0, false)}
 	r, _ := newCharts(t, "/charts", page)
-	r.tt.Until("the charts", r.tt.Shows("Play Top songs"))
-	_ = r.tt.Click("Play Top songs")
+	r.tt.Until("the charts", r.tt.Shows("Play Top Songs"))
+	_ = r.tt.Click("Play Top Songs")
 	r.tt.Drain()
 	if got := r.play.plays(); len(got) != 0 {
 		t.Errorf("played %+v", got)
@@ -364,7 +364,7 @@ func TestChartsLoadingAndErrorStates(t *testing.T) {
 		t.Error("the loading page has a Genre select")
 	}
 	close(api.block)
-	r.tt.Until("the charts", r.tt.Shows("Top songs"))
+	r.tt.Until("the charts", r.tt.Shows("Top Songs"))
 
 	bad := &fakeAPI{err: applemusic.ErrNotFound}
 	r2 := newRig(t, "/charts", withAPI(bad))
@@ -385,7 +385,7 @@ func TestChartInFullListsSongsAndLoadsPagesOfFiftyAsItNearsTheEnd(t *testing.T) 
 		return services.ItemPage{}
 	}}
 	r := newRig(t, "/charts/songs", withAPI(api))
-	r.tt.Until("the chart", r.tt.Shows("Top songs", "Song 0", "Play Top songs", "Genre"))
+	r.tt.Until("the chart", r.tt.Shows("Top Songs", "Song 0", "Play Top Songs", "Genre"))
 	r.calls(api, "chart-items", 2)
 	want := []string{"charts?", "chart-items/songs/?@50", "chart-items/songs/?@100"}
 	if got := api.asked(); !slices.Equal(got, want) {
@@ -400,7 +400,7 @@ func TestChartInFullOtherChartsAreAGridAndTheGenreNamesTheSubline(t *testing.T) 
 	page := chartsFixture()
 	api := &fakeAPI{charts: page, chartItem: func(string, int) services.ItemPage { return services.ItemPage{} }}
 	r := newRig(t, "/charts/albums?genre=14", withAPI(api), withSize(1132, 900))
-	r.tt.Until("the chart", r.tt.Shows("Top albums", "Pop", "Album 0"))
+	r.tt.Until("the chart", r.tt.Shows("Top Albums", "Pop", "Album 0"))
 	if r.tt.HasText("Play Top albums") {
 		t.Error("a grid chart has Play")
 	}
@@ -412,7 +412,7 @@ func TestChartInFullOtherChartsAreAGridAndTheGenreNamesTheSubline(t *testing.T) 
 func TestChartInFullGenreSelectKeepsTheChartID(t *testing.T) {
 	api := &fakeAPI{charts: chartsFixture()}
 	r := newRig(t, "/charts/cityCharts?chartId=135", withAPI(api), withSize(1132, 900))
-	r.tt.Until("the chart", r.tt.Shows("Top 25 songs by city", "Genre"))
+	r.tt.Until("the chart", r.tt.Shows("Top 25 Songs by City", "Genre"))
 	if err := r.tt.Click("Genre"); err != nil {
 		t.Fatal(err)
 	}
@@ -444,7 +444,7 @@ func TestChartInFullLoadingAndErrorStates(t *testing.T) {
 	r := newRig(t, "/charts/albums", withAPI(api))
 	r.tt.Until("the skeleton", r.tt.Shows("Loading"))
 	close(api.block)
-	r.tt.Until("the chart", r.tt.Shows("Top albums"))
+	r.tt.Until("the chart", r.tt.Shows("Top Albums"))
 
 	bad := &fakeAPI{err: applemusic.ErrNotFound}
 	r2 := newRig(t, "/charts/albums", withAPI(bad))

@@ -140,7 +140,7 @@ func TestEditorConflictToastsAndRefetches(t *testing.T) {
 	r := editingRig(t)
 	r.api.err = services.ErrConflict
 	r.tt.Key(ui.Alt, ui.KeyDown)
-	r.shows("This playlist changed on another device", "Here is its latest version. Make the change again.")
+	r.shows("This Playlist Changed on Another Device", "Here is its latest version. Make the change again.")
 	r.tt.Until("the order is back", func() bool { return slices.Equal(r.order(abc...), abc) })
 	// The refetch asked Go for the playlist again.
 	if n := len(r.calls("Playlist p.1")); n < 2 {

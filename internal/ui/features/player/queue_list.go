@@ -467,8 +467,8 @@ func (p *player) queueBody(c *ui.Context, st *queueList, inView, over bool, px f
 			body := ui.Column(c.Key("body")).FillWidth()
 			body.Children(func() {
 				if nowRow >= 0 {
-					p.queueHead(c, "head-now", queueNowHeadH, i18n.T("Now playing"), false, nil)
-					section("list-now", i18n.T("Now playing"), nowRow, nowRow+1)
+					p.queueHead(c, "head-now", queueNowHeadH, i18n.T("Now Playing"), false, nil)
+					section("list-now", i18n.T("Now Playing"), nowRow, nowRow+1)
 				}
 				if nextHead {
 					var detail func()

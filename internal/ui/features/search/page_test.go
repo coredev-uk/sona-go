@@ -362,13 +362,13 @@ func (r *pageRig) clickText(text string) {
 
 func TestSearchPageWithoutAQueryShowsTheBrowseCategories(t *testing.T) {
 	r := newPageRig(t, "/search", rigOpts{signedIn: true})
-	r.tt.Until("the categories", r.tt.Shows("Search", "Browse categories", "Alternative", "Ibiza"))
+	r.tt.Until("the categories", r.tt.Shows("Search", "Browse Categories", "Alternative", "Ibiza"))
 	for _, w := range []string{"Search in", "Apple Music", "Library"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("page lacks %q", w)
 		}
 	}
-	if r.tt.HasText("Recently searched") {
+	if r.tt.HasText("Recently Searched") {
 		t.Error("no recent searches yet, but the shelf shows")
 	}
 }
@@ -385,7 +385,7 @@ func TestSearchPageBrowseOpensACategoryAndRemembersIt(t *testing.T) {
 
 func TestSearchPageBrowseFailureOffersRetry(t *testing.T) {
 	r := newPageRig(t, "/search", rigOpts{signedIn: true, setup: func(a *pageApple) { a.fail["/v1/recommendations/gb"] = 400 }})
-	r.tt.Until("the failure", r.tt.Shows("Browse categories", "Couldn't load the categories"))
+	r.tt.Until("the failure", r.tt.Shows("Browse Categories", "Couldn't load the categories"))
 	r.apple.setFail("/v1/recommendations/gb", 0)
 	r.click("Try again")
 	r.tt.Until("the categories", r.tt.Shows("Alternative"))
@@ -398,14 +398,14 @@ func TestSearchPageBrowseWaitsForTheAccountState(t *testing.T) {
 	// A Bare-less signed-out Core still knows its state, so the categories
 	// are asked for: Browse is shown and (without a storefront) fails.
 	r := newPageRig(t, "/search", rigOpts{})
-	r.tt.Until("the shelf", r.tt.Shows("Browse categories"))
+	r.tt.Until("the shelf", r.tt.Shows("Browse Categories"))
 }
 
 func TestSearchPageTitleIsTheTerm(t *testing.T) {
 	r := newPageRig(t, "/search?q=%20blue%20", rigOpts{signedIn: true})
-	r.tt.Until("the results", r.tt.Shows("“blue”", "Top results"))
+	r.tt.Until("the results", r.tt.Shows("“blue”", "Top Results"))
 	r2 := newPageRig(t, "/search?q=%20%20", rigOpts{signedIn: true})
-	r2.tt.Until("the page", r2.tt.Shows("Search", "Browse categories"))
+	r2.tt.Until("the page", r2.tt.Shows("Search", "Browse Categories"))
 	if r2.tt.HasText("“”") {
 		t.Error("a blank term got a title")
 	}
@@ -413,7 +413,7 @@ func TestSearchPageTitleIsTheTerm(t *testing.T) {
 
 func TestScopeSwitchReplacesTheHistoryKeepingTheTerm(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
-	r.tt.Until("the results", r.tt.Shows("Top results"))
+	r.tt.Until("the results", r.tt.Shows("Top Results"))
 	r.click("Library")
 	if got := r.loc(); got != "/search?q=blue&scope=library" {
 		t.Errorf("after Library: %q", got)
@@ -435,9 +435,9 @@ func TestScopeSwitchReplacesTheHistoryKeepingTheTerm(t *testing.T) {
 
 func TestCatalogResultsKeepApplesOrderAndTitles(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
-	r.tt.Until("the results", r.tt.Shows("Top results", "Artists", "Albums", "Songs", "Playlists"))
+	r.tt.Until("the results", r.tt.Shows("Top Results", "Artists", "Albums", "Songs", "Playlists"))
 	prev := float32(-1)
-	for _, title := range []string{"Top results", "Artists", "Albums", "Songs", "Playlists"} {
+	for _, title := range []string{"Top Results", "Artists", "Albums", "Songs", "Playlists"} {
 		y := r.position(title)
 		if y <= prev {
 			t.Errorf("%q at y=%v is not below the group before (y=%v)", title, y, prev)
@@ -448,7 +448,7 @@ func TestCatalogResultsKeepApplesOrderAndTitles(t *testing.T) {
 
 func TestCatalogTopResultsAreRowsWithKindAndSubtitle(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
-	r.tt.Until("the results", r.tt.Shows("Top results"))
+	r.tt.Until("the results", r.tt.Shows("Top Results"))
 	for _, w := range []string{"Artist", "Album · Blue Band", "Song · Blue Band"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("top results lack %q; texts %q", w, r.tt.Texts())
@@ -508,7 +508,7 @@ func TestCatalogPlayingASongRemembersTheTermAndTheSong(t *testing.T) {
 
 func TestTopResultRowsOpenPagesAndRememberTheTermAndItem(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
-	r.tt.Until("the results", r.tt.Shows("Top results", "Album · Blue Band"))
+	r.tt.Until("the results", r.tt.Shows("Top Results", "Album · Blue Band"))
 	r.click("Blue Band")
 	// The first top result is the artist.
 	if got := r.loc(); got != "/artist/9" {
@@ -606,11 +606,11 @@ func TestCatalogLoadingRowsThenResultsAndPreviousResultsStay(t *testing.T) {
 	if _, ok := r.tt.Find("Searching"); !ok {
 		t.Errorf("no loading rows while the search is out; texts %q", r.tt.Texts())
 	}
-	if r.tt.HasText("Top results") {
+	if r.tt.HasText("Top Results") {
 		t.Error("results before the answer")
 	}
 	close(gate)
-	r.tt.Until("the results", r.tt.Shows("Top results"))
+	r.tt.Until("the results", r.tt.Shows("Top Results"))
 	// Another term: the results of the last stay while it loads.
 	next := make(chan struct{})
 	r.apple.mu.Lock()
@@ -621,7 +621,7 @@ func TestCatalogLoadingRowsThenResultsAndPreviousResultsStay(t *testing.T) {
 	// (Same term is cached; a new one asks again.)
 	r.router.Replace("/search?q=slow%20again")
 	r.tt.Drain()
-	if !r.tt.HasText("Top results") {
+	if !r.tt.HasText("Top Results") {
 		t.Errorf("the last results went while the next load; texts %q", r.tt.Texts())
 	}
 	close(next)
@@ -652,7 +652,7 @@ func TestCatalogFailureOffersRetry(t *testing.T) {
 	r.tt.Until("the error", r.tt.Shows("Couldn't search Apple Music"))
 	r.apple.setFail("/v1/catalog/gb/search", 0)
 	r.click("Try again")
-	r.tt.Until("the results", r.tt.Shows("Top results"))
+	r.tt.Until("the results", r.tt.Shows("Top Results"))
 }
 
 func TestCatalogWithNothingFoundSaysSo(t *testing.T) {
@@ -665,7 +665,7 @@ func TestLibraryScopeWithoutAQueryExplainsItself(t *testing.T) {
 	r := newPageRig(t, "/search?scope=library", rigOpts{})
 	r.tt.Until("the empty state", r.tt.Shows("Search your library",
 		"Songs, albums, artists and playlists synced to this computer, matched as you type each word."))
-	if r.tt.HasText("Browse categories") {
+	if r.tt.HasText("Browse Categories") {
 		t.Error("the library scope shows the catalogue's categories")
 	}
 }
@@ -757,7 +757,7 @@ func TestLibrarySongsToggleShowAllAndFewer(t *testing.T) {
 
 func TestFocusRequestMovesIntoTheFirstResult(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true})
-	r.tt.Until("the results", r.tt.Shows("Top results", "Album · Blue Band"))
+	r.tt.Until("the results", r.tt.Shows("Top Results", "Album · Blue Band"))
 	r.s.field.resultsReq = true
 	r.tt.Drain()
 	r.tt.Drain()
@@ -775,7 +775,7 @@ func TestPageGoldens(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 1132, height: 1500}, opts...)
-			r.tt.Until("the results", r.tt.Shows("Top results", "Songs", "Playlists", "Blue Song 8"))
+			r.tt.Until("the results", r.tt.Shows("Top Results", "Songs", "Playlists", "Blue Song 8"))
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), name)
 		})
@@ -793,15 +793,17 @@ func TestPageSongGoldens(t *testing.T) {
 			suffix, opts = "_dark", []uitest.Option{uitest.Dark()}
 		}
 		t.Run("best"+suffix, func(t *testing.T) {
-			r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 1132, height: 640,
-				setup: func(a *pageApple) { a.songFirst = true }}, opts...)
-			r.tt.Until("the results", r.tt.Shows("Top results", "Song · Blue Band"))
+			r := newPageRig(t, "/search?q=blue", rigOpts{
+				signedIn: true, width: 1132, height: 640,
+				setup: func(a *pageApple) { a.songFirst = true },
+			}, opts...)
+			r.tt.Until("the results", r.tt.Shows("Top Results", "Song · Blue Band"))
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), "page_song_best"+suffix)
 		})
 		t.Run("row"+suffix, func(t *testing.T) {
 			r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 1132, height: 640}, opts...)
-			r.tt.Until("the results", r.tt.Shows("Top results", "Song · Blue Band"))
+			r.tt.Until("the results", r.tt.Shows("Top Results", "Song · Blue Band"))
 			rect, ok := r.tt.Find("Song · Blue Band")
 			if !ok {
 				t.Fatal("the song row is not shown")
@@ -822,7 +824,7 @@ func TestPageStateGoldens(t *testing.T) {
 		gate       bool
 		shows      []string
 	}{
-		{"page_narrow_light", "/search?q=blue", 760, 1000, false, []string{"Top results", "Songs", "Blue Song 5"}},
+		{"page_narrow_light", "/search?q=blue", 760, 1000, false, []string{"Top Results", "Songs", "Blue Song 5"}},
 		{"page_empty_light", "/search?q=nothing", 1132, 420, false, []string{"Nothing on Apple Music for “nothing”"}},
 		{"page_loading_light", "/search?q=slow", 1132, 640, true, nil},
 	}
@@ -850,8 +852,8 @@ func TestPageStateGoldens(t *testing.T) {
 func TestResultsRailListsTheGroupsAndJumpsToOne(t *testing.T) {
 	// A short window: the songs are below the fold.
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 1132, height: 500})
-	r.tt.Until("the rail", r.tt.Shows("Top results", "Songs, 10"))
-	for _, label := range []string{"Top results, 3", "Artists, 1", "Albums, 1", "Songs, 10", "Playlists, 1"} {
+	r.tt.Until("the rail", r.tt.Shows("Top Results", "Songs, 10"))
+	for _, label := range []string{"Top Results, 3", "Artists, 1", "Albums, 1", "Songs, 10", "Playlists, 1"} {
 		if _, ok := r.tt.Find(label); !ok {
 			t.Errorf("the rail lacks %q; texts %q", label, r.tt.Texts())
 		}
@@ -876,9 +878,9 @@ func TestResultsRailListsTheGroupsAndJumpsToOne(t *testing.T) {
 
 func TestResultsNarrowKeepTheGroupsAsARowAboveThem(t *testing.T) {
 	r := newPageRig(t, "/search?q=blue", rigOpts{signedIn: true, width: 760, height: 900})
-	r.tt.Until("the chips", r.tt.Shows("Top results", "Songs, 10"))
+	r.tt.Until("the chips", r.tt.Shows("Top Results", "Songs, 10"))
 	chip, _ := r.tt.Find("Songs, 10")
-	if head := r.position("Top results"); chip.Y >= head {
+	if head := r.position("Top Results"); chip.Y >= head {
 		t.Errorf("the group chips (y=%v) are not above the first group (y=%v)", chip.Y, head)
 	}
 }

@@ -60,6 +60,12 @@ func TestGTAAlbumFixtureSongsFollowThemselves(t *testing.T) {
 	if p.Tracks[0].Playable {
 		t.Fatalf("Track 1 = %+v, want not out", p.Tracks[0])
 	}
+	// Apple credits the 24 placeholders to "unknown": no one is shown.
+	for _, tr := range p.Tracks {
+		if tr.Artist == "unknown" {
+			t.Fatalf("%q is credited to Apple's stand-in %q", tr.Name, tr.Artist)
+		}
+	}
 
 	// From midnight on the release day the album is out; the songs Apple
 	// hasn't published yet stay unplayable (no playParams).
@@ -116,18 +122,18 @@ func TestGTAAlbumFixturePlaysTheSongsOut(t *testing.T) {
 }
 
 // The same album pre-added to the library: Apple lists its library songs with
-// the catalog's playParams and dates, so the single without a date plays, and
-// the page the library shows agrees with the song list.
+// the catalog's playParams and dates, so the single without a date plays (the
+// library says it is out), and a placeholder doesn't, nor is it credited to
+// Apple's "unknown".
 func TestGTAAlbumPreAddedSongsFollowThemselves(t *testing.T) {
-	now := localDay(t, "2026-11-14")
-	m := mapper{now: func() time.Time { return now }}
-	ahead := library.ReleaseState{CatalogDate: "2026-11-20", Prerelease: true}
-	flower := library.Song{LibraryID: "i.flower", CatalogID: "6812477273", Name: "Flower In A Hurricane", Album: ahead}
-	track1 := library.Song{LibraryID: "i.1", Name: "Track 1", NoPlayParams: true, Album: ahead}
+	m := mapper{}
+	flower := library.Song{LibraryID: "i.flower", CatalogID: "6812477273", Name: "Flower In A Hurricane", ArtistName: "Morgan Wallen"}
+	track1 := library.Song{LibraryID: "i.1", Name: "Track 1", ArtistName: "unknown", Unreleased: true}
 	if !m.libSong(flower).Playable {
 		t.Fatal("Flower In A Hurricane (playParams, no date) is not playable in the library")
 	}
-	if m.libSong(track1).Playable {
-		t.Fatal("Track 1 (no playParams, album ahead) is playable in the library")
+	got := m.libSong(track1)
+	if got.Playable || got.Artist != "" {
+		t.Fatalf("Track 1 = playable %v, artist %q: want a song not out, credited to no one", got.Playable, got.Artist)
 	}
 }

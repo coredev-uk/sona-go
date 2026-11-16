@@ -127,7 +127,7 @@ func TestScalesFollowDesignMD(t *testing.T) {
 }
 
 // Sona's own tokens keep every floor Validate holds a theme to
-// (docs/accessibility.md: text 4.5:1 up to --active, control-line 3:1).
+// (site/src/content/docs/contributing/accessibility.md: text 4.5:1 up to --active, control-line 3:1).
 func TestSonasOwnTokensValidate(t *testing.T) {
 	for _, dark := range []bool{false, true} {
 		tk, err := state.base.Tokens(dark)

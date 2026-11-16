@@ -1,7 +1,9 @@
 package kit
 
 import (
+	"math"
 	"strconv"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 
@@ -134,7 +136,8 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 	}
 	cover := banner != ""
 
-	fh := width / ratio
+	// Whole DIPs, so the disc's 12 DIP inset from the frame's bottom is exact.
+	fh := float32(math.Round(float64(width / ratio)))
 	// The card is a wrapper holding the opener and, beside it, the play
 	// control and the more button: a button or a link is a leaf on the
 	// accessibility tree, so controls inside it would not be on it.
@@ -142,13 +145,21 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 	hot := w.Hovered() || w.FocusWithin()
 	target, hasTarget := ActionItemOf(it, ctx.Players)
 	more := hasTarget && ctx.Menus != nil
-	canPlay := ctx.Players.CanPlay(it)
+	// A station with no page plays when the card is opened: the card is that
+	// one button and there is no second disc.
+	direct := PlaysWhenOpened(it, ctx.Players)
+	canPlay := ctx.Players.CanPlay(it) && !direct
 
+	web := OpensInBrowser(it, ctx.Players)
 	var card ui.Element
 	w.Children(func() {
 		card = ui.ButtonBase(c.Key("open")).Column().AlignItems(ui.Stretch).Justify(ui.Start).Label(it.Name)
 		if link != "" {
 			card.Role(ui.RoleLink)
+		} else if web {
+			card.Role(ui.RoleLink).Label(WebCueLabel(it.Name))
+		} else if direct {
+			card.Role(ui.RoleButton).Label(StationLabel(it, ctx))
 		}
 		card.Children(func() {
 			bg := theme.C("hover")
@@ -174,26 +185,46 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 				if card.Hovered() {
 					name.Underline()
 				}
+				if web {
+					WebCue(c)
+				}
+				if direct {
+					StationCue(c, StationPlaying(it, ctx), hot)
+				}
 				if more {
 					ui.Box(c.Key("more-room")).Size(24, 1).Shrink(0) // where the more button sits
 				}
 			})
-			if sub := ItemSubtitle(it); sub != "" {
-				sec := tk.Type["sub"]
+			sub := ItemSubtitle(it)
+			sec := tk.Type["sub"]
+			switch {
+			case it.Description != "":
+				// A hero card: the byline on one line, then Apple's line
+				// about the card in ink, as on music.apple.com.
+				parts := []string{}
+				if sub != "" {
+					ui.Text(c, sub).FontSize(sec.Size).FixedLineHeight(sec.LineHeight).TextColor(theme.C("ink-muted")).
+						SingleLine().TextAlign(ui.Start)
+					parts = append(parts, sub)
+				}
+				ui.Text(c, it.Description).FontSize(sec.Size).FixedLineHeight(sec.LineHeight).TextColor(theme.C("ink")).
+					MaxLines(2).TextAlign(ui.Start).Margin(2, 0, 0, 0)
+				// Inside the opener, read as one piece named by its label:
+				// the lines are its description.
+				card.Description(strings.Join(append(parts, it.Description), ". "))
+			case sub != "":
 				ui.Text(c, sub).FontSize(sec.Size).FixedLineHeight(sec.LineHeight).TextColor(theme.C("ink-muted")).
 					MaxLines(2).TextAlign(ui.Start)
 				// The subtitle is drawn inside the opener, which is read as
 				// one piece named by its label: it is its description.
 				card.Description(sub)
-			} else {
+			default:
 				ui.Box(c).Height(18)
 			}
 		})
 		if canPlay {
 			play := PlayButton(c.Key("play"), i18n.T("Play {name}", "name", it.Name), 40).Absolute().Left(12).Top(fh - 12 - 40)
-			if !hot && !play.Focused() {
-				play.Opacity(0)
-			}
+			Fade(play, hot || play.Focused())
 			if play.Clicked() {
 				ctx.Players.PlayItem(it)
 			}
@@ -203,7 +234,7 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 				Absolute().Right(0).Top(fh + 6)
 		}
 	})
-	if card.Clicked() {
+	if ClickOnce(card) {
 		ctx.opened(it)
 		if link != "" {
 			ctx.nav(link)

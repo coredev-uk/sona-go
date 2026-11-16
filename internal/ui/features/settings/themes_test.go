@@ -19,7 +19,7 @@ func themeRig(t *testing.T) (*rig, *fakeThemes) {
 	var f *fakeThemes
 	// Tall, so that every card and the rows under them are in the window.
 	r := sectionRigSized(t, "appearance", 2400, func(s *settings) { f = withFakeThemes(s) })
-	r.tt.Until("the gallery", r.tt.Shows("Community palettes", "Open themes folder"))
+	r.tt.Until("the gallery", r.tt.Shows("Community Palettes", "Open themes folder"))
 	return r, f
 }
 
@@ -71,7 +71,7 @@ func TestA11yThemeGalleryIsOneRadioGroup(t *testing.T) {
 			headings = append(headings, n.Label)
 		}
 	}
-	if !slices.Equal(headings, []string{"Sona's own", "Community palettes"}) {
+	if !slices.Equal(headings, []string{"Sona's Own", "Community Palettes"}) {
 		t.Errorf("headings %q", headings)
 	}
 	// One stop of Tab for the whole group.
@@ -99,10 +99,11 @@ func TestA11yThemeGalleryIsOneRadioGroup(t *testing.T) {
 	})
 	r.tt.Key(0, ui.KeyLeft)
 	r.saved("graphite again", func(s config.Settings) bool { return s.ThemeID == "graphite" })
-	tr = access.Read(t, r.tt.Tester)
-	if n, _ := tr.Find(ui.RoleRadio, "Graphite"); !n.Has(access.Checked) {
-		t.Error("the chosen card is not checked")
-	}
+	// The same for the last card: the store has it, the view may not yet.
+	r.tt.Until("graphite checked", func() bool {
+		n, _ := access.Read(t, r.tt.Tester).Find(ui.RoleRadio, "Graphite")
+		return n.Has(access.Checked)
+	})
 }
 
 func TestChoosingAThemeAppliesItAtOnceAndSaves(t *testing.T) {
@@ -160,7 +161,7 @@ func TestUserThemesAreListedWithTheirProblems(t *testing.T) {
 		{Name: "big.json", TooLarge: true},
 	})
 	r.tt.Frame()
-	r.tt.Until("your themes", r.tt.Shows("Your themes", "Mine", "By Ada", "broken.json", "big.json"))
+	r.tt.Until("your themes", r.tt.Shows("Your Themes", "Mine", "By Ada", "broken.json", "big.json"))
 	tr := access.Read(t, r.tt.Tester)
 	for name, want := range map[string]string{
 		"broken.json": "Not a valid theme file",

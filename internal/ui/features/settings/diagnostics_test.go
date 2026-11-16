@@ -257,10 +257,10 @@ func TestDiagnosticsLabelColumnNarrowsBelow960(t *testing.T) {
 func TestDiagnosticsGroupsInOrder(t *testing.T) {
 	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
 	g.native(services.MotionReport{Allowed: true, Setting: true, H264: "probably", Visible: true})
-	g.tt.Until("groups", g.tt.Shows("Developer tools", "Sona", "Library database"))
+	g.tt.Until("groups", g.tt.Shows("Developer Tools", "Sona", "Library Database"))
 	texts := g.tt.Texts()
 	pos := func(s string) int { return slices.Index(texts, s) }
-	order := []string{"Playback", "Motion artwork", "Credentials", "Library database", "Sona", "Developer tools"}
+	order := []string{"Playback", "Motion Artwork", "Credentials", "Library Database", "Sona", "Developer Tools"}
 	last := -1
 	for _, o := range order {
 		p := pos(o)
@@ -279,7 +279,7 @@ func TestDiagnosticsGroupsInOrder(t *testing.T) {
 func TestDiagnosticsHasNoMotionGroupWithoutAPolicy(t *testing.T) {
 	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
 	g.tt.Until("groups", g.tt.Shows("Credentials"))
-	if g.tt.HasText("Motion artwork") {
+	if g.tt.HasText("Motion Artwork") {
 		t.Error("Motion artwork shows without a probe")
 	}
 }
@@ -397,7 +397,7 @@ func TestOpenLogFolder(t *testing.T) {
 
 func TestDeveloperToolsOpensTheInspectorWhereItIsOn(t *testing.T) {
 	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
-	g.tt.Until("row", g.tt.Shows("Developer tools", "Open the inspector"))
+	g.tt.Until("row", g.tt.Shows("Developer Tools", "Open the inspector"))
 	g.reveal("developer-tools")
 	g.click("Open")
 	g.tt.Until("opened", func() bool { return g.dev.count() == 1 })

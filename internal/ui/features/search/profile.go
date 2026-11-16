@@ -79,7 +79,7 @@ func (s *search) profileBody(c *ui.Context, pane *kit.Pane, d services.ProfileDe
 		pl := d.Playlists[i]
 		items[i] = services.Item{Kind: services.ItemPlaylist, ID: pl.ID, Name: pl.Name, Subtitle: pl.Curator, Art: pl.Art, Playlist: &pl}
 	}
-	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Public playlists"), First: true}, func() {
+	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Public Playlists"), First: true}, func() {
 		ctx := s.env.ItemsCtx(s.itemMenus(&v.menus, nil))
 		kit.ItemGrid(c, &v.grid, len(items), func(i int) *services.Item { return &items[i] }, ctx,
 			kit.ItemGridOpts{Label: i18n.T("Playlists shared by {name}", "name", name), Pane: pane})

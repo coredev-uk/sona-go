@@ -313,23 +313,50 @@ func (m mapper) items(res applemusic.Resources, refs []applemusic.Ref) []Item {
 			continue
 		}
 		if it, ok := m.amItem(n); ok {
-			it.Caption = cmp.Or(sentenceCase(ref.Reason()), it.Caption)
+			reason := ref.Reason()
+			if reason != "" && it.Kind == ItemStation {
+				recommendedStation(&it, n)
+			}
+			it.Caption = cmp.Or(sentenceCase(reason), it.Caption)
 			out = append(out, it)
 		}
 	}
 	return out
 }
 
+// recommendedStation gives a station or episode Apple recommends the fields
+// Apple's own pick shows: the short editorial name over the resource's name
+// (which can be a long promo sentence) and the one-line description
+// (editorial notes' short) as the line under it, rather than the tagline,
+// which is a label there ("Only on Apple Music").
+func recommendedStation(it *Item, n applemusic.Node) {
+	v, err := applemusic.As[applemusic.Station](n)
+	if err != nil {
+		return
+	}
+	notes := v.Attributes.Notes()
+	if notes == nil {
+		return
+	}
+	it.Name = cmp.Or(strings.TrimSpace(notes.Name), it.Name)
+	it.Subtitle = cmp.Or(strings.TrimSpace(notes.Short), it.Subtitle)
+}
+
 // heroCard maps a hero card (317: its content's editorial art; 320: its own
-// art and tagline).
+// art and tagline). What Apple's card shows is the badge (Caption), the
+// content's name and artist or curator (Name, Subtitle) and one line about
+// it (Description): the card's own tagline on a 320, else the content's
+// short editorial note.
 func (m mapper) heroCard(res applemusic.Resources, card applemusic.Node) (Item, bool) {
 	var a applemusic.EditorialElementAttributes
 	_ = card.Attrs(&a)
 	var it Item
+	var notes string
 	ok := false
 	if refs := card.Rel("contents"); len(refs) > 0 {
 		if n, found := res.Get(refs[0]); found {
 			it, ok = m.amItem(n)
+			notes = shortNotes(n)
 		}
 	}
 	if !ok && a.Link != nil {
@@ -341,11 +368,35 @@ func (m mapper) heroCard(res applemusic.Resources, card applemusic.Node) (Item, 
 	if a.Artwork != nil {
 		it.Wide, it.Color = m.artwork(a.Artwork), hexColor(a.Artwork.BgColor)
 	}
-	if a.DesignTag != "" && a.Kind == applemusic.ElementHeroArt {
-		it.Subtitle = a.DesignTag
+	if a.Kind == applemusic.ElementHeroArt {
+		notes = cmp.Or(strings.TrimSpace(a.DesignTag), notes)
+	}
+	if notes != it.Name {
+		it.Description = notes
 	}
 	it.Caption = cmp.Or(sentenceCase(a.DesignBadge), it.Caption)
 	return it, it.Wide.Large != "" || it.Art.Large != ""
+}
+
+// shortNotes is a resource's short editorial note, plain where Apple sent
+// both forms ("" when none).
+func shortNotes(n applemusic.Node) string {
+	var a struct {
+		Plain *struct {
+			Short string `json:"short"`
+		} `json:"plainEditorialNotes"`
+		Notes *struct {
+			Short string `json:"short"`
+		} `json:"editorialNotes"`
+	}
+	_ = n.Attrs(&a)
+	switch {
+	case a.Plain != nil && strings.TrimSpace(a.Plain.Short) != "":
+		return strings.TrimSpace(a.Plain.Short)
+	case a.Notes != nil:
+		return plainText(strings.TrimSpace(a.Notes.Short))
+	}
+	return ""
 }
 
 // brick maps a brick tile (386: its content; 394: own art with a link or

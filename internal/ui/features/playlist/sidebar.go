@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
@@ -14,18 +15,15 @@ import (
 )
 
 // The sidebar's playlists, under the library links (PlaylistSidebar.tsx):
-// Pinned, Made for you (Apple's personal mixes), Apple Music (playlists
-// added from Apple Music or another curator, which cannot be edited) and the
-// user's own Playlists with their folders (a SidebarSection slot, stacked in
+// Pinned, Apple Music (Apple's personal mixes, then the playlists added from
+// Apple Music or another curator, which cannot be edited) and the user's own
+// Playlists with their folders (a SidebarSection slot, stacked in
 // the shell's scrolling middle). A pinned playlist shows under Pinned only.
 // The sidebar is not a routed page, so its links are rows that push the path
 // through env.Nav.
 
 // sidebarContainer is the ActionContainer kind of the sidebar's rows.
 const sidebarContainer = "sidebar"
-
-// shuffleWash is the ground wash under the shuffle glyph.
-const shuffleWash = 0.85
 
 const (
 	// rowArt is a row's picture and rowArtGap the space after it: with the
@@ -151,8 +149,7 @@ func (p *playlists) sidebarSection(c *ui.Context) {
 		d = &derived{}
 	}
 	p.pinsSection(c, pins.Data, d.editable)
-	p.readOnlySection(c, "made-for-you", i18n.T("Made for you"), d.lists.MadeForYou)
-	p.readOnlySection(c, "apple-music", i18n.T("Apple Music"), d.lists.Apple)
+	p.readOnlySection(c, config.SidebarAppleSection, i18n.T("Apple Music"), d.lists.Apple)
 	p.ownSection(c, d.lists.Own, treePending || pinsPending, d.anyEdit)
 	if am := p.sidebarActions(); am != nil {
 		am.Popup(c)
@@ -328,25 +325,57 @@ func (p *playlists) dropZone(c *ui.Context, key, icon, label string, over bool, 
 	})
 }
 
-// pinRow is one pin: a link (it opens) or a button (it plays or shuffles)
-// with a "More for <name>" menu. A pinned playlist the user can edit takes
-// drops like its row would.
+// pinClick is what choosing a pin does.
+type pinClick int
+
+const (
+	// pinInert does nothing: the pin is set to Open and its page is not
+	// ported (it never plays instead).
+	pinInert pinClick = iota
+	pinOpen
+	pinPlay
+	pinShuffle
+)
+
+// clickOf is what choosing pin does, given where it opens (pinPath). An
+// artist always opens (there is no artist player to honour Play or Shuffle),
+// and a pin set to Open with no page does nothing.
+func clickOf(pin services.Pin, path string) pinClick {
+	switch {
+	case pin.Kind == "artist", pin.Action == "drillIn":
+		if path == "" {
+			return pinInert
+		}
+		return pinOpen
+	case pin.Action == "shuffle":
+		return pinShuffle
+	}
+	return pinPlay
+}
+
+// pinRow is one pin: a link (it opens), a button (it plays or shuffles) or,
+// for an Open pin with no page, a row that does nothing, with a "More for
+// <name>" menu. A pinned playlist the user can edit takes drops like its row
+// would.
 func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAfter string, canUp, editable bool) {
 	path := p.pinPath(pin)
-	opens := path != "" && (pin.Action == "drillIn" || pin.Kind == "artist")
+	click := clickOf(pin, path)
 	wrap := ui.Row(c.Key("pin:"+pin.ID)).FillWidth().Role(ui.RoleListItem).PositionInSet(pos, size)
 	over := p.dropOnPlaylist(wrap, "pin:"+pin.ID, pin.ID, pin.Name, editable)
 	hot := wrap.Hovered() || wrap.FocusWithin()
 	wrap.Children(func() {
 		var row ui.Element
 		active := false
-		if opens {
+		switch click {
+		case pinOpen:
 			row = ui.ButtonBase(c.Key("open")).Role(ui.RoleLink).Label(pin.Name)
 			active = p.env.Nav != nil && p.env.Nav.Path() == path
-		} else {
+		case pinInert:
+			row = ui.ButtonBase(c.Key("open")).Label(pin.Name).AccessDisabled(true)
+		default:
 			// The words a screen reader adds: what choosing it does.
 			suffix := i18n.T(", plays")
-			if pin.Action == "shuffle" {
+			if click == pinShuffle {
 				suffix = i18n.T(", shuffles")
 			}
 			row = ui.ButtonBase(c.Key("open")).Label(pin.Name + suffix)
@@ -354,15 +383,19 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAft
 		row.Grow(1).MinWidth(0).Padding(0, 32, 0, rowArtLeft(0))
 		fg := rowFace(row, hot, active, over)
 		row.Gap(rowArtGap)
+		if click == pinInert {
+			row.Cursor(ui.CursorDefault)
+		}
 		if active {
 			row.Current(ui.CurrentPage)
 		}
-		switch {
-		case !row.Clicked():
-		case opens:
-			p.env.Nav.Push(path)
-		default:
-			p.playPin(pin.ID, pin.Name, pin.Action == "shuffle")
+		if row.Clicked() {
+			switch click {
+			case pinOpen:
+				p.env.Nav.Push(path)
+			case pinPlay, pinShuffle:
+				p.playPin(pin.ID, pin.Name, click == pinShuffle)
+			}
 		}
 		if pin.Kind == "playlist" && row.Focused() && row.Shortcut(ui.Shift, ui.KeyEnter) && p.shuffleReason(-1) == "" {
 			p.playPin(pin.ID, pin.Name, true)
@@ -373,15 +406,16 @@ func (p *playlists) pinRow(c *ui.Context, pin services.Pin, pos, size int, upAft
 		}
 
 		p.moreMenu(c, row, "pin:"+pin.ID, i18n.T("More for {pinName}", "pinName", pin.Name), hot, func() []kit.MenuItem {
-			return p.pinMenu(pin, path, opens, upAfter, canUp)
+			return p.pinMenu(pin, path, click == pinOpen, upAfter, canUp)
 		})
 	})
 }
 
-// pinMenu is a pin's menu: what choosing it does (a radio group; Open is
-// off for a pin whose page is not ported, which plays instead), Open or Go
-// to album for a pin that does not open on a click, Move up (not for the
-// first) and Unpin.
+// pinMenu is a pin's menu: what choosing it does (a radio group of what the
+// pin's kind can honour: an artist always opens, so it has none; Open is off
+// for a pin whose page is not ported, and checked when that is the choice,
+// since choosing the pin then does nothing), Open or Go to album for a pin
+// that does not open on a click, Move up (not for the first) and Unpin.
 func (p *playlists) pinMenu(pin services.Pin, path string, opens bool, upAfter string, canUp bool) []kit.MenuItem {
 	choose := func(action string) func() {
 		return func() {
@@ -392,12 +426,15 @@ func (p *playlists) pinMenu(pin services.Pin, path string, opens bool, upAfter s
 				func(ctx context.Context) error { return p.api.SetPinAction(ctx, pin.ID, action) }, nil)
 		}
 	}
-	items := []kit.MenuItem{
-		{Key: "when", Kind: kit.MenuLabel, Label: i18n.T("When chosen")},
-		{Key: "play", Kind: kit.MenuRadio, Label: i18n.T("Play"), Checked: pin.Action == "play" || pin.Action == "drillIn" && path == "", Run: choose("play")},
-		{Key: "shuffle", Kind: kit.MenuRadio, Label: i18n.T("Shuffle"), Checked: pin.Action == "shuffle", Run: choose("shuffle")},
-		{Key: "drillIn", Kind: kit.MenuRadio, Label: i18n.T("Open"), Checked: pin.Action == "drillIn" && path != "", Disabled: path == "", Run: choose("drillIn")},
-		{Key: "sep", Kind: kit.MenuSeparator},
+	var items []kit.MenuItem
+	if pin.Kind != "artist" {
+		items = []kit.MenuItem{
+			{Key: "when", Kind: kit.MenuLabel, Label: i18n.T("When chosen")},
+			{Key: "play", Kind: kit.MenuRadio, Label: i18n.T("Play"), Checked: pin.Action != "shuffle" && pin.Action != "drillIn", Run: choose("play")},
+			{Key: "shuffle", Kind: kit.MenuRadio, Label: i18n.T("Shuffle"), Checked: pin.Action == "shuffle", Run: choose("shuffle")},
+			{Key: "drillIn", Kind: kit.MenuRadio, Label: i18n.T("Open"), Checked: pin.Action == "drillIn", Disabled: path == "", Run: choose("drillIn")},
+			{Key: "sep", Kind: kit.MenuSeparator},
+		}
 	}
 	if path != "" && !opens {
 		label := i18n.T("Open")
@@ -483,7 +520,7 @@ func (p *playlists) shuffleButton(c *ui.Context, id, plName string, songs int, l
 	reason := p.shuffleReason(songs)
 	btn := ui.ButtonBase(c.Key("shuffle")).Absolute().Left(left).Top(rowArtTop()).
 		Size(rowArt, rowArt).Center().Radius(theme.Current().Radius["sm"]).Cursor(ui.CursorPointer).
-		Background(theme.C("ground").Alpha(shuffleWash)).Label(name).TabStop(false).IgnoreInput(!hot)
+		Background(kit.ArtworkWash(true)).Label(name).TabStop(false).IgnoreInput(!hot)
 	kit.Fade(btn, hot)
 	ink := theme.C("ink")
 	if reason != "" {

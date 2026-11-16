@@ -87,7 +87,7 @@ func TestPageShowsASkeletonWhileLoadingThenTheVideo(t *testing.T) {
 	for _, w := range []string{
 		"Sky Video", "Mia Rivers", "Music video · 2019 · 3:35 · Pop", "Explicit", "4K", "HDR",
 		"Watch in Apple Music", "Play the song", "Play Sky Video",
-		"Notes", "A video about the sky.", "More by Mia Rivers", "More like this",
+		"Notes", "A video about the sky.", "More by Mia Rivers", "More Like This",
 		"Rain Video", "Wind Video", "2018", "Released May 17, 2019",
 	} {
 		if !p.tt.HasText(w) {
@@ -194,7 +194,7 @@ func TestPageLeavesOutWhatTheVideoLacks(t *testing.T) {
 		f.vid.MoreInGenre = nil
 	})
 	p.tt.Until("the page", p.tt.Shows("Sky Video", "More by Mia Rivers"))
-	for _, w := range []string{"The song is", "Notes", "Watch in Apple Music", "Play the song", "More like this", "Explicit", "4K", "HDR"} {
+	for _, w := range []string{"The song is", "Notes", "Watch in Apple Music", "Play the song", "More Like This", "Explicit", "4K", "HDR"} {
 		if p.tt.HasText(w) {
 			t.Errorf("page shows %q", w)
 		}

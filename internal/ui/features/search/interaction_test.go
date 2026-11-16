@@ -56,6 +56,7 @@ type ixAPI struct {
 }
 
 func (a *ixAPI) Catalog(context.Context, string) (services.SearchResults, error) { return a.cat, nil }
+
 func (a *ixAPI) Group(_ context.Context, _, group string, _ int) (services.SearchGroupPage, error) {
 	for _, s := range a.cat.Sections {
 		if s.Group == group {
@@ -69,35 +70,43 @@ func (a *ixAPI) Browse(context.Context) ([]services.Item, error)             { r
 func (a *ixAPI) Library(context.Context, string, int) (services.LibrarySearch, error) {
 	return a.lib, nil
 }
+
 func (a *ixAPI) Profile(context.Context, string) (services.ProfileDetail, error) {
 	return services.ProfileDetail{}, nil
 }
+
 func (a *ixAPI) Recent(context.Context) ([]services.RecentSearch, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return slices.Clone(a.recent), nil
 }
+
 func (a *ixAPI) write(s string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.written = append(a.written, s)
 }
+
 func (a *ixAPI) RememberTerm(_ context.Context, term, scope string) error {
 	a.write("term:" + scope + ":" + term)
 	return nil
 }
+
 func (a *ixAPI) RememberItem(_ context.Context, it services.RecentItem) error {
 	a.write("item:" + it.Kind + ":" + it.ID)
 	return nil
 }
+
 func (a *ixAPI) ForgetRecent(_ context.Context, key string) error {
 	a.write("forget:" + key)
 	return nil
 }
+
 func (a *ixAPI) ClearRecent(context.Context) error {
 	a.write("clear")
 	return nil
 }
+
 func (a *ixAPI) writes() []string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -114,28 +123,38 @@ func ixSong(id, name string, src services.Source, catalogID string) services.Ite
 }
 
 func ixAlbum(id, name string) services.Item {
-	return services.Item{Kind: services.ItemAlbum, ID: id, Name: name, Subtitle: "Ann",
-		Album: &services.Album{ID: id, Source: services.SourceCatalog, Name: name, Artist: "Ann"}}
+	return services.Item{
+		Kind: services.ItemAlbum, ID: id, Name: name, Subtitle: "Ann",
+		Album: &services.Album{ID: id, Source: services.SourceCatalog, Name: name, Artist: "Ann"},
+	}
 }
 
 func ixArtist(id, name string) services.Item {
-	return services.Item{Kind: services.ItemArtist, ID: id, Name: name,
-		Artist: &services.Artist{ID: id, Source: services.SourceCatalog, Name: name}}
+	return services.Item{
+		Kind: services.ItemArtist, ID: id, Name: name,
+		Artist: &services.Artist{ID: id, Source: services.SourceCatalog, Name: name},
+	}
 }
 
 func ixPlaylist(id, name string) services.Item {
-	return services.Item{Kind: services.ItemPlaylist, ID: id, Name: name, Subtitle: "Ann",
-		Playlist: &services.Playlist{ID: id, Source: services.SourceCatalog, Name: name, Curator: "Ann"}}
+	return services.Item{
+		Kind: services.ItemPlaylist, ID: id, Name: name, Subtitle: "Ann",
+		Playlist: &services.Playlist{ID: id, Source: services.SourceCatalog, Name: name, Curator: "Ann"},
+	}
 }
 
 func ixStation(id, name string, page bool) services.Item {
-	return services.Item{Kind: services.ItemStation, ID: id, Name: name, Subtitle: "Radio Co",
-		Station: &services.Station{ID: id, Name: name, Kind: services.StationLive, Playable: true, HasPage: page}}
+	return services.Item{
+		Kind: services.ItemStation, ID: id, Name: name, Subtitle: "Radio Co",
+		Station: &services.Station{ID: id, Name: name, Kind: services.StationLive, Playable: true, HasPage: page},
+	}
 }
 
 func ixVideo(id, name string) services.Item {
-	return services.Item{Kind: services.ItemMusicVideo, ID: id, Name: name, Subtitle: "Ann",
-		MusicVideo: &services.MusicVideo{ID: id, Source: services.SourceCatalog, Name: name, Artist: "Ann"}}
+	return services.Item{
+		Kind: services.ItemMusicVideo, ID: id, Name: name, Subtitle: "Ann",
+		MusicVideo: &services.MusicVideo{ID: id, Source: services.SourceCatalog, Name: name, Artist: "Ann"},
+	}
 }
 
 func ixCurator(id, name string) services.Item {
@@ -343,60 +362,74 @@ func TestInteractionFieldSuggestionRowsPerKind(t *testing.T) {
 		// click, enter, shiftEnter are the outcomes.
 		click, enter, shiftEnter string
 	}{
-		{row: "blue band", kind: "completion",
+		{
+			row: "blue band", kind: "completion",
 			click:      "nav /search?q=blue+band; wrote term:catalog:blue band",
 			enter:      "nav /search?q=blue+band; wrote term:catalog:blue band",
-			shiftEnter: "nav /search?q=blue+band; wrote term:catalog:blue band"},
-		{row: "Song Alpha", kind: "song",
+			shiftEnter: "nav /search?q=blue+band; wrote term:catalog:blue band",
+		},
+		{
+			row: "Song Alpha", kind: "song",
 			click: "nav /song/s1; wrote item:song:s1",
 			enter: "nav /song/s1; wrote item:song:s1",
 			// DEPARTS: Shift+Enter plays a song (and does not open it) though the active row's cue is the open chevron and nothing on screen mentions Shift.
-			shiftEnter: "queue s1; wrote item:song:s1"},
-		{row: "Album Beta", kind: "album",
+			shiftEnter: "queue s1; wrote item:song:s1",
+		},
+		{
+			row: "Album Beta", kind: "album",
 			click:      "nav /album/a1; wrote item:album:a1",
 			enter:      "nav /album/a1; wrote item:album:a1",
-			shiftEnter: "nav /album/a1; wrote item:album:a1"},
-		{row: "Artist Gamma", kind: "artist",
+			shiftEnter: "nav /album/a1; wrote item:album:a1",
+		},
+		{
+			row: "Artist Gamma", kind: "artist",
 			click:      "nav /artist/ar1; wrote item:artist:ar1",
 			enter:      "nav /artist/ar1; wrote item:artist:ar1",
-			shiftEnter: "nav /artist/ar1; wrote item:artist:ar1"},
-		{row: "Playlist Delta", kind: "playlist",
+			shiftEnter: "nav /artist/ar1; wrote item:artist:ar1",
+		},
+		{
+			row: "Playlist Delta", kind: "playlist",
 			click:      "nav /playlist/pl.1; wrote item:playlist:pl.1",
 			enter:      "nav /playlist/pl.1; wrote item:playlist:pl.1",
-			shiftEnter: "nav /playlist/pl.1; wrote item:playlist:pl.1"},
-		{row: "Station Epsilon", kind: "station with a page",
+			shiftEnter: "nav /playlist/pl.1; wrote item:playlist:pl.1",
+		},
+		{
+			row: "Station Epsilon", kind: "station with a page",
 			click:      "nav /station/ra.1; wrote item:station:ra.1",
 			enter:      "nav /station/ra.1; wrote item:station:ra.1",
-			shiftEnter: "nav /station/ra.1; wrote item:station:ra.1"},
-		{row: "Radio Zeta", kind: "station without a page",
-			// DEPARTS: choosing a page-less station plays it, but the row's cue is the open chevron (only a song with no page gets the play glyph).
-			click: "item station:ra.2; wrote item:station:ra.2",
-			// DEPARTS: same as the click: Enter plays the station under an open chevron.
-			enter: "item station:ra.2; wrote item:station:ra.2",
-			// DEPARTS: same: Shift+Enter plays the station under an open chevron.
-			shiftEnter: "item station:ra.2; wrote item:station:ra.2"},
-		{row: "Video Eta", kind: "music video",
+			shiftEnter: "nav /station/ra.1; wrote item:station:ra.1",
+		},
+		{
+			row: "Radio Zeta", kind: "station without a page",
+			click:      "item station:ra.2; wrote item:station:ra.2",
+			enter:      "item station:ra.2; wrote item:station:ra.2",
+			shiftEnter: "item station:ra.2; wrote item:station:ra.2",
+		},
+		{
+			row: "Video Eta", kind: "music video",
 			click:      "nav /music-video/mv1; wrote item:music-video:mv1",
 			enter:      "nav /music-video/mv1; wrote item:music-video:mv1",
-			shiftEnter: "nav /music-video/mv1; wrote item:music-video:mv1"},
-		{row: "Curator Theta", kind: "curator",
+			shiftEnter: "nav /music-video/mv1; wrote item:music-video:mv1",
+		},
+		{
+			row: "Curator Theta", kind: "curator",
 			click:      "nav /curator/cu1; wrote item:curator:cu1",
 			enter:      "nav /curator/cu1; wrote item:curator:cu1",
-			shiftEnter: "nav /curator/cu1; wrote item:curator:cu1"},
-		{row: "Web Iota", kind: "link",
-			// DEPARTS: a web-only link suggestion opens the browser, under the same open chevron as an in-app page.
-			click: "url https://example.test/web1; wrote item:link:web1",
-			// DEPARTS: as the click.
-			enter: "url https://example.test/web1; wrote item:link:web1",
-			// DEPARTS: as the click.
-			shiftEnter: "url https://example.test/web1; wrote item:link:web1"},
+			shiftEnter: "nav /curator/cu1; wrote item:curator:cu1",
+		},
+		{
+			row: "Web Iota", kind: "link",
+			click:      "url https://example.test/web1; wrote item:link:web1",
+			enter:      "url https://example.test/web1; wrote item:link:web1",
+			shiftEnter: "url https://example.test/web1; wrote item:link:web1",
+		},
 	}
 	for _, tc := range cases {
 		for i, g := range ixGestures {
 			want := []string{tc.click, tc.enter, tc.shiftEnter}[i]
 			t.Run(tc.kind+"/"+g.name, func(t *testing.T) {
 				x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-				x.ixTyped("Top results")
+				x.ixTyped("Top Results")
 				g.do(x, tc.row)
 				if got := x.settled(want); got != want {
 					t.Errorf("%s on the %s suggestion: %s, want %s", g.name, tc.kind, got, want)
@@ -414,7 +447,7 @@ func TestInteractionFieldSongWithoutAPagePlays(t *testing.T) {
 		t.Run("catalogue song, no song page/"+g.name, func(t *testing.T) {
 			x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
 			x.h.Env.HasRoute = func(p string) bool { return ixAllRoutes(p) && !strings.HasPrefix(p, "/song/") }
-			x.ixTyped("Top results")
+			x.ixTyped("Top Results")
 			g.do(x, "Song Alpha")
 			// A click, Enter and Shift+Enter all play it: the cue (play) says so.
 			want := "queue s1; wrote item:song:s1"
@@ -427,7 +460,7 @@ func TestInteractionFieldSongWithoutAPagePlays(t *testing.T) {
 	for _, g := range ixGestures {
 		t.Run("library upload/"+g.name, func(t *testing.T) {
 			x := newIxField(t, "/search?scope=library", lib)
-			x.ixTyped("In your library")
+			x.ixTyped("In Your Library")
 			g.do(x, kit.UploadedLabel("Upload Kappa")) // an upload's row says so (#398)
 			// Played; a library song is never remembered.
 			want := "queue u1"
@@ -437,7 +470,7 @@ func TestInteractionFieldSongWithoutAPagePlays(t *testing.T) {
 		})
 		t.Run("library song with a catalogue copy/"+g.name, func(t *testing.T) {
 			x := newIxField(t, "/search?scope=library", lib)
-			x.ixTyped("In your library")
+			x.ixTyped("In Your Library")
 			g.do(x, "Library Lambda")
 			// Opens its catalogue copy's page; Shift+Enter plays it.
 			want := "nav /song/c.2"
@@ -467,7 +500,7 @@ func TestInteractionFieldLibraryScopeKinds(t *testing.T) {
 		for _, g := range ixGestures {
 			t.Run(tc.row+"/"+g.name, func(t *testing.T) {
 				x := newIxField(t, "/search?scope=library", lib)
-				x.ixTyped("In your library")
+				x.ixTyped("In Your Library")
 				g.do(x, tc.row)
 				want := "nav " + tc.path
 				if got := x.settled(want); !strings.HasPrefix(got, want) || strings.Contains(got, "queue") {
@@ -506,22 +539,28 @@ func (x *ixField) ixGlyph(name string) [20]byte {
 }
 
 // TestInteractionFieldActiveRowCueSaysWhatEnterDoes: the glyph at the end of
-// the active row is the chevron (opens) or the play triangle (plays); the
-// kinds that play are told apart from the ones that open.
+// the active row is the chevron (opens), the play triangle (plays) or the
+// arrow out (leaves Sona); every kind carries the one that says what Enter does.
 func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 	// The references: the active completion shows the chevron; the active
 	// library upload shows the play triangle.
 	ref := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-	ref.ixTyped("Top results")
+	ref.ixTyped("Top Results")
 	ref.activate("blue band")
 	chevron := ref.ixGlyph("blue band")
 
 	lib := newIxField(t, "/search?scope=library", &ixAPI{lib: services.LibrarySearch{Songs: []services.Song{*ixItems()["song-upload"].Song}}})
-	lib.ixTyped("In your library")
+	lib.ixTyped("In Your Library")
 	lib.activate(kit.UploadedLabel("Upload Kappa"))
 	play := lib.ixGlyph(kit.UploadedLabel("Upload Kappa"))
-	if chevron == play {
-		t.Fatal("the chevron and the play triangle draw alike: the cue cannot be told")
+	// The arrow out: the active web link, told from both by a hash and by
+	// the opened-in-browser test below.
+	web := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
+	web.ixTyped("Top Results")
+	web.activate("Web Iota")
+	arrow := web.ixGlyph("Web Iota")
+	if chevron == play || arrow == chevron || arrow == play {
+		t.Fatal("the chevron, the play triangle and the arrow out do not all draw differently: the cue cannot be told")
 	}
 
 	cases := []struct {
@@ -533,17 +572,15 @@ func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 		{"Artist Gamma", "chevron"},
 		{"Playlist Delta", "chevron"},
 		{"Station Epsilon", "chevron"},
-		// DEPARTS: Radio Zeta has no page and plays when chosen, yet its active cue is the open chevron.
-		{"Radio Zeta", "chevron"},
+		{"Radio Zeta", "play"},
 		{"Video Eta", "chevron"},
 		{"Curator Theta", "chevron"},
-		// DEPARTS: Web Iota opens the browser when chosen, yet its active cue is the in-app open chevron.
-		{"Web Iota", "chevron"},
+		{"Web Iota", "arrow"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.row, func(t *testing.T) {
 			x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-			x.ixTyped("Top results")
+			x.ixTyped("Top Results")
 			x.activate(tc.row)
 			got := "other"
 			switch x.ixGlyph(tc.row) {
@@ -551,6 +588,8 @@ func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 				got = "chevron"
 			case play:
 				got = "play"
+			case arrow:
+				got = "arrow"
 			}
 			if got != tc.want {
 				t.Errorf("%s: the active row's cue is %s, want %s", tc.row, got, tc.want)
@@ -560,7 +599,7 @@ func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 	t.Run("a song with no page", func(t *testing.T) {
 		x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
 		x.h.Env.HasRoute = func(p string) bool { return ixAllRoutes(p) && !strings.HasPrefix(p, "/song/") }
-		x.ixTyped("Top results")
+		x.ixTyped("Top Results")
 		x.activate("Song Alpha")
 		if got := x.ixGlyph("Song Alpha"); got != play {
 			t.Errorf("a song with no page: the active cue is not the play triangle")
@@ -572,7 +611,7 @@ func TestInteractionFieldActiveRowCueSaysWhatEnterDoes(t *testing.T) {
 // suggestion is not a choice.
 func TestInteractionFieldRightClickOnASuggestionDoesNotPick(t *testing.T) {
 	x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-	x.ixTyped("Top results")
+	x.ixTyped("Top Results")
 	if err := x.tt.RightClick("Album Beta"); err != nil {
 		t.Fatal(err)
 	}
@@ -585,7 +624,7 @@ func TestInteractionFieldRightClickOnASuggestionDoesNotPick(t *testing.T) {
 // of its own: it is text.
 func TestInteractionFieldSpaceTypesAndDoesNotChoose(t *testing.T) {
 	x := newIxField(t, "/library/albums", &ixAPI{hints: ixHints()})
-	x.ixTyped("Top results")
+	x.ixTyped("Top Results")
 	x.activate("Album Beta")
 	x.tt.Key(0, ui.KeySpace)
 	if got := x.settled("nothing"); got != "nothing" {
@@ -605,43 +644,55 @@ func ixRecent() []services.RecentSearch {
 	}
 }
 
-// TestInteractionFieldRecentRows: the "Recently searched" rows of the empty
+// TestInteractionFieldRecentRows: the "Recently Searched" rows of the empty
 // field, by click, Enter and Shift+Enter.
 func TestInteractionFieldRecentRows(t *testing.T) {
 	cases := []struct {
 		row                      string
 		click, enter, shiftEnter string
 	}{
-		{row: "alpha term",
+		{
+			row:        "alpha term",
 			click:      "nav /search?q=alpha+term; wrote term:catalog:alpha term",
 			enter:      "nav /search?q=alpha+term; wrote term:catalog:alpha term",
-			shiftEnter: "nav /search?q=alpha+term; wrote term:catalog:alpha term"},
-		{row: "Recent Album",
+			shiftEnter: "nav /search?q=alpha+term; wrote term:catalog:alpha term",
+		},
+		{
+			row:        "Recent Album",
 			click:      "nav /album/a1; wrote item:album:a1",
 			enter:      "nav /album/a1; wrote item:album:a1",
-			shiftEnter: "nav /album/a1; wrote item:album:a1"},
-		{row: "Recent Song",
+			shiftEnter: "nav /album/a1; wrote item:album:a1",
+		},
+		{
+			row:   "Recent Song",
 			click: "nav /song/s1; wrote item:song:s1",
 			enter: "nav /song/s1; wrote item:song:s1",
 			// DEPARTS: Shift+Enter plays a song suggestion but only opens a recent song: the same kind and cue behave differently in the same list.
-			shiftEnter: "nav /song/s1; wrote item:song:s1"},
-		{row: "Recent Upload",
+			shiftEnter: "nav /song/s1; wrote item:song:s1",
+		},
+		{
+			row: "Recent Upload",
 			// DEPARTS: a recent library song shows the open chevron but choosing it does nothing at all (it has no page and is not played).
 			click: "nothing",
 			// DEPARTS: as the click: Enter on the active row does nothing.
 			enter: "nothing",
 			// DEPARTS: as the click: Shift+Enter does nothing.
-			shiftEnter: "nothing"},
-		{row: "Recent Radio",
+			shiftEnter: "nothing",
+		},
+		{
+			row: "Recent Radio",
 			// DEPARTS: a page-less station plays when chosen as a suggestion but, remembered, opens /station/ra.2 (the recent entry keeps no station, so it assumes a page).
 			click: "nav /station/ra.2; wrote item:station:ra.2",
 			enter: "nav /station/ra.2; wrote item:station:ra.2",
 			// as the click
-			shiftEnter: "nav /station/ra.2; wrote item:station:ra.2"},
-		{row: "Recent Artist",
+			shiftEnter: "nav /station/ra.2; wrote item:station:ra.2",
+		},
+		{
+			row:        "Recent Artist",
 			click:      "nav /artist/ar1; wrote item:artist:ar1",
 			enter:      "nav /artist/ar1; wrote item:artist:ar1",
-			shiftEnter: "nav /artist/ar1; wrote item:artist:ar1"},
+			shiftEnter: "nav /artist/ar1; wrote item:artist:ar1",
+		},
 	}
 	for _, tc := range cases {
 		for i, g := range ixGestures {
@@ -649,7 +700,7 @@ func TestInteractionFieldRecentRows(t *testing.T) {
 			t.Run(tc.row+"/"+g.name, func(t *testing.T) {
 				x := newIxField(t, "/library/albums", &ixAPI{recent: ixRecent()})
 				x.focusField()
-				x.tt.Until("the recent entries", x.tt.Shows("Recently searched", tc.row))
+				x.tt.Until("the recent entries", x.tt.Shows("Recently Searched", tc.row))
 				g.do(x, tc.row)
 				if got := x.settled(want); got != want {
 					t.Errorf("%s on %q: %s, want %s", g.name, tc.row, got, want)
@@ -664,7 +715,7 @@ func TestInteractionFieldRecentRows(t *testing.T) {
 func TestInteractionFieldRecentCue(t *testing.T) {
 	ref := newIxField(t, "/library/albums", &ixAPI{recent: ixRecent()})
 	ref.focusField()
-	ref.tt.Until("the recent entries", ref.tt.Shows("Recently searched", "Recent Album"))
+	ref.tt.Until("the recent entries", ref.tt.Shows("Recently Searched", "Recent Album"))
 	ref.activate("Recent Album")
 	chevron := ref.ixGlyph("Recent Album")
 	ref.activate("Recent Upload")
@@ -936,40 +987,84 @@ func TestInteractionResultsBestMatchPerKind(t *testing.T) {
 // ixBestWant pins the best match panel: a link (or, where it plays as a whole,
 // a button) that opens the page, and a Play disc beside it where the kind plays.
 var ixBestWant = map[string]ixCell{
-	"song": {role: "link",
+	"song": {
+		role:  "link",
 		click: ixOpen("/song/s1", "song:s1"), enter: ixOpen("/song/s1", "song:s1"),
 		shiftEnter: "nothing", space: "nothing", // a link answers Enter only
-		play: ixPlay("queue s1@0", "song:s1")},
-	"song with no song page": {role: "button",
+		play: ixPlay("queue s1@0", "song:s1"),
+	},
+	"song with no song page": {
+		role:  "button",
 		click: ixPlay("queue s1@0", "song:s1"), enter: ixPlay("queue s1@0", "song:s1"),
 		shiftEnter: "nothing", space: ixPlay("queue s1@0", "song:s1"),
-		play: "nothing"}, // no control of its own: the disc is drawn into the panel, which is the control
-	"album": {role: "link",
+		play: "nothing",
+	}, // no control of its own: the disc is drawn into the panel, which is the control
+	"album": {
+		role:  "link",
 		click: ixOpen("/album/a1", "album:a1"), enter: ixOpen("/album/a1", "album:a1"), shiftEnter: "nothing", space: "nothing",
-		play: ixPlay("item album:a1", "album:a1")},
-	"artist": {role: "link",
+		play: ixPlay("item album:a1", "album:a1"),
+	},
+	"artist": {
+		role:  "link",
 		click: ixOpen("/artist/ar1", "artist:ar1"), enter: ixOpen("/artist/ar1", "artist:ar1"), shiftEnter: "nothing", space: "nothing",
 		// DEPARTS: an artist has no Play disc though an album, a playlist, a station and a video do (no artist player is registered).
-		play: "nothing"},
-	"playlist": {role: "link",
+		play: "nothing",
+	},
+	"playlist": {
+		role:  "link",
 		click: ixOpen("/playlist/pl.1", "playlist:pl.1"), enter: ixOpen("/playlist/pl.1", "playlist:pl.1"), shiftEnter: "nothing", space: "nothing",
-		play: ixPlay("item playlist:pl.1", "playlist:pl.1")},
-	"station with a page": {role: "link",
+		play: ixPlay("item playlist:pl.1", "playlist:pl.1"),
+	},
+	"station with a page": {
+		role:  "link",
 		click: ixOpen("/station/ra.1", "station:ra.1"), enter: ixOpen("/station/ra.1", "station:ra.1"), shiftEnter: "nothing", space: "nothing",
-		play: ixPlay("item station:ra.1", "station:ra.1")},
-	"station without a page": {role: "button",
+		play: ixPlay("item station:ra.1", "station:ra.1"),
+	},
+	"station without a page": {
+		role:  "button",
 		click: ixPlay("item station:ra.2", "station:ra.2"), enter: ixPlay("item station:ra.2", "station:ra.2"),
 		shiftEnter: "nothing", space: ixPlay("item station:ra.2", "station:ra.2"),
-		play: "nothing"}, // the disc is drawn into the panel, which plays as a whole
-	"music video": {role: "link",
+		play: "nothing",
+	}, // the disc is drawn into the panel, which plays as a whole
+	"music video": {
+		role:  "link",
 		click: ixOpen("/music-video/mv1", "music-video:mv1"), enter: ixOpen("/music-video/mv1", "music-video:mv1"), shiftEnter: "nothing", space: "nothing",
-		play: ixPlay("video mv1", "music-video:mv1")},
-	"curator": {role: "link",
+		play: ixPlay("video mv1", "music-video:mv1"),
+	},
+	"curator": {
+		role:  "link",
 		click: ixOpen("/curator/cu1", "curator:cu1"), enter: ixOpen("/curator/cu1", "curator:cu1"), shiftEnter: "nothing", space: "nothing",
 		// DEPARTS: a curator has no Play disc (no curator player exists), like an artist.
-		play: "nothing"},
-	// DEPARTS: a web-only link as the best match is not interactive at all: a click does nothing, though the same item opens the browser from the field's suggestions and from a shelf tile.
-	"link": {role: "none", click: "nothing", play: "nothing"},
+		play: "nothing",
+	},
+	"link": {
+		role:  "link",
+		click: ixURL("link:web1"), enter: ixURL("link:web1"), shiftEnter: "nothing", space: "nothing",
+		play: "nothing",
+	},
+}
+
+// TestInteractionResultsWebItemsCarryTheArrowOut: a web-only best match and
+// compact row end in the arrow that says they open the browser, as the link
+// list's tile does; an in-app result does not.
+func TestInteractionResultsWebItemsCarryTheArrowOut(t *testing.T) {
+	for name, items := range map[string][]services.Item{
+		"best match":  {ixItems()["link"]},
+		"compact row": {ixFiller(), ixItems()["link"]},
+	} {
+		t.Run(name, func(t *testing.T) {
+			x := newIxPage(t, "/search?q=blue", &ixAPI{cat: ixCatalog(ixTop(items...))}, nil)
+			x.show(ixItems()["link"].Name)
+			if !slices.Contains(x.r.tt.Texts(), "Opens in your browser") {
+				t.Errorf("the web-only %s has no arrow-out cue; texts %q", name, x.r.tt.Texts())
+			}
+		})
+	}
+	x := newIxPage(t, "/search?q=blue", &ixAPI{cat: ixCatalog(ixTop(ixItems()["album"]))}, nil)
+	x.show(ixItems()["album"].Name)
+	if slices.Contains(x.r.tt.Texts(), "Opens in your browser") {
+		t.Error("an album result carries the arrow-out cue")
+	}
 }
 
 // TestInteractionResultsCompactRowsPerKind: the compact rows beside the best
@@ -986,43 +1081,60 @@ func TestInteractionResultsCompactRowsPerKind(t *testing.T) {
 }
 
 // ixRowWant pins the compact rows: the same open control, and a Play button
-// for a song only.
+// for every playable kind.
 var ixRowWant = map[string]ixCell{
-	"song": {role: "link",
+	"song": {
+		role:  "link",
 		click: ixOpen("/song/s1", "song:s1"), enter: ixOpen("/song/s1", "song:s1"), shiftEnter: "nothing", space: "nothing",
-		play: ixPlay("queue s1@0", "song:s1")},
-	"song with no song page": {role: "button",
+		play: ixPlay("queue s1@0", "song:s1"),
+	},
+	"song with no song page": {
+		role:  "button",
 		click: ixPlay("queue s1@0", "song:s1"), enter: ixPlay("queue s1@0", "song:s1"),
 		shiftEnter: "nothing", space: ixPlay("queue s1@0", "song:s1"),
-		play: "nothing"},
-	"album": {role: "link",
+		play: "nothing",
+	},
+	"album": {
+		role:  "link",
 		click: ixOpen("/album/a1", "album:a1"), enter: ixOpen("/album/a1", "album:a1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: the album's best-match panel and its shelf tile have a Play control; its compact row has none.
-		play: "nothing"},
-	"artist": {role: "link",
+		play: ixPlay("item album:a1", "album:a1"),
+	},
+	"artist": {
+		role:  "link",
 		click: ixOpen("/artist/ar1", "artist:ar1"), enter: ixOpen("/artist/ar1", "artist:ar1"), shiftEnter: "nothing", space: "nothing",
-		play: "nothing"},
-	"playlist": {role: "link",
+		play: "nothing",
+	},
+	"playlist": {
+		role:  "link",
 		click: ixOpen("/playlist/pl.1", "playlist:pl.1"), enter: ixOpen("/playlist/pl.1", "playlist:pl.1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: as the album: the playlist's best-match panel and shelf tile have Play, its row has none.
-		play: "nothing"},
-	"station with a page": {role: "link",
+		play: ixPlay("item playlist:pl.1", "playlist:pl.1"),
+	},
+	"station with a page": {
+		role:  "link",
 		click: ixOpen("/station/ra.1", "station:ra.1"), enter: ixOpen("/station/ra.1", "station:ra.1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: as the album: the station's best-match panel and shelf tile have Play, its row has none.
-		play: "nothing"},
-	"station without a page": {role: "button",
+		play: ixPlay("item station:ra.1", "station:ra.1"),
+	},
+	"station without a page": {
+		role:  "button",
 		click: ixPlay("item station:ra.2", "station:ra.2"), enter: ixPlay("item station:ra.2", "station:ra.2"),
 		shiftEnter: "nothing", space: ixPlay("item station:ra.2", "station:ra.2"),
-		play: "nothing"},
-	"music video": {role: "link",
+		play: "nothing",
+	},
+	"music video": {
+		role:  "link",
 		click: ixOpen("/music-video/mv1", "music-video:mv1"), enter: ixOpen("/music-video/mv1", "music-video:mv1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: as the album: the video's best-match panel and shelf tile have Play, its row has none.
-		play: "nothing"},
-	"curator": {role: "link",
+		play: ixPlay("video mv1", "music-video:mv1"),
+	},
+	"curator": {
+		role:  "link",
 		click: ixOpen("/curator/cu1", "curator:cu1"), enter: ixOpen("/curator/cu1", "curator:cu1"), shiftEnter: "nothing", space: "nothing",
-		play: "nothing"},
-	// DEPARTS: a web-only link row is not interactive: a click does nothing (the field and a tile open the browser).
-	"link": {role: "none", click: "nothing", play: "nothing"},
+		play: "nothing",
+	},
+	"link": {
+		role:  "link",
+		click: ixURL("link:web1"), enter: ixURL("link:web1"), shiftEnter: "nothing", space: "nothing",
+		play: "nothing",
+	},
 }
 
 // ixShelfCatalog is one result group per kind, one item each (a station with a
@@ -1046,36 +1158,51 @@ func ixURL(item string) string {
 
 // ixTileWant pins the shared cover tiles (shelves and "See all" grids): the
 // tile is a link (a button where it plays when opened) and its Play control
-// sits beside it. The tile's Play control remembers nothing.
+// sits beside it.
 var ixTileWant = map[string]ixCell{
-	"artist": {role: "link",
+	"artist": {
+		role:  "link",
 		click: ixOpen("/artist/ar1", "artist:ar1"), enter: ixOpen("/artist/ar1", "artist:ar1"), shiftEnter: "nothing", space: "nothing",
 		// DEPARTS: an artist tile has no Play control though album, playlist, station and video tiles do (no artist player is registered).
-		play: "nothing"},
-	"album": {role: "link",
+		play: "nothing",
+	},
+	"album": {
+		role:  "link",
 		click: ixOpen("/album/a1", "album:a1"), enter: ixOpen("/album/a1", "album:a1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: the tile's Play plays without remembering the term or the album, the best match's disc remembers both.
-		play: "item album:a1"},
-	"playlist": {role: "link",
+		play: ixPlay("item album:a1", "album:a1"),
+	},
+	"playlist": {
+		role:  "link",
 		click: ixOpen("/playlist/pl.1", "playlist:pl.1"), enter: ixOpen("/playlist/pl.1", "playlist:pl.1"), shiftEnter: "nothing", space: "nothing",
-		play: "item playlist:pl.1"},
-	"station": {role: "link",
+		play: ixPlay("item playlist:pl.1", "playlist:pl.1"),
+	},
+	"station": {
+		role:  "link",
 		click: ixOpen("/station/ra.1", "station:ra.1"), enter: ixOpen("/station/ra.1", "station:ra.1"), shiftEnter: "nothing", space: "nothing",
-		play: "item station:ra.1"},
-	"station-bare": {role: "button",
+		play: ixPlay("item station:ra.1", "station:ra.1"),
+	},
+	"station-bare": {
+		role:  "button",
 		click: ixPlay("item station:ra.2", "station:ra.2"), enter: ixPlay("item station:ra.2", "station:ra.2"),
 		shiftEnter: "nothing", space: ixPlay("item station:ra.2", "station:ra.2"),
-		play: "nothing"}, // the play mark is drawn into the tile, which plays as a whole
-	"music-video": {role: "link",
+		play: "nothing",
+	}, // the play mark is drawn into the tile, which plays as a whole
+	"music-video": {
+		role:  "link",
 		click: ixOpen("/music-video/mv1", "music-video:mv1"), enter: ixOpen("/music-video/mv1", "music-video:mv1"), shiftEnter: "nothing", space: "nothing",
-		play: "video mv1"},
-	"curator": {role: "link",
+		play: ixPlay("video mv1", "music-video:mv1"),
+	},
+	"curator": {
+		role:  "link",
 		click: ixOpen("/curator/cu1", "curator:cu1"), enter: ixOpen("/curator/cu1", "curator:cu1"), shiftEnter: "nothing", space: "nothing",
 		// DEPARTS: a curator tile has no Play control (no curator player exists), like an artist's.
-		play: "nothing"},
-	"link": {role: "link",
+		play: "nothing",
+	},
+	"link": {
+		role:  "link",
 		click: ixURL("link:web1"), enter: ixURL("link:web1"), shiftEnter: "nothing", space: "nothing",
-		play: "nothing"},
+		play: "nothing",
+	},
 }
 
 // ixTileRun runs the gestures on the tile of each kind in a page that shows
@@ -1088,6 +1215,9 @@ func ixTileRun(t *testing.T, x *ixPage) {
 		label := item.Name
 		if k == "station-bare" {
 			label += " Play" // a tile that plays when opened says so in its name
+		}
+		if k == "link" {
+			label += " Opens in your browser" // a web tile says where it goes
 		}
 		t.Run(k, func(t *testing.T) {
 			x.t = t
@@ -1133,8 +1263,10 @@ func ixSongs() []services.Item {
 	var out []services.Item
 	for _, n := range []string{"One", "Two", "Three"} {
 		id := "t" + strings.ToLower(n)
-		s := &services.Song{ID: id, Source: services.SourceCatalog, Name: "Song " + n, Artist: "Artist " + n,
-			ArtistID: "ar" + n, Album: "Album " + n, AlbumID: "al" + n, Playable: true, DurationMs: 180000}
+		s := &services.Song{
+			ID: id, Source: services.SourceCatalog, Name: "Song " + n, Artist: "Artist " + n,
+			ArtistID: "ar" + n, Album: "Album " + n, AlbumID: "al" + n, Playable: true, DurationMs: 180000,
+		}
 		out = append(out, services.Item{Kind: services.ItemSong, ID: id, Name: s.Name, Subtitle: s.Artist, Song: s})
 	}
 	return out
@@ -1285,8 +1417,8 @@ func TestInteractionResultsLibraryTiles(t *testing.T) {
 	const term = "wrote term:library:blue"
 	cases := []struct{ name, path, item, play string }{
 		{"Lib Artist", "/artist/l.ar", "artist:l.ar", "nothing"}, // DEPARTS: no Play on the artist tile, as in the catalogue.
-		{"Lib Album", "/album/l.al", "album:l.al", "item album:l.al"},
-		{"Lib List", "/playlist/p.pl", "playlist:p.pl", "item playlist:p.pl"},
+		{"Lib Album", "/album/l.al", "album:l.al", "item album:l.al; wrote item:album:l.al; " + term},
+		{"Lib List", "/playlist/p.pl", "playlist:p.pl", "item playlist:p.pl; wrote item:playlist:p.pl; " + term},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1326,12 +1458,12 @@ func ixRecentAll() []services.RecentSearch {
 	}
 }
 
-// TestInteractionResultsRecentShelf: the "Recently searched" shelf of the
+// TestInteractionResultsRecentShelf: the "Recently Searched" shelf of the
 // empty search page: which entries show, and what a click, Enter, Shift+Enter,
 // Space and the X do to each.
 func TestInteractionResultsRecentShelf(t *testing.T) {
 	x := newIxPage(t, "/search", &ixAPI{recent: ixRecentAll()}, nil)
-	x.show("Recently searched", "Recent Album")
+	x.show("Recently Searched", "Recent Album")
 	// The catalogue scope lists its own terms and the catalogue's items; the
 	// library's terms and items, and every library song, are left out.
 	for _, hidden := range []string{"Recent Upload", "library term", "Recent Lib Album"} {
@@ -1396,7 +1528,7 @@ func TestInteractionResultsRecentShelf(t *testing.T) {
 	})
 	t.Run("library scope", func(t *testing.T) {
 		l := newIxPage(t, "/search?scope=library", &ixAPI{recent: ixRecentAll()}, nil)
-		l.show("Recently searched", "library term", "Recent Lib Album")
+		l.show("Recently Searched", "library term", "Recent Lib Album")
 		for _, name := range []string{"alpha term", "Recent Album", "Recent Upload"} {
 			if l.r.tt.HasText(name) {
 				t.Errorf("the library scope's shelf shows %q", name)
@@ -1408,7 +1540,7 @@ func TestInteractionResultsRecentShelf(t *testing.T) {
 	})
 	t.Run("pages that are not ported", func(t *testing.T) {
 		u := newIxPage(t, "/search", &ixAPI{recent: ixRecentAll()}, func(p string) bool { return p == "/search" || strings.HasPrefix(p, "/search?") })
-		u.show("Recently searched", "Recent Album")
+		u.show("Recently Searched", "Recent Album")
 		// An entry of a page that is not ported is plain text with its X: a click does nothing.
 		u.mark()
 		u.r.clickText("Recent Album")

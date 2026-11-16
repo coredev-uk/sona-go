@@ -33,7 +33,7 @@ func (s *Section) browserWaiting(c *ui.Context, st services.AuthStatus) {
 		ui.Row(c.Key("head")).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
 			ui.Spinner(c).Size(20, 20).TextColor(theme.C("ink-muted")).Role(ui.RoleNone) // the title beside it names the wait
 			ui.Column(c.Key("text")).Grow(1).MinWidth(0).Children(func() {
-				flowTitle(c, i18n.T("Finish signing in in your browser"))
+				flowTitle(c, i18n.T("Finish Signing in in Your Browser"))
 				text(c, i18n.T("Apple's sign-in page is open in your browser. Sona continues by itself when you're done."), "body", "ink-muted").Margin(2, 0, 0, 0)
 			})
 		})

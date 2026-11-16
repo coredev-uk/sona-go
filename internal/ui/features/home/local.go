@@ -60,9 +60,9 @@ func (h *home) recentlyPlayed(c *ui.Context, ctx kit.ItemsCtx) {
 		}, store.Options{Stale: store.Forever})
 	}
 
-	title := i18n.T("Recently played")
+	title := i18n.T("Recently Played")
 	if appleFailed {
-		title = i18n.T("Played on this computer")
+		title = i18n.T("Played on This Computer")
 	}
 	var songs []services.Song
 	have := false
@@ -80,9 +80,9 @@ func (h *home) recentlyPlayed(c *ui.Context, ctx kit.ItemsCtx) {
 
 	switch {
 	case !have && (!appleFailed || history.Loading || !history.HasData && history.Err == nil):
-		ruledShelf(c, ruledOpts{Title: i18n.T("Recently played")}, func() { h.songsSkeleton(c) })
+		ruledShelf(c, ruledOpts{Title: i18n.T("Recently Played")}, func() { h.songsSkeleton(c) })
 	case !have:
-		ruledShelf(c, ruledOpts{Title: i18n.T("Recently played")}, func() {
+		ruledShelf(c, ruledOpts{Title: i18n.T("Recently Played")}, func() {
 			kit.ErrorBlock(c, i18n.T("Couldn't load what you played recently"), recent.Err, kit.ErrorBlockOpts{
 				OnRetry:  func() { q.Invalidate(store.KeyLibraryRecent) },
 				Retrying: recent.Fetching || history.Fetching,
@@ -133,7 +133,7 @@ func (h *home) recentlyAdded(c *ui.Context, ctx kit.ItemsCtx) {
 	res := store.Use(q, keyAdded, func(cx context.Context) (services.AlbumPage, error) {
 		return h.lib.Albums(cx, "dateAdded", true, "", 0, localShelfItems)
 	}, store.Options{Stale: store.Forever})
-	title := i18n.T("Recently added")
+	title := i18n.T("Recently Added")
 	if res.Err != nil {
 		ruledShelf(c, ruledOpts{Title: title}, func() {
 			kit.QueryFailed(c, q, i18n.T("Couldn't read your albums"), res.Err, keyAdded)
@@ -177,7 +177,7 @@ func (h *home) recentPlaylists(c *ui.Context, ctx kit.ItemsCtx) {
 		}
 		tiles = append(tiles, t)
 	}
-	h.coverShelf(c, &h.local.playlists, i18n.T("Your playlists"), i18n.T("Recently updated playlists"), "/library/playlists", tiles, ctx)
+	h.coverShelf(c, &h.local.playlists, i18n.T("Your Playlists"), i18n.T("Recently updated playlists"), "/library/playlists", tiles, ctx)
 }
 
 // coverShelf is a titled row of tiles with "See all" to a library page, where

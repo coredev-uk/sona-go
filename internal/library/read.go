@@ -19,6 +19,8 @@ import (
 type Library struct {
 	db  *db.DB
 	api *applemusic.Client
+	// now is the clock of the release rule (release.go); nil: time.Now.
+	now func() time.Time
 }
 
 // New returns a Library over d. api is used only by the mutations
@@ -122,23 +124,10 @@ type Song struct {
 	Genre           string `json:"genre"`
 	Explicit        bool   `json:"explicit"`
 	HasLyrics       bool   `json:"hasLyrics"`
-	// NoPlayParams: Apple gave the song no playParams, as for the songs of a
-	// pre-added album that are not out yet. Album is the release state of
-	// its library album, read only for a song with neither playParams nor a
-	// releaseDate of its own: it goes by its album. A dated song goes by its
-	// date, and one with playParams is out (a single can carry no date); zero
-	// otherwise, and when the album is not stored.
-	NoPlayParams bool         `json:"noPlayParams"`
-	Album        ReleaseState `json:"album"`
-}
-
-// ReleaseState is what a library album stores about its release. A
-// pre-added album has no releaseDate of its own: only its catalog album
-// says when it comes out and whether it is a pre-release.
-type ReleaseState struct {
-	Date        string `json:"date"`        // the library album's releaseDate
-	CatalogDate string `json:"catalogDate"` // its catalog album's
-	Prerelease  bool   `json:"prerelease"`  // Apple's isPrerelease on the catalog album
+	// Unreleased: the song is not out yet (a placeholder of a pre-added
+	// album: release.go's rule, as of the library's clock). It is listed
+	// only on its album.
+	Unreleased bool `json:"unreleased"`
 }
 
 // Album is a library album.
@@ -155,8 +144,8 @@ type Album struct {
 	Explicit        bool      `json:"explicit"`
 	Single          bool      `json:"single"` // a single or an EP (IsSingleRelease)
 	DateAdded       time.Time `json:"dateAdded"`
-	// CatalogReleaseDate and Prerelease are its catalog album's (see
-	// ReleaseState): a pre-added album has no ReleaseDate of its own.
+	// CatalogReleaseDate and Prerelease are its catalog album's (release.go):
+	// a pre-added album has no ReleaseDate of its own.
 	CatalogReleaseDate string `json:"catalogReleaseDate"`
 	Prerelease         bool   `json:"prerelease"`
 }
@@ -213,55 +202,25 @@ type DomainStatus struct {
 	LastError   string    `json:"lastError"`
 }
 
-const trackColumns = `t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name,
+// trackColumns are the columns of a library song (scanSong) of the track
+// `t` joined with withAlbum, whether it is out as of today (release.go).
+func trackColumns(today string) string {
+	return `t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name,
 	t.album_library_id, t.artist_library_id, t.artwork_template, t.duration_ms,
-	t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.no_play_params,
-	CASE WHEN t.no_play_params = 1 AND t.release_date = '' THEN coalesce((SELECT al.is_prerelease FROM albums al WHERE al.library_id = t.album_library_id), 0) ELSE 0 END,
-	CASE WHEN t.no_play_params = 1 AND t.release_date = '' THEN coalesce((SELECT al.release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END,
-	CASE WHEN t.no_play_params = 1 AND t.release_date = '' THEN coalesce((SELECT al.catalog_release_date FROM albums al WHERE al.library_id = t.album_library_id), '') ELSE '' END`
+	t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics,
+	` + unreleased(today)
+}
 
 func scanSong(sc scanner) (Song, error) {
 	var s Song
 	var lib, cat, alb, art sql.NullString
 	var rating string
-	var lyrics, noPlayParams, pre int64
+	var lyrics, notOut int64
 	err := sc.Scan(&lib, &cat, &s.Name, &s.ArtistName, &s.AlbumName, &alb, &art, &s.ArtworkTemplate,
-		&s.DurationMS, &s.TrackNumber, &s.DiscNumber, &s.ReleaseDate, &s.Genre, &rating, &lyrics, &noPlayParams,
-		&pre, &s.Album.Date, &s.Album.CatalogDate)
+		&s.DurationMS, &s.TrackNumber, &s.DiscNumber, &s.ReleaseDate, &s.Genre, &rating, &lyrics, &notOut)
 	s.LibraryID, s.CatalogID, s.AlbumLibraryID, s.ArtistLibraryID = lib.String, cat.String, alb.String, art.String
-	s.Explicit, s.HasLyrics, s.NoPlayParams, s.Album.Prerelease = rating == "explicit", lyrics != 0, noPlayParams != 0, pre != 0
+	s.Explicit, s.HasLyrics, s.Unreleased = rating == "explicit", lyrics != 0, notOut != 0
 	return s, err
-}
-
-// songFromRow maps a stored track. A song with neither playParams nor a date
-// also gets its library album's release state (see Song.Album): from albums by
-// library ID, which the caller has when it read the albums.
-func songFromRow(t dbq.Track, albums map[string]ReleaseState) Song {
-	s := Song{
-		LibraryID: t.LibraryID.String, CatalogID: t.CatalogID.String, Name: t.Name,
-		ArtistName: t.ArtistName, AlbumName: t.AlbumName, AlbumLibraryID: t.AlbumLibraryID.String,
-		ArtistLibraryID: t.ArtistLibraryID.String, ArtworkTemplate: t.ArtworkTemplate, DurationMS: t.DurationMs,
-		TrackNumber: int(t.TrackNumber), DiscNumber: int(t.DiscNumber), ReleaseDate: t.ReleaseDate,
-		Genre: t.Genre, Explicit: t.ContentRating == "explicit", HasLyrics: t.HasLyrics != 0,
-		NoPlayParams: t.NoPlayParams != 0,
-	}
-	if s.NoPlayParams && s.ReleaseDate == "" {
-		s.Album = albums[s.AlbumLibraryID]
-	}
-	return s
-}
-
-func songsFromRows(rows []dbq.Track, albums map[string]ReleaseState) []Song {
-	out := make([]Song, len(rows))
-	for i, r := range rows {
-		out[i] = songFromRow(r, albums)
-	}
-	return out
-}
-
-// releaseOf is the release state an album stores.
-func (a Album) releaseOf() ReleaseState {
-	return ReleaseState{Date: a.ReleaseDate, CatalogDate: a.CatalogReleaseDate, Prerelease: a.Prerelease}
 }
 
 func dir(desc bool) string {
@@ -291,8 +250,9 @@ func query[T any](ctx context.Context, l *Library, q string, scan func(scanner) 
 	return out, rows.Err()
 }
 
-// Songs lists library songs. SortDateAdded uses Apple's library order
-// (Desc: most recently added first).
+// Songs lists the library songs that are out (not a pre-added album's
+// placeholders: release.go). SortDateAdded uses Apple's library order (Desc:
+// most recently added first).
 func (l *Library) Songs(ctx context.Context, o ListOptions) ([]Song, error) {
 	d := dir(o.Desc)
 	var order string
@@ -308,8 +268,10 @@ func (l *Library) Songs(ctx context.Context, o ListOptions) ([]Song, error) {
 		order = "t.name COLLATE NOCASE " + d + ", t.artist_name COLLATE NOCASE, t.id"
 	}
 	limit, offset := o.page()
-	return query(ctx, l, `SELECT `+trackColumns+` FROM tracks t
-		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
+	today := l.today()
+	return query(ctx, l, `SELECT `+trackColumns(today)+` FROM tracks t
+		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id`+withAlbum+`
+		WHERE `+out(today)+`
 		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanSong, limit, offset)
 }
 
@@ -430,7 +392,8 @@ func one[T any](items []T, err error) (T, error) {
 	return items[0], nil
 }
 
-// Album returns library album id and its tracks in disc/track order.
+// Album returns library album id and all its tracks in disc/track order,
+// those not out yet too (Song.Unreleased): the album's page presents them.
 func (l *Library) Album(ctx context.Context, id string) (Album, []Song, error) {
 	a, err := one(query(ctx, l, `SELECT `+albumColumns+` FROM albums a
 		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
@@ -438,11 +401,14 @@ func (l *Library) Album(ctx context.Context, id string) (Album, []Song, error) {
 	if err != nil {
 		return Album{}, nil, err
 	}
-	rows, err := l.db.RQ.LibraryAlbumTracks(ctx, db.NullString(id))
+	// Every song of the album, the ones not out yet included (Unreleased).
+	songs, err := query(ctx, l, `SELECT `+trackColumns(l.today())+` FROM tracks t`+withAlbum+`
+		WHERE t.album_library_id = ?
+		ORDER BY t.disc_number = 0, t.disc_number, t.track_number, t.name COLLATE NOCASE`, scanSong, id)
 	if err != nil {
 		return Album{}, nil, fmt.Errorf("library: album tracks: %w", err)
 	}
-	return a, songsFromRows(rows, map[string]ReleaseState{id: a.releaseOf()}), nil
+	return a, songs, nil
 }
 
 // ArtistAlbums returns library artist id and its library albums (newest
@@ -464,21 +430,21 @@ func (l *Library) ArtistAlbums(ctx context.Context, id string) (Artist, []Album,
 }
 
 // Artist returns library artist id, its library albums (newest first) and
-// its library songs.
+// its library songs that are out.
 func (l *Library) Artist(ctx context.Context, id string) (Artist, []Album, []Song, error) {
 	a, albums, err := l.ArtistAlbums(ctx, id)
 	if err != nil {
 		return Artist{}, nil, nil, err
 	}
-	rows, err := l.db.RQ.LibraryArtistTracks(ctx, db.NullString(id))
+	today := l.today()
+	songs, err := query(ctx, l, `SELECT `+trackColumns(today)+` FROM tracks t
+		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id`+withAlbum+`
+		WHERE t.artist_library_id = ? AND `+out(today)+`
+		ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number`, scanSong, id)
 	if err != nil {
 		return Artist{}, nil, nil, fmt.Errorf("library: artist tracks: %w", err)
 	}
-	byID := make(map[string]ReleaseState, len(albums))
-	for _, al := range albums {
-		byID[al.LibraryID] = al.releaseOf()
-	}
-	return a, albums, songsFromRows(rows, byID), nil
+	return a, albums, songs, nil
 }
 
 // ArtistSummary is a library artist with how much of them the library
@@ -491,9 +457,10 @@ type ArtistSummary struct {
 }
 
 // ArtistIndex lists every library artist by name with the number of library
-// albums and songs they have: the Artists overview's list, filtered in the
+// albums and songs (that are out) they have: the Artists overview's list, filtered in the
 // UI, so it is one query and never paged.
 func (l *Library) ArtistIndex(ctx context.Context) ([]ArtistSummary, error) {
+	today := l.today()
 	return query(ctx, l, `SELECT r.library_id, r.catalog_id, r.name,
 			COALESCE(NULLIF(r.artwork_template, ''), (
 				SELECT a.artwork_template FROM albums a
@@ -506,7 +473,8 @@ func (l *Library) ArtistIndex(ctx context.Context) ([]ArtistSummary, error) {
 		LEFT JOIN (SELECT a.artist_library_id AS id, COUNT(*) AS n FROM albums a
 			JOIN library_items x ON x.kind = 'album' AND x.ref = a.id GROUP BY 1) al ON al.id = r.library_id
 		LEFT JOIN (SELECT t.artist_library_id AS id, COUNT(*) AS n FROM tracks t
-			JOIN library_items x ON x.kind = 'song' AND x.ref = t.id GROUP BY 1) so ON so.id = r.library_id
+			JOIN library_items x ON x.kind = 'song' AND x.ref = t.id`+withAlbum+`
+			WHERE `+out(today)+` GROUP BY 1) so ON so.id = r.library_id
 		ORDER BY r.name COLLATE NOCASE, r.id`, func(sc scanner) (ArtistSummary, error) {
 		var s ArtistSummary
 		var lib, cat sql.NullString
@@ -525,7 +493,9 @@ func (l *Library) playlistRow(ctx context.Context, id string) (Playlist, error) 
 }
 
 // Playlist returns library playlist id and a page of its tracks in
-// playlist order (o.Sort is ignored).
+// playlist order (o.Sort is ignored). Apple lets no song that is not out be
+// added to a playlist, so it lists every track as stored (a one that were
+// there would be Unreleased and not playable).
 func (l *Library) Playlist(ctx context.Context, id string, o ListOptions) (Playlist, []Song, error) {
 	p, err := l.playlistRow(ctx, id)
 	if err != nil {
@@ -537,9 +507,9 @@ func (l *Library) Playlist(ctx context.Context, id string, o ListOptions) (Playl
 	}
 	p = pls[0]
 	limit, offset := o.page()
-	songs, err := query(ctx, l, `SELECT `+trackColumns+` FROM playlist_tracks pt
+	songs, err := query(ctx, l, `SELECT `+trackColumns(l.today())+` FROM playlist_tracks pt
 		JOIN playlists p ON p.id = pt.playlist_id
-		JOIN tracks t ON t.id = pt.track_id
+		JOIN tracks t ON t.id = pt.track_id`+withAlbum+`
 		WHERE p.library_id = ?
 		ORDER BY pt.position LIMIT ? OFFSET ?`, scanSong, id, limit, offset)
 	return p, songs, err
@@ -562,6 +532,10 @@ type PlacedPlaylist struct {
 	Position  int
 	CanDelete bool
 	Favorited bool
+	// Collaborative and Host: Apple's hasCollaboration and
+	// isCollaborativeHost, as the last playlist sync saw them.
+	Collaborative bool
+	Host          bool
 }
 
 // PlaylistTree returns the playlist folders and every library playlist
@@ -594,53 +568,55 @@ func (l *Library) PlaylistTree(ctx context.Context) ([]dbq.PlaylistFolder, []Pla
 		out[i] = PlacedPlaylist{
 			Playlist: pls[i], FolderID: r.FolderID, Position: int(r.FolderPosition),
 			CanDelete: r.CanDelete != 0, Favorited: r.Favorited != 0,
+			Collaborative: r.IsCollaborative != 0, Host: r.CollaborativeHost != 0,
 		}
 	}
 	return folders, out, nil
 }
 
-// Song returns library song id.
+// Song returns library song id (Unreleased when it is not out yet).
 func (l *Library) Song(ctx context.Context, id string) (Song, error) {
-	t, err := l.db.RQ.GetTrackByLibraryID(ctx, db.NullString(id))
-	if errors.Is(err, sql.ErrNoRows) {
-		return Song{}, ErrNotFound
-	}
-	if err != nil {
-		return Song{}, fmt.Errorf("library: %w", err)
-	}
-	var albums map[string]ReleaseState
-	if t.AlbumLibraryID.Valid {
-		switch al, err := l.db.RQ.GetAlbumByLibraryID(ctx, t.AlbumLibraryID); {
-		case errors.Is(err, sql.ErrNoRows):
-		case err != nil:
-			return Song{}, fmt.Errorf("library: song album: %w", err)
-		default:
-			albums = map[string]ReleaseState{al.LibraryID.String: {Date: al.ReleaseDate, CatalogDate: al.CatalogReleaseDate, Prerelease: al.IsPrerelease != 0}}
-		}
-	}
-	return songFromRow(t, albums), nil
+	return one(query(ctx, l, `SELECT `+trackColumns(l.today())+` FROM tracks t`+withAlbum+`
+		WHERE t.library_id = ?`, scanSong, id))
 }
 
-// Counts returns the number of songs, albums, artists and playlists.
+// Counts returns the number of songs (that are out), albums, artists and
+// playlists.
 func (l *Library) Counts(ctx context.Context) (Counts, error) {
-	rows, err := l.db.RQ.CountLibraryItems(ctx)
+	// One statement: a row per kind, the songs less those not out yet
+	// (release.go; found by index, not by reading every song).
+	rows, err := query(ctx, l, `SELECT li.kind, count(*) - CASE li.kind WHEN 'song' THEN (
+			SELECT count(*) FROM tracks t
+			JOIN library_items x ON x.kind = 'song' AND x.ref = t.id`+withAlbum+`
+			WHERE `+unreleased(l.today())+`) ELSE 0 END
+		FROM library_items li GROUP BY li.kind`, func(sc scanner) (kindCount, error) {
+		var k kindCount
+		err := sc.Scan(&k.kind, &k.n)
+		return k, err
+	})
 	if err != nil {
 		return Counts{}, fmt.Errorf("library: counts: %w", err)
 	}
 	var c Counts
 	for _, r := range rows {
-		switch r.Kind {
+		switch r.kind {
 		case "song":
-			c.Songs = int(r.N)
+			c.Songs = r.n
 		case "album":
-			c.Albums = int(r.N)
+			c.Albums = r.n
 		case "artist":
-			c.Artists = int(r.N)
+			c.Artists = r.n
 		case "playlist":
-			c.Playlists = int(r.N)
+			c.Playlists = r.n
 		}
 	}
 	return c, nil
+}
+
+// kindCount is a library kind's number of items.
+type kindCount struct {
+	kind string
+	n    int
 }
 
 // Search finds library items whose name, artist or album contain words
@@ -656,6 +632,12 @@ func (l *Library) Search(ctx context.Context, term string, limit int, kinds ...s
 	}
 	q := `SELECT kind, ref, name, artist, album, artwork FROM search_fts WHERE search_fts MATCH ?`
 	args := []any{match}
+	// The index holds a pre-added album's placeholder songs: a song is a hit
+	// only while it is out (release.go; the index can't, it doesn't change
+	// with the clock).
+	today := l.today()
+	q += ` AND (kind <> 'song' OR EXISTS (SELECT 1 FROM tracks t` + withAlbum + `
+		WHERE t.library_id = search_fts.ref AND ` + out(today) + `))`
 	if len(kinds) > 0 {
 		q += ` AND kind IN (` + placeholders(len(kinds)) + `)`
 		args = append(args, anys(kinds)...)

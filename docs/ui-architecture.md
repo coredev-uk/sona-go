@@ -46,6 +46,7 @@ Sona's interface is Go all the way down: [MyGo](https://github.com/egoist/mygo)'
   - [Playlists](#playlists-featuresplaylist)
   - [Search](#search-featuressearch)
   - [Concerts](#concerts-featuresconcerts)
+  - [New releases](#new-releases-featuresnewreleases)
   - [Browse: Home, Discover, Radio](#browse-home-discover-radio-featureshome-featuresdiscover-featuresradio)
   - [Catalogue pages](#catalogue-pages-featuresalbum-featuresartist-featuressong)
 - [Tests](#tests)
@@ -152,7 +153,7 @@ The concerts module sets `ConcertsShelf` and `ArtistConcerts` in its factory. Th
 ### What a module declares
 
 - **Routes** use MyGo's router patterns (`/album/{id}`, `/settings/{section...}`). The route memory, titles and the back and forward buttons are the shell's.
-- **Nav** entries sit in the primary, library or footer section and sort by `Order`. `To` is one of the module's own patterns. Each entry gets a go-to shortcut (`Keys`, else Ctrl+1…9 or Alt+1…9 by position).
+- **Nav** entries sit in the primary, library or footer section and sort by `Order`. `To` is one of the module's own patterns. Each entry gets a go-to shortcut (`Keys`, else Ctrl+1…9 or Alt+1…9 by position). `Count`, when set, is a number the link carries at its end while it is above 0 and in its name for assistive technology ("New releases, 3 new"); it is read every frame, so it only peeks at a mirror.
 - **Init** runs once after the shell connects, on the main thread: subscriptions (`store.On`) and first snapshots. A module's `Init` subscribes to each event, then calls `env.Queries.Invalidate(store.Key{"library"})` or the like.
 - **Actions** (`[]kit.ActionDef`) are the module's item actions, single (`Target` a kind) and bulk (`Target: kit.KindSelection`). The shell registers every module's into one `kit.ActionRegistry` (`Env.Actions`), which `kit.ActionMenus` lists and shortcuts and the palette share by ID. A duplicate ID panics at start-up.
 
@@ -434,7 +435,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 - `kit.Transport` is the playback command set that the bar, the mini player and the video view share: `Toggle`, `Next`, `Prev`, `SeekTo`, `SeekBy`, `SetVolume`, `ToggleMute`. The mirror shows a seek or a volume at once, the service runs off the main thread, and a failure goes to `Transport.Fail` (a notice in the mini player, a queued toast in the bar; nil is `kit.ToastFailure`). Each caller keeps its own guards (the bar's `refuse`, the video's `Controls.Seek`).
 - The mute button and the M key share `store.Playback.Unmuted` everywhere.
-- `kit.SeekDrag` is the seek bar while dragged (`Pos`, `Update`, `Tick`). `kit.PlayPauseIcon`, `kit.VolumeIcon`, `kit.LiveMarker` and `(*ActionMenus).PopupFor` are the bar widgets the three share. `kit.AlertLine` is the sentence with a danger icon; `kit.ListenBrainzTokenHint` is the token field's hint.
+- `kit.SeekDrag` is the seek bar while dragged (`Pos`, `Update`, `Tick`). `kit.PlayPauseIcon`, `kit.VolumeIcon`, `kit.LiveMarker` and `(*ActionMenus).PopupFor` are the bar widgets the three share. `kit.AlertLine` is the sentence with a danger icon, and `kit.InfoLine` the one with an info icon on a quiet wash (a status, for a limit the user should know before they act); `kit.ListenBrainzTokenHint` is the token field's hint.
 - `store.Latest[T]` sends values one at a time, the newest last (the equaliser's preview and saves, the lyrics choices). `store.Mirror` and `store.Seed` keep a query in step with an event and a one-off snapshot.
 - `module.ShortcutGroups` and `module.GroupTitle` order and name the shortcut groups of the palette, the help and Settings. `lyricsync.SpanCache` and `lyricsync.Dur` serve the sung line and the lyrics sheet.
 
@@ -528,7 +529,8 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 - `ArtOpts.Fallback` builds the fallback in place of the glyph (PersonAvatar's initials).
 - `Contain` shows the whole picture at the shape its URL names (a banner stays wide) and decodes it at that size.
-- `FluidArtwork` fills its container's width at square or 16:9 and decodes for the largest width.
+- `Aspect` is any width over height, raw (Apple's 1060:608 hero crop) or worked out. The box's height is rounded to whole DIPs (`kit.ArtBox`), so the picture lands on whole pixels; a caller that frames the cover in a box of its own (Home's hero banner, Discover's wide thumbnails) sizes that box with `kit.ArtBox` rather than rounding by hand.
+- `FluidArtwork` fills its container's width at the aspect of `ArtOpts` (square, 16:9, a banner's) and decodes for the largest width, whose box is rounded the same way.
 - `ArtLoader` also loads backdrops (`/art/<key>/backdrop.jpg`, the pre-blurred JPEG from `artwork.Cache.Backdrop`, decoded at its own size) through the same queue, cache and retries.
 
 **Backdrop** is a box whose background is the cover's dominant colour at once, then the Go pre-blurred image at 110% fading in over 300 ms (a new source is decoded before it replaces the last). It sits under a solid scrim of the surface or ground token at `backdrop-scrim`, and draws nothing under Reduce effects. It holds its children, which draw over it.
@@ -617,13 +619,26 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 **ActionMenus** (`NewActionMenus(env.Actions, selection)`)
 
-- An item's "More for <name>" button is `Trigger(c, row, target, opts)` (ghost while the row is hovered or focused, outline for a header; its menu is aligned to its end, 224 wide). **A ⋯ button implies right-click**: `Trigger` takes the element the button belongs to and wires it too, so a right-click on it opens the same menu at the pointer, and Shift+F10 or the Menu key while the focus is within it open it below it, starting on the first entry. The signature makes the owner an argument, so a surface cannot draw the button through `Trigger` without naming what to wire (the sidebar draws its own ⋯ and wires it with `Menu.OpenOn`). `Popup` draws the point menus, called once per list or page after the rows.
+- An item's "More for <name>" button is `Trigger(c, row, target, opts)`.
+  - It is ghost while the row is hovered or focused, outline for a header. Its menu is aligned to its end, 224 wide.
+  - **A ⋯ button implies right-click.** `Trigger` takes the element the button belongs to and wires it too. A right-click on it opens the same menu at the pointer. Shift+F10 or the Menu key while the focus is within it open it below it, starting on the first entry.
+  - The signature makes the owner an argument, so a surface cannot draw the button through `Trigger` without naming what to wire. The sidebar draws its own ⋯ and wires it with `Menu.OpenOn`.
+  - `Popup` draws the point menus, called once per list or page after the rows.
 - What `row` is: a list row or tile; for a page header, the box around its artwork and title (a right-click on either, or on any part of the head that takes no press of its own, opens the item's menu; its buttons keep theirs). `TriggerOpts.Select` and `Index` make a right-click on an item outside the selection select it alone first (lists with a `Selection`). The trailing arguments of `Trigger` list children that take the pointer themselves (a title that is a link, a result row's open button): MyGo hands a right-click to the innermost interactive element, so without it the click would never reach `row`.
 - `ActionMenus.Row` wires an item that has a menu but no button (the radio board's playing rows, the bar's cover); `Menu.OpenOn(row)` does the same for a `kit.Menu` ⋯ button of its own (the sidebar's pins and folders). Both are for a surface that cannot use `Trigger`; a ⋯ button drawn any other way needs one of them.
 - The rule is tested with `access.CheckMenuWays` (`uitest/access`): for an item it opens the menu with the button, with a right-click at the title and at the artwork, and with Shift+F10 and the Menu key, and fails when a way opens no menu, a different one, or a menu away from the pointer. Each surface that draws a ⋯ button has such a check in its package: most in `menus_test.go`, Discover in `front_test.go`, Search in `itemrow_menu_test.go`, and the radio on-air, artist release and Home rows in their older right-click tests.
 - A row inside a multi-selection (`SelectionScope.GroupWith`) lists the bulk actions for all of them under "<what> selected" and runs once with every item and `Container.Indices`.
 - A list that shows its collection sorted or filtered gives `ActionContainer.Order` (row i is item `Order[i]`), so `Index` and `Indices` always name places in the collection. A positional action (Remove from playlist) needs that.
 - Kinds with no registered action get no trigger.
+
+### Developer actions (`features/inspect`)
+
+A development build (`-tags dev`) adds one module, `inspect` (`app/modules_dev.go`), and nothing else: a release build holds neither the module nor the service behind it.
+
+- **One action per kind** (`inspect.song`, `inspect.album`…), registered through `Module.Actions` in the `kit.GroupDeveloper` group, the last section of every menu. Every surface with an item menu (tile, row, header, card; right-click, the "more" button) lists "Inspect" with no code of its own, so right-click coverage follows the item menus (#337).
+- **The panel** is a plain `kit.Dialog` built in the module's `Layer` slot: the item's kind, ID and artwork URL, then the mapped DTO, Apple's resource as Go's catalogue cache holds it, and the SQLite row of a library item. The text is a text field whose edits are undone, so it selects, copies and scrolls. Copy as JSON, Copy ID and Copy artwork URL (the item's largest size) follow. It is not translated or designed for end users.
+- **The data** comes from `InspectService.Inspect` (`services/inspect_dev.go`, dev tag): the mapped item the UI passes, `catalog.Catalog.Raw` (`catalog/raw_dev.go`, the cache's body, never a request to Apple) and the library row. Every text passes through `logging.Redact`; no request header is ever held, and the UI still never calls Apple. An item whose page Sona has not fetched shows "not in Go's catalog cache".
+- **The release check:** `inspect`'s release test asserts `cmd/sona`'s dependencies leave the package out, and `app`'s module-list test (`devModules`) lists no extra module without the tag.
 
 **Toaster** (`ShowToast`, `ToastSuccessf`, `ToastErrorf`, `CloseToast`, `Unavailable`) is sonner's look on MyGo's toast manager.
 
@@ -645,6 +660,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 **TrackList** (`TrackListState`, `TrackListOpts`, `TrackColumns`, `TrackSortState`) is the track table.
 
 - The header has sortable Title/Artist/Album, and Duration when `TrackSortState.Duration` is set (a list that sorts itself). `TrackSortState.Toggle` is the click's cycle for such a list: ascending, descending, then none, the list's own order.
+- `TrackListOpts.Rank` (a `*TrackRank`) turns the leading "#" column into rank numerals: 56 DIP wide, the `title` type style (24/30) in the ink colour, tabular figures, right-aligned (`RowNumbers` is ignored). The hovered row still swaps the numeral for Play. Rank is the position in the list as given; a host that sorts the rows itself sets `TrackRank.Of(i)` to return the song's own chart position, so the numerals travel with the songs (nil `Of`: the numerals follow the shown order, so a re-sorted list is numbered afresh). Discover's charts (the overview's Top songs and `/charts/songs`) use it, unsorted, so rank is the chart position.
 - Rows are 44 DIP. It also has disc and work headings, `Popular`, "Added by", the current-song mark, skeleton rows, and highlight and scroll to it.
 - `TrackListOpts.HideUploadMark` leaves the "Uploaded" badge and the ", uploaded" name off uploaded rows (a list made only of uploads); the row's Play button carries the same name.
 - One Tab stop (only the focused row is focusable). Arrows, Page Up/Down, Home/End move it; Enter and double-click play; Ctrl+click/Shift+click/Shift+arrows/Ctrl+A select; selected runs draw as one block.
@@ -723,7 +739,7 @@ Other helpers: `uitest.Transport` (a recording fake of the playback commands, ov
 - `access.NoNestedControls` fails for a control nested inside a button or link, which MyGo reads as one piece and so hides.
 - `access.TabWalk` walks Tab round the window and fails for a stop that is not on the tree or a trap.
 - `access.InOrder`, `access.StopLabels` and `Tree.MustFind` serve the checks every feature repeats.
-- Each feature package keeps its pages' tree, Tab-order, Escape and announcement checks in `a11y_test.go` (`docs/accessibility.md`).
+- Each feature package keeps its pages' tree, Tab-order, Escape and announcement checks in `a11y_test.go` (`site/src/content/docs/contributing/accessibility.md`).
 
 ### `uitest/overlay`
 
@@ -1248,12 +1264,12 @@ Eight pages under the sidebar's Library section, the sync mirror and its sidebar
 
 | Page | Order | Icon |
 | --- | --- | --- |
-| Recently added | 5 | `clock-3` |
+| Recently Added | 5 | `clock-3` |
 | Artists | 10 | `mic-vocal` |
 | Albums | 20 | `disc-3` |
 | Songs | 30 | `music` |
-| Music videos | 40 | `clapperboard` |
-| Favourite songs | 60 | `star` |
+| Music Videos | 40 | `clapperboard` |
+| Favourite Songs | 60 | `star` |
 | History | 65 | `history` |
 | Playlists | 70 | `list-music` |
 
@@ -1297,7 +1313,11 @@ A master and detail page.
 
 - **Recently added** files the list under Today, Past week, Past month and Earlier by `DateAdded` (calendar days, as History counts them), one `kit.CoverGrid` and one selection per group. The groups come from the first page; what lies past it is older than all of it, so it joins Earlier. The pages fetched follow the union of the groups' built tiles.
 - **History** groups `LibraryService.History(days)` by day (30 days; "Show earlier days" adds 30 while the earlier days keep showing) as a timeline. Each day is a row with the day's heading and counts in a 168 DIP rail, a 1px line down the rail's right edge with a dot at the heading, and one `kit.TrackList` to the right. The query sits under `["library","recent"]` so a new playing song refreshes it.
-- **Music videos** page through `MusicVideos` in 100s (stale after 10 minutes) and play where the platform plays videos. They are read live from Apple and kept nowhere, so offline (the auth status's `Offline`), or when the request fails for lack of a connection, the page shows "Music videos need a connection" with Try again in place of the grid, and reloads by itself once back online. Online it carries no note, like every other library page.
+- **Music videos** page through `MusicVideos` in 100s (stale after 10 minutes) and play where the platform plays videos. They are read live from Apple and kept nowhere.
+  - **Offline state.** When the request fails for lack of a connection (loaded videos or not), or the auth status says `Offline` and nothing has loaded, the page shows "Music videos need a connection" with Try again in place of the grid.
+  - **Try again** while offline re-runs the sign-in check (`AuthService.Revalidate`, as Account's Check now does) and then reads the videos. The page leaves the state as soon as Apple answers, rather than when the check's own retry (2 s doubling to 5 minutes) clears the flag.
+  - **Recovery.** A successful load shows the grid whatever the flag says, and the page also reloads by itself when the flag clears.
+  - Online it carries no note, like every other library page.
 
 #### Sync
 
@@ -1315,6 +1335,12 @@ A master and detail page.
 - Labels and availability read the item's state from `Env.ItemStates`, which a menu loads once for every item in it as one `LibraryService.States` call.
 - Delete from library is offered for an item in the library. An item that names its library copy (`Source` library, or a `LibraryID`) is in the library whatever Apple's catalogue `inLibrary` says (Apple reports a partly added or just added album as not in it, and a library answer can leave an ID out), until the user's own removal says otherwise: `LibraryService.States` answers so, and before a state loads the single and bulk actions read the item the same way, so every album under Library, the album page's header menu included, offers it.
 - A change shows at once and is undone when Go refuses it. Delete asks first (`kit.Confirm`) and every outcome toasts.
+- Delete from library takes effect before Apple answers. `LibraryService.Remove`:
+  1. hides the item in the local library first (`Library.Hide`): its membership, ratings, search entries and playlist places; with the last song of an album the album; with the last album or song of an artist the artist. A pre-added album stays;
+  2. emits `library:changed` so every list re-reads (`ItemStates.Follow` invalidates the membership lists);
+  3. sends Apple's DELETE.
+  - When Apple refuses, `Library.Restore` puts everything back, `library:changed` is emitted again and the failure toast shows.
+  - The album page of an album that has left the library says "This album is no longer in your library" (with the album's Apple Music page when it has one), not an empty track list.
 - Playing and queueing go through `Env.Queue` (`kit.QueueCommands`).
 
 ### Settings (`features/settings`)
@@ -1499,7 +1525,7 @@ Both read `Env.Shortcuts()`: every module's shortcuts, the shell's and each side
 - `kit.ShiftSlash` notes Shift and the slash key with no `Key` (`kit.IsShiftSlash`). It is observed on the shell's root and an open layer (`ObserveInput`). The dispatcher reads it as the chord Shift+/ in the next frame, unless the focus takes text or the focused element took it itself (`kit.TakeShiftSlash`; the key recorder's `HandleInput`, which records `?`).
 - Windows' press has its `Key`, which the shortcut takes, so nothing runs twice.
 - The help's dialog observes its own, to close on it (`ShiftSlash.Pressed`).
-- The position is where US and UK layouts have `?`, so on GTK and AppKit (`kit.SlashByPosition`) the command's label says so while it answers to `?` (`docs/accessibility.md`, "Focus").
+- The position is where US and UK layouts have `?`, so on GTK and AppKit (`kit.SlashByPosition`) the command's label says so while it answers to `?` (`site/src/content/docs/contributing/accessibility.md`, "Focus").
 
 #### Palette
 
@@ -1554,13 +1580,13 @@ Registered after video and before radio and the player. It owns:
 **Tree logic** (`tree.go`, tested against `tree.test.ts`)
 
 - Folders come before playlists at every level, by Apple's position then name. Unknown parents go at the top.
-- Pinned and non-editable playlists are left out of the folder tree (their folders count them).
-- Sections: Made for you (`pl.pm-` catalogue IDs), Apple Music and own.
+- Pinned and non-editable playlists are left out of the folder tree (their folders count them), except collaborative ones (`TreePlaylist.Collaborative`, stored by the sync), which are the user's own whether hosted or joined and stay in their folder.
+- Sections: Apple Music (Apple's: the personal mixes, then the playlists the user cannot edit) and own (editable, or collaborative). The mixes come first in Apple's position order, the others by name. `isPersonalMix` (a `pl.pm-` catalogue ID) is the one test for a personal mix and does not depend on the section: Delete is not offered for a mix, and any other place that must tell a mix reuses it. A joined collaborative playlist is not editable (`CanEdit` false), so the edit, move and drop-in actions stay off it; Delete and Change cover stay.
 
 #### Sidebar
 
-- Sections: Pinned, Made for you, Apple Music, Playlists. They wait for pins and tree so a pinned playlist never flashes in its section.
-- Open folders and folded sections persist in `config.Settings.Sidebar` (`OpenFolders`, `FoldedSections`). They are read at start and saved through `SystemService.SetSidebar` (one save at a time, newest state last; it changes nothing else in the settings). Settings exports leave the key out: it describes this computer's library view.
+- Sections: Pinned, Apple Music, Playlists. They wait for pins and tree so a pinned playlist never flashes in its section.
+- Open folders and folded sections persist in `config.Settings.Sidebar` (`OpenFolders`, `FoldedSections`). They are read at start and saved through `SystemService.SetSidebar` (one save at a time, newest state last; it changes nothing else in the settings). Settings exports leave the key out: it describes this computer's library view. A section folded under the old Made for you ID (`made-for-you`) is read as the merged Apple Music section folded: `config.Sidebar` normalises it at load and the next save writes only `apple-music`.
 - Playlist rows and pinned editable playlists are `kit.DropOn` targets that accept any payload whose items hold songs, albums or playlists (a queue row's payload carries its song and an `Origin`, which is ignored here). They describe the drop ("Add to …") and add through `PlaylistsService.Add`.
 - The Pinned section and the "New playlist" row are targets that exist while a matching drag is on. A drag resting on a closed folder opens it after 600 ms.
 
@@ -1587,7 +1613,7 @@ Registered after video and before radio and the player. It owns:
 #### Page
 
 - Loading skeleton; error with Retry and a link back to Playlists.
-- **Header** (`header.go`; `kit.CollectionHeader` is not used): the cover beside the title, byline and description with the actions on its bottom edge, then the ledger strip. The strip has kind, songs, running time, "Created …" (the library's `dateAdded`: "Created today", "Created yesterday", else a long date; omitted for catalogue playlists) and "Updated …". Each is a tooltip tab stop with the exact date and time, and one cell when both fall on the same day. "Find in playlist" sits at its right end.
+- **Header** (`header.go`; `kit.CollectionHeader` is not used): the cover beside the title, byline and description with the actions on its bottom edge, then the ledger strip. The strip has kind, songs, running time, a dated cell and "Updated …". The dated cell is the library's `dateAdded` (omitted for catalogue playlists and for personal mixes, `pl.pm-…`): "Created …" for a playlist the user made (editable, or a collaborative one they host; `stampKindOf`), "Added …" for one they added or joined; "today", "yesterday", else a long date. "Updated …" is left out when it is on the dated cell's day or before it. Each is a tooltip tab stop with the exact date and time. "Find in playlist" sits at its right end.
 - The track list with an editable container, the empty states, the suggested-songs rows (the table's own columns), featured artists (small round tiles) and more-from-curator.
 - Links to other pages render only when `Env.HasRoute` says they exist.
 
@@ -1671,6 +1697,17 @@ The location dialog (`location.go`) searches Sona's own city list (`ConcertsServ
 
 `auth:changed` invalidates the listings only when the signed-in state changes. `ArtistConcerts` and `ConcertsShelf` (`upcoming.go`) are the artist page's "Upcoming concerts" and Home's shelf (compact rows with a date column and rule), set on `Env` by this module.
 
+### New releases (`features/newreleases`)
+
+`/new-releases` with the `New releases` nav item (icon `calendar`, primary, order 27: after Concerts, so the positional Ctrl+1…9 keys before it stay), the page of the artist tracker (`ArtistTrackerService`; `docs/architecture.md`, "Artist tracker"; its look is `docs/design.md`, "New releases"). The sidebar link is always there: the page says plainly when the tracker is off and links to Settings.
+
+- **State.** `artisttracker:changed` writes `store.KeyNewReleases` (`store.UseNewReleases`: items, unread count, when it was last checked); `Init` seeds it from `ArtistTrackerService.Releases`, which reads SQLite only. The nav item's `Count` peeks at it, so the sidebar shows the unread count without a fetch. Reads of the settings (`store.UseSettings`) tell the page whether the tracker is on.
+- **The page** (`page.go`) groups the list (`groupsOf`: Coming soon, soonest first; This week; Earlier) and builds each group as a table of rows (`row.go`), all in one `kit.Selection`, `kit.GridNav` and `kit.ActionMenus`, as the artist page's release list is: rows select, drag, open their item menu on right-click, Shift+F10 or the Menu key, and move with the arrows. A row is one Tab stop; the Delete key removes it.
+- **Marking read** is by opening a release (`MarkRead`, then the album page), the header's *Mark all as read*, or the menu; *Clear list* and *Remove* dismiss (`Dismiss`, `Clear`). Every call runs off the main thread (`newReleases.do`) and its outcome comes back as `artisttracker:changed`.
+- **Actions.** `newreleases.mark-read` and `newreleases.dismiss` (album target, item group, orders 80 and 81) are listed only for a row of this list: the rows pass `kit.ActionContainer{Kind: "new-releases"}`. An upcoming release also carries `reminders.toggle` (Remind me).
+- **Opening from a notification.** `app:open` with kind `new-releases` and no ID (the summary notification) opens the page; `routeForOpen` answers it before it looks for an ID.
+- **Settings.** The two switches are rows of Settings → General (`releases.go`), ids `artist-tracker` and `artist-tracker-notify`; the second is an unavailable row where `Capabilities.Notifications` is false.
+
 ### Browse: Home, Discover, Radio (`features/home`, `features/discover`, `features/radio`)
 
 Each is a package with one `modules.go` line (home, discover, …, radio). All three build on the kit's item components (`ItemShelf`, `ItemGrid`, `EditorialSections`, `WideRow`, `StationList`, `TrackShelf`, `TrackList`, `CollectionHeader`) and take their `kit.ItemsCtx` from `Env.ItemsCtx` each frame.
@@ -1679,7 +1716,7 @@ Data is `store.Use` with keys such as `["discover","home"]`, `["discover","page"
 
 #### Home
 
-`/` ("For you", Sparkles, order 10, exact); `/for-you/{id}` shows one shelf in full.
+`/` ("For You", Sparkles, order 10, exact); `/for-you/{id}` shows one shelf in full.
 
 - **The plan** (`plan.go`): the lead is the first `feature` shelf with items; three plain shelves stay open; the rest go to the "More for you" index. Recently Played, station-only shelves, features and heroes never do.
 - **The lead band** is a `kit.Backdrop` over the lead cover's pre-blurred backdrop: the page header as one line, a ruled head, the lead pick with its cover large, and Apple's other picks as one unnumbered running order of eight rows beside it (a row of cover and name over the order below 900 DIPs).

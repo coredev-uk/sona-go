@@ -107,6 +107,14 @@ func TestEmbeddedMappingFitsCatalogue(t *testing.T) {
 // verbatim copy of v0.2.0's mapping.
 var retiredV020 = map[po.Key]string{
 	{ID: "{0, plural, one {# song} other {# songs}}"}: "folded into `{songs, plural…}` (i18n.SongCount), same Apple key",
+	{ID: "Added by"}:                 "now a title, so the Title Case message \"Added By\" carries the same Apple key (docs/design.md, Wording and case)",
+	{ID: "Edit playlist"}:            "now a title, so the Title Case message \"Edit Playlist\" carries the same Apple key (docs/design.md, Wording and case)",
+	{ID: "Music videos"}:             "now a title, so the Title Case message \"Music Videos\" carries the same Apple key (docs/design.md, Wording and case)",
+	{ID: "Recently searched"}:        "now a title, so the Title Case message \"Recently Searched\" carries the same Apple key (docs/design.md, Wording and case)",
+	{ID: "Suggested songs"}:          "now a title, so the Title Case message \"Suggested Songs\" carries the same Apple key (docs/design.md, Wording and case)",
+	{ID: "Top 100 songs by country"}: "now a title, so the Title Case message \"Top 100 Songs by Country\" carries the same Apple key (docs/design.md, Wording and case)",
+	{ID: "Top 25 songs by city"}:     "now a title, so the Title Case message \"Top 25 Songs by City\" carries the same Apple key (docs/design.md, Wording and case)",
+	{ID: "Upcoming concerts"}:        "now a title, so the Title Case message \"Upcoming Concerts\" carries the same Apple key (docs/design.md, Wording and case)",
 }
 
 // Moving the UI from Lingui to Go keeps every mapping v0.2.0 shipped: each of

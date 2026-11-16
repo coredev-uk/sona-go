@@ -33,6 +33,14 @@ type videosPage struct {
 	wasOffline bool
 }
 
+// connectionChecker re-runs the sign-in check with Apple
+// (services.AuthService.Revalidate): the one thing that clears the app's
+// offline flag, which otherwise waits for the check's own retries (2 s
+// doubling to 5 minutes).
+type connectionChecker interface {
+	Revalidate(ctx context.Context) error
+}
+
 // videosPage is MusicVideosPage: Apple's music videos of the library (they
 // need the network), each opening its page and, where videos play, playing.
 func (l *library) videosPage(c *ui.Context, r *ui.Route) {
@@ -45,22 +53,33 @@ func (l *library) videosPage(c *ui.Context, r *ui.Route) {
 		l.env.Queries.Invalidate(keyMusicVideos)
 	}
 	pg.wasOffline = offline
-	reload := func() { l.env.Queries.Invalidate(keyMusicVideos) }
+	invalidate := func() { l.env.Queries.Invalidate(keyMusicVideos) }
+	// Try again: while the app is offline it checks the connection first, as
+	// Account's Check now does, then reads the videos.
+	reload := invalidate
+	if offline && l.auth != nil {
+		reload = func() {
+			l.run(i18n.T("Couldn't reach Apple"), l.auth.Revalidate, func(bool) { invalidate() })
+		}
+	}
+	// A failed read for lack of a connection, loaded videos or not, is the
+	// offline state; a stale flag is not, once the videos have loaded.
+	noConnection := q.Err != nil && services.CodeOf(q.Err) == services.CodeNetwork
 
 	subline := ""
-	if !offline && q.HasData && len(q.Data) > 0 {
+	if !noConnection && q.HasData && len(q.Data) > 0 {
 		// translators: {0} is the number of music videos.
 		subline = i18n.T("{0, plural, one {# music video} other {# music videos}}", "0", len(q.Data))
 	}
 	pg.Scroll(c, "videos", func(pane *kit.Pane, _ float32) {
-		l.pageHead(c, headOpts{title: i18n.T("Music videos"), count: subline})
+		l.pageHead(c, headOpts{title: i18n.T("Music Videos"), count: subline})
 		switch {
 		case out:
 			kit.EmptyState(c, i18n.T("Sign in to see your music videos"),
 				i18n.T("Music videos you add in Apple Music are listed here after you sign in."),
 				kit.EmptyOpts{Frame: kit.FrameBox, Action: l.signIn()})
 			return
-		case offline || (!q.HasData && q.Err != nil && services.CodeOf(q.Err) == services.CodeNetwork):
+		case noConnection || (offline && !q.HasData):
 			// The videos are read live from Apple: with no connection there is
 			// nothing to show in their place.
 			kit.EmptyState(c, i18n.T("Music videos need a connection"),

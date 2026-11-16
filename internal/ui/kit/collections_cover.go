@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/egoist/mygo/ui"
@@ -44,12 +45,16 @@ func CoverColumns(width, min float32) (cols int, tile float32) {
 	return cols, (width - TileGapX*float32(cols-1)) / float32(cols)
 }
 
-// coverArtHeight is the height of a tile's cover: square, or 16:9.
+// coverArtHeight is the height of a tile's cover: square, or 16:9, rounded to
+// whole DIPs as ArtBox rounds a cover's. A fluid tile's width is a fraction of
+// a DIP at most window widths; the height every overlay is placed from (the
+// play disc, the play mark, the release badge) is this whole one, so each
+// keeps its 8 DIP inset from the cover's edges at 1x and 2x.
 func coverArtHeight(tile float32, video bool) float32 {
 	if video {
-		return tile * 9 / 16
+		return float32(math.Round(float64(tile * 9 / 16)))
 	}
-	return tile
+	return float32(math.Round(float64(tile)))
 }
 
 // CoverRowHeight is the height one row of a CoverGrid takes at a tile width,
@@ -92,6 +97,13 @@ type CoverItem struct {
 	// opener is named "{title} Play" and the cover shows a play mark on
 	// hover, which is not a second control.
 	PlaysOnOpen bool
+	// Playing: the PlaysOnOpen station is playing, so opening the tile
+	// pauses it: the opener is named "{title} Pause" and the mark is the
+	// pause bars.
+	Playing bool
+	// Web: choosing the tile opens the browser (OpensInBrowser): the title
+	// row draws WebCue and the opener is named WebCueLabel.
+	Web bool
 	// Badge is a short note on the cover's corner where the play control
 	// would be: an upcoming album's release date. It is read after the title.
 	Badge string
@@ -241,8 +253,11 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 	if it.Badge != "" {
 		opener += ", " + it.Badge
 	}
-	if it.PlaysOnOpen {
-		opener += " " + i18n.T("Play")
+	switch {
+	case it.PlaysOnOpen:
+		opener += " " + StationAction(it.Playing)
+	case it.Web:
+		opener = WebCueLabel(opener)
 	}
 
 	_, s := DragItem(c, DragOpts{
@@ -324,14 +339,14 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 	})
 
 	st.nav.Claim(s, i)
-	if s.Clicked() {
+	if clicked, again := ClickRun(s); clicked {
 		mods := ModsOf(s.ClickModifiers())
 		switch {
 		case mods.Range || mods.Toggle:
 			if selectable {
 				st.Sel.Click(i, mods)
 			}
-		case it.Open != nil:
+		case it.Open != nil && !again:
 			it.Open()
 		}
 	}
@@ -375,7 +390,11 @@ func (st *CoverState) cover(c *ui.Context, o *CoverOpts, it *CoverItem, size, ar
 				Radius(tk.Radius["full"]).Background(theme.C("play")).IgnoreInput(true)
 			Fade(mark, hot)
 			mark.Children(func() {
-				theme.Glyph(c, "play", 16, theme.GlyphOpts{Color: theme.C("on-play")})
+				icon := "play"
+				if it.Playing {
+					icon = "pause"
+				}
+				theme.Glyph(c, icon, 16, theme.GlyphOpts{Color: theme.C("on-play"), Filled: true})
 			})
 		case it.Badge != "":
 			ui.Row(c.Key("badge")).Absolute().Left(8).Bottom(8).PaddingX(6).PaddingY(2).Radius(tk.Radius["md"]).
@@ -412,6 +431,9 @@ func (st *CoverState) titleRow(c *ui.Context, o *CoverOpts, it *CoverItem, hover
 		if it.Explicit {
 			ExplicitMark(c.Key("explicit"))
 			ui.Box(c).Grow(1)
+		}
+		if it.Web {
+			WebCue(c)
 		}
 		if it.Item != nil && o.Menus != nil {
 			ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits (tile)
@@ -452,6 +474,18 @@ func (st *CoverState) loadingTile(c *ui.Context, i int, size float32, video bool
 		ui.Box(c).Width(size*3/4).Height(14).Margin(8+3, 0, 0, 0).Radius(tk.Radius["sm"]).Background(hover)
 		ui.Box(c).Width(size/2).Height(12).Margin(6+3, 0, 0, 0).Radius(tk.Radius["sm"]).Background(hover)
 	})
+}
+
+// ArtworkWash is the ground colour laid over a cover to dim it under a play
+// glyph, so the glyph reads on any cover (a pale one, a dark one). A row's
+// 40 DIP cover takes 70%: the cover still shows through. A small cover (the
+// sidebar's 20 DIP shuffle button) takes 85%, because a glyph of 12 DIPs
+// covers most of it and a weaker wash lets the picture fight the strokes.
+func ArtworkWash(small bool) ui.Color {
+	if small {
+		return theme.C("ground").Alpha(0.85)
+	}
+	return theme.C("ground").Alpha(0.7)
 }
 
 // Fade shows or hides e over the theme's press duration, at once while motion

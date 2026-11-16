@@ -18,7 +18,7 @@ import (
 // under a ruled head. The guide's own heading sits over its station column.
 func (r *radio) liveNow(c *ui.Context, live store.Result[[]services.Station], sections []services.Section, ctx kit.ItemsCtx) {
 	pg := &r.radioPg
-	title := i18n.T("Live now")
+	title := i18n.T("Live Now")
 	ui.Column(c.Key("live-now")).Role(ui.RoleGroup).Label(title).Children(func() {
 		head := railOpts{key: "live-state", title: title, style: "page", first: true}
 		switch {
@@ -194,7 +194,7 @@ func (r *radio) yours(c *ui.Context, state string, recent store.Result[[]service
 		for i, s := range recent.Data {
 			tiles[i] = r.stationCover(s)
 		}
-		kit.CoverShelf(c, &pg.yours, i18n.T("Your stations"), tiles, kit.CoverShelfOpts{
+		kit.CoverShelf(c, &pg.yours, i18n.T("Your Stations"), tiles, kit.CoverShelfOpts{
 			CoverOpts: kit.CoverOpts{Art: r.env.Art, Motion: r.env.Motion, Menus: pg.yoursMenus},
 			First:     true,
 		})
@@ -204,7 +204,7 @@ func (r *radio) yours(c *ui.Context, state string, recent store.Result[[]service
 	if r.env.Surfaces != nil {
 		action = &kit.EmptyAction{Label: i18n.T("Sign in"), Run: r.env.Surfaces.OpenAccount}
 	}
-	kit.EmptyState(c, i18n.T("Your stations"), i18n.T("Sign in to see the stations you play in Apple Music on any of your devices."),
+	kit.EmptyState(c, i18n.T("Your Stations"), i18n.T("Sign in to see the stations you play in Apple Music on any of your devices."),
 		kit.EmptyOpts{Action: action})
 }
 

@@ -486,24 +486,25 @@ func (s *PlaybackService) released(date string, hasPlayParams bool, album func()
 	return nil
 }
 
-// storedReleased is released for a stored song. One without a date of its
-// own and without playParams goes by its album: a library album's date and
-// Apple's flag are the ones its catalog album gave (libraryRelease), a
-// pre-added album having no releaseDate of its own.
+// storedReleased is released for a stored song. A library song is out by the
+// library's rule (library.SongUnreleased); a catalog one without a date of its
+// own and without playParams goes by its catalog album's date.
 func (s *PlaybackService) storedReleased(ctx context.Context, t dbq.Track) error {
+	if t.LibraryID.Valid {
+		un, err := library.SongUnreleased(ctx, s.o.DB, library.Day(s.m.clock()), t.LibraryID.String)
+		switch {
+		case err != nil:
+			return err
+		case un:
+			return ErrNotReleased
+		}
+		return nil
+	}
 	if upcoming(t.ReleaseDate, false, s.m.clock()) {
 		return ErrNotReleased
 	}
 	if t.ReleaseDate != "" || t.NoPlayParams == 0 {
 		return nil
-	}
-	if t.AlbumLibraryID.Valid {
-		if a, err := s.o.DB.RQ.GetAlbumByLibraryID(ctx, t.AlbumLibraryID); err == nil {
-			if _, up := libraryRelease(a.ReleaseDate, a.CatalogReleaseDate, a.IsPrerelease != 0, s.m.clock()); up {
-				return ErrNotReleased
-			}
-			return nil
-		}
 	}
 	return s.released("", false, func() string { return s.catalogAlbumDate(ctx, t) })
 }
@@ -648,9 +649,8 @@ func (s *PlaybackService) SetSleep(mode string, minutes int) error {
 }
 
 // PlayLibrary queues the whole library songs list in the given order
-// (as LibraryService.Songs) and plays the song at position start. Songs
-// not out yet (by their own date or, without one, their album's) are left
-// out; not_released when it is the start song.
+// (as LibraryService.Songs, which leaves out the songs not out yet) and plays
+// the song at position start.
 func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, start int) error {
 	rctx, superseded, end := s.beginReplace(ctx)
 	defer end()
@@ -664,17 +664,10 @@ func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc boo
 	if start < 0 || start >= len(songs) {
 		return fmt.Errorf("%w: start %d of %d", ErrInvalidArgument, start, len(songs))
 	}
-	now := s.m.clock()
-	if songUnreleased(songs[start], now) {
-		return fmt.Errorf("library song %s: %w", songs[start].LibraryID, ErrNotReleased)
-	}
 	items := make([]coordinator.Item, 0, len(songs))
 	idx := 0
 	s.mu.Lock()
 	for i, so := range songs {
-		if songUnreleased(so, now) {
-			continue
-		}
 		// Uploads have no catalog ID and play by their library ID.
 		id := cmp.Or(so.CatalogID, so.LibraryID)
 		if i == start {

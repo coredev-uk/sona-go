@@ -152,7 +152,7 @@ func (m mapper) libSong(s library.Song) Song {
 		CatalogID:   s.CatalogID,
 		LibraryID:   s.LibraryID,
 		Name:        s.Name,
-		Artist:      s.ArtistName,
+		Artist:      shownArtist(s.ArtistName, s.Unreleased),
 		Album:       s.AlbumName,
 		AlbumID:     s.AlbumLibraryID,
 		ArtistID:    s.ArtistLibraryID,
@@ -164,7 +164,7 @@ func (m mapper) libSong(s library.Song) Song {
 		Explicit:    s.Explicit,
 		HasLyrics:   s.HasLyrics,
 		// Uploads play from their library ID; songs not out yet don't.
-		Playable: (s.CatalogID != "" || s.LibraryID != "") && !songUnreleased(s, m.clock()),
+		Playable: (s.CatalogID != "" || s.LibraryID != "") && !s.Unreleased,
 		Art:      m.artOf(s.ArtworkTemplate),
 	}
 }
@@ -281,6 +281,7 @@ func (m mapper) amSong(s applemusic.Song) Song {
 		Traits:      traitsOf(a.AudioTraits, a.IsAppleDigitalMaster || a.IsMasteredForItunes),
 		Art:         m.artwork(a.Artwork),
 	}
+	out.Artist = shownArtist(a.ArtistName, !out.Playable)
 	if isLibraryType(s.Type) {
 		out.Source, out.LibraryID = SourceLibrary, s.ID
 	}
@@ -446,7 +447,7 @@ func (m mapper) amStation(s applemusic.Station) Station {
 		Art:        m.stationArt(a.Artwork),
 		Motion:     m.motionOf(a.EditorialVideo),
 	}
-	if n := a.EditorialNotes; n != nil {
+	if n := a.Notes(); n != nil {
 		// Short is a label ("Live Station") when a tagline exists, else
 		// the one-line description (mood stations).
 		out.Tagline = cmp.Or(n.Tagline, n.Short)
