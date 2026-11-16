@@ -131,6 +131,7 @@ func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 	// shows the play mark, but has no second play control.
 	opens := PlaysWhenOpened(it, ctx.Players)
 	tile.PlaysOnOpen = opens
+	tile.Web = OpensInBrowser(it, ctx.Players)
 	if !opens && ctx.Players.CanPlay(it) {
 		tile.Play = &CoverPlay{Label: it.Name, Run: func() { ctx.Players.PlayItem(it) }, RunFrom: func(h *ui.Handle) { ctx.Players.PlayItemFrom(it, h) }}
 	}

@@ -55,20 +55,34 @@ func (r *iaRec) all() []string {
 // iaItems are one synthetic item per kind Discover meets.
 func iaItems() map[string]services.Item {
 	return map[string]services.Item{
-		"song": {Kind: services.ItemSong, ID: "s1", Name: "Song One", Subtitle: "Artist S",
-			Song: &services.Song{ID: "s1", Name: "Song One", Artist: "Artist S", Playable: true}},
-		"album": {Kind: services.ItemAlbum, ID: "al1", Name: "Album One", Subtitle: "Artist A",
-			Album: &services.Album{ID: "al1", Name: "Album One", Artist: "Artist A"}},
-		"playlist": {Kind: services.ItemPlaylist, ID: "pl1", Name: "Playlist One", Subtitle: "Curator P",
-			Playlist: &services.Playlist{ID: "pl1", Name: "Playlist One", Curator: "Curator P"}},
-		"artist": {Kind: services.ItemArtist, ID: "ar1", Name: "Artist One",
-			Artist: &services.Artist{ID: "ar1", Name: "Artist One"}},
-		"station": {Kind: services.ItemStation, ID: "sp1", Name: "Station Page",
-			Station: &services.Station{ID: "sp1", Name: "Station Page", Playable: true, HasPage: true, Kind: services.StationTracks}},
-		"station-nopage": {Kind: services.ItemStation, ID: "sn1", Name: "Station Plain",
-			Station: &services.Station{ID: "sn1", Name: "Station Plain", Playable: true, HasPage: false, Kind: services.StationTracks}},
-		"video": {Kind: services.ItemMusicVideo, ID: "v1", Name: "Video One", Subtitle: "Artist V",
-			MusicVideo: &services.MusicVideo{ID: "v1", Name: "Video One", Artist: "Artist V"}},
+		"song": {
+			Kind: services.ItemSong, ID: "s1", Name: "Song One", Subtitle: "Artist S",
+			Song: &services.Song{ID: "s1", Name: "Song One", Artist: "Artist S", Playable: true},
+		},
+		"album": {
+			Kind: services.ItemAlbum, ID: "al1", Name: "Album One", Subtitle: "Artist A",
+			Album: &services.Album{ID: "al1", Name: "Album One", Artist: "Artist A"},
+		},
+		"playlist": {
+			Kind: services.ItemPlaylist, ID: "pl1", Name: "Playlist One", Subtitle: "Curator P",
+			Playlist: &services.Playlist{ID: "pl1", Name: "Playlist One", Curator: "Curator P"},
+		},
+		"artist": {
+			Kind: services.ItemArtist, ID: "ar1", Name: "Artist One",
+			Artist: &services.Artist{ID: "ar1", Name: "Artist One"},
+		},
+		"station": {
+			Kind: services.ItemStation, ID: "sp1", Name: "Station Page",
+			Station: &services.Station{ID: "sp1", Name: "Station Page", Playable: true, HasPage: true, Kind: services.StationTracks},
+		},
+		"station-nopage": {
+			Kind: services.ItemStation, ID: "sn1", Name: "Station Plain",
+			Station: &services.Station{ID: "sn1", Name: "Station Plain", Playable: true, HasPage: false, Kind: services.StationTracks},
+		},
+		"video": {
+			Kind: services.ItemMusicVideo, ID: "v1", Name: "Video One", Subtitle: "Artist V",
+			MusicVideo: &services.MusicVideo{ID: "v1", Name: "Video One", Artist: "Artist V"},
+		},
 		"curator":  {Kind: services.ItemCurator, ID: "cu1", Name: "Curator One"},
 		"grouping": {Kind: services.ItemGrouping, ID: "g1", Name: "Grouping One"},
 		"room":     {Kind: services.ItemRoom, ID: "ro1", Name: "Room One"},
@@ -198,7 +212,7 @@ func (x *iaCtx) do(g gesture, label string, track bool) string {
 // link, a button, a group or a row tells a user it will do.
 func (x *iaCtx) cue(label string) string {
 	named := func(name string) bool {
-		return name == label || name == label+" Play" || name == label+" Pause" || strings.HasPrefix(name, label+", ")
+		return name == label || name == label+" Play" || name == label+" Pause" || name == label+" Opens in your browser" || strings.HasPrefix(name, label+", ")
 	}
 	for _, role := range []struct {
 		r    ui.Role
@@ -440,8 +454,7 @@ var discoverWant = map[string]map[string]outcomes{
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "no play control",
-			// DEPARTS: the tile is a link for assistive technology, but choosing it leaves the app for the browser, and nothing says so (the lead card is a button; the links tile has an "Opens in your browser" icon)
-			cue: "link",
+			cue:        "link",
 		},
 	},
 	"room": {
@@ -481,8 +494,7 @@ var discoverWant = map[string]map[string]outcomes{
 			shiftEnter: "nothing",
 			space:      "nothing",
 			play:       "no play control",
-			// DEPARTS: the tile is a link for assistive technology, but choosing it leaves the app for the browser, and nothing says so (the lead card is a button; the links tile has an "Opens in your browser" icon)
-			cue: "link",
+			cue:        "link",
 		},
 	},
 	"topSongs": {

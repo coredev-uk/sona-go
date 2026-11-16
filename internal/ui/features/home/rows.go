@@ -186,6 +186,7 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 	// A station with no page plays when it is opened: the name is that
 	// button, and the cover's play mark is not a second control.
 	direct := playable && kit.PlaysWhenOpened(it, ctx.Players)
+	web := kit.OpensInBrowser(it, ctx.Players)
 	round := kit.ItemRound(it)
 	subtitle := kit.ItemSubtitle(it)
 	name := it.Name
@@ -272,6 +273,8 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 			switch {
 			case direct:
 				e.Role(ui.RoleButton).Label(name + " " + i18n.T("Play"))
+			case web:
+				e.Role(ui.RoleLink).Label(kit.WebCueLabel(name))
 			case link != "" && canOpen:
 				e.Role(ui.RoleLink)
 			case link != "":
@@ -356,6 +359,9 @@ func (h *home) itemRow(c *ui.Context, st *rowsState, ctx kit.ItemsCtx, o rowsOpt
 				}
 				if it.Explicit {
 					kit.ExplicitMark(c.Key("explicit"))
+				}
+				if web {
+					kit.WebCue(c)
 				}
 			})
 			if subtitle != "" {

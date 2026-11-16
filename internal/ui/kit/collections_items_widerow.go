@@ -147,11 +147,14 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 	more := hasTarget && ctx.Menus != nil
 	canPlay := ctx.Players.CanPlay(it)
 
+	web := OpensInBrowser(it, ctx.Players)
 	var card ui.Element
 	w.Children(func() {
 		card = ui.ButtonBase(c.Key("open")).Column().AlignItems(ui.Stretch).Justify(ui.Start).Label(it.Name)
 		if link != "" {
 			card.Role(ui.RoleLink)
+		} else if web {
+			card.Role(ui.RoleLink).Label(WebCueLabel(it.Name))
 		}
 		card.Children(func() {
 			bg := theme.C("hover")
@@ -176,6 +179,9 @@ func itemsWideCard(c *ui.Context, it services.Item, width, ratio float32, ctx It
 					TextColor(theme.C("ink")).SingleLine().Grow(1).MinWidth(0).TextAlign(ui.Start)
 				if card.Hovered() {
 					name.Underline()
+				}
+				if web {
+					WebCue(c)
 				}
 				if more {
 					ui.Box(c.Key("more-room")).Size(24, 1).Shrink(0) // where the more button sits

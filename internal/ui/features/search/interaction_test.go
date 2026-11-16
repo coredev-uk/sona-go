@@ -1217,6 +1217,9 @@ func ixTileRun(t *testing.T, x *ixPage) {
 		if k == "station-bare" {
 			label += " Play" // a tile that plays when opened says so in its name
 		}
+		if k == "link" {
+			label += " Opens in your browser" // a web tile says where it goes
+		}
 		t.Run(k, func(t *testing.T) {
 			x.t = t
 			x.show(item.Name)

@@ -4429,7 +4429,7 @@ msgstr "Open website"
 
 #: internal/ui/features/concerts/row.go
 #: internal/ui/features/search/itemrow.go
-#: internal/ui/kit/collections_items_linklist.go
+#: internal/ui/kit/webcue.go
 msgid "Opens in your browser"
 msgstr "Opens in your browser"
 

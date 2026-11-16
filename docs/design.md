@@ -291,15 +291,15 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | artist, curator, room, grouping | opens | opens | opens | none | none | none ([#433]) | artist yes, curator no | link |
 |  | upcoming album | opens | opens | opens | none | none | none, release badge in its place | yes | link, "Out 19 Nov" |
 |  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play", play mark on hover |
-|  | web link | opens the browser | twice | same | none | none | none | no | link, no arrow ([#436]) |
+|  | web link | opens the browser | twice | same | none | none | none | no | link, arrow out, named "X Opens in your browser" |
 |  | unrouted page | none, but underlines ([#437]) | none | none | none | none | disc | yes | group |
 |  | any with an Item, Shift/Ctrl+click | selects ([#438]) | | | | | | | |
 | Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button, no right-click ([#447]) | link |
 |  | station with no page | plays | twice | plays | plays | plays | disc, and the card plays too ([#435]) | none | button |
-|  | web link | opens the browser | twice | same | same | same | none | none | button, no arrow ([#436]) |
+|  | web link | opens the browser | twice | same | none | none | none | none | link, arrow out, named "X Opens in your browser" |
 | Link list tile (`LinkList`: "More to Explore") | page link | opens, no `OnOpen` ([#434]) | opens | opens | opens | none | none, even a station with a page ([#446]) | none | link |
 |  | station with no page | plays | twice | plays | plays | plays | none | none | button "X Play", no visible mark ([#435]) |
-|  | web link | opens the browser | twice | same | same | same | none | none | button with the arrow out |
+|  | web link | opens the browser | twice | same | same | none | none | none | link with the arrow out, named "X Opens in your browser" |
 | Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing, no pause ([#446]) | none | link |
 |  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
 | Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | selects | plays from the row, the shelf is the queue | plays | none | selects | cover button | More button, no right-click ([#447]) | list item, hover fill |
@@ -316,7 +316,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Home strip rows (Recently played) and lead order | song, album, playlist, video, station with a page | opens | opens | plays | disc | link |
 |  | artist | opens | opens | none | none ([#433]) | link |
 |  | station with no page | plays | plays | plays | the name | button |
-|  | web link | opens the browser | same | none | none | button, no arrow ([#436]) |
+|  | web link | opens the browser | same | none | none | link, arrow out, named "X Opens in your browser" |
 | Home lead pick, hero card | album, song, playlist, video, station | opens | opens | none | disc | link |
 |  | artist, curator | opens | opens | none | lead pick: a button that does nothing, hero: none ([#433]) | link |
 |  | station with no page | plays | plays | plays | the name, and a second disc ([#435]) | button |
@@ -429,7 +429,7 @@ Argued departures that stay (not issues):
 | [#433] | artists and curators have no Play control; Home's lead pick draws a dead one |
 | [#434] | Play on a tile, link tile or station row isn't remembered |
 | [#435] | a page-less station has two controls, no cue, or replays instead of pausing |
-| [#436] | no cue for a web link on tiles, cards and rows |
+| [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
 | [#437] | unrouted pages: underline, navigation, dead artist slip |
 | [#438] | modifier-click selects on some, opens on others |
 | [#440] | a double-click acts twice |

@@ -97,6 +97,9 @@ type CoverItem struct {
 	// opener is named "{title} Play" and the cover shows a play mark on
 	// hover, which is not a second control.
 	PlaysOnOpen bool
+	// Web: choosing the tile opens the browser (OpensInBrowser): the title
+	// row draws WebCue and the opener is named WebCueLabel.
+	Web bool
 	// Badge is a short note on the cover's corner where the play control
 	// would be: an upcoming album's release date. It is read after the title.
 	Badge string
@@ -246,8 +249,11 @@ func (st *CoverState) tile(c *ui.Context, o *CoverOpts, it *CoverItem, i, count 
 	if it.Badge != "" {
 		opener += ", " + it.Badge
 	}
-	if it.PlaysOnOpen {
+	switch {
+	case it.PlaysOnOpen:
 		opener += " " + i18n.T("Play")
+	case it.Web:
+		opener = WebCueLabel(opener)
 	}
 
 	_, s := DragItem(c, DragOpts{
@@ -417,6 +423,9 @@ func (st *CoverState) titleRow(c *ui.Context, o *CoverOpts, it *CoverItem, hover
 		if it.Explicit {
 			ExplicitMark(c.Key("explicit"))
 			ui.Box(c).Grow(1)
+		}
+		if it.Web {
+			WebCue(c)
 		}
 		if it.Item != nil && o.Menus != nil {
 			ui.Box(c.Key("more-room")).Size(24, 24).Shrink(0).IgnoreInput(true) // where the more button sits (tile)
