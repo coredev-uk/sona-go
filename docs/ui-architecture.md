@@ -1631,7 +1631,7 @@ Registered after video and before radio and the player. It owns:
 - A header click cycles ascending, descending, playlist order (`TrackSortState.Toggle`) and is announced.
 - The `kit.SearchField` ("Find in playlist", in a search landmark) shows "N of M songs" while it holds a query, announces its count, replaces the table with a message when nothing matches, and Escape clears it.
 - `page.view` memoises the answer per tracks, key and query.
-- Everything the page does with a song goes through the listed songs or maps back. Play, Shuffle and row activation queue the songs as listed (a query narrows the queue to the songs found). Remove from playlist (`ActionContainer.Order`) and "Added by" use the songs' positions in the playlist, because `RemoveTracks` and `MoveTrack` are positional.
+- Everything the page does with a song goes through the listed songs or maps back. Play, Shuffle and row activation queue the songs as listed (a query narrows the queue to the songs found). While a query is active `headerActions` names Play and Shuffle for them (`kit.PlayButtonsOpts.PlayLabel` and `ShuffleLabel`: "Play the N songs found", "Shuffle the N songs found"). Remove from playlist (`ActionContainer.Order`) and "Added by" use the songs' positions in the playlist, because `RemoveTracks` and `MoveTrack` are positional.
 - Edit mode shows the playlist whole and in its own order: entering or leaving it clears sort and query and hides the controls. The state resets in `page.enter` with the rest of the page's.
 
 **Decisions**

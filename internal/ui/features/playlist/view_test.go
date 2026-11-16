@@ -340,7 +340,7 @@ func TestPagePlayAndRowsPlayTheDisplayedOrder(t *testing.T) {
 	if got := r.play.played()[2]; !strings.HasPrefix(got, "[b d] start=") {
 		t.Errorf("shuffle: %q", got)
 	}
-	r.click("Play Road Trip")
+	r.click("Play the 2 songs found")
 	r.tt.Until("the play", func() bool { return len(r.play.played()) == 4 })
 	if got := r.play.played()[3]; got != "[b d] start=0 from=playlist:p.1" {
 		t.Errorf("Play of the songs found: %q", got)
@@ -523,7 +523,7 @@ func TestPageCatalogPlaylistSortsAndFiltersToo(t *testing.T) {
 	}
 	r.find("mia")
 	r.tt.Until("the count", r.tt.Shows("2 of 4 songs"))
-	r.click("Play Apple's Mix")
+	r.click("Play the 2 songs found")
 	r.tt.Until("the play", func() bool { return len(r.play.played()) == 1 })
 	if got := r.play.played()[0]; got != "[b d] start=0 from=playlist:pl.1" {
 		t.Errorf("Play: %q", got)
@@ -594,5 +594,39 @@ func TestPageSortsAndFiltersAVirtualList(t *testing.T) {
 	// Still longest first.
 	if got := r.order("Track 299", "Track 290", "Track 229", "Track 129", "Track 029"); !slices.Equal(got, []string{"Track 299", "Track 290", "Track 229", "Track 129", "Track 029"}) {
 		t.Errorf("order of the songs found: %v", got)
+	}
+}
+
+// With a query the header Play and Shuffle are named for the songs found and
+// Play queues exactly those, from the first; without one they are plain.
+func TestPageHeaderPlayNamesTheSongsFound(t *testing.T) {
+	r := viewRig(t)
+	tr := access.Read(t, r.tt.Tester)
+	for _, name := range []string{"Play Road Trip", "Shuffle"} {
+		if _, ok := tr.Find(ui.RoleButton, name); !ok {
+			t.Errorf("no %q button without a query:\n%s", name, tr.Dump())
+		}
+	}
+
+	r.find("salt")
+	r.tt.Until("the count", r.tt.Shows("2 of 4 songs"))
+	tr = access.Read(t, r.tt.Tester)
+	for _, name := range []string{"Play the 2 songs found", "Shuffle the 2 songs found"} {
+		if _, ok := tr.Find(ui.RoleButton, name); !ok {
+			t.Errorf("no %q button with a query:\n%s", name, tr.Dump())
+		}
+	}
+	if _, ok := tr.Find(ui.RoleButton, "Play Road Trip"); ok {
+		t.Error("the plain Play name is still there while filtering")
+	}
+	if !r.tt.Shows("Shuffle")() {
+		t.Error("the Shuffle button lost its visible text")
+	}
+
+	r.click("Play the 2 songs found")
+	r.tt.Until("the play call", func() bool { return len(r.play.played()) >= 1 })
+	got := r.play.played()
+	if want := []string{"[b d] start=0 from=playlist:p.1"}; !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
