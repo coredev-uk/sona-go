@@ -68,7 +68,7 @@ One change per branch and pull request. Each step links to its page on the site.
 
 ## Style guides
 
-- **Go.** Format with `fmt` (gofumpt). `check` runs golangci-lint on new code and must pass clean.
+- **Go.** Format with `fmt` (gofumpt); `check` fails on any tracked Go file `fmt` would change. `check` also runs golangci-lint on new code, which must pass clean.
 - **UI.** [UI conventions](https://sona.coredev.uk/contributing/ui-conventions/): modules, kit, tokens, performance and accessibility.
 - **Accessibility.** [Accessibility Rules](https://sona.coredev.uk/contributing/accessibility/): the keyboard and assistive-technology rules, and how they are checked.
 - **Docs.** [Writing docs](https://sona.coredev.uk/contributing/documentation/): lead with the task, keep it short.
