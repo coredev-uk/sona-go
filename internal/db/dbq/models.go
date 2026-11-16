@@ -109,6 +109,28 @@ type LibraryItem struct {
 	Generation int64
 }
 
+type LibraryMusicVideo struct {
+	ID              int64
+	LibraryID       string
+	CatalogID       string
+	Name            string
+	ArtistName      string
+	AlbumName       string
+	DurationMs      int64
+	ReleaseDate     string
+	Genre           string
+	Explicit        int64
+	Has4k           int64
+	HasHdr          int64
+	Url             string
+	ArtworkTemplate string
+	ArtworkWidth    int64
+	ArtworkHeight   int64
+	Position        int64
+	Generation      int64
+	UpdatedAt       int64
+}
+
 type LyricsCache struct {
 	Provider  string
 	Track     string

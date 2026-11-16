@@ -117,6 +117,8 @@ func syncingText(domain string) string {
 		return i18n.T("Syncing playlist songs")
 	case "ratings":
 		return i18n.T("Syncing loves")
+	case "music-videos":
+		return i18n.T("Syncing music videos")
 	}
 	return i18n.T("Syncing {domain}", "domain", domain)
 }

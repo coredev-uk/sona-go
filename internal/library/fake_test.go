@@ -32,6 +32,7 @@ type fakeApple struct {
 	albums    []map[string]any
 	artists   []map[string]any
 	playlists []map[string]any
+	videos    []map[string]any
 	plTracks  map[string][]map[string]any // playlist id → tracks
 	ratings   map[string]map[string]int   // type → id → value
 	folders   map[string][]map[string]any // folder id (applemusic.PlaylistsRoot at the top) → children
@@ -105,6 +106,18 @@ func artist(id, name string) map[string]any {
 	}
 }
 
+func musicVideo(id, name, artist string) map[string]any {
+	return map[string]any{
+		"id": id, "type": "library-music-videos",
+		"attributes": map[string]any{
+			"name": name, "artistName": artist, "albumName": "Clips", "durationInMillis": 215000,
+			"releaseDate": "2021-05-01", "genreNames": []string{"Pop"}, "contentRating": "explicit", "has4K": true,
+			"artwork":    map[string]any{"url": "https://art/" + id + "/{w}x{h}bb.jpg", "width": 1920, "height": 1080},
+			"playParams": map[string]any{"id": id, "kind": "musicVideo", "isLibrary": true, "catalogId": "c" + strings.TrimPrefix(id, "i.")},
+		},
+	}
+}
+
 func playlist(id, name, modified string) map[string]any {
 	return map[string]any{
 		"id": id, "type": "library-playlists",
@@ -147,6 +160,8 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		items = f.artists
 	case path == "/v1/me/library/playlists":
 		items = f.playlists
+	case path == "/v1/me/library/music-videos":
+		items = f.videos
 	case strings.HasPrefix(path, "/v1/me/library/playlists/") && strings.HasSuffix(path, "/tracks"):
 		id := strings.TrimSuffix(strings.TrimPrefix(path, "/v1/me/library/playlists/"), "/tracks")
 		items = f.plTracks[id]

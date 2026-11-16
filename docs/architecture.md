@@ -712,6 +712,7 @@ SQLite, libSQL-compatible, with migrations in `internal/db/migrations` numbered 
 
 - `artists`, `albums`, `tracks`, `playlists`, `playlist_tracks`: Apple catalogue and library IDs stored separately, `artwork_template` (the raw `{w}x{h}` URL), `updated_at`.
 - `library_items`, `playback_history`, `favorites` (mirrors `/v1/me/ratings`), `pins`.
+- `library_music_videos`: the library's music videos (user data, wiped on sign-out): library and catalogue IDs, title, artist, album, length, release date, genre, flags, Apple's 16:9 artwork URL with its width and height, `position` (Apple's order) and `generation` (the run that last saw it). It has no `library_items` rows: its own `generation` removes what a run did not see.
 - `sync_state`: domain, offset or cursor, total, last success, last full run, last error.
 - `search_fts`: FTS5 over titles, artists and albums.
 - `recent_searches`: searched terms and opened results (user data, wiped on sign-out).
@@ -734,6 +735,7 @@ The code is in `internal/library`.
   - Opening a personal mix's page checks its catalogue stamp once (at most every 5 minutes) and refetches the mix's tracks if it moved, so a mix is current without waiting for a sync.
   - Ratings only for items stored since the last ratings run.
   - A domain whose local count then differs from Apple's runs fully at once.
+- **Music videos** (`library.DomainMusicVideos`) are always read whole (`/v1/me/library/music-videos` in pages of 100, a checkpoint per page), in an incremental run too: a library rarely holds more than a page of them and Apple cannot list them by date. The domain has no say in whether the others run fully (`fullDue` skips it), so a library synced before they were stored takes only the videos on its next sync. `LibraryService.MusicVideos` reads the stored copy once the domain has completed a sync, so the page lists them with no connection; before that it reads Apple, which needs one. Removing one deletes the copy once Apple has accepted the delete.
 - **Full run** (removals, metadata edits, ratings changed elsewhere): on "Sync now" and every 72 hours (`library.FullSyncEvery`).
 - **When a sync runs**:
   - After first paint, when the last complete sync is more than 6 hours old (`services.SyncStaleAfter`).

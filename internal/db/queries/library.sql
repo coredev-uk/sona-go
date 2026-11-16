@@ -222,3 +222,40 @@ INSERT INTO search_fts (kind, ref, artwork, name, artist, album)
 SELECT 'playlist', p.library_id, p.artwork_template, p.name, p.curator_name, ''
 FROM library_items li JOIN playlists p ON p.id = li.ref
 WHERE li.kind = 'playlist';
+
+-- name: UpsertLibraryMusicVideo :exec
+INSERT INTO library_music_videos (
+    library_id, catalog_id, name, artist_name, album_name, duration_ms, release_date, genre,
+    explicit, has_4k, has_hdr, url, artwork_template, artwork_width, artwork_height,
+    position, generation, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (library_id) DO UPDATE SET
+    catalog_id = excluded.catalog_id,
+    name = excluded.name,
+    artist_name = excluded.artist_name,
+    album_name = excluded.album_name,
+    duration_ms = excluded.duration_ms,
+    release_date = excluded.release_date,
+    genre = excluded.genre,
+    explicit = excluded.explicit,
+    has_4k = excluded.has_4k,
+    has_hdr = excluded.has_hdr,
+    url = excluded.url,
+    artwork_template = excluded.artwork_template,
+    artwork_width = excluded.artwork_width,
+    artwork_height = excluded.artwork_height,
+    position = excluded.position,
+    generation = excluded.generation,
+    updated_at = excluded.updated_at;
+
+-- name: ListLibraryMusicVideos :many
+SELECT * FROM library_music_videos ORDER BY position, id LIMIT ? OFFSET ?;
+
+-- name: CountLibraryMusicVideos :one
+SELECT count(*) FROM library_music_videos;
+
+-- name: DeleteStaleLibraryMusicVideos :execrows
+DELETE FROM library_music_videos WHERE generation < ?;
+
+-- name: DeleteLibraryMusicVideo :exec
+DELETE FROM library_music_videos WHERE library_id = ?;

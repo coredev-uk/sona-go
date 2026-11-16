@@ -432,6 +432,27 @@ func (m mapper) amMusicVideo(v applemusic.MusicVideo) MusicVideo {
 	return out
 }
 
+// libMusicVideo maps a stored library music video.
+func (m mapper) libMusicVideo(v library.MusicVideo) MusicVideo {
+	return MusicVideo{
+		ID:          v.LibraryID,
+		Source:      SourceLibrary,
+		CatalogID:   v.CatalogID,
+		LibraryID:   v.LibraryID,
+		Name:        v.Name,
+		Artist:      v.ArtistName,
+		Album:       v.AlbumName,
+		DurationMs:  v.DurationMS,
+		ReleaseDate: v.ReleaseDate,
+		Genre:       v.Genre,
+		Explicit:    v.Explicit,
+		Has4K:       v.Has4K,
+		HasHDR:      v.HasHDR,
+		URL:         v.URL,
+		Art:         m.artwork(&applemusic.Artwork{URL: v.ArtworkTemplate, Width: v.ArtworkWidth, Height: v.ArtworkHeight}),
+	}
+}
+
 // stationArt maps a station's artwork, which is shown as a square cover. A
 // live station's is often 4:1 key art (Apple Music 1: 4320×1080, pale grey
 // with the logo centred) drawn so that the centre square is its tile; asked

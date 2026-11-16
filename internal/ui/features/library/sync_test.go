@@ -215,12 +215,18 @@ func TestSyncInvalidationsPerDomain(t *testing.T) {
 		"ratings":         {"[library favorite-songs]", "[library state]"},
 		"albums":          {"[library recently-added]", "[library album]"},
 		"songs":           {"[library favorite-songs]", "[library songs]"},
+		"music-videos":    {"[library music-videos]", "[library sync-status]"},
 	} {
 		for _, w := range want {
 			if !strings.Contains(of(domain), w) {
 				t.Errorf("%s finished does not invalidate %s: %s", domain, w, of(domain))
 			}
 		}
+	}
+	// A finished music videos domain reloads the page that lists them, so a
+	// sync shows new videos without waiting for the page's stale time.
+	if got := syncingText("music-videos"); got != "Syncing music videos" {
+		t.Errorf("the music videos domain is announced as %q", got)
 	}
 	if strings.Contains(of("playlist-tracks"), "[library playlists]") {
 		t.Error("playlist tracks invalidate the playlists list")

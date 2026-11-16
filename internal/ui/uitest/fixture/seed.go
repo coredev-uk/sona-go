@@ -129,7 +129,7 @@ func Seed(ctx context.Context, d *db.DB, albums []Album, playlists []Playlist) e
 		}
 		for _, dom := range []library.Domain{
 			library.DomainArtists, library.DomainAlbums, library.DomainSongs,
-			library.DomainPlaylists, library.DomainPlaylistTracks, library.DomainRatings,
+			library.DomainPlaylists, library.DomainPlaylistTracks, library.DomainRatings, library.DomainMusicVideos,
 		} {
 			if err := q.StartSync(ctx, dbq.StartSyncParams{Domain: string(dom), Generation: 1, LastStarted: sql.NullInt64{Int64: now, Valid: true}}); err != nil {
 				return err

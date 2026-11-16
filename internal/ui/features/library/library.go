@@ -191,6 +191,7 @@ var domainLists = map[string][]store.Key{
 	"playlists":       {store.KeyLibraryPlaylistsAll, keyRecentlyAdded},
 	"playlist-tracks": {{"library", "playlist"}},
 	"ratings":         {store.KeyLibraryFavourites, {"library", "state"}},
+	"music-videos":    {keyMusicVideos},
 }
 
 // syncInvalidations are the queries a sync's progress makes stale: when a
