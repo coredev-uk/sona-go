@@ -120,7 +120,7 @@ func TestItemShelfTilesOpenPlayAndLabelTheRow(t *testing.T) {
 	}
 	r, _ := tt.Find("Artist 1")
 	tt.ClickAt(r.X+100, r.Y-60) // on the cover, clear of its play button
-	if !slices.Equal(a.rec.nav, []string{"/album/1"}) || !slices.Equal(a.rec.opened, []string{"album:1"}) {
+	if !slices.Equal(a.rec.nav, []string{"/album/1"}) || !slices.Equal(a.rec.opened, []string{"album:2", "album:1"}) {
 		t.Errorf("nav %v, opened %v", a.rec.nav, a.rec.opened)
 	}
 }

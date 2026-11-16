@@ -171,10 +171,20 @@ func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play fun
 				}
 			})
 			var open func(id string)
+			artists := ctx.Artists.OfSong(song)
 			if ctx.HasRoute == nil || ctx.HasRoute("/artist/x") {
-				open = func(id string) { ctx.nav(itemsPage("/artist/", id)) }
+				open = func(id string) {
+					name := song.Artist
+					for _, a := range artists {
+						if a.ID == id {
+							name = a.Name
+						}
+					}
+					ctx.opened(services.Item{Kind: services.ItemArtist, ID: id, Name: name})
+					ctx.nav(itemsPage("/artist/", id))
+				}
 			}
-			ArtistLinks(c, ctx.Artists.OfSong(song), song.Artist, theme.C("ink-muted"), ArtistLinksOpts{
+			ArtistLinks(c, artists, song.Artist, theme.C("ink-muted"), ArtistLinksOpts{
 				Open: open, Static: true, Hover: theme.C("ink"),
 				Style: func(e ui.Element) {
 					e.FontSize(sub.Size).FixedLineHeight(sub.LineHeight).SingleLine().TextAlign(ui.Start)

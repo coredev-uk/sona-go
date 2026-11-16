@@ -280,6 +280,7 @@ One rule governs every list, shelf, row and tile that shows an item (a song, an 
 - **Play plays.** A Play control (the disc on a cover, the triangle on a row, the amber disc beside a best match) starts the item, and does nothing else. Nothing else starts playback except a track row (below).
 - **A track row plays.** A row of songs in a list (album, playlist, library, a shelf's rows, search's Songs) is the one place a double-click or Enter plays: it is a list of songs, not a list of pages. A track row: click selects, double-click and Enter play. Every list of songs follows it, the shelf's rows included (Shift or Ctrl+click and Ctrl+Space select more than one).
 - **Space has one rule.** Space selects where the list selects (a track row; Ctrl+Space toggles), plays where the item is itself a Play control (a page-less station) or where the list's hint says "Space plays" (Home's strip and lead rows), and does nothing on a link (a tile, card or row that only opens). It never opens.
+- **Choosing or playing from a result is remembered.** A tile's Play, a link tile, a station row and a track shelf's artist link call `OnOpen` as opening does, so search's "Recently searched" fills the same way however the item was chosen.
 - **A modifier never does something the cue doesn't hint at.** Shift, Ctrl or Cmd with a click selects where the list selects; Shift+Enter plays only where the control shows it.
 - **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
 
@@ -306,7 +307,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored ([#438]) | opens | opens | opens | none | disc, except artist and curator | More button, no right-click ([#447]) | link |
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button, no right-click ([#447]) | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | none | none | none | none | link, arrow out, named "X Opens in your browser" |
-| Link list tile (`LinkList`: "More to Explore") | page link | opens, no `OnOpen` ([#434]) | opens | opens | opens | none | none, even a station with a page ([#446]) | none | link |
+| Link list tile (`LinkList`: "More to Explore") | page link | opens, remembered (`OnOpen`) | opens | opens | opens | none | none, even a station with a page ([#446]) | none | link |
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none | none | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | same | none | none | none | link with the arrow out, named "X Opens in your browser" |
 | Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing, no pause ([#446]) | none | link |
@@ -436,7 +437,6 @@ Argued departures that stay (not issues):
 | [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
 | [#427] | recent library songs and page-less stations |
 | [#433] | artists and curators have no Play control; Home's lead pick draws a dead one |
-| [#434] | Play on a tile, link tile or station row isn't remembered |
 | [#435] | a page-less station has two controls, no cue, or replays instead of pausing: Discover's lead and strip cards still have a second disc ([#442]) |
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
 | [#437] | unrouted pages: underline, navigation, dead artist slip |
@@ -451,7 +451,6 @@ Argued departures that stay (not issues):
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#427]: https://github.com/coredev-uk/sona-go/issues/427
 [#433]: https://github.com/coredev-uk/sona-go/issues/433
-[#434]: https://github.com/coredev-uk/sona-go/issues/434
 [#435]: https://github.com/coredev-uk/sona-go/issues/435
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
 [#437]: https://github.com/coredev-uk/sona-go/issues/437

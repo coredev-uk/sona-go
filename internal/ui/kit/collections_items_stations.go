@@ -137,6 +137,7 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 						play.Opacity(0)
 					}
 					if play.Clicked() && o.OnPlay != nil {
+						ctx.opened(stationResult(s))
 						hit.Focus()
 						o.OnPlay(s)
 					}
@@ -159,6 +160,7 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 		}
 
 		if ClickOnce(hit) {
+			ctx.opened(stationResult(s))
 			switch {
 			case s.HasPage:
 				ctx.nav(itemsPage("/station/", s.ID))
@@ -171,6 +173,11 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 			}
 		}
 	})
+}
+
+// stationResult is a station as a result item, what OnOpen remembers.
+func stationResult(s services.Station) services.Item {
+	return services.Item{Kind: services.ItemStation, ID: s.ID, Name: s.Name, Art: s.Art, Station: &s}
 }
 
 // itemsArtwork is Artwork that tolerates a missing loader: a plain --hover

@@ -1158,7 +1158,7 @@ func ixURL(item string) string {
 
 // ixTileWant pins the shared cover tiles (shelves and "See all" grids): the
 // tile is a link (a button where it plays when opened) and its Play control
-// sits beside it. The tile's Play control remembers nothing.
+// sits beside it.
 var ixTileWant = map[string]ixCell{
 	"artist": {
 		role:  "link",
@@ -1169,18 +1169,17 @@ var ixTileWant = map[string]ixCell{
 	"album": {
 		role:  "link",
 		click: ixOpen("/album/a1", "album:a1"), enter: ixOpen("/album/a1", "album:a1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: the tile's Play plays without remembering the term or the album, the best match's disc remembers both.
-		play: "item album:a1",
+		play: ixPlay("item album:a1", "album:a1"),
 	},
 	"playlist": {
 		role:  "link",
 		click: ixOpen("/playlist/pl.1", "playlist:pl.1"), enter: ixOpen("/playlist/pl.1", "playlist:pl.1"), shiftEnter: "nothing", space: "nothing",
-		play: "item playlist:pl.1",
+		play: ixPlay("item playlist:pl.1", "playlist:pl.1"),
 	},
 	"station": {
 		role:  "link",
 		click: ixOpen("/station/ra.1", "station:ra.1"), enter: ixOpen("/station/ra.1", "station:ra.1"), shiftEnter: "nothing", space: "nothing",
-		play: "item station:ra.1",
+		play: ixPlay("item station:ra.1", "station:ra.1"),
 	},
 	"station-bare": {
 		role:  "button",
@@ -1191,7 +1190,7 @@ var ixTileWant = map[string]ixCell{
 	"music-video": {
 		role:  "link",
 		click: ixOpen("/music-video/mv1", "music-video:mv1"), enter: ixOpen("/music-video/mv1", "music-video:mv1"), shiftEnter: "nothing", space: "nothing",
-		play: "video mv1",
+		play: ixPlay("video mv1", "music-video:mv1"),
 	},
 	"curator": {
 		role:  "link",
@@ -1418,8 +1417,8 @@ func TestInteractionResultsLibraryTiles(t *testing.T) {
 	const term = "wrote term:library:blue"
 	cases := []struct{ name, path, item, play string }{
 		{"Lib Artist", "/artist/l.ar", "artist:l.ar", "nothing"}, // DEPARTS: no Play on the artist tile, as in the catalogue.
-		{"Lib Album", "/album/l.al", "album:l.al", "item album:l.al"},
-		{"Lib List", "/playlist/p.pl", "playlist:p.pl", "item playlist:p.pl"},
+		{"Lib Album", "/album/l.al", "album:l.al", "item album:l.al; wrote item:album:l.al; " + term},
+		{"Lib List", "/playlist/p.pl", "playlist:p.pl", "item playlist:p.pl; wrote item:playlist:p.pl; " + term},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

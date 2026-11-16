@@ -103,7 +103,7 @@ func PlaysWhenOpened(it services.Item, p *ItemPlayers) bool {
 // CoverItemOf is an Item as a cover tile (v0.2.0's toCoverItem): its page, a
 // play control when it plays directly, an upcoming album's release date, and
 // its "more" target. index is the item's place in its list, for the tile's
-// key. ctx.OnOpen runs whenever the tile is opened.
+// key. ctx.OnOpen runs whenever the tile is opened or played.
 func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 	link := ItemLink(it)
 	id := it.ID
@@ -140,7 +140,11 @@ func CoverItemOf(it services.Item, ctx ItemsCtx, index int) CoverItem {
 	tile.Playing = opens && StationPlaying(it, ctx)
 	tile.Web = OpensInBrowser(it, ctx.Players)
 	if !opens && ctx.Players.CanPlay(it) {
-		tile.Play = &CoverPlay{Label: it.Name, Run: func() { ctx.Players.PlayItem(it) }, RunFrom: func(h *ui.Handle) { ctx.Players.PlayItemFrom(it, h) }}
+		tile.Play = &CoverPlay{
+			Label:   it.Name,
+			Run:     func() { ctx.opened(it); ctx.Players.PlayItem(it) },
+			RunFrom: func(h *ui.Handle) { ctx.opened(it); ctx.Players.PlayItemFrom(it, h) },
+		}
 	}
 	if it.Album != nil {
 		tile.Badge = ReleaseBadge(*it.Album, ctx.Players.now())
