@@ -1081,7 +1081,7 @@ func TestInteractionResultsCompactRowsPerKind(t *testing.T) {
 }
 
 // ixRowWant pins the compact rows: the same open control, and a Play button
-// for a song only.
+// for every playable kind.
 var ixRowWant = map[string]ixCell{
 	"song": {
 		role:  "link",
@@ -1097,8 +1097,7 @@ var ixRowWant = map[string]ixCell{
 	"album": {
 		role:  "link",
 		click: ixOpen("/album/a1", "album:a1"), enter: ixOpen("/album/a1", "album:a1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: the album's best-match panel and its shelf tile have a Play control; its compact row has none.
-		play: "nothing",
+		play: ixPlay("item album:a1", "album:a1"),
 	},
 	"artist": {
 		role:  "link",
@@ -1108,14 +1107,12 @@ var ixRowWant = map[string]ixCell{
 	"playlist": {
 		role:  "link",
 		click: ixOpen("/playlist/pl.1", "playlist:pl.1"), enter: ixOpen("/playlist/pl.1", "playlist:pl.1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: as the album: the playlist's best-match panel and shelf tile have Play, its row has none.
-		play: "nothing",
+		play: ixPlay("item playlist:pl.1", "playlist:pl.1"),
 	},
 	"station with a page": {
 		role:  "link",
 		click: ixOpen("/station/ra.1", "station:ra.1"), enter: ixOpen("/station/ra.1", "station:ra.1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: as the album: the station's best-match panel and shelf tile have Play, its row has none.
-		play: "nothing",
+		play: ixPlay("item station:ra.1", "station:ra.1"),
 	},
 	"station without a page": {
 		role:  "button",
@@ -1126,8 +1123,7 @@ var ixRowWant = map[string]ixCell{
 	"music video": {
 		role:  "link",
 		click: ixOpen("/music-video/mv1", "music-video:mv1"), enter: ixOpen("/music-video/mv1", "music-video:mv1"), shiftEnter: "nothing", space: "nothing",
-		// DEPARTS: as the album: the video's best-match panel and shelf tile have Play, its row has none.
-		play: "nothing",
+		play: ixPlay("video mv1", "music-video:mv1"),
 	},
 	"curator": {
 		role:  "link",

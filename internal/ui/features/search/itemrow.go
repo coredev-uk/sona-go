@@ -63,8 +63,8 @@ func outCue(c *ui.Context) {
 
 // itemRow is v0.2.0's ItemRow: one result of any kind as a list row:
 // artwork, name with the explicit mark, "Kind · subtitle". Every kind opens
-// its page, a song included, which also has a Play button of its own (shown
-// on hover and focus); one that has no page and no URL (a library
+// its page, a song included, and every playable kind also has a Play button of
+// its own (shown on hover and focus); one that has no page and no URL (a library
 // upload plays in place; a web-only item opens the browser, under an arrow out)
 // or whose page is not ported is not interactive. The more-menu shows on hover, focus and while open, for the
 // kinds with registered actions.
@@ -135,9 +135,9 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 				run()
 			}
 		}
-		// A song opens its page, so playing it is a control of its own, shown
-		// with the row's other actions.
-		if role == ui.RoleLink && run != nil && it.Kind == services.ItemSong && s.playable(it) {
+		// A result that opens a page and also plays has a Play control of its
+		// own, shown with the row's other actions, as the best match's disc.
+		if role == ui.RoleLink && run != nil && s.playable(it) {
 			play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
 				Variant: kit.Ghost, Size: kit.SizeSM, Icon: "play", Filled: true, Muted: true,
 				A11yLabel: i18n.T("Play {label}", "label", it.Name),
@@ -149,7 +149,7 @@ func (s *search) itemRow(c *ui.Context, it services.Item, o rowOpts) {
 				if o.onOpen != nil {
 					o.onOpen(it)
 				}
-				s.playSong(it)
+				s.playResult(it)
 			}
 		}
 		if hasTarget {

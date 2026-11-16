@@ -363,7 +363,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | song with no page, station with no page | plays | plays | none | the disc is drawn into the panel | button "X, Play" |
 |  | web link | opens the browser | same | none | none | link, arrow-up-right at its end |
 | Compact rows beside it | song | opens | opens | none | quiet Play button on hover and focus | link |
-|  | album, playlist, station with a page, video | opens | opens | none | none ([#430]) | link |
+|  | album, playlist, station with a page, video | opens | opens | none | quiet Play button on hover and focus | link |
 |  | song or station with no page | plays | plays | none | play glyph on hover | button |
 |  | web link | opens the browser | same | none | none | link, arrow-up-right at its end |
 | Group shelves ("Albums", See all grid, library scope) | as the cover tile | | | | | |
@@ -426,7 +426,6 @@ Argued departures that stay (not issues):
 |---|---|
 | [#426] | Shift+Enter plays a suggested song with no cue, and not a recent one |
 | [#427] | recent library songs and page-less stations |
-| [#430] | only a song's compact row has Play |
 | [#433] | artists and curators have no Play control; Home's lead pick draws a dead one |
 | [#434] | Play on a tile, link tile or station row isn't remembered |
 | [#435] | a page-less station has two controls, no cue, or replays instead of pausing |
@@ -442,7 +441,6 @@ Argued departures that stay (not issues):
 
 [#426]: https://github.com/coredev-uk/sona-go/issues/426
 [#427]: https://github.com/coredev-uk/sona-go/issues/427
-[#430]: https://github.com/coredev-uk/sona-go/issues/430
 [#433]: https://github.com/coredev-uk/sona-go/issues/433
 [#434]: https://github.com/coredev-uk/sona-go/issues/434
 [#435]: https://github.com/coredev-uk/sona-go/issues/435
@@ -773,7 +771,7 @@ Results are a **card catalogue**: a 200px rail on the left lists the groups foun
 - **Top results** are a best match and its neighbours: the first result in a `--surface` panel (radius 8, `--line` border) beside up to four compact rows (40px cover), below it under 640px.
   - The panel has a 120px cover, its name at 24/650 and its catalogue line under it (the kind first, then the subtitle: `Artist · Rock`, `Album · Blue Band · 2019`; no label above the name), and the amber Play disc where it plays.
   - Choosing a result opens its page, a song's too: the panel and the rows are links, and the amber Play disc beside the panel is the separate control that plays it.
-  - A song's compact row has a quiet Play button at its end, shown on hover and focus with the menu button. The menu keeps Play and Play next.
+  - Every playable compact row (song, album, playlist, station with a page, video) has a quiet Play button at its end, shown on hover and focus with the menu button. The menu keeps Play and Play next.
   - Only a result with no page here (an upload, a station that plays when opened) plays as a whole, and then the disc is drawn into the panel and its row carries the play glyph.
 - **Artists** are one row of round portraits (104px at least, the tile grows to fill the row), the other item groups cover shelves with 136px tiles, so five or six fit where the other pages fit four.
 - **Songs** are the track list (number, cover, title, artist, and album from 720px of results width), eight rows, "See all" beside the heading. They behave as on the album and playlist pages: activating a row plays, the artist and album cells open their pages.
