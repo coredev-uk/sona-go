@@ -174,7 +174,7 @@ func TestLayoutFollowsThePaneSize(t *testing.T) {
 		{970, 559, layout{wide: true, cover: 168, fade: 56, compact: true}},
 		{1600, 480, layout{wide: true, cover: 168, fade: 56, compact: true}},
 		{859, 900, layout{cover: 168, fade: 72}},
-		{588, 400, layout{cover: 168, fade: 72}}, // the narrow band is as tall as it is
+		{588, 400, layout{cover: 168, fade: 72}},              // the narrow band is as tall as it is
 		{587, 900, layout{cover: 168, fade: 72, stack: true}}, // under 400 beside the cover
 		{0, 0, layout{cover: 168, fade: 72, stack: true}},
 	} {

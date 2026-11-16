@@ -428,7 +428,7 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
+			click:      "play station:sn1",
 			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
@@ -446,7 +446,7 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
 			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",
@@ -466,7 +466,7 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"station-nopage": {
-			click: "play station:sn1",
+			click:      "play station:sn1",
 			double:     "play station:sn1",
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
@@ -484,7 +484,7 @@ var discoverWant = map[string]map[string]outcomes{
 			cue:        "link",
 		},
 		"link": {
-			click: "url https://example.test/interview/1",
+			click:      "url https://example.test/interview/1",
 			double:     "url https://example.test/interview/1",
 			enter:      "url https://example.test/interview/1",
 			shiftEnter: "nothing",

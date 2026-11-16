@@ -47,10 +47,10 @@ func TestValidateRefusesEachKindOfFailure(t *testing.T) {
 				tk.Color["amber-ink"] = tk.Color["ground"]
 				tk.Color["play-ink"] = tk.Color["ground"]
 			}, ProblemContrast, "amber-ink"},
-			"control line":  {func(tk *Tokens) { tk.Color["control-line"] = tk.Color["ground"] }, ProblemContrast, "control-line"},
-			"focus ring":    {func(tk *Tokens) { tk.Color["ring"] = tk.Color["ground"].Alpha(0.2) }, ProblemContrast, "ring"},
-			"avatar text":   {func(tk *Tokens) { tk.Color["avatar-3-fg"] = tk.Color["avatar-3-bg"] }, ProblemContrast, "avatar-3-fg"},
-			"scrim":         {func(tk *Tokens) { tk.Scalar["backdrop-scrim"] = 0.3 }, ProblemRange, "backdrop-scrim"},
+			"control line": {func(tk *Tokens) { tk.Color["control-line"] = tk.Color["ground"] }, ProblemContrast, "control-line"},
+			"focus ring":   {func(tk *Tokens) { tk.Color["ring"] = tk.Color["ground"].Alpha(0.2) }, ProblemContrast, "ring"},
+			"avatar text":  {func(tk *Tokens) { tk.Color["avatar-3-fg"] = tk.Color["avatar-3-bg"] }, ProblemContrast, "avatar-3-fg"},
+			"scrim":        {func(tk *Tokens) { tk.Scalar["backdrop-scrim"] = 0.3 }, ProblemRange, "backdrop-scrim"},
 			"spot fill lost": {func(tk *Tokens) {
 				tk.Color["amber"] = tk.Color["ground"]
 				tk.Color["play"] = tk.Color["ground"]
