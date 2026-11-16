@@ -106,6 +106,7 @@ func itemsLinkTile(c *ui.Context, it services.Item, ctx ItemsCtx, tk *theme.Toke
 		}
 	})
 	if ClickOnce(tile) {
+		ctx.opened(it)
 		if link != "" {
 			ctx.nav(link)
 		} else {
