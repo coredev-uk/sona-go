@@ -8549,6 +8549,14 @@ msgstr "{done} of {total}"
 msgid "{elsewhere} from other devices"
 msgstr "{elsewhere} from other devices"
 
+#: internal/ui/features/playlist/page.go
+msgid "{found, plural, one {Play the # song found} other {Play the # songs found}}"
+msgstr "{found, plural, one {Play the # song found} other {Play the # songs found}}"
+
+#: internal/ui/features/playlist/page.go
+msgid "{found, plural, one {Shuffle the # song found} other {Shuffle the # songs found}}"
+msgstr "{found, plural, one {Shuffle the # song found} other {Shuffle the # songs found}}"
+
 #: internal/ui/features/library/artists.go
 msgid "{found} of {everyone}"
 msgstr "{found} of {everyone}"
