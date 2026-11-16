@@ -36,12 +36,12 @@ func (s Sleeve) Overrides() map[string]ui.Color {
 }
 
 // Overrides are the colour tokens that put the accent in amber's place on the
-// page (v0.2.0's accentVars): amber's three tokens and the play roles built
-// on them.
+// page (v0.2.0's accentVars): amber's tokens (the mark, for the equaliser and
+// selection) and the play roles (the disc), which no longer share a colour.
 func (a Accent) Overrides() map[string]ui.Color {
 	return hexes(map[string]string{
-		"amber": a.Fill, "play": a.Fill,
-		"on-amber": a.OnFill, "on-play": a.OnFill,
+		"amber": a.Mark, "play": a.Fill,
+		"on-amber": a.OnMark, "on-play": a.OnFill,
 		"amber-ink": a.Ink, "play-ink": a.Ink,
 	})
 }

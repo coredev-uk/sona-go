@@ -74,9 +74,6 @@ const (
 	// UIContrast is controls and their edges against their background
 	// (WCAG AA, non-text).
 	UIContrast = 3
-	// coverAccentFloorLight is a cover accent's fill against the light ground
-	// and sleeve surface.
-	coverAccentFloorLight = 2.0
 	// sleeveStep: the sleeve stays at least this far from the ground in OKLCH
 	// lightness (one tone step).
 	sleeveStep = 0.05
@@ -375,12 +372,19 @@ type Sleeve struct {
 	AccentInk string
 }
 
-// Accent is the accent's colours on the page: amber's three roles.
+// Accent is the accent's colours on the page: amber's roles, split in two
+// fills because the play disc and the equaliser sit on different surfaces.
 type Accent struct {
-	// Fill is the play control's fill and the equaliser (amber).
+	// Fill is the play disc (play), fitted to 3:1 against the surface it sits
+	// on: the sleeve in the narrow layout, else the ground.
 	Fill string
-	// OnFill is the glyph on the fill (on-amber).
+	// OnFill is the glyph on the disc (on-play), 4.5:1.
 	OnFill string
+	// Mark is the equaliser, the playing-row mark and the selection (amber),
+	// fitted to 3:1 against the ground its rows sit on.
+	Mark string
+	// OnMark is the glyph on the mark (on-amber), 4.5:1.
+	OnMark string
 	// Ink is the accent as text on the ground and on rows (amber-ink).
 	Ink string
 }
@@ -439,33 +443,39 @@ func sleeveColors(bg, primary string, softer []string, th Theme) Sleeve {
 	}
 }
 
-func accentColors(accent string, th Theme, under []string) *Accent {
+// accentColors fits the cover's accent in OKLCH lightness (hue and chroma
+// kept) for its two roles: the play disc, at least 3:1 from the sleeve it sits
+// on (playOnSleeve; else from the ground) and, in dark, from the ground too;
+// and the mark, at least 3:1 from the ground. Both carry a 4.5:1 glyph. A
+// role no lightness serves keeps Sona's amber (theme.SpotFloor holds it to 3:1).
+func accentColors(accent string, th Theme, sleeve string, playOnSleeve bool) *Accent {
 	t := Of(th)
-	// The fill (play control, equaliser) of a cover's accent is never less
-	// distinct from what it sits on than 3:1 in dark and coverAccentFloorLight
-	// in light: a light sleeve surface and the ground leave no colour 3:1 from
-	// both, so a 3:1 floor would drop every cover's accent for amber. Amber
-	// itself keeps 3:1 (theme.SpotFloor).
-	floor := float64(UIContrast)
-	if th == Light {
-		floor = coverAccentFloorLight
-	}
 	glyph := func(c string) string {
 		if Contrast(white, c) > Contrast(t.OnAmber, c) {
 			return white
 		}
 		return t.OnAmber
 	}
-	fillOK := func(c string) bool { return worst(c, under) >= floor && Contrast(glyph(c), c) >= TextContrast }
-	fill, ok := nearest(accent, fillOK)
-	if !ok {
-		fill = t.Amber
+	fit := func(under []string) (fill, on string) {
+		fill, ok := nearest(accent, func(c string) bool {
+			return worst(c, under) >= UIContrast && Contrast(glyph(c), c) >= TextContrast
+		})
+		if !ok {
+			return t.Amber, t.OnAmber
+		}
+		return fill, glyph(fill)
 	}
-	on := glyph(fill)
-	if fill == t.Amber {
-		on = t.OnAmber
+	discUnder := []string{t.Ground}
+	if playOnSleeve {
+		discUnder = []string{sleeve}
+		if th == Dark {
+			discUnder = append(discUnder, t.Ground)
+		}
 	}
-	return &Accent{Fill: fill, OnFill: on, Ink: EnsureContrast(accent, PageBackgrounds(th), TextContrast)}
+	a := &Accent{Ink: EnsureContrast(accent, PageBackgrounds(th), TextContrast)}
+	a.Fill, a.OnFill = fit(discUnder)
+	a.Mark, a.OnMark = fit([]string{t.Ground})
+	return a
 }
 
 func validHex(c string) bool {
@@ -520,9 +530,5 @@ func ForAlbum(apple *Cover, dominant []string, th Theme, playOnSleeve bool) (Alb
 		return Album{Sleeve: sleeve}, true
 	}
 	sleeve.AccentInk = EnsureContrast(hue, []string{sleeve.Surface, sleeve.Hover, sleeve.Active}, TextContrast)
-	under := []string{Of(th).Ground}
-	if playOnSleeve {
-		under = append(under, sleeve.Surface)
-	}
-	return Album{Sleeve: sleeve, Accent: accentColors(hue, th, under)}, true
+	return Album{Sleeve: sleeve, Accent: accentColors(hue, th, sleeve.Surface, playOnSleeve)}, true
 }
