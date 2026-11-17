@@ -175,6 +175,8 @@ An add-on runs in one of two runtimes behind one interface (`addons.Running`), a
 #### Templates, sizes and downloads
 
 - A template (Apple's `{w}x{h}` URL) is addressed by the hash of its text.
+- Only two hosts are fetched: Apple's artwork CDN (`*.mzstatic.com`) and, for a playlist photo chosen in Apple's apps, Apple's blob storage (`store-<n>.blobstore.apple.com`, a fixed image only). Redirects elsewhere are refused.
+- Such a photo comes as a presigned URL that expires a day after the response that carried it and is signed anew in every response. Its key is the hash of its host and path, so each sync's new signature finds the cached copy, and the newest URL is the one fetched. The signature never reaches an error or the log. Sign-out removes the photo with the library's other playlist artwork (`db.UserArtwork`).
 - An artwork key at a size is derived from the nearest cached source at the exact box, and `backdrop.jpg` from the 64 px source.
 - Sources are fetched at 64, 256, 512, 1200 or 2048 px (`artwork.Sizes`), the smallest that covers the box; a request between two is scaled down from the larger source. The CDN already holds the first four for most artwork. Any other size is drawn by an origin on its first request (250 ms to 2 s against 10 to 25 ms), which is why 128 and 1024 are not in the list ([Measure artwork fetch times](performance.md#measure-artwork-fetch-times)).
 - Downloads send `Accept: image/jpeg,image/png;q=0.9,*/*;q=0.8`. Apple's generated covers (`gen/`) are drawn on a CDN miss by an origin that answers 406 to an `Accept` without `*/*`.
