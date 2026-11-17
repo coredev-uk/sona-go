@@ -18,6 +18,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [Lyrics from other services](#lyrics-from-other-services)
   - [TuneIn metadata](#tunein-metadata)
   - [WebAssembly add-ons](#webassembly-add-ons)
+  - [Sona's own add-ons](#sonas-own-add-ons)
   - [Secret scanning](#secret-scanning)
 - [Findings](#findings)
   - [Summary](#summary)
@@ -50,6 +51,7 @@ Each row is a trust boundary. The sections below give the detail.
 | Secrets and tokens | The keyring, with a 0600 file fallback | Tokens never reach URLs, errors or logs. Build credentials are redacted from logs and diagnostics ([F10](#f10-development-builds-logged-the-build-credentials)). Secret scanning guards the repository ([Secret scanning](#secret-scanning)) |
 | Loopback sign-in server | Apple's sign-in redirect on `127.0.0.1` | The owner uid of each connection, single-use start links and a cookie ([F7](#f7-another-local-user-could-complete-the-loopback-sign-in)) |
 | Add-ons, WebAssembly runtime | Running a third party's module inside Sona's process, with the user's grant | No ambient authority: no file but its data folder (links refused), no network, no process; memory and CPU capped. The module is checked and read once; the compiled cache is private ([WebAssembly add-ons](#webassembly-add-ons)). The exposure is the runtime itself: a bug in wazero is a bug in Sona's process |
+| Add-ons, Sona's own | Sona's own signed code, run as `sona --addon <id>`, holding the Last.fm and ListenBrainz sign-ins | Registered in code, never from a folder. Sona keeps the private filter and the queue and sends only filtered listens; `scrobble.*` requests go to bundled add-ons only ([Sona's own add-ons](#sonas-own-add-ons)) |
 | Other local users | Nothing | Discord IPC socket and named pipe ownership checks ([F4](#f4-discord-ipc-trusted-any-users-socket)); the loopback checks above |
 | Third-party services | Apple, Google, Mozilla, Musixmatch, LRCLIB, NetEase, TuneIn | Trusted for what their text says, not for code. The Widevine package needs two Google signatures. Lyrics sources can be switched off in Settings → Playback → Lyrics |
 
@@ -601,6 +603,25 @@ Sona doesn't ship a privileged helper to get around a restricted user namespace,
 - **Resources are shared.** The caps are per module. There is no total across add-ons, and compiling a large module takes up to two cores for a few seconds, once.
 - **The CPU budget is wall time between host calls.** It is not a CPU-time counter: a machine paused or overloaded can charge a module for time it didn't run (a long pause is clamped to a few ticks).
 - **Same trust as native for the user.** A module still answers the user's invokes and may show a link, which opens only after a click.
+
+### Sona's own add-ons
+
+**What it does.** Sona's Last.fm, ListenBrainz and Discord integrations are bundled add-ons (#302, `docs/addons.md`, "Bundled add-ons"): `sona --addon <id>`, Sona's own signed executable run by the add-on supervisor over protocol v2. They are registered in code and never read from `<config>`. ListenBrainz does its HTTP in its add-on; Sona keeps the pipeline (tracker, private filter, persistent queue, backoff) and sends the add-on only listens that passed the filter, as `scrobble.*` requests.
+
+**Threats and controls.**
+
+| Threat | Control | Test |
+| --- | --- | --- |
+| A private listen or a preview reaches a service | One host-side filter, `privatemode.Mode.Hidden`, decides before the queue: a hidden listen is never queued, so it is never a request to the add-on and never reaches the network | `TestScrobbleListenBrainzNeverSeesAPrivateListen`, `TestTrackerSkipsPrivateListens` |
+| A third-party add-on is sent a `scrobble.*` request (and the credential in it) | `Session.Request` refuses any session the supervisor did not mark bundled, from the registry in code; the method must be one of three fixed names, there is no general call | `TestHostRequestsAreBundledOnly`, `TestAddonsRequestReachesABundledAddon` |
+| A folder in the user's add-ons directory takes a bundled ID | The scanner refuses a folder that claims a reserved ID, and the registry is the only source of the manifest and the program | `TestAddonsUserFolderCannotClaimABundledID` |
+| The sign-in leaks through the environment, a log or an error | It is in the keyring item `addon.<id>`; it crosses the channel only in the `credential` of the request that needs it; the environment is an allowlist (plus the proxy and certificate variables, for bundled add-ons only); an error frame carries a fixed message, never the cause's text | `TestEnvironmentIsAnAllowlist`, `TestListenBrainzAddonAnswersInCodes` |
+| A development override points the add-on at another host | The base-URL variables exist only in a `dev` build, are passed to bundled add-ons only, and are taken only for a loopback address | `endpoints_dev.go` |
+
+**Residual risks.**
+
+- **A bundled add-on holds the user's sign-in and the network, and has the user's rights until the OS sandbox (#304) confines it.** It is Sona's own signed code, not a third party's: the risk is a flaw in it, as in the rest of Sona.
+- **A process of Sona's size runs per integration in use.** Each runs only while its account is connected (or a connect flow holds a lease on it), so a user with no accounts pays nothing.
 
 ### Secret scanning
 

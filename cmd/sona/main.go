@@ -79,7 +79,7 @@ func main() {
 	// which the supervisor runs as a child over its standard input and
 	// output. It starts nothing else of Sona.
 	if len(os.Args) == 3 && os.Args[1] == addons.BundledFlag {
-		os.Exit(own.Main(os.Args[2], os.Stdin, os.Stdout, os.Stderr))
+		os.Exit(own.Main(os.Args[2], version, os.Stdin, os.Stdout, os.Stderr))
 	}
 
 	for _, arg := range os.Args[1:] {

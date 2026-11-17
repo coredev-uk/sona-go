@@ -394,6 +394,13 @@ var addonMessages = map[string]string{
 	AddonErrNotRunning:     "the add-on is not running",
 	AddonErrFailed:         "Sona couldn't do that",
 
+	// The answers of Sona's own scrobbling add-ons (addon_scrobble.go).
+	AddonErrCredentialsRejected:  "the service refused the credentials",
+	AddonErrSubmissionRejected:   "the service refused the submission",
+	AddonErrAuthorisationPending: "the user hasn't approved the authorisation yet",
+	AddonErrAuthorisationExpired: "the authorisation expired before it was approved",
+	AddonErrNotConfigured:        "the service isn't set up in this build",
+
 	CodeUnknownCommand: "no such command",
 	CodeNothingPlaying: "nothing is playing",
 	CodeNoLyrics:       "this song has no lyrics",

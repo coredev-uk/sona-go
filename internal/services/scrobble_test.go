@@ -13,15 +13,31 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/addons/own"
 	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
 )
 
 type scrobbleEnv struct {
-	s      *ScrobbleService
-	kr     store.Keyring
-	opened chan string
+	s       *ScrobbleService
+	srv     *httptest.Server
+	kr      store.Keyring
+	opened  chan string
+	link    *pipeAddons
+	private *privatemode.Mode
+
+	mu       sync.Mutex
+	lbBodies []string // what ListenBrainz's submit-listens got
+	lbCode   int      // its answer's status, 0 for 200
+}
+
+// lbStatus makes ListenBrainz answer submit-listens with status.
+func (se *scrobbleEnv) lbStatus(status int) {
+	se.mu.Lock()
+	se.lbCode = status
+	se.mu.Unlock()
 }
 
 // newScrobbleEnv serves Last.fm (approving the token on the second poll)
@@ -36,6 +52,7 @@ func newScrobbleEnvWith(t *testing.T, kr store.Keyring) *scrobbleEnv {
 	t.Helper()
 	var polls int
 	var mu sync.Mutex
+	se := &scrobbleEnv{private: privatemode.New(privatemode.Options{Save: func(bool) error { return nil }})}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		switch {
@@ -45,6 +62,18 @@ func newScrobbleEnvWith(t *testing.T, kr store.Keyring) *scrobbleEnv {
 			} else {
 				_, _ = io.WriteString(w, `{"valid":false}`)
 			}
+		case r.URL.Path == "/1/submit-listens":
+			b, _ := io.ReadAll(r.Body)
+			se.mu.Lock()
+			se.lbBodies = append(se.lbBodies, string(b))
+			status := se.lbCode
+			se.mu.Unlock()
+			if status != 0 {
+				w.WriteHeader(status)
+				_, _ = io.WriteString(w, `{"error":"refused"}`)
+				return
+			}
+			_, _ = io.WriteString(w, `{"status":"ok"}`)
 		case r.Form.Get("api_sig") != scrobble.Sign(r.Form, "secret"):
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = io.WriteString(w, `{"error":13,"message":"Invalid method signature supplied"}`)
@@ -66,11 +95,12 @@ func newScrobbleEnvWith(t *testing.T, kr store.Keyring) *scrobbleEnv {
 		}
 	}))
 	t.Cleanup(srv.Close)
+	se.srv = srv
 	settings, err := config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	se := &scrobbleEnv{kr: kr, opened: make(chan string, 1)}
+	se.kr, se.opened = kr, make(chan string, 1)
 	e := &Env{Deps: Deps{
 		Paths:    config.Paths{State: t.TempDir(), Config: t.TempDir()},
 		Keyring:  se.kr,
@@ -80,8 +110,10 @@ func newScrobbleEnvWith(t *testing.T, kr store.Keyring) *scrobbleEnv {
 		OpenURL:  func(u string) error { se.opened <- u; return nil },
 	}}
 	lastfm := &scrobble.LastFM{Key: "key", Secret: "secret", API: srv.URL + "/2.0/", HTTP: srv.Client()}
-	lb := &scrobble.ListenBrainz{API: srv.URL, HTTP: srv.Client()}
-	se.s = newScrobble(e, lastfm, lb)
+	se.link = newPipeAddons(t, own.Options{Version: "test", HTTP: srv.Client(), Endpoints: own.Endpoints{ListenBrainz: srv.URL}})
+	e.Private = se.private
+	se.s = newScrobble(e, lastfm)
+	se.s.attach(se.link)
 	se.s.poll = time.Millisecond
 	t.Cleanup(se.s.close)
 	return se

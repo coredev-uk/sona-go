@@ -39,8 +39,8 @@ type ScrobbleService struct {
 	e      *Env
 	sc     *scrobble.Scrobbler
 	lastfm *scrobble.LastFM // nil: no Last.fm API account in this build
-	lb     *scrobble.ListenBrainz
-	poll   time.Duration // Last.fm approval polling interval
+	lb     *addonScrobbler  // ListenBrainz, in its add-on
+	poll   time.Duration    // Last.fm approval polling interval
 
 	loadOnce sync.Once
 
@@ -52,16 +52,16 @@ type ScrobbleService struct {
 	unencrypted bool
 	attempt     uint64
 	cancel      context.CancelFunc // a Last.fm approval in progress
+	addons      addonLink          // the supervisor of the add-ons (attach)
 }
 
 func newScrobbleService(e *Env) *ScrobbleService {
 	httpc := &http.Client{Transport: e.gated(), Timeout: 30 * time.Second}
-	ua := "Sona/" + e.Version
 	var lastfm *scrobble.LastFM
 	if key, secret, ok := scrobble.LastFMAccount(); ok {
-		lastfm = &scrobble.LastFM{Key: key, Secret: secret, HTTP: httpc, UserAgent: ua}
+		lastfm = &scrobble.LastFM{Key: key, Secret: secret, HTTP: httpc, UserAgent: "Sona/" + e.Version}
 	}
-	s := newScrobble(e, lastfm, &scrobble.ListenBrainz{HTTP: httpc, UserAgent: ua, Version: e.Version})
+	s := newScrobble(e, lastfm)
 	e.Coord.ObserveActivity(s.sc.Observe)
 	e.OnNetwork(func() {
 		e.Go("scrobble start", func() {
@@ -74,14 +74,16 @@ func newScrobbleService(e *Env) *ScrobbleService {
 	return s
 }
 
-// newScrobble builds the service over the given clients (lastfm nil when
-// the build has no Last.fm account) and follows the settings' switches.
-func newScrobble(e *Env, lastfm *scrobble.LastFM, lb *scrobble.ListenBrainz) *ScrobbleService {
+// newScrobble builds the service over lastfm (nil when the build has no
+// Last.fm account) and the proxy of ListenBrainz's add-on, and follows the
+// settings' switches.
+func newScrobble(e *Env, lastfm *scrobble.LastFM) *ScrobbleService {
 	s := &ScrobbleService{
-		e: e, lastfm: lastfm, lb: lb, poll: lastfmPoll,
+		e: e, lastfm: lastfm, poll: lastfmPoll,
 		secrets: map[string]store.Secret{}, connected: map[string]bool{},
 	}
-	providers := []scrobble.Provider{lb}
+	s.lb = s.scrobbleProxy(ScrobblerListenBrainz, scrobble.ListenBrainzBatch)
+	providers := []scrobble.Provider{s.lb}
 	if lastfm != nil {
 		providers = append(providers, lastfm)
 	}
@@ -173,7 +175,10 @@ func (s *ScrobbleService) ConnectListenBrainz(ctx context.Context, token string)
 		return ScrobbleStatus{}, ErrTokenRequired
 	}
 	s.load()
-	user, err := s.lb.Validate(ctx, token)
+	// The add-on that checks the token runs only while an account is
+	// connected: hold it up for the check, and until the account is saved.
+	defer s.lease(ScrobblerListenBrainz)()
+	user, err := s.lb.Account(ctx, token)
 	if err != nil {
 		return ScrobbleStatus{}, err
 	}
