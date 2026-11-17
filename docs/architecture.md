@@ -982,7 +982,7 @@ These are MyGo's (`cmd/sona/integrations_windows.go`). Where a type is the same 
 
 #### Uninstalling
 
-Uninstalling keeps the user's data (settings, library, sign-in, the downloaded CDM) but not the sandbox the CDM host ran in (§4.4). The uninstaller runs `sona.exe --remove-sandbox` before it deletes the files. That deletes the AppContainer profile and takes its SID's entries off the program, GStreamer and Widevine folders. The portable `.zip` has no uninstaller, so its user runs `sona.exe --remove-sandbox` before deleting the folder (`site/src/content/docs/reference/cli.md`).
+Uninstalling keeps the user's data (settings, library, sign-in, the downloaded CDM) but not the sandboxes the CDM host and the add-ons ran in (§4.4). The uninstaller runs `sona.exe --remove-sandbox` before it deletes the files. That deletes the CDM host's AppContainer profile and takes its SID's entries off the program, GStreamer and Widevine folders, and does the same for each add-on's profile (`sona.addon.<id>`; the add-ons are Sona's own, the installed ones and any that left a data folder, found on disk: `sandbox.ProfileIDs`), which the add-on's data does not stop. The portable `.zip` has no uninstaller, so its user runs `sona.exe --remove-sandbox` before deleting the folder (`site/src/content/docs/reference/cli.md`).
 
 ## 10. Testing approach
 

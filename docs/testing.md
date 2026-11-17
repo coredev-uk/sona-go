@@ -142,7 +142,7 @@ The whole host suite runs through the sandbox, because the child loads no CDM ou
 
 A test binary alone honours `SONA_CDMHOST_ALLOW_UNSANDBOXED=1` to load the CDM outside the sandbox.
 
-`TestRemoveSandbox` (in `internal/appcontainer`) covers the uninstaller's cleanup (`sona --remove-sandbox`, `cdmhost.RemoveSandbox`) on a profile of its own, never `sona.cdmhost`. A new grant of the sandbox's SID to a folder (`appcontainer.Grant`) must be one `appcontainer.Remove` also removes. The package's tests skip on a machine that refuses AppContainers; `SONA_APPCONTAINER_REQUIRE=1` (CI) fails them instead.
+`TestRemoveSandbox` (in `internal/appcontainer`) covers the uninstaller's cleanup (`sona --remove-sandbox`, `cdmhost.RemoveSandbox`) on a profile of its own, never `sona.cdmhost`. A new grant of the sandbox's SID to a folder (`appcontainer.Grant`) must be one `appcontainer.Remove` also removes. `TestRemoveProfiles` (in `internal/addons/sandbox`) does the same for the add-ons' profiles (`sandbox.RemoveProfiles`); the choice of which add-on IDs to remove (`sandbox.ProfileIDs`) is plain Go and tested on every OS. The package's tests skip on a machine that refuses AppContainers; `SONA_APPCONTAINER_REQUIRE=1` (CI) fails them instead.
 
 ## Packaging checks
 

@@ -5,7 +5,7 @@
 ; and sign-in live in %APPDATA%\Sona and %LOCALAPPDATA%\Sona and stay on
 ; uninstall; so does the Widevine CDM there. The uninstaller runs
 ; `sona.exe --remove-sandbox` first, which removes the CDM host's
-; AppContainer profile and the access list entries granted to it. The
+; and the add-ons' AppContainer profiles and the access list entries granted to them. The
 ; folder installed is package.sh's: sona.exe, the CDM host's shim DLL, the
 ; GStreamer DLLs, lib\gstreamer-1.0 (the plugins), libexec\gstreamer-1.0
 ; (the plugin scanner) and licenses\, never the Widevine CDM, which Sona
@@ -90,9 +90,10 @@ Section "Sona"
 SectionEnd
 
 Section "Uninstall"
-  ; The CDM host's sandbox: Sona's AppContainer profile (with its package
-  ; folder under %LOCALAPPDATA%\Packages) and the access list entries it was
-  ; granted on the program's, GStreamer's and the Widevine folders. Sona
+  ; The CDM host's and the add-ons' sandboxes: Sona's AppContainer profiles
+  ; (with their package folders under %LOCALAPPDATA%\Packages) and the access
+  ; list entries they were granted on the program's, GStreamer's, the Widevine
+  ; and the add-ons' folders. Sona
   ; removes them itself, before its files go. A failure is shown in the
   ; details and never stops the uninstall.
   IfFileExists "$INSTDIR\sona.exe" 0 sandboxdone
@@ -100,7 +101,7 @@ Section "Uninstall"
   ExecWait '"$INSTDIR\sona.exe" --remove-sandbox' $0
   IfErrors 0 +2
     StrCpy $0 "could not run sona.exe"
-  DetailPrint "Sona's playback sandbox cleanup finished: $0"
+  DetailPrint "Sona's sandbox cleanup finished: $0"
   sandboxdone:
   Delete "$SMPROGRAMS\Sona.lnk"
   !insertmacro UnUrlScheme "music"

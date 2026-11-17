@@ -316,7 +316,8 @@ Whether the sandbox is used is decided once per process, on the first host start
   - It removes the explicit entries of the profile's SID from the access lists of the folders the parent grants (the program's, GStreamer's and the `GST_PLUGIN_*` folders, found as at a start; the entries the files under them inherited go with them).
   - It also removes them from every folder under the Widevine folder (`<data>\widevine`: the CDM itself, which is the user's data, stays, only the entries on its folders go).
   - Then it calls `DeleteAppContainerProfile` and removes the package folder under `%LOCALAPPDATA%\Packages` if Windows left it.
-  - A step that fails does not stop the others; the exit status is non-zero and the message names each failure. It finds nothing wrong with what is already gone, so it can run again.
+  - It does the same for every add-on's AppContainer (`sandbox.RemoveProfiles`, profiles `sona.addon.<id>`): the entries of its SID on the add-on's folder (`<config>\addons\<id>`), its data folder (`<state>\addons\<id>\data`, which stays) and, for Sona's own add-ons, the program's folders, then the profile and its package folder. The IDs come from disk, with no list kept: Sona's own, the folders of the installed add-ons, and the folders of `<state>\addons` (each add-on that ever ran has one, and Sona never removes them, so an add-on uninstalled earlier is found). `ProfileIDs` accepts only names shaped like an add-on ID. Only the names are listed; the data is never read.
+  - A step that fails does not stop the others; the exit status is non-zero and the message names each failure. It finds nothing wrong with what is already gone (an add-on that never ran has no profile), so it can run again.
 
 **Tests** (`sandbox_windows_test.go`).
 
@@ -331,6 +332,7 @@ Whether the sandbox is used is decided once per process, on the first host start
   - the CDM file stays
   - a second run succeeds
 - `build/windows/smoke.sh`, in `release.yml`, installs and silently uninstalls the installer and checks that the profile is gone.
+- Add-ons' profiles are tested by `TestRemoveProfiles` (Native add-ons, below).
 
 **Residual risks.**
 
@@ -340,8 +342,8 @@ Whether the sandbox is used is decided once per process, on the first host start
   - If a Windows build refuses it, the symptom is no sound with a working CDM, and the fix is a capability in the profile, which this section would then list. Verify on a real PC with the first Windows release.
 - **The access entries stay while Sona is installed.**
   - The entries for the profile's SID on the program, GStreamer and CDM folders are not removed when the child exits (removing them would rewrite thousands of entries at every start). They go with the folders, or with `sona --remove-sandbox` (the installer's uninstaller runs it).
-  - The profile stays in the user's registry (`HKCU`) and its package folder under `%LOCALAPPDATA%\Packages` until then.
-  - A portable `.zip` deleted without running the command leaves them behind: the profile, its package folder, and the entries on the Widevine folder in the user's data. They grant read and execute to an identity only Sona's child holds, and the profile is only a name for that identity.
+  - The profile stays in the user's registry (`HKCU`) and its package folder under `%LOCALAPPDATA%\Packages` until then. The same holds for each add-on's profile.
+  - A portable `.zip` deleted without running the command leaves them behind: the profiles (the host's and the add-ons'), their package folders, and the entries on the Widevine folder in the user's data. They grant read and execute to an identity only Sona's child holds, and the profile is only a name for that identity.
 - **Same-user processes.** An AppContainer protects the user from the child, not the child from the user's other processes. A process of the user at medium integrity can open the child (the parent does) and read the decrypted audio from its memory, as with any player; the child cannot open them (low integrity and its own SID).
 - **Kernel and win32k.** The child shares the kernel with everything; `win32k` is reachable and the mitigations stop short of arbitrary-code guard and code-integrity guard, which the CDM and GStreamer's plugins would not survive. A kernel or `win32k` exploit in the CDM or a GStreamer plugin is not contained.
 - **Read access to the system.** The child reads the Windows folder and Program Files, and the program's, GStreamer's and the CDM's folders. The folders it can write hold nothing it can load (the low-integrity image mitigation).
@@ -419,7 +421,7 @@ Sona doesn't ship a privileged helper to get around a restricted user namespace,
 - **Kernel attack surface.** The seccomp filter denies a list, not everything but a list: an add-on can still call every other system call, and a kernel bug in one is out of the sandbox's reach. Landlock, the namespaces and `no_new_privs` are second and third layers.
 - **Linux without Landlock** (a kernel before 5.13, or one that doesn't enable it): the root, the namespaces and the filter confine the add-on and the second check of files is missing. The add-on's log says so on each start.
 - **macOS is a deny-list.** The profile is `(allow default)` with the user's data denied, as the CDM host's. What it doesn't name stays reachable: the rest of the system's files (`/etc`, `/Library`, `/Applications`), the Mach services other than the keychain's (the clipboard, distributed notifications, Apple Events), and other processes of the user's. An add-on with `network` can also connect to Unix sockets. `sandbox-exec` is deprecated; its absence fails closed. Nothing of the macOS sandbox was run in the pull request that added it: the profile's text is tested on Linux, the profile is probed on each start (it must accept a program and hide the home directory, or the add-on doesn't run), and the rest is compiled for macOS.
-- **Windows.** An AppContainer reaches the system folders `ALL APPLICATION PACKAGES` may read, so an add-on's runtime must be in the Windows folder, Program Files or the add-on's own folder (a Python in the user's profile is not readable). The SID of each add-on's AppContainer keeps its access-list entries until `Remove`; uninstalling Sona's own sandbox (`sona --remove-sandbox`) does not yet remove the add-ons' profiles.
+- **Windows.** An AppContainer reaches the system folders `ALL APPLICATION PACKAGES` may read, so an add-on's runtime must be in the Windows folder, Program Files or the add-on's own folder (a Python in the user's profile is not readable). The SID of each add-on's AppContainer keeps its access-list entries and its profile until `sona --remove-sandbox` (the installer's uninstaller runs it) removes them: see the removal below. An add-on that `sona addons dev` ran from a folder outside the add-ons folder leaves the entry on that folder, which only the developer's own command and the profile's SID know; the profile itself goes.
 - **Bundled add-ons** are Sona's own executable and are confined as any other; they read Sona's install folder (to run) and not the user's config, state or keyring. The Discord add-on is the one that is given a Unix socket (its IPC path), named in code, and F4's checks apply to it.
 - **The protocol is the channel.** Everything an add-on may do to the rest of Sona goes through the permissions of protocol v2, checked on every call; the sandbox does not widen it and the permissions do not widen the sandbox, except `network`, which has no call.
 
@@ -435,7 +437,8 @@ Sona doesn't ship a privileged helper to get around a restricted user namespace,
 - `internal/addons` and `internal/services`: the environment allowlist and the data folder (`SONA_ADDON_DATA`, `HOME`, `TMPDIR`), a data folder never removed, a sandbox that can't start leaves the add-on refused with the reason and not restarted, and revoking `network` stops the add-on.
 - `internal/addons/sandbox/seatbelt_test.go`: the profile's rules and their order, in plain Go on Linux.
 - `internal/ui/features/settings`: every reason has words and the page shows them.
-- Not run: the macOS sandbox and the Windows AppContainer path for add-ons were type-checked and, for macOS, its profile text tested; they were not run on those systems in the pull request that added them.
+- `internal/addons/sandbox/profiles_test.go`: which add-on IDs have a profile to remove (Sona's own, the installed folders, and the data folders left by add-ons that ran), in plain Go on Linux. `TestRemoveProfiles` (`windows_test.go`) makes two add-ons' profiles, grants them as `Start` does and removes them, on windows-2025 in `ci.yml`'s "Sandbox tests" step.
+- Not run: the macOS sandbox and the Windows AppContainer path for add-ons were type-checked and, for macOS, its profile text tested; they were not run on those systems in the pull request that added them. Removing the Windows profiles (`TestRemoveProfiles`) is run by the Windows CI job.
 
 ### Music videos
 

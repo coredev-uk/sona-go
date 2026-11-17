@@ -3,6 +3,7 @@
 package sandbox
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -18,7 +19,7 @@ const maxProcesses = 64
 var profiles sync.Map
 
 // Start runs the add-on in an AppContainer of its own (the profile
-// "sona.addon.<id>", so a grant for one add-on is no other's) inside a job
+// ProfileName(id), "sona.addon.<id>", so a grant for one add-on is no other's) inside a job
 // object that kills it with Sona, or says why it can't. The AppContainer holds
 // no capabilities but internetClient, and only with the `network` permission;
 // its SID is granted read on the add-on's folder and on what the policy
@@ -87,7 +88,7 @@ func profile(id string) (*appcontainer.Profile, error) {
 	if p, ok := profiles.Load(id); ok {
 		return p.(*appcontainer.Profile), nil
 	}
-	p, err := appcontainer.Open("sona.addon."+id, "Sona add-on "+id, "Sona's sandbox for the add-on "+id)
+	p, err := appcontainer.Open(ProfileName(id), "Sona add-on "+id, "Sona's sandbox for the add-on "+id)
 	if err != nil {
 		return nil, err
 	}
@@ -116,4 +117,24 @@ func grant(prof *appcontainer.Profile, spec Spec) error {
 		}
 	}
 	return nil
+}
+
+// RemoveProfiles takes the add-ons' AppContainers off the machine, for
+// `sona --remove-sandbox`: for each of ids, the explicit entries of the
+// profile's SID in the access lists of reads (the program's folders a bundled
+// add-on was granted) and of every folder in the trees(id) names (the
+// add-on's own folder and its data folder; the entries the files under them
+// inherited go with them), then the profile and its package folder. An add-on
+// that never ran has no profile and nothing to take off, which is no error, so
+// it can run again. A step that fails does not stop the others; the error
+// says each.
+func RemoveProfiles(ids, reads []string, trees func(id string) []string) error {
+	var errs []error
+	for _, id := range ids {
+		profiles.Delete(id)
+		if err := appcontainer.Remove(ProfileName(id), reads, trees(id)); err != nil {
+			errs = append(errs, fmt.Errorf("add-on %s: %w", id, err))
+		}
+	}
+	return errors.Join(errs...)
 }

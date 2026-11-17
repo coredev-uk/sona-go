@@ -620,7 +620,7 @@ Every native add-on process runs confined by the operating system. The CDM host'
 
 - **Where.** `<state>/addons/<id>/data` (on Linux `~/.local/state/sona/addons/<id>/data`), made by Sona with mode 0700 when the add-on first runs, with a `tmp` folder in it.
 - **What it is.** The one place an add-on can write. For a native add-on `SONA_ADDON_DATA` is its path, and `HOME` and `TMPDIR` are inside it; a [WebAssembly add-on](#webassembly-add-ons) sees the same folder as `/data`. Its own folder is read-only, so a program that wrote to its working directory must write here instead.
-- **What happens to it.** Sona never reads, lists or removes it: not when the add-on is switched off, updated or uninstalled. Delete it yourself to forget what an add-on kept. An add-on that is installed again with the same ID finds it. Nothing in it is ever run or followed by Sona.
+- **What happens to it.** Sona never reads or removes it, and never lists it except for its folder names, which `sona.exe --remove-sandbox` on Windows takes as the IDs of add-ons that may have a profile to remove: not when the add-on is switched off, updated or uninstalled. Delete it yourself to forget what an add-on kept. An add-on that is installed again with the same ID finds it. Nothing in it is ever run or followed by Sona.
 - **Limits.** There is no quota: an add-on can fill the disk it lives on.
 
 ### When the sandbox can't be set up
