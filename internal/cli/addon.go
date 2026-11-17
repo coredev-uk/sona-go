@@ -51,13 +51,17 @@ const (
 	PermVolume          = "volume"
 	PermLike            = "like"
 	PermPrivateRead     = "private.read"
+	// PermNetwork is the one permission no call needs: the OS sandbox
+	// gives a program that holds it the network and
+	// takes it from every other (#304).
+	PermNetwork = "network"
 )
 
 // Permissions lists every permission, in the order the settings page and
 // the documentation show them.
 var Permissions = []string{
 	PermPlaybackRead, PermPlaybackControl, PermQueueRead, PermLyricsRead,
-	PermSearch, PermOpen, PermVolume, PermLike, PermPrivateRead,
+	PermSearch, PermOpen, PermVolume, PermLike, PermPrivateRead, PermNetwork,
 }
 
 // KnownPermission reports whether p is a permission of this protocol.

@@ -137,6 +137,8 @@ func permissionText(p string) (name, allows string) {
 		return i18n.T("Likes"), i18n.T("Can love or unlove the song that plays.")
 	case cli.PermPrivateRead:
 		return i18n.T("Private listening, read only"), i18n.T("Can see whether private listening is on. It never hears a private listen and can't change the setting.")
+	case cli.PermNetwork:
+		return i18n.T("Reach the internet"), i18n.T("Can connect to any address on the network: web sites, your home network and this computer's own services.")
 	}
 	return addons.Sanitize(p, 40), ""
 }

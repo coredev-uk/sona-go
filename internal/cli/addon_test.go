@@ -369,6 +369,9 @@ func TestEveryCommandMapsToAPermission(t *testing.T) {
 		}
 	}
 	for _, p := range Permissions {
+		if p == PermNetwork {
+			continue // the OS sandbox's, not the protocol's
+		}
 		used := false
 		for _, q := range commandPermission {
 			used = used || p == q
