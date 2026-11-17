@@ -91,7 +91,7 @@ Shows or sets private listening: `sona private [on|off|toggle|status]`. The defa
 
 _Linux_
 
-Runs an add-on from a folder without installing it, and prints its log until you press Ctrl+C: `sona addons dev <folder>`. It is for people who write add-ons ([the add-on reference](https://github.com/coredev-uk/sona-go/blob/main/docs/addons.md)).
+Runs an add-on from a folder without installing it, and prints its log until you press Ctrl+C: `sona addons dev <folder>`. It is for people who write add-ons ([the add-on reference](https://github.com/coredev-uk/sona-go/blob/main/docs/addons.md)). [Sample add-ons](https://github.com/coredev-uk/sona-addons) to run with it are in their own repository.
 
 - Sona asks you to confirm in its window. The question names the add-on, the folder and the permissions its manifest asks for. Without a "Run" there, nothing runs.
 - Nothing is saved. The permissions hold for the run. The add-on gets none of your saved values or secrets.

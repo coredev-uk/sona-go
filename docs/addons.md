@@ -4,6 +4,7 @@ An add-on is a program that runs beside Sona, hears what plays and may ask Sona 
 
 - It talks to Sona over **protocol v2**: one JSON object per line, in both directions, over the add-on's standard input and output.
 - It can be written in any language. `internal/cli/testdata/addon-client.sh` (shell) and `addon-client.py` (Python) are two complete clients; Sona's tests run both.
+- Complete add-ons to read, copy and run are in [coredev-uk/sona-addons](https://github.com/coredev-uk/sona-addons) (MIT): a now-playing webhook, a Home Assistant bridge, a song.link action and a Python client, all for protocol v2.
 - The Go side is `internal/cli` (`addon.go`, `addon_session.go`). The plan is `docs/maintainers/proposals/addons-and-remaining-work.md`.
 - Status: the protocol, manifests, the supervisor that starts add-ons, UI contributions, Settings → Add-ons and `sona addons dev` (Linux only for now) are implemented.
 
@@ -470,6 +471,8 @@ Sona runs the program by the absolute path it checked: never through `PATH` or t
 - The page says first that an add-on runs with your rights and that permissions are advisory until the OS sandbox (#304).
 
 ### Developing an add-on
+
+[coredev-uk/sona-addons](https://github.com/coredev-uk/sona-addons) has samples that run under this command, a small Go client of the protocol and a fake Sona for tests.
 
 `sona addons dev <folder>` runs an add-on from a folder **without installing it**, and prints its log until you press Ctrl+C. It needs Sona running and, for now, Linux.
 
