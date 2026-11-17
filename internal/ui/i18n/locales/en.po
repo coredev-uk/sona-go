@@ -75,8 +75,8 @@ msgid "AAC at 256 kbps"
 msgstr "AAC at 256 kbps"
 
 #: internal/ui/features/settings/quality.go
-msgid "AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless and Dolby Atmos albums play as AAC too."
-msgstr "AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless and Dolby Atmos albums play as AAC too."
+msgid "AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless albums play as AAC too, and Dolby Atmos ones as stereo unless Spatial Audio is on."
+msgstr "AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless albums play as AAC too, and Dolby Atmos ones as stereo unless Spatial Audio is on."
 
 #: internal/ui/features/onboarding/playback.go
 msgid "AAC at 64 kbps, for metered connections"
@@ -2245,6 +2245,10 @@ msgstr "Doesn't start"
 #: internal/ui/kit/controls_badge.go
 msgid "Dolby Atmos"
 msgstr "Dolby Atmos"
+
+#: internal/ui/features/settings/find.go
+msgid "Dolby Atmos, surround, headphones, binaural"
+msgstr "Dolby Atmos, surround, headphones, binaural"
 
 #: internal/ui/features/addons/addons.go
 msgid "Don't run"
@@ -5032,6 +5036,10 @@ msgstr "Player"
 msgid "Playing from <0>{playingFrom}</0>"
 msgstr "Playing from <0>{playingFrom}</0>"
 
+#: internal/ui/kit/controls_badge.go
+msgid "Playing in Spatial Audio, Apple's headphone mix of this song"
+msgstr "Playing in Spatial Audio, Apple's headphone mix of this song"
+
 #: internal/ui/features/radio/commands.go
 msgid "Playing {station}"
 msgstr "Playing {station}"
@@ -5080,6 +5088,10 @@ msgstr "Playlists shared by {name}"
 msgid "Playlists you make or add in Apple Music appear here after the next sync."
 msgstr "Playlists you make or add in Apple Music appear here after the next sync."
 
+#: internal/ui/features/onboarding/playback.go
+msgid "Plays Apple's headphone mix of a song where there is one."
+msgstr "Plays Apple's headphone mix of a song where there is one."
+
 #: internal/ui/features/radio/station.go
 msgid "Plays First"
 msgstr "Plays First"
@@ -5108,6 +5120,10 @@ msgstr "Plays stay out of your Apple Music listening history and recommendations
 #: internal/ui/features/auth/menu.go
 msgid "Plays stay out of your listening history, scrobbles and Discord."
 msgstr "Plays stay out of your listening history, scrobbles and Discord."
+
+#: internal/ui/features/settings/audio.go
+msgid "Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona. Other songs keep playing in stereo. Applies from the next song."
+msgstr "Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona. Other songs keep playing in stereo. Applies from the next song."
 
 #: internal/ui/features/settings/motionartwork.go
 msgid "Plays the looping covers some albums and playlists have, in their headers and in Now Playing."
@@ -6933,6 +6949,16 @@ msgstr "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, 
 msgid "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, F switches full screen, M mutes, Escape closes the video."
 msgstr "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, F switches full screen, M mutes, Escape closes the video."
 
+#: internal/ui/kit/controls_badge.go
+msgctxt "a song playing as its Spatial Audio rendition, as a short badge"
+msgid "Spatial"
+msgstr "Spatial"
+
+#: internal/ui/features/onboarding/playback.go
+#: internal/ui/features/settings/audio.go
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/settingsfile.go
+#: internal/ui/features/settings/summaries.go
 #: internal/ui/kit/controls_badge.go
 msgid "Spatial Audio"
 msgstr "Spatial Audio"

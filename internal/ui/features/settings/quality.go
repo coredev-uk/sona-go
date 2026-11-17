@@ -19,7 +19,7 @@ func (s *settings) qualityRow(c *ui.Context, st config.Settings) {
 	s.selectRow(c, rowOpts{
 		ID:    "quality",
 		Title: i18n.T("Audio quality"),
-		Desc:  i18n.T("AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless and Dolby Atmos albums play as AAC too."),
+		Desc:  i18n.T("AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless albums play as AAC too, and Dolby Atmos ones as stereo unless Spatial Audio is on."),
 	}, strconv.Itoa(st.AudioQuality), items, false, func(v string) {
 		n, err := strconv.Atoi(v)
 		if err != nil {

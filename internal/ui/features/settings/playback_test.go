@@ -48,7 +48,7 @@ func (f *pbCDM) count() int {
 // pbCaps is a Linux with every playback capability.
 func pbCaps() services.Capabilities {
 	return services.Capabilities{OS: "linux", Playback: services.PlaybackCapabilities{
-		Available: true, Engine: "cdm", Equalizer: true, SoundCheck: true, Crossfade: true, OutputDevice: true,
+		Available: true, Engine: "cdm", Equalizer: true, SoundCheck: true, Spatial: true, Crossfade: true, OutputDevice: true,
 		PrivateListening: true,
 	}}
 }
@@ -245,11 +245,12 @@ func TestPlaybackNamesWhatThePlatformCantBack(t *testing.T) {
 	caps := pbCaps()
 	caps.OS = "darwin"
 	caps.Playback.OutputDevice, caps.Playback.Equalizer, caps.Playback.SoundCheck, caps.Playback.Crossfade = false, false, false, false
+	caps.Playback.Spatial = false
 	caps.Playback.PrivateListening = false
 	p := newPBRig(t, caps, pbReadyCDM())
 	p.shows("Replacing your queue", "Not available on macOS yet.",
 		"This platform's player reports plays to Apple itself, so Sona can't hold them back.")
-	for _, id := range []string{"output", "sound-check", "equalizer", "crossfade", "private-listening"} {
+	for _, id := range []string{"output", "sound-check", "spatial-audio", "equalizer", "crossfade", "private-listening"} {
 		if !p.s.seen[id] {
 			t.Errorf("no row %q", id)
 		}
@@ -295,6 +296,26 @@ func TestSoundCheckIsSaved(t *testing.T) {
 	p.shows("Sound Check")
 	p.toggle("Sound Check")
 	p.saved("sound check", func(s config.Settings) bool { return s.Audio.SoundCheck })
+}
+
+func TestSpatialAudioIsOffByDefaultAndSaved(t *testing.T) {
+	p := newPBRig(t, pbCaps(), pbReadyCDM())
+	p.shows("Spatial Audio", "Applies from the next song.")
+	if p.h.Settings.Get().Audio.SpatialAudio {
+		t.Fatal("Spatial Audio is on by default")
+	}
+	p.toggle("Spatial Audio")
+	p.saved("spatial audio on", func(s config.Settings) bool { return s.Audio.SpatialAudio })
+	p.toggle("Spatial Audio")
+	p.saved("spatial audio off", func(s config.Settings) bool { return !s.Audio.SpatialAudio })
+}
+
+func TestSpatialAudioIsExplainedWhereThePlayerHasNone(t *testing.T) {
+	caps := pbCaps()
+	caps.Playback.Spatial = false
+	p := newPBRig(t, caps, pbReadyCDM())
+	p.shows("Spatial Audio", "Not available on Linux yet.")
+	p.lacks("Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona. Other songs keep playing in stereo. Applies from the next song.")
 }
 
 func TestOutputDeviceListAndChoice(t *testing.T) {

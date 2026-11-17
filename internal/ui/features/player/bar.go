@@ -68,6 +68,13 @@ func (p *player) song(c *ui.Context, s services.PlaybackState) {
 					// Apple's 30-second clip instead of the song (SONA_PREVIEW=1).
 					tag(c, i18n.TC("a song playing as its 30-second preview", "Preview"), i18n.T("Apple Music's 30-second preview, not the full song"))
 				}
+				if s.Spatial {
+					// Apple's binaural rendition, not the stereo stream. It gives way
+					// before the title does: the wrapper shrinks far faster and clips.
+					ui.Row(c.Key("spatial")).Shrink(100).MinWidth(0).Clip().Children(func() {
+						kit.SpatialMark(c)
+					})
+				}
 			})
 			p.subline(c, s)
 		})

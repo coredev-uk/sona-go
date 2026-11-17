@@ -62,14 +62,17 @@ func (s *settings) summaries() map[string]string {
 		if st.AudioQuality == 64 {
 			quality = i18n.T("Data saver")
 		}
-		sound, fade := "", ""
+		sound, spatial, fade := "", "", ""
 		if caps.Playback.SoundCheck && st.Audio.SoundCheck {
 			sound = i18n.T("Sound Check")
+		}
+		if caps.Playback.Spatial && st.Audio.SpatialAudio {
+			spatial = i18n.T("Spatial Audio")
 		}
 		if caps.Playback.Crossfade && st.Crossfade.Enabled {
 			fade = i18n.T("Crossfade {seconds} s", "seconds", st.Crossfade.Seconds)
 		}
-		playback = i18n.Meta(quality, sound, fade)
+		playback = i18n.Meta(quality, sound, spatial, fade)
 	}
 
 	// The theme and its look: "Graphite · Dark". A theme with one look

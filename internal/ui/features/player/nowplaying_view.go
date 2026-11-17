@@ -387,13 +387,16 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 			if cur.Album != "" {
 				p.outLink(c, "album", cur.Album, idPath("/album/", cur.AlbumID), 13, 18, 400, 2)
 			}
-			if cur.Explicit || s.Preview {
+			if cur.Explicit || s.Preview || s.Spatial {
 				ui.Row(c.Key("marks")).Margin(10, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 					if cur.Explicit {
 						kit.ExplicitMark(c.Key("explicit"))
 					}
 					if s.Preview {
 						kit.PreviewMark(c.Key("preview"))
+					}
+					if s.Spatial {
+						kit.SpatialMark(c.Key("spatial"))
 					}
 				})
 			}
