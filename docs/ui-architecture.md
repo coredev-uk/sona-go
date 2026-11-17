@@ -2,7 +2,7 @@
 
 This page maps `internal/ui`: the packages, the module contract, the store, the kit, the theme, the shell and every feature. `docs/architecture.md` has the process model and the platform seams, `docs/design.md` the visual direction and `internal/services/doc.go` the service contracts.
 
-Sona's interface is Go all the way down: [MyGo](https://github.com/egoist/mygo)'s native UI (`github.com/egoist/mygo/ui`, v0.9.0; GTK3 on Linux, AppKit on macOS, Win32 on Windows) draws on the GPU from the process that holds the services, the library and the playback coordinator. There is no web view, no IPC and no generated bindings: a view calls a typed service and reads the DTO it returns.
+Sona's interface is Go all the way down: [MyGo](https://github.com/egoist/mygo)'s native UI (`github.com/egoist/mygo/ui`, v0.9.2; GTK3 on Linux, AppKit on macOS, Win32 on Windows) draws on the GPU from the process that holds the services, the library and the playback coordinator. There is no web view, no IPC and no generated bindings: a view calls a typed service and reads the DTO it returns.
 
 ## Contents
 
@@ -1544,7 +1544,7 @@ Both read `Env.Shortcuts()`: every module's shortcuts, the shell's and each side
 #### The `?` chord
 
 - `?` is the chord Shift+/ (`kit.ParseChord`, which the dispatcher's `parseChord` wraps).
-- On GTK and AppKit, MyGo (v0.9.0) gives Shift with punctuation no `Key`, only its position (`InputEvent.Code`), and matches shortcuts by `Key` alone. So Sona reads `?` there by position.
+- On GTK and AppKit, MyGo (v0.9.2) gives Shift with punctuation no `Key`, only its position (`InputEvent.Code`), and matches shortcuts by `Key` alone. So Sona reads `?` there by position.
 - `kit.ShiftSlash` notes Shift and the slash key with no `Key` (`kit.IsShiftSlash`). It is observed on the shell's root and an open layer (`ObserveInput`). The dispatcher reads it as the chord Shift+/ in the next frame, unless the focus takes text or the focused element took it itself (`kit.TakeShiftSlash`; the key recorder's `HandleInput`, which records `?`).
 - Windows' press has its `Key`, which the shortcut takes, so nothing runs twice.
 - The help's dialog observes its own, to close on it (`ShiftSlash.Pressed`).

@@ -18,7 +18,7 @@ var ErrArchive = errors.New("update: the update archive can't be installed")
 // CheckArchive reads the gzip tar update archive of target (Target's
 // "darwin-arm64" or "windows-amd64") and reports the first thing wrong with
 // it, without extracting anything. It applies the rules of MyGo's
-// ExtractArchive (mygo/internal/update, the same in v0.8.3 and v0.9.0, the
+// ExtractArchive (mygo/internal/update, the same from v0.8.3 to v0.9.2, the
 // code the installed apps run), which refuses an archive whole at the first
 // entry it dislikes:
 //

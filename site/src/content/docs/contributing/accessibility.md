@@ -223,7 +223,7 @@ How Sona uses each state:
 - The Now Playing view's panes are tabs (Lyrics, Up next): one Tab stop, ←/→ and Home/End move and show.
 - The shortcut help:
   - `?` opens the shortcut help on every platform, and closes it again; the palette's "Keyboard shortcuts" opens it too;
-  - on Linux (GTK) and macOS (AppKit) MyGo v0.9.0 gives Shift with a punctuation key no `Key`, only its position (`InputEvent.Code`), so Sona reads `?` there as Shift and the key where US and UK keyboards have `/` and `?` (`kit.ShiftSlash`, with `kit.SlashByPosition` for the label);
+  - on Linux (GTK) and macOS (AppKit) MyGo v0.9.2 gives Shift with a punctuation key no `Key`, only its position (`InputEvent.Code`), so Sona reads `?` there as Shift and the key where US and UK keyboards have `/` and `?` (`kit.ShiftSlash`, with `kit.SlashByPosition` for the label);
   - on another layout that is a key labelled otherwise: German types `?` with Shift+ß and has `-` in that place, so Shift+- opens the help there and Shift+ß does not;
   - the command's label says so on those platforms ("Keyboard shortcuts (? where US and UK keyboards have it)") while the help answers to `?`; Windows reads the key the layout types, and its label is plain;
   - bound to another key in Settings → Shortcuts, the help answers to that key alone, and any shortcut bound to `?` takes the press;
@@ -373,7 +373,7 @@ Nothing here replaces listening. With each release candidate, in a desktop sessi
 
 ## Known gaps
 
-MyGo v0.9.0 closed two gaps. A `RoleStatus` is now read when its text changes, and the tab panel has a role (`RoleTabPanel`, adopted by `kit.TabPanel`). The gaps still open in v0.9.0 each keep the stand-in named in the table. The ones owned by MyGo are tracked in [#318](https://github.com/coredev-uk/sona-go/issues/318) under the number in the Owner column, and no issue for them is open in MyGo itself yet.
+MyGo v0.9.0 closed two gaps. A `RoleStatus` is now read when its text changes, and the tab panel has a role (`RoleTabPanel`, adopted by `kit.TabPanel`). v0.9.1 and v0.9.2 close none of the rest: each keeps the stand-in named in the table. The ones owned by MyGo are tracked in [#318](https://github.com/coredev-uk/sona-go/issues/318) under the number in the Owner column, and no issue for them is open in MyGo itself yet.
 
 | Gap | Effect for the user | Workaround | Owner |
 | --- | --- | --- | --- |
