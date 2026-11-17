@@ -25,6 +25,8 @@
 //
 //	playspike -soak 3h [-soak-items ID,ID,…]   long session: licence renewals and stalls
 //	playspike -probe-lossless SONG_ID          Widevine licences for every enhancedHls variant
+//	playspike -spatial SONG_ID [-variant audio-stereo-256-binaural] [-listen 2m]
+//	                                           an enhancedHls AAC rendition (Spatial Audio's binaural render) through the CDM host
 //	playspike -probe-video VIDEO_ID            Widevine licences for every rendition of a music video
 //	playspike -video VIDEO_ID [-seek 90]       a music video through the engine: pictures, A/V sync, seek, the end
 //	playspike -station ra.ID [-listen 2m]      a stream station (live radio, or a local broadcaster's clear stream) and what is on air
@@ -70,6 +72,8 @@ func main() {
 	soak := flag.Duration("soak", 0, "play -soak-items (or the first 25 hits for -term) back to back for this long, logging licence renewals and stalls")
 	soakItems := flag.String("soak-items", "", "comma-separated song or station (ra.…) IDs for -soak")
 	probeLossless := flag.String("probe-lossless", "", "catalog song ID: request a Widevine licence for every key of its enhancedHls (lossless/Atmos) master and print the results")
+	spatial := flag.String("spatial", "", "catalog song ID: play an AAC rendition of its enhancedHls master (-variant) through the CDM host for -listen")
+	spatialVariant := flag.String("variant", "audio-stereo-256-binaural", "with -spatial: the AUDIO rendition group to play")
 	station := flag.String("station", "", "play a stream station (ra.…: live radio, or a local broadcaster) for -listen, printing what its stream says is on air as it changes")
 	probeVideo := flag.String("probe-video", "", "catalog music video ID: request a Widevine licence for every rendition of its master playlist and print the results")
 	videoID := flag.String("video", "", "catalog music video ID: play it through the engine (from the start, -seek, -listen, then the last seconds to its end), printing what reaches the picture surface and how it lines up with the audio")
@@ -92,7 +96,7 @@ func main() {
 		os.Exit(2)
 	}
 	// The default, -preview and -activity modes end with the licence verdict.
-	verdict := *probeLossless == "" && *probeVideo == "" && *videoID == "" && *soak <= 0 && *station == ""
+	verdict := *probeLossless == "" && *spatial == "" && *probeVideo == "" && *videoID == "" && *soak <= 0 && *station == ""
 	if *preview {
 		// No CDM: a computer that never downloaded one plays previews.
 		err = runPreview(log, *storefront, *songID, *term, *nextID, *nextTerm, *listen)
@@ -123,6 +127,8 @@ func main() {
 		err = runProbeVideo(log, *envFile, *probeVideo, lib)
 	case *videoID != "":
 		err = runVideo(log, *envFile, *videoID, *seekTo, *listen, lib)
+	case *spatial != "":
+		err = runSpatial(log, *envFile, *spatial, *spatialVariant, *listen, lib)
 	case *probeLossless != "":
 		err = runProbeLossless(log, *envFile, *probeLossless, lib)
 	case *station != "":

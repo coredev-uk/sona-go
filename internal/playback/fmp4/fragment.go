@@ -76,8 +76,9 @@ func parseTraf(b []byte, moof, traf box, in *Init, out []Sample) ([]Sample, erro
 		// An absolute file offset; Apple's fragments use default-base-is-moof.
 		return nil, errors.New("fmp4: tfhd base-data-offset is not supported")
 	}
+	desc := in.defaultEntry
 	if flags&tfhdSampleDescIndex != 0 {
-		r.u32()
+		desc = r.u32()
 	}
 	defDur, defSize := in.DefaultSampleDuration, in.DefaultSampleSize
 	if flags&tfhdDefaultDuration != 0 {
@@ -165,13 +166,15 @@ func parseTraf(b []byte, moof, traf box, in *Init, out []Sample) ([]Sample, erro
 		dataEnd = pos
 	}
 	samples := out[first:]
-	if !in.Protected || len(samples) == 0 {
+	// The fragment's sample entry decides its encryption (its constant IV).
+	enc := in.entry(desc)
+	if !enc.Protected || len(samples) == 0 {
 		return out, nil
 	}
 	if senc, ok := find(tc, "senc"); ok {
-		return out, parseSenc(senc.body, in, samples)
+		return out, parseSenc(senc.body, enc, samples)
 	}
-	if err := parseAux(b, tc, base, in, samples); err != nil {
+	if err := parseAux(b, tc, base, enc, samples); err != nil {
 		return nil, err
 	}
 	return out, nil
