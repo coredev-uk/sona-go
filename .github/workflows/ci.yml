@@ -913,10 +913,11 @@ jobs:
         env:
           SONA_CDM_REQUIRE: "1"
           SONA_CDMHOST_REQUIRE_SANDBOX: "1"
+          SONA_APPCONTAINER_REQUIRE: "1"
         run: |
           .github/ci/strict-test.sh "$RUNNER_TEMP/sandbox.log" --skips \
             -- go test -count=1 -timeout 15m -v -run 'AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|RemoveSandbox|ReadFolders|EnvHelpers' \
-            ./internal/playback/cdmhost/
+            ./internal/playback/cdmhost/ ./internal/appcontainer/
 
       # The host child, GStreamer and the engine on Windows, against fakesink
       # and the real CDM.

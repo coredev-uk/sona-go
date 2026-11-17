@@ -1,6 +1,4 @@
-//go:build linux || (cgo && (darwin || windows))
-
-package cdmhost
+package appcontainer
 
 import "testing"
 
