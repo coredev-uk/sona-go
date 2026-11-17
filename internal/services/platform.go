@@ -65,6 +65,15 @@ type Platform struct {
 	// text and a click that opens Sona, not the artwork nor the Next
 	// button (macOS and Windows: MyGo's notifications have neither).
 	PlainNotifications bool
+	// DiscordInProcess: the Discord presence runs inside Sona, not as the
+	// `discord` add-on, because the add-on's sandbox can't be given the one
+	// endpoint of Discord's IPC. On Windows that is a named pipe, which an
+	// AppContainer reaches only where the pipe's own access list names the
+	// container (or ALL APPLICATION PACKAGES): that list is Discord's to set,
+	// and Sona's sandbox grants folders and files, not another program's
+	// pipe. Where it is true the add-on isn't listed or started
+	// (docs/security-review.md, "Add-ons").
+	DiscordInProcess bool
 	// MotionArtwork: the build decodes motion artwork (internal/ui/media
 	// has a decoder: GStreamer on Linux, MyGo's ui/video on macOS
 	// (AVFoundation) and Windows (Media Foundation)).

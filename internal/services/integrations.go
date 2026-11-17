@@ -23,11 +23,6 @@ const (
 	integrationsCallTimeout = 5 * time.Second
 	// presenceArtSize is the artwork edge Discord is pointed at.
 	presenceArtSize = 512
-	// presenceInterval spaces SET_ACTIVITY calls (Discord allows 5 per 20 s).
-	presenceInterval = 4 * time.Second
-	// presenceRetry is how often an unreachable Discord is retried while
-	// a track plays.
-	presenceRetry = 30 * time.Second
 
 	actionNext = "next"
 )
@@ -118,6 +113,13 @@ func (s *IntegrationsService) setStatus(fn func(*IntegrationsStatus)) {
 	}
 }
 
+// setDiscordConnected records whether Sona's presence is connected to the
+// Discord app: from the worker in Sona's process, or the `discord` add-on's
+// word (AddonsService).
+func (s *IntegrationsService) setDiscordConnected(connected bool) {
+	s.setStatus(func(st *IntegrationsStatus) { st.Discord.Connected = connected })
+}
+
 func (s *IntegrationsService) stop() {
 	s.mu.Lock()
 	s.stopped = true
@@ -143,10 +145,12 @@ func (s *IntegrationsService) run() {
 	if s.e.Platform.KeepRunning != nil {
 		keeper = s.e.Platform.KeepRunning(func() string { return s.e.Language.Printer().T(msgInhibitReason) })
 	}
-	var presence *presenceWorker
-	if id := discord.ClientID(); id != "" && discord.Supported {
-		presence = newPresenceWorker(s, discord.New(id))
-		s.e.Go("discord presence", presence.run)
+	// Discord's presence is the `discord` add-on's (AddonsService), except
+	// where Platform.DiscordInProcess says it can't be.
+	var presence *discord.Presence
+	if id := discord.ClientID(); id != "" && discord.Supported && s.e.Platform.DiscordInProcess {
+		presence = discord.NewPresence(discord.New(id), s.setDiscordConnected, s.e.Logger)
+		s.e.Go("discord presence", presence.Run)
 	}
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
@@ -161,7 +165,7 @@ func (s *IntegrationsService) run() {
 			keeper.Close()
 		}
 		if presence != nil {
-			presence.stop()
+			presence.Stop()
 		}
 	}()
 
@@ -186,7 +190,7 @@ func (s *IntegrationsService) run() {
 			}
 		}
 		if presence != nil && p.presence != nil {
-			presence.set(*p.presence)
+			presence.Set(*p.presence)
 		}
 	}
 
@@ -252,7 +256,7 @@ type integrationsPlan struct {
 	announce *coordinator.Item // notify this track
 	inhibit  *bool             // take (true) or drop (false) the inhibitor
 	running  *bool             // hold (true) or release (false) the full-speed hold
-	presence *presenceWant     // the Discord presence; nil leaves it as is
+	presence *discord.Want     // the Discord presence, where it runs in Sona; nil leaves it as is
 }
 
 // plan decides the integrations' actions for snap under set at now;
@@ -291,10 +295,10 @@ func (st *integrationsState) plan(snap coordinator.Snapshot, set config.Integrat
 	}
 	st.preview = st.preview || (snap.Current != nil && snap.Preview)
 	if snap.State != playback.StateLoading {
-		w := presenceWant{enabled: set.DiscordPresence}
+		w := discord.Want{Enabled: set.DiscordPresence}
 		hide := hidden != nil && snap.Current != nil && hidden(st.playingAt, st.preview)
 		if set.DiscordPresence && !hide {
-			w.act = presenceFor(snap)
+			w.Activity = presenceFor(snap)
 		}
 		p.presence = &w
 	}
@@ -467,142 +471,4 @@ func publicArtURL(tmpl string, size int) string {
 	}
 	n := strconv.Itoa(size)
 	return strings.NewReplacer("{w}", n, "{h}", n, "{c}", "bb", "{f}", "jpg").Replace(tmpl)
-}
-
-// presenceWorker sends the wanted Discord activity, coalescing changes to
-// Discord's rate limit and retrying while Discord is unreachable.
-type presenceWorker struct {
-	s      *IntegrationsService
-	client *discord.Client
-	want   chan presenceWant // latest only
-	quit   chan struct{}
-	done   chan struct{}
-}
-
-type presenceWant struct {
-	enabled bool
-	act     *discord.Activity
-}
-
-func newPresenceWorker(s *IntegrationsService, c *discord.Client) *presenceWorker {
-	return &presenceWorker{
-		s: s, client: c,
-		want: make(chan presenceWant, 1),
-		quit: make(chan struct{}),
-		done: make(chan struct{}),
-	}
-}
-
-// set replaces the wanted presence.
-func (w *presenceWorker) set(want presenceWant) {
-	for {
-		select {
-		case w.want <- want:
-			return
-		default:
-			select {
-			case <-w.want:
-			default:
-			}
-		}
-	}
-}
-
-// stop clears the presence and disconnects.
-func (w *presenceWorker) stop() {
-	close(w.quit)
-	<-w.done
-}
-
-func (w *presenceWorker) run() {
-	defer close(w.done)
-	var (
-		want    presenceWant
-		sent    *discord.Activity
-		synced  = true // Discord shows want (nothing wanted at start)
-		next    time.Time
-		timer   = time.NewTimer(0)
-		pending bool // timer armed
-	)
-	<-timer.C
-	defer func() {
-		timer.Stop()
-		if w.client.Connected() {
-			ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
-			_ = w.client.SetActivity(ctx, nil)
-			cancel()
-		}
-		_ = w.client.Close()
-	}()
-	arm := func(at time.Time) {
-		if pending {
-			timer.Stop()
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-		timer.Reset(time.Until(at))
-		pending = true
-	}
-	for {
-		select {
-		case <-w.quit:
-			return
-		case nw := <-w.want:
-			if nw.enabled == want.enabled && sameActivity(nw.act, sent) && synced {
-				want = nw
-				continue
-			}
-			want, synced = nw, false
-			if time.Now().Before(next) {
-				arm(next)
-				continue
-			}
-		case <-timer.C:
-			pending = false
-		}
-		if synced {
-			continue
-		}
-		if !want.enabled && !w.client.Connected() {
-			sent, synced = nil, true
-			w.s.setStatus(func(st *IntegrationsStatus) { st.Discord.Connected = false })
-			continue
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), integrationsCallTimeout)
-		err := w.client.SetActivity(ctx, want.act)
-		cancel()
-		next = time.Now().Add(presenceInterval)
-		if err == nil {
-			sent, synced = want.act, true
-			if !want.enabled {
-				_ = w.client.Close()
-			}
-		} else if want.act != nil {
-			arm(time.Now().Add(presenceRetry))
-		} else {
-			// Nothing to show and Discord gone: nothing left to clear.
-			sent, synced = nil, true
-		}
-		if err != nil {
-			w.s.e.Logger.Debug("discord presence", "err", err)
-		}
-		connected := w.client.Connected()
-		w.s.setStatus(func(st *IntegrationsStatus) { st.Discord.Connected = connected })
-	}
-}
-
-// sameActivity reports whether a and b show the same thing; the start and
-// end may drift by the snapshot extrapolation.
-func sameActivity(a, b *discord.Activity) bool {
-	if a == nil || b == nil {
-		return a == b
-	}
-	near := func(x, y time.Time) bool {
-		d := x.Sub(y)
-		return d < 2*time.Second && d > -2*time.Second
-	}
-	return a.Title == b.Title && a.Artist == b.Artist && a.Album == b.Album &&
-		a.ArtworkURL == b.ArtworkURL && near(a.Start, b.Start) && near(a.End, b.End)
 }

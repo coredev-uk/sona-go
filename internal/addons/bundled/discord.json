@@ -1,1 +1,1 @@
-{"id":"discord","name":"Discord","version":"1.0.0","description":"Shows the song you play on your Discord profile. Sona's own add-on, driven by Settings → Connections.","command":"sona","permissions":[]}
+{"id":"discord","name":"Discord","version":"1.0.0","description":"Shows the song you play on your Discord profile. Sona's own add-on, driven by Settings → Connections.","command":"sona","permissions":["playback.read"]}

@@ -109,16 +109,16 @@ func TestIntegrationsPlanPresence(t *testing.T) {
 	plan := func(snap coordinator.Snapshot, set config.Integrations) integrationsPlan {
 		return st.plan(snap, set, nil, time.Time{})
 	}
-	if p := plan(snapAt(playback.StatePlaying, 1, "A"), set); p.presence == nil || p.presence.act == nil || p.presence.act.Title != "A" {
+	if p := plan(snapAt(playback.StatePlaying, 1, "A"), set); p.presence == nil || p.presence.Activity == nil || p.presence.Activity.Title != "A" {
 		t.Fatalf("playing: presence = %+v", p.presence)
 	}
 	if p := plan(snapAt(playback.StateLoading, 2, "B"), set); p.presence != nil {
 		t.Fatalf("loading changed the presence: %+v", p.presence)
 	}
-	if p := plan(snapAt(playback.StatePaused, 2, "B"), set); p.presence == nil || p.presence.act != nil || !p.presence.enabled {
+	if p := plan(snapAt(playback.StatePaused, 2, "B"), set); p.presence == nil || p.presence.Activity != nil || !p.presence.Enabled {
 		t.Fatalf("paused: presence = %+v, want cleared", p.presence)
 	}
-	if p := plan(snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}); p.presence == nil || p.presence.act != nil || p.presence.enabled {
+	if p := plan(snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}); p.presence == nil || p.presence.Activity != nil || p.presence.Enabled {
 		t.Fatalf("disabled: presence = %+v, want cleared and disabled", p.presence)
 	}
 }
@@ -133,10 +133,10 @@ func TestIntegrationsPlanPresencePrivate(t *testing.T) {
 	shown := func(uid uint64, title string) bool {
 		t.Helper()
 		p := st.plan(snapAt(playback.StatePlaying, uid, title), set, m.Hidden, now)
-		if p.presence == nil || !p.presence.enabled {
+		if p.presence == nil || !p.presence.Enabled {
 			t.Fatalf("%s: presence = %+v", title, p.presence)
 		}
-		return p.presence.act != nil
+		return p.presence.Activity != nil
 	}
 	if !shown(1, "A") {
 		t.Fatal("public listen: no presence")
@@ -292,10 +292,10 @@ func TestIntegrationsPlanPresencePreview(t *testing.T) {
 		snap := snapAt(playback.StatePlaying, uid, title)
 		snap.Preview = preview
 		p := st.plan(snap, set, m.Hidden, now)
-		if p.presence == nil || !p.presence.enabled {
+		if p.presence == nil || !p.presence.Enabled {
 			t.Fatalf("%s: presence = %+v", title, p.presence)
 		}
-		return p.presence.act != nil
+		return p.presence.Activity != nil
 	}
 	if shown(1, "A", true) {
 		t.Fatal("a preview showed a presence")

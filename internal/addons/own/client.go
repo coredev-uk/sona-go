@@ -57,6 +57,7 @@ type Client struct {
 	stopped  bool
 	stop     chan struct{} // closed when Sona sent shutdown
 	ready    chan struct{} // closed once hello is answered and Setup has run
+	onStop   []func()
 }
 
 type reply struct {
@@ -93,6 +94,25 @@ func (c *Client) OnEvent(topic string, fn func(data json.RawMessage)) {
 	c.mu.Unlock()
 }
 
+// OnStop sets fn to run when Serve returns, before it does: what the add-on
+// started ends there (Discord's presence is cleared). They run in the
+// reverse order they were set.
+func (c *Client) OnStop(fn func()) {
+	c.mu.Lock()
+	c.onStop = append(c.onStop, fn)
+	c.mu.Unlock()
+}
+
+func (c *Client) runStops() {
+	c.mu.Lock()
+	fns := c.onStop
+	c.onStop = nil
+	c.mu.Unlock()
+	for i := len(fns) - 1; i >= 0; i-- {
+		fns[i]()
+	}
+}
+
 // Hello is what Sona answered hello with; valid after Serve has said hello.
 func (c *Client) Hello() cli.HelloResult {
 	c.mu.Lock()
@@ -111,6 +131,7 @@ type Setup func(ctx context.Context, c *Client, hello cli.HelloResult) error
 // returns nil.
 func (c *Client) Serve(ctx context.Context, permissions []string, setup Setup) error {
 	ctx, cancel := context.WithCancel(ctx)
+	defer c.runStops()
 	defer cancel()
 	readDone := make(chan error, 1)
 	go func() {

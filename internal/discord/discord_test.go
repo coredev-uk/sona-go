@@ -333,6 +333,75 @@ func TestFieldLimits(t *testing.T) {
 	}
 }
 
+// The add-on dials only the endpoints it was given, and of those only the
+// user's own sockets: a path that is not one (or no longer is) is skipped,
+// and nothing in the usual places is tried.
+func TestNewAtDialsOnlyWhatItWasGiven(t *testing.T) {
+	dir := socketDir(t)
+	t.Setenv("XDG_RUNTIME_DIR", dir) // a Discord in the usual place that it was not told of
+	elsewhere := listenAt(t, filepath.Join(dir, "discord-ipc-0"))
+	given := socketDir(t)
+	file := filepath.Join(given, "discord-ipc-1")
+	if err := os.WriteFile(file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(given, "discord-ipc-2")
+	if err := os.Symlink(filepath.Join(dir, "discord-ipc-0"), link); err != nil {
+		t.Fatal(err)
+	}
+	c := NewAt("1", []string{file, link, filepath.Join(given, "absent")})
+	if err := c.SetActivity(ctx(t), nil); err == nil || c.Connected() {
+		t.Fatalf("a file, a link and an absent path: err = %v, connected %v", err, c.Connected())
+	}
+	select {
+	case <-elsewhere.conns:
+		t.Fatal("the client dialled a socket it was not given")
+	default:
+	}
+
+	f := listenAt(t, filepath.Join(given, "discord-ipc-3"))
+	c = NewAt("1", []string{file, link, filepath.Join(given, "discord-ipc-3")})
+	errc := make(chan error, 1)
+	go func() { errc <- c.SetActivity(ctx(t), nil) }()
+	conn := f.accept()
+	handshake(t, conn)
+	_, m := readFrame(t, conn)
+	writeFrame(t, conn, opFrame, map[string]any{"cmd": "SET_ACTIVITY", "nonce": m["nonce"]})
+	if err := <-errc; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Sockets names what Discord has made, and its ID changes when Discord makes
+// the socket again (a restart), which is how Sona knows the add-on's view of
+// it is stale.
+func TestSocketsIDChangesWhenReplaced(t *testing.T) {
+	dir := socketDir(t)
+	t.Setenv("XDG_RUNTIME_DIR", dir)
+	path := filepath.Join(dir, "discord-ipc-0")
+	first := listenAt(t, path)
+	a := Sockets()
+	if len(a) != 1 || a[0].Path != path || a[0].ID == "" {
+		t.Fatalf("Sockets = %+v", a)
+	}
+	if b := Sockets(); len(b) != 1 || b[0] != a[0] {
+		t.Fatalf("the same socket changed: %+v then %+v", a, b)
+	}
+	_ = first.ln.Close()
+	_ = os.Remove(path)
+	time.Sleep(10 * time.Millisecond)
+	listenAt(t, path)
+	if b := Sockets(); len(b) != 1 || b[0].ID == a[0].ID {
+		t.Fatalf("a new socket kept its ID: %+v then %+v", a, b)
+	}
+	if got := SocketsFromEnv(SocketsEnv(a)); len(got) != 1 || got[0] != path {
+		t.Errorf("env round trip = %v", got)
+	}
+	if got := SocketsFromEnv(""); len(got) != 0 {
+		t.Errorf("empty env = %v", got)
+	}
+}
+
 // socketDir is a folder for a test's socket. Not t.TempDir: its long
 // names can exceed the 104 bytes macOS allows a socket path. Not the default
 // temporary directory either on macOS: its /var/folders/… (49 bytes on a CI

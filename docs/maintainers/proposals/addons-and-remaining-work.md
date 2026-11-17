@@ -115,7 +115,7 @@ They ship bundled, enabled by default, and signed by Sona.
 | Listen pipeline | `scrobble.Scrobbler`, `Tracker`, `queue` | Threshold, private check, persistent queue (`scrobble-queue.json`), backoff. Providers implement `scrobble.Provider`. |
 | Last.fm, ListenBrainz | `scrobble/lastfm.go`, `listenbrainz.go` | HTTP clients in Sona's process. Sign-in secrets are keyring items `lastfm` and `listenbrainz`. |
 | Connect flows | `services/scrobble.go` | Last.fm's browser approval, the ListenBrainz token check, disconnect. |
-| Discord presence | `services/integrations.go`, `discord/` | Plans the activity, speaks Discord's IPC (F4's checks). The application ID is compiled in. |
+| Discord presence | `addons/own/discord.go`, `discord/` | The `discord` add-on plans the activity from `status` and `now-playing` and speaks Discord's IPC (F4's checks) with the sandbox's one socket exception; `discord.Presence` coalesces and retries. The application ID comes in `hello`. On Windows it stays in Sona (`services/integrations.go`, `Platform.DiscordInProcess`). |
 | Private check | `Mode.Since` | Called from three places: the tracker, the presence plan and the add-on host (#298). |
 
 #### Proposed design (needs the maintainer's decision, see below)
@@ -134,7 +134,7 @@ They ship bundled, enabled by default, and signed by Sona.
 | --- | --- | --- |
 | How bundled add-ons are signed | (a) They are the signed Sona executable. (b) Separate binaries with their own Ed25519 signature: a new key, a release secret and a pinned public key. | (a). It needs no new key, and the release already signs the executable. |
 | Where the HTTP runs | (a) In the add-on. (b) In Sona, with the add-on only holding the secret. | (a). It is what moving onto the API means. |
-| Discord's sandbox exception | Allow it for the `discord` add-on only, or keep Discord in Sona. | Keep Discord in Sona until #304 lands. Move Last.fm and ListenBrainz first. |
+| Discord's sandbox exception | Allow it for the `discord` add-on only, or keep Discord in Sona. | Decided: allowed on Linux and macOS for `discord` only, as `Spec.Sockets` (code-only), no `network`; kept in Sona on Windows, whose AppContainer can't be given one named pipe. `docs/security-review.md` has it. |
 | The host-to-add-on request shape | `scrobble.*` requests, or a general `host.call` with a name. | `scrobble.*`. A general call is a new attack surface. |
 
 #### Order of work

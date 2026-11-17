@@ -62,6 +62,9 @@ type AddonsService struct {
 	// a caller waiting for one to come up (Request) wakes on it.
 	ticked chan struct{}
 	closed bool
+	// discordConnected is told what the `discord` add-on says of its
+	// connection to the Discord app (nil: nobody is).
+	discordConnected func(bool)
 
 	// devMu guards `addons dev`: the one question waiting for the person and
 	// the runs, by token (addons_dev.go).
@@ -221,7 +224,7 @@ func bundledWanted(id string, st config.Settings) bool {
 	case "listenbrainz":
 		return st.Scrobbling.ListenBrainz.Enabled || st.Scrobbling.ListenBrainz.Username != ""
 	case "discord":
-		return st.Integrations.DiscordPresence
+		return st.Integrations.DiscordPresence && discord.ClientID() != ""
 	}
 	return true
 }
@@ -239,7 +242,7 @@ func (s *AddonsService) reconcile() {
 		return
 	}
 	moved := false
-	for _, en := range addons.BundledEntries(s.opts.exe) {
+	for _, en := range s.bundled() {
 		if en.Problem != nil {
 			continue
 		}
@@ -272,7 +275,7 @@ func (s *AddonsService) scan() []addons.Entry {
 	if err != nil {
 		s.e.Logger.Warn("addons: scan", "err", err)
 	}
-	out := addons.BundledEntries(s.opts.exe)
+	out := s.bundled()
 	for _, en := range es {
 		if addons.IsBundled(strings.ToLower(en.ID)) || addons.IsBundled(strings.ToLower(en.Dir)) {
 			if _, noted := s.noted.LoadOrStore(en.Dir, true); !noted {
@@ -289,7 +292,7 @@ func (s *AddonsService) scan() []addons.Entry {
 // the registry, an installed one from its folder.
 func (s *AddonsService) entryOf(id, dir string) addons.Entry {
 	if addons.IsBundled(id) {
-		for _, en := range addons.BundledEntries(s.opts.exe) {
+		for _, en := range s.bundled() {
 			if en.ID == id {
 				return en
 			}
@@ -663,6 +666,9 @@ type addonRunner struct {
 	// sandbox is why the sandbox couldn't be set up (addons.Sandbox*), when
 	// the state is AddonNoSandbox.
 	sandbox string
+	// sockets is what the `discord` add-on was shown of Discord's IPC when it
+	// started (socketsID); it changes when Discord restarts.
+	sockets string
 }
 
 func (r *addonRunner) snapshot() (AddonState, int) {
@@ -866,6 +872,9 @@ func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.
 			// Sona's own program: it reads the install it runs from (and the
 			// libraries beside it), as any program of its own does.
 			spec.Read = sandbox.ProgramReads(en.Exe, o.environ())
+			if en.ID == "discord" {
+				r.shareDiscord(&spec)
+			}
 		}
 		start = func() (addons.Running, error) { return s.startProc(spec, log) }
 	}
@@ -942,7 +951,8 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 	r.mu.Unlock()
 	sess := cli.NewSession(cli.AddonConfig{
 		ID: r.id, Host: s.host, Own: own, Allowed: allowed, Credentials: bundledCredentials(en), Bundled: en.Bundled,
-		Log: slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: slog.LevelWarn})),
+		OnConnection: r.connectionReport(en),
+		Log:          slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: slog.LevelWarn})),
 	})
 	r.set(AddonStarting, sess)
 	served := make(chan struct{})
@@ -986,7 +996,84 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 	err = proc.Err()
 	log.Notef("exited: %v", err)
 	r.exit = err
+	if en.Bundled && en.ID == "discord" && s.discordConnected != nil {
+		s.discordConnected(false)
+	}
 	return nil
+}
+
+// bundled lists Sona's own add-ons as they run on this system: without
+// Discord's where its presence runs in Sona's process
+// (Platform.DiscordInProcess).
+func (s *AddonsService) bundled() []addons.Entry {
+	all := addons.BundledEntries(s.opts.exe)
+	if !s.e.Platform.DiscordInProcess {
+		return all
+	}
+	return slices.DeleteFunc(all, func(en addons.Entry) bool { return en.ID == "discord" })
+}
+
+// shareDiscord is the one sandbox exception (docs/security-review.md,
+// "Add-ons"): the `discord` add-on is shown the endpoints of Discord's IPC
+// that Sona finds now, by F4's checks (discord.Sockets), and told which they
+// are. It is not given the network, and no other socket.
+func (r *addonRunner) shareDiscord(spec *addons.Spec) {
+	socks := discord.Sockets()
+	for _, k := range socks {
+		spec.Sockets = append(spec.Sockets, k.Path)
+	}
+	spec.Env = append(spec.Env, discord.EnvSockets+"="+discord.SocketsEnv(socks))
+	r.mu.Lock()
+	r.sockets = socketsID(socks)
+	r.mu.Unlock()
+}
+
+// socketsID is what changes when Discord's endpoints do: which exist, and
+// when each was made.
+func socketsID(socks []discord.Socket) string {
+	var b strings.Builder
+	for _, k := range socks {
+		b.WriteString(k.Path + "\x00" + k.ID + "\x00")
+	}
+	return b.String()
+}
+
+// connectionReport is what a session does with the connection a bundled
+// add-on reports: nil for every add-on but `discord`, which has the method.
+//
+// A bind mount shows the add-on the socket that existed when it started: a
+// Discord that started, or restarted, since has made another, which the
+// add-on can't reach. So when it says it isn't connected and the endpoints
+// Sona finds now are not the ones it was shown, Sona starts it again.
+func (r *addonRunner) connectionReport(en addons.Entry) func(bool) {
+	if !en.Bundled || en.ID != "discord" {
+		return nil
+	}
+	s := r.s
+	return func(connected bool) {
+		if s.discordConnected != nil {
+			s.discordConnected(connected)
+		}
+		if connected {
+			return
+		}
+		r.mu.Lock()
+		shown := r.sockets
+		r.mu.Unlock()
+		if socketsID(discord.Sockets()) == shown {
+			return
+		}
+		s.mu.Lock()
+		current := s.runners[r.id] == r
+		s.mu.Unlock()
+		if current {
+			// Off the session's goroutine: the new run stops this one first.
+			s.e.Go("addon "+r.id+" restart", func() {
+				s.e.Logger.Debug("addons: discord's sockets changed; starting its add-on again")
+				s.begin(en)
+			})
+		}
+	}
 }
 
 // bundledCredentials are the build credentials of one of Sona's own add-ons,

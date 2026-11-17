@@ -60,6 +60,10 @@ type AddonConfig struct {
 	// Credentials are sent in the hello answer: the build credentials of one
 	// of Sona's own add-ons, never of another. The session logs none of it.
 	Credentials map[string]string
+	// OnConnection is called with what a bundled add-on says of its
+	// connection (AddonMethodConnection). Nil: the method doesn't exist for
+	// this session.
+	OnConnection func(connected bool)
 	// Owner serves the person's own program (`sona connect`), not an
 	// add-on: hello may name any ID (ID is unset), and private listening
 	// may be switched, as the person may from the command line.
@@ -454,6 +458,8 @@ func (s *Session) request(f Frame) {
 		s.call(f)
 	case AddonMethodSecret:
 		s.secret(f)
+	case AddonMethodConnection:
+		s.connection(f)
 	default:
 		s.fail(f.ID, AddonErrUnknownMethod)
 	}
@@ -640,6 +646,26 @@ func (s *Session) secret(f Frame) {
 		b, _ := json.Marshal(SecretResult{Value: v})
 		s.reply(Frame{ID: f.ID, Result: b})
 	}()
+}
+
+// connection takes a bundled add-on's word on whether its service is
+// connected.
+func (s *Session) connection(f Frame) {
+	if s.cfg.OnConnection == nil {
+		s.fail(f.ID, AddonErrUnknownMethod)
+		return
+	}
+	var p ConnectionParams
+	if err := json.Unmarshal(f.Params, &p); err != nil {
+		s.fail(f.ID, AddonErrBadArguments)
+		return
+	}
+	if !s.allowRate("") {
+		s.fail(f.ID, AddonErrRateLimited)
+		return
+	}
+	s.cfg.OnConnection(p.Connected)
+	s.reply(Frame{ID: f.ID, Result: json.RawMessage(`{}`)})
 }
 
 // call runs a v1 command for the add-on.

@@ -140,6 +140,7 @@ func New(d Deps) *Core {
 	c.commands = newCommandServer(env, c.open, c.services)
 	sup := instance[AddonsService](c.services)
 	sup.attach(c.commands.addon)
+	sup.discordConnected = instance[IntegrationsService](c.services).setDiscordConnected
 	instance[ScrobbleService](c.services).attach(sup)
 	return c
 }
