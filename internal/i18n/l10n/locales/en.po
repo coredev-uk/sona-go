@@ -404,6 +404,10 @@ msgid "Show or set the volume"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "Show or switch Spatial Audio"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "Show or switch crossfade"
 msgstr ""
 
@@ -417,6 +421,10 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "Show what's playing"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Shows Spatial Audio (status, the default), or turns it on, off or over (toggle). While it is on, songs with Spatial Audio play as their Spatial Audio rendition where Apple allows it, and in stereo otherwise. It applies from the next song."
 msgstr ""
 
 #: internal/cli/messages.go
@@ -777,6 +785,15 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "shuffle"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "spatial audio"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "spatial audio: %s"
 msgstr ""
 
 #: internal/cli/messages.go
