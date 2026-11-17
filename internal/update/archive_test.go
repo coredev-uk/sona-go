@@ -56,7 +56,7 @@ func tarGz(t *testing.T, ents ...ent) []byte {
 
 // TestCheckArchiveFollowsMyGosExtractor pins CheckArchive to what MyGo's
 // ExtractArchive (mygo/internal/update, identical in v0.8.3, which the
-// released apps run, and v0.9.0) does with the same entries: each verdict of
+// released apps run, to v0.9.2) does with the same entries: each verdict of
 // ok below was observed by running that function on the archive. The first
 // case is the archive every Windows release shipped until the update-archive
 // script: its "./" entry fails the whole update.

@@ -63,7 +63,7 @@ The Apple Music web app is a reference for functionality only (`docs/apple-music
 
 | Part | Choice |
 | --- | --- |
-| Language and UI | Go 1.27.3 and MyGo v0.9.0 (`github.com/egoist/mygo/ui`) |
+| Language and UI | Go 1.27.3 and MyGo v0.9.2 (`github.com/egoist/mygo/ui`) |
 | Database | SQLite through `github.com/mattn/go-sqlite3` (FTS5 via the `sqlite_fts5` build tag), a libSQL-compatible schema, goose migrations and sqlc queries |
 | Platform libraries | `github.com/zalando/go-keyring` (Secret Service, Keychain, Credential Manager), `github.com/godbus/dbus/v5`, `golang.org/x/sync` |
 | Artwork decoding | The standard library's `image/jpeg` and `image/png` only, with resizing in `internal/artwork`, so no TIFF, BMP or WebP decoder is linked |
@@ -240,7 +240,7 @@ A user's choice for a library playlist beats both a mosaic and Apple's cover. Th
 
 The gzip tar MyGo unpacks holds `Sona.app/` alone (macOS) or the install folder's files at the top level (Windows: `sona.exe`, `lib\`, …). Its entries are named from that top level.
 
-- MyGo's extractor (v0.8.3 and v0.9.0 alike) refuses the whole archive at the first entry whose cleaned name is `.`. The `./` entry that `tar -czf OUT .` writes first fails with `invalid path in update archive: "./"`, so `build/windows/update-archive.sh` lists the entries by name instead.
+- MyGo's extractor (v0.8.3 to v0.9.2 alike) refuses the whole archive at the first entry whose cleaned name is `.`. The `./` entry that `tar -czf OUT .` writes first fails with `invalid path in update archive: "./"`, so `build/windows/update-archive.sh` lists the entries by name instead.
 - `update.CheckArchive` applies MyGo's rules (pinned by a test against the extractor's behaviour) and Sona's layout. `package.sh` checks the archive it made (`releasesign -check`), and `cmd/releasesign` refuses to sign one that fails. A bad archive stops the release before a manifest names it.
 - The signature covers the archive's bytes, so a bad archive can't be mended on the client. Only a new release (or a re-signed upload of the old one) fixes the installs that were offered it.
 

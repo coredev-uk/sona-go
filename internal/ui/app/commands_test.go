@@ -147,7 +147,7 @@ func slashModule(text *string) module.Factory {
 	}
 }
 
-// questionMark presses "?" as GTK and AppKit deliver it with MyGo v0.9.0:
+// questionMark presses "?" as GTK and AppKit deliver it with MyGo v0.9.2:
 // Shift and the slash key by its position, with no Key.
 func questionMark(tt *uitest.Session) {
 	tt.CodeDown(ui.Shift, ui.CodeSlash)
