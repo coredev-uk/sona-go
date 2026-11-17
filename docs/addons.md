@@ -166,6 +166,7 @@ Runs one of the `sona` CLI's v1 commands (`site/src/content/docs/reference/cli.m
 | `LibraryItems` | `library playlists`, `library albums` |
 | `Volume` | `volume` |
 | `Private` | `private` |
+| `Spatial` | `spatial` |
 | `Opened` | `open` |
 
 The result types are in [Schema](#schema).
@@ -179,7 +180,7 @@ The result types are in [Schema](#schema).
 ```
 
 ```json example StatusResponse
-{"id":5,"result":{"running":true,"state":"paused","track":null,"position":0,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}}
+{"id":5,"result":{"running":true,"state":"paused","track":null,"position":0,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}}
 ```
 
 ### `invoke`
@@ -226,7 +227,7 @@ An add-on that cannot do it answers with an `error`. Sona passes only its `code`
 - An add-on that lets more than 256 frames wait unread is ended.
 
 ```json example StatusEvent
-{"event":"status","data":{"running":true,"state":"playing","track":{"id":"1441164430","title":"Come Together","artist":"The Beatles","album":"Abbey Road","duration":259.0,"explicit":false,"artwork":"https://is1-ssl.mzstatic.com/image/thumb/Music/600x600bb.jpg"},"position":12.5,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":"","liked":true,"disliked":false,"inLibrary":true,"crossfade":false}}
+{"event":"status","data":{"running":true,"state":"playing","track":{"id":"1441164430","title":"Come Together","artist":"The Beatles","album":"Abbey Road","duration":259.0,"explicit":false,"artwork":"https://is1-ssl.mzstatic.com/image/thumb/Music/600x600bb.jpg"},"position":12.5,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"error":"","liked":true,"disliked":false,"inLibrary":true,"crossfade":false}}
 ```
 
 ```json example NowPlayingEvent
@@ -258,8 +259,8 @@ An add-on names the permissions it wants in `hello`. The user grants some of the
 
 | Permission | What it allows |
 | --- | --- |
-| `playback.read` | Topics `status` and `now-playing`; the `status` call. The status carries whether the playing song is a favourite, rated Suggest Less or in the library. |
-| `playback.control` | `play` (a link too), `pause`, `toggle`, `next`, `prev`, `seek`, `shuffle`, `repeat`, `crossfade`. |
+| `playback.read` | Topics `status` and `now-playing`; the `status` call. The status carries whether the playing song is a favourite, rated Suggest Less or in the library. `spatial` with no argument or `status` reads whether Spatial Audio is on. |
+| `playback.control` | `play` (a link too), `pause`, `toggle`, `next`, `prev`, `seek`, `shuffle`, `repeat`, `crossfade`, `spatial on`, `spatial off`, `spatial toggle` (Spatial Audio applies from the next song). |
 | `queue.read` | Topic `queue`; the `queue` call. |
 | `queue.control` | `queue jump` and `queue clear`. |
 | `lyrics.read` | The `lyrics` call. |
@@ -271,7 +272,7 @@ An add-on names the permissions it wants in `hello`. The user grants some of the
 | `private.read` | The `private` call, to read whether private listening is on. |
 | `network` | Reach the internet. No call needs it: the OS sandbox gives the add-on's process a network when it holds this permission and none otherwise ([The sandbox](#the-sandbox)). It is any address the computer can reach. |
 
-- Every v1 request maps to exactly one permission: its command's, but `queue.control` for `queue`'s verbs. `network` is no call's. An add-on may send only the commands in this table; any other (`help`, `completion`, a typo) is `unknown_command`.
+- Every v1 request maps to exactly one permission: its command's, but `queue.control` for `queue`'s verbs, and `playback.read` for `spatial` with no argument or `status`. `network` is no call's. An add-on may send only the commands in this table; any other (`help`, `completion`, a typo) is `unknown_command`.
 - **An add-on can never switch private listening off or on.** `private` takes no argument but `status`, whatever is granted.
 
 ### Granting
@@ -732,7 +733,7 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
     },
     "Status": {
       "type": "object", "additionalProperties": false,
-      "required": ["running", "state", "track", "position", "volume", "shuffle", "repeat", "private", "preview", "error", "liked", "disliked", "inLibrary", "crossfade"],
+      "required": ["running", "state", "track", "position", "volume", "shuffle", "repeat", "private", "preview", "spatial", "error", "liked", "disliked", "inLibrary", "crossfade"],
       "properties": {
         "running": {"type": "boolean"},
         "state": {"enum": ["idle", "loading", "playing", "paused", "ended", "error"]},
@@ -743,6 +744,7 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         "repeat": {"enum": ["off", "all", "one"]},
         "private": {"const": false},
         "preview": {"const": false},
+        "spatial": {"type": "boolean"},
         "error": {"const": ""},
         "liked": {"type": "boolean"}, "disliked": {"type": "boolean"}, "inLibrary": {"type": "boolean"},
         "crossfade": {"type": "boolean"}
@@ -824,6 +826,10 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
       "type": "object", "additionalProperties": false, "required": ["on", "source", "saved"],
       "properties": {"on": {"type": "boolean"}, "source": {"enum": ["setting", "development", "environment"]}, "saved": {"type": "boolean"}}
     },
+    "Spatial": {
+      "type": "object", "additionalProperties": false, "required": ["on"],
+      "properties": {"on": {"type": "boolean"}}
+    },
     "Opened": {
       "type": "object", "additionalProperties": false, "required": ["kind", "id", "storefront"],
       "properties": {"kind": {"type": "string"}, "id": {"type": "string"}, "storefront": {"type": "string"}}
@@ -900,7 +906,7 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         "params": {
           "type": "object", "additionalProperties": false, "required": ["command"],
           "properties": {
-            "command": {"enum": ["play", "pause", "toggle", "next", "prev", "seek", "shuffle", "repeat", "crossfade", "status", "queue", "lyrics", "search", "open", "volume", "like", "dislike", "library", "private"]},
+            "command": {"enum": ["play", "pause", "toggle", "next", "prev", "seek", "shuffle", "repeat", "crossfade", "status", "queue", "lyrics", "search", "open", "volume", "like", "dislike", "library", "private", "spatial"]},
             "args": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 4096}},
             "kind": {"enum": ["song", "album", "artist", "playlist", "station", "music-video", "curator"]},
             "limit": {"type": "integer", "minimum": 1, "maximum": 20},
@@ -925,7 +931,7 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         "result": {"oneOf": [
           {"$ref": "#/$defs/Status"}, {"$ref": "#/$defs/Queue"}, {"$ref": "#/$defs/SearchResults"}, {"$ref": "#/$defs/Lyrics"},
           {"$ref": "#/$defs/Like"}, {"$ref": "#/$defs/LibraryItems"}, {"$ref": "#/$defs/Volume"}, {"$ref": "#/$defs/Private"},
-          {"$ref": "#/$defs/Opened"}
+          {"$ref": "#/$defs/Spatial"}, {"$ref": "#/$defs/Opened"}
         ]}
       }
     },

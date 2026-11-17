@@ -62,6 +62,8 @@ const (
 	msgLibrarySummary    l10n.Message = "Add the playing song to your library, or list your library"
 	msgLibraryHelp       l10n.Message = "Shows whether the playing song is in your library (status, the default), adds it (add), removes it (remove) or switches it (toggle). `library playlists` and `library albums` list your library's playlists and albums, most recently added first, with the links `sona play` takes. Needs an Apple Music account signed in to Sona."
 	msgPrivateSummary    l10n.Message = "Show or switch private listening"
+	msgSpatialSummary    l10n.Message = "Show or switch Spatial Audio"
+	msgSpatialHelp       l10n.Message = "Shows Spatial Audio (status, the default), or turns it on, off or over (toggle). While it is on, songs with Spatial Audio play as their Spatial Audio rendition where Apple allows it, and in stereo otherwise. It applies from the next song."
 	msgPrivateHelp       l10n.Message = "Shows private listening (status, the default), or turns it on, off or over (toggle). While it is on, nothing you play is reported to Apple, scrobbled or kept in Sona's history."
 	msgAddonsSummary     l10n.Message = "Run an add-on from a folder while you build it"
 	msgAddonsHelp        l10n.Message = "`sona addons dev <folder>` runs the add-on in a folder without installing it and prints its log until you press Ctrl+C. Sona asks you to confirm in its window, naming the folder and the permissions its manifest asks for; nothing is saved and the permissions end with the run. The add-on's ID can't be one you have installed, it gets none of your saved secrets, and the folder must be yours and not writable by others. A native add-on needs Linux for now; a WebAssembly add-on (\"runtime\": \"wasm\") runs on every system."
@@ -208,6 +210,7 @@ const (
 	msgFieldCrossfade l10n.Message = "crossfade"
 	msgFieldPrivate   l10n.Message = "private listening"
 	msgFieldPreview   l10n.Message = "preview"
+	msgFieldSpatial   l10n.Message = "spatial audio"
 	msgFieldError     l10n.Message = "error"
 	msgOn             l10n.Message = "on"  // a switch (shuffle, private listening) is on
 	msgOff            l10n.Message = "off" // a switch (shuffle, repeat, private listening) is off
@@ -237,6 +240,7 @@ const (
 	msgNoAlbums    l10n.Message = "your library has no albums"
 	msgLibraryMore l10n.Message = "…and %d more, added earlier"
 
+	msgSpatialLine      l10n.Message = "spatial audio: %s"
 	msgPrivateLine      l10n.Message = "private listening: %s"
 	msgPrivateDev       l10n.Message = " (development build: this session only; saved setting %s)"
 	msgPrivateForcedEnv l10n.Message = " (forced by SONA_PRIVATE=1)"

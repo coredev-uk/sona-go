@@ -87,15 +87,23 @@ var commandPermission = map[string]string{
 	"dislike": PermLike,
 	"library": PermLibrary,
 	"private": PermPrivateRead,
+	// spatial switches a setting: playback.control, except its read
+	// (RequestPermission).
+	"spatial": PermPlaybackControl,
 }
 
 // RequestPermission is the one permission a v1 request needs when an
 // add-on sends it: its command's, but queue.control for `queue jump` and
-// `queue clear`. False when an add-on may not send the command at all.
+// `queue clear`, and playback.read for `spatial` with no argument or
+// `status`, which only read. False when an add-on may not send the command
+// at all.
 func RequestPermission(req Request) (string, bool) {
 	p, ok := commandPermission[req.Command]
-	if ok && req.Command == "queue" && len(req.Args) > 0 {
+	switch {
+	case ok && req.Command == "queue" && len(req.Args) > 0:
 		return PermQueueControl, true
+	case ok && req.Command == "spatial" && (len(req.Args) == 0 || (len(req.Args) == 1 && req.Args[0] == "status")):
+		return PermPlaybackRead, true
 	}
 	return p, ok
 }

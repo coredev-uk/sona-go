@@ -98,6 +98,9 @@ func writeStatus(w io.Writer, p *l10n.Printer, s Status) error {
 	if s.Preview {
 		field(msgFieldPreview, p.T(msgYes))
 	}
+	if s.Spatial {
+		field(msgFieldSpatial, p.T(msgYes))
+	}
 	if s.Error != "" {
 		field(msgFieldError, s.Error)
 	}
@@ -178,6 +181,11 @@ func privateLine(p *l10n.Printer, pv Private) string {
 
 // songStateLine is what like, dislike and library print: the state the
 // command is about, and the song.
+// spatialLine is `sona spatial`'s line: on or off.
+func spatialLine(p *l10n.Printer, sp Spatial) string {
+	return p.Sprintf(msgSpatialLine, onOff(p, sp.On))
+}
+
 func songStateLine(p *l10n.Printer, command string, l Like) string {
 	song := byArtist(p, l.Track.Title, l.Track.Artist)
 	on, off := msgLiked, msgNotLiked

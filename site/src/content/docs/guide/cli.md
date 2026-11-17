@@ -3,7 +3,7 @@ title: Command Line
 description: Control the running Sona from a terminal, a script or a status bar.
 ---
 
-`sona <command>` controls the Sona that is running: playback, the queue, the volume, favourites, your library, lyrics, search, links and private listening. It prints text for people and, with `--json`, one line of JSON for scripts, status bars and stream decks. Commands never start Sona.
+`sona <command>` controls the Sona that is running: playback, the queue, the volume, favourites, your library, lyrics, search, links, private listening and Spatial Audio. It prints text for people and, with `--json`, one line of JSON for scripts, status bars and stream decks. Commands never start Sona.
 
 ```sh
 sona status                 # what's playing

@@ -233,6 +233,8 @@ func (s *commandServer) Call(ctx context.Context, req cli.Request) (any, error) 
 		return s.library(ctx, req.Args)
 	case "private":
 		return s.private(req.Args)
+	case "spatial":
+		return s.spatial(req.Args)
 	case "addons":
 		if s.addons == nil {
 			return nil, &cli.Error{Code: cli.CodeStarting}
@@ -280,6 +282,7 @@ func (s *commandServer) status(snap coordinator.Snapshot) cli.Status {
 		Repeat:    cmp.Or(string(snap.Repeat), string(coordinator.RepeatOff)),
 		Private:   s.e.Private.On(),
 		Preview:   snap.Preview,
+		Spatial:   snap.Spatial,
 		Error:     snap.Error,
 		Crossfade: s.crossfadeOn.Load(),
 	}
@@ -491,4 +494,31 @@ func (s *commandServer) private(args []string) (any, error) {
 	}
 	st := s.e.Private.State()
 	return cli.Private{On: st.On, Source: string(st.Source), Saved: s.e.Private.Saved()}, nil
+}
+
+// spatial shows or switches Spatial Audio, the saved setting the engine
+// reads for each song it prepares: it applies from the next song.
+func (s *commandServer) spatial(args []string) (any, error) {
+	verb := "status"
+	if len(args) > 0 {
+		verb = args[0]
+	}
+	switch verb {
+	case "on", "off", "toggle", "status":
+	default:
+		return nil, &cli.Error{Code: cli.CodeUsage}
+	}
+	if !s.e.Engine.Capabilities().Spatial {
+		return nil, s.fail(unsupported("spatial audio"))
+	}
+	if verb == "status" {
+		return cli.Spatial{On: s.e.Settings.Get().Audio.SpatialAudio}, nil
+	}
+	saved, err := s.e.updateSettings(func(st *config.Settings) {
+		st.Audio.SpatialAudio = verb == "on" || (verb == "toggle" && !st.Audio.SpatialAudio)
+	})
+	if err != nil {
+		return nil, s.fail(err)
+	}
+	return cli.Spatial{On: saved.Audio.SpatialAudio}, nil
 }
