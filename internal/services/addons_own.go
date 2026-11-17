@@ -1,15 +1,12 @@
 package services
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
 
 	"github.com/coredev-uk/sona-go/internal/addons"
 	"github.com/coredev-uk/sona-go/internal/auth"
-	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 )
@@ -62,62 +59,22 @@ func (o *addonOwn) publish() {
 // WatchSettings implements cli.AddonOwn.
 func (o *addonOwn) WatchSettings() (<-chan any, func()) { return o.hub.Watch(cli.TopicSettings) }
 
-// Secret implements cli.AddonOwn.
+// Secret implements cli.AddonOwn: a secret row of the manifest, or for one of
+// Sona's own add-ons a key of its sign-in (addons.BundledSecret).
 func (o *addonOwn) Secret(key string) (string, bool) {
-	if o.dev || !slices.ContainsFunc(o.manifest.Contributions.Settings, func(r addons.Setting) bool {
+	declared := slices.ContainsFunc(o.manifest.Contributions.Settings, func(r addons.Setting) bool {
 		return r.ID == key && r.Kind == addons.SettingSecret
-	}) {
+	})
+	if o.dev || (!declared && !addons.BundledSecret(o.id, key)) {
 		return "", false
 	}
-	m, err := o.s.readSecrets(o.id)
+	m, err := o.s.e.addonSecrets().all(o.id)
 	if err != nil {
 		o.s.e.Logger.Warn("addons: read secrets", "addon", o.id, "err", err)
 		return "", false
 	}
 	v, ok := m[key]
 	return v, ok && v != ""
-}
-
-// readSecrets loads the add-on's secret rows: one keyring item, `addon.<id>`,
-// holding a JSON object of row ID to value.
-func (s *AddonsService) readSecrets(id string) (map[string]string, error) {
-	s.secMu.Lock()
-	defer s.secMu.Unlock()
-	return s.readSecretsLocked(id)
-}
-
-func (s *AddonsService) readSecretsLocked(id string) (map[string]string, error) {
-	sec, err := s.e.openSecret("addon." + id)
-	if err != nil {
-		return nil, err
-	}
-	raw, err := sec.Get()
-	if errors.Is(err, store.ErrNotFound) {
-		return map[string]string{}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	m := map[string]string{}
-	if err := json.Unmarshal([]byte(raw), &m); err != nil {
-		return nil, fmt.Errorf("addon secrets: %w", err)
-	}
-	return m, nil
-}
-
-func (s *AddonsService) writeSecretsLocked(id string, m map[string]string) error {
-	sec, err := s.e.openSecret("addon." + id)
-	if err != nil {
-		return err
-	}
-	if len(m) == 0 {
-		return sec.Delete()
-	}
-	b, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
-	return sec.Set(string(b))
 }
 
 // row finds the manifest's settings row of a valid add-on.
@@ -179,17 +136,13 @@ func (s *AddonsService) SetSecret(id, row, value string) error {
 	if err := r.ValidValue(value); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidArgument, err)
 	}
-	s.secMu.Lock()
-	m, err := s.readSecretsLocked(id)
-	if err == nil {
+	err = s.e.addonSecrets().update(id, func(m map[string]string) {
 		if value == "" {
 			delete(m, row)
 		} else {
 			m[row] = value
 		}
-		err = s.writeSecretsLocked(id, m)
-	}
-	s.secMu.Unlock()
+	})
 	if err != nil {
 		return fmt.Errorf("%w: %v", auth.ErrKeyring, err)
 	}
@@ -247,7 +200,7 @@ func (s *AddonsService) Contributions(locale string) []AddonContribution {
 			}
 			if r.Kind == addons.SettingSecret {
 				if secrets == nil {
-					secrets, _ = s.readSecrets(m.ID)
+					secrets, _ = s.e.addonSecrets().all(m.ID)
 				}
 				row.Saved = secrets[r.ID] != ""
 			} else if v, ok := st.Values[r.ID]; ok && r.ValidValue(v) == nil {

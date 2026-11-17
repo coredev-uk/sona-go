@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/coredev-uk/sona-go/internal/addons"
+	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/config"
 )
 
@@ -215,4 +216,95 @@ func TestAddonsBundledCrashedStaysCrashedUntilTurnedOn(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.waitState(t, "lastfm", AddonRunning)
+}
+
+// A bundled add-on reads its own sign-in with the secret method, no other
+// key and no other add-on's; a third-party add-on reads none of them.
+func TestAddonsBundledReadTheirOwnSignInOnly(t *testing.T) {
+	a := newAddonEnv(t)
+	kr := &memKeyring{}
+	a.e.Keyring = kr
+	_ = kr.Set(store.Service, "addon.lastfm", `{"session":"sk-1","other":"x"}`)
+	_ = kr.Set(store.Service, "addon.listenbrainz", `{"token":"tok-1"}`)
+	_ = kr.Set(store.Service, "addon.demo", `{"session":"sneaky"}`)
+	own := func(id string) *addonOwn {
+		m, err := addons.BundledManifest(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return newAddonOwn(a.svc, m, false)
+	}
+	if v, ok := own("lastfm").Secret("session"); !ok || v != "sk-1" {
+		t.Errorf("lastfm session = %q, %v", v, ok)
+	}
+	if _, ok := own("lastfm").Secret("other"); ok {
+		t.Error("lastfm read a key that is not its sign-in")
+	}
+	if _, ok := own("lastfm").Secret("token"); ok {
+		t.Error("lastfm read listenbrainz's key")
+	}
+	if v, ok := own("listenbrainz").Secret("token"); !ok || v != "tok-1" {
+		t.Errorf("listenbrainz token = %q, %v", v, ok)
+	}
+	// A third-party add-on named like a sign-in key has no such row.
+	third := addons.Manifest{ID: "demo", Name: "Demo", Version: "1.0.0", Command: "run"}
+	if _, ok := newAddonOwn(a.svc, third, false).Secret("session"); ok {
+		t.Error("a third-party add-on read a bundled sign-in key")
+	}
+	// A development run gets no secret at all.
+	m, _ := addons.BundledManifest("lastfm")
+	if _, ok := newAddonOwn(a.svc, m, true).Secret("session"); ok {
+		t.Error("a development run read a secret")
+	}
+}
+
+// The build credentials reach a bundled add-on in its hello answer and no
+// add-on of the user's; the environment never carries them.
+func TestAddonsBundledGetBuildCredentialsInHelloOnly(t *testing.T) {
+	t.Setenv("SONA_LASTFM_KEY", "the-key")
+	t.Setenv("SONA_LASTFM_SECRET", "the-secret")
+	t.Setenv("SONA_DISCORD_CLIENT_ID", "12345")
+	a := newAddonEnv(t)
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "sona")
+	script := "#!/bin/sh\nprintf '{\"id\":1,\"method\":\"hello\",\"params\":{\"id\":\"%s\",\"protocol\":{\"min\":\"2.0.0\",\"max\":\"2.0.0\"},\"permissions\":[]}}\\n' \"$2\"\nread line\nprintf '%s\\n' \"$line\" > " + dir + "/hello-$2.json\nenv > " + dir + "/env-$2.txt\ncat > /dev/null\n"
+	if err := os.WriteFile(exe, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.opts.exe = exe
+	a.useAll(t)
+	a.install(t, "demo", manifestJSON("demo"), hello("demo")+"read line\nprintf '%s\\n' \"$line\" > hello.json\nsleep 300\n")
+	if err := a.svc.Enable("demo", nil); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.start()
+	waitUntil(t, "hello answers", func() bool {
+		for _, f := range []string{"hello-lastfm.json", "hello-discord.json", "hello-listenbrainz.json"} {
+			if b, _ := os.ReadFile(filepath.Join(dir, f)); len(b) == 0 {
+				return false
+			}
+		}
+		b, _ := os.ReadFile(filepath.Join(a.root, "demo", "hello.json"))
+		return len(b) > 0
+	})
+	read := func(p string) string { b, _ := os.ReadFile(p); return string(b) }
+	if h := read(filepath.Join(dir, "hello-lastfm.json")); !strings.Contains(h, `"apiKey":"the-key"`) || !strings.Contains(h, `"apiSecret":"the-secret"`) {
+		t.Errorf("lastfm hello = %s", h)
+	}
+	if h := read(filepath.Join(dir, "hello-discord.json")); !strings.Contains(h, `"applicationId":"12345"`) || strings.Contains(h, "apiKey") {
+		t.Errorf("discord hello = %s", h)
+	}
+	for _, f := range []string{"hello-listenbrainz.json"} {
+		if h := read(filepath.Join(dir, f)); strings.Contains(h, "credentials") {
+			t.Errorf("%s = %s", f, h)
+		}
+	}
+	if h := read(filepath.Join(a.root, "demo", "hello.json")); strings.Contains(h, "credentials") || strings.Contains(h, "the-key") {
+		t.Errorf("a user's add-on got credentials: %s", h)
+	}
+	for _, id := range addons.BundledIDs {
+		if env := read(filepath.Join(dir, "env-"+id+".txt")); strings.Contains(env, "the-key") || strings.Contains(env, "the-secret") || strings.Contains(env, "12345") {
+			t.Errorf("%s: credentials in the environment", id)
+		}
+	}
 }
