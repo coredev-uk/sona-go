@@ -161,7 +161,9 @@ func addonProblemText(code string) string {
 	case addons.ProblemVersion:
 		return i18n.T("Its version isn't a semantic version such as 1.2.0.")
 	case addons.ProblemCommand:
-		return i18n.T("Its command isn't a plain path inside the folder.")
+		return i18n.T("Its command isn't a plain path inside the folder (a .wasm file, for a WebAssembly add-on).")
+	case addons.ProblemRuntime:
+		return i18n.T("Its runtime isn't \"native\" or \"wasm\".")
 	case addons.ProblemPermission:
 		return i18n.T("It asks for a permission Sona doesn't have.")
 	case addons.ProblemContribution:
@@ -169,7 +171,7 @@ func addonProblemText(code string) string {
 	case addons.ProblemStrings:
 		return i18n.T("Its translated labels don't match what it adds.")
 	case addons.ProblemNoExecutable:
-		return i18n.T("Its command isn't a program Sona can run: it is missing, not a regular file or not executable.")
+		return i18n.T("Its command isn't a program Sona can run: it is missing, not a regular file or not executable (for a WebAssembly add-on, not a WebAssembly module).")
 	case addons.ProblemEscapes:
 		return i18n.T("Its command leads out of its folder.")
 	case addons.ProblemUnsafe:
@@ -301,6 +303,9 @@ func (s *settings) addonGroup(c *ui.Context, u *addonsUI, a services.AddonInfo, 
 	if a.Version != "" {
 		desc = i18n.Meta(i18n.T("Version {version}", "version", clean(a.Version, 40)), desc)
 	}
+	if a.Runtime == addons.RuntimeWasm {
+		desc = i18n.Meta(i18n.T("WebAssembly"), desc)
+	}
 	s.group(c, "addon:"+a.ID, name, desc, func() {
 		if a.State == services.AddonInvalid {
 			s.addonProblem(c, a)
@@ -389,7 +394,11 @@ func (s *settings) addonApproval(c *ui.Context, u *addonsUI, a services.AddonInf
 			theme.Text(c, i18n.T("It asks for these permissions:"), "secondary").TextColor(theme.C("ink-muted"))
 			s.permissionList(c, name, a.Permissions, nil)
 		}
-		theme.Text(c, i18n.T("It runs with your rights: permissions limit what Sona gives it, not what it can do."), "secondary").
+		note := i18n.T("It runs with your rights: permissions limit what Sona gives it, not what it can do.")
+		if a.Runtime == addons.RuntimeWasm {
+			note = i18n.T("It runs inside Sona as a WebAssembly module. It can't read your files or reach the network: permissions limit what Sona gives it.")
+		}
+		theme.Text(c, note, "secondary").
 			TextColor(theme.C("ink-muted")).MaxWidth(rowTextWidth)
 		ui.Row(c.Key("buttons")).Gap(8).Children(func() {
 			ok := kit.Button(c.Key("ok"), i18n.T("Turn on"), kit.ButtonOpts{Size: kit.SizeSM, Disabled: u.busy[a.ID], A11yLabel: i18n.T("Turn on {name}", "name", name)})
@@ -447,6 +456,9 @@ func (s *settings) permissionList(c *ui.Context, addon string, asked []string, g
 func (s *settings) addonPermissions(c *ui.Context, u *addonsUI, a services.AddonInfo, name string) {
 	id := "addon:" + a.ID + ":permissions"
 	desc := i18n.T("What Sona lets it do. It runs with your rights either way.")
+	if a.Runtime == addons.RuntimeWasm {
+		desc = i18n.T("What Sona lets it do. It can't read your files or reach the network either way.")
+	}
 	s.row(c, rowOpts{ID: id, Title: i18n.T("Permissions"), Desc: desc, Stacked: true}, func() ui.Element {
 		if len(a.Permissions) == 0 {
 			theme.Text(c, i18n.T("It asks for no permissions."), "secondary").TextColor(theme.C("ink-muted"))

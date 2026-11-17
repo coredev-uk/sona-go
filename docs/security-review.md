@@ -16,6 +16,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [Apple's translations](#apples-translations)
   - [Lyrics from other services](#lyrics-from-other-services)
   - [TuneIn metadata](#tunein-metadata)
+  - [WebAssembly add-ons](#webassembly-add-ons)
   - [Secret scanning](#secret-scanning)
 - [Findings](#findings)
   - [Summary](#summary)
@@ -46,6 +47,7 @@ Each row is a trust boundary. The sections below give the detail.
 | Local files and settings | The user's own data | Imported settings cannot name a library or a local key. The child cannot read or write Sona's folders. Files are written atomically |
 | Secrets and tokens | The keyring, with a 0600 file fallback | Tokens never reach URLs, errors or logs. Build credentials are redacted from logs and diagnostics ([F10](#f10-development-builds-logged-the-build-credentials)). Secret scanning guards the repository ([Secret scanning](#secret-scanning)) |
 | Loopback sign-in server | Apple's sign-in redirect on `127.0.0.1` | The owner uid of each connection, single-use start links and a cookie ([F7](#f7-another-local-user-could-complete-the-loopback-sign-in)) |
+| Add-ons, WebAssembly runtime | Running a third party's module inside Sona's process, with the user's grant | No ambient authority: no file but its data folder (links refused), no network, no process; memory and CPU capped. The module is checked and read once; the compiled cache is private ([WebAssembly add-ons](#webassembly-add-ons)). The exposure is the runtime itself: a bug in wazero is a bug in Sona's process |
 | Other local users | Nothing | Discord IPC socket and named pipe ownership checks ([F4](#f4-discord-ipc-trusted-any-users-socket)); the loopback checks above |
 | Third-party services | Apple, Google, Mozilla, Musixmatch, LRCLIB, NetEase, TuneIn | Trusted for what their text says, not for code. The Widevine package needs two Google signatures. Lyrics sources can be switched off in Settings → Playback → Lyrics |
 
@@ -489,6 +491,34 @@ Whether the sandbox is used is decided once per process, on the first host start
 - `Describe.ashx` is TuneIn's long-public OPML endpoint, not a documented API for third parties. It can change or be withdrawn, in which case the profile and TuneIn's song disappear and the stream's own metadata remains.
 - The cover can be wrong only if the catalog holds a different song with the same title and artist.
 
+### WebAssembly add-ons
+
+**What it does.** An add-on whose manifest says `runtime: "wasm"` (`docs/addons.md`) is a WebAssembly module that Sona runs **inside its own process**, on [wazero](https://github.com/tetratelabs/wazero) (v1.12.0, Apache-2.0, pure Go, no cgo), in `internal/addons` (`wasm.go`, `wasmfs.go`, `wasmcache.go`, `module.go`). It speaks protocol v2 over WASI standard input and output. The supervisor (`services/addons.go`) starts it after the first paint, on a goroutine of its own, never on the UI thread.
+
+**Why it needs no OS sandbox.** The sandbox for native add-ons (#304) takes rights from a program the OS runs with the user's. A module has none to take: the only way out of it is a host function Sona defines. Sona gives it WASI preview 1 over its standard streams, the clock, random bytes, its arguments and a small environment, and one folder. WASI preview 1 has no function for a socket, a process or the host's environment, so there is nothing to deny.
+
+**Threats and controls.**
+
+| Threat | Control | Test |
+| --- | --- | --- |
+| The module reads or writes a file of the user's | No folder is preopened except the add-on's own data folder. WASI's `..` and absolute paths are refused by the runtime | `TestWasmReachesOnlyItsDataFolder` |
+| The module escapes its data folder through a link | wazero's directory mount follows a link wherever it points and lets the module create one (`path_symlink`). Sona mounts `confinedFS` instead: it refuses any path through a link and every `symlink`, so neither a link the module makes nor one the user left reaches outside | `TestWasmReachesOnlyItsDataFolder` (a link to a file and one to a folder, both pre-existing, and one it tries to make) |
+| The module reaches the network | WASI preview 1 has no sockets. A manifest that asks `wasm` and `network` is refused (`bad_permission`), so the approval panel never promises it | `TestManifestRuntime`, `TestWasmAddonRefusals` |
+| The module reads the host's environment or paths | The environment is the allowlist without the variables that name host paths (`HOME`, `PATH`, `TMPDIR`); tokens, keys and bus addresses never reach it | `TestWasmEnvironmentIsTheAllowlist` |
+| The module spins | A CPU budget of a quarter of a core with a burst of five seconds, counted from the module's running time between WASI calls (waiting for input or sleeping costs nothing). The runtime stops a module at its next loop or call (`WithCloseOnContextDone`) | `TestWasmRunawayCPUIsStopped`, `TestWasmAddonRunawayIsStoppedAndLogged` |
+| The module takes Sona's memory | 64 MiB of linear memory per module; growth past it fails | `TestWasmMemoryIsCapped` |
+| The module does not leave when asked | `shutdown`, end of input, one second, then a kill that stops it at its next loop or call and frees a read or write it waits in | `TestWasmStopKillsADeafModule`, `TestWasmAddonStopsAtQuit` |
+| The file is swapped after it was checked | The module is read once from the open file (a regular file of the user's, not writable by others, inside the folder, at most 32 MiB) and those bytes are what is compiled. `sona addons dev` does the same on every system | `TestDevRunsAWasmAddon`, `TestDevWasmRunsWhereNativeCannot` |
+| The compiled-code cache is poisoned | It is machine code Sona loads, and wazero checks only a CRC. The folder is Sona's own (cache directory, mode 0700), outside every add-on's reach. An entry or folder that isn't the user's, or that others can write, drops the whole cache; it is kept to 256 MiB | `TestWasmCache` |
+| The module floods Sona with frames | The session's limits, as for a native add-on: 1 MiB a frame, 256 frames unread, call rates | `docs/addons.md`, "Limits" |
+
+**Residual risks.**
+
+- **It runs in Sona's address space.** A bug in wazero's compiler or in Go's runtime that a module can trigger is code execution in a process that holds the user's tokens. That is the price of running inside Sona, against a native add-on's OS sandbox. The reasons to accept it: wazero is pure Go (memory safe apart from the machine code it emits), is fuzzed by its authors, and is pinned and updated through Renovate; a module comes only from the user's own folder after the user approves it; and a module has no network, so it can't send what it learns anywhere but into Sona's own answers.
+- **Resources are shared.** The caps are per module. There is no total across add-ons, and compiling a large module takes up to two cores for a few seconds, once.
+- **The CPU budget is wall time between host calls.** It is not a CPU-time counter: a machine paused or overloaded can charge a module for time it didn't run (a long pause is clamped to a few ticks).
+- **Same trust as native for the user.** A module still answers the user's invokes and may show a link, which opens only after a click.
+
 ### Secret scanning
 
 **What it does.** A workflow scans the repository for leaked secrets (`.github/workflows/secret-scan.yml`, on pull requests and pushes to `main`, read-only token, no secrets).
@@ -825,5 +855,5 @@ Severity: Low. Status: fixed.
 ## Run the tests
 
 ```sh
-go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/... ./internal/i18n/... ./internal/lyrics/...
+go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/... ./internal/i18n/... ./internal/lyrics/... ./internal/addons/...
 ```

@@ -52,7 +52,7 @@ const (
 	msgPrivateSummary    l10n.Message = "Show or switch private listening"
 	msgPrivateHelp       l10n.Message = "Shows private listening (status, the default), or turns it on, off or over (toggle). While it is on, nothing you play is reported to Apple, scrobbled or kept in Sona's history."
 	msgAddonsSummary     l10n.Message = "Run an add-on from a folder while you build it"
-	msgAddonsHelp        l10n.Message = "`sona addons dev <folder>` runs the add-on in a folder without installing it and prints its log until you press Ctrl+C. Sona asks you to confirm in its window, naming the folder and the permissions its manifest asks for; nothing is saved and the permissions end with the run. The add-on's ID can't be one you have installed, it gets none of your saved secrets, and the folder must be yours and not writable by others. It needs Linux for now."
+	msgAddonsHelp        l10n.Message = "`sona addons dev <folder>` runs the add-on in a folder without installing it and prints its log until you press Ctrl+C. Sona asks you to confirm in its window, naming the folder and the permissions its manifest asks for; nothing is saved and the permissions end with the run. The add-on's ID can't be one you have installed, it gets none of your saved secrets, and the folder must be yours and not writable by others. A native add-on needs Linux for now; a WebAssembly add-on (\"runtime\": \"wasm\") runs on every system."
 	msgHelpSummary       l10n.Message = "Show help for Sona's commands"
 	msgHelpHelp          l10n.Message = "Shows the commands, or one command's arguments and options. With --man it prints the manual page in roff instead."
 	msgCompletionSummary l10n.Message = "Print a shell completion script"

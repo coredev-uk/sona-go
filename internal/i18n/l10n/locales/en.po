@@ -480,7 +480,7 @@ msgid "Without a value, shows the volume. A number from 0 to 100 sets it; +N or 
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "`sona addons dev <folder>` runs the add-on in a folder without installing it and prints its log until you press Ctrl+C. Sona asks you to confirm in its window, naming the folder and the permissions its manifest asks for; nothing is saved and the permissions end with the run. The add-on's ID can't be one you have installed, it gets none of your saved secrets, and the folder must be yours and not writable by others. It needs Linux for now."
+msgid "`sona addons dev <folder>` runs the add-on in a folder without installing it and prints its log until you press Ctrl+C. Sona asks you to confirm in its window, naming the folder and the permissions its manifest asks for; nothing is saved and the permissions end with the run. The add-on's ID can't be one you have installed, it gets none of your saved secrets, and the folder must be yours and not writable by others. A native add-on needs Linux for now; a WebAssembly add-on (\"runtime\": \"wasm\") runs on every system."
 msgstr ""
 
 #: internal/cli/messages.go

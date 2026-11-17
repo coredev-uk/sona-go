@@ -3129,6 +3129,10 @@ msgid "It runs from the folder {dir} and asks for these permissions: {permission
 msgstr "It runs from the folder {dir} and asks for these permissions: {permissions}. It runs with your rights until you stop it in the terminal or quit Sona, and nothing is saved."
 
 #: internal/ui/features/settings/addons.go
+msgid "It runs inside Sona as a WebAssembly module. It can't read your files or reach the network: permissions limit what Sona gives it."
+msgstr "It runs inside Sona as a WebAssembly module. It can't read your files or reach the network: permissions limit what Sona gives it."
+
+#: internal/ui/features/settings/addons.go
 msgid "It runs with your rights: permissions limit what Sona gives it, not what it can do."
 msgstr "It runs with your rights: permissions limit what Sona gives it, not what it can do."
 
@@ -3175,12 +3179,12 @@ msgid "Its addon.json isn't valid: it isn't JSON, has a field Sona doesn't know 
 msgstr "Its addon.json isn't valid: it isn't JSON, has a field Sona doesn't know or one of the wrong type."
 
 #: internal/ui/features/settings/addons.go
-msgid "Its command isn't a plain path inside the folder."
-msgstr "Its command isn't a plain path inside the folder."
+msgid "Its command isn't a plain path inside the folder (a .wasm file, for a WebAssembly add-on)."
+msgstr "Its command isn't a plain path inside the folder (a .wasm file, for a WebAssembly add-on)."
 
 #: internal/ui/features/settings/addons.go
-msgid "Its command isn't a program Sona can run: it is missing, not a regular file or not executable."
-msgstr "Its command isn't a program Sona can run: it is missing, not a regular file or not executable."
+msgid "Its command isn't a program Sona can run: it is missing, not a regular file or not executable (for a WebAssembly add-on, not a WebAssembly module)."
+msgstr "Its command isn't a program Sona can run: it is missing, not a regular file or not executable (for a WebAssembly add-on, not a WebAssembly module)."
 
 #: internal/ui/features/settings/addons.go
 msgid "Its command leads out of its folder."
@@ -3193,6 +3197,10 @@ msgstr "Its last song was deleted from your library."
 #: internal/ui/features/settings/addons.go
 msgid "Its name isn't plain text of 1 to 60 characters."
 msgstr "Its name isn't plain text of 1 to 60 characters."
+
+#: internal/ui/features/settings/addons.go
+msgid "Its runtime isn't \"native\" or \"wasm\"."
+msgstr "Its runtime isn't \"native\" or \"wasm\"."
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Its seccomp filter isn't installed."
@@ -8012,6 +8020,10 @@ msgstr "Warning"
 msgid "Watch in Apple Music"
 msgstr "Watch in Apple Music"
 
+#: internal/ui/features/settings/addons.go
+msgid "WebAssembly"
+msgstr "WebAssembly"
+
 #: internal/ui/features/onboarding/steps.go
 msgid "Welcome"
 msgstr "Welcome"
@@ -8019,6 +8031,10 @@ msgstr "Welcome"
 #: internal/ui/features/onboarding/layer.go
 msgid "Welcome to Sona"
 msgstr "Welcome to Sona"
+
+#: internal/ui/features/settings/addons.go
+msgid "What Sona lets it do. It can't read your files or reach the network either way."
+msgstr "What Sona lets it do. It can't read your files or reach the network either way."
 
 #: internal/ui/features/settings/addons.go
 msgid "What Sona lets it do. It runs with your rights either way."

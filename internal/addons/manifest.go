@@ -33,6 +33,16 @@ var (
 	versionExpr = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
 )
 
+// The values of Manifest.Runtime.
+const (
+	RuntimeNative = "native"
+	RuntimeWasm   = "wasm"
+)
+
+// permissionNetwork is the permission that lets a native add-on reach the
+// internet. A WebAssembly module has no sockets, so it can never hold it.
+const permissionNetwork = "network"
+
 // Manifest is `<config>/sona/addons/<id>/addon.json`. Unknown fields refuse
 // the manifest: a field this version doesn't know could be one that grants
 // something it doesn't enforce.
@@ -45,9 +55,14 @@ type Manifest struct {
 	// Version is semver.
 	Version     string `json:"version"`
 	Description string `json:"description,omitempty"`
-	// Command is the executable to run: a path inside the folder with `/`
-	// separators, relative, without `..`.
+	// Command is the program to run: a path inside the folder with `/`
+	// separators, relative, without `..`. For the native runtime it is an
+	// executable; for "wasm" a `.wasm` module.
 	Command string `json:"command"`
+	// Runtime is how the command runs: RuntimeNative (the default, "") is
+	// a process of its own, RuntimeWasm a WebAssembly module inside Sona's
+	// process (wasm.go).
+	Runtime string `json:"runtime,omitempty"`
 	// Permissions are what the add-on asks for; the user grants them when
 	// they enable it.
 	Permissions []string `json:"permissions"`
@@ -76,6 +91,7 @@ const (
 	ProblemTooMany      = "too_many_addons"
 	ProblemContribution = "bad_contribution"
 	ProblemStrings      = "bad_strings"
+	ProblemRuntime      = "bad_runtime" // not "native" or "wasm"
 )
 
 // Problem is why an add-on is refused.
@@ -150,8 +166,14 @@ func (m *Manifest) validate() error {
 	if len(m.Version) > maxVersionBytes || !versionExpr.MatchString(m.Version) {
 		return problem(ProblemVersion, "%q", m.Version)
 	}
+	if m.Runtime != "" && m.Runtime != RuntimeNative && m.Runtime != RuntimeWasm {
+		return problem(ProblemRuntime, "%q", m.Runtime)
+	}
 	if err := checkCommand(m.Command); err != nil {
 		return err
+	}
+	if m.Wasm() && !strings.HasSuffix(m.Command, ".wasm") {
+		return problem(ProblemCommand, "a wasm add-on's command is a .wasm file: %q", m.Command)
 	}
 	if len(m.Permissions) > len(cli.Permissions) {
 		return problem(ProblemPermission, "%d permissions", len(m.Permissions))
@@ -161,12 +183,29 @@ func (m *Manifest) validate() error {
 		if !cli.KnownPermission(p) || seen[p] {
 			return problem(ProblemPermission, "%q", p)
 		}
+		// WASI has no sockets: a module can't reach the network, so asking
+		// for the permission would promise what it can never use.
+		if m.Wasm() && p == permissionNetwork {
+			return problem(ProblemPermission, "a wasm add-on has no network")
+		}
 		seen[p] = true
 	}
 	if err := m.Contributions.validate(); err != nil {
 		return err
 	}
 	return m.Strings.validate(m.Contributions)
+}
+
+// Wasm reports whether the add-on is a WebAssembly module run inside Sona.
+func (m Manifest) Wasm() bool { return m.Runtime == RuntimeWasm }
+
+// RuntimeName is the runtime in words: RuntimeWasm or RuntimeNative, the
+// default when the manifest names none.
+func (m Manifest) RuntimeName() string {
+	if m.Wasm() {
+		return RuntimeWasm
+	}
+	return RuntimeNative
 }
 
 // plainText accepts text of min to max runes without control characters,

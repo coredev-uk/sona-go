@@ -3129,6 +3129,10 @@ msgid "It runs from the folder {dir} and asks for these permissions: {permission
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
+msgid "It runs inside Sona as a WebAssembly module. It can't read your files or reach the network: permissions limit what Sona gives it."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
 msgid "It runs with your rights: permissions limit what Sona gives it, not what it can do."
 msgstr ""
 
@@ -3175,11 +3179,11 @@ msgid "Its addon.json isn't valid: it isn't JSON, has a field Sona doesn't know 
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "Its command isn't a plain path inside the folder."
+msgid "Its command isn't a plain path inside the folder (a .wasm file, for a WebAssembly add-on)."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "Its command isn't a program Sona can run: it is missing, not a regular file or not executable."
+msgid "Its command isn't a program Sona can run: it is missing, not a regular file or not executable (for a WebAssembly add-on, not a WebAssembly module)."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
@@ -3192,6 +3196,10 @@ msgstr ""
 
 #: internal/ui/features/settings/addons.go
 msgid "Its name isn't plain text of 1 to 60 characters."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its runtime isn't \"native\" or \"wasm\"."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
@@ -8012,12 +8020,20 @@ msgstr ""
 msgid "Watch in Apple Music"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "WebAssembly"
+msgstr ""
+
 #: internal/ui/features/onboarding/steps.go
 msgid "Welcome"
 msgstr ""
 
 #: internal/ui/features/onboarding/layer.go
 msgid "Welcome to Sona"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "What Sona lets it do. It can't read your files or reach the network either way."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
