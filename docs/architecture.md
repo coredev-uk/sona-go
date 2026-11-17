@@ -295,7 +295,7 @@ So once the archive is downloaded and verified (`update.Source.Ready`, just befo
 
 #### The sandbox after an update (Windows)
 
-The CDM host's AppContainer reads the install because Sona grants its SID read and execute on the program's folder at run time, before every child starts (`grantAccess`; the installer grants nothing).
+The CDM host's AppContainer reads the install because Sona grants its SID read and execute on the program's folder at run time, before every child starts (`appcontainer.Grant`; the installer grants nothing).
 
 - Files MyGo renames in from the folder it unpacked them in keep the access list they were made with, so they lack the folder's entry (observed on windows-2025). Setting the folder's list again, also after taking the entry off and adding it afresh, does not hand it down.
 - The start therefore also checks the program itself and, where it lacks the entry, has the tree inherit the folder's list again. `cdmhost.grantNeeded` says which grant a folder needs. `resetInherited` is `TreeSetNamedSecurityInfo` with `TREE_SEC_INFO_RESET_KEEP_EXPLICIT`, which keeps explicit entries and the folder's own protection and leaves the entry inherited, so `--remove-sandbox` still takes it away by revoking the folder's.

@@ -1,6 +1,4 @@
-//go:build linux || (cgo && (darwin || windows))
-
-package cdmhost
+package appcontainer
 
 // The decisions behind the Windows sandbox's access grants
 // (appcontainer_windows.go), on plain values so that Linux tests can run them:

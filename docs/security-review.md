@@ -268,7 +268,7 @@ Whether the sandbox is used is decided once per process, on the first host start
 
 **What it does.** Windows has none of the Linux layers and no `sandbox-exec`. The CDM host child there runs in an **AppContainer**, the OS's own sandbox for processes that must touch neither the user's files nor the network (Chromium's renderers use one too), inside a **job object**.
 
-- `internal/playback/cdmhost/appcontainer_windows.go` starts it; `sandbox_windows.go` holds the decision and the child's self-checks.
+- `internal/appcontainer` makes the profile, grants its SID the folders and starts the process in it; `internal/playback/cdmhost/appcontainer_windows.go` says which folders the CDM host reads and `sandbox_windows.go` holds the decision and the child's self-checks.
 - The child is the same `sona.exe`, started with `CreateProcess` and `PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES`.
 - Go's `os/exec` cannot pass that attribute, so the parent creates the process itself and keeps its own handle for the kill (Go's handle from `os.FindProcess` cannot terminate it).
 
