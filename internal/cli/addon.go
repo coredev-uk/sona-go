@@ -201,7 +201,20 @@ type HelloResult struct {
 	Permissions []string `json:"permissions"`
 	// Limits are the session's limits.
 	Limits AddonLimits `json:"limits"`
+	// Credentials are the build credentials of one of Sona's own add-ons
+	// (CredAPIKey and the other Cred* keys), sent in this one answer and
+	// nowhere else: not in the environment, a request, an event or a log.
+	// An add-on of the user's never gets the field.
+	Credentials map[string]string `json:"credentials,omitempty"`
 }
+
+// Keys of HelloResult.Credentials: the Last.fm API account of the build, and
+// the Discord application ID.
+const (
+	CredAPIKey        = "apiKey"
+	CredAPISecret     = "apiSecret"
+	CredApplicationID = "applicationId"
+)
 
 // TopicsParams is the params of subscribe and unsubscribe, and their
 // result: the topics subscribed to after the call.

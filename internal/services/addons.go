@@ -17,6 +17,8 @@ import (
 	"github.com/coredev-uk/sona-go/internal/addons"
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/discord"
+	"github.com/coredev-uk/sona-go/internal/scrobble"
 )
 
 // AddonsService supervises add-ons (docs/addons.md): it lists the folders of
@@ -38,9 +40,6 @@ type AddonsService struct {
 	root string
 	logs string
 	opts addonOptions
-
-	// secMu serialises the keyring items of the add-ons' secret rows.
-	secMu sync.Mutex
 
 	// noted holds the folders already reported as claiming one of Sona's own
 	// IDs, so the log says it once.
@@ -867,7 +866,7 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 	r.manifest, r.own = en.Manifest, own
 	r.mu.Unlock()
 	sess := cli.NewSession(cli.AddonConfig{
-		ID: r.id, Host: s.host, Own: own, Allowed: allowed,
+		ID: r.id, Host: s.host, Own: own, Allowed: allowed, Credentials: bundledCredentials(en),
 		Log: slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: slog.LevelWarn})),
 	})
 	r.set(AddonStarting, sess)
@@ -912,4 +911,25 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 	err = proc.Err()
 	log.Notef("exited: %v", err)
 	r.exit = err
+}
+
+// bundledCredentials are the build credentials of one of Sona's own add-ons,
+// sent in its hello answer and nowhere else (never the environment, which
+// is an allowlist, nor a log): the Last.fm API account to lastfm, the
+// Discord application ID to discord. Any other add-on gets nil.
+func bundledCredentials(en addons.Entry) map[string]string {
+	if !en.Bundled {
+		return nil
+	}
+	switch en.ID {
+	case "lastfm":
+		if key, secret, ok := scrobble.LastFMAccount(); ok {
+			return map[string]string{cli.CredAPIKey: key, cli.CredAPISecret: secret}
+		}
+	case "discord":
+		if id := discord.ClientID(); id != "" {
+			return map[string]string{cli.CredApplicationID: id}
+		}
+	}
+	return nil
 }

@@ -97,6 +97,12 @@ The answer lists the asked-for permissions that are granted now, and the session
 {"id":1,"result":{"id":"now-playing-webhook","protocol":"2.0.0","permissions":["playback.read"],"limits":{"maxFrame":1048576,"calls":8,"invokes":4,"subscriptions":8,"args":32,"argBytes":4096,"queue":256}}}
 ```
 
+Only one of Sona's own add-ons (see [Bundled add-ons](#bundled-add-ons)) gets `credentials` in the answer; yours never do.
+
+```json example HelloBundledResponse
+{"id":1,"result":{"id":"lastfm","protocol":"2.0.0","permissions":[],"limits":{"maxFrame":1048576,"calls":8,"invokes":4,"subscriptions":8,"args":32,"argBytes":4096,"queue":256},"credentials":{"apiKey":"example-key","apiSecret":"example-secret"}}}
+```
+
 ### `subscribe` and `unsubscribe`
 
 - Both take `topics` and answer with the topics subscribed to afterwards.
@@ -589,7 +595,9 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
 - **The same supervisor, protocol and checks.** They are started after the first paint, restarted with the same backoff, bounded by the same limits, and hold only the permissions their manifest names. Like yours they see no private listen and no preview.
 - **On by default, running when there is something to do.** Settings → Add-ons lists them as Sona's own, each with a switch and a log. There is nothing to approve and no permission to revoke: they are part of the signed release. Each is a process of Sona's size, so one runs only while its integration is in use: Last.fm and ListenBrainz while an account is connected (also paused, as listens already queued are still delivered), Discord while its status is on. Until then the page says it is on and starts when Sona has something for it to do. Settings → Connections stays where you connect an account and switch each one on or off.
 - **The folder they run from** is the folder Sona is installed in.
-- **Status.** The registry, the entry point and the supervision are in. Last.fm, ListenBrainz and Discord still do their work inside Sona; their add-ons say hello and wait until each one moves onto the API.
+- **Their sign-in is in the keyring item `addon.<id>`**, like any add-on's secrets: the Last.fm session key as `session` in `addon.lastfm`, the ListenBrainz token as `token` in `addon.listenbrainz`. They read it with [`secret`](#secret), for exactly those keys (no settings row shows or edits them). A version before add-ons kept them in the items `lastfm` and `listenbrainz`; at start Sona copies each to the new item, reads the copy back, then deletes the old one. A crash between the steps leaves both and the next start finishes; if the new item already holds a different value, it is newer and wins.
+- **Build credentials arrive in `hello`.** The answer to a bundled add-on's `hello` may carry `credentials`: `apiKey` and `apiSecret` (Last.fm's API account, to `lastfm`), `applicationId` (Discord's, to `discord`). They are in that one answer: never the environment, a request, an event or a log, and never an add-on of yours.
+- **Status.** The registry, the entry point, the supervision and the secrets are in. Last.fm, ListenBrainz and Discord still do their work inside Sona; their add-ons say hello and wait until each one moves onto the API.
 
 ## Security notes
 
@@ -750,6 +758,7 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         }
       }
     },
+    "HelloBundledResponse": {"$ref": "#/$defs/HelloResponse"},
     "HelloResponse": {
       "type": "object", "additionalProperties": false, "required": ["id", "result"],
       "properties": {
@@ -759,7 +768,8 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
           "properties": {
             "id": {"type": "string"}, "protocol": {"$ref": "#/$defs/Version"},
             "permissions": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}},
-            "limits": {"$ref": "#/$defs/Limits"}
+            "limits": {"$ref": "#/$defs/Limits"},
+            "credentials": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 256}}
           }
         }
       }

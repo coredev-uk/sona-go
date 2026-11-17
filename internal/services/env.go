@@ -33,6 +33,10 @@ type Env struct {
 	// firstPaint is set by Core; SystemService.FirstPaint calls it.
 	firstPaint func()
 
+	// secretStore is every add-on's secrets (addon_secrets.go).
+	secretsOnce sync.Once
+	secretStore *addonSecrets
+
 	mu       sync.Mutex
 	closers  []func()
 	sections []bundleSection

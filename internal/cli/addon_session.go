@@ -57,6 +57,9 @@ type AddonConfig struct {
 	Log   *slog.Logger
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
+	// Credentials are sent in the hello answer: the build credentials of one
+	// of Sona's own add-ons, never of another. The session logs none of it.
+	Credentials map[string]string
 }
 
 const (
@@ -422,7 +425,7 @@ func (s *Session) hello(f Frame) bool {
 			granted = append(granted, perm)
 		}
 	}
-	res, _ := json.Marshal(HelloResult{ID: p.ID, Protocol: ver, Permissions: granted, Limits: s.limits})
+	res, _ := json.Marshal(HelloResult{ID: p.ID, Protocol: ver, Permissions: granted, Limits: s.limits, Credentials: s.cfg.Credentials})
 	s.mu.Lock()
 	s.helloed = true
 	close(s.helloCh) // hello is accepted once: a second one never gets here
