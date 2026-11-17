@@ -28,7 +28,7 @@ func runSpatialFlow(log *slog.Logger, envFile string, ids []string, setting bool
 		return err
 	}
 	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Quality: quality, Storefront: func() string { return sf.ID }, Sink: outputSink})
-	defer eng.Close()
+	defer func() { _ = eng.Close() }()
 	eng.SetSpatial(setting)
 	eng.SetCrossfade(fade)
 	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
