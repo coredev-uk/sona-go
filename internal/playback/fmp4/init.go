@@ -50,13 +50,13 @@ func ParseInit(b []byte) (*Init, error) {
 			r := reader{b: t.body}
 			r.full()
 			id := r.u32()
-			r.u32() // default_sample_description_index
+			desc := r.u32()
 			dur, size := r.u32(), r.u32()
 			if r.err != nil {
 				return nil, fmt.Errorf("fmp4: trex: %w", r.err)
 			}
 			if id == in.TrackID {
-				in.DefaultSampleDuration, in.DefaultSampleSize = dur, size
+				in.DefaultSampleDuration, in.DefaultSampleSize, in.defaultEntry = dur, size, desc
 			}
 		}
 	}
@@ -121,7 +121,19 @@ func (in *Init) parseTrak(trak box) error {
 	if err != nil {
 		return err
 	}
-	return in.parseSampleEntry(entries[0])
+	if err := in.parseSampleEntry(entries[0]); err != nil {
+		return err
+	}
+	for _, e := range entries[1:] {
+		alt := *in
+		alt.alts = nil
+		alt.Protected, alt.Scheme, alt.KID, alt.IVSize, alt.ConstantIV, alt.CryptByte, alt.SkipByte = false, "", nil, 0, nil, 0, 0
+		if err := alt.parseSampleEntry(e); err != nil {
+			return fmt.Errorf("fmp4: sample entry %d: %w", len(in.alts)+2, err)
+		}
+		in.alts = append(in.alts, alt)
+	}
+	return nil
 }
 
 // AACEncoderDelay is the priming of Apple's AAC encoder in media timescale

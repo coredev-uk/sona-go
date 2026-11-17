@@ -44,6 +44,25 @@ type Init struct {
 	// EditStart (media timescale units); see Priming.
 	HasEdit   bool
 	EditStart int64
+
+	// alts are the track's further sample entries (stsd entries 2, 3, …),
+	// as parsed over this one. A fragment picks its entry with its sample
+	// description index (tfhd, else trex's default): Apple's enhancedHls
+	// renditions move to the second entry, with its own constant IV, where
+	// the key changes after the first segment.
+	alts []Init
+	// defaultEntry is trex's default_sample_description_index (from 1;
+	// 0 when there is no trex for the track).
+	defaultEntry uint32
+}
+
+// entry is in as fragments of sample description index i (from 1) are
+// read: in itself for the first entry, or an index it doesn't have.
+func (in *Init) entry(i uint32) *Init {
+	if i >= 2 && int(i-2) < len(in.alts) {
+		return &in.alts[i-2]
+	}
+	return in
 }
 
 // Subsample is a clear/encrypted byte run within a sample (senc order).
