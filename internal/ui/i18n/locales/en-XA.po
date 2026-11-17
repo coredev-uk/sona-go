@@ -4534,6 +4534,10 @@ msgstr ""
 msgid "On this page"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "On. It starts when Sona has something for it to do."
+msgstr ""
+
 #: internal/ui/features/settings/releases.go
 msgid "Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
 msgstr ""

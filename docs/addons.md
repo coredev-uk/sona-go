@@ -22,6 +22,7 @@ An add-on is a program that runs beside Sona, hears what plays and may ask Sona 
 - [Privacy: private mode and previews](#privacy-private-mode-and-previews)
 - [Manifest and supervisor](#manifest-and-supervisor)
 - [WebAssembly add-ons](#webassembly-add-ons)
+- [Bundled add-ons](#bundled-add-ons)
 - [Security notes](#security-notes)
 - [Schema](#schema)
 
@@ -579,6 +580,17 @@ cargo build --target wasm32-wasip1 --release   # target/wasm32-wasip1/release/<n
 
 Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` naming it in a folder, and run it with [`sona addons dev`](#developing-an-add-on).
 
+## Bundled add-ons
+
+Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`, `listenbrainz` and `discord`. They move onto this API one at a time (#302); this section says what makes them different from yours.
+
+- **Registered in code.** Their manifests are embedded in Sona (`internal/addons/bundled`) and are never read from your add-ons folder. A folder with one of these IDs is refused by the scanner, left out of Settings → Add-ons and never run; the one Sona lists is the registered one.
+- **The program is Sona itself.** The command of each is Sona's own executable with `--addon <id>`, so the release's signature covers it and there is no second key. `sona --addon <id>` is for the supervisor: started by hand it waits for a hello that nobody sends. It starts nothing else of Sona: no window, no settings, no keyring.
+- **The same supervisor, protocol and checks.** They are started after the first paint, restarted with the same backoff, bounded by the same limits, and hold only the permissions their manifest names. Like yours they see no private listen and no preview.
+- **On by default, running when there is something to do.** Settings → Add-ons lists them as Sona's own, each with a switch and a log. There is nothing to approve and no permission to revoke: they are part of the signed release. Each is a process of Sona's size, so one runs only while its integration is in use: Last.fm and ListenBrainz while an account is connected (also paused, as listens already queued are still delivered), Discord while its status is on. Until then the page says it is on and starts when Sona has something for it to do. Settings → Connections stays where you connect an account and switch each one on or off.
+- **The folder they run from** is the folder Sona is installed in.
+- **Status.** The registry, the entry point and the supervision are in. Last.fm, ListenBrainz and Discord still do their work inside Sona; their add-ons say hello and wait until each one moves onto the API.
+
 ## Security notes
 
 - **Permissions are advisory until #304 for native add-ons.** See the callout at the top.
@@ -591,6 +603,7 @@ Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` nami
 - **Private mode is the user's.** An add-on can never switch it.
 - **Files are checked.** Links, owners, write bits and escaping paths refuse the add-on.
 - **Everything is bounded.** Frames, calls, invokes, subscriptions and the unread queue have [limits](#limits).
+- **Sona's own add-ons are code, not folders.** They are registered in the binary, never read from your folder, and a folder that claims their IDs never runs: see [Bundled add-ons](#bundled-add-ons).
 
 ## Schema
 

@@ -42,6 +42,13 @@ type AddonsService struct {
 	// secMu serialises the keyring items of the add-ons' secret rows.
 	secMu sync.Mutex
 
+	// noted holds the folders already reported as claiming one of Sona's own
+	// IDs, so the log says it once.
+	noted sync.Map
+
+	// recMu serialises reconcile.
+	recMu sync.Mutex
+
 	mu      sync.Mutex
 	runners map[string]*addonRunner // by add-on ID
 	started bool                    // the network is open: enabled add-ons run
@@ -80,6 +87,9 @@ type addonOptions struct {
 	verified bool
 	// environ is Sona's environment, os.Environ when nil.
 	environ func() []string
+	// exe is Sona's own executable, with links resolved: the program of its
+	// bundled add-ons ("" when it can't be told).
+	exe string
 	// devAsk is how long `addons dev` waits for the person to confirm in
 	// Sona's window; devLease how long a run lives without its client asking
 	// for the log (a killed terminal).
@@ -96,9 +106,25 @@ func defaultAddonOptions() addonOptions {
 		environ:      os.Environ,
 		wasm:         addons.DefaultWasmLimits(),
 		verified:     addons.CanRunVerified,
+		exe:          selfExecutable(),
 		devAsk:       60 * time.Second,
 		devLease:     15 * time.Second,
 	}
+}
+
+// selfExecutable is the path of the running Sona with every link resolved,
+// "" when it can't be told. A binary replaced by an update while it runs
+// reads "… (deleted)" on Linux: the path is the installed one's.
+func selfExecutable() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	exe = strings.TrimSuffix(exe, " (deleted)")
+	if real, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = real
+	}
+	return exe
 }
 
 // ErrAddonUnavailable is an add-on that is not running (or didn't answer a
@@ -130,6 +156,7 @@ func (s *AddonsService) settingsChanged() {
 			own.publish()
 		}
 	}
+	s.reconcile()
 }
 
 // attach gives the service the host its add-ons are served from, once the
@@ -142,6 +169,10 @@ func (s *AddonsService) attach(h cli.AddonHost) {
 
 // start runs the enabled add-ons, after the first paint.
 func (s *AddonsService) start() {
+	// Held until every add-on is begun: reconcile, woken by a settings change
+	// meanwhile, must not begin one of them a second time.
+	s.recMu.Lock()
+	defer s.recMu.Unlock()
 	s.mu.Lock()
 	if s.started || s.closed || !addons.Supported() {
 		s.mu.Unlock()
@@ -150,23 +181,123 @@ func (s *AddonsService) start() {
 	s.started = true
 	s.mu.Unlock()
 	for _, en := range s.scan() {
-		if en.Problem == nil && s.state(en.Manifest).Enabled {
+		if en.Problem == nil && s.wanted(en) {
 			s.begin(en)
 		}
 	}
 }
 
+// wanted reports whether the supervisor should run en now: it is on, and one
+// of Sona's own has something to do (bundledWanted).
+func (s *AddonsService) wanted(en addons.Entry) bool {
+	if !s.setting(en).Enabled {
+		return false
+	}
+	return !en.Bundled || bundledWanted(en.ID, s.e.Settings.Get())
+}
+
+// bundledWanted reports whether Sona's own add-on id has anything to do
+// under st. Each is a process of Sona's size, so none runs for an
+// integration nobody uses: Last.fm and ListenBrainz while an account is
+// connected (also switched off, as listens already queued are still
+// delivered), Discord while its status is on.
+func bundledWanted(id string, st config.Settings) bool {
+	switch id {
+	case "lastfm":
+		return st.Scrobbling.LastFM.Enabled || st.Scrobbling.LastFM.Username != ""
+	case "listenbrainz":
+		return st.Scrobbling.ListenBrainz.Enabled || st.Scrobbling.ListenBrainz.Username != ""
+	case "discord":
+		return st.Integrations.DiscordPresence
+	}
+	return true
+}
+
+// reconcile starts Sona's own add-ons that have something to do and stops
+// those that no longer do, after a change of the settings. An add-on the
+// supervisor switched off for crashing stays as it is.
+func (s *AddonsService) reconcile() {
+	s.recMu.Lock()
+	defer s.recMu.Unlock()
+	s.mu.Lock()
+	started, closed := s.started, s.closed
+	s.mu.Unlock()
+	if !started || closed {
+		return
+	}
+	moved := false
+	for _, en := range addons.BundledEntries(s.opts.exe) {
+		if en.Problem != nil {
+			continue
+		}
+		s.mu.Lock()
+		r := s.runners[en.ID]
+		s.mu.Unlock()
+		switch want := s.wanted(en); {
+		case want && r == nil:
+			s.begin(en)
+			moved = true
+		case !want && r != nil && !r.crashed():
+			s.mu.Lock()
+			delete(s.runners, en.ID)
+			s.mu.Unlock()
+			r.stop()
+			moved = true
+		}
+	}
+	if moved {
+		s.changed()
+	}
+}
+
+// scan lists the add-ons: Sona's own, registered in code, then the folders
+// of the user's add-ons directory. A folder that claims one of Sona's IDs
+// is left out (and noted once in the log): the real one is already listed
+// and nothing from the folder ever runs under that name.
 func (s *AddonsService) scan() []addons.Entry {
 	es, err := addons.Scan(s.root, addons.ScanOptions{})
 	if err != nil {
 		s.e.Logger.Warn("addons: scan", "err", err)
 	}
-	return es
+	out := addons.BundledEntries(s.opts.exe)
+	for _, en := range es {
+		if addons.IsBundled(strings.ToLower(en.ID)) || addons.IsBundled(strings.ToLower(en.Dir)) {
+			if _, noted := s.noted.LoadOrStore(en.Dir, true); !noted {
+				s.e.Logger.Warn("addons: ignoring a folder that claims one of Sona's own add-on IDs", "dir", en.Dir)
+			}
+			continue
+		}
+		out = append(out, en)
+	}
+	return out
 }
 
-// state is the saved decision about an add-on.
-func (s *AddonsService) state(m addons.Manifest) config.AddonSetting {
-	return s.e.Settings.Get().Addons[m.ID]
+// entryOf reads the add-on a runner supervises again: one of Sona's own from
+// the registry, an installed one from its folder.
+func (s *AddonsService) entryOf(id, dir string) addons.Entry {
+	if addons.IsBundled(id) {
+		for _, en := range addons.BundledEntries(s.opts.exe) {
+			if en.ID == id {
+				return en
+			}
+		}
+	}
+	return addons.ScanOne(filepath.Join(s.root, dir), addons.ScanOptions{})
+}
+
+// setting is the saved decision about en. Sona's own add-ons are on unless
+// the user turned one off, and always hold the permissions their manifest
+// asks for: they are the signed release itself, there is nothing to approve.
+func (s *AddonsService) setting(en addons.Entry) config.AddonSetting {
+	st, saved := s.e.Settings.Get().Addons[en.ID]
+	if !en.Bundled {
+		return st
+	}
+	if !saved {
+		st.Enabled = true
+	}
+	st.Granted = slices.Clone(en.Manifest.Permissions)
+	return st
 }
 
 // covers reports whether granted holds every permission of asked.
@@ -181,7 +312,6 @@ func covers(granted, asked []string) bool {
 
 // List returns the add-ons of the user's folder, valid and refused, by ID.
 func (s *AddonsService) List() []AddonInfo {
-	set := s.e.Settings.Get().Addons
 	s.mu.Lock()
 	runners := make(map[string]*addonRunner, len(s.runners))
 	for id, r := range s.runners {
@@ -189,6 +319,7 @@ func (s *AddonsService) List() []AddonInfo {
 	}
 	s.mu.Unlock()
 	out := []AddonInfo{}
+	cur := s.e.Settings.Get()
 	for _, en := range s.scan() {
 		info := AddonInfo{
 			ID: en.Name(), Name: en.Manifest.Name, Version: en.Manifest.Version, Description: en.Manifest.Description,
@@ -201,13 +332,16 @@ func (s *AddonsService) List() []AddonInfo {
 			out = append(out, info)
 			continue
 		}
-		st := set[en.ID]
+		st := s.setting(en)
+		info.Bundled = en.Bundled
 		info.Enabled, info.Granted = st.Enabled, stringsOrEmpty(st.Granted)
 		switch r := runners[en.ID]; {
 		case r != nil && !st.Enabled && r.crashed():
 			info.State, info.Restarts = r.snapshot()
 		case !st.Enabled:
 			info.State = AddonOff
+		case en.Bundled && r == nil && !bundledWanted(en.ID, cur):
+			info.State = AddonIdle
 		case !covers(st.Granted, en.Manifest.Permissions):
 			info.State = AddonNeedsApproval
 		case r != nil:
@@ -275,7 +409,18 @@ func (s *AddonsService) Enable(id string, approve []string) error {
 	s.mu.Lock()
 	started := s.started
 	s.mu.Unlock()
-	if started {
+	switch {
+	case !started:
+	case en.Bundled:
+		// Turned on again after crashing: forget the crashed runner, then run
+		// it if it has something to do.
+		s.mu.Lock()
+		if r := s.runners[en.ID]; r != nil && r.crashed() {
+			delete(s.runners, en.ID)
+		}
+		s.mu.Unlock()
+		s.reconcile()
+	default:
 		s.begin(en)
 	}
 	s.changed()
@@ -289,12 +434,7 @@ func (s *AddonsService) Disable(id string) error {
 	if _, err := s.find(id); err != nil && !errors.Is(err, ErrInvalidArgument) {
 		return err
 	}
-	if _, err := s.e.updateSettings(func(st *config.Settings) {
-		if a, ok := st.Addons[id]; ok {
-			a.Enabled = false
-			st.Addons[id] = a
-		}
-	}); err != nil {
+	if _, err := s.e.updateSettings(func(st *config.Settings) { setEnabled(st, id, false) }); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -314,6 +454,9 @@ func (s *AddonsService) Disable(id string) error {
 func (s *AddonsService) Revoke(id, permission string) error {
 	if !cli.KnownPermission(permission) {
 		return fmt.Errorf("%w: unknown permission %q", ErrInvalidArgument, permission)
+	}
+	if addons.IsBundled(id) {
+		return fmt.Errorf("%w: %q is Sona's own add-on; its permissions are part of it", ErrInvalidArgument, id)
 	}
 	if _, ok := s.e.Settings.Get().Addons[id]; !ok {
 		return fmt.Errorf("%w: no add-on %q", ErrNotFoundAddon, id)
@@ -466,6 +609,9 @@ func (s *AddonsService) close() {
 // allowed reports whether the user's grant for id holds permission now: it
 // is read from the settings at every call, never kept.
 func (s *AddonsService) allowed(id, permission string) bool {
+	if addons.IsBundled(id) {
+		return true // Sona's own: the manifest's list is all there is to grant
+	}
 	return slices.Contains(s.e.Settings.Get().Addons[id].Granted, permission)
 }
 
@@ -551,13 +697,13 @@ func (r *addonRunner) run(ctx context.Context, prev *addonRunner) {
 	defer func() { _ = log.Close() }()
 	crashes := 0
 	for ctx.Err() == nil {
-		en := addons.ScanOne(filepath.Join(s.root, r.dir), addons.ScanOptions{})
+		en := s.entryOf(r.id, r.dir)
 		if en.Problem != nil {
 			log.Notef("refused: %s", en.Problem.Code)
 			r.set(AddonInvalid, nil)
 			return
 		}
-		if !covers(s.e.Settings.Get().Addons[r.id].Granted, en.Manifest.Permissions) {
+		if !covers(s.setting(en).Granted, en.Manifest.Permissions) {
 			log.Notef("not started: the manifest asks for a permission that isn't granted")
 			r.set(AddonNeedsApproval, nil)
 			return
@@ -594,18 +740,47 @@ func (r *addonRunner) run(ctx context.Context, prev *addonRunner) {
 // giveUp switches the add-on off after too many crashes and says so.
 func (r *addonRunner) giveUp(name string) {
 	s := r.s
-	if _, err := s.e.updateSettings(func(st *config.Settings) {
-		if a, ok := st.Addons[r.id]; ok {
-			a.Enabled = false
-			st.Addons[r.id] = a
-		}
-	}); err != nil {
+	// A runner that was replaced or removed meanwhile (turned off, begun
+	// again) has no say over the add-on's switch.
+	s.mu.Lock()
+	current := s.runners[r.id] == r
+	s.mu.Unlock()
+	if !current {
+		return
+	}
+	// Crashed first: saving the switch runs reconcile, which leaves a
+	// crashed add-on as it is.
+	r.set(AddonCrashed, nil)
+	if _, err := s.e.updateSettings(func(st *config.Settings) { setEnabled(st, r.id, false) }); err != nil {
 		s.e.Logger.Warn("addons: switch off", "addon", r.id, "err", err)
 	}
 	if s.e.Emit != nil {
 		s.e.Emit.Emit(EventAddonsNotice, AddonNotice{ID: r.id, Name: name, Kind: "crashed"})
 	}
-	r.set(AddonCrashed, nil)
+}
+
+// workDir is the add-on's working directory: its folder, and for one of
+// Sona's own add-ons the folder Sona's executable is installed in.
+func (r *addonRunner) workDir(en addons.Entry) string {
+	if en.Bundled {
+		return filepath.Dir(en.Exe)
+	}
+	return filepath.Join(r.s.root, r.dir)
+}
+
+// setEnabled saves whether add-on id is on. An add-on with no saved entry
+// has none to change, unless it is one of Sona's own, which is on by
+// default and so needs the entry that says it isn't.
+func setEnabled(st *config.Settings, id string, on bool) {
+	a, ok := st.Addons[id]
+	if !ok && !addons.IsBundled(id) {
+		return
+	}
+	if st.Addons == nil {
+		st.Addons = config.Addons{}
+	}
+	a.Enabled = on
+	st.Addons[id] = a
 }
 
 // startFunc starts one run of an add-on, whatever its runtime.
@@ -628,7 +803,7 @@ func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.
 		}
 	} else {
 		spec := addons.Spec{
-			Exe: en.Exe, Dir: filepath.Join(s.root, r.dir), Env: addons.Environment(o.environ(), r.id), Stderr: log,
+			Exe: en.Exe, Args: en.Args, Dir: r.workDir(en), Env: addons.Environment(o.environ(), r.id), Stderr: log,
 		}
 		start = func() (addons.Running, error) { return startProc(spec) }
 	}

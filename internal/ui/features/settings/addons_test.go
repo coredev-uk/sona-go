@@ -256,6 +256,30 @@ func TestTurningAnAddonOnShowsItsPermissionsFirstAndApprovesExactlyThose(t *test
 	r.tt.Until("it runs", r.tt.Shows("Running."))
 }
 
+// Sona's own add-ons (Last.fm, ListenBrainz, Discord) are part of the signed
+// release: turning one on approves nothing, there is no permission to revoke
+// and no version of their own to show.
+func TestSonasOwnAddonsNeedNoApprovalAndHaveNothingToRevoke(t *testing.T) {
+	f := &fakeAddons{infos: []services.AddonInfo{{
+		ID: "discord", Name: "Discord", Version: "1.0.0", Description: "Shows the song you play on your Discord profile.",
+		Permissions: []string{"playback.read"}, Granted: []string{"playback.read"},
+		Bundled: true, Enabled: false, State: services.AddonOff,
+	}}}
+	r := addonsRig(t, f, 1132, 2000)
+	if r.tt.HasText("Version 1.0.0") {
+		t.Error("a bundled add-on shows a version of its own")
+	}
+	if r.tt.HasText("Revoke Playback state · Discord") {
+		t.Error("a bundled add-on's permission can be revoked")
+	}
+	r.tt.MustClick("Turn on Discord")
+	r.tt.Until("the enable", func() bool { return slices.Contains(f.seen(), "enable discord [playback.read]") })
+	if r.tt.HasText("Turn on Discord?") {
+		t.Error("a bundled add-on asked for approval")
+	}
+	r.tt.Until("it runs", r.tt.Shows("Running."))
+}
+
 func announced(ann []string, prefix string) bool {
 	return slices.ContainsFunc(ann, func(s string) bool { return strings.HasPrefix(s, prefix) })
 }
