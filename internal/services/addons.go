@@ -169,6 +169,10 @@ func (s *AddonsService) attach(h cli.AddonHost) {
 
 // start runs the enabled add-ons, after the first paint.
 func (s *AddonsService) start() {
+	// Held until every add-on is begun: reconcile, woken by a settings change
+	// meanwhile, must not begin one of them a second time.
+	s.recMu.Lock()
+	defer s.recMu.Unlock()
 	s.mu.Lock()
 	if s.started || s.closed || !addons.Supported() {
 		s.mu.Unlock()
@@ -230,7 +234,7 @@ func (s *AddonsService) reconcile() {
 		r := s.runners[en.ID]
 		s.mu.Unlock()
 		switch want := s.wanted(en); {
-		case want && (r == nil || r.crashed()):
+		case want && r == nil:
 			s.begin(en)
 			moved = true
 		case !want && r != nil && !r.crashed():
@@ -408,7 +412,14 @@ func (s *AddonsService) Enable(id string, approve []string) error {
 	switch {
 	case !started:
 	case en.Bundled:
-		s.reconcile() // runs it only while it has something to do
+		// Turned on again after crashing: forget the crashed runner, then run
+		// it if it has something to do.
+		s.mu.Lock()
+		if r := s.runners[en.ID]; r != nil && r.crashed() {
+			delete(s.runners, en.ID)
+		}
+		s.mu.Unlock()
+		s.reconcile()
 	default:
 		s.begin(en)
 	}
@@ -729,6 +740,14 @@ func (r *addonRunner) run(ctx context.Context, prev *addonRunner) {
 // giveUp switches the add-on off after too many crashes and says so.
 func (r *addonRunner) giveUp(name string) {
 	s := r.s
+	// A runner that was replaced or removed meanwhile (turned off, begun
+	// again) has no say over the add-on's switch.
+	s.mu.Lock()
+	current := s.runners[r.id] == r
+	s.mu.Unlock()
+	if !current {
+		return
+	}
 	// Crashed first: saving the switch runs reconcile, which leaves a
 	// crashed add-on as it is.
 	r.set(AddonCrashed, nil)

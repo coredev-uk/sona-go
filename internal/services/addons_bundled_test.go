@@ -203,10 +203,8 @@ func TestAddonsBundledCrashedStaysCrashedUntilTurnedOn(t *testing.T) {
 	a.svc.opts.maxCrashes = 3
 	a.useAll(t)
 	a.svc.start()
-	i := a.waitState(t, "lastfm", AddonCrashed)
-	if i.Enabled {
-		t.Errorf("crashed but still enabled: %+v", i)
-	}
+	a.waitState(t, "lastfm", AddonCrashed)
+	waitUntil(t, "the switch to be saved off", func() bool { return !a.info(t, "lastfm").Enabled })
 	if st := a.settings.Get().Addons["lastfm"]; st.Enabled {
 		t.Errorf("settings %+v", st)
 	}
