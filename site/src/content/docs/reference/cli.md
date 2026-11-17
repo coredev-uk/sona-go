@@ -50,7 +50,7 @@ Show or switch them, as the player bar's buttons and Settings → Playback do.
 
 ### `sona status`
 
-Prints the playback state, song, position, volume, shuffle, repeat, crossfade and private listening.
+Prints the playback state, song, position, volume, shuffle, repeat, crossfade and private listening. The text shows `spatial audio: yes` only while the song plays in Spatial Audio.
 
 - `--follow` - keeps printing on every change.
 - `--format` string (optional) - a template for each line ([Status bars](#status-bars)).
@@ -115,6 +115,12 @@ The playing song's place in your library, and your library's lists. Needs an App
 Shows or sets private listening: `sona private [on|off|toggle|status]`. The default is `status`. `SONA_PRIVATE=1` keeps it on. A development build changes it for the session only.
 
 - `--json` - prints `{"on", "source", "saved"}`.
+
+### `sona spatial`
+
+Shows or sets Spatial Audio: `sona spatial [on|off|toggle|status]`. The default is `status`. While it is on, songs with Spatial Audio play as Apple's binaural rendition where Apple allows it, and in stereo otherwise. The setting applies from the next song. It fails on a system where Sona can't play Spatial Audio.
+
+- `--json` - prints `{"on"}`.
 
 ### `sona connect`
 
@@ -186,6 +192,7 @@ The status:
   "repeat": "off",
   "private": true,
   "preview": false,
+  "spatial": false,
   "error": "",
   "liked": true,
   "disliked": false,
@@ -201,7 +208,8 @@ The status:
   600×600 image on Apple's artwork CDN, `""` when there is none.
 - `position`: as of the moment the status was taken.
 - `repeat`: `off`, `all` or `one`. `preview`: the song plays as its
-  30-second preview.
+  30-second preview. `spatial`: the song plays as its Spatial Audio
+  rendition (not the stereo one).
 - `liked`, `disliked`, `inLibrary`: the playing song is a favourite, rated
   Suggest Less, in your library, as the player bar shows it. Sona looks it
   up when the song starts, so they are `false` for a moment; they stay
@@ -221,7 +229,7 @@ albums`: `{"kind": "playlist"|"album", "total": 120, "items": [{"id":
 "p.…", "name", "subtitle", "artwork", "url"}…]}`; `total` counts the whole
 library, `items` the 500 most recently added, `subtitle` an album's artist,
 `url` the link `sona play` takes. `private`: `{"on": true,
-"source": "setting"|"development"|"environment", "saved": false}`. `open`:
+"source": "setting"|"development"|"environment", "saved": false}`. `spatial`: `{"on": true}`. `open`:
 `{"kind": "album", "id": "1441164426", "storefront": "gb"}`.
 
 `lyrics`: `{"track": track, "state": "playing", "position": 83.4,

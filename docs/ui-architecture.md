@@ -468,7 +468,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 *Marks and tooltips*
 
 - `Tooltip(c, anchor, text)` is an ink bubble with an arrow over MyGo's `TooltipBase` (hover or keyboard focus; Escape hides it first). The delay is 400 ms, the `tooltip` motion token set as `Theme.TooltipDelay` by `theme.Apply` (MyGo's default is 0.6 s).
-- `Badge` (six variants, `Interactive` for an anchor), `ExplicitMark`, `Tag`, `PreviewMark`, `SDMark`, `UploadedBadge` (an upload among catalogue songs; `UploadedLabel` adds ", uploaded" to its row's accessible name), `Badges` (Explicit, Apple's audio labels from `TraitLabels`, extras), `Separator`, `Skeleton` (pulses unless motion is reduced).
+- `Badge` (six variants, `Interactive` for an anchor), `ExplicitMark`, `Tag`, `PreviewMark`, `SpatialMark`, `SDMark`, `UploadedBadge` (an upload among catalogue songs; `UploadedLabel` adds ", uploaded" to its row's accessible name), `Badges` (Explicit, Apple's audio labels from `TraitLabels`, extras), `Separator`, `Skeleton` (pulses unless motion is reduced).
 
 *Fields*
 
@@ -999,6 +999,7 @@ The bar is a `Bottom` slot: 72 DIP, `surface`, over a wash of the cover, the tra
 - The cover (`kit.Artwork`, 48 DIP), the title and the line under it.
 - The line under the title is artist · album. Each is a link to its page when that page is ported, and they are independent of each other. The album links to `/album/{id}` without the song marked, since the title's link marks it. In Tab order: artist, then album.
 - The line also carries a live station's marker and what is on air, the sign-in, Widevine and error notices, and the "Preview" mark of a 30-second preview.
+- Beside the title the bar shows the quiet "Spatial" tag (`kit.SpatialMark`: `Tag`, no colour of its own, the tooltip is its description) while `PlaybackState.Spatial` says the item plays as its Spatial Audio rendition. It sits in a clipped wrapper that shrinks a hundred times faster than the title, so it gives way first in a narrow bar and never moves the transport; Now Playing shows it with the other marks.
 - The transport at the centre: the elapsed time, shuffle, previous, the 44 DIP play disc, next, repeat, the length. Then the volume.
 - The seek bar is built after the transport, and the right group (`volumeControls`, out of the flow at the bar's right edge over a spacer of its width) after it. The Tab order follows the build order (out-of-flow elements come after the flow ones): Repeat, Seek, the right group.
 
@@ -1403,7 +1404,7 @@ A master and detail page.
 | Section | Contents |
 | --- | --- |
 | General | Language (offered when a second language is selectable), Starting Sona, Window, While music plays, Updates |
-| Playback | Widevine; Sound (quality, output, Sound Check, Equaliser, Crossfade); Listening (private listening, replacing the queue); Lyrics (sources with order, word timing, translation); Advanced |
+| Playback | Widevine; Sound (quality, output, Sound Check, Spatial Audio, Equaliser, Crossfade); Listening (private listening, replacing the queue); Lyrics (sources with order, word timing, translation); Advanced |
 | Appearance | Theme, Reduce effects, Motion artwork |
 | Connections | Scrobbling (Last.fm authorisation in the browser, ListenBrainz token form, Disconnect) and Discord |
 | Shortcuts | The filter, Reset all and the key recorder |
@@ -1494,7 +1495,7 @@ The setup is `Slots.Layer` (open while `Surfaces.SetupOpen`): a scrim over the w
 | --- | --- |
 | Welcome | |
 | Apple Music | `account.Section`, hosted |
-| Playback | The Widevine block with its download progress and Try again (asks through the shared `kit.RetryCDMWith` and reads "Retrying…" until it returns), then audio quality, Sound Check, crossfade, private listening |
+| Playback | The Widevine block with its download progress and Try again (asks through the shared `kit.RetryCDMWith` and reads "Retrying…" until it returns), then audio quality, Sound Check, Spatial Audio (where `Capabilities.Playback.Spatial`), crossfade, private listening |
 | Connections | Last.fm and ListenBrainz, Discord |
 | Appearance | The theme cards drawn from `theme.TokensFor`, reduce effects, motion artwork |
 | Desktop | Close action, autostart, notifications, keep awake: each only where the platform's capabilities say so, the rest named |

@@ -52,6 +52,8 @@ func listedRow(key string) string {
 		return i18n.T("AutoPlay")
 	case "audio.soundCheck":
 		return i18n.T("Sound Check")
+	case "audio.spatialAudio":
+		return i18n.T("Spatial Audio")
 	case "audio.equalizer":
 		return i18n.T("Equaliser")
 	case "crossfade":

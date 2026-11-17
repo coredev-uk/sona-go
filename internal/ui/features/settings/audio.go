@@ -126,6 +126,22 @@ func (s *settings) soundCheckRow(c *ui.Context, st config.Settings, caps service
 	})
 }
 
+// spatialAudioRow is the Spatial Audio switch.
+func (s *settings) spatialAudioRow(c *ui.Context, st config.Settings, caps services.Capabilities) {
+	title := i18n.T("Spatial Audio")
+	if !caps.Playback.Spatial {
+		s.unavailableRow(c, "spatial-audio", title, "")
+		return
+	}
+	s.switchRow(c, rowOpts{
+		ID:    "spatial-audio",
+		Title: title,
+		Desc:  i18n.T("Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona. Other songs keep playing in stereo. Applies from the next song."),
+	}, st.Audio.SpatialAudio, false, func(on bool) {
+		s.save(func(x *config.Settings) { x.Audio.SpatialAudio = on })
+	})
+}
+
 // equalizerRow is the way to the equaliser: a link where its page exists,
 // otherwise just the state.
 func (s *settings) equalizerRow(c *ui.Context, st config.Settings, caps services.Capabilities) {
@@ -159,5 +175,6 @@ func (s *settings) audioRows(c *ui.Context, st config.Settings, caps services.Ca
 		s.unavailableRow(c, "output", i18n.T("Output"), "")
 	}
 	s.soundCheckRow(c, st, caps)
+	s.spatialAudioRow(c, st, caps)
 	s.equalizerRow(c, st, caps)
 }

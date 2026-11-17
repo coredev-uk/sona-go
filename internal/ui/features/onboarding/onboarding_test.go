@@ -101,7 +101,7 @@ func linuxCaps() services.Capabilities {
 	return services.Capabilities{
 		OS: "linux",
 		Playback: services.PlaybackCapabilities{
-			Available: true, Engine: "cdm", Volume: true, SoundCheck: true, Crossfade: true, PrivateListening: true,
+			Available: true, Engine: "cdm", Volume: true, SoundCheck: true, Spatial: true, Crossfade: true, PrivateListening: true,
 		},
 		Notifications: true, Tray: true, Autostart: true, SleepInhibit: true, PowerState: true, DiscordPresence: true,
 	}

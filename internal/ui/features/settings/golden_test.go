@@ -35,7 +35,8 @@ func TestSettingsGolden(t *testing.T) {
 		{"settings-appearance-accent-narrow-dark", "appearance", "Motion artwork", []uitest.Option{uitest.Dark()}, 940, 1900, "oled", "lime"},
 		{"settings-appearance-accent-wide-light", "appearance", "Motion artwork", nil, 1600, 1700, "sona", "rose"},
 		{"settings-appearance-accent-contrast-narrow-light", "appearance", "Motion artwork", nil, 940, 1900, "contrast", "teal"},
-		{"settings-playback-light", "playback", "Crossfade", nil, 1132, 1253, "", ""},
+		{"settings-playback-light", "playback", "Crossfade", nil, 1132, 1340, "", ""},
+		{"settings-playback-dark", "playback", "Crossfade", []uitest.Option{uitest.Dark()}, 1132, 1340, "", ""},
 		{"settings-general-narrow-dark", "general", "Also show a desktop notification", []uitest.Option{uitest.Dark()}, 707, 1300, "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

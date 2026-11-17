@@ -234,7 +234,7 @@ func TestAddonDocSchemaRefusesWhatItForbids(t *testing.T) {
 	schema, _, _ := docBlocks(t)
 	for name, tc := range map[string]struct{ def, frame string }{
 		"artwork on an Apple API host":          {"NowPlayingEvent", `{"event":"now-playing","data":{"track":{"id":"1","title":"t","artist":"a","album":"b","duration":1,"explicit":false,"artwork":"https://amp-api.music.apple.com/x.jpg"},"startedAt":1}}`},
-		"private flag set":                      {"StatusEvent", `{"event":"status","data":{"running":true,"state":"idle","track":null,"position":0,"volume":1,"shuffle":false,"repeat":"off","private":true,"preview":false,"error":""}}`},
+		"private flag set":                      {"StatusEvent", `{"event":"status","data":{"running":true,"state":"idle","track":null,"position":0,"volume":1,"shuffle":false,"repeat":"off","private":true,"preview":false,"spatial":false,"error":""}}`},
 		"unknown permission":                    {"HelloRequest", `{"id":1,"method":"hello","params":{"id":"demo","protocol":{"min":"2.0","max":"2.0"},"permissions":["root"]}}`},
 		"toast of a script URL":                 {"InvokeResponse", `{"id":1,"result":{"url":"file:///etc/passwd"}}`},
 		"a share link on another host":          {"SearchResponse", `{"id":1,"result":{"term":"x","results":[{"kind":"song","id":"1","name":"n","subtitle":"","explicit":false,"url":"https://evil.example/music.apple.com"}]}}`},
@@ -363,6 +363,7 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 		}}},
 		"volume":  Volume{Volume: 30},
 		"private": Private{On: true, Source: SourceSetting, Saved: true},
+		"spatial": Spatial{On: true},
 		"open":    Opened{Kind: "album", ID: "1", Storefront: "gb"},
 	}
 	a.host.call = func(_ context.Context, req Request) (any, error) {
@@ -373,7 +374,7 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 	}
 	defs := map[string]string{
 		"status": "Status", "play": "Status", "queue": "Queue", "search": "SearchResults", "lyrics": "Lyrics",
-		"like": "Like", "dislike": "Like", "library": "LibraryItems", "volume": "Volume", "private": "Private", "open": "Opened",
+		"like": "Like", "dislike": "Like", "library": "LibraryItems", "volume": "Volume", "private": "Private", "spatial": "Spatial", "open": "Opened",
 	}
 	var raws [][]byte
 	next := func() []byte { raw := a.recvRaw(); raws = append(raws, raw); return raw }
@@ -385,7 +386,7 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 	a.host.hub.Publish(TopicNowPlaying, NowPlaying{Track: &track, StartedAt: 9})
 	a.host.hub.Publish(TopicQueue, results["queue"])
 	id := int64(2)
-	for _, cmd := range []string{"status", "play", "queue", "search", "lyrics", "like", "dislike", "library", "volume", "private", "open"} {
+	for _, cmd := range []string{"status", "play", "queue", "search", "lyrics", "like", "dislike", "library", "volume", "private", "spatial", "open"} {
 		id++
 		args := map[string]string{"search": `["abbey"]`, "open": `["https://music.apple.com/gb/album/n/1"]`, "library": `["playlists"]`}[cmd]
 		if args == "" {

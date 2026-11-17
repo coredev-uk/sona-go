@@ -174,6 +174,12 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 			return err
 		}
 		return writeLine(w, privateLine(p, pv))
+	case "spatial":
+		var sp Spatial
+		if err := decode(raw, &sp); err != nil {
+			return err
+		}
+		return writeLine(w, spatialLine(p, sp))
 	}
 	return writeLine(w, string(raw))
 }

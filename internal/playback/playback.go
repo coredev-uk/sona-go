@@ -41,6 +41,10 @@ type Status struct {
 	// (plain AAC, no DRM, no licence), not the full track. A preview is
 	// not a play: nothing reports it (play activity, history, scrobbles).
 	Preview bool
+	// Spatial: the item plays as its Spatial Audio rendition (Apple's
+	// binaural headphone mix of the Dolby Atmos master), not the stereo
+	// stream.
+	Spatial bool
 	// OnAir is what a live broadcaster says is on air now (its stream's
 	// metadata, as heard: ICY titles, ID3 tags, playlist titles); zero
 	// when it says nothing.

@@ -732,3 +732,34 @@ func TestCommandsWatchSeek(t *testing.T) {
 		}
 	}
 }
+
+// spatialEngine is an engine that reports Spatial Audio.
+type spatialEngine struct{ *pausingEngine }
+
+func (spatialEngine) Capabilities() playback.Capabilities {
+	return playback.Capabilities{Kind: playback.KindCDM, Volume: true, Spatial: true}
+}
+
+func TestSpatialCommand(t *testing.T) {
+	ce := newCommandEnv(t, privatemode.Options{Save: func(bool) error { return nil }})
+	// An engine without Spatial Audio refuses, and saves nothing.
+	if _, err := ce.call(t, "spatial", "on"); err == nil || ce.settings.Get().Audio.SpatialAudio {
+		t.Fatalf("unsupported engine: err %v, saved %v", err, ce.settings.Get().Audio.SpatialAudio)
+	}
+	ce.e.Engine = spatialEngine{ce.eng}
+	for _, tc := range []struct {
+		args []string
+		want bool
+	}{{nil, false}, {[]string{"on"}, true}, {[]string{"status"}, true}, {[]string{"toggle"}, false}, {[]string{"toggle"}, true}, {[]string{"off"}, false}} {
+		res, err := ce.call(t, "spatial", tc.args...)
+		if err != nil {
+			t.Fatalf("spatial %v: %v", tc.args, err)
+		}
+		if got := res.(cli.Spatial).On; got != tc.want || ce.settings.Get().Audio.SpatialAudio != tc.want {
+			t.Errorf("spatial %v: answered %v, saved %v, want %v", tc.args, got, ce.settings.Get().Audio.SpatialAudio, tc.want)
+		}
+	}
+	if _, err := ce.call(t, "spatial", "bogus"); err == nil {
+		t.Error("spatial bogus: no error")
+	}
+}

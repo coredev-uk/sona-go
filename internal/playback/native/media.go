@@ -59,6 +59,10 @@ type media struct {
 	// video: a music video's video rendition (video.go); the fields above
 	// describe its audio rendition, which plays like a song.
 	video *videoTrack
+	// wantSpatial: the Spatial Audio setting when this was prepared; spatial
+	// is set when it plays the song's binaural rendition (spatial.go).
+	wantSpatial bool
+	spatial     *spatialMedia
 }
 
 func (m *media) done() bool {
@@ -70,10 +74,11 @@ func (m *media) done() bool {
 	}
 }
 
-// outdated reports a prepared song of another bitrate than the current
-// setting that the current item is not playing from; with mu held.
+// outdated reports a prepared song of another bitrate or Spatial Audio
+// setting than the current ones that the current item is not playing from;
+// with mu held.
 func (e *Engine) outdated(m *media) bool {
-	return m.stream == nil && m.broadcast == nil && m.quality != e.quality && (e.cur == nil || e.cur.m != m)
+	return m.stream == nil && m.broadcast == nil && (m.quality != e.quality || m.wantSpatial != e.spatial) && (e.cur == nil || e.cur.m != m)
 }
 
 // media returns the prepared item id, preparing it (or waiting for a
@@ -88,7 +93,7 @@ func (e *Engine) media(ctx context.Context, id string, withSeg0 bool) (*media, e
 		}
 		owner := m == nil
 		if owner {
-			m = &media{id: id, quality: e.quality, ready: make(chan struct{})}
+			m = &media{id: id, quality: e.quality, wantSpatial: e.spatial, ready: make(chan struct{})}
 			e.cache[id] = m
 			e.evict()
 		}
@@ -193,6 +198,12 @@ func (e *Engine) prepare(ctx context.Context, m *media) error {
 		return e.prepareStream(ctx, m)
 	}
 	t0 := time.Now()
+	// A catalogue song's traits are looked up while webPlayback answers; a
+	// library song's catalogue ID comes with its answer.
+	var assets *songAssets
+	if m.wantSpatial && !applemusic.IsLibrarySongID(m.id) {
+		assets = e.assetsOf(m.id)
+	}
 	info, err := e.api.WebPlayback(ctx, m.id, m.quality)
 	if err != nil {
 		return err
@@ -201,6 +212,21 @@ func (e *Engine) prepare(ctx context.Context, m *media) error {
 		return e.prepareUpload(ctx, m, info)
 	}
 	tInfo := time.Now()
+	if m.wantSpatial {
+		err := e.prepareSpatial(ctx, m, info, assets)
+		var fb *spatialFallback
+		if !errors.As(err, &fb) {
+			if err == nil {
+				e.log.Info("prepared", "id", m.id, "rendition", m.spatial.rendition, "keys", len(m.spatial.keys), "soundCheckGain", m.gain, "webPlayback", tInfo.Sub(t0), "spatial", time.Since(tInfo))
+			}
+			return err
+		}
+		if fb.quiet {
+			e.log.Debug("spatial audio: playing the stereo stream", "id", m.id, "why", fb)
+		} else {
+			e.log.Info("spatial audio unavailable; playing the stereo stream", "id", m.id, "why", fb)
+		}
+	}
 	body, err := e.fetch(ctx, info.PlaylistURL, hls.ByteRange{})
 	if err != nil {
 		return fmt.Errorf("native: playlist: %w", err)
@@ -460,6 +486,9 @@ func (e *Engine) license(ctx context.Context, m *media, h host, gen int) error {
 	if m.file != nil || m.broadcast != nil {
 		return nil // plain file or clear stream: no licence
 	}
+	if m.spatial != nil {
+		return e.licenseSpatial(ctx, m, h, gen)
+	}
 	if m.stream != nil {
 		return e.streamLicense(ctx, m, m.key, h, gen)
 	}
@@ -534,12 +563,18 @@ func (e *Engine) renew(h host, gen int, ev cdmhost.Event) {
 		lic applemusic.License
 		err error
 	)
-	if m.stream != nil {
+	switch {
+	case m.spatial != nil:
+		var ok bool
+		if lic, ok, err = e.renewSpatial(ctx, m, gen, ev.Session, ev.Data); !ok {
+			return
+		}
+	case m.stream != nil:
 		if m.sessionKeys[ev.Session] == nil || m.keyGen != gen {
 			return
 		}
 		lic, err = e.renewStream(ctx, m, ev.Session, ev.Data)
-	} else {
+	default:
 		video := m.video != nil && m.video.session == ev.Session
 		switch {
 		case video && m.video.sessionGen == gen:
@@ -557,7 +592,7 @@ func (e *Engine) renew(h host, gen int, ev cdmhost.Event) {
 		})
 	}
 	if err == nil {
-		if lic.SlotToken != "" {
+		if lic.SlotToken != "" && m.spatial == nil {
 			if m.video != nil && m.video.session == ev.Session {
 				m.video.slotToken = lic.SlotToken
 			} else {
@@ -609,7 +644,8 @@ func readAhead(ctx context.Context, n, from, to int, get func(i int) ([]byte, er
 // feed streams m's segments from index from to the host for track tok,
 // fetching up to readAhead segments ahead.
 func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *media, from int) {
-	for r := range readAhead(ctx, e.readAhead, from, len(m.pl.Segments), func(i int) ([]byte, error) { return e.segment(ctx, m, i) }) {
+	i := from
+	for r := range readAhead(ctx, e.readAhead, from, len(m.pl.Segments), func(n int) ([]byte, error) { return e.segment(ctx, m, n) }) {
 		err := r.err
 		switch {
 		case err != nil:
@@ -618,6 +654,11 @@ func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *medi
 			// (the playlist's is the one), and its timestamps start at
 			// an offset.
 			err = h.FeedStream(ctx, tok, cdmhost.StreamFragment{Data: r.data, KID: m.key.KID, Shift: m.video.offset})
+		case m.spatial != nil:
+			// The binaural init segment's default key ID is zero, and
+			// the key changes after the first segment: each segment is
+			// decrypted with its own playlist key's.
+			err = h.FeedStream(ctx, tok, cdmhost.StreamFragment{Data: r.data, KID: m.pl.Segments[i].Key.KID})
 		default:
 			err = h.Feed(ctx, tok, r.data)
 		}
@@ -625,6 +666,7 @@ func (e *Engine) feed(ctx context.Context, it *item, tok uint64, h host, m *medi
 			e.feedFailed(ctx, it, err)
 			return
 		}
+		i++
 	}
 	if ctx.Err() == nil {
 		if err := h.EndOfTrack(ctx, tok); err != nil {

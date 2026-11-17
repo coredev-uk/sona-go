@@ -14,11 +14,12 @@ type audioEngine interface {
 	SetEqualizer(ctx context.Context, eq equalizer.Curve) error
 	SetOutputDevice(ctx context.Context, device string) error
 	SetSoundCheck(ctx context.Context, on bool) error
+	SetSpatial(on bool)
 	SetCrossfade(d time.Duration)
 	OutputDevices() ([]playback.OutputDevice, error)
 }
 
-// AudioService is the equaliser, Sound Check and the output device, and
+// AudioService is the equaliser, Sound Check, Spatial Audio and the output device, and
 // the crossfade between tracks. The settings (config.Audio,
 // config.Crossfade, saved through SystemService.UpdateSettings) are
 // applied to the engine at start and whenever they change.
@@ -38,6 +39,7 @@ func newAudioService(e *Env) *AudioService {
 	s.apply("equalizer", s.eng.SetEqualizer(ctx, hostEqualizer(cur.Equalizer)))
 	s.apply("output device", s.eng.SetOutputDevice(ctx, cur.OutputDevice))
 	s.apply("sound check", s.eng.SetSoundCheck(ctx, cur.SoundCheck))
+	s.eng.SetSpatial(cur.SpatialAudio)
 	s.eng.SetCrossfade(crossfade(e.Settings.Get().Crossfade))
 	e.Settings.OnChange(func(prev, next config.Settings) {
 		if prev.Crossfade != next.Crossfade {
@@ -54,6 +56,9 @@ func newAudioService(e *Env) *AudioService {
 		}
 		if p.SoundCheck != n.SoundCheck {
 			s.apply("sound check", s.eng.SetSoundCheck(ctx, n.SoundCheck))
+		}
+		if p.SpatialAudio != n.SpatialAudio {
+			s.eng.SetSpatial(n.SpatialAudio)
 		}
 	})
 	return s

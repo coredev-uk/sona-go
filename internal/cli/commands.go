@@ -186,6 +186,10 @@ var commands = []*command{
 		summary: msgPrivateSummary, help: msgPrivateHelp, maxArgs: 1, flags: []flag{flagJSON},
 	},
 	{
+		name: "spatial", args: "[on|off|toggle|status]", argHelp: msgArgSwitch, choices: switches,
+		summary: msgSpatialSummary, help: msgSpatialHelp, maxArgs: 1, flags: []flag{flagJSON},
+	},
+	{
 		name: "addons", args: "dev <folder>", argName: "verb", argHelp: msgArgAddonVerb,
 		summary: msgAddonsSummary, help: msgAddonsHelp, choices: []string{addonsDev}, minArgs: 1, maxArgs: 3,
 		ownerOnly: true, timeout: devAskTimeout, check: checkAddons,

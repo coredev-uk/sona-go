@@ -26,6 +26,8 @@ type Status struct {
 	Private bool `json:"private"`
 	// Preview: Track plays as its 30-second preview.
 	Preview bool `json:"preview"`
+	// Spatial: Track plays as its Spatial Audio rendition.
+	Spatial bool `json:"spatial"`
 	// Error describes the latest playback failure; "" when none.
 	Error string `json:"error"`
 	// Liked, Disliked and InLibrary are the playing song's state: a
@@ -138,6 +140,12 @@ type Private struct {
 	Source string `json:"source"`
 	// Saved is the saved setting.
 	Saved bool `json:"saved"`
+}
+
+// Spatial is `sona spatial`: the Spatial Audio setting, which applies from
+// the next song.
+type Spatial struct {
+	On bool `json:"on"`
 }
 
 // Opened is `sona open`: what the link opened.

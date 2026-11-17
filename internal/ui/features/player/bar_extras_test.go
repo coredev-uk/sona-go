@@ -530,6 +530,50 @@ func TestBarChooserGolden(t *testing.T) {
 	}
 }
 
+// The Spatial badge shows only while the current item plays as its Spatial
+// Audio rendition, and says what it means to assistive technology.
+func TestBarSpatialBadgeFollowsTheState(t *testing.T) {
+	r := newRig(t, true)
+	if r.tt.HasText("Spatial") {
+		t.Fatalf("the badge shows for a stereo song: %q", r.tt.Texts())
+	}
+	r.seed(func(s *services.PlaybackState) { s.Spatial = true })
+	if !r.tt.HasText("Spatial") {
+		t.Fatalf("no badge for a spatial song: %q", r.tt.Texts())
+	}
+	if n, ok := access.Read(t, r.tt.Tester).Find(ui.RoleText, "Spatial"); !ok || n.Description == "" {
+		t.Errorf("the badge has no description: %+v", n)
+	}
+	r.seed(func(s *services.PlaybackState) { s.Spatial = false })
+	if r.tt.HasText("Spatial") {
+		t.Fatalf("the badge stays after the song stops being spatial: %q", r.tt.Texts())
+	}
+}
+
+// The bar with the badge beside the title, light and dark.
+func TestBarSpatialGolden(t *testing.T) {
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		opts []uitest.Option
+	}{
+		{"player-spatial-light", nil},
+		{"player-spatial-dark", []uitest.Option{uitest.Dark()}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newRigOptions(t, true, 1132, nil, tc.opts...)
+			r.seed(func(s *services.PlaybackState) {
+				s.State = store.StatePaused
+				s.Spatial = true
+			})
+			r.tt.Pump(8, 50*time.Millisecond)
+			uitest.Golden(t, r.tt.Image(), tc.name)
+		})
+	}
+}
+
 // The artist and the album give way to each other (each ellipsised) but the
 // " · " between them never does: it keeps its whole width, with its spaces,
 // between the two, whether the artist is a link or a chooser, at the bar's
