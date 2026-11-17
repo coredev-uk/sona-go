@@ -20,6 +20,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -747,11 +748,15 @@ func (c *Cache) fetch(ctx context.Context, u string) ([]byte, image.Config, erro
 	req.Header.Set("User-Agent", c.ua)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, image.Config{}, fmt.Errorf("artwork: fetch: %w", err)
+		var ue *url.Error // its text holds the whole URL, signature and all
+		if errors.As(err, &ue) {
+			err = ue.Err
+		}
+		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %w", shown(req.URL), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %s", req.URL.Redacted(), resp.Status)
+		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %s", shown(req.URL), resp.Status)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxSourceBytes+1))
 	if err != nil {
@@ -762,9 +767,9 @@ func (c *Cache) fetch(ctx context.Context, u string) ([]byte, image.Config, erro
 	}
 	cfg, err := decodeConfig(data)
 	if err != nil {
-		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %w", req.URL.Redacted(), err)
+		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %w", shown(req.URL), err)
 	}
-	c.log.Debug("artwork: fetched", "url", req.URL.Redacted(), "bytes", len(data))
+	c.log.Debug("artwork: fetched", "url", shown(req.URL), "bytes", len(data))
 	return data, cfg, nil
 }
 
