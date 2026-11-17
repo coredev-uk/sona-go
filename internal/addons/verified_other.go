@@ -11,8 +11,6 @@ import (
 // checked: `sona addons dev` needs it and refuses to run there.
 const CanRunVerified = false
 
-const runFD = ""
-
 // OpenVerified is not available here.
 func OpenVerified(dir, exe string) (*os.File, error) {
 	return nil, errors.ErrUnsupported

@@ -362,15 +362,24 @@ func (r *addonRunner) runDev(ctx context.Context, en addons.Entry, prog devProgr
 	declared := en.Manifest.Permissions
 	var start startFunc
 	if en.Manifest.Wasm() {
-		// A development run gets no data folder: it gets none of your data.
-		start = func() (addons.Running, error) { return s.startWasm(en.ID, prog.module, log) }
+		// A development run of a module gets no data folder: it gets none of your data.
+		start = func() (addons.Running, error) { return s.startWasm(en.ID, prog.module, "", log) }
 	} else {
-		spec := addons.Spec{
-			Exe: en.Exe, ExeFile: prog.file, Dir: run.dir, Env: addons.Environment(o.environ(), r.id), Stderr: log,
+		data := s.e.Paths.AddonDataDir(r.id)
+		if err := addons.EnsureData(data); err != nil {
+			s.e.Logger.Warn("addons: dev data folder", "addon", r.id, "err", err)
+			log.Notef("could not make its data folder")
+			return
 		}
-		start = func() (addons.Running, error) { return startProc(spec) }
+		// The same sandbox as an installed add-on's, with the permissions the
+		// person confirmed for this run.
+		spec := addons.Spec{
+			ID: r.id, Exe: en.Exe, ExeFile: prog.file, Dir: run.dir, Data: data, Network: slices.Contains(declared, cli.PermNetwork),
+			Env: addons.Environment(o.environ(), r.id, data), Stderr: log,
+		}
+		start = func() (addons.Running, error) { return s.startProc(spec, log) }
 	}
-	r.serve(ctx, en, log, start, newAddonOwn(s, en.Manifest, true), func(p string) bool { return slices.Contains(declared, p) })
+	_ = r.serve(ctx, en, log, start, newAddonOwn(s, en.Manifest, true), func(p string) bool { return slices.Contains(declared, p) })
 }
 
 // DevLog is a run's lines since line next (the client's poll). Asking keeps

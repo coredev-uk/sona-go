@@ -380,8 +380,8 @@ msgid "Amber"
 msgstr "Amber"
 
 #: internal/ui/features/settings/addons.go
-msgid "An add-on is a program that runs with your rights. Permissions limit what Sona gives it, not what the program can do: it can read your files and use the network. Turn on only add-ons you trust."
-msgstr "An add-on is a program that runs with your rights. Permissions limit what Sona gives it, not what the program can do: it can read your files and use the network. Turn on only add-ons you trust."
+msgid "An add-on is a program that runs beside Sona in a sandbox: it reads only its own folder, writes only its own data folder and has no network unless you allow it to reach the internet. What you approve is what Sona gives it. Turn on only add-ons you trust."
+msgstr "An add-on is a program that runs beside Sona in a sandbox: it reads only its own folder, writes only its own data folder and has no network unless you allow it to reach the internet. What you approve is what Sona gives it. Turn on only add-ons you trust."
 
 #: internal/ui/features/settings/linkhandler.go
 msgid "Another app opens them now."
@@ -3112,6 +3112,34 @@ msgstr "It couldn't be found. It may have been removed."
 msgid "It didn't answer in time."
 msgstr "It didn't answer in time."
 
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: Sona couldn't set up its sandbox, and never runs an add-on without it. The add-on's log has the details."
+msgstr "It doesn't run: Sona couldn't set up its sandbox, and never runs an add-on without it. The add-on's log has the details."
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: Windows couldn't create the AppContainer that sandboxes it. Sona never runs an add-on without the sandbox."
+msgstr "It doesn't run: Windows couldn't create the AppContainer that sandboxes it. Sona never runs an add-on without the sandbox."
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: macOS's sandbox tool is missing or refused Sona's rules. Sona never runs an add-on without the sandbox."
+msgstr "It doesn't run: macOS's sandbox tool is missing or refused Sona's rules. Sona never runs an add-on without the sandbox."
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: the sandbox's system-call filter can't be set up on this computer. Sona never runs an add-on without the sandbox."
+msgstr "It doesn't run: the sandbox's system-call filter can't be set up on this computer. Sona never runs an add-on without the sandbox."
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. Sona never runs an add-on without the sandbox."
+msgstr "It doesn't run: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. Sona never runs an add-on without the sandbox."
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. Sona never runs an add-on without the sandbox."
+msgstr "It doesn't run: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. Sona never runs an add-on without the sandbox."
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: this system has no sandbox for add-ons, and Sona never runs an add-on without it."
+msgstr "It doesn't run: this system has no sandbox for add-ons, and Sona never runs an add-on without it."
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "It has no network or mount namespace of its own, because unprivileged user namespaces are blocked."
 msgstr "It has no network or mount namespace of its own, because unprivileged user namespaces are blocked."
@@ -3132,17 +3160,17 @@ msgstr "It isn't running."
 msgid "It needs a light variant, a dark variant or both"
 msgstr "It needs a light variant, a dark variant or both"
 
+#: internal/ui/features/settings/addons.go
+msgid "It runs in a sandbox: it reads only its own folder, writes only its own data folder and reaches the internet only if you approve that."
+msgstr "It runs in a sandbox: it reads only its own folder, writes only its own data folder and reaches the internet only if you approve that."
+
 #: internal/ui/features/addons/addons.go
-msgid "It runs from the folder {dir} and asks for these permissions: {permissions}. It runs with your rights until you stop it in the terminal or quit Sona, and nothing is saved."
-msgstr "It runs from the folder {dir} and asks for these permissions: {permissions}. It runs with your rights until you stop it in the terminal or quit Sona, and nothing is saved."
+msgid "It runs in the sandbox from the folder {dir} and asks for these permissions: {permissions}. It runs until you stop it in the terminal or quit Sona, and nothing is saved."
+msgstr "It runs in the sandbox from the folder {dir} and asks for these permissions: {permissions}. It runs until you stop it in the terminal or quit Sona, and nothing is saved."
 
 #: internal/ui/features/settings/addons.go
-msgid "It runs inside Sona as a WebAssembly module. It can't read your files or reach the network: permissions limit what Sona gives it."
-msgstr "It runs inside Sona as a WebAssembly module. It can't read your files or reach the network: permissions limit what Sona gives it."
-
-#: internal/ui/features/settings/addons.go
-msgid "It runs with your rights: permissions limit what Sona gives it, not what it can do."
-msgstr "It runs with your rights: permissions limit what Sona gives it, not what it can do."
+msgid "It runs inside Sona as a WebAssembly module. It can use only its own data folder and can't reach the network: permissions limit what Sona gives it."
+msgstr "It runs inside Sona as a WebAssembly module. It can use only its own data folder and can't reach the network: permissions limit what Sona gives it."
 
 #: internal/ui/features/settings/addons.go
 msgid "It stopped on its own. Sona starts it again in a moment."
@@ -8049,12 +8077,12 @@ msgid "Welcome to Sona"
 msgstr "Welcome to Sona"
 
 #: internal/ui/features/settings/addons.go
-msgid "What Sona lets it do. It can't read your files or reach the network either way."
-msgstr "What Sona lets it do. It can't read your files or reach the network either way."
+msgid "What Sona lets it do. It can use only its own data folder and can't reach the network either way."
+msgstr "What Sona lets it do. It can use only its own data folder and can't reach the network either way."
 
 #: internal/ui/features/settings/addons.go
-msgid "What Sona lets it do. It runs with your rights either way."
-msgstr "What Sona lets it do. It runs with your rights either way."
+msgid "What Sona lets it do. The sandbox holds it either way."
+msgstr "What Sona lets it do. The sandbox holds it either way."
 
 #: internal/ui/features/onboarding/welcome.go
 msgid "What Whole Songs Need"

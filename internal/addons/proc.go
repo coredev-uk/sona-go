@@ -4,13 +4,19 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"sync"
 	"time"
+
+	"github.com/coredev-uk/sona-go/internal/addons/sandbox"
 )
 
-// Spec is how to run one add-on.
+// Spec is how to run one native add-on. The process is always confined by the OS
+// (package sandbox): what it may reach is the fields below, nothing else of
+// the user's system. Start fails, and runs nothing, where the system can't
+// confine it.
 type Spec struct {
+	// ID is the add-on's ID.
+	ID string
 	// Exe is the absolute path Entry.Exe gives; it is run as it is.
 	Exe string
 	// Args are the program's arguments after its name. Only Sona's own
@@ -21,16 +27,23 @@ type Spec struct {
 	// path (OpenVerified): the file that was checked is the file that runs,
 	// whatever happens to the path meanwhile. Exe then only names it.
 	ExeFile *os.File
-	// Dir is the working directory: the add-on's folder.
+	// Dir is the add-on's folder: the working directory, readable, never
+	// writable.
 	Dir string
-	Env []string
+	// Data is the add-on's private folder (SONA_ADDON_DATA), the one place
+	// it can write; EnsureData made it.
+	Data string
+	// Network is whether the add-on has the network: its manifest asks for
+	// the `network` permission and the user approved it.
+	Network bool
+	// Read are more folders it may read, and Sockets Unix sockets of the
+	// user's it may connect to. Only code sets them, for a bundled add-on:
+	// a manifest cannot.
+	Read, Sockets []string
+	Env           []string
 	// Stderr receives the add-on's standard error (its log).
 	Stderr io.Writer
 }
-
-// waitDelay bounds the wait for the add-on's standard error to close after
-// it exits: a grandchild that kept the pipe open must not hold Wait.
-const waitDelay = 2 * time.Second
 
 // Running is a started add-on of either runtime: a process (Proc) or a
 // WebAssembly module (WasmProc). The supervisor serves the session over its
@@ -57,70 +70,35 @@ type Running interface {
 // Proc is a running add-on. Its standard input and output are the protocol
 // channel (Conn).
 type Proc struct {
-	cmd  *exec.Cmd
-	in   *os.File // the add-on's standard input, our end
-	out  *os.File // the add-on's standard output, our end
-	grp  *group
-	done chan struct{}
-	err  error
+	child *sandbox.Child
 
 	closeOnce sync.Once
 }
 
-// Start runs the add-on in a process group of its own (a job object on
-// Windows) that the OS ends with Sona where it can: children die when Sona
-// quits or crashes. Callers run Start and Wait in a goroutine locked to its
-// OS thread (runtime.LockOSThread), as Linux's parent-death signal is tied
-// to the thread that started the process.
+// Start runs the add-on confined, in a process group of its own (a job object
+// on Windows) that the OS ends with Sona where it can: children die when Sona
+// quits or crashes. Callers run Start in a goroutine locked to its OS thread
+// (runtime.LockOSThread) for as long as the add-on runs, as Linux's
+// parent-death signal is tied to the thread that started the process.
+//
+// A *sandbox.Error (SandboxReason) says the sandbox could not be set up; the
+// add-on was not started.
 func Start(spec Spec) (*Proc, error) {
-	// The channel: two pipes; the add-on's ends are closed here once it runs.
-	inR, inW, err := os.Pipe()
+	c, err := sandbox.Start(sandbox.Spec{
+		Policy: sandbox.Policy{
+			Network: spec.Network, Dir: spec.Dir, Data: spec.Data, Read: spec.Read, Sockets: spec.Sockets,
+		},
+		ID: spec.ID, Exe: spec.Exe, ExeFile: spec.ExeFile, Args: spec.Args, Env: spec.Env, Stderr: spec.Stderr,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("addons: pipe: %w", err)
-	}
-	outR, outW, err := os.Pipe()
-	if err != nil {
-		_ = inR.Close()
-		_ = inW.Close()
-		return nil, fmt.Errorf("addons: pipe: %w", err)
-	}
-	// Run exactly Exe: exec.Command would look a bare name up in PATH or the
-	// working directory. Exe is absolute and already resolved.
-	cmd := &exec.Cmd{Path: spec.Exe, Args: append([]string{spec.Exe}, spec.Args...), Dir: spec.Dir, Env: spec.Env}
-	if spec.ExeFile != nil {
-		// The child's first extra file is its descriptor 3: run that open
-		// file, not the path.
-		cmd.Path = runFD
-		cmd.ExtraFiles = []*os.File{spec.ExeFile}
-	}
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = inR, outW, spec.Stderr
-	cmd.WaitDelay = waitDelay
-	cmd.SysProcAttr = sysProcAttr()
-	if err := cmd.Start(); err != nil {
-		for _, f := range []*os.File{inR, inW, outR, outW} {
-			_ = f.Close()
-		}
-		return nil, fmt.Errorf("addons: start: %w", err)
-	}
-	_ = inR.Close()
-	_ = outW.Close()
-	p := &Proc{cmd: cmd, in: inW, out: outR, done: make(chan struct{})}
-	p.grp, err = joinGroup(cmd)
-	if err != nil {
-		// Not in its group, it could outlive Sona: stop it rather than run it.
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
-		_ = inW.Close()
-		_ = outR.Close()
 		return nil, err
 	}
-	go func() {
-		p.err = cmd.Wait()
-		p.grp.release()
-		close(p.done)
-	}()
-	return p, nil
+	return &Proc{child: c}, nil
 }
+
+// Notes are what the sandbox could not do and runs without, for the add-on's
+// log; empty when it is complete.
+func (p *Proc) Notes() []string { return p.child.Notes }
 
 // Conn is the channel as one io.ReadWriteCloser for cli.Session.Serve:
 // reads the add-on's standard output, writes its standard input, and Close
@@ -129,27 +107,24 @@ func (p *Proc) Conn() io.ReadWriteCloser { return procConn{p} }
 
 type procConn struct{ p *Proc }
 
-func (c procConn) Read(b []byte) (int, error)  { return c.p.out.Read(b) }
-func (c procConn) Write(b []byte) (int, error) { return c.p.in.Write(b) }
+func (c procConn) Read(b []byte) (int, error)  { return c.p.child.Out.Read(b) }
+func (c procConn) Write(b []byte) (int, error) { return c.p.child.In.Write(b) }
 func (c procConn) Close() error {
 	c.p.closeOnce.Do(func() {
-		_ = c.p.in.Close()
-		_ = c.p.out.Close()
+		_ = c.p.child.In.Close()
+		_ = c.p.child.Out.Close()
 	})
 	return nil
 }
 
 // Done is closed when the process has exited and been reaped.
-func (p *Proc) Done() <-chan struct{} { return p.done }
+func (p *Proc) Done() <-chan struct{} { return p.child.Done() }
 
 // Err is the exit status once Done is closed: nil for a clean exit.
-func (p *Proc) Err() error {
-	<-p.done
-	return p.err
-}
+func (p *Proc) Err() error { return p.child.Err() }
 
 // Pid is the process ID.
-func (p *Proc) Pid() int { return p.cmd.Process.Pid }
+func (p *Proc) Pid() int { return p.child.Pid() }
 
 // Where is the process ID, for the log.
 func (p *Proc) Where() string { return fmt.Sprintf("pid %d", p.Pid()) }
@@ -166,10 +141,10 @@ func (p *Proc) Ready() <-chan struct{} { return ready }
 
 // Terminate asks the add-on and its children to stop: SIGTERM to the group
 // on Unix; nothing on Windows, where closing the channel is the request.
-func (p *Proc) Terminate() { p.grp.terminate(p.cmd) }
+func (p *Proc) Terminate() { p.child.Terminate() }
 
 // Kill ends the add-on and every process in its group or job now.
-func (p *Proc) Kill() { p.grp.kill(p.cmd) }
+func (p *Proc) Kill() { p.child.Kill() }
 
 // Stop ends the add-on: its channel closes (end of input) and it is given
 // grace to leave; then it and its children are asked to stop, given grace
@@ -182,14 +157,14 @@ func (p *Proc) Stop(grace time.Duration) {
 	}
 	// The leader may be gone while a child lives on: kill the group either way.
 	p.Kill()
-	<-p.done
+	<-p.child.Done()
 }
 
 func (p *Proc) wait(d time.Duration) bool {
 	t := time.NewTimer(d)
 	defer t.Stop()
 	select {
-	case <-p.done:
+	case <-p.child.Done():
 		return true
 	case <-t.C:
 		return false

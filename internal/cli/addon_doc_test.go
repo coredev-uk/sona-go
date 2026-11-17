@@ -329,8 +329,8 @@ func TestAddonDocCoversTheCode(t *testing.T) {
 	if !strings.Contains(text, "never more than 30") || MaxInvokeDeadline != 30*time.Second || DefaultInvokeDeadline != 10*time.Second {
 		t.Error("the invoke deadlines moved; update the page")
 	}
-	if !strings.Contains(text, "Permissions are advisory until the OS sandbox (#304) lands") {
-		t.Error("the page must say permissions are advisory")
+	if !strings.Contains(text, "Every native add-on runs in an OS sandbox.") || strings.Contains(text, "advisory until") {
+		t.Error("the page must say every native add-on runs in the OS sandbox")
 	}
 }
 

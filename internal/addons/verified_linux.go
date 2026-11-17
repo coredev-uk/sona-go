@@ -14,9 +14,6 @@ import (
 // file that was checked: Linux, through /proc/self/fd.
 const CanRunVerified = true
 
-// runFD is the path of the child's descriptor 3 (Spec.ExeFile).
-const runFD = "/proc/self/fd/3"
-
 // OpenVerified opens exe once and checks the open file, not the path: it is
 // a regular file the user owns that group and others can't write, it has an
 // execute bit, and the place the descriptor stands for is inside dir (which

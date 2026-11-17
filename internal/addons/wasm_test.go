@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/addons/sandbox"
 	"github.com/coredev-uk/sona-go/internal/addons/wasmtest"
 )
 
@@ -71,7 +72,13 @@ func runWasm(t *testing.T, h *WasmHost, env []string, data string) (*WasmProc, *
 // seconds under the race detector), so it is done once.
 var sharedCache string
 
+// The test binary is also an add-on's sandbox init (sandbox.Main), and the
+// supervisor's process handling is what the native tests are about, on any
+// system: their scripts run without the sandbox (internal/addons/sandbox's tests
+// cover that).
 func TestMain(m *testing.M) {
+	sandbox.Main()
+	_ = os.Setenv(sandbox.EnvUnsandboxed, "1")
 	dir, err := os.MkdirTemp("", "sona-wasm-cache")
 	if err != nil {
 		panic(err)

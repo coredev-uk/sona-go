@@ -186,6 +186,26 @@ func addonProblemText(code string) string {
 	return i18n.T("Sona won't run it.")
 }
 
+// sandboxText says why the OS sandbox can't be set up, so that the add-on does
+// not run. Sona never runs one without it.
+func sandboxText(code string) string {
+	switch code {
+	case addons.SandboxUserNamespaceRestricted:
+		return i18n.T("It doesn't run: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxNoUserNamespace:
+		return i18n.T("It doesn't run: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxNoSeccomp:
+		return i18n.T("It doesn't run: the sandbox's system-call filter can't be set up on this computer. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxNoSeatbelt:
+		return i18n.T("It doesn't run: macOS's sandbox tool is missing or refused Sona's rules. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxNoAppContainer:
+		return i18n.T("It doesn't run: Windows couldn't create the AppContainer that sandboxes it. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxUnsupported:
+		return i18n.T("It doesn't run: this system has no sandbox for add-ons, and Sona never runs an add-on without it.")
+	}
+	return i18n.T("It doesn't run: Sona couldn't set up its sandbox, and never runs an add-on without it. The add-on's log has the details.")
+}
+
 // addonStatus is one sentence on where an add-on is.
 func addonStatus(a services.AddonInfo) string {
 	switch a.State {
@@ -203,6 +223,8 @@ func addonStatus(a services.AddonInfo) string {
 		return i18n.T("Waiting for you: it asks for a permission you haven't approved. It doesn't run until you do.")
 	case services.AddonInvalid:
 		return addonProblemText(a.Problem)
+	case services.AddonNoSandbox:
+		return sandboxText(a.Sandbox)
 	}
 	return i18n.T("Off. It isn't running.")
 }
@@ -261,10 +283,10 @@ func rowsOf(list []services.AddonContribution, id string) []services.AddonRow {
 }
 
 // addonsTrustNote says, before anything else, what an add-on is: a program
-// run with your rights. Permissions are advisory until the OS sandbox (#304).
+// Sona runs in a sandbox, which still deserves trust.
 func (s *settings) addonsTrustNote(c *ui.Context) {
 	c = c.Key("trust")
-	msg := i18n.T("An add-on is a program that runs with your rights. Permissions limit what Sona gives it, not what the program can do: it can read your files and use the network. Turn on only add-ons you trust.")
+	msg := i18n.T("An add-on is a program that runs beside Sona in a sandbox: it reads only its own folder, writes only its own data folder and has no network unless you allow it to reach the internet. What you approve is what Sona gives it. Turn on only add-ons you trust.")
 	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Start).Padding(12, 16).Margin(rowPadY, 0, 0, 0).Radius(theme.Current().Radius["lg"]).
 		Background(theme.C("raised")).Border(1, theme.C("control-line")).Role(ui.RoleGroup).Label(msg).Children(func() {
 		ui.Icon(c.Key("i"), theme.Icon("shield-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
@@ -404,9 +426,9 @@ func (s *settings) addonApproval(c *ui.Context, u *addonsUI, a services.AddonInf
 			theme.Text(c, i18n.T("It asks for these permissions:"), "secondary").TextColor(theme.C("ink-muted"))
 			s.permissionList(c, name, a.Permissions, nil)
 		}
-		note := i18n.T("It runs with your rights: permissions limit what Sona gives it, not what it can do.")
+		note := i18n.T("It runs in a sandbox: it reads only its own folder, writes only its own data folder and reaches the internet only if you approve that.")
 		if a.Runtime == addons.RuntimeWasm {
-			note = i18n.T("It runs inside Sona as a WebAssembly module. It can't read your files or reach the network: permissions limit what Sona gives it.")
+			note = i18n.T("It runs inside Sona as a WebAssembly module. It can use only its own data folder and can't reach the network: permissions limit what Sona gives it.")
 		}
 		theme.Text(c, note, "secondary").
 			TextColor(theme.C("ink-muted")).MaxWidth(rowTextWidth)
@@ -465,9 +487,9 @@ func (s *settings) permissionList(c *ui.Context, addon string, asked []string, g
 // very next call).
 func (s *settings) addonPermissions(c *ui.Context, u *addonsUI, a services.AddonInfo, name string) {
 	id := "addon:" + a.ID + ":permissions"
-	desc := i18n.T("What Sona lets it do. It runs with your rights either way.")
+	desc := i18n.T("What Sona lets it do. The sandbox holds it either way.")
 	if a.Runtime == addons.RuntimeWasm {
-		desc = i18n.T("What Sona lets it do. It can't read your files or reach the network either way.")
+		desc = i18n.T("What Sona lets it do. It can use only its own data folder and can't reach the network either way.")
 	}
 	s.row(c, rowOpts{ID: id, Title: i18n.T("Permissions"), Desc: desc, Stacked: true}, func() ui.Element {
 		if len(a.Permissions) == 0 {

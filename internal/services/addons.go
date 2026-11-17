@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/addons"
+	"github.com/coredev-uk/sona-go/internal/addons/sandbox"
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/discord"
@@ -32,8 +33,11 @@ import (
 // waiting for an add-on, except Invoke, which waits at most its deadline,
 // so the UI calls it off its thread.
 //
-// Until the OS sandbox (#304) permissions are advisory: an add-on runs with
-// the user's rights.
+// Every add-on runs in the OS sandbox (internal/addons/sandbox): it reaches its
+// own folder, a private data folder and, with the `network` permission, the
+// network, and nothing else of the user's system. Where the system can't set
+// the sandbox up the add-on does not run (AddonNoSandbox): there is no way to
+// run one without it.
 type AddonsService struct {
 	e    *Env
 	host cli.AddonHost
@@ -89,6 +93,9 @@ type addonOptions struct {
 	// exe is Sona's own executable, with links resolved: the program of its
 	// bundled add-ons ("" when it can't be told).
 	exe string
+	// start runs an add-on; addons.Start, replaced in tests (to fail as a
+	// system without the sandbox does).
+	start func(addons.Spec) (*addons.Proc, error)
 	// devAsk is how long `addons dev` waits for the person to confirm in
 	// Sona's window; devLease how long a run lives without its client asking
 	// for the log (a killed terminal).
@@ -106,6 +113,7 @@ func defaultAddonOptions() addonOptions {
 		wasm:         addons.DefaultWasmLimits(),
 		verified:     addons.CanRunVerified,
 		exe:          selfExecutable(),
+		start:        addons.Start,
 		devAsk:       60 * time.Second,
 		devLease:     15 * time.Second,
 	}
@@ -345,6 +353,7 @@ func (s *AddonsService) List() []AddonInfo {
 			info.State = AddonNeedsApproval
 		case r != nil:
 			info.State, info.Restarts = r.snapshot()
+			info.Sandbox = r.sandboxReason()
 		default:
 			info.State = AddonStarting // enabled, the network not open yet
 		}
@@ -449,7 +458,8 @@ func (s *AddonsService) Disable(id string) error {
 
 // Revoke takes one permission back. The add-on's very next call or event
 // needing it is refused (the grant is read each time), and without it the add-on
-// needs approval before it runs again.
+// needs approval before it runs again. Revoking `network` also stops the add-on:
+// its network is the sandbox's, fixed when the process starts.
 func (s *AddonsService) Revoke(id, permission string) error {
 	if !cli.KnownPermission(permission) {
 		return fmt.Errorf("%w: unknown permission %q", ErrInvalidArgument, permission)
@@ -466,6 +476,17 @@ func (s *AddonsService) Revoke(id, permission string) error {
 		st.Addons[id] = a
 	}); err != nil {
 		return err
+	}
+	if permission == cli.PermNetwork {
+		// The network is the sandbox's, given when the process starts: only
+		// ending the add-on takes it back. It runs again once approved.
+		s.mu.Lock()
+		r := s.runners[id]
+		delete(s.runners, id)
+		s.mu.Unlock()
+		if r != nil {
+			r.stop()
+		}
 	}
 	s.changed()
 	return nil
@@ -632,12 +653,25 @@ type addonRunner struct {
 	dev *devRun
 	// exit is how the last run of the add-on ended.
 	exit error
+	// sandbox is why the sandbox couldn't be set up (addons.Sandbox*), when
+	// the state is AddonNoSandbox.
+	sandbox string
 }
 
 func (r *addonRunner) snapshot() (AddonState, int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.state, r.restarts
+}
+
+// sandboxReason is why the sandbox couldn't be set up, "" when it could.
+func (r *addonRunner) sandboxReason() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.state != AddonNoSandbox {
+		return ""
+	}
+	return r.sandbox
 }
 
 // crashed reports that the supervisor switched the add-on off.
@@ -708,7 +742,16 @@ func (r *addonRunner) run(ctx context.Context, prev *addonRunner) {
 			return
 		}
 		began := time.Now()
-		r.runOnce(ctx, en, log)
+		if err := r.runOnce(ctx, en, log); err != nil {
+			// The sandbox can't be set up: the add-on is not started and not
+			// restarted. Turning it off and on, or the next start, tries again.
+			reason, _ := addons.SandboxReason(err)
+			r.mu.Lock()
+			r.sandbox = reason
+			r.mu.Unlock()
+			r.set(AddonNoSandbox, nil)
+			return
+		}
 		if ctx.Err() != nil {
 			r.set(AddonOff, nil)
 			return
@@ -786,10 +829,17 @@ func setEnabled(st *config.Settings, id string, on bool) {
 type startFunc func() (addons.Running, error)
 
 // runOnce starts the installed add-on and serves it until its channel ends,
-// then makes sure it is gone: stopped, its group killed, reaped.
-func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.Log) {
+// then makes sure it is gone: stopped, its group killed, reaped. It returns
+// the sandbox's failure to start, which is not a crash: restarting won't help.
+func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.Log) error {
 	s, o := r.s, r.s.opts
 	declared := en.Manifest.Permissions
+	data := s.e.Paths.AddonDataDir(r.id)
+	if err := addons.EnsureData(data); err != nil {
+		s.e.Logger.Warn("addons: data folder", "addon", r.id, "err", err)
+		log.Notef("could not make its data folder")
+		return nil
+	}
 	var start startFunc
 	if en.Manifest.Wasm() {
 		start = func() (addons.Running, error) {
@@ -798,36 +848,50 @@ func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.
 			if err != nil {
 				return nil, err
 			}
-			return s.startWasm(en.ID, module, log)
+			return s.startWasm(en.ID, module, data, log)
 		}
 	} else {
 		spec := addons.Spec{
-			Exe: en.Exe, Args: en.Args, Dir: r.workDir(en), Env: addons.Environment(o.environ(), r.id), Stderr: log,
+			ID: r.id, Exe: en.Exe, Args: en.Args, Dir: r.workDir(en), Data: data, Network: slices.Contains(declared, cli.PermNetwork),
+			Env: addons.Environment(o.environ(), r.id, data), Stderr: log,
 		}
-		start = func() (addons.Running, error) { return startProc(spec) }
+		if en.Bundled {
+			// Sona's own program: it reads the install it runs from (and the
+			// libraries beside it), as any program of its own does.
+			spec.Read = sandbox.ProgramReads(en.Exe, o.environ())
+		}
+		start = func() (addons.Running, error) { return s.startProc(spec, log) }
 	}
 	// The grant is asked at every call; the manifest's list bounds it.
 	allowed := func(p string) bool { return slices.Contains(declared, p) && s.allowed(r.id, p) }
-	r.serve(ctx, en, log, start, newAddonOwn(s, en.Manifest, false), allowed)
+	if err := r.serve(ctx, en, log, start, newAddonOwn(s, en.Manifest, false), allowed); err != nil {
+		return err
+	}
 	r.set(AddonRestarting, nil)
+	return nil
 }
 
-// startProc starts a native add-on as a process.
-func startProc(spec addons.Spec) (addons.Running, error) {
-	p, err := addons.Start(spec)
+// startProc starts a native add-on as a process in the OS sandbox, and says in
+// its log what the sandbox lacks.
+func (s *AddonsService) startProc(spec addons.Spec, log *addons.Log) (addons.Running, error) {
+	p, err := s.opts.start(spec)
 	if err != nil {
 		return nil, err
+	}
+	for _, note := range p.Notes() {
+		log.Notef("sandbox: %s", note)
 	}
 	return p, nil
 }
 
 // startWasm runs a module on the shared WebAssembly host. The module runs
-// inside Sona on a goroutine of its own, never the UI's.
-func (s *AddonsService) startWasm(id string, module []byte, log *addons.Log) (addons.Running, error) {
+// inside Sona on a goroutine of its own, never the UI's. Its one folder is its
+// data folder, mounted at /data (none for a development run: data is "").
+func (s *AddonsService) startWasm(id string, module []byte, data string, log *addons.Log) (addons.Running, error) {
 	h := s.wasmHost(log)
 	p, err := h.Start(addons.WasmSpec{
-		Module: module, Name: id + ".wasm",
-		Env:    addons.WasmEnvironment(s.opts.environ(), id, false),
+		Module: module, Name: id + ".wasm", DataDir: data,
+		Env:    addons.WasmEnvironment(s.opts.environ(), id, data != ""),
 		Stderr: log,
 	})
 	if err != nil {
@@ -853,13 +917,17 @@ func (s *AddonsService) wasmHost(log *addons.Log) *addons.WasmHost {
 // serve starts the add-on with start and serves its session until the
 // channel ends, then stops it, kills its group and reaps it. own is its
 // settings and secrets, allowed its grant.
-func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Log, start startFunc, own *addonOwn, allowed func(string) bool) {
+func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Log, start startFunc, own *addonOwn, allowed func(string) bool) error {
 	s, o := r.s, r.s.opts
 	proc, err := start()
 	if err != nil {
 		s.e.Logger.Warn("addons: start", "addon", r.id, "err", err)
+		if reason, ok := addons.SandboxReason(err); ok {
+			log.Notef("not started: the sandbox can't be set up: %s", addons.SandboxText(reason))
+			return err
+		}
 		log.Notef("could not start")
-		return
+		return nil
 	}
 	log.Notef("started (%s, version %s)", proc.Where(), en.Manifest.Version)
 	r.mu.Lock()
@@ -911,6 +979,7 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 	err = proc.Err()
 	log.Notef("exited: %v", err)
 	r.exit = err
+	return nil
 }
 
 // bundledCredentials are the build credentials of one of Sona's own add-ons,

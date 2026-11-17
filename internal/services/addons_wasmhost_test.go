@@ -259,3 +259,37 @@ func TestWasmAddonRefusals(t *testing.T) {
 		t.Errorf("log = %q", lines)
 	}
 }
+
+// An installed wasm add-on gets its data folder, mounted at /data: the same
+// folder a native add-on has, made by Sona with mode 0700 and left alone when
+// the add-on goes. A development run gets none.
+func TestWasmAddonGetsItsDataFolder(t *testing.T) {
+	a := wasmEnv(t, "LC_WASMTEST_MODE=env")
+	a.installWasm(t, "wasmdata", wasmManifest("wasmdata", `{}`))
+	if err := a.svc.Enable("wasmdata", nil); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.start()
+	log := addons.LogPath(a.logs, "wasmdata")
+	waitUntil(t, "the environment", fileHas(log, "env SONA_ADDON_DATA=/data"))
+	data := a.e.Paths.AddonDataDir("wasmdata")
+	if fi, err := os.Stat(data); err != nil || fi.Mode().Perm() != 0o700 {
+		t.Errorf("data folder: %v, %v", fi, err)
+	}
+	b, _ := os.ReadFile(log)
+	for _, kv := range []string{"env HOME=", "env TMPDIR=", "env PATH="} {
+		if strings.Contains(string(b), kv) {
+			t.Errorf("the module is told a host path: %s", kv)
+		}
+	}
+	if err := a.svc.Disable("wasmdata"); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.close()
+	if err := os.RemoveAll(filepath.Join(a.root, "wasmdata")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(data); err != nil {
+		t.Errorf("uninstalling removed the data folder: %v", err)
+	}
+}

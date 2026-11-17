@@ -128,15 +128,17 @@
 // addons.Running to the supervisor, and the time to say hello runs from
 // Running.Ready, so a first compile is not a module's delay.
 // Nothing here waits on an add-on but Invoke, which waits at most its
-// deadline: the UI calls it off its thread. Permissions are advisory until
-// the OS sandbox (#304) for a native add-on; a WebAssembly one has no
-// ambient authority. Sona's own Last.fm, ListenBrainz and Discord
-// integrations are add-ons too (#302): internal/addons registers them in
-// code with embedded manifests, scan lists them before the user's folders
-// (a folder claiming their IDs is left out), they are on unless the user
-// turned one off and hold their manifest's permissions with nothing to
-// approve, and their program is this executable run as `sona --addon <id>`
-// (internal/addons/own).
+// deadline: the UI calls it off its thread. Each native add-on runs in the OS
+// sandbox (internal/addons/sandbox) with its folder, a private data folder
+// and, with the `network` permission, the network; where the sandbox can't be
+// set up the add-on is refused (AddonNoSandbox) and never run without it. A
+// WebAssembly one has no ambient authority.
+// Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons too
+// (#302): internal/addons registers them in code with embedded manifests, scan
+// lists them before the user's folders (a folder claiming their IDs is left
+// out), they are on unless the user turned one off and hold their manifest's
+// permissions with nothing to approve, and their program is this executable
+// run as `sona --addon <id>` (internal/addons/own).
 //
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls

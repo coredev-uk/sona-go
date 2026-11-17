@@ -28,7 +28,7 @@ func writeScript(t *testing.T, body string) (dir, exe string) {
 func startScript(t *testing.T, body string, env []string) (*Proc, string) {
 	t.Helper()
 	dir, exe := writeScript(t, body)
-	p, err := Start(Spec{Exe: exe, Dir: dir, Env: env})
+	p, err := Start(Spec{Exe: exe, Dir: dir, Data: t.TempDir(), Env: env})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestAddonRunsWithTheAllowlistedEnvironment(t *testing.T) {
 		name, val, _ := strings.Cut(kv, "=")
 		t.Setenv(name, val)
 	}
-	p, dir := startScript(t, "env > env.out\n", Environment(os.Environ(), "demo"))
+	p, dir := startScript(t, "env > env.out\n", Environment(os.Environ(), "demo", t.TempDir()))
 	<-p.Done()
 	b, err := os.ReadFile(filepath.Join(dir, "env.out"))
 	if err != nil {
@@ -79,7 +79,7 @@ func TestAddonRunsWithTheAllowlistedEnvironment(t *testing.T) {
 }
 
 func TestAddonChannelCarriesLinesBothWays(t *testing.T) {
-	p, _ := startScript(t, "read line\nprintf 'got:%s\\n' \"$line\"\n", Environment(os.Environ(), "demo"))
+	p, _ := startScript(t, "read line\nprintf 'got:%s\\n' \"$line\"\n", Environment(os.Environ(), "demo", t.TempDir()))
 	c := p.Conn()
 	if _, err := c.Write([]byte("ping\n")); err != nil {
 		t.Fatal(err)
@@ -100,7 +100,7 @@ func TestAddonRunsByAbsolutePathInItsFolder(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(decoy, "run"), []byte("#!/bin/sh\necho decoy > "+filepath.Join(dir, "decoy.out")+"\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	p, err := Start(Spec{Exe: exe, Dir: dir, Env: []string{"PATH=" + decoy}})
+	p, err := Start(Spec{Exe: exe, Dir: dir, Data: t.TempDir(), Env: []string{"PATH=" + decoy}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestAddonRunsByAbsolutePathInItsFolder(t *testing.T) {
 // Stop ends the add-on and the children it left in its group; nothing is
 // left running or unreaped.
 func TestStopKillsTheWholeGroup(t *testing.T) {
-	p, dir := startScript(t, "trap '' TERM\nsleep 300 &\necho $! > child.pid\nwait\n", Environment(os.Environ(), "demo"))
+	p, dir := startScript(t, "trap '' TERM\nsleep 300 &\necho $! > child.pid\nwait\n", Environment(os.Environ(), "demo", t.TempDir()))
 	var child int
 	waitFor(t, "the child's pid", func() bool {
 		b, err := os.ReadFile(filepath.Join(dir, "child.pid"))
@@ -143,7 +143,7 @@ func TestStopKillsTheWholeGroup(t *testing.T) {
 }
 
 func TestStopLetsAnAddonLeaveOnEndOfInput(t *testing.T) {
-	p, dir := startScript(t, "read line\necho clean > bye.out\n", Environment(os.Environ(), "demo"))
+	p, dir := startScript(t, "read line\necho clean > bye.out\n", Environment(os.Environ(), "demo", t.TempDir()))
 	start := time.Now()
 	p.Stop(5 * time.Second)
 	if time.Since(start) > 3*time.Second {
@@ -196,7 +196,7 @@ func TestAddonSupervisorHelper(t *testing.T) {
 	}
 	runtime.LockOSThread()
 	dir, exe, _ := strings.Cut(spec, "|")
-	if _, err := Start(Spec{Exe: exe, Dir: dir, Env: Environment(os.Environ(), "demo")}); err != nil {
+	if _, err := Start(Spec{Exe: exe, Dir: dir, Data: dir, Env: Environment(os.Environ(), "demo", dir)}); err != nil {
 		t.Fatal(err)
 	}
 	select {}
