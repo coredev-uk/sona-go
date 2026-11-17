@@ -67,6 +67,19 @@ func (c rwc) Read(b []byte) (int, error)  { return c.r.Read(b) }
 func (c rwc) Write(b []byte) (int, error) { return c.w.Write(b) }
 func (c rwc) Close() error                { _ = c.r.Close(); return c.w.Close() }
 
+// settled waits until the client has taken Sona's answer to hello: an invoke
+// is answered only by a client that is reading. (A session closed between
+// accepting a hello and queueing its answer never sends it.)
+func settled(t *testing.T, sess *cli.Session) {
+	t.Helper()
+	select {
+	case <-sess.Helloed():
+	case <-time.After(10 * time.Second):
+		t.Fatal("no hello")
+	}
+	_, _ = sess.Invoke(context.Background(), "addon.x.sync", nil)
+}
+
 func serve(h *host, perms []string, setup Setup) chan error {
 	out := make(chan error, 1)
 	go func() { out <- h.cli.Serve(context.Background(), perms, setup) }()
@@ -93,11 +106,7 @@ func TestClientHelloAndShutdown(t *testing.T) {
 		got = hello
 		return nil
 	})
-	select {
-	case <-h.sess.Helloed():
-	case <-time.After(10 * time.Second):
-		t.Fatal("no hello")
-	}
+	settled(t, h.sess)
 	h.sess.Close()
 	if err := wait(t, out, "Serve after shutdown"); err != nil {
 		t.Fatalf("Serve = %v, want a clean stop", err)
@@ -112,7 +121,7 @@ func TestClientHelloAndShutdown(t *testing.T) {
 func TestClientStopsWhenTheChannelEnds(t *testing.T) {
 	h := newHost(t, "lastfm", nil, nil)
 	out := serve(h, nil, nil)
-	<-h.sess.Helloed()
+	settled(t, h.sess)
 	_ = h.sonaOut.Close()
 	if err := wait(t, out, "Serve"); err != nil {
 		t.Errorf("Serve = %v, want a clean stop", err)
@@ -145,7 +154,7 @@ func TestClientAnswersSonaRequests(t *testing.T) {
 		return cli.InvokeResult{Toast: "hello " + p.Action}, nil
 	})
 	out := serve(h, nil, nil)
-	<-h.sess.Helloed()
+	settled(t, h.sess)
 	res, err := h.sess.Invoke(context.Background(), "addon.lastfm.x", nil)
 	if err != nil || res.Toast != "hello addon.lastfm.x" {
 		t.Errorf("invoke = %+v, %v", res, err)
@@ -161,7 +170,7 @@ func TestClientAnswersSonaRequests(t *testing.T) {
 
 	h2 := newHost(t, "lastfm", nil, nil)
 	out2 := serve(h2, nil, nil)
-	<-h2.sess.Helloed()
+	settled(t, h2.sess)
 	if _, err := h2.sess.Invoke(context.Background(), "addon.lastfm.x", nil); !errors.As(err, &ce) || ce.Code != cli.AddonErrUnknownMethod {
 		t.Errorf("unhandled = %v, want unknown_method", err)
 	}

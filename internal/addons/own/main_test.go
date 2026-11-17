@@ -39,11 +39,7 @@ func TestMainSpeaksProtocolV2ForEveryBundledAddon(t *testing.T) {
 			go func() { _ = sess.Serve(context.Background(), rwc{toSona, fromSona}) }()
 			status := make(chan int, 1)
 			go func() { status <- Main(id, toAddon, fromAddon, io.Discard) }()
-			select {
-			case <-sess.Helloed():
-			case <-time.After(10 * time.Second):
-				t.Fatal("no hello")
-			}
+			settled(t, sess)
 			sess.Close()
 			select {
 			case s := <-status:
