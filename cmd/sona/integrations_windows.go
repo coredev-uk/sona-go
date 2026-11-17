@@ -28,6 +28,8 @@ import (
 //   - KeepRunning stays nil: MyGo's Power.KeepRunning does nothing on
 //     Windows yet (power throttling and EcoQoS stay on), so nothing reports
 //     a hold that isn't there.
+//   - The Discord presence stays in Sona's process (DiscordInProcess): the
+//     add-on's AppContainer can't be given Discord's named pipe alone.
 func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
 	out.Notifications = openNotifier
 	out.PlainNotifications = true
@@ -36,4 +38,5 @@ func desktopIntegrations(out *services.Platform, windows *uiapp.Windows) {
 	out.Power = openDesktopPower
 	out.Files = newDesktopFiles(windows.Main)
 	out.LinkHandler = windowsLinks()
+	out.DiscordInProcess = true
 }

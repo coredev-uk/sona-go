@@ -154,7 +154,7 @@ Integrations (`services/integrations.go`) start after first paint:
 
 - One track-change notification, replaced per track: over `org.freedesktop.Notifications` on Linux, MyGo's notifications on macOS and Windows (§9).
 - A sleep inhibitor held only while playing: logind's `sleep` lock (portal `Inhibit` fallback) on Linux, MyGo's `Power.KeepAwake` on macOS and Windows (§9).
-- Opt-in Discord presence over the local IPC socket (a named pipe on Windows), only when the current user owns it, with Apple's public artwork URL, never `/art/` or tokens.
+- Opt-in Discord presence over the local IPC socket (a named pipe on Windows), only when the current user owns it, with Apple's public artwork URL, never `/art/` or tokens. On Linux and macOS it is the bundled `discord` add-on (`internal/addons/own/discord.go`), which hears `status` and `now-playing` like any add-on and is given Discord's IPC sockets as the one sandbox exception; on Windows it stays in Sona's process (`Platform.DiscordInProcess`), whose AppContainer can't be given Discord's pipe alone. Both use `internal/discord` (the IPC client and the presence worker).
 - Last.fm and ListenBrainz scrobbling (`internal/scrobble`).
 
 ### Add-ons

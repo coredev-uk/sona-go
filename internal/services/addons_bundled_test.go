@@ -18,6 +18,7 @@ import (
 // connected, the Discord status on.
 func (a *addonEnv) useAll(t *testing.T) {
 	t.Helper()
+	t.Setenv("SONA_DISCORD_CLIENT_ID", "12345")
 	if _, err := a.settings.Update(func(s *config.Settings) {
 		s.Scrobbling.LastFM = config.ScrobbleAccount{Enabled: true, Username: "u"}
 		s.Scrobbling.ListenBrainz = config.ScrobbleAccount{Enabled: true, Username: "u"}
@@ -161,6 +162,7 @@ func TestAddonsBundledNeedAnExecutable(t *testing.T) {
 // account is connected (or the Discord status is on), starts when that
 // begins and stops when it ends.
 func TestAddonsBundledRunOnlyWhileTheirIntegrationIsUsed(t *testing.T) {
+	t.Setenv("SONA_DISCORD_CLIENT_ID", "12345")
 	a := newAddonEnv(t)
 	a.bundledProgram(t)
 	a.svc.start()

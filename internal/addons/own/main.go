@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/addons"
 )
@@ -57,6 +58,12 @@ func register(c *Client, id string, opts Options) {
 	}
 }
 
-// setupFor is what add-on id does once Sona has answered its hello. Discord
-// adds what it does as it moves onto the API.
-func setupFor(string) Setup { return nil }
+// setupFor is what add-on id does once Sona has answered its hello: Discord
+// subscribes to the topics; the scrobblers only answer Sona's requests
+// (register).
+func setupFor(id string) Setup {
+	if id == "discord" {
+		return discordSetup(discordSockets(), time.Now)
+	}
+	return nil
+}

@@ -35,6 +35,18 @@ const (
 	AddonMethodInvoke      = "invoke"
 )
 
+// AddonMethodConnection is the one more method of Sona's own bundled
+// add-ons: they tell Sona whether the service they work with (the Discord
+// app) is connected, for Settings → Connections. A session without
+// AddonConfig.OnConnection (every add-on of the user's) answers it
+// "unknown_method".
+const AddonMethodConnection = "connection"
+
+// ConnectionParams is the params of connection.
+type ConnectionParams struct {
+	Connected bool `json:"connected"`
+}
+
 // EventShutdown is the one event every session gets without subscribing:
 // Sona is stopping the add-on.
 const EventShutdown = "shutdown"

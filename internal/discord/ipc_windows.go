@@ -23,6 +23,10 @@ func socketPaths() []string {
 	return out
 }
 
+// trustedOnly: a pipe is checked when it is dialled (dial), whose server it
+// is, so every path stays.
+func trustedOnly(paths []string) []string { return paths }
+
 // errNotOwnPipe is a pipe whose server runs as another user (or whose user
 // can't be read): anyone can create a pipe of that name first, so it gets
 // nothing from Sona, as F4 does for Unix sockets.

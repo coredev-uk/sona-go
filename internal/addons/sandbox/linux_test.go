@@ -396,6 +396,56 @@ func TestUnixSocketOnlyWhenNamed(t *testing.T) {
 	}
 }
 
+// The exception is a socket, not its folder: the sockets beside the one
+// named (the session bus in the same runtime folder, another of Discord's)
+// and in the folders below it stay out of reach. This is the Discord add-on's
+// case (docs/security-review.md, "Add-ons").
+func TestOnlyTheNamedSocketNotItsNeighbours(t *testing.T) {
+	dir, err := os.MkdirTemp("", "sbx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	if err := os.MkdirAll(filepath.Join(dir, "app", "com.discordapp.Discord"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	listen := func(rel string) string {
+		p := filepath.Join(dir, rel)
+		l, err := net.Listen("unix", p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = l.Close() })
+		go func() {
+			for {
+				c, err := l.Accept()
+				if err != nil {
+					return
+				}
+				_ = c.Close()
+			}
+		}()
+		return p
+	}
+	given := listen("discord-ipc-0")
+	neighbours := []string{
+		listen("discord-ipc-1"), listen("bus"), listen("wayland-0"), listen("app/com.discordapp.Discord/discord-ipc-0"),
+	}
+	policy := Policy{Sockets: []string{given}}
+	if r := run(t, policy, envProbeSocket+"="+given); r.UnixPath != "" {
+		t.Errorf("the named socket is out of reach: %s", r.UnixPath)
+	}
+	for _, p := range neighbours {
+		if r := run(t, policy, envProbeSocket+"="+p); r.UnixPath == "" {
+			t.Errorf("an add-on named only %s reached %s", given, p)
+		}
+	}
+	// The exception is no network: an add-on that can reach a socket still has none.
+	if r := run(t, policy, envProbeAddr+"="+listener(t)); r.TCP == "" || r.Raw == "" {
+		t.Errorf("a socket exception gave the add-on the network (tcp %q, netlink %q)", r.TCP, r.Raw)
+	}
+}
+
 // A program that left the add-on's group (setsid) still dies with it: the PID
 // namespace ends with its init.
 func TestKillEndsEverythingInItsNamespace(t *testing.T) {

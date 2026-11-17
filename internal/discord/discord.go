@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -102,6 +104,60 @@ type ipcConn interface {
 // socket in the standard places.
 func New(clientID string) *Client {
 	return &Client{clientID: clientID, paths: socketPaths}
+}
+
+// NewAt returns a Client for the application clientID that dials only the
+// endpoints in paths, the ones Sona's own Discord add-on is given: the
+// sandbox shows it no others, and Sona chose each (Sockets) by the checks of
+// F4 (docs/security-review.md). A path that is no longer a socket of this
+// user's is still refused when it is dialled.
+func NewAt(clientID string, paths []string) *Client {
+	return &Client{clientID: clientID, paths: func() []string { return trustedOnly(paths) }}
+}
+
+// EnvSockets is the environment variable that carries the endpoints of
+// Discord's IPC to the add-on (SocketsEnv); its value is the paths,
+// separated by the OS's path list separator.
+const EnvSockets = "SONA_DISCORD_IPC"
+
+// Socket is one endpoint of Discord's IPC that Sona found and trusts.
+type Socket struct {
+	Path string
+	// ID changes when the endpoint is replaced (Discord restarted): a
+	// connection to the sandbox's view of the old one reaches nothing.
+	ID string
+}
+
+// Sockets lists the endpoints of Discord's IPC the user's own Discord
+// listens on now (the checks of F4 apply to each).
+func Sockets() []Socket {
+	paths := socketPaths()
+	out := make([]Socket, 0, len(paths))
+	for _, p := range paths {
+		s := Socket{Path: p}
+		if fi, err := os.Lstat(p); err == nil {
+			s.ID = strconv.FormatInt(fi.ModTime().UnixNano(), 10)
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// SocketsEnv is Sockets' value of EnvSockets.
+func SocketsEnv(socks []Socket) string {
+	paths := make([]string, len(socks))
+	for i, s := range socks {
+		paths[i] = s.Path
+	}
+	return strings.Join(paths, string(os.PathListSeparator))
+}
+
+// SocketsFromEnv reads the endpoints out of the value of EnvSockets.
+func SocketsFromEnv(value string) []string {
+	if value == "" {
+		return nil
+	}
+	return filepath.SplitList(value)
 }
 
 // Connected reports whether a connection is open (it may since have been

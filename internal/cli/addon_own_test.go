@@ -103,3 +103,26 @@ func TestAddonSettingsFramesMatchTheSchema(t *testing.T) {
 		}
 	}
 }
+
+// A bundled add-on tells Sona whether its service is connected, over the one
+// request that only a session with a callback has; every other session
+// (an add-on of the user's) answers it as an unknown method.
+func TestAddonConnectionIsForSessionsThatAskForIt(t *testing.T) {
+	a := startAddon(t, AddonConfig{})
+	a.hello()
+	wantCode(t, a.request(2, "connection", `{"connected":true}`), AddonErrUnknownMethod)
+
+	got := make(chan bool, 4)
+	b := startAddon(t, AddonConfig{OnConnection: func(c bool) { got <- c }})
+	b.hello()
+	for i, want := range []bool{true, false} {
+		f := b.request(int64(2+i), "connection", `{"connected":`+map[bool]string{true: "true", false: "false"}[want]+`}`)
+		if f.Error != nil || string(f.Result) != `{}` {
+			t.Fatalf("connection = %+v", f)
+		}
+		if c := <-got; c != want {
+			t.Errorf("reported %v, want %v", c, want)
+		}
+	}
+	wantCode(t, b.request(9, "connection", `{"connected":"yes"}`), AddonErrBadArguments)
+}

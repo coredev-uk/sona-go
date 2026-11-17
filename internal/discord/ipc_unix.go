@@ -39,6 +39,19 @@ func socketPaths() []string {
 	return findSockets(dirs, os.Getuid())
 }
 
+// trustedOnly keeps the paths that are still trusted sockets of this user's
+// (see trusted).
+func trustedOnly(paths []string) []string {
+	uid := os.Getuid()
+	var out []string
+	for _, p := range paths {
+		if trusted(p, uid) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // findSockets lists the discord-ipc-N sockets under dirs that belong to
 // uid (see trusted).
 func findSockets(dirs []string, uid int) []string {
