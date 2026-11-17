@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,6 +32,9 @@ type pipeAddons struct {
 	leased   map[string]int // leases taken, by add-on ID
 	held     map[string]int // leases held now
 	down     bool           // no add-on is running
+	// credentials are what hello's answer carries to an add-on, by ID: the
+	// build credentials the supervisor sends (bundledCredentials).
+	credentials map[string]map[string]string
 }
 
 type sentRequest struct {
@@ -59,7 +63,10 @@ func (c pipeConn) Close() error                { _ = c.r.Close(); return c.w.Clo
 
 func newPipeAddons(t *testing.T, opts own.Options) *pipeAddons {
 	t.Helper()
-	return &pipeAddons{t: t, opts: opts, sessions: map[string]*cli.Session{}, leased: map[string]int{}, held: map[string]int{}}
+	return &pipeAddons{
+		t: t, opts: opts, sessions: map[string]*cli.Session{}, leased: map[string]int{}, held: map[string]int{},
+		credentials: map[string]map[string]string{},
+	}
 }
 
 // up starts add-on id once and returns its session.
@@ -74,7 +81,9 @@ func (p *pipeAddons) up(id string) (*cli.Session, error) {
 	}
 	toSona, fromAddon := io.Pipe()
 	toAddon, fromSona := io.Pipe()
-	sess := cli.NewSession(cli.AddonConfig{ID: id, Host: nopHost{}, Bundled: true, Allowed: func(string) bool { return true }})
+	sess := cli.NewSession(cli.AddonConfig{
+		ID: id, Host: nopHost{}, Bundled: true, Allowed: func(string) bool { return true }, Credentials: p.credentials[id],
+	})
 	ctx, cancel := context.WithCancel(context.Background())
 	served := make(chan struct{})
 	go func() { _ = sess.Serve(context.Background(), pipeConn{toSona, fromSona}); close(served) }()
@@ -315,6 +324,98 @@ func TestScrobbleConnectListenBrainzWithoutTheNetwork(t *testing.T) {
 	}
 	if se.link.held["listenbrainz"] != 0 {
 		t.Error("the lease was not released")
+	}
+}
+
+// Last.fm's approval runs in its add-on: Sona opens the page the add-on gave,
+// asks the add-on until the user has approved, stores the session key, and
+// holds the add-on up meanwhile and no longer.
+func TestScrobbleConnectLastFMThroughTheAddon(t *testing.T) {
+	se := newScrobbleEnv(t)
+	if _, err := se.s.ConnectLastFM(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if se.link.held["lastfm"] != 0 || se.link.leased["lastfm"] != 1 {
+		t.Errorf("lease: held %d, taken %d", se.link.held["lastfm"], se.link.leased["lastfm"])
+	}
+	// One request begins it; the add-on is asked again until the approval.
+	rs := se.link.sent(cli.AddonMethodScrobbleAuthorise)
+	if len(rs) != 3 {
+		t.Fatalf("authorise requests = %d, want begin and two polls", len(rs))
+	}
+	if string(rs[0].Params) != "{}" || !strings.Contains(string(rs[1].Params), `"token":"tok"`) {
+		t.Errorf("params = %s, %s", rs[0].Params, rs[1].Params)
+	}
+	// The session key is stored by Sona, not by the add-on.
+	if se.signIn(t, "lastfm", "session") != "sk-1" {
+		t.Error("the session key is not in the secret store")
+	}
+}
+
+// A Last.fm approval the user abandons ends as a cancel, not as an add-on
+// that failed.
+func TestScrobbleConnectLastFMCancelled(t *testing.T) {
+	se := newScrobbleEnv(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := se.s.ConnectLastFM(ctx); CodeOf(err) != CodeCancelled {
+		t.Fatalf("err = %v (code %s)", err, CodeOf(err))
+	}
+	if se.link.held["lastfm"] != 0 {
+		t.Error("the lease was not released")
+	}
+}
+
+// Last.fm delivers like ListenBrainz: through its add-on, with the session
+// key, and a private listen never gets there.
+func TestScrobbleLastFMIsDeliveredByTheAddon(t *testing.T) {
+	se := newScrobbleEnv(t)
+	if _, err := se.s.ConnectLastFM(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	se.s.sc.Start()
+	if _, err := se.private.Set(true); err != nil {
+		t.Fatal(err)
+	}
+	playOnce(se.s.sc, "private", time.Now())
+	if _, err := se.private.Set(false); err != nil {
+		t.Fatal(err)
+	}
+	playOnce(se.s.sc, "public", time.Now())
+	awaitScrobble(t, "the listen to be delivered", func() bool {
+		return se.s.sc.State(ScrobblerLastFM).Pending == 0 && len(se.link.sent(cli.AddonMethodScrobbleSubmit)) == 1
+	})
+	var p cli.ScrobbleSubmitParams
+	for _, r := range se.link.sent(cli.AddonMethodScrobbleSubmit) {
+		if r.ID != "lastfm" {
+			t.Errorf("submit sent to %s", r.ID)
+		}
+		_ = json.Unmarshal(r.Params, &p)
+	}
+	if p.Credential != "sk-1" || len(p.Listens) != 1 || p.Listens[0].Title != "Title public" {
+		t.Errorf("submitted %+v", p)
+	}
+}
+
+// Sona opens the page the add-on names, so it must be a web address: a file,
+// a script, or a link with a user name never opens.
+func TestAddonScrobblerRefusesAnApprovalPageThatIsNotAWebAddress(t *testing.T) {
+	for page, ok := range map[string]bool{
+		"https://www.last.fm/api/auth/?api_key=k&token=t": true,
+		"http://127.0.0.1:8080/auth":                      true,
+		"file:///etc/passwd":                              false,
+		"javascript:alert(1)":                             false,
+		"https://user:pw@www.last.fm/auth":                false,
+		"/api/auth":                                       false,
+		"":                                                false,
+	} {
+		p := &addonScrobbler{id: "lastfm", ask: func(_ context.Context, _ string, _, out any) error {
+			*out.(*cli.ScrobbleResult) = cli.ScrobbleResult{OK: true, Token: "tok", URL: page}
+			return nil
+		}}
+		if _, got, err := p.Begin(t.Context()); (err == nil) != ok || (ok && got != page) {
+			t.Errorf("Begin with page %q: %q, %v (want accepted %v)", page, got, err, ok)
+		}
 	}
 }
 

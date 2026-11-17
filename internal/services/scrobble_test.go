@@ -15,6 +15,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/addons/own"
 	"github.com/coredev-uk/sona-go/internal/auth/store"
+	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
@@ -109,10 +110,13 @@ func newScrobbleEnvWith(t *testing.T, kr store.Keyring) *scrobbleEnv {
 		Emit:     &recorder{},
 		OpenURL:  func(u string) error { se.opened <- u; return nil },
 	}}
-	lastfm := &scrobble.LastFM{Key: "key", Secret: "secret", API: srv.URL + "/2.0/", HTTP: srv.Client()}
-	se.link = newPipeAddons(t, own.Options{Version: "test", HTTP: srv.Client(), Endpoints: own.Endpoints{ListenBrainz: srv.URL}})
+	se.link = newPipeAddons(t, own.Options{Version: "test", HTTP: srv.Client(), Endpoints: own.Endpoints{
+		ListenBrainz: srv.URL, LastFM: srv.URL + "/2.0/", LastFMAuth: "https://www.last.fm/api/auth/",
+	}})
+	// The build's Last.fm account, as the supervisor sends it in hello.
+	se.link.credentials["lastfm"] = map[string]string{cli.CredAPIKey: "key", cli.CredAPISecret: "secret"}
 	e.Private = se.private
-	se.s = newScrobble(e, lastfm)
+	se.s = newScrobble(e, true)
 	se.s.attach(se.link)
 	se.s.poll = time.Millisecond
 	t.Cleanup(se.s.close)

@@ -1,7 +1,6 @@
 package scrobble
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
@@ -99,6 +98,8 @@ func (f *fakeLastFM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		_, _ = io.WriteString(w, `{"session":{"name":"rj","key":"sk-abc","subscriber":0}}`)
+	case "user.getInfo":
+		_, _ = io.WriteString(w, `{"user":{"name":"rj","playcount":"1"}}`)
 	case "track.updateNowPlaying":
 		_, _ = io.WriteString(w, `{"nowplaying":{}}`)
 	case "track.scrobble":
@@ -158,22 +159,28 @@ func TestLastFMDesktopAuth(t *testing.T) {
 	if _, err := c.Session(ctx, tok); !errors.Is(err, ErrPending) {
 		t.Fatalf("unapproved Session = %v, want ErrPending", err)
 	}
-	s, err := c.AwaitSession(ctx, tok, time.Millisecond)
+	var s Session
+	for range 5 {
+		if s, err = c.Session(ctx, tok); !errors.Is(err, ErrPending) {
+			break
+		}
+	}
 	if err != nil || s != (Session{Name: "rj", Key: "sk-abc"}) {
-		t.Fatalf("AwaitSession = %+v, %v", s, err)
+		t.Fatalf("Session = %+v, %v", s, err)
 	}
 	if got := f.methodCalls("auth.getSession"); len(got) != 3 || got[2].Get("token") != tok {
 		t.Fatalf("getSession calls = %v", got)
 	}
 }
 
-func TestLastFMAwaitSessionStopsWithContext(t *testing.T) {
+func TestLastFMUserInfo(t *testing.T) {
 	c, f := newLastFM(t)
-	f.pending = 1 << 30
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Millisecond)
-	defer cancel()
-	if _, err := c.AwaitSession(ctx, "tok123", time.Millisecond); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("err = %v", err)
+	if name, err := c.UserInfo(t.Context(), "sk-abc"); err != nil || name != "rj" {
+		t.Fatalf("UserInfo = %q, %v", name, err)
+	}
+	f.badSession = true
+	if _, err := c.UserInfo(t.Context(), "sk-bad"); !errors.Is(err, ErrAuth) {
+		t.Fatalf("a refused key: %v, want ErrAuth", err)
 	}
 }
 

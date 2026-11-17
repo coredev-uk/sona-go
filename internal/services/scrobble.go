@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -38,9 +37,9 @@ const (
 type ScrobbleService struct {
 	e      *Env
 	sc     *scrobble.Scrobbler
-	lastfm *scrobble.LastFM // nil: no Last.fm API account in this build
-	lb     *addonScrobbler  // ListenBrainz, in its add-on
-	poll   time.Duration    // Last.fm approval polling interval
+	lastfm *addonScrobbler // Last.fm, in its add-on; nil: no Last.fm API account in this build
+	lb     *addonScrobbler // ListenBrainz, in its add-on
+	poll   time.Duration   // Last.fm approval polling interval
 
 	loadOnce sync.Once
 
@@ -56,11 +55,7 @@ type ScrobbleService struct {
 }
 
 func newScrobbleService(e *Env) *ScrobbleService {
-	httpc := &http.Client{Transport: e.gated(), Timeout: 30 * time.Second}
-	var lastfm *scrobble.LastFM
-	if key, secret, ok := scrobble.LastFMAccount(); ok {
-		lastfm = &scrobble.LastFM{Key: key, Secret: secret, HTTP: httpc, UserAgent: "Sona/" + e.Version}
-	}
+	_, _, lastfm := scrobble.LastFMAccount()
 	s := newScrobble(e, lastfm)
 	e.Coord.ObserveActivity(s.sc.Observe)
 	e.OnNetwork(func() {
@@ -74,18 +69,19 @@ func newScrobbleService(e *Env) *ScrobbleService {
 	return s
 }
 
-// newScrobble builds the service over lastfm (nil when the build has no
-// Last.fm account) and the proxy of ListenBrainz's add-on, and follows the
-// settings' switches.
-func newScrobble(e *Env, lastfm *scrobble.LastFM) *ScrobbleService {
+// newScrobble builds the service over the proxies of the add-ons that do its
+// HTTP, ListenBrainz's and, where the build has a Last.fm API account
+// (lastfm), Last.fm's, and follows the settings' switches.
+func newScrobble(e *Env, lastfm bool) *ScrobbleService {
 	s := &ScrobbleService{
-		e: e, lastfm: lastfm, poll: lastfmPoll,
+		e: e, poll: lastfmPoll,
 		secrets: map[string]store.Secret{}, connected: map[string]bool{},
 	}
 	s.lb = s.scrobbleProxy(ScrobblerListenBrainz, scrobble.ListenBrainzBatch)
 	providers := []scrobble.Provider{s.lb}
-	if lastfm != nil {
-		providers = append(providers, lastfm)
+	if lastfm {
+		s.lastfm = s.scrobbleProxy(ScrobblerLastFM, scrobble.LastFMBatch)
+		providers = append(providers, s.lastfm)
 	}
 	s.sc = scrobble.New(scrobble.Options{
 		Providers: providers,
@@ -117,6 +113,9 @@ func (s *ScrobbleService) ConnectLastFM(ctx context.Context) (ScrobbleStatus, er
 		return ScrobbleStatus{}, scrobble.ErrNotConfigured
 	}
 	s.load()
+	// The add-on runs only while an account is connected: hold it up for the
+	// whole approval, and until the account is saved.
+	defer s.lease(ScrobblerLastFM)()
 	ctx, cancel := context.WithTimeout(ctx, lastfmApproval)
 	defer cancel()
 	s.mu.Lock()
@@ -129,14 +128,14 @@ func (s *ScrobbleService) ConnectLastFM(ctx context.Context) (ScrobbleStatus, er
 	s.mu.Unlock()
 	s.emit()
 
-	sess, err := s.approveLastFM(ctx)
+	account, credential, err := s.approveLastFM(ctx)
 	s.mu.Lock()
 	if s.attempt == id {
 		s.cancel = nil
 	}
 	s.mu.Unlock()
 	if err == nil {
-		err = s.connect(ScrobblerLastFM, sess.Key, sess.Name)
+		err = s.connect(ScrobblerLastFM, credential, account)
 	} else {
 		s.emit()
 	}
@@ -146,17 +145,30 @@ func (s *ScrobbleService) ConnectLastFM(ctx context.Context) (ScrobbleStatus, er
 	return s.status(), nil
 }
 
-// approveLastFM gets a token, opens its approval page and waits for the
-// session.
-func (s *ScrobbleService) approveLastFM(ctx context.Context) (scrobble.Session, error) {
-	token, err := s.lastfm.Token(ctx)
+// approveLastFM asks the add-on for a token and the page to approve it on,
+// opens the page in the browser, and asks the add-on every poll until the user
+// has approved it: the account and the session key.
+func (s *ScrobbleService) approveLastFM(ctx context.Context) (account, credential string, err error) {
+	token, page, err := s.lastfm.Begin(ctx)
 	if err != nil {
-		return scrobble.Session{}, err
+		return "", "", err
 	}
-	if err := s.e.OpenURL(s.lastfm.AuthURL(token)); err != nil {
-		return scrobble.Session{}, fmt.Errorf("%w: the Last.fm approval page: %w", ErrOpenBrowser, err)
+	if err := s.e.OpenURL(page); err != nil {
+		return "", "", fmt.Errorf("%w: the Last.fm approval page: %w", ErrOpenBrowser, err)
 	}
-	return s.lastfm.AwaitSession(ctx, token, s.poll)
+	t := time.NewTicker(s.poll)
+	defer t.Stop()
+	for {
+		account, credential, err = s.lastfm.Complete(ctx, token)
+		if !errors.Is(err, scrobble.ErrPending) {
+			return account, credential, err
+		}
+		select {
+		case <-ctx.Done():
+			return "", "", ctx.Err()
+		case <-t.C:
+		}
+	}
 }
 
 // CancelConnect abandons a pending Last.fm approval.

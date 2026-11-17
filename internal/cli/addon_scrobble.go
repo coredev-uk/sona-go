@@ -17,11 +17,15 @@ const (
 	// AddonMethodScrobbleStatus asks whether the service is usable, and for a
 	// credential not yet stored, whose account it is.
 	AddonMethodScrobbleStatus = "scrobble.status"
+	// AddonMethodScrobbleAuthorise is Last.fm's desktop authorisation, in two
+	// steps the host drives: begin (a token and the page to approve it on),
+	// then ask until the user has approved it (the session key).
+	AddonMethodScrobbleAuthorise = "scrobble.authorise"
 )
 
 // HostMethods are the requests Sona may send a bundled add-on, besides
 // invoke. Nothing else is ever sent.
-var HostMethods = []string{AddonMethodScrobbleNowPlaying, AddonMethodScrobbleSubmit, AddonMethodScrobbleStatus}
+var HostMethods = []string{AddonMethodScrobbleNowPlaying, AddonMethodScrobbleSubmit, AddonMethodScrobbleStatus, AddonMethodScrobbleAuthorise}
 
 // IsHostMethod reports whether method is one of HostMethods.
 func IsHostMethod(method string) bool { return slices.Contains(HostMethods, method) }
@@ -88,10 +92,24 @@ type ScrobbleStatusParams struct {
 	Credential string `json:"credential,omitempty"`
 }
 
+// ScrobbleAuthoriseParams is the params of scrobble.authorise (Last.fm's
+// browser approval, which only that add-on answers). Without a Token it
+// begins an authorisation; with the Token it returned it asks whether the
+// user has approved it, and ends it.
+type ScrobbleAuthoriseParams struct {
+	Token string `json:"token,omitempty"`
+}
+
 // ScrobbleResult is the result of every scrobbling request: OK is always
-// true (a failure is an error frame), and Account is the user the credential
-// belongs to, for scrobble.status of a credential.
+// true (a failure is an error frame). Account is the user a credential
+// belongs to (scrobble.status of a credential, and the end of an
+// authorisation); Token and URL begin an authorisation (the page the user
+// approves Sona on); Credential is what the approval gave, the session key
+// Sona keeps.
 type ScrobbleResult struct {
-	OK      bool   `json:"ok"`
-	Account string `json:"account,omitempty"`
+	OK         bool   `json:"ok"`
+	Account    string `json:"account,omitempty"`
+	Token      string `json:"token,omitempty"`
+	URL        string `json:"url,omitempty"`
+	Credential string `json:"credential,omitempty"`
 }

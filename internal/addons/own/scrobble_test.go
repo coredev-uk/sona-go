@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -17,12 +18,13 @@ import (
 
 // bundledHost is newHost for one of Sona's own add-ons: the session is marked
 // bundled, and the client has the answers register gives its ID.
-func bundledHost(t *testing.T, id string, opts Options) *host {
+func bundledHost(t *testing.T, id string, opts Options, credentials ...map[string]string) *host {
 	t.Helper()
 	toSona, fromAddon := io.Pipe()
 	toAddon, fromSona := io.Pipe()
 	sess := cli.NewSession(cli.AddonConfig{
 		ID: id, Host: fakeHost{}, Bundled: true, Allowed: func(string) bool { return true },
+		Credentials: append(credentials, nil)[0],
 	})
 	h := &host{sess: sess, cli: NewClient(id, toAddon, fromAddon, nil), done: make(chan error, 1), sonaOut: fromSona}
 	register(h.cli, id, opts)
@@ -239,4 +241,147 @@ func TestHostRequestsAreBundledOnly(t *testing.T) {
 	}
 	third.sess.Close()
 	_ = wait(t, out, "Serve")
+}
+
+// fakeLastFM answers the methods of Last.fm's API the add-on calls. The
+// signature is the client's own (scrobble's tests check it against the
+// guide's examples), so it isn't checked again here.
+type fakeLastFM struct {
+	mu      sync.Mutex
+	calls   []url.Values
+	pending int // auth.getSession answers "not authorised" this many times
+}
+
+func (f *fakeLastFM) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, r.Form)
+	switch r.Form.Get("method") {
+	case "auth.getToken":
+		_, _ = io.WriteString(w, `{"token":"tok1"}`)
+	case "auth.getSession":
+		if f.pending > 0 {
+			f.pending--
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = io.WriteString(w, `{"error":14,"message":"Unauthorized Token"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"session":{"name":"fm-user","key":"sk-1"}}`)
+	case "user.getInfo":
+		if r.Form.Get("sk") != "sk-1" {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = io.WriteString(w, `{"error":9,"message":"Invalid session key"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"user":{"name":"fm-user"}}`)
+	case "track.scrobble", "track.updateNowPlaying":
+		_, _ = io.WriteString(w, `{}`)
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":3,"message":"Invalid Method"}`)
+	}
+}
+
+func lastFMHost(t *testing.T, creds map[string]string) (*host, *fakeLastFM) {
+	t.Helper()
+	f := &fakeLastFM{}
+	srv := httptest.NewServer(f)
+	t.Cleanup(srv.Close)
+	opts := Options{Version: "1.2.3", HTTP: srv.Client(), Endpoints: Endpoints{LastFM: srv.URL + "/2.0/", LastFMAuth: "http://127.0.0.1:1/auth/"}}
+	return bundledHost(t, "lastfm", opts, creds), f
+}
+
+var lastFMAccount = map[string]string{cli.CredAPIKey: "the-key", cli.CredAPISecret: "the-secret"}
+
+func authorise(h *host, token string) (cli.ScrobbleResult, error) {
+	raw, err := h.sess.Request(context.Background(), cli.AddonMethodScrobbleAuthorise, cli.ScrobbleAuthoriseParams{Token: token})
+	var res cli.ScrobbleResult
+	if err == nil {
+		err = json.Unmarshal(raw, &res)
+	}
+	return res, err
+}
+
+// The browser approval runs in the add-on: it gets the token and builds the
+// page from the build's API key (which hello brought), and then answers
+// pending until the user approves, with the session key and the account.
+func TestLastFMAddonAuthorises(t *testing.T) {
+	h, f := lastFMHost(t, lastFMAccount)
+	f.pending = 1
+	begun, err := authorise(h, "")
+	if err != nil || begun.Token != "tok1" {
+		t.Fatalf("begin = %+v, %v", begun, err)
+	}
+	u, perr := url.Parse(begun.URL)
+	if perr != nil || u.Host != "127.0.0.1:1" || u.Query().Get("api_key") != "the-key" || u.Query().Get("token") != "tok1" {
+		t.Errorf("approval page = %s", begun.URL)
+	}
+	if _, err := authorise(h, begun.Token); code(err) != cli.AddonErrAuthorisationPending {
+		t.Errorf("before the approval: %v, want authorisation_pending", err)
+	}
+	done, err := authorise(h, begun.Token)
+	if err != nil || done.Account != "fm-user" || done.Credential != "sk-1" {
+		t.Errorf("after the approval = %+v, %v", done, err)
+	}
+}
+
+// Without the build's Last.fm account nothing is sent: every request is
+// not_configured, and the token flow never reaches the service.
+func TestLastFMAddonWithoutAnAccountIsNotConfigured(t *testing.T) {
+	h, f := lastFMHost(t, nil)
+	if _, err := authorise(h, ""); code(err) != cli.AddonErrNotConfigured {
+		t.Errorf("begin: %v", err)
+	}
+	if _, err := request(h, cli.AddonMethodScrobbleNowPlaying, cli.ScrobbleNowPlayingParams{Credential: "sk-1", Track: cli.ScrobbleTrack{Artist: "A", Title: "T"}}); code(err) != cli.AddonErrNotConfigured {
+		t.Errorf("now-playing: %v", err)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.calls) != 0 {
+		t.Errorf("%d requests reached Last.fm", len(f.calls))
+	}
+}
+
+// Last.fm does what ListenBrainz does: a now-playing and a batch, as the
+// session key, and a status that says whose key it is.
+func TestLastFMAddonSendsWhatSonaAsks(t *testing.T) {
+	h, f := lastFMHost(t, lastFMAccount)
+	track := cli.ScrobbleTrack{Artist: "Björk", Title: "Jóga", Album: "Homogenic", DurationMs: 305000}
+	if _, err := request(h, cli.AddonMethodScrobbleNowPlaying, cli.ScrobbleNowPlayingParams{Credential: "sk-1", Track: track}); err != nil {
+		t.Fatal(err)
+	}
+	listens := cli.ScrobbleSubmitParams{Credential: "sk-1", Listens: []cli.ScrobbleListen{{ScrobbleTrack: track, ListenedAt: 1700000000}}}
+	if _, err := request(h, cli.AddonMethodScrobbleSubmit, listens); err != nil {
+		t.Fatal(err)
+	}
+	if res, err := request(h, cli.AddonMethodScrobbleStatus, cli.ScrobbleStatusParams{Credential: "sk-1"}); err != nil || res.Account != "fm-user" {
+		t.Errorf("status = %+v, %v", res, err)
+	}
+	if _, err := request(h, cli.AddonMethodScrobbleStatus, cli.ScrobbleStatusParams{Credential: "sk-wrong"}); code(err) != cli.AddonErrCredentialsRejected {
+		t.Errorf("a refused key: %v", err)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var methods []string
+	for _, c := range f.calls {
+		methods = append(methods, c.Get("method"))
+		if c.Get("api_key") != "the-key" || c.Get("api_sig") == "" {
+			t.Errorf("%s was sent without the build's signature: %v", c.Get("method"), c)
+		}
+	}
+	if strings.Join(methods, " ") != "track.updateNowPlaying track.scrobble user.getInfo user.getInfo" {
+		t.Errorf("methods = %v", methods)
+	}
+	if got := f.calls[1].Get("timestamp[0]"); got != "1700000000" || f.calls[1].Get("artist[0]") != "Björk" {
+		t.Errorf("scrobble = %v", f.calls[1])
+	}
+}
+
+// ListenBrainz has no browser approval: the request is unknown to it.
+func TestListenBrainzAddonHasNoAuthorisation(t *testing.T) {
+	h, _ := lbHost(t)
+	if _, err := authorise(h, ""); code(err) != cli.AddonErrUnknownMethod {
+		t.Errorf("authorise on ListenBrainz: %v", err)
+	}
 }

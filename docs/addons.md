@@ -87,7 +87,7 @@ All schemas are one [JSON Schema](https://json-schema.org/) document (draft 2020
 | [unsubscribe](#subscribe-and-unsubscribe) | add-on → Sona | none | `topics` | Answer: the topics now subscribed to. |
 | [call](#call) | add-on → Sona | the command's | `command`, `args`, `kind`, `limit` | Result is the command's JSON. |
 | [invoke](#invoke) | Sona → add-on | none | `action`, `target`, `deadlineMs` | Answer: optional `toast` and `url`. |
-| [scrobble.\*](#requests-of-sona-to-a-bundled-add-on) | Sona → bundled add-on | none | `credential`, `track` or `listens` | Bundled add-ons only. Answer: `ok`, and `account` for a status. |
+| [scrobble.\*](#requests-of-sona-to-a-bundled-add-on) | Sona → bundled add-on | none | `credential`, `track`, `listens` or `token` | Bundled add-ons only. Answer: `ok`, and `account` for a status. |
 
 ### `hello`
 
@@ -682,13 +682,13 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
 - **The same sandbox.** They run in the [sandbox](#the-sandbox) like yours: they read the folder Sona is installed in (and the library folders it runs with: an AppImage's `APPDIR`, `LD_LIBRARY_PATH`) and their own data folder, and nothing of your configuration, state or keyring. Their manifests ask for `network` where the integration talks to a server. The one exception a manifest can't ask for is code's: Discord's add-on is given the one Unix socket of Discord's IPC, named in Sona.
 - **Their sign-in is in the keyring item `addon.<id>`**, like any add-on's secrets: the Last.fm session key as `session` in `addon.lastfm`, the ListenBrainz token as `token` in `addon.listenbrainz`. Sona sends it in the `credential` of the [requests](#requests-of-sona-to-a-bundled-add-on) that need it, and an add-on may also read it with [`secret`](#secret), for exactly those keys (no settings row shows or edits them). A version before add-ons kept them in the items `lastfm` and `listenbrainz`; at start Sona copies each to the new item, reads the copy back, then deletes the old one. A crash between the steps leaves both and the next start finishes; if the new item already holds a different value, it is newer and wins.
 - **Build credentials arrive in `hello`.** The answer to a bundled add-on's `hello` may carry `credentials`: `apiKey` and `apiSecret` (Last.fm's API account, to `lastfm`), `applicationId` (Discord's, to `discord`). They are in that one answer: never the environment, a request, an event or a log, and never an add-on of yours.
-- **Status.** The registry, the entry point, the supervision and the secrets are in. ListenBrainz does its HTTP in its add-on, through [Sona's requests](#requests-of-sona-to-a-bundled-add-on). Last.fm and Discord still do their work inside Sona; their add-ons say hello and wait until each one moves onto the API.
+- **Status.** The registry, the entry point, the supervision, the secrets and the scrobblers are in: Last.fm and ListenBrainz do their HTTP in their add-ons, through [Sona's requests](#requests-of-sona-to-a-bundled-add-on). Discord still does its work inside Sona; its add-on says hello and waits until it moves onto the API.
 
 ### Requests of Sona to a bundled add-on
 
 Besides `invoke`, Sona sends a bundled add-on the `scrobble.*` requests below, which let the scrobbling services run as add-ons while Sona keeps the pipeline: the tracker, the [private filter](#privacy-private-mode-and-previews), the persistent queue and the retry backoff. The add-on only does the HTTP.
 
-- **Bundled add-ons only.** A third-party add-on is never sent one: `Session.Request` refuses any session the supervisor didn't mark bundled (from the registry in code) with `permission_denied` and writes nothing, and a method that is not one of the three names fails with `unknown_method`. There is no general "call this method" request.
+- **Bundled add-ons only.** A third-party add-on is never sent one: `Session.Request` refuses any session the supervisor didn't mark bundled (from the registry in code) with `permission_denied` and writes nothing, and a method that is not one of the fixed names below fails with `unknown_method`. There is no general "call this method" request.
 - **Only what passed the filter.** The params of `scrobble.now-playing` and `scrobble.submit` come from the queue, which holds listens that passed `privatemode.Mode.Hidden`. A private listen or a preview is never a request, and no add-on is told one happened.
 - **The credential travels in the request.** `credential` is the sign-in Sona holds for the account (the Last.fm session key, the ListenBrainz token), sent over the channel Sona started the add-on on and never logged. `scrobble.status` with a credential is how Sona checks a token before it saves it.
 - **Like `invoke`,** a request has the deadline of the caller (at most 30 seconds) and counts against the limit of requests awaiting an answer.
@@ -698,8 +698,9 @@ Besides `invoke`, Sona sends a bundled add-on the `scrobble.*` requests below, w
 | `scrobble.now-playing` | `credential`, `track` | `ok` |
 | `scrobble.submit` | `credential`, `listens`: one to the service's batch limit (100 for ListenBrainz) | `ok` |
 | `scrobble.status` | `credential`, optional | `ok`, and `account` when a credential was given |
+| `scrobble.authorise` | `token`, optional | `ok`, and `token` and `url` to begin; `account` and `credential` to end |
 
-A `track` is `artist`, `title`, optional `album` and `durationMs`; a listen adds `listenedAt` (Unix seconds). The result is always `ok: true`: a failure is an error. The add-on answers in these codes, which Sona maps back to the scrobble package's errors so the queue and its backoff act as they did when the HTTP ran in Sona; any other failure is `failed` and is retried:
+A `track` is `artist`, `title`, optional `album` and `durationMs`; a listen adds `listenedAt` (Unix seconds). The result is always `ok: true`: a failure is an error. `scrobble.authorise` is Last.fm's browser approval, in two steps that Sona drives: with no `token` it begins one (the add-on gets a token from Last.fm and answers `token` and the `url` of the page where the user approves Sona, which Sona opens); with that `token` it asks whether the user has approved it, and answers `authorisation_pending` until they have, then `account` and `credential` (the session key, which Sona stores). Only the `lastfm` add-on answers it. The add-on answers in these codes, which Sona maps back to the scrobble package's errors so the queue and its backoff act as they did when the HTTP ran in Sona; any other failure is `failed` and is retried:
 
 | Code | Sona's meaning |
 | --- | --- |
@@ -1063,11 +1064,11 @@ Their connect flows (Settings → Connections) start an add-on that has no accou
       "type": "object", "additionalProperties": false, "required": ["id", "method", "params"],
       "properties": {
         "id": {"type": "integer", "minimum": 1},
-        "method": {"enum": ["scrobble.now-playing", "scrobble.submit", "scrobble.status"]},
+        "method": {"enum": ["scrobble.now-playing", "scrobble.submit", "scrobble.status", "scrobble.authorise"]},
         "params": {
           "type": "object", "additionalProperties": false,
           "properties": {
-            "credential": {"type": "string", "maxLength": 1024},
+            "credential": {"type": "string", "maxLength": 1024}, "token": {"type": "string", "maxLength": 256},
             "track": {"$ref": "#/$defs/ScrobbleTrack"},
             "listens": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"$ref": "#/$defs/ScrobbleListen"}}
           }
@@ -1080,7 +1081,10 @@ Their connect flows (Settings → Connections) start an add-on that has no accou
         "id": {"type": "integer", "minimum": 1},
         "result": {
           "type": "object", "additionalProperties": false, "required": ["ok"],
-          "properties": {"ok": {"const": true}, "account": {"type": "string", "maxLength": 240}}
+          "properties": {
+            "ok": {"const": true}, "account": {"type": "string", "maxLength": 240}, "token": {"type": "string", "maxLength": 256},
+            "url": {"type": "string", "pattern": "^https?://[^@ ]+$", "maxLength": 2048}, "credential": {"type": "string", "maxLength": 1024}
+          }
         }
       }
     },

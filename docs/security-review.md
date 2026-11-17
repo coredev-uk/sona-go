@@ -609,15 +609,16 @@ Sona doesn't ship a privileged helper to get around a restricted user namespace,
 
 ### Sona's own add-ons
 
-**What it does.** Sona's Last.fm, ListenBrainz and Discord integrations are bundled add-ons (#302, `docs/addons.md`, "Bundled add-ons"): `sona --addon <id>`, Sona's own signed executable run by the add-on supervisor over protocol v2. They are registered in code and never read from `<config>`. ListenBrainz does its HTTP in its add-on; Sona keeps the pipeline (tracker, private filter, persistent queue, backoff) and sends the add-on only listens that passed the filter, as `scrobble.*` requests.
+**What it does.** Sona's Last.fm, ListenBrainz and Discord integrations are bundled add-ons (#302, `docs/addons.md`, "Bundled add-ons"): `sona --addon <id>`, Sona's own signed executable run by the add-on supervisor over protocol v2. They are registered in code and never read from `<config>`. Last.fm and ListenBrainz do their HTTP in their add-ons, including Last.fm's browser approval, whose token and session handling live in the add-on; Sona keeps the pipeline (tracker, private filter, persistent queue, backoff) and the stored sign-in, and sends the add-on only listens that passed the filter, as `scrobble.*` requests.
 
 **Threats and controls.**
 
 | Threat | Control | Test |
 | --- | --- | --- |
 | A private listen or a preview reaches a service | One host-side filter, `privatemode.Mode.Hidden`, decides before the queue: a hidden listen is never queued, so it is never a request to the add-on and never reaches the network | `TestScrobbleListenBrainzNeverSeesAPrivateListen`, `TestTrackerSkipsPrivateListens` |
-| A third-party add-on is sent a `scrobble.*` request (and the credential in it) | `Session.Request` refuses any session the supervisor did not mark bundled, from the registry in code; the method must be one of three fixed names, there is no general call | `TestHostRequestsAreBundledOnly`, `TestAddonsRequestReachesABundledAddon` |
+| A third-party add-on is sent a `scrobble.*` request (and the credential in it) | `Session.Request` refuses any session the supervisor did not mark bundled, from the registry in code; the method must be one of four fixed names, there is no general call | `TestHostRequestsAreBundledOnly`, `TestAddonsRequestReachesABundledAddon` |
 | A folder in the user's add-ons directory takes a bundled ID | The scanner refuses a folder that claims a reserved ID, and the registry is the only source of the manifest and the program | `TestAddonsUserFolderCannotClaimABundledID` |
+| The add-on names a page for Sona to open that is not a web page | Sona opens only an `http` or `https` address without a user name; anything else fails the connection | `TestAddonScrobblerRefusesAnApprovalPageThatIsNotAWebAddress` |
 | The sign-in leaks through the environment, a log or an error | It is in the keyring item `addon.<id>`; it crosses the channel only in the `credential` of the request that needs it; the environment is an allowlist (plus the proxy and certificate variables, for bundled add-ons only); an error frame carries a fixed message, never the cause's text | `TestEnvironmentIsAnAllowlist`, `TestListenBrainzAddonAnswersInCodes` |
 | A development override points the add-on at another host | The base-URL variables exist only in a `dev` build, are passed to bundled add-ons only, and are taken only for a loopback address | `endpoints_dev.go` |
 

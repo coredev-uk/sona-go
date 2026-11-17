@@ -29,6 +29,8 @@ type Options struct {
 // Endpoints are the services' base URLs; "" is the real one.
 type Endpoints struct {
 	ListenBrainz string
+	// LastFM is the API, LastFMAuth the page the user approves Sona on.
+	LastFM, LastFMAuth string
 }
 
 func (o Options) client() *http.Client {
@@ -48,31 +50,91 @@ type service interface {
 	Account(ctx context.Context, cred string) (string, error)
 }
 
+// authoriser is a service with a browser approval (Last.fm's): begin gives a
+// token and the page to approve it on, complete exchanges the approved token
+// for the credential and its account (scrobble.ErrPending until the user
+// approves, scrobble.ErrExpired once the token timed out).
+type authoriser interface {
+	Begin(ctx context.Context) (token, page string, err error)
+	Complete(ctx context.Context, token string) (account, credential string, err error)
+}
+
+// serviceFor is the service of an add-on, made when a request needs it: one
+// that needs the build credentials of hello can only be made after it. It
+// fails with scrobble.ErrNotConfigured where the build has none.
+type serviceFor func(c *Client) (service, error)
+
 type listenBrainz struct{ *scrobble.ListenBrainz }
 
-func newListenBrainz(o Options) service {
-	return listenBrainz{&scrobble.ListenBrainz{
+func newListenBrainz(o Options) serviceFor {
+	svc := listenBrainz{&scrobble.ListenBrainz{
 		API: o.Endpoints.ListenBrainz, HTTP: o.client(), UserAgent: o.userAgent(), Version: o.Version,
 	}}
+	return func(*Client) (service, error) { return svc, nil }
 }
 
 func (l listenBrainz) Account(ctx context.Context, cred string) (string, error) {
 	return l.Validate(ctx, cred)
 }
 
+type lastFM struct{ *scrobble.LastFM }
+
+// newLastFM is Last.fm's service over the API account of the build, which is
+// in hello's answer (cli.CredAPIKey, cli.CredAPISecret) and nowhere else.
+func newLastFM(o Options) serviceFor {
+	return func(c *Client) (service, error) {
+		cred := c.Hello().Credentials
+		key, secret := cred[cli.CredAPIKey], cred[cli.CredAPISecret]
+		if key == "" || secret == "" {
+			return nil, scrobble.ErrNotConfigured
+		}
+		return lastFM{&scrobble.LastFM{
+			Key: key, Secret: secret, API: o.Endpoints.LastFM, AuthBase: o.Endpoints.LastFMAuth,
+			HTTP: o.client(), UserAgent: o.userAgent(),
+		}}, nil
+	}
+}
+
+func (l lastFM) Account(ctx context.Context, cred string) (string, error) {
+	return l.UserInfo(ctx, cred)
+}
+
+func (l lastFM) Begin(ctx context.Context) (string, string, error) {
+	token, err := l.Token(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	return token, l.AuthURL(token), nil
+}
+
+func (l lastFM) Complete(ctx context.Context, token string) (string, string, error) {
+	s, err := l.Session(ctx, token)
+	return s.Name, s.Key, err
+}
+
 // serveScrobbler answers the requests of Sona that a scrobbling add-on gets
 // (cli.HostMethods): the listens arrive already filtered and queued by Sona,
 // and the add-on does the HTTP and tells how it went in codes the host maps
 // back to the scrobble package's errors.
-func serveScrobbler(c *Client, svc service) {
-	c.Handle(cli.AddonMethodScrobbleNowPlaying, func(ctx context.Context, raw json.RawMessage) (any, error) {
+func serveScrobbler(c *Client, get serviceFor) {
+	// handle runs h over the service, or answers why there is none.
+	handle := func(method string, h func(ctx context.Context, svc service, raw json.RawMessage) (any, error)) {
+		c.Handle(method, func(ctx context.Context, raw json.RawMessage) (any, error) {
+			svc, err := get(c)
+			if err != nil {
+				return nil, answerOf(err)
+			}
+			return h(ctx, svc, raw)
+		})
+	}
+	handle(cli.AddonMethodScrobbleNowPlaying, func(ctx context.Context, svc service, raw json.RawMessage) (any, error) {
 		var p cli.ScrobbleNowPlayingParams
 		if err := decode(raw, &p); err != nil || p.Credential == "" || p.Track.Artist == "" || p.Track.Title == "" {
 			return nil, badArguments(err)
 		}
 		return ok(svc.NowPlaying(ctx, p.Credential, trackOf(p.Track)))
 	})
-	c.Handle(cli.AddonMethodScrobbleSubmit, func(ctx context.Context, raw json.RawMessage) (any, error) {
+	handle(cli.AddonMethodScrobbleSubmit, func(ctx context.Context, svc service, raw json.RawMessage) (any, error) {
 		var p cli.ScrobbleSubmitParams
 		if err := decode(raw, &p); err != nil || p.Credential == "" || len(p.Listens) == 0 || len(p.Listens) > svc.MaxBatch() {
 			return nil, badArguments(err)
@@ -83,7 +145,7 @@ func serveScrobbler(c *Client, svc service) {
 		}
 		return ok(svc.Submit(ctx, p.Credential, ls))
 	})
-	c.Handle(cli.AddonMethodScrobbleStatus, func(ctx context.Context, raw json.RawMessage) (any, error) {
+	handle(cli.AddonMethodScrobbleStatus, func(ctx context.Context, svc service, raw json.RawMessage) (any, error) {
 		var p cli.ScrobbleStatusParams
 		if err := decode(raw, &p); err != nil {
 			return nil, badArguments(err)
@@ -96,6 +158,28 @@ func serveScrobbler(c *Client, svc service) {
 			return nil, answerOf(err)
 		}
 		return cli.ScrobbleResult{OK: true, Account: account}, nil
+	})
+	handle(cli.AddonMethodScrobbleAuthorise, func(ctx context.Context, svc service, raw json.RawMessage) (any, error) {
+		a, can := svc.(authoriser)
+		if !can {
+			return nil, &cli.Error{Code: cli.AddonErrUnknownMethod}
+		}
+		var p cli.ScrobbleAuthoriseParams
+		if err := decode(raw, &p); err != nil {
+			return nil, badArguments(err)
+		}
+		if p.Token == "" {
+			token, page, err := a.Begin(ctx)
+			if err != nil {
+				return nil, answerOf(err)
+			}
+			return cli.ScrobbleResult{OK: true, Token: token, URL: page}, nil
+		}
+		account, credential, err := a.Complete(ctx, p.Token)
+		if err != nil {
+			return nil, answerOf(err)
+		}
+		return cli.ScrobbleResult{OK: true, Account: account, Credential: credential}, nil
 	})
 }
 
