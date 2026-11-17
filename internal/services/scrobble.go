@@ -88,7 +88,7 @@ func newScrobble(e *Env, lastfm *scrobble.LastFM, lb *scrobble.ListenBrainz, ope
 		QueuePath: filepath.Join(e.Paths.State, "scrobble-queue.json"),
 		Logger:    e.Logger.With("component", "scrobble"),
 		OnChange:  s.emit,
-		Private:   e.Private.Since,
+		Hidden:    e.Private.Hidden,
 	})
 	s.apply(e.Settings.Get().Scrobbling)
 	e.Settings.OnChange(func(prev, next config.Settings) {

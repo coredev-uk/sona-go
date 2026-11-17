@@ -196,6 +196,8 @@ A user's choice for a library playlist beats both a mosaic and Apple's cover. Th
 
 `internal/privatemode`: while on, plays reported to Apple carry `private-enabled`, and nothing is scrobbled, shown on Discord or written to local history. It is on for `SONA_PRIVATE=1`, in development builds, or from the saved setting.
 
+What leaves Sona's own window (the scrobbler, the Discord presence and add-ons) goes through one function, `Mode.Hidden(start, preview)`: a listen that is a preview, or was private at any point since it started, is hidden from all of them alike. A queue of retried scrobbles holds only listens that passed it.
+
 ### Concerts
 
 `internal/places` and `ConcertsService` start after first paint. The Concerts page, the artist pages' "Upcoming concerts" and Home's concerts shelf list Apple's concert data. It is Shazam's events, through amp-api with the web player token; the user's own artists need the MUT.

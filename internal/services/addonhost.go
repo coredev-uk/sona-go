@@ -12,11 +12,12 @@ import (
 
 // addonHost is what an add-on's session (cli.Session) sees of the running
 // Sona: the v1 commands and three topics, as the command server answers
-// them, with one rule on top. The single private filter: an add-on never
-// learns of a listen that is private (Mode.Since with the start of the
-// listen, so private mode switched on and off again during it still keeps
-// it hidden) or a preview. For it there is nothing playing: no event, and
-// status, queue, lyrics and like answer as if the song weren't there.
+// them, with one rule on top: an add-on never learns of a listen the one
+// private filter hides (Mode.Hidden: a preview, or private at any point
+// since the listen started, so private mode switched on and off again
+// during it still keeps it hidden). For it there is nothing playing: no
+// event, and status, queue, lyrics and like answer as if the song weren't
+// there.
 type addonHost struct {
 	s    *commandServer
 	hub  *cli.Hub
@@ -83,7 +84,7 @@ func (h *addonHost) listenLocked(snap coordinator.Snapshot) (start time.Time, hi
 		h.uid, h.start, h.preview = snap.Current.UID, h.now(), false
 	}
 	h.preview = h.preview || snap.Preview
-	hidden = h.preview || h.s.e.Private.Since(h.start)
+	hidden = h.s.e.Private.Hidden(h.start, h.preview)
 	if hidden {
 		h.hiddenUIDs[h.uid] = true
 	}
