@@ -39,8 +39,8 @@ const (
 // Sona is stopping the add-on.
 const EventShutdown = "shutdown"
 
-// Permissions an add-on may ask for and the user may grant. Until the OS
-// sandbox (#304) they are advisory: an add-on runs with its user's rights.
+// Permissions an add-on may ask for and the user may grant. The protocol
+// checks each at every call (Allowed); `network` is the OS sandbox's.
 const (
 	PermPlaybackRead    = "playback.read"
 	PermPlaybackControl = "playback.control"

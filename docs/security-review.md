@@ -12,6 +12,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [Linux sandbox](#linux-sandbox)
   - [macOS sandbox](#macos-sandbox)
   - [Windows sandbox](#windows-sandbox)
+  - [Native add-ons](#native-add-ons)
   - [Music videos](#music-videos)
   - [Apple's translations](#apples-translations)
   - [Lyrics from other services](#lyrics-from-other-services)
@@ -43,6 +44,7 @@ Each row is a trust boundary. The sections below give the detail.
 | CDM host child, Linux | Running Google's closed CDM on Apple's encrypted media, nothing else | Own user, network and mount namespaces, Landlock, seccomp and a scrubbed environment ([Linux sandbox](#linux-sandbox)). No sandbox, no CDM ([F3](#f3-the-sandbox-failed-open)) |
 | CDM host child, macOS | The same | Seatbelt profile: no network, no writes outside temporary folders, Sona's folder and keychain out of reach. Fails open ([macOS sandbox](#macos-sandbox)) |
 | CDM host child, Windows | The same | AppContainer with no capabilities inside a job object. No sandbox, no CDM ([Windows sandbox](#windows-sandbox)) |
+| Add-ons, native (out of process) | Their own folder, a private data folder and what the user approved (`network` included); nothing else of the user's system | On every OS the process is confined by the system, and where that can't be set up it does not run: user, mount and PID namespaces, Landlock and seccomp on Linux, a Seatbelt profile on macOS, an AppContainer in a job object on Windows ([Native add-ons](#native-add-ons)) |
 | Network fetches | Fixed `https` hosts for each feature | Host allow-lists checked on every redirect (at most 5), size caps, timeouts, no cookies or Apple credentials where none are needed |
 | Local files and settings | The user's own data | Imported settings cannot name a library or a local key. The child cannot read or write Sona's folders. Files are written atomically |
 | Secrets and tokens | The keyring, with a 0600 file fallback | Tokens never reach URLs, errors or logs. Build credentials are redacted from logs and diagnostics ([F10](#f10-development-builds-logged-the-build-credentials)). Secret scanning guards the repository ([Secret scanning](#secret-scanning)) |
@@ -354,6 +356,87 @@ Whether the sandbox is used is decided once per process, on the first host start
   - Offline, with no route at all, the refused `connect()` may fail with another error than `WSAEACCES`. The check then says the network is not refused and the CDM is not loaded until the next start online [INFERENCE: not observed].
 - **Windows 10 and later only**, the AppContainer APIs and the mitigation policies it uses; `windows-2025` is the only version tested.
 
+### Native add-ons
+
+A native add-on (docs/addons.md) is a program somebody else wrote that Sona runs beside itself: the one component that runs code the user chose rather than code Sona was released with. It speaks protocol v2 over its standard input and output, and #304 puts the OS around the process.
+
+**What it does.** It hears Sona's events and sends calls, each behind a permission the user approved; it contributes menu entries, palette commands and settings rows that Sona draws; it may keep files in a data folder of its own. Bundled add-ons (#302) are Sona's own executable started with `--addon <id>`; they run under the same sandbox.
+
+**Threats.** An add-on that is malicious from the start, or turned so by an update or a compromised dependency, wants to:
+
+- read what the user's account can read: documents, `~/.ssh`, browser profiles, the keyring and Sona's own settings and tokens;
+- reach local services of the user's session: the session and system D-Bus (and through it the Secret Service), the agent sockets, X11 and Wayland, the audio server;
+- send what it reads to a server, or scan the user's network;
+- push keystrokes into the user's terminal (`TIOCSTI`) or read it, which is a shell;
+- signal, trace or read the memory of the user's other processes, Sona's among them;
+- leave a process behind that outlives Sona;
+- use kernel attack surface that no add-on needs (namespaces, `io_uring`, `bpf`, `ptrace`) to get out of its sandbox;
+- read or write another add-on's data.
+
+**What the sandbox gives an add-on.**
+
+| | Linux | macOS | Windows |
+| --- | --- | --- | --- |
+| Its own folder | Read-only and runnable, a bind mount in its own root | Read | Read and execute (an access-list entry for its AppContainer) |
+| Its data folder (`<state>/addons/<id>/data`, `SONA_ADDON_DATA`) | Read and write, never run (`noexec`, and no Landlock execute right) | Read and write | Read and write (an entry for its AppContainer) |
+| The rest of the user's files | Not there: the add-on's root is a new tmpfs that holds only what is listed here | Home, `/Users`, `/Volumes`, the temporary folders and the keychain folder are denied to read and write | Not granted: an AppContainer reaches only what its SID was granted, and the system folders `ALL APPLICATION PACKAGES` may read |
+| System programs and libraries | `/usr`, `/bin`, `/sbin`, `/lib*`, the Nix and Guix stores, read-only; a short list of `/etc` files (certificates, resolver, `passwd`, `nsswitch.conf`, the loader cache, the time zone) | Everything that is not denied above stays readable | The Windows folder and Program Files |
+| Without `network` | A network namespace with no interface (not even the loopback is up); `socket()` refused for every family but an anonymous `AF_UNIX` pair; Landlock denies TCP (and UDP where its ABI has it) | `(deny network*)` | No capability: the network stack refuses every connection |
+| With `network` | The host's network namespace; `socket()` for `AF_INET` and `AF_INET6` only (no `AF_UNIX`, `AF_NETLINK`, `AF_PACKET`) | The network is not denied | The `internetClient` capability, which is the internet only: not the loopback, not the private network |
+| Unix sockets | None exist in its root; `socket(AF_UNIX)` is refused unless code names a socket (the Discord add-on's) | Denied with the network (a named socket is allowed back) | None reachable |
+| Other processes | Its own PID namespace: it sees only itself and its children, and can't signal, trace or read Sona or anything else | Not hidden; same-user signals are possible | Not reachable from an AppContainer; the job limits it to 64 processes |
+| The terminal | New session with no controlling terminal; the standard descriptors are pipes, checked by the sandbox's init; no `/dev/tty`, `/dev/pts` or any terminal in its root | New session; the profile denies the terminal devices, to read, write and `ioctl` | Created detached, with no console |
+| Its processes end with Sona | `Pdeathsig` on the init, and the init is PID 1: when it dies the kernel kills everything in the namespace, children that left the process group included | Process group; an add-on must exit when its input ends | Job object with kill-on-close |
+
+**Linux, step by step.** Sona starts a copy of its own executable (`/proc/self/exe`, with a request in the environment) in new user, mount, PID, IPC and UTS namespaces, and a network namespace unless the add-on has `network`; the user namespace maps the user's uid onto itself and gives the copy `CAP_SYS_ADMIN` in it alone. That copy is the add-on's init (`internal/addons/sandbox`: `linux_helper.go`, `linux_view.go`, `linux_confine.go`):
+
+1. Closes every descriptor it doesn't need and refuses to go on if one of the standard three is a terminal.
+2. Builds the new root: a tmpfs with read-only bind mounts of the system's files, the add-on's folder and the extra read folders, a `noexec` bind of the data folder, a `/dev` of its own with `null`, `zero`, `full`, `random` and `urandom`, and a `/proc` of its own; `pivot_root`s into it, drops the old root and remounts the new root read-only. Every source is opened before the first mount, so one under `/tmp` (an AppImage) still binds.
+3. Sets `no_new_privs` and applies Landlock (the same places, read and run, read and write, plus the scopes of abstract Unix sockets and signals where the ABI has them) when the kernel has it.
+4. Clears its ambient capabilities, installs the seccomp filter (the CDM host's list: `ptrace`, `process_vm_*`, `io_uring`, `bpf`, `perf_event_open`, `userfaultfd`, keyrings, `unshare`, `setns`, the mount calls and `clone` with namespace flags fail with `EPERM`; `clone3` and foreign ABIs with `ENOSYS`; `socket` only for the families above).
+5. Starts the add-on from that thread (so it inherits Landlock and the filter), reports to Sona on a pipe that the add-on's own descriptors don't include, and stays as init: it passes `SIGTERM` and the other termination signals on, reaps orphans and exits with the add-on's status.
+
+Sona never opens, lists or follows anything inside the data folder (it only makes the folder and a `tmp` folder in it; a link in `tmp`'s place is removed, never followed), so a hostile add-on can't point Sona at a file.
+
+**When the sandbox can't be set up.** It fails closed. `addons.Start` returns a `*sandbox.Error`; the supervisor does not start the add-on, does not restart it (that is not a crash), logs the reason in the add-on's log, and Settings → Add-ons says it in plain words (`AddonNoSandbox`). There is no setting, environment variable or flag that runs an add-on without the sandbox: only a Go test binary can (`testing.Testing()` and `SONA_ADDON_UNSANDBOXED=1`, the pattern of `SONA_CDMHOST_ALLOW_UNSANDBOXED`), and the services' tests use it to test the supervisor on any machine.
+
+| Reason | Cause | Way out |
+| --- | --- | --- |
+| `userns_restricted` | Ubuntu 23.10 and later: `kernel.apparmor_restrict_unprivileged_userns=1` creates the user namespace without its capabilities unless an AppArmor profile allows the program that asks | An AppArmor profile for Sona's program that allows `userns`, or `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` |
+| `no_userns` | The kernel (`user.max_user_namespaces=0`, Debian's `kernel.unprivileged_userns_clone=0`), a container or the Flatpak sandbox refuses user namespaces | None in Sona: allow them, or run the `.deb`, RPM or AppImage |
+| `no_seccomp` | The syscall filter can't be built (an architecture other than amd64 and arm64) or installed | None |
+| `no_seatbelt` | `/usr/bin/sandbox-exec` is missing, refused the profile, or the profile did not hide the user's home when probed | None |
+| `no_appcontainer` | Windows could not create the profile, grant the folders or start the process in the AppContainer | Run the add-on from a folder the account owns |
+| `unsupported` | An operating system with no sandbox for add-ons | None |
+| `setup_failed` | Anything else (a mount refused, `pivot_root` failing in a container whose root is not a mount); the add-on's log has the detail | |
+
+Sona doesn't ship a privileged helper to get around a restricted user namespace, and a user-visible "run without the sandbox" switch is a deliberate non-feature: the sandbox is what makes approving an add-on a bounded decision.
+
+**Residual risks and where a platform makes it weaker.**
+
+- **`network` is any address.** An add-on with it can reach every host and port the user's computer can, the user's LAN and the loopback services (a database on `127.0.0.1`) included, on Linux and macOS. The label says "Reach the internet"; its sentence says "any address on the network". Sona doesn't broker the traffic (that is only enforceable under the WebAssembly host, #303). On Windows the `internetClient` capability is narrower: the internet, not the private network or the loopback, so an add-on that talks to a device at home needs the other platforms for now.
+- **No resource limits.** The sandbox sets no CPU, memory, disk, process or file limits on Linux and macOS (Windows' job limits the process count): an add-on can fill its data folder or the machine's memory. A cgroup is not available to an unprivileged process.
+- **Kernel attack surface.** The seccomp filter denies a list, not everything but a list: an add-on can still call every other system call, and a kernel bug in one is out of the sandbox's reach. Landlock, the namespaces and `no_new_privs` are second and third layers.
+- **Linux without Landlock** (a kernel before 5.13, or one that doesn't enable it): the root, the namespaces and the filter confine the add-on and the second check of files is missing. The add-on's log says so on each start.
+- **macOS is a deny-list.** The profile is `(allow default)` with the user's data denied, as the CDM host's. What it doesn't name stays reachable: the rest of the system's files (`/etc`, `/Library`, `/Applications`), the Mach services other than the keychain's (the clipboard, distributed notifications, Apple Events), and other processes of the user's. An add-on with `network` can also connect to Unix sockets. `sandbox-exec` is deprecated; its absence fails closed. Nothing of the macOS sandbox was run in the pull request that added it: the profile's text is tested on Linux, the profile is probed on each start (it must accept a program and hide the home directory, or the add-on doesn't run), and the rest is compiled for macOS.
+- **Windows.** An AppContainer reaches the system folders `ALL APPLICATION PACKAGES` may read, so an add-on's runtime must be in the Windows folder, Program Files or the add-on's own folder (a Python in the user's profile is not readable). The SID of each add-on's AppContainer keeps its access-list entries until `Remove`; uninstalling Sona's own sandbox (`sona --remove-sandbox`) does not yet remove the add-ons' profiles.
+- **Bundled add-ons** are Sona's own executable and are confined as any other; they read Sona's install folder (to run) and not the user's config, state or keyring. The Discord add-on is the one that is given a Unix socket (its IPC path), named in code, and F4's checks apply to it.
+- **The protocol is the channel.** Everything an add-on may do to the rest of Sona goes through the permissions of protocol v2, checked on every call; the sandbox does not widen it and the permissions do not widen the sandbox, except `network`, which has no call.
+
+**Tests.**
+
+- `internal/addons/sandbox` (Linux, run by CI's playback job with the AppArmor restriction lifted and `SONA_ADDON_REQUIRE_SANDBOX=1`, which turns a skip into a failure):
+  - an add-on without `network` can't connect to a TCP listener, open a netlink socket or a Unix socket, and one with it can connect and still can't open a Unix or netlink socket;
+  - it can't read a file in the user's home outside its folders, list `/home`, `/root`, `/run`, `/sys`, `/mnt` or `/var`, write to its own folder, `/` or `/tmp`, or run a program from its data folder, and it can write to its data folder and read its own;
+  - it has no controlling terminal, can't open `/dev/tty` or list `/dev/pts`, and none of its descriptors is a terminal; it holds no descriptor but its channel's;
+  - it sees at most itself in `/proc` and can't signal Sona; the request is not in its environment;
+  - a Unix socket is reachable only when the policy names it;
+  - `Kill` ends a process that left the add-on's session.
+- `internal/addons` and `internal/services`: the environment allowlist and the data folder (`SONA_ADDON_DATA`, `HOME`, `TMPDIR`), a data folder never removed, a sandbox that can't start leaves the add-on refused with the reason and not restarted, and revoking `network` stops the add-on.
+- `internal/addons/sandbox/seatbelt_test.go`: the profile's rules and their order, in plain Go on Linux.
+- `internal/ui/features/settings`: every reason has words and the page shows them.
+- Not run: the macOS sandbox and the Windows AppContainer path for add-ons were type-checked and, for macOS, its profile text tested; they were not run on those systems in the pull request that added them.
+
 ### Music videos
 
 **What it does.** Music videos play through the same CDM host child as songs. The CDM decrypts and decodes the video rendition with its own video decoder (`internal/playback/widevine`, `cdmhost`), and the child paces the pictures against the audio clock ([architecture.md](architecture.md) §4.2).
@@ -495,7 +578,7 @@ Whether the sandbox is used is decided once per process, on the first host start
 
 **What it does.** An add-on whose manifest says `runtime: "wasm"` (`docs/addons.md`) is a WebAssembly module that Sona runs **inside its own process**, on [wazero](https://github.com/tetratelabs/wazero) (v1.12.0, Apache-2.0, pure Go, no cgo), in `internal/addons` (`wasm.go`, `wasmfs.go`, `wasmcache.go`, `module.go`). It speaks protocol v2 over WASI standard input and output. The supervisor (`services/addons.go`) starts it after the first paint, on a goroutine of its own, never on the UI thread.
 
-**Why it needs no OS sandbox.** The sandbox for native add-ons (#304) takes rights from a program the OS runs with the user's. A module has none to take: the only way out of it is a host function Sona defines. Sona gives it WASI preview 1 over its standard streams, the clock, random bytes, its arguments and a small environment, and one folder. WASI preview 1 has no function for a socket, a process or the host's environment, so there is nothing to deny.
+**Why it needs no OS sandbox.** The OS sandbox for native add-ons takes rights from a program the OS runs with the user's. A module has none to take: the only way out of it is a host function Sona defines. Sona gives it WASI preview 1 over its standard streams, the clock, random bytes, its arguments and a small environment, and one folder. WASI preview 1 has no function for a socket, a process or the host's environment, so there is nothing to deny.
 
 **Threats and controls.**
 

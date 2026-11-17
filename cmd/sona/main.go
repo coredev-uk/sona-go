@@ -25,6 +25,7 @@ import (
 	"github.com/coredev-uk/sona-go/build"
 	"github.com/coredev-uk/sona-go/internal/addons"
 	"github.com/coredev-uk/sona-go/internal/addons/own"
+	"github.com/coredev-uk/sona-go/internal/addons/sandbox"
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
@@ -70,6 +71,9 @@ func main() {
 	// The CDM host re-executes this binary as its child process; in the
 	// child this never returns. It must run before anything else.
 	childMain()
+	// So does the add-ons' sandbox on Linux: the init of an add-on's
+	// namespaces is this binary (internal/addons/sandbox).
+	sandbox.Main()
 
 	// `sona --addon <id>` is one of Sona's own add-ons (internal/addons/own),
 	// which the supervisor runs as a child over its standard input and

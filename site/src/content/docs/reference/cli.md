@@ -125,6 +125,7 @@ Runs an add-on from a folder without installing it, and prints its log until you
 - Sona asks you to confirm in its window. The question names the add-on, the folder and the permissions its manifest asks for. Without a "Run" there, nothing runs.
 - Nothing is saved. The permissions hold for the run. The add-on gets none of your saved values or secrets.
 - The folder must be yours and not writable by others. Its ID can't be one of your installed add-ons or one reserved for Sona's own.
+- The add-on runs in the same sandbox as an installed one: it reads its folder, writes only its data folder, has no terminal (its log reaches you through Sona, never a terminal of yours) and has the network only if its manifest asks for `network` and you confirmed it. Where the sandbox can't be set up, it doesn't run and the log says why.
 - The add-on's log goes to standard output. On a terminal, escape sequences and control characters are stripped from it. Sona's own lines go to standard error.
 - It exits with status 0 when you press Ctrl+C or the add-on ends. A refusal is status 1, and no Sona is status 3.
 - On _macOS_ and _Windows_ a native add-on fails with "unsupported" before Sona asks anything: they can't yet run the file that was checked. A WebAssembly add-on (`"runtime": "wasm"`) runs there, because Sona reads its `.wasm` once and runs those bytes.

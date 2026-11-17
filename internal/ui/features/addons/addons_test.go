@@ -419,7 +419,7 @@ func TestADevRunIsAskedInTheWindowAndOnlyRunSaysYes(t *testing.T) {
 			r := newRig(t, contribution())
 			r.f.devAsk(devQuestion())
 			r.tt.Until("the question", r.tt.Shows("Run We b hook?"))
-			for _, want := range []string{"from the folder /home/me/code/webhook", "playback.read, private.read", "nothing is saved"} {
+			for _, want := range []string{"in the sandbox from the folder /home/me/code/webhook", "playback.read, private.read", "nothing is saved"} {
 				found := slices.ContainsFunc(r.tt.Texts(), func(s string) bool { return strings.Contains(s, want) })
 				if !found {
 					t.Errorf("the question does not say %q; texts %q", want, r.tt.Texts())

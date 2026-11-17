@@ -39,6 +39,12 @@ func (p Paths) AddonLogDir() string { return filepath.Join(p.State, "addons") }
 // deleting it costs one compile.
 func (p Paths) WasmCacheDir() string { return filepath.Join(p.Cache, "addons-wasm") }
 
+// AddonDataDir is the private folder of the add-on id (SONA_ADDON_DATA), the
+// one place it can write: its sandbox's for a native add-on, the folder
+// mounted at /data for a WebAssembly one. It is the user's: Sona makes it when
+// the add-on first runs and never removes it.
+func (p Paths) AddonDataDir(id string) string { return filepath.Join(p.AddonLogDir(), id, "data") }
+
 // DefaultPaths resolves the directories from the process environment and
 // ensures they exist.
 func DefaultPaths() (Paths, error) {
