@@ -187,6 +187,7 @@ func newPlatformService(e *Env) *PlatformService {
 			Volume:           pc.Volume,
 			Equalizer:        pc.Equalizer,
 			SoundCheck:       pc.SoundCheck,
+			Spatial:          pc.Spatial,
 			Crossfade:        pc.Crossfade,
 			OutputDevice:     pc.OutputDevice,
 			PrivateListening: pc.PrivateListening,

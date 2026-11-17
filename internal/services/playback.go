@@ -159,6 +159,7 @@ func (s *PlaybackService) state(snap coordinator.Snapshot) PlaybackState {
 		AuthRequired:   snap.AuthRequired,
 		NoCDM:          snap.NoCDM,
 		Preview:        snap.Preview,
+		Spatial:        snap.Spatial,
 		OnAir:          s.onAir(snap.OnAir),
 		Broadcaster:    broadcaster(snap.Info),
 		AutoPlay:       snap.AutoPlay,

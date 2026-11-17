@@ -112,8 +112,10 @@ type PlaybackCapabilities struct {
 	Volume bool `json:"volume"`
 	// Equalizer, SoundCheck, Crossfade, OutputDevice: Sona's own output
 	// processing and device choice (AudioService).
-	Equalizer    bool `json:"equalizer"`
-	SoundCheck   bool `json:"soundCheck"`
+	Equalizer  bool `json:"equalizer"`
+	SoundCheck bool `json:"soundCheck"`
+	// Spatial: the engine plays Spatial Audio (Audio.SpatialAudio).
+	Spatial      bool `json:"spatial"`
 	Crossfade    bool `json:"crossfade"`
 	OutputDevice bool `json:"outputDevice"`
 	// PrivateListening: Sona sends every play report itself, so private

@@ -19,6 +19,7 @@ func (e *Engine) Capabilities() playback.Capabilities {
 		Volume:           true,
 		Equalizer:        true,
 		SoundCheck:       true,
+		Spatial:          !e.preview,
 		Crossfade:        !e.preview,
 		OutputDevice:     true,
 		PrivateListening: true,
@@ -74,4 +75,13 @@ func (e *Engine) SetOutputDevice(ctx context.Context, device string) error {
 // applies it to the playing item at once.
 func (e *Engine) SetSoundCheck(ctx context.Context, on bool) error {
 	return e.withHost(func() { e.soundCheck = on }, func(h host) error { return h.SetTrackGain(ctx, on) })
+}
+
+// SetSpatial turns Spatial Audio on or off for the items prepared from now
+// on. The playing item keeps its stream; a prepared song of the other mode
+// is prepared again when it is played.
+func (e *Engine) SetSpatial(on bool) {
+	e.mu.Lock()
+	e.spatial = on
+	e.mu.Unlock()
 }

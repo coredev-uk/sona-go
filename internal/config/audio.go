@@ -19,6 +19,10 @@ type Audio struct {
 	// SoundCheck plays every track at about the same loudness, from the
 	// loudness Apple measured for it (or an upload's own Sound Check tag).
 	SoundCheck bool `json:"soundCheck"`
+	// SpatialAudio plays a song's Spatial Audio rendition (Apple's binaural
+	// headphone mix of its Dolby Atmos master) where Apple licenses it for
+	// Sona, and the stereo stream otherwise. Off by default.
+	SpatialAudio bool `json:"spatialAudio"`
 }
 
 // Equalizer is the equaliser state: the selected preset, the user's own

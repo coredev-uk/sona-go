@@ -176,6 +176,7 @@ type Engine struct {
 	eq         equalizer.Curve    // applied to every host
 	device     string             // output device for every host (SetOutputDevice); "" = default
 	soundCheck bool               // apply items' Sound Check gain
+	spatial    bool               // play songs' Spatial Audio rendition where Apple licenses it
 	h          host
 	hostGen    int
 	track      uint64        // last track generation handed to the host

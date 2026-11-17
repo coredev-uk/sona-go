@@ -310,6 +310,7 @@ func (c *Coordinator) Snapshot() Snapshot {
 		AuthRequired:   c.auth,
 		NoCDM:          c.noCDM,
 		Preview:        c.index >= 0 && c.st.Preview,
+		Spatial:        c.index >= 0 && c.st.Spatial,
 		OnAir:          c.onAirLocked(),
 		Info:           c.infoLocked(),
 		AutoPlay:       c.autoplay,

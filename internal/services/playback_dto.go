@@ -156,6 +156,9 @@ type PlaybackState struct {
 	// the full track (a test or development engine: SONA_PREVIEW=1); the
 	// player labels it, and nothing reports it as a play.
 	Preview bool `json:"preview"`
+	// Spatial: the current song plays as its Spatial Audio rendition
+	// (Apple's binaural headphone mix); the player says so.
+	Spatial bool `json:"spatial"`
 	// OnAir is what the current local broadcaster's stream says is on
 	// air (the song or advert it names), as heard; nil when it says
 	// nothing.
