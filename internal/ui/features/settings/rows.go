@@ -154,15 +154,19 @@ func (s *settings) line(c *ui.Context) {
 }
 
 // marginWidth and marginGap are the left margin a group's heading sits in
-// where the window is wide.
+// where the section's column is wide. marginRoom is the narrowest column
+// that keeps it: the margin and its gap, then rows wide enough for a title
+// beside two buttons (Add-ons folder's 290 DIP and rowGap leave its text
+// 190 DIP). Narrower, a row's text would be squeezed to a letter a line.
 const (
 	marginWidth = 176
 	marginGap   = 32
+	marginRoom  = marginWidth + marginGap + 520
 )
 
 // marginal sets a group's head beside its body in a left margin column
 // (the head's first line level with the first row's title, topPad below the
-// body's top), or above it where the window is narrow.
+// body's top), or above it where the section's column is narrow.
 func (s *settings) marginal(c *ui.Context, topPad float32, head, body func()) {
 	if !s.wide {
 		ui.Column(c.Key("stacked")).FillWidth().Gap(12).Children(func() {

@@ -46,9 +46,14 @@ type settings struct {
 	// pending is a Find landing waiting for its row, found the row washed
 	// after one.
 	pending *landing
-	// wide is whether the window is wider than narrowWidth: groups keep
-	// their heading in a left margin, below it above their rows.
+	// wide is whether the section's column has room for a left margin
+	// (marginRoom): groups keep their heading in it, otherwise above
+	// their rows.
 	wide bool
+	// pageW is the page's own width at the last layout, 0 before the
+	// first: the sidebar takes its share of the window, so the window's
+	// width overstates the room the page has.
+	pageW float32
 	// ruled is set while the section's masthead rule is the last thing
 	// drawn: the next line is that rule's, and is skipped.
 	ruled bool

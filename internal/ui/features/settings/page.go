@@ -12,9 +12,9 @@ import (
 )
 
 // The page's geometry (Settings.tsx): a 240 DIP index column and content up
-// to 800 DIP, below 960 DIP of window width the index wraps above the
-// content, and the index is held in view only where the window is also
-// 700 DIP tall.
+// to 800 DIP, below 960 DIP of the page's own width (the window's less the
+// sidebar) the index wraps above the content, and the index is held in view
+// only where the window is also 700 DIP tall.
 const (
 	indexWidth   = 240
 	contentWidth = 960
@@ -56,9 +56,9 @@ func (s *settings) page(c *ui.Context, r *ui.Route) {
 		}
 	}
 
-	w, h := c.Size()
+	w := s.width(c)
+	_, h := c.Size()
 	narrow := w <= narrowWidth
-	s.wide = !narrow
 	sticky := !narrow && h >= stickyHeight
 	tk := theme.Current()
 	gutter := tk.Metric["gutter"]
@@ -66,14 +66,19 @@ func (s *settings) page(c *ui.Context, r *ui.Route) {
 		gutter = tk.Metric["gutter-narrow"]
 	}
 	scrollbar := tk.Metric["scrollbar"]
+	// The section's column beside the index: what is left of the page
+	// after both gutters, the scrollbar, the index and its gap.
+	s.wide = !narrow && min(contentWidth, w-2*gutter-scrollbar-indexWidth-indexGap) >= marginRoom
 
 	index := func() { s.index(c, section, narrow) }
 	content := func() { s.content(c, section, narrow) }
 
 	devstate.Scroll(c, &s.pos)
+	var top ui.Element
 	switch {
 	case sticky:
-		ui.Row(c).Grow(1).Basis(0).MinHeight(0).MinWidth(0).Padding(kit.PagePadTop, 0, 0, gutter).Gap(indexGap).Children(func() {
+		top = ui.Row(c).Grow(1).Basis(0).MinHeight(0).MinWidth(0).Padding(kit.PagePadTop, 0, 0, gutter).Gap(indexGap)
+		top.Children(func() {
 			// The index scrolls on its own: Find's results are longer than
 			// the column at 700-810 DIP of height.
 			ui.Scroll(c.Key("index")).Width(indexWidth).Shrink(0).MinHeight(0).FillHeight().Children(func() {
@@ -84,20 +89,36 @@ func (s *settings) page(c *ui.Context, r *ui.Route) {
 			})
 		})
 	case narrow:
-		ui.Scroll(c).TrackScroll(&s.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0).Children(func() {
+		top = ui.Scroll(c).TrackScroll(&s.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+		top.Children(func() {
 			ui.Column(c).Padding(kit.PagePadTop, gutter+scrollbar, kit.PagePadBottom, gutter).Gap(24).Children(func() {
 				index()
 				content()
 			})
 		})
 	default:
-		ui.Scroll(c).TrackScroll(&s.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0).Children(func() {
+		top = ui.Scroll(c).TrackScroll(&s.pos).Grow(1).Basis(0).MinHeight(0).MinWidth(0)
+		top.Children(func() {
 			ui.Row(c).Padding(kit.PagePadTop, gutter+scrollbar, kit.PagePadBottom, gutter).Gap(indexGap).AlignItems(ui.Start).Children(func() {
 				ui.Column(c.Key("index")).Width(indexWidth).Shrink(0).Children(index)
 				ui.Column(c.Key("section")).Grow(1).Shrink(1).MinWidth(0).MaxWidth(contentWidth).Children(content)
 			})
 		})
 	}
+	if pw := top.Bounds().W; pw > 0 && pw != s.pageW {
+		s.pageW = pw
+		c.Invalidate() // the columns follow the page's width
+	}
+}
+
+// width is the page's own width: the window's less the shell's sidebar, as
+// the last layout measured it (the window's until the first).
+func (s *settings) width(c *ui.Context) float32 {
+	if s.pageW > 0 {
+		return s.pageW
+	}
+	w, _ := c.Size()
+	return w
 }
 
 // content is the section: a region named by its h2 (the name only a screen
