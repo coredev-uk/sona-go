@@ -174,12 +174,15 @@
 // Private (private.go) is private listening (internal/privatemode) for the
 // UI: State, Set and "private:changed". Deps.Private is the one Mode
 // every play reporter asks with the start of the listen (Mode.Since): the
-// play-activity reporter, History, the scrobbler and the Discord presence;
-// a toggle applies from the next event and a listen private at any point
-// stays private. A development build's toggle never writes the setting.
-// A song playing as its 30-second preview (SONA_PREVIEW=1, PlaybackState
-// preview) never reaches a reporter: the coordinator reports no activity
-// and no OnPlayed for it.
+// play-activity reporter and History; a toggle applies from the next event
+// and a listen private at any point stays private. What leaves Sona's own
+// window (the scrobbler, the Discord presence and add-ons) asks one
+// function instead, Mode.Hidden(start, preview): a preview, or a listen
+// private at any point since it started, is hidden from all three alike.
+// A development build's toggle never writes the setting. A song playing as
+// its 30-second preview (SONA_PREVIEW=1, PlaybackState preview) never
+// reaches a reporter: the coordinator reports no activity and no OnPlayed
+// for it.
 //
 // First-run setup (onboarding.go): StartRoute picks the main window's
 // first route before it is created, from the settings and SQLite only

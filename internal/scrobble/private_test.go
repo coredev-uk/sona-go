@@ -14,7 +14,7 @@ import (
 func TestTrackerSkipsPrivateListens(t *testing.T) {
 	clock := t0
 	m := privatemode.New(privatemode.Options{Now: func() time.Time { return clock }})
-	tr := Tracker{private: m.Since}
+	tr := Tracker{hidden: m.Hidden}
 	set := func(at int, on bool) {
 		t.Helper()
 		clock = t0.Add(sec(at))
@@ -76,7 +76,7 @@ func TestTrackerSkipsPrivateListens(t *testing.T) {
 func TestScrobblerQueuesNothingWhilePrivate(t *testing.T) {
 	m := privatemode.New(privatemode.Options{Override: privatemode.OverrideOn})
 	p := &fakeProvider{name: "lastfm"}
-	s := New(Options{Providers: []Provider{p}, Backoff: fastBackoff, Private: m.Since})
+	s := New(Options{Providers: []Provider{p}, Backoff: fastBackoff, Hidden: m.Hidden})
 	defer s.Close()
 	connect(s, "lastfm", "good")
 	s.Start()

@@ -166,3 +166,46 @@ func TestSince(t *testing.T) {
 		t.Error("nil Mode is private")
 	}
 }
+
+// Hidden is the one filter every consumer of a listen asks: a preview, or a
+// listen private at any point since it started. The tests of the tracker,
+// the Discord plan and the add-on host check each consumer's use of it;
+// this one checks the rule itself.
+func TestHidden(t *testing.T) {
+	now := time.Unix(1000, 0)
+	m := New(Options{Now: func() time.Time { return now }})
+	start := now
+	if m.Hidden(start, false) {
+		t.Error("a public listen is hidden")
+	}
+	if !m.Hidden(start, true) {
+		t.Error("a preview is not hidden")
+	}
+	now = now.Add(time.Minute)
+	_, _ = m.Set(true)
+	if !m.Hidden(start, false) || !m.Hidden(now, false) {
+		t.Error("a listen is not hidden while private mode is on")
+	}
+	now = now.Add(time.Minute)
+	_, _ = m.Set(false)
+	if !m.Hidden(start, false) {
+		t.Error("a listen that was private at some point went public")
+	}
+	if !m.Hidden(start, true) {
+		t.Error("a listen that was both private and a preview is shown")
+	}
+	now = now.Add(time.Minute)
+	if m.Hidden(now, false) {
+		t.Error("a listen started after private mode turned off is hidden")
+	}
+	if !m.Hidden(now, true) {
+		t.Error("a preview is shown after private mode turned off")
+	}
+	var nilMode *Mode
+	if nilMode.Hidden(start, false) {
+		t.Error("nil Mode hides a public listen")
+	}
+	if !nilMode.Hidden(start, true) {
+		t.Error("nil Mode shows a preview")
+	}
+}

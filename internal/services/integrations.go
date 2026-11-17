@@ -171,7 +171,7 @@ func (s *IntegrationsService) run() {
 		st   integrationsState
 	)
 	apply := func() {
-		p := st.plan(last, s.e.Settings.Get().Integrations, s.e.Private.Since, s.e.Now())
+		p := st.plan(last, s.e.Settings.Get().Integrations, s.e.Private.Hidden, s.e.Now())
 		if p.announce != nil && s.e.Platform.Notifications != nil {
 			s.announce(*p.announce)
 		}
@@ -240,9 +240,11 @@ type integrationsState struct {
 	inhibited bool
 	running   bool // the app is held at full speed (Platform.KeepRunning)
 	// playing is the queue slot last seen playing and playingAt when it
-	// started, which is when its listen began for private mode.
+	// started, which is when its listen began for private mode; preview is
+	// whether it has been a preview since (it stays one).
 	playing   uint64
 	playingAt time.Time
+	preview   bool
 }
 
 // integrationsPlan is what to do for one snapshot.
@@ -254,8 +256,8 @@ type integrationsPlan struct {
 }
 
 // plan decides the integrations' actions for snap under set at now;
-// private is privatemode.Mode.Since (nil: never private).
-func (st *integrationsState) plan(snap coordinator.Snapshot, set config.Integrations, private func(time.Time) bool, now time.Time) integrationsPlan {
+// hidden is privatemode.Mode.Hidden, the one filter (nil: nothing hidden).
+func (st *integrationsState) plan(snap coordinator.Snapshot, set config.Integrations, hidden func(start time.Time, preview bool) bool, now time.Time) integrationsPlan {
 	var p integrationsPlan
 	// Notifications: once per queue slot, when it starts playing (a slot
 	// restored paused is announced when it is played). The slot counts as
@@ -281,16 +283,17 @@ func (st *integrationsState) plan(snap coordinator.Snapshot, set config.Integrat
 		p.running = &awake
 	}
 	// Discord: the track while it plays, cleared otherwise; left as is
-	// while the next track loads so it does not flicker. A private listen
-	// (private mode on at any point since its slot started playing) shows
-	// nothing.
+	// while the next track loads so it does not flicker. A listen the
+	// filter hides (a preview, or private at any point since its slot
+	// started playing) shows nothing.
 	if cur := snap.Current; cur != nil && snap.State == playback.StatePlaying && cur.UID != st.playing {
-		st.playing, st.playingAt = cur.UID, now
+		st.playing, st.playingAt, st.preview = cur.UID, now, false
 	}
+	st.preview = st.preview || (snap.Current != nil && snap.Preview)
 	if snap.State != playback.StateLoading {
 		w := presenceWant{enabled: set.DiscordPresence}
-		hidden := private != nil && snap.Current != nil && private(st.playingAt)
-		if set.DiscordPresence && !hidden {
+		hide := hidden != nil && snap.Current != nil && hidden(st.playingAt, st.preview)
+		if set.DiscordPresence && !hide {
 			w.act = presenceFor(snap)
 		}
 		p.presence = &w
