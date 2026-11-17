@@ -55,7 +55,13 @@ type AddonsService struct {
 	mu      sync.Mutex
 	runners map[string]*addonRunner // by add-on ID
 	started bool                    // the network is open: enabled add-ons run
-	closed  bool
+	// leases counts what holds one of Sona's own add-ons up besides its
+	// integration being in use (Lease), by add-on ID.
+	leases map[string]int
+	// ticked is closed, and replaced, at every change of an add-on's state:
+	// a caller waiting for one to come up (Request) wakes on it.
+	ticked chan struct{}
+	closed bool
 
 	// devMu guards `addons dev`: the one question waiting for the person and
 	// the runs, by token (addons_dev.go).
@@ -141,7 +147,7 @@ var ErrAddonUnavailable = errors.New("the add-on is not running")
 func newAddonsService(e *Env) *AddonsService {
 	s := &AddonsService{
 		e: e, root: e.Paths.AddonsDir(), logs: e.Paths.AddonLogDir(),
-		opts: defaultAddonOptions(), runners: map[string]*addonRunner{}, devs: map[string]*devRun{},
+		opts: defaultAddonOptions(), runners: map[string]*addonRunner{}, devs: map[string]*devRun{}, leases: map[string]int{},
 	}
 	e.Settings.OnChange(func(prev, next config.Settings) { s.settingsChanged() })
 	e.OnNetwork(s.start)
@@ -200,7 +206,7 @@ func (s *AddonsService) wanted(en addons.Entry) bool {
 	if !s.setting(en).Enabled {
 		return false
 	}
-	return !en.Bundled || bundledWanted(en.ID, s.e.Settings.Get())
+	return !en.Bundled || s.inUse(en.ID, s.e.Settings.Get())
 }
 
 // bundledWanted reports whether Sona's own add-on id has anything to do
@@ -347,7 +353,7 @@ func (s *AddonsService) List() []AddonInfo {
 			info.State, info.Restarts = r.snapshot()
 		case !st.Enabled:
 			info.State = AddonOff
-		case en.Bundled && r == nil && !bundledWanted(en.ID, cur):
+		case en.Bundled && r == nil && !s.inUse(en.ID, cur):
 			info.State = AddonIdle
 		case !covers(st.Granted, en.Manifest.Permissions):
 			info.State = AddonNeedsApproval
@@ -565,6 +571,7 @@ func (s *AddonsService) Invoke(ctx context.Context, id, action string, target *A
 }
 
 func (s *AddonsService) changed() {
+	s.tick()
 	if s.e.Emit != nil {
 		s.e.Emit.Emit(EventAddonsChanged, s.List())
 	}
@@ -934,7 +941,7 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 	r.manifest, r.own = en.Manifest, own
 	r.mu.Unlock()
 	sess := cli.NewSession(cli.AddonConfig{
-		ID: r.id, Host: s.host, Own: own, Allowed: allowed, Credentials: bundledCredentials(en),
+		ID: r.id, Host: s.host, Own: own, Allowed: allowed, Credentials: bundledCredentials(en), Bundled: en.Bundled,
 		Log: slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: slog.LevelWarn})),
 	})
 	r.set(AddonStarting, sess)

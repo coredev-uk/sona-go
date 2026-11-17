@@ -3,6 +3,7 @@ package addons
 import (
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -16,6 +17,19 @@ var allowedEnv = []string{"PATH", "LANG", "LANGUAGE", "TZ"}
 
 // allowedEnvWindows are what a Windows process needs to start at all.
 var allowedEnvWindows = []string{"SYSTEMROOT", "SYSTEMDRIVE", "PATHEXT", "COMSPEC"}
+
+// bundledEnv are the variables only Sona's own add-ons inherit besides the
+// above: the proxy and certificate settings the Go HTTP client reads, which
+// Last.fm's and ListenBrainz's requests honoured when they ran inside Sona.
+// Nothing in them is a secret of Sona's.
+var bundledEnv = []string{
+	"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy",
+	"SSL_CERT_FILE", "SSL_CERT_DIR",
+}
+
+// bundledAllowed reports whether Sona's own add-ons inherit name: bundledEnv,
+// and in a development build the fake service endpoints (devEnv).
+func bundledAllowed(name string) bool { return slices.Contains(bundledEnv, name) || devEnv(name) }
 
 // Environment builds the environment of the add-on id from parent (as
 // os.Environ gives it): the allowlisted variables, then the add-on's own,
@@ -37,7 +51,7 @@ func environment(parent []string, id, data string, windows bool) []string {
 		if windows {
 			name = strings.ToUpper(name)
 		}
-		if allowed(name, windows) {
+		if allowed(name, windows) || (IsBundled(id) && bundledAllowed(name)) {
 			out = append(out, kv)
 		}
 	}

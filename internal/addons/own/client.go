@@ -56,6 +56,7 @@ type Client struct {
 	hello    cli.HelloResult
 	stopped  bool
 	stop     chan struct{} // closed when Sona sent shutdown
+	ready    chan struct{} // closed once hello is answered and Setup has run
 }
 
 type reply struct {
@@ -72,7 +73,7 @@ func NewClient(id string, in io.Reader, out io.Writer, log *slog.Logger) *Client
 	return &Client{
 		id: id, log: log, in: in, out: out,
 		pending: map[int64]chan reply{}, handlers: map[string]Handler{}, events: map[string]func(json.RawMessage){},
-		stop: make(chan struct{}),
+		stop: make(chan struct{}), ready: make(chan struct{}),
 	}
 }
 
@@ -134,6 +135,7 @@ func (c *Client) Serve(ctx context.Context, permissions []string, setup Setup) e
 			return err
 		}
 	}
+	close(c.ready)
 	select {
 	case err := <-readDone:
 		return err
@@ -284,6 +286,14 @@ func (c *Client) markStopped() {
 
 // serveRequest answers one request of Sona.
 func (c *Client) serveRequest(ctx context.Context, f cli.Frame) {
+	// Sona may send a request the moment it has accepted hello: it waits for
+	// the answer to be read and Setup to have run, which is what its handlers
+	// may need (the hello's credentials).
+	select {
+	case <-c.ready:
+	case <-ctx.Done():
+		return
+	}
 	c.mu.Lock()
 	h := c.handlers[f.Method]
 	c.mu.Unlock()

@@ -14,7 +14,7 @@ import (
 func TestMainRefusesWhatIsNotBundled(t *testing.T) {
 	for _, id := range []string{"", "demo", "sona-tools", "LASTFM", "../lastfm"} {
 		var stderr bytes.Buffer
-		if status := Main(id, bytes.NewReader(nil), io.Discard, &stderr); status != 2 || stderr.Len() == 0 {
+		if status := Main(id, "test", bytes.NewReader(nil), io.Discard, &stderr); status != 2 || stderr.Len() == 0 {
 			t.Errorf("Main(%q) = %d, %q", id, status, stderr.String())
 		}
 	}
@@ -38,7 +38,7 @@ func TestMainSpeaksProtocolV2ForEveryBundledAddon(t *testing.T) {
 			})
 			go func() { _ = sess.Serve(context.Background(), rwc{toSona, fromSona}) }()
 			status := make(chan int, 1)
-			go func() { status <- Main(id, toAddon, fromAddon, io.Discard) }()
+			go func() { status <- Main(id, "test", toAddon, fromAddon, io.Discard) }()
 			settled(t, sess)
 			sess.Close()
 			select {

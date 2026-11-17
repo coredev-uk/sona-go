@@ -57,3 +57,26 @@ func TestWindowsEnvironmentKeepsWhatAProcessNeeds(t *testing.T) {
 		}
 	}
 }
+
+// Sona's own add-ons also inherit the proxy and certificate settings their
+// HTTP client reads, as theirs did inside Sona; an add-on of the user's does
+// not, and no secret of Sona's reaches either.
+func TestEnvironmentGivesBundledAddonsTheirProxy(t *testing.T) {
+	parent := []string{"HTTPS_PROXY=http://proxy:3128", "no_proxy=localhost", "SSL_CERT_FILE=/etc/ssl/cert.pem", "SONA_LASTFM_SECRET=s", "MUSIC_USER_TOKEN=t"}
+	own := Environment(parent, "listenbrainz", "/data")
+	for _, want := range parent[:3] {
+		if !slices.Contains(own, want) {
+			t.Errorf("a bundled add-on lacks %q: %v", want, own)
+		}
+	}
+	for _, kv := range append(Environment(parent, "listenbrainz", "/data"), Environment(parent, "demo", "/data")...) {
+		if strings.HasPrefix(kv, "SONA_LASTFM") || strings.HasPrefix(kv, "MUSIC_USER_TOKEN") {
+			t.Errorf("a secret reached an add-on: %q", kv)
+		}
+	}
+	for _, kv := range Environment(parent, "demo", "/data") {
+		if strings.Contains(kv, "PROXY") || strings.Contains(kv, "proxy") || strings.HasPrefix(kv, "SSL_") {
+			t.Errorf("an add-on of the user's got %q", kv)
+		}
+	}
+}

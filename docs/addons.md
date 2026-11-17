@@ -87,6 +87,7 @@ All schemas are one [JSON Schema](https://json-schema.org/) document (draft 2020
 | [unsubscribe](#subscribe-and-unsubscribe) | add-on → Sona | none | `topics` | Answer: the topics now subscribed to. |
 | [call](#call) | add-on → Sona | the command's | `command`, `args`, `kind`, `limit` | Result is the command's JSON. |
 | [invoke](#invoke) | Sona → add-on | none | `action`, `target`, `deadlineMs` | Answer: optional `toast` and `url`. |
+| [scrobble.\*](#requests-of-sona-to-a-bundled-add-on) | Sona → bundled add-on | none | `credential`, `track` or `listens` | Bundled add-ons only. Answer: `ok`, and `account` for a status. |
 
 ### `hello`
 
@@ -351,6 +352,11 @@ An error frame carries a code and **a fixed message** for that code.
 | `not_released` | The song isn't out yet. |
 | `unauthorized` | Apple Music refused the request. |
 | `cancelled` | The call was cancelled. |
+| `credentials_rejected` | A scrobbling service refused the credentials ([Requests of Sona](#requests-of-sona-to-a-bundled-add-on)). |
+| `submission_rejected` | A scrobbling service refused the submission. |
+| `authorisation_pending` | The user hasn't approved the authorisation yet. |
+| `authorisation_expired` | The authorisation expired before it was approved. |
+| `not_configured` | The service isn't set up in this build. |
 
 ## Privacy: private mode and previews
 
@@ -674,9 +680,44 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
 - **On by default, running when there is something to do.** Settings → Add-ons lists them as Sona's own, each with a switch and a log. There is nothing to approve and no permission to revoke: they are part of the signed release. Each is a process of Sona's size, so one runs only while its integration is in use: Last.fm and ListenBrainz while an account is connected (also paused, as listens already queued are still delivered), Discord while its status is on. Until then the page says it is on and starts when Sona has something for it to do. Settings → Connections stays where you connect an account and switch each one on or off.
 - **The folder they run from** is the folder Sona is installed in.
 - **The same sandbox.** They run in the [sandbox](#the-sandbox) like yours: they read the folder Sona is installed in (and the library folders it runs with: an AppImage's `APPDIR`, `LD_LIBRARY_PATH`) and their own data folder, and nothing of your configuration, state or keyring. Their manifests ask for `network` where the integration talks to a server. The one exception a manifest can't ask for is code's: Discord's add-on is given the one Unix socket of Discord's IPC, named in Sona.
-- **Their sign-in is in the keyring item `addon.<id>`**, like any add-on's secrets: the Last.fm session key as `session` in `addon.lastfm`, the ListenBrainz token as `token` in `addon.listenbrainz`. They read it with [`secret`](#secret), for exactly those keys (no settings row shows or edits them). A version before add-ons kept them in the items `lastfm` and `listenbrainz`; at start Sona copies each to the new item, reads the copy back, then deletes the old one. A crash between the steps leaves both and the next start finishes; if the new item already holds a different value, it is newer and wins.
+- **Their sign-in is in the keyring item `addon.<id>`**, like any add-on's secrets: the Last.fm session key as `session` in `addon.lastfm`, the ListenBrainz token as `token` in `addon.listenbrainz`. Sona sends it in the `credential` of the [requests](#requests-of-sona-to-a-bundled-add-on) that need it, and an add-on may also read it with [`secret`](#secret), for exactly those keys (no settings row shows or edits them). A version before add-ons kept them in the items `lastfm` and `listenbrainz`; at start Sona copies each to the new item, reads the copy back, then deletes the old one. A crash between the steps leaves both and the next start finishes; if the new item already holds a different value, it is newer and wins.
 - **Build credentials arrive in `hello`.** The answer to a bundled add-on's `hello` may carry `credentials`: `apiKey` and `apiSecret` (Last.fm's API account, to `lastfm`), `applicationId` (Discord's, to `discord`). They are in that one answer: never the environment, a request, an event or a log, and never an add-on of yours.
-- **Status.** The registry, the entry point, the supervision and the secrets are in. Last.fm, ListenBrainz and Discord still do their work inside Sona; their add-ons say hello and wait until each one moves onto the API.
+- **Status.** The registry, the entry point, the supervision and the secrets are in. ListenBrainz does its HTTP in its add-on, through [Sona's requests](#requests-of-sona-to-a-bundled-add-on). Last.fm and Discord still do their work inside Sona; their add-ons say hello and wait until each one moves onto the API.
+
+### Requests of Sona to a bundled add-on
+
+Besides `invoke`, Sona sends a bundled add-on the `scrobble.*` requests below, which let the scrobbling services run as add-ons while Sona keeps the pipeline: the tracker, the [private filter](#privacy-private-mode-and-previews), the persistent queue and the retry backoff. The add-on only does the HTTP.
+
+- **Bundled add-ons only.** A third-party add-on is never sent one: `Session.Request` refuses any session the supervisor didn't mark bundled (from the registry in code) with `permission_denied` and writes nothing, and a method that is not one of the three names fails with `unknown_method`. There is no general "call this method" request.
+- **Only what passed the filter.** The params of `scrobble.now-playing` and `scrobble.submit` come from the queue, which holds listens that passed `privatemode.Mode.Hidden`. A private listen or a preview is never a request, and no add-on is told one happened.
+- **The credential travels in the request.** `credential` is the sign-in Sona holds for the account (the Last.fm session key, the ListenBrainz token), sent over the channel Sona started the add-on on and never logged. `scrobble.status` with a credential is how Sona checks a token before it saves it.
+- **Like `invoke`,** a request has the deadline of the caller (at most 30 seconds) and counts against the limit of requests awaiting an answer.
+
+| Request | Params | Result |
+| --- | --- | --- |
+| `scrobble.now-playing` | `credential`, `track` | `ok` |
+| `scrobble.submit` | `credential`, `listens`: one to the service's batch limit (100 for ListenBrainz) | `ok` |
+| `scrobble.status` | `credential`, optional | `ok`, and `account` when a credential was given |
+
+A `track` is `artist`, `title`, optional `album` and `durationMs`; a listen adds `listenedAt` (Unix seconds). The result is always `ok: true`: a failure is an error. The add-on answers in these codes, which Sona maps back to the scrobble package's errors so the queue and its backoff act as they did when the HTTP ran in Sona; any other failure is `failed` and is retried:
+
+| Code | Sona's meaning |
+| --- | --- |
+| `credentials_rejected` | The service refused the credentials: delivery stops and the queue is kept until the account is reconnected. |
+| `submission_rejected` | The service refused these listens: they are dropped, so they cannot block the queue. |
+| `authorisation_pending` | The user has not approved the authorisation yet. |
+| `authorisation_expired` | The approval timed out. |
+| `not_configured` | This build has no account for the service. |
+
+```json example ScrobbleRequest
+{"id":7,"method":"scrobble.submit","params":{"credential":"example-user-token","listens":[{"artist":"The Beatles","title":"Come Together","album":"Abbey Road","durationMs":259000,"listenedAt":1700000000}]}}
+```
+
+```json example ScrobbleResponse
+{"id":7,"result":{"ok":true}}
+```
+
+Their connect flows (Settings → Connections) start an add-on that has no account yet with a **lease**: while the flow runs the supervisor keeps the add-on up, and lets it go when the flow ends unless the account was saved.
 
 ## Security notes
 
@@ -691,6 +732,7 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
 - **Files are checked.** Links, owners, write bits and escaping paths refuse the add-on.
 - **Everything is bounded.** Frames, calls, invokes, subscriptions and the unread queue have [limits](#limits).
 - **Sona's own add-ons are code, not folders.** They are registered in the binary, never read from your folder, and a folder that claims their IDs never runs: see [Bundled add-ons](#bundled-add-ons).
+- **Sona's requests to its own add-ons go to no other.** `scrobble.*` is sent to a bundled add-on only; the session refuses to send one to any other, and the supervisor never asks it to ([Requests of Sona to a bundled add-on](#requests-of-sona-to-a-bundled-add-on)).
 
 ## Schema
 
@@ -1003,6 +1045,45 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         }
       }
     },
+    "ScrobbleTrack": {
+      "type": "object", "additionalProperties": false, "required": ["artist", "title"],
+      "properties": {
+        "artist": {"type": "string"}, "title": {"type": "string"}, "album": {"type": "string"},
+        "durationMs": {"type": "integer", "minimum": 0}
+      }
+    },
+    "ScrobbleListen": {
+      "type": "object", "additionalProperties": false, "required": ["artist", "title", "listenedAt"],
+      "properties": {
+        "artist": {"type": "string"}, "title": {"type": "string"}, "album": {"type": "string"},
+        "durationMs": {"type": "integer", "minimum": 0}, "listenedAt": {"type": "integer", "minimum": 0}
+      }
+    },
+    "ScrobbleRequest": {
+      "type": "object", "additionalProperties": false, "required": ["id", "method", "params"],
+      "properties": {
+        "id": {"type": "integer", "minimum": 1},
+        "method": {"enum": ["scrobble.now-playing", "scrobble.submit", "scrobble.status"]},
+        "params": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "credential": {"type": "string", "maxLength": 1024},
+            "track": {"$ref": "#/$defs/ScrobbleTrack"},
+            "listens": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"$ref": "#/$defs/ScrobbleListen"}}
+          }
+        }
+      }
+    },
+    "ScrobbleResponse": {
+      "type": "object", "additionalProperties": false, "required": ["id", "result"],
+      "properties": {
+        "id": {"type": "integer", "minimum": 1},
+        "result": {
+          "type": "object", "additionalProperties": false, "required": ["ok"],
+          "properties": {"ok": {"const": true}, "account": {"type": "string", "maxLength": 240}}
+        }
+      }
+    },
     "Manifest": {
       "type": "object", "additionalProperties": false, "required": ["id", "name", "version", "command", "permissions"],
       "properties": {
@@ -1060,7 +1141,8 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         {"$ref": "#/$defs/StatusEvent"}, {"$ref": "#/$defs/NowPlayingEvent"},
         {"$ref": "#/$defs/QueueEvent"}, {"$ref": "#/$defs/ShutdownEvent"}, {"$ref": "#/$defs/SettingsEvent"},
         {"$ref": "#/$defs/SecretRequest"}, {"$ref": "#/$defs/SecretResponse"}, {"$ref": "#/$defs/InvokeRequest"},
-        {"$ref": "#/$defs/InvokeResponse"}, {"$ref": "#/$defs/ErrorResponse"}
+        {"$ref": "#/$defs/InvokeResponse"}, {"$ref": "#/$defs/ScrobbleRequest"}, {"$ref": "#/$defs/ScrobbleResponse"},
+        {"$ref": "#/$defs/ErrorResponse"}
       ]
     }
   }
