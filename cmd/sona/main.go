@@ -95,7 +95,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "sona: --remove-sandbox:", err)
 			os.Exit(1)
 		}
-		fmt.Println("sona: the playback sandbox is removed")
+		fmt.Println("sona: the playback and add-on sandboxes are removed")
 		return
 	}
 	// `sona play`, `sona status` and the other commands (internal/cli) act

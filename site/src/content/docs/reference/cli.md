@@ -15,7 +15,7 @@ For an introduction, see [Command line](/guide/cli/).
 
 _Windows_
 
-Removes what the playback host's sandbox left on the computer: its AppContainer profile and the access entries granted to it on Sona's, GStreamer's and the Widevine folders. Your settings, library and the downloaded Widevine component stay.
+Removes what the sandboxes left on the computer: the playback host's AppContainer profile and the access entries granted to it on Sona's, GStreamer's and the Widevine folders, and the AppContainer profile of each add-on (Sona's own, the installed ones and any you removed earlier) with its entries on the add-on's folder and data folder. Your settings, library, the downloaded Widevine component and the add-ons' data stay.
 
 - The installer's uninstaller runs it for you.
 - The portable `.zip` has no uninstaller: quit Sona and run it from the folder before you delete the folder.
