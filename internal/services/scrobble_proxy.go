@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
@@ -60,6 +61,35 @@ func (p *addonScrobbler) Account(ctx context.Context, cred string) (string, erro
 	return res.Account, nil
 }
 
+// Begin starts Last.fm's browser approval through the add-on: a token and the
+// page the user approves Sona on. The page is opened by Sona, so it must be an
+// http(s) address without credentials.
+func (p *addonScrobbler) Begin(ctx context.Context) (token, page string, err error) {
+	var res cli.ScrobbleResult
+	if err := p.result(p.ask(ctx, cli.AddonMethodScrobbleAuthorise, cli.ScrobbleAuthoriseParams{}, &res)); err != nil {
+		return "", "", err
+	}
+	u, perr := url.Parse(res.URL)
+	if res.Token == "" || perr != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
+		return "", "", fmt.Errorf("add-on %s: its approval page is not a web address", p.id)
+	}
+	return res.Token, res.URL, nil
+}
+
+// Complete asks, through the add-on, whether the user approved token: the
+// account and the session key once they have, scrobble.ErrPending until then
+// and scrobble.ErrExpired when the token timed out.
+func (p *addonScrobbler) Complete(ctx context.Context, token string) (account, credential string, err error) {
+	var res cli.ScrobbleResult
+	if err := p.result(p.ask(ctx, cli.AddonMethodScrobbleAuthorise, cli.ScrobbleAuthoriseParams{Token: token}, &res)); err != nil {
+		return "", "", err
+	}
+	if res.Credential == "" || res.Account == "" {
+		return "", "", fmt.Errorf("add-on %s: the approval gave no session", p.id)
+	}
+	return res.Account, res.Credential, nil
+}
+
 func trackParams(t scrobble.Track) cli.ScrobbleTrack {
 	return cli.ScrobbleTrack{Artist: t.Artist, Title: t.Title, Album: t.Album, DurationMs: t.Duration.Milliseconds()}
 }
@@ -102,7 +132,11 @@ func (s *ScrobbleService) scrobbleProxy(name string, batch int) *addonScrobbler 
 		if link == nil {
 			return ErrAddonUnavailable
 		}
-		return link.Request(ctx, name, method, params, out)
+		err := link.Request(ctx, name, method, params, out)
+		if err != nil && ctx.Err() != nil {
+			return ctx.Err() // cancelled or timed out by the caller, not the add-on's doing
+		}
+		return err
 	}}
 }
 

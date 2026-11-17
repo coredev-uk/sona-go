@@ -52,6 +52,8 @@ func register(c *Client, id string, opts Options) {
 	switch id {
 	case "listenbrainz":
 		serveScrobbler(c, newListenBrainz(opts))
+	case "lastfm":
+		serveScrobbler(c, newLastFM(opts))
 	}
 }
 

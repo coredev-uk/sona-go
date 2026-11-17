@@ -93,8 +93,11 @@ func (e *LastFMError) Is(target error) bool {
 // Name is the provider name.
 func (c *LastFM) Name() string { return "lastfm" }
 
-// MaxBatch is track.scrobble's limit.
-func (c *LastFM) MaxBatch() int { return 50 }
+// LastFMBatch is track.scrobble's limit of listens in one request.
+const LastFMBatch = 50
+
+// MaxBatch is LastFMBatch.
+func (c *LastFM) MaxBatch() int { return LastFMBatch }
 
 // Sign returns api_sig for params: every name and value (except format,
 // callback and api_sig) concatenated in name order, then the secret, MD5 in
@@ -154,22 +157,21 @@ func (c *LastFM) Session(ctx context.Context, token string) (Session, error) {
 	return out.Session, nil
 }
 
-// AwaitSession polls Session every interval until the user approves token,
-// the token expires or ctx ends.
-func (c *LastFM) AwaitSession(ctx context.Context, token string, interval time.Duration) (Session, error) {
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for {
-		s, err := c.Session(ctx, token)
-		if !errors.Is(err, ErrPending) {
-			return s, err
-		}
-		select {
-		case <-ctx.Done():
-			return Session{}, ctx.Err()
-		case <-t.C:
-		}
+// UserInfo returns the name of the user a session key belongs to
+// (user.getInfo); a key the service refuses is ErrAuth.
+func (c *LastFM) UserInfo(ctx context.Context, sk string) (string, error) {
+	var out struct {
+		User struct {
+			Name string `json:"name"`
+		} `json:"user"`
 	}
+	if err := c.call(ctx, http.MethodGet, "user.getInfo", url.Values{"sk": {sk}}, &out); err != nil {
+		return "", err
+	}
+	if out.User.Name == "" {
+		return "", errors.New("last.fm: user.getInfo returned no user")
+	}
+	return out.User.Name, nil
 }
 
 // NowPlaying announces t (track.updateNowPlaying).
