@@ -41,6 +41,10 @@ type Spec struct {
 	// a manifest cannot.
 	Read, Sockets []string
 	Env           []string
+	// Unsandboxed runs it as a plain child process, with Sona's rights, where
+	// Start failed with a sandbox error. Only the supervisor sets it, for
+	// Sona's own add-ons (Entry.Bundled).
+	Unsandboxed bool
 	// Stderr receives the add-on's standard error (its log).
 	Stderr io.Writer
 }
@@ -89,6 +93,7 @@ func Start(spec Spec) (*Proc, error) {
 			Network: spec.Network, Dir: spec.Dir, Data: spec.Data, Read: spec.Read, Sockets: spec.Sockets,
 		},
 		ID: spec.ID, Exe: spec.Exe, ExeFile: spec.ExeFile, Args: spec.Args, Env: spec.Env, Stderr: spec.Stderr,
+		Unsandboxed: spec.Unsandboxed,
 	})
 	if err != nil {
 		return nil, err

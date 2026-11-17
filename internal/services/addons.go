@@ -36,8 +36,9 @@ import (
 // Every add-on runs in the OS sandbox (internal/addons/sandbox): it reaches its
 // own folder, a private data folder and, with the `network` permission, the
 // network, and nothing else of the user's system. Where the system can't set
-// the sandbox up the add-on does not run (AddonNoSandbox): there is no way to
-// run one without it.
+// the sandbox up the add-on does not run (AddonNoSandbox), except Sona's own
+// bundled add-ons, which then run as plain child processes with Sona's rights
+// (AddonInfo.Unsandboxed), as the same code did in Sona's process before #302.
 type AddonsService struct {
 	e    *Env
 	host cli.AddonHost
@@ -363,6 +364,7 @@ func (s *AddonsService) List() []AddonInfo {
 		case r != nil:
 			info.State, info.Restarts = r.snapshot()
 			info.Sandbox = r.sandboxReason()
+			info.Unsandboxed = r.unsandboxedReason()
 		default:
 			info.State = AddonStarting // enabled, the network not open yet
 		}
@@ -666,6 +668,9 @@ type addonRunner struct {
 	// sandbox is why the sandbox couldn't be set up (addons.Sandbox*), when
 	// the state is AddonNoSandbox.
 	sandbox string
+	// unsandboxed is why a bundled add-on runs as a plain process
+	// (addons.Sandbox*), "" when it runs confined or not at all.
+	unsandboxed string
 	// sockets is what the `discord` add-on was shown of Discord's IPC when it
 	// started (socketsID); it changes when Discord restarts.
 	sockets string
@@ -685,6 +690,18 @@ func (r *addonRunner) sandboxReason() string {
 		return ""
 	}
 	return r.sandbox
+}
+
+// unsandboxedReason is why the add-on runs without the sandbox, "" when it
+// runs inside it or isn't running.
+func (r *addonRunner) unsandboxedReason() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	switch r.state {
+	case AddonStarting, AddonRunning, AddonRestarting:
+		return r.unsandboxed
+	}
+	return ""
 }
 
 // crashed reports that the supervisor switched the add-on off.
@@ -876,7 +893,7 @@ func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.
 				r.shareDiscord(&spec)
 			}
 		}
-		start = func() (addons.Running, error) { return s.startProc(spec, log) }
+		start = func() (addons.Running, error) { return r.startProc(spec, en.Bundled, log) }
 	}
 	// The grant is asked at every call; the manifest's list bounds it.
 	allowed := func(p string) bool { return slices.Contains(declared, p) && s.allowed(r.id, p) }
@@ -888,9 +905,26 @@ func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.
 }
 
 // startProc starts a native add-on as a process in the OS sandbox, and says in
-// its log what the sandbox lacks.
-func (s *AddonsService) startProc(spec addons.Spec, log *addons.Log) (addons.Running, error) {
-	p, err := s.opts.start(spec)
+// its log what the sandbox lacks. Where the sandbox can't be set up and the
+// add-on is one of Sona's own (bundled: code-registered, never judged by its
+// ID alone), it is started again as a plain child process with Sona's rights,
+// which is the trust the same code had in Sona's process before #302; the log
+// and AddonInfo.Unsandboxed say so. Any other add-on fails closed.
+func (r *addonRunner) startProc(spec addons.Spec, bundled bool, log *addons.Log) (addons.Running, error) {
+	r.mu.Lock()
+	r.unsandboxed = ""
+	r.mu.Unlock()
+	p, err := r.s.opts.start(spec)
+	if reason, ok := addons.SandboxReason(err); ok && bundled {
+		r.s.e.Logger.Warn("addons: sandbox can't start, running a bundled add-on without it", "addon", r.id, "reason", reason, "err", err)
+		log.Notef("running without the sandbox: %s (%s)", reason, addons.SandboxText(reason))
+		spec.Unsandboxed = true
+		if p, err = r.s.opts.start(spec); err == nil {
+			r.mu.Lock()
+			r.unsandboxed = reason
+			r.mu.Unlock()
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

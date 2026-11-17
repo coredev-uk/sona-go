@@ -2,8 +2,9 @@
 // system (docs/addons.md, "The sandbox"; the threat model is "Add-ons" in
 // docs/security-review.md). What an add-on can reach is a Policy, and the
 // confinement is not optional: where a system cannot set it up, Start fails
-// with an *Error saying why and runs nothing. There is no switch that runs an
-// add-on without it.
+// with an *Error saying why and runs nothing. The one way around is
+// Spec.Unsandboxed, which only the supervisor sets, for Sona's own bundled
+// add-ons (docs/addons.md, "When the sandbox can't start").
 //
 // Per OS:
 //
@@ -71,6 +72,12 @@ type Spec struct {
 	// as a file: the add-on has no descriptor of Sona's, a terminal least of
 	// all.
 	Stderr io.Writer
+	// Unsandboxed runs the add-on as a plain child process with Sona's own
+	// rights: still in a group or job object of its own that ends with Sona,
+	// with the environment given and the channel's pipes, but with no
+	// confinement. Only the supervisor sets it, for one of Sona's own add-ons
+	// (code-registered) after Start failed with an *Error; never for another.
+	Unsandboxed bool
 }
 
 // Reason is why a system can't confine an add-on, a code the UI words

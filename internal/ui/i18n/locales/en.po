@@ -5795,6 +5795,34 @@ msgstr "Run"
 msgid "Run {name}?"
 msgstr "Run {name}?"
 
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: Sona couldn't set up its sandbox. This add-on is part of Sona and has the same access Sona has. The add-on's log has the details."
+msgstr "Running without isolation: Sona couldn't set up its sandbox. This add-on is part of Sona and has the same access Sona has. The add-on's log has the details."
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: Windows couldn't create the AppContainer that sandboxes it. This add-on is part of Sona and has the same access Sona has."
+msgstr "Running without isolation: Windows couldn't create the AppContainer that sandboxes it. This add-on is part of Sona and has the same access Sona has."
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: macOS's sandbox tool is missing or refused Sona's rules. This add-on is part of Sona and has the same access Sona has."
+msgstr "Running without isolation: macOS's sandbox tool is missing or refused Sona's rules. This add-on is part of Sona and has the same access Sona has."
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: the sandbox's system-call filter can't be set up on this computer. This add-on is part of Sona and has the same access Sona has."
+msgstr "Running without isolation: the sandbox's system-call filter can't be set up on this computer. This add-on is part of Sona and has the same access Sona has."
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. This add-on is part of Sona and has the same access Sona has."
+msgstr "Running without isolation: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. This add-on is part of Sona and has the same access Sona has."
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. This add-on is part of Sona and has the same access Sona has."
+msgstr "Running without isolation: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. This add-on is part of Sona and has the same access Sona has."
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: this system has no sandbox for add-ons. This add-on is part of Sona and has the same access Sona has."
+msgstr "Running without isolation: this system has no sandbox for add-ons. This add-on is part of Sona and has the same access Sona has."
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Running · pid {hostPid}"
 msgstr "Running · pid {hostPid}"

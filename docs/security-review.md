@@ -402,7 +402,7 @@ A native add-on (docs/addons.md) is a program somebody else wrote that Sona runs
 
 Sona never opens, lists or follows anything inside the data folder (it only makes the folder and a `tmp` folder in it; a link in `tmp`'s place is removed, never followed), so a hostile add-on can't point Sona at a file.
 
-**When the sandbox can't be set up.** It fails closed. `addons.Start` returns a `*sandbox.Error`; the supervisor does not start the add-on, does not restart it (that is not a crash), logs the reason in the add-on's log, and Settings → Add-ons says it in plain words (`AddonNoSandbox`). There is no setting, environment variable or flag that runs an add-on without the sandbox: only a Go test binary can (`testing.Testing()` and `SONA_ADDON_UNSANDBOXED=1`, the pattern of `SONA_CDMHOST_ALLOW_UNSANDBOXED`), and the services' tests use it to test the supervisor on any machine.
+**When the sandbox can't be set up.** Third-party add-ons fail closed. `addons.Start` returns a `*sandbox.Error`; the supervisor does not start the add-on, does not restart it (that is not a crash), logs the reason in the add-on's log, and Settings → Add-ons says it in plain words (`AddonNoSandbox`). There is no setting, environment variable or flag that runs such an add-on without the sandbox: only a Go test binary can (`testing.Testing()` and `SONA_ADDON_UNSANDBOXED=1`, the pattern of `SONA_CDMHOST_ALLOW_UNSANDBOXED`), and the services' tests use it to test the supervisor on any machine.
 
 | Reason | Cause | Way out |
 | --- | --- | --- |
@@ -414,7 +414,12 @@ Sona never opens, lists or follows anything inside the data folder (it only make
 | `unsupported` | An operating system with no sandbox for add-ons | None |
 | `setup_failed` | Anything else (a mount refused, `pivot_root` failing in a container whose root is not a mount); the add-on's log has the detail | |
 
-Sona doesn't ship a privileged helper to get around a restricted user namespace, and a user-visible "run without the sandbox" switch is a deliberate non-feature: the sandbox is what makes approving an add-on a bounded decision.
+**The exception: Sona's own add-ons (`lastfm`, `listenbrainz`, `discord`).** Where `addons.Start` fails with a `*sandbox.Error`, the supervisor starts a code-registered bundled add-on again with `Spec.Unsandboxed`: a plain child process with Sona's rights (still in its own process group or job object, with the environment allowlist, its data folder, credentials only in `hello`, and the protocol and permission checks). The decision is made on the registry (`Entry.Bundled`, from `BundledEntries`), never on the ID string, so a user folder claiming a reserved ID is still refused by the scanner; `Spec.Unsandboxed` is set only in that one place. The log gets a `sona:` note with the reason code and `AddonInfo.Unsandboxed` carries it to Settings → Add-ons ("Running without isolation: …").
+- *Rationale:* before #302 the same code, shipped inside the signed release, ran in Sona's process with Sona's rights, so this is no wider than what Sona did then. Without it Last.fm and Discord stopped working in Sona's Flatpak and on stock Ubuntu 23.10 and later.
+- *Cost:* on those hosts these three add-ons have no isolation: a vulnerability in their code (parsing a Last.fm or ListenBrainz reply, Discord's IPC) is a vulnerability in a process with the user's rights, with the network and the keyring item `addon.<id>`, and the Discord add-on can reach any socket it chooses, though it dials only the sockets Sona checked (`SONA_DISCORD_IPC`).
+- *Not changed:* third-party native add-ons and `addons dev` runs; WebAssembly add-ons have no sandbox to lose.
+
+Sona doesn't ship a privileged helper to get around a restricted user namespace, and a user-visible "run without the sandbox" switch is a deliberate non-feature: the sandbox is what makes approving an add-on a bounded decision, and the add-ons that run without it are the ones in Sona's own code.
 
 **Residual risks and where a platform makes it weaker.**
 

@@ -255,6 +255,28 @@ func TestAnAddonWithoutASandboxSaysWhyItDoesNotRun(t *testing.T) {
 	}
 }
 
+// One of Sona's own add-ons that runs without the sandbox shows as running,
+// with the reason in a muted line; every reason has words of its own.
+func TestAnAddonRunningWithoutIsolationSaysWhy(t *testing.T) {
+	a := webhook()
+	a.State, a.Bundled, a.Unsandboxed = services.AddonRunning, true, addons.SandboxNoUserNamespace
+	f := &fakeAddons{infos: []services.AddonInfo{a}, rows: map[string][]services.AddonRow{}}
+	r := addonsRig(t, f, 1132, 1400)
+	r.tt.Until("the line", func() bool {
+		return slices.ContainsFunc(r.tt.Texts(), func(s string) bool {
+			return strings.HasPrefix(s, "Running without isolation:") && strings.Contains(s, "doesn't let Sona create the isolated space")
+		})
+	})
+	for _, c := range []string{
+		addons.SandboxUserNamespaceRestricted, addons.SandboxNoUserNamespace, addons.SandboxNoSeccomp, addons.SandboxNoSeatbelt,
+		addons.SandboxNoAppContainer, addons.SandboxUnsupported,
+	} {
+		if unisolatedText(c) == unisolatedText("zzz") {
+			t.Errorf("reason %q has no words of its own", c)
+		}
+	}
+}
+
 func TestOpenAddonsFolderOpensIt(t *testing.T) {
 	f := standardAddons()
 	r := addonsRig(t, f, 1132, 1400)

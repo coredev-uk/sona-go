@@ -131,7 +131,8 @@
 // deadline: the UI calls it off its thread. Each native add-on runs in the OS
 // sandbox (internal/addons/sandbox) with its folder, a private data folder
 // and, with the `network` permission, the network; where the sandbox can't be
-// set up the add-on is refused (AddonNoSandbox) and never run without it. A
+// set up the add-on is refused (AddonNoSandbox); only Sona's own add-ons, below,
+// then run as plain child processes (AddonInfo.Unsandboxed). A
 // WebAssembly one has no ambient authority.
 // Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons too
 // (#302): internal/addons registers them in code with embedded manifests, scan

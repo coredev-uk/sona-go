@@ -38,7 +38,7 @@ func Start(spec Spec) (*Child, error) {
 	if err := spec.validate(); err != nil {
 		return nil, err
 	}
-	if unsandboxedForTests() {
+	if spec.Unsandboxed || unsandboxedForTests() {
 		return startUnix(spec, preparePlain(spec))
 	}
 	return startUnix(spec, prepareSandboxed(spec))

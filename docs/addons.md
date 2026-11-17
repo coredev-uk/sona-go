@@ -485,7 +485,7 @@ These rules are for native add-ons; a [WebAssembly add-on](#webassembly-add-ons)
   - on Windows, what a process needs to start: `SystemRoot`, `SystemDrive`, `PATHEXT`, `ComSpec`;
   - `SONA_ADDON_ID`, `SONA_ADDON_PROTOCOL=2` and `SONA_ADDON_DATA`, the path of its [data folder](#the-data-folder); `HOME` and `TMPDIR` (on Windows also `USERPROFILE`, `TEMP` and `TMP`) are inside that folder, never your own.
   - A token, a key, a bus address or anything else in Sona's environment never reaches it. Its working directory is its folder, which it can't write to.
-- **It runs in the [sandbox](#the-sandbox)**, started by the absolute path Sona checked, with a session of its own and no terminal.
+- **It runs in the [sandbox](#the-sandbox)**, started by the absolute path Sona checked, with a session of its own and no terminal. Where the sandbox can't be set up, only Sona's own add-ons run on, as a plain child process with the rest of these rules unchanged ([When the sandbox can't be set up](#when-the-sandbox-cant-be-set-up)).
 - **Its processes end with Sona's.** An add-on leads a process group of its own (a job object on Windows; on Linux its own PID namespace, which ends with it). When Sona quits, it sends the `shutdown` event, closes the add-on's input, gives it a second, asks it to terminate, gives it a second more, then kills the whole group and reaps it.
 - On Linux the kernel also kills the add-on, and everything it started, if Sona dies without quitting. macOS has no such signal: when Sona is killed the add-on's input closes, and **an add-on must exit when its input ends**. Do not start children that leave the group.
 - **It is restarted when it stops on its own**, after 1, 2, 5, 15 and then 30 seconds. After 5 stops in a row, with no run of a minute between, it is switched off and Sona tells you.
@@ -642,12 +642,16 @@ Every native add-on process runs confined by the operating system. The CDM host'
 
 ### When the sandbox can't be set up
 
-The add-on **does not run**, and nothing runs it without the sandbox: not a setting, not a switch. Settings → Add-ons says why in plain words, the add-on's log has the system's words, and a failure of this kind is not a crash, so Sona doesn't restart the add-on. Turn it off and on, or restart Sona, to try again.
+An add-on **from a folder or a `.wasm` file does not run**, and nothing runs it without the sandbox: not a setting, not a switch. Settings → Add-ons says why in plain words, the add-on's log has the system's words, and a failure of this kind is not a crash, so Sona doesn't restart the add-on. Turn it off and on, or restart Sona, to try again.
+
+**Sona's own add-ons** ([Bundled add-ons](#bundled-add-ons): Last.fm, ListenBrainz and Discord) are the one exception. Without this they would stop scrobbling and showing presence on a Flatpak or a stock Ubuntu 23.10 and later, where the same code ran inside Sona before they became add-ons. So where the sandbox can't be set up, Sona starts them as a plain child process with Sona's own rights instead. Which add-ons these are is decided by the registry in Sona's code, never by an ID: a folder that claims one of the IDs is still refused. Everything else stays: the process group (job object on Windows), the environment allowlist, the data folder, credentials only in `hello`, and the protocol and permission checks. Discord's socket list still applies, but unsandboxed it could reach any socket. Settings → Add-ons shows such an add-on as running, with "Running without isolation:" and the reason, the add-on's log has a `sona:` note with the reason code, and Settings → Connections is unchanged.
+
+The cost is plain: on those computers these three add-ons have **no isolation**, and a bug in one is a bug in a program with your rights. It is no wider than before: the same code, signed with the release, ran in Sona's process before they were add-ons.
 
 | Reason (code) | What it means | What to do |
 | --- | --- | --- |
 | This computer's security settings stop Sona creating the isolated space (`userns_restricted`) | Linux, Ubuntu 23.10 and later: AppArmor takes the rights of user namespaces away from programs it doesn't know | Allow it for Sona's program with an AppArmor profile, or lift the restriction: `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` |
-| The system doesn't let Sona create the isolated space (`no_userns`) | Linux: user namespaces are off in the kernel, or Sona runs in a container or a Flatpak that forbids them | Allow them, or run Sona outside the container. Add-ons don't run in Sona's Flatpak |
+| The system doesn't let Sona create the isolated space (`no_userns`) | Linux: user namespaces are off in the kernel, or Sona runs in a container or a Flatpak that forbids them | Allow them, or run Sona outside the container. Add-ons from your folder don't run in Sona's Flatpak; Sona's own run without isolation |
 | The system-call filter can't be set up (`no_seccomp`) | Linux on a processor other than x86-64 and ARM64, or a kernel that refuses the filter | None |
 | macOS's sandbox tool is missing or refused Sona's rules (`no_seatbelt`) | `/usr/bin/sandbox-exec` is gone, or refused the profile, or the profile didn't hide your home when Sona tried it | None |
 | Windows couldn't create the AppContainer (`no_appcontainer`) | The profile, the folder grants or the process in it failed | Put the add-on's folder in your profile |
