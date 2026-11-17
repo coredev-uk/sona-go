@@ -168,6 +168,7 @@ func (e *Engine) advanceLocked(it *item, ev cdmhost.Event) {
 		Volume:    e.st.Volume,
 		UpdatedAt: ev.At,
 		Preview:   e.preview,
+		Spatial:   p.m.spatial != nil,
 	}
 	e.emit(playback.EventAdvance)
 	e.armLocked() // when the coordinator arms the one after
