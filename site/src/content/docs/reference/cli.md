@@ -89,7 +89,7 @@ Shows or sets private listening: `sona private [on|off|toggle|status]`. The defa
 
 ### `sona addons dev`
 
-_Linux_
+_Linux_ for a native add-on; a WebAssembly add-on runs on _Linux_, _macOS_ and _Windows_.
 
 Runs an add-on from a folder without installing it, and prints its log until you press Ctrl+C: `sona addons dev <folder>`. It is for people who write add-ons ([the add-on reference](https://github.com/coredev-uk/sona-go/blob/main/docs/addons.md)). [Sample add-ons](https://github.com/coredev-uk/sona-addons) to run with it are in their own repository.
 
@@ -98,7 +98,7 @@ Runs an add-on from a folder without installing it, and prints its log until you
 - The folder must be yours and not writable by others. Its ID can't be one of your installed add-ons or one reserved for Sona's own.
 - The add-on's log goes to standard output. On a terminal, escape sequences and control characters are stripped from it. Sona's own lines go to standard error.
 - It exits with status 0 when you press Ctrl+C or the add-on ends. A refusal is status 1, and no Sona is status 3.
-- macOS and Windows can't run it yet: the command fails and says so.
+- On _macOS_ and _Windows_ a native add-on fails with "unsupported" before Sona asks anything: they can't yet run the file that was checked. A WebAssembly add-on (`"runtime": "wasm"`) runs there, because Sona reads its `.wasm` once and runs those bytes.
 
 ### `sona help`
 

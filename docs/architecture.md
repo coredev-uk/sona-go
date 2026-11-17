@@ -10,6 +10,7 @@ How Sona is built and why: scope, process model, playback and DRM, authenticatio
   - [Apple client and start-up](#apple-client-and-start-up)
   - [Desktop shell](#desktop-shell)
   - [Integrations](#integrations)
+  - [Add-ons](#add-ons)
   - [Artwork](#artwork)
   - [Private mode](#private-mode)
   - [Concerts](#concerts)
@@ -155,6 +156,17 @@ Integrations (`services/integrations.go`) start after first paint:
 - A sleep inhibitor held only while playing: logind's `sleep` lock (portal `Inhibit` fallback) on Linux, MyGo's `Power.KeepAwake` on macOS and Windows (§9).
 - Opt-in Discord presence over the local IPC socket (a named pipe on Windows), only when the current user owns it, with Apple's public artwork URL, never `/art/` or tokens.
 - Last.fm and ListenBrainz scrobbling (`internal/scrobble`).
+
+### Add-ons
+
+Add-ons (`internal/addons`, `services/addons.go`, the protocol in `internal/cli`; reference in `docs/addons.md`) extend Sona from outside its code. `AddonsService` lists the folders of the user's add-ons directory, keeps the user's grant of each add-on's permissions and, after first paint, supervises the enabled ones: start, restart with a growing wait, switch off after five stops in a row, stop at quit. Every call into one is off the UI thread, and a hung add-on costs the caller its deadline and nothing else.
+
+An add-on runs in one of two runtimes behind one interface (`addons.Running`), and `cli.Session` serves both the same way over the add-on's standard input and output:
+
+- **Native** (the default): a process of its own, in a process group or job object that ends with Sona's. Until the OS sandbox (#304) it has the user's rights.
+- **WebAssembly** (`runtime: "wasm"`, #303): a module run **inside the Go core** on [wazero](https://wazero.io) (pure Go, no cgo). Its standard streams are in-memory pipes. A module has no ambient authority by construction: no file but its data folder (`confinedFS`, which refuses links), no network, no process. Its memory (64 MiB) and CPU (a quarter of a core, with a burst) are capped, but it shares Sona's address space, so a flaw in the runtime is a flaw in Sona (`docs/security-review.md`, "WebAssembly add-ons"). One `WasmHost` serves every module, made on first use; each run gets a runtime of its own, so ending it frees everything. Compiled code is cached by the module's hash in `<cache>/addons-wasm`, a private folder that is dropped if it is not safe to load code from. The module and its compile run on a goroutine of their own, never the UI thread or the frame loop, and the time to say hello begins when the module runs, not while it compiles.
+
+`sona addons dev` runs a module on every OS that Sona runs on, because it reads the file once and runs those bytes; a native add-on needs `/proc/self/fd` (Linux) to run the file that was checked.
 
 ### Artwork
 

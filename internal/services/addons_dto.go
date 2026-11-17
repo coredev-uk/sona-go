@@ -46,6 +46,9 @@ type AddonInfo struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"`
 	Description string `json:"description"`
+	// Runtime is how it runs: "native", a process of its own, or "wasm", a
+	// WebAssembly module inside Sona with no files or network of its own.
+	Runtime string `json:"runtime"`
 	// Permissions are what the manifest asks for; Granted what the user
 	// approved. Until the OS sandbox (#304) they are advisory: an add-on runs
 	// with the user's rights.

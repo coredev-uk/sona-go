@@ -110,19 +110,27 @@
 // refused (site/src/content/docs/reference/theme-format.md).
 //
 // Add-ons (addons.go, addonhost.go; docs/addons.md) are programs Sona runs
-// beside itself. AddonsService lists the folders of the user's add-ons
+// beside itself, or WebAssembly modules it runs inside itself. AddonsService
+// lists the folders of the user's add-ons
 // directory (internal/addons validates each manifest and its executable),
 // grants the permissions the user approves when they enable one, and after
 // the first paint runs the enabled ones: one supervising goroutine each,
-// locked to its OS thread so the add-on dies with Sona, restarting with a
+// locked to its OS thread so a native add-on dies with Sona, restarting with a
 // growing wait and switching an add-on off after repeated crashes
 // ("addons:notice"). "addons:changed" carries the list. An add-on talks
 // protocol v2 (cli.Session) over its standard streams; addonHost is what it
 // is served from: the v1 commands and topics with private listens and
 // previews hidden. The grant is read from the settings at every call.
+// A manifest's runtime picks how it starts: "native" is a process
+// (addons.Start), "wasm" a module on the shared addons.WasmHost, made on first
+// use and closed at quit, on a goroutine of its own with a memory and CPU
+// cap and no file but its data folder or network. Both are an
+// addons.Running to the supervisor, and the time to say hello runs from
+// Running.Ready, so a first compile is not a module's delay.
 // Nothing here waits on an add-on but Invoke, which waits at most its
 // deadline: the UI calls it off its thread. Permissions are advisory until
-// the OS sandbox (#304).
+// the OS sandbox (#304) for a native add-on; a WebAssembly one has no
+// ambient authority.
 //
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls

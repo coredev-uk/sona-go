@@ -36,6 +36,15 @@ it from Google at runtime ([Privacy and Security](https://sona.coredev.uk/privac
 - Embedded in: `internal/ui/theme/fonts/SchibstedGrotesk-Variable.ttf`, `SchibstedGrotesk-Italic-Variable.ttf`
 - Licence text: [internal/ui/theme/fonts/OFL.txt](internal/ui/theme/fonts/OFL.txt)
 
+## wazero (Apache-2.0)
+
+- Version: v1.12.0 (`go.mod`), unmodified
+- Source: https://github.com/tetratelabs/wazero
+- Copyright 2020-2023 wazero authors (its `NOTICE`)
+- Used for: running WebAssembly add-ons inside Sona (`internal/addons`, `docs/addons.md`)
+- Linked into the `sona` binary: a pure Go module, no cgo
+- Licence text: https://github.com/tetratelabs/wazero/blob/v1.12.0/LICENSE (Apache-2.0, compatible with Sona's AGPL-3.0)
+
 ## GStreamer (LGPL-2.0-or-later), bundled in the Windows packages
 
 - Version: 1.28.8, the official Windows MinGW x86_64 package

@@ -28,6 +28,28 @@ type Spec struct {
 // it exits: a grandchild that kept the pipe open must not hold Wait.
 const waitDelay = 2 * time.Second
 
+// Running is a started add-on of either runtime: a process (Proc) or a
+// WebAssembly module (WasmProc). The supervisor serves the session over its
+// channel and stops it the same way.
+type Running interface {
+	// Conn is the protocol channel.
+	Conn() io.ReadWriteCloser
+	// Done is closed when the add-on has ended; Err is how, once it is.
+	Done() <-chan struct{}
+	Err() error
+	// Kill ends it now.
+	Kill()
+	// Stop ends it with a grace, then kills it, and returns once it is gone.
+	Stop(grace time.Duration)
+	// Where says what runs, for the add-on's log ("pid 4242").
+	Where() string
+	// Ready is closed when the add-on is running, which is when the time it
+	// has to say hello begins. A process is running when it starts; a
+	// module is compiled first, which takes seconds the first time and is
+	// not the module's delay.
+	Ready() <-chan struct{}
+}
+
 // Proc is a running add-on. Its standard input and output are the protocol
 // channel (Conn).
 type Proc struct {
@@ -124,6 +146,19 @@ func (p *Proc) Err() error {
 
 // Pid is the process ID.
 func (p *Proc) Pid() int { return p.cmd.Process.Pid }
+
+// Where is the process ID, for the log.
+func (p *Proc) Where() string { return fmt.Sprintf("pid %d", p.Pid()) }
+
+// ready is closed: a process is running as soon as it starts.
+var ready = func() chan struct{} {
+	c := make(chan struct{})
+	close(c)
+	return c
+}()
+
+// Ready is closed from the start.
+func (p *Proc) Ready() <-chan struct{} { return ready }
 
 // Terminate asks the add-on and its children to stop: SIGTERM to the group
 // on Unix; nothing on Windows, where closing the channel is the request.

@@ -233,16 +233,19 @@ func TestAddonDocExamplesValidate(t *testing.T) {
 func TestAddonDocSchemaRefusesWhatItForbids(t *testing.T) {
 	schema, _, _ := docBlocks(t)
 	for name, tc := range map[string]struct{ def, frame string }{
-		"artwork on an Apple API host":    {"NowPlayingEvent", `{"event":"now-playing","data":{"track":{"id":"1","title":"t","artist":"a","album":"b","duration":1,"explicit":false,"artwork":"https://amp-api.music.apple.com/x.jpg"},"startedAt":1}}`},
-		"private flag set":                {"StatusEvent", `{"event":"status","data":{"running":true,"state":"idle","track":null,"position":0,"volume":1,"shuffle":false,"repeat":"off","private":true,"preview":false,"error":""}}`},
-		"unknown permission":              {"HelloRequest", `{"id":1,"method":"hello","params":{"id":"demo","protocol":{"min":"2.0","max":"2.0"},"permissions":["root"]}}`},
-		"toast of a script URL":           {"InvokeResponse", `{"id":1,"result":{"url":"file:///etc/passwd"}}`},
-		"a share link on another host":    {"SearchResponse", `{"id":1,"result":{"term":"x","results":[{"kind":"song","id":"1","name":"n","subtitle":"","explicit":false,"url":"https://evil.example/music.apple.com"}]}}`},
-		"extra field":                     {"ShutdownEvent", `{"event":"shutdown","x":1}`},
-		"a frame of no kind":              {"Frame", `{"hello":1}`},
-		"a manifest with a field":         {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run","permissions":[],"runtime":"wasm"}`},
-		"a manifest command up":           {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"/bin/sh","permissions":[]}`},
-		"a manifest command with a drive": {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"C:run","permissions":[]}`},
+		"artwork on an Apple API host":          {"NowPlayingEvent", `{"event":"now-playing","data":{"track":{"id":"1","title":"t","artist":"a","album":"b","duration":1,"explicit":false,"artwork":"https://amp-api.music.apple.com/x.jpg"},"startedAt":1}}`},
+		"private flag set":                      {"StatusEvent", `{"event":"status","data":{"running":true,"state":"idle","track":null,"position":0,"volume":1,"shuffle":false,"repeat":"off","private":true,"preview":false,"error":""}}`},
+		"unknown permission":                    {"HelloRequest", `{"id":1,"method":"hello","params":{"id":"demo","protocol":{"min":"2.0","max":"2.0"},"permissions":["root"]}}`},
+		"toast of a script URL":                 {"InvokeResponse", `{"id":1,"result":{"url":"file:///etc/passwd"}}`},
+		"a share link on another host":          {"SearchResponse", `{"id":1,"result":{"term":"x","results":[{"kind":"song","id":"1","name":"n","subtitle":"","explicit":false,"url":"https://evil.example/music.apple.com"}]}}`},
+		"extra field":                           {"ShutdownEvent", `{"event":"shutdown","x":1}`},
+		"a frame of no kind":                    {"Frame", `{"hello":1}`},
+		"a manifest with a field":               {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run","permissions":[],"sandbox":"wasm"}`},
+		"a manifest command up":                 {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"/bin/sh","permissions":[]}`},
+		"a manifest command with a drive":       {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"C:run","permissions":[]}`},
+		"a wasm manifest with a native command": {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run","runtime":"wasm","permissions":[]}`},
+		"a manifest with another runtime":       {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run","runtime":"docker","permissions":[]}`},
+		"a wasm manifest asking for network":    {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run.wasm","runtime":"wasm","permissions":["network"]}`},
 	} {
 		if errs := validateDef(t, schema, tc.def, []byte(tc.frame)); len(errs) == 0 {
 			t.Errorf("%s: the schema accepted %s", name, tc.frame)
@@ -262,7 +265,7 @@ func TestAddonDocCoversTheCode(t *testing.T) {
 	codes := AddonErrorCodes()
 	for _, r := range rows {
 		if !slices.Contains(codes, r[1]) && !slices.Contains(Permissions, r[1]) && !slices.Contains(Topics, r[1]) && r[1] != EventShutdown &&
-			!slices.Contains([]string{"id", "name", "version", "description", "command", "permissions", "contributions", "strings", "toast", "url"}, r[1]) { // the manifest's fields and an invoke result's
+			!slices.Contains([]string{"id", "name", "version", "description", "command", "runtime", "permissions", "contributions", "strings", "toast", "url"}, r[1]) { // the manifest's fields and an invoke result's
 			t.Errorf("the page's table has %q, which is not a code", r[1])
 		}
 	}

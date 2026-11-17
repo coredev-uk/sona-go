@@ -44,7 +44,7 @@ func TestDocManifestExamplesParse(t *testing.T) {
 	}
 	for _, code := range []string{
 		ProblemUnreadable, ProblemTooLarge, ProblemManifest, ProblemID, ProblemReservedID, ProblemIDMismatch, ProblemName,
-		ProblemVersion, ProblemCommand, ProblemPermission, ProblemContribution, ProblemStrings, ProblemNoExecutable, ProblemEscapes, ProblemUnsafe, ProblemTooMany,
+		ProblemVersion, ProblemCommand, ProblemRuntime, ProblemPermission, ProblemContribution, ProblemStrings, ProblemNoExecutable, ProblemEscapes, ProblemUnsafe, ProblemTooMany,
 	} {
 		if !strings.Contains(text, "`"+code+"`") {
 			t.Errorf("the page doesn't list the problem %q", code)

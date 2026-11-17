@@ -115,7 +115,11 @@ func ScanOne(dir string, opts ScanOptions) Entry {
 	if Reserved(m.ID) && !opts.Bundled {
 		return fail(problem(ProblemReservedID, "%q", m.ID))
 	}
-	exe, err := ResolveExecutable(dir, m.Command)
+	resolve := ResolveExecutable
+	if m.Wasm() {
+		resolve = ResolveModule
+	}
+	exe, err := resolve(dir, m.Command)
 	if err != nil {
 		return fail(asProblem(err))
 	}
@@ -164,6 +168,16 @@ func readManifest(path string) ([]byte, error) {
 // others. The caller runs exactly this path: no PATH or working-directory
 // look-up.
 func ResolveExecutable(dir, command string) (string, error) {
+	return resolveFile(dir, command, true)
+}
+
+// ResolveModule is ResolveExecutable for a WebAssembly module: the same
+// rules, except that the file is data Sona reads, so it needs no execute bit.
+func ResolveModule(dir, command string) (string, error) {
+	return resolveFile(dir, command, false)
+}
+
+func resolveFile(dir, command string, executable bool) (string, error) {
 	if err := checkCommand(command); err != nil {
 		return "", err
 	}
@@ -190,7 +204,7 @@ func ResolveExecutable(dir, command string) (string, error) {
 	if !fi.Mode().IsRegular() {
 		return "", problem(ProblemNoExecutable, "%s is not a regular file", command)
 	}
-	if runtime.GOOS != "windows" && fi.Mode().Perm()&0o111 == 0 {
+	if executable && runtime.GOOS != "windows" && fi.Mode().Perm()&0o111 == 0 {
 		return "", problem(ProblemNoExecutable, "%s is not executable", command)
 	}
 	if err := checkFileSafe(fi); err != nil {

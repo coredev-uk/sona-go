@@ -52,6 +52,12 @@ type AddonsService struct {
 	devMu sync.Mutex
 	ask   *devAsk
 	devs  map[string]*devRun
+
+	// wasmMu guards wasm, the host of the WebAssembly add-ons. It is made
+	// when the first one starts, so Sona pays nothing for a runtime nobody
+	// uses, and closed at quit once every add-on is gone.
+	wasmMu sync.Mutex
+	wasm   *addons.WasmHost
 }
 
 // addonOptions are the supervisor's timings, replaced in tests.
@@ -67,6 +73,11 @@ type addonOptions struct {
 	// grace is how long an add-on has to leave when asked, twice (end of
 	// input, then the terminate signal) before it is killed.
 	grace time.Duration
+	// wasm are the limits of a WebAssembly add-on's memory and CPU.
+	wasm addons.WasmLimits
+	// verified is whether this system can run a native add-on from the file
+	// that was checked (addons.CanRunVerified), which `addons dev` needs.
+	verified bool
 	// environ is Sona's environment, os.Environ when nil.
 	environ func() []string
 	// devAsk is how long `addons dev` waits for the person to confirm in
@@ -83,6 +94,8 @@ func defaultAddonOptions() addonOptions {
 		helloTimeout: 10 * time.Second,
 		grace:        time.Second,
 		environ:      os.Environ,
+		wasm:         addons.DefaultWasmLimits(),
+		verified:     addons.CanRunVerified,
 		devAsk:       60 * time.Second,
 		devLease:     15 * time.Second,
 	}
@@ -179,6 +192,7 @@ func (s *AddonsService) List() []AddonInfo {
 	for _, en := range s.scan() {
 		info := AddonInfo{
 			ID: en.Name(), Name: en.Manifest.Name, Version: en.Manifest.Version, Description: en.Manifest.Description,
+			Runtime:     en.Manifest.RuntimeName(),
 			Permissions: stringsOrEmpty(en.Manifest.Permissions), Granted: []string{}, State: AddonOff,
 		}
 		if en.Problem != nil {
@@ -441,6 +455,12 @@ func (s *AddonsService) close() {
 	for _, r := range rs {
 		<-r.done
 	}
+	s.wasmMu.Lock()
+	if s.wasm != nil {
+		s.wasm.Close()
+		s.wasm = nil
+	}
+	s.wasmMu.Unlock()
 }
 
 // allowed reports whether the user's grant for id holds permission now: it
@@ -588,32 +608,86 @@ func (r *addonRunner) giveUp(name string) {
 	r.set(AddonCrashed, nil)
 }
 
+// startFunc starts one run of an add-on, whatever its runtime.
+type startFunc func() (addons.Running, error)
+
 // runOnce starts the installed add-on and serves it until its channel ends,
 // then makes sure it is gone: stopped, its group killed, reaped.
 func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.Log) {
 	s, o := r.s, r.s.opts
 	declared := en.Manifest.Permissions
-	spec := addons.Spec{
-		Exe: en.Exe, Dir: filepath.Join(s.root, r.dir), Env: addons.Environment(o.environ(), r.id), Stderr: log,
+	var start startFunc
+	if en.Manifest.Wasm() {
+		start = func() (addons.Running, error) {
+			// The bytes read now are the bytes compiled and run.
+			module, err := addons.ReadModule(en.Exe)
+			if err != nil {
+				return nil, err
+			}
+			return s.startWasm(en.ID, module, log)
+		}
+	} else {
+		spec := addons.Spec{
+			Exe: en.Exe, Dir: filepath.Join(s.root, r.dir), Env: addons.Environment(o.environ(), r.id), Stderr: log,
+		}
+		start = func() (addons.Running, error) { return startProc(spec) }
 	}
 	// The grant is asked at every call; the manifest's list bounds it.
 	allowed := func(p string) bool { return slices.Contains(declared, p) && s.allowed(r.id, p) }
-	r.serve(ctx, en, log, spec, newAddonOwn(s, en.Manifest, false), allowed)
+	r.serve(ctx, en, log, start, newAddonOwn(s, en.Manifest, false), allowed)
 	r.set(AddonRestarting, nil)
 }
 
-// serve starts the add-on as spec says and serves its session until the
+// startProc starts a native add-on as a process.
+func startProc(spec addons.Spec) (addons.Running, error) {
+	p, err := addons.Start(spec)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// startWasm runs a module on the shared WebAssembly host. The module runs
+// inside Sona on a goroutine of its own, never the UI's.
+func (s *AddonsService) startWasm(id string, module []byte, log *addons.Log) (addons.Running, error) {
+	h := s.wasmHost(log)
+	p, err := h.Start(addons.WasmSpec{
+		Module: module, Name: id + ".wasm",
+		Env:    addons.WasmEnvironment(s.opts.environ(), id, false),
+		Stderr: log,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// wasmHost is the host of the WebAssembly add-ons, made on first use.
+func (s *AddonsService) wasmHost(log *addons.Log) *addons.WasmHost {
+	s.wasmMu.Lock()
+	defer s.wasmMu.Unlock()
+	if s.wasm == nil {
+		s.wasm = addons.NewWasmHost(s.e.Paths.WasmCacheDir(), s.opts.wasm)
+		if note := s.wasm.CacheNote; note != "" {
+			s.e.Logger.Warn("addons: compiled wasm modules are kept in memory only", "why", note)
+			log.Notef("compiled code is not cached on disk: %s", note)
+		}
+	}
+	return s.wasm
+}
+
+// serve starts the add-on with start and serves its session until the
 // channel ends, then stops it, kills its group and reaps it. own is its
 // settings and secrets, allowed its grant.
-func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Log, spec addons.Spec, own *addonOwn, allowed func(string) bool) {
+func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Log, start startFunc, own *addonOwn, allowed func(string) bool) {
 	s, o := r.s, r.s.opts
-	proc, err := addons.Start(spec)
+	proc, err := start()
 	if err != nil {
 		s.e.Logger.Warn("addons: start", "addon", r.id, "err", err)
 		log.Notef("could not start")
 		return
 	}
-	log.Notef("started (pid %d, version %s)", proc.Pid(), en.Manifest.Version)
+	log.Notef("started (%s, version %s)", proc.Where(), en.Manifest.Version)
 	r.mu.Lock()
 	r.manifest, r.own = en.Manifest, own
 	r.mu.Unlock()
@@ -625,6 +699,14 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 	served := make(chan struct{})
 	s.e.Go("addon "+r.id+" watch", func() {
 		defer close(served)
+		// The time to say hello runs from when the add-on is running: a
+		// module is compiled first, and the first compile is seconds that
+		// are not the module's.
+		select {
+		case <-proc.Ready():
+		case <-sess.Done():
+		case <-ctx.Done():
+		}
 		timer := time.NewTimer(o.helloTimeout)
 		defer timer.Stop()
 		select {
@@ -639,6 +721,7 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 			log.Notef("no hello in %s: killed", o.helloTimeout)
 			proc.Kill()
 		case <-sess.Done():
+		case <-ctx.Done():
 		}
 		select {
 		case <-ctx.Done():
