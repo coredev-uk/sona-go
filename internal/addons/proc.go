@@ -13,6 +13,10 @@ import (
 type Spec struct {
 	// Exe is the absolute path Entry.Exe gives; it is run as it is.
 	Exe string
+	// Args are the program's arguments after its name. Only Sona's own
+	// bundled add-ons have any (BundledArgs); an installed add-on is run
+	// with none.
+	Args []string
 	// ExeFile, when set, is the one open file that is run instead of Exe's
 	// path (OpenVerified): the file that was checked is the file that runs,
 	// whatever happens to the path meanwhile. Exe then only names it.
@@ -82,7 +86,7 @@ func Start(spec Spec) (*Proc, error) {
 	}
 	// Run exactly Exe: exec.Command would look a bare name up in PATH or the
 	// working directory. Exe is absolute and already resolved.
-	cmd := &exec.Cmd{Path: spec.Exe, Args: []string{spec.Exe}, Dir: spec.Dir, Env: spec.Env}
+	cmd := &exec.Cmd{Path: spec.Exe, Args: append([]string{spec.Exe}, spec.Args...), Dir: spec.Dir, Env: spec.Env}
 	if spec.ExeFile != nil {
 		// The child's first extra file is its descriptor 3: run that open
 		// file, not the path.

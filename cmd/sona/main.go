@@ -23,6 +23,8 @@ import (
 	"github.com/egoist/mygo/transfer"
 
 	"github.com/coredev-uk/sona-go/build"
+	"github.com/coredev-uk/sona-go/internal/addons"
+	"github.com/coredev-uk/sona-go/internal/addons/own"
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
@@ -68,6 +70,13 @@ func main() {
 	// The CDM host re-executes this binary as its child process; in the
 	// child this never returns. It must run before anything else.
 	childMain()
+
+	// `sona --addon <id>` is one of Sona's own add-ons (internal/addons/own),
+	// which the supervisor runs as a child over its standard input and
+	// output. It starts nothing else of Sona.
+	if len(os.Args) == 3 && os.Args[1] == addons.BundledFlag {
+		os.Exit(own.Main(os.Args[2], os.Stdin, os.Stdout, os.Stderr))
+	}
 
 	for _, arg := range os.Args[1:] {
 		if arg == "--version" {

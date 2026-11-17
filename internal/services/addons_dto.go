@@ -36,6 +36,10 @@ const (
 	AddonCrashed AddonState = "crashed"
 	// AddonInvalid: its folder or manifest is refused (Problem says why).
 	AddonInvalid AddonState = "invalid"
+	// AddonIdle: one of Sona's own add-ons that is on and has nothing to do
+	// yet (no account connected, the status off): it starts when it has, so an
+	// integration nobody uses costs no process.
+	AddonIdle AddonState = "idle"
 )
 
 // AddonInfo is one add-on of the user's add-ons folder.
@@ -61,6 +65,10 @@ type AddonInfo struct {
 	Problem string `json:"problem"`
 	// Restarts counts the times it stopped on its own since it was enabled.
 	Restarts int `json:"restarts"`
+	// Bundled is one of Sona's own add-ons (Last.fm, ListenBrainz, Discord):
+	// part of Sona, on unless turned off, with nothing to approve and no
+	// permission to revoke.
+	Bundled bool `json:"bundled"`
 }
 
 // AddonNotice is the payload of EventAddonsNotice.

@@ -193,6 +193,8 @@ func addonStatus(a services.AddonInfo) string {
 		return i18n.T("It stopped on its own. Sona starts it again in a moment.")
 	case services.AddonCrashed:
 		return i18n.T("Switched off: it stopped on its own too many times in a row. Turn it on to try again.")
+	case services.AddonIdle:
+		return i18n.T("On. It starts when Sona has something for it to do.")
 	case services.AddonNeedsApproval:
 		return i18n.T("Waiting for you: it asks for a permission you haven't approved. It doesn't run until you do.")
 	case services.AddonInvalid:
@@ -300,7 +302,7 @@ func (s *settings) addonGroup(c *ui.Context, u *addonsUI, a services.AddonInfo, 
 		name = clean(a.ID, 60)
 	}
 	desc := clean(a.Description, 300)
-	if a.Version != "" {
+	if a.Version != "" && !a.Bundled {
 		desc = i18n.Meta(i18n.T("Version {version}", "version", clean(a.Version, 40)), desc)
 	}
 	if a.Runtime == addons.RuntimeWasm {
@@ -363,6 +365,10 @@ func (s *settings) addonSwitch(c *ui.Context, u *addonsUI, a services.AddonInfo,
 		sw := kit.Switch(c, &on, kit.SwitchOpts{A11yLabel: i18n.T("Turn on {name}", "name", name), Disabled: busy})
 		if sw.Changed() {
 			switch {
+			case on && a.Bundled:
+				// Sona's own add-on: part of the app Sona is, nothing to approve.
+				approve := slices.Clone(a.Permissions)
+				s.addonCall(u, a.ID, func() error { return s.addons.Enable(a.ID, approve) })
 			case on:
 				// Never on without the person seeing what it asks for.
 				u.approving, u.focus = a.ID, 0
@@ -467,6 +473,9 @@ func (s *settings) addonPermissions(c *ui.Context, u *addonsUI, a services.Addon
 		s.permissionList(c, name, a.Permissions, func(p string) (bool, func()) {
 			if !slices.Contains(a.Granted, p) {
 				return false, nil
+			}
+			if a.Bundled {
+				return true, nil // Sona's own: part of it, nothing to revoke
 			}
 			return true, func() { s.addonCall(u, a.ID, func() error { return s.addons.Revoke(a.ID, p) }) }
 		})

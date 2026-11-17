@@ -87,13 +87,13 @@ func TestScanListsValidAndRefusedAddons(t *testing.T) {
 			}
 		}
 	}
-	// Sona's own bundle may use the reserved IDs.
-	bundled, err := Scan(root, ScanOptions{Bundled: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := problemOf(t, bundled, "lastfm"); got != "" {
-		t.Errorf("bundled lastfm: %q", got)
+	// No option lets a folder hold one of Sona's own IDs: they are code's.
+	for _, id := range BundledIDs {
+		root := t.TempDir()
+		install(t, root, id, manifestFor(id))
+		if got := problemOf(t, scan(t, root), id); got != ProblemReservedID {
+			t.Errorf("a folder named %s: problem %q", id, got)
+		}
 	}
 	if es, err := Scan(filepath.Join(root, "missing"), ScanOptions{}); err != nil || es != nil {
 		t.Errorf("missing root = %v, %v", es, err)

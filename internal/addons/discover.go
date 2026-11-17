@@ -25,6 +25,11 @@ type Entry struct {
 	// it resolved, inside the folder. Empty when Problem is set.
 	Exe     string
 	Problem *Problem
+	// Bundled is one of Sona's own add-ons (bundled.go): registered in code,
+	// never read from a folder. Exe is then Sona's executable and Args are
+	// what make it run the add-on.
+	Bundled bool
+	Args    []string
 }
 
 // Name is how the entry is called in a list: the manifest's ID, else the
@@ -36,12 +41,10 @@ func (e Entry) Name() string {
 	return e.Dir
 }
 
-// ScanOptions tune Scan.
-type ScanOptions struct {
-	// Bundled lets the folders hold the IDs reserved for Sona's own add-ons.
-	// Only the read-only install directory sets it, never the user's.
-	Bundled bool
-}
+// ScanOptions tune Scan. There are none: no option lets a folder hold one of
+// the IDs reserved for Sona's own add-ons, which are registered in code
+// (bundled.go) and never read from a folder.
+type ScanOptions struct{}
 
 // Scan lists root's add-ons, the valid and the refused, sorted by folder
 // name. A root that doesn't exist holds none. At most config.MaxAddons
@@ -112,7 +115,7 @@ func ScanOne(dir string, opts ScanOptions) Entry {
 	if !strings.EqualFold(m.ID, e.Dir) {
 		return fail(problem(ProblemIDMismatch, "id %q in folder %q", m.ID, e.Dir))
 	}
-	if Reserved(m.ID) && !opts.Bundled {
+	if Reserved(m.ID) {
 		return fail(problem(ProblemReservedID, "%q", m.ID))
 	}
 	resolve := ResolveExecutable

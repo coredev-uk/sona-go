@@ -43,6 +43,9 @@ func newAddonEnv(t *testing.T) *addonEnv {
 	s := newAddonsService(ce.e)
 	s.attach(ce.srv.addon)
 	ce.srv.addons = s
+	// The test binary is not Sona: its bundled add-ons stay refused unless a
+	// test points exe at a script of its own.
+	s.opts.exe = ""
 	s.opts.backoff = []time.Duration{5 * time.Millisecond}
 	s.opts.grace = 100 * time.Millisecond
 	s.opts.helloTimeout = 5 * time.Second
@@ -126,7 +129,7 @@ func TestAddonsListsAndRefuses(t *testing.T) {
 	a := newAddonEnv(t)
 	a.install(t, "good", manifestJSON("good", "playback.read"), "exit 0\n")
 	a.install(t, "broken", `{"id":"broken","name":"x","version":"1.0.0","command":"run","permissions":[],"extra":1}`, "exit 0\n")
-	a.install(t, "lastfm", manifestJSON("lastfm"), "exit 0\n")
+	a.install(t, "sona-tools", manifestJSON("sona-tools"), "exit 0\n")
 	a.install(t, "named-wrong", manifestJSON("other"), "exit 0\n")
 	got := map[string]AddonInfo{}
 	for _, i := range a.svc.List() {
@@ -135,7 +138,7 @@ func TestAddonsListsAndRefuses(t *testing.T) {
 	if i := got["good"]; i.State != AddonOff || i.Enabled || i.Name != "Add-on good" || len(i.Permissions) != 1 || len(i.Granted) != 0 || i.Problem != "" {
 		t.Errorf("good = %+v", i)
 	}
-	for id, problem := range map[string]string{"broken": addons.ProblemManifest, "lastfm": addons.ProblemReservedID, "other": addons.ProblemIDMismatch} {
+	for id, problem := range map[string]string{"broken": addons.ProblemManifest, "sona-tools": addons.ProblemReservedID, "other": addons.ProblemIDMismatch} {
 		i, ok := got[id]
 		if !ok && id == "other" {
 			i = got["named-wrong"]
@@ -145,8 +148,8 @@ func TestAddonsListsAndRefuses(t *testing.T) {
 		}
 	}
 	// A refused add-on can't be enabled; one that doesn't exist is not found.
-	if err := a.svc.Enable("lastfm", nil); !errors.Is(err, ErrInvalidArgument) {
-		t.Errorf("enable lastfm: %v", err)
+	if err := a.svc.Enable("sona-tools", nil); !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("enable sona-tools: %v", err)
 	}
 	if err := a.svc.Enable("nothing", nil); CodeOf(err) != CodeNotFound {
 		t.Errorf("enable unknown: %v (%s)", err, CodeOf(err))

@@ -1,0 +1,1 @@
+{"id":"lastfm","name":"Last.fm","version":"1.0.0","description":"Sends the songs you play to Last.fm. Sona's own add-on, driven by Settings → Connections.","command":"sona","permissions":[]}
