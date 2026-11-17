@@ -52,6 +52,16 @@ An add-on is a program that runs beside Sona, hears what plays and may ask Sona 
 - The D-Bus bus and the command socket that carry the `sona` CLI's v1 commands refuse every v2 method (`hello` included). The add-on channel refuses v1.
 - **One frame per line**, at most **1 MiB** (the limit is in the `hello` answer). A longer line ends the session.
 
+### `sona connect`: the same protocol for your own programs
+
+`sona connect` (`site/src/content/docs/reference/cli.md`) speaks this protocol on its standard input and output for a program of the person's own that drives Sona, such as a Stream Deck plugin. It runs in the program's process tree, not under the supervisor, and passes each call to the running Sona as the command line would. It is not an add-on:
+
+- `hello` may name any ID. Every permission but `network` is granted: it has the command line's rights.
+- It may switch private listening (`private on|off|toggle`), and its topics show a private listen, as `sona status` does.
+- It has no `settings` topic, no `secret` method and no `invoke`; the limits and rates are an add-on's.
+- The `queue` topic is read again on each status change and every 2 seconds while subscribed, so a change that moves nothing else (songs added) arrives within 2 seconds.
+- It ends when the program closes its input (exit status 0), and with the `shutdown` event and exit status 3 when Sona quits; a program starts it again later. With no Sona running it exits with status 3 at once.
+
 ### The session
 
 1. The add-on sends [`hello`](#hello) as its first frame. Anything else first (a v1 command, a `call`, text that isn't JSON) is answered once with `hello_required`, and the channel is closed.

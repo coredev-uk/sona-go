@@ -116,6 +116,13 @@ Shows or sets private listening: `sona private [on|off|toggle|status]`. The defa
 
 - `--json` - prints `{"on", "source", "saved"}`.
 
+### `sona connect`
+
+Keeps running and speaks Sona's add-on protocol, one JSON object a line, on its standard input and output: `sona connect`. It is for a program of yours that controls Sona, such as a Stream Deck plugin, which starts it once and keeps it ([the add-on reference](https://github.com/coredev-uk/sona-go/blob/main/docs/addons.md), "`sona connect`").
+
+- It has the command line's rights: every command (with `call`), and the `status`, `now-playing` and `queue` topics.
+- It exits with status 0 when the program closes its input, and with status 3 when Sona quits (after a `shutdown` event) or isn't running.
+
 ### `sona addons dev`
 
 _Linux_ for a native add-on; a WebAssembly add-on runs on _Linux_, _macOS_ and _Windows_.

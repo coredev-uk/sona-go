@@ -190,6 +190,8 @@ var commands = []*command{
 		summary: msgAddonsSummary, help: msgAddonsHelp, choices: []string{addonsDev}, minArgs: 1, maxArgs: 3,
 		ownerOnly: true, timeout: devAskTimeout, check: checkAddons,
 	},
+	// connect runs until its program hangs up; a request can't carry it.
+	{name: "connect", summary: msgConnectSummary, help: msgConnectHelp, ownerOnly: true},
 	{
 		name: "help", args: "[<command>]", argHelp: msgArgHelpCommand, summary: msgHelpSummary, help: msgHelpHelp,
 		maxArgs: 1, local: true, flags: []flag{{name: "man", help: msgFlagMan}},

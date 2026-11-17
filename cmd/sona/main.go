@@ -102,10 +102,11 @@ func main() {
 	// on the running instance and exit; they never start Sona.
 	if cli.IsCommand(os.Args[1:]) {
 		// `sona addons dev` runs until Ctrl+C and ends its run on the way out;
-		// no other command waits.
+		// `sona connect` until its program closes its input. No other
+		// command waits.
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		status := cli.Run(ctx, os.Args[1:], cli.Env{
-			Stdout: os.Stdout, Stderr: os.Stderr, Dial: dialInstance, Version: version, Printer: cliPrinter(),
+			Stdout: os.Stdout, Stderr: os.Stderr, Stdin: os.Stdin, Dial: dialInstance, Version: version, Printer: cliPrinter(),
 			Terminal: isTerminal(os.Stdout),
 		})
 		stop()

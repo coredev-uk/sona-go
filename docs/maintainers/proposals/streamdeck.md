@@ -40,7 +40,7 @@ CiderDeck's Atmos tile switches Cider 4's playback of Apple's immersive assets. 
 
 ## Order
 
-1. `feat(cli)`: the commands and status fields above, their add-on permissions (`queue.control`, `library`), docs.
-2. `feat(cli)`: `sona connect`, the stdio bridge with v2 framing and the `status` and `queue` events.
+1. `feat(cli)`: the commands and status fields above, their add-on permissions (`queue.control`, `library`), docs. Done: #544.
+2. `feat(cli)`: `sona connect`, the stdio bridge with v2 framing and the `status`, `now-playing` and `queue` topics (the queue polled every 2 s while watched, as `addons dev` polls its log).
 3. The plugin repository.
 4. Separately: Spatial Audio (binaural AAC), then its tile.

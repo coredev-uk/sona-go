@@ -160,6 +160,10 @@ msgid "Commands control the Sona that is running; run `sona help <command>` for 
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "Connect a program of yours to Sona, such as a Stream Deck plugin"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "Curators"
 msgstr ""
 
@@ -215,6 +219,10 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "JSON output"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Keeps running and speaks the add-on protocol (one JSON object a line) on its standard input and output, for a program of yours that controls Sona, such as a Stream Deck plugin. It has the command line's rights: every command, and the status, now-playing and queue topics. It ends with status 0 when the program closes its input, and with status 3 (after a shutdown event) when Sona quits."
 msgstr ""
 
 #: internal/cli/messages.go

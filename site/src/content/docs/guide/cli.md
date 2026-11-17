@@ -26,6 +26,6 @@ sona help [command]         # sona(1) has the same
 
 Started without a command, `sona` opens Sona, or hands its Apple Music links to the Sona already running. `sona --hidden` starts without a window and `sona --version` prints the version.
 
-`sona status --follow` and `sona lyrics --follow` keep printing as things change, which suits Waybar, Polybar and similar bars. Shell completions for bash, zsh and fish come from `sona completion`.
+`sona status --follow` and `sona lyrics --follow` keep printing as things change, which suits Waybar, Polybar and similar bars. `sona connect` keeps a two-way line open for a program of yours, such as a Stream Deck plugin. Shell completions for bash, zsh and fish come from `sona completion`.
 
 Every command, option, exit status and JSON schema is in the [command line reference](/reference/cli/).
