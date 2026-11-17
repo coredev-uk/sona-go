@@ -246,8 +246,9 @@ An add-on names the permissions it wants in `hello`. The user grants some of the
 | `volume` | The `volume` call. |
 | `like` | The `like` call (rate limited). |
 | `private.read` | The `private` call, to read whether private listening is on. |
+| `network` | Reach the internet. No call needs it: the OS sandbox gives the add-on's process a network when it holds this permission and none otherwise ([How Sona runs an add-on](#how-sona-runs-an-add-on)). |
 
-- Every v1 command maps to exactly one permission. An add-on may send only the commands in this table; any other (`help`, `completion`, a typo) is `unknown_command`.
+- Every v1 command maps to exactly one permission, except `network`, which is no call's. An add-on may send only the commands in this table; any other (`help`, `completion`, a typo) is `unknown_command`.
 - **An add-on can never switch private listening off or on.** `private` takes no argument but `status`, whatever is granted.
 
 ### Granting
@@ -519,7 +520,7 @@ Sona runs the program by the absolute path it checked: never through `PATH` or t
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/coredev-uk/sona-go/docs/addons.md",
   "$defs": {
-    "Permission": {"enum": ["playback.read", "playback.control", "queue.read", "lyrics.read", "search", "open", "volume", "like", "private.read"]},
+    "Permission": {"enum": ["playback.read", "playback.control", "queue.read", "lyrics.read", "search", "open", "volume", "like", "private.read", "network"]},
     "Topic": {"enum": ["status", "now-playing", "queue", "settings"]},
     "Version": {"type": "string", "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})(\\.(0|[1-9][0-9]{0,5}))?$"},
     "Error": {
@@ -651,7 +652,7 @@ Sona runs the program by the absolute path it checked: never through `PATH` or t
               "type": "object", "additionalProperties": false, "required": ["min", "max"],
               "properties": {"min": {"$ref": "#/$defs/Version"}, "max": {"$ref": "#/$defs/Version"}}
             },
-            "permissions": {"type": "array", "maxItems": 9, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}}
+            "permissions": {"type": "array", "maxItems": 10, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}}
           }
         }
       }
@@ -806,7 +807,7 @@ Sona runs the program by the absolute path it checked: never through `PATH` or t
         "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$", "maxLength": 40},
         "description": {"type": "string", "maxLength": 1200},
         "command": {"type": "string", "pattern": "^[^/\\\\:][^\\\\:]*$", "maxLength": 200},
-        "permissions": {"type": "array", "maxItems": 9, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}},
+        "permissions": {"type": "array", "maxItems": 10, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}},
         "contributions": {
           "type": "object", "additionalProperties": false,
           "properties": {

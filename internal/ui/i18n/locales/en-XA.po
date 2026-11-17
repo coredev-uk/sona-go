@@ -845,6 +845,10 @@ msgid "Can ask Sona to open an Apple Music page."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
+msgid "Can connect to any address on the network: web sites, your home network and this computer's own services."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
 msgid "Can love or unlove the song that plays."
 msgstr ""
 
@@ -5323,6 +5327,10 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Raised · nice {priority} ({via})"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Reach the internet"
 msgstr ""
 
 #: internal/ui/features/artist/head.go

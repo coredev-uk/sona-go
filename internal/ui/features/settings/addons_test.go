@@ -404,7 +404,7 @@ func TestAnEmptyFolderSaysHowToInstallAndAnUnsupportedPlatformSaysItCannot(t *te
 }
 
 func TestEveryPermissionAndProblemHasWords(t *testing.T) {
-	for _, p := range []string{"playback.read", "playback.control", "queue.read", "lyrics.read", "search", "open", "volume", "like", "private.read"} {
+	for _, p := range []string{"playback.read", "playback.control", "queue.read", "lyrics.read", "search", "open", "volume", "like", "private.read", "network"} {
 		name, allows := permissionText(p)
 		if name == p || allows == "" {
 			t.Errorf("permission %q has no words: %q %q", p, name, allows)
