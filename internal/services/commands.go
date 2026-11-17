@@ -9,12 +9,13 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
-	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/cli"
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/playback/coordinator"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
@@ -30,10 +31,13 @@ type lyricsSource interface {
 // commandServer answers `sona <command>` (internal/cli) in the running
 // Sona, through what the UI uses: the coordinator for playback, the
 // playback service for the volume (saved in the settings like the
-// slider's), the library service for favourites, catalogue search, the
-// lyrics service for the playing song's lyrics (the one the lyrics view asks,
-// so the sources chosen in the settings and the cache apply), the launch opener for links and private listening's Mode. Every change
-// reaches the UI through the usual events.
+// slider's), the library service for favourites, Suggest Less and library
+// membership, catalogue search, the lyrics service for the playing song's
+// lyrics (the one the lyrics view asks, so the sources chosen in the
+// settings and the cache apply), the catalogue, playlists and radio
+// services for the links `play` starts, the launch opener for links and
+// private listening's Mode. Every change reaches the UI through the usual
+// events.
 type commandServer struct {
 	e      *Env
 	open   *opener
@@ -44,29 +48,55 @@ type commandServer struct {
 	feed   *cli.Feed
 	addon  *addonHost
 	addons *AddonsService
+	// cat, pls and radio load what `play <link>` plays; nil in a test's
+	// server that holds only some services.
+	cat   *CatalogService
+	pls   *PlaylistsService
+	radio *RadioService
+
+	// song is the playing song's library state, for the status, and
+	// songWant the item it is being looked up for; kick asks the goroutine
+	// that looks it up to look again.
+	songMu   sync.Mutex
+	song     songState
+	songWant string
+	kick     chan struct{}
+	// crossfadeOn is the crossfade setting, kept as it changes.
+	crossfadeOn atomic.Bool
 
 	mu     sync.Mutex
 	closed bool
 }
 
 // newCommandServer builds the server and publishes the status on every
-// coordinator or private listening change until Core.Close.
+// coordinator, private listening, crossfade or playing song's library state
+// change until Core.Close.
 func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 	s := &commandServer{
 		e: e, open: open,
 		play: instance[PlaybackService](svcs), lib: instance[LibraryService](svcs), search: instance[SearchService](svcs),
 		lyrics: instance[LyricsService](svcs),
+		kick:   make(chan struct{}, 1),
 	}
+	s.cat, _ = lookup[CatalogService](svcs)
+	s.pls, _ = lookup[PlaylistsService](svcs)
+	s.radio, _ = lookup[RadioService](svcs)
 	s.feed = cli.NewFeed(func() cli.Status { return s.status(e.Coord.Snapshot()) })
 	s.addons, _ = lookup[AddonsService](svcs)
 	s.addon = newAddonHost(s)
-	e.Private.OnChange(func(privatemode.State) {
-		snap := e.Coord.Snapshot()
-		s.feed.Publish(s.status(snap))
-		s.addon.observe()
+	e.Private.OnChange(func(privatemode.State) { s.publish() })
+	s.crossfadeOn.Store(e.Settings.Get().Crossfade.Enabled)
+	e.Settings.OnChange(func(prev, next config.Settings) {
+		if prev.Crossfade.Enabled != next.Crossfade.Enabled {
+			s.crossfadeOn.Store(next.Crossfade.Enabled)
+			s.publish()
+		}
 	})
+	if e.members != nil {
+		e.members.watch(s.lookUpSongSoon)
+	}
 	snaps, cancel := e.Coord.Subscribe()
-	quit, done := make(chan struct{}), make(chan struct{})
+	quit, done, songDone := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	e.Go("command status", func() {
 		defer close(done)
 		defer cancel()
@@ -80,6 +110,29 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 				}
 				s.feed.Publish(s.status(snap))
 				s.addon.observe()
+				if s.songChanged(snap) {
+					s.lookUpSongSoon()
+				}
+			}
+		}
+	})
+	// The playing song's state may come from Apple: asked after the first
+	// paint, as all network work.
+	netOpen := make(chan struct{})
+	e.OnNetwork(func() { close(netOpen) })
+	e.Go("command song state", func() {
+		defer close(songDone)
+		select {
+		case <-quit:
+			return
+		case <-netOpen:
+		}
+		for {
+			select {
+			case <-quit:
+				return
+			case <-s.kick:
+				s.lookUpSong()
 			}
 		}
 	})
@@ -89,10 +142,17 @@ func newCommandServer(e *Env, open *opener, svcs []any) *commandServer {
 		s.mu.Unlock()
 		close(quit)
 		<-done
+		<-songDone
 		s.feed.Close()
 	})
 	s.addon.run()
 	return s
+}
+
+// publish publishes the status now, to the command line and add-ons.
+func (s *commandServer) publish() {
+	s.feed.Publish(s.status(s.e.Coord.Snapshot()))
+	s.addon.observe()
 }
 
 // instance finds the registered service of type T.
@@ -130,6 +190,9 @@ func (s *commandServer) Call(ctx context.Context, req cli.Request) (any, error) 
 	c := s.e.Coord
 	switch req.Command {
 	case "play":
+		if len(req.Args) == 1 {
+			return s.playLink(ctx, req.Args[0], req.Shuffle)
+		}
 		return s.transport(ctx, "resume", c.Resume)
 	case "pause":
 		return s.transport(ctx, "pause", c.Pause)
@@ -138,13 +201,24 @@ func (s *commandServer) Call(ctx context.Context, req cli.Request) (any, error) 
 	case "next":
 		return s.transport(ctx, "next", c.Next)
 	case "prev":
+		if req.Force {
+			return s.transport(ctx, "previous-item", c.PreviousItem)
+		}
 		return s.transport(ctx, "previous", c.Previous)
+	case "seek":
+		return s.seek(ctx, req.Args[0])
+	case "shuffle":
+		return s.shuffle(req.Args)
+	case "repeat":
+		return s.repeat(req.Args)
+	case "crossfade":
+		return s.crossfade(req.Args)
 	case "status":
 		return s.status(c.Snapshot()), nil
 	case "lyrics":
 		return s.lyricsOfPlaying(ctx)
 	case "queue":
-		return s.queue(c.Snapshot()), nil
+		return s.queueCommand(ctx, req.Args)
 	case "search":
 		return s.searchCatalog(ctx, req)
 	case "open":
@@ -152,7 +226,11 @@ func (s *commandServer) Call(ctx context.Context, req cli.Request) (any, error) 
 	case "volume":
 		return s.volume(ctx, req.Args)
 	case "like":
-		return s.like(ctx, req.Args)
+		return s.rate(ctx, req.Args, applemusic.RatingFavorite)
+	case "dislike":
+		return s.rate(ctx, req.Args, applemusic.RatingSuggestLess)
+	case "library":
+		return s.library(ctx, req.Args)
 	case "private":
 		return s.private(req.Args)
 	case "addons":
@@ -194,15 +272,16 @@ func (s *commandServer) transport(ctx context.Context, name string, run func(con
 // status maps the coordinator's state for the command line.
 func (s *commandServer) status(snap coordinator.Snapshot) cli.Status {
 	st := cli.Status{
-		Running:  true,
-		State:    cmp.Or(string(snap.State), cli.StateIdle),
-		Position: position(snap, time.Now()).Seconds(),
-		Volume:   percent(snap.Volume),
-		Shuffle:  snap.Shuffle,
-		Repeat:   cmp.Or(string(snap.Repeat), string(coordinator.RepeatOff)),
-		Private:  s.e.Private.On(),
-		Preview:  snap.Preview,
-		Error:    snap.Error,
+		Running:   true,
+		State:     cmp.Or(string(snap.State), cli.StateIdle),
+		Position:  position(snap, time.Now()).Seconds(),
+		Volume:    percent(snap.Volume),
+		Shuffle:   snap.Shuffle,
+		Repeat:    cmp.Or(string(snap.Repeat), string(coordinator.RepeatOff)),
+		Private:   s.e.Private.On(),
+		Preview:   snap.Preview,
+		Error:     snap.Error,
+		Crossfade: s.crossfadeOn.Load(),
 	}
 	if snap.Current != nil {
 		t := track(snap.Current.Item)
@@ -210,6 +289,13 @@ func (s *commandServer) status(snap coordinator.Snapshot) cli.Status {
 			t.Duration = snap.Duration.Seconds()
 		}
 		st.Track = &t
+		s.songMu.Lock()
+		if song := s.song; song.id == snap.Current.Item.ID {
+			st.Liked = song.st.Rating == applemusic.RatingFavorite
+			st.Disliked = song.st.Rating == applemusic.RatingSuggestLess
+			st.InLibrary = song.st.InLibrary
+		}
+		s.songMu.Unlock()
 	}
 	return st
 }
@@ -381,66 +467,6 @@ func (s *commandServer) volume(ctx context.Context, args []string) (any, error) 
 		return nil, s.fail(err)
 	}
 	return cli.Volume{Volume: n}, nil
-}
-
-// like favourites the playing song (on), un-favourites it (off), switches
-// it (toggle) or reports it (status), through the library service the
-// player bar's Favourite uses. The UI hears of changes
-// (EventItemState).
-func (s *commandServer) like(ctx context.Context, args []string) (any, error) {
-	verb := "on"
-	if len(args) > 0 {
-		verb = args[0]
-	}
-	// Favourites are the account's: nothing goes to Apple without one. While
-	// Sona is still reading the stored token (a slow keyring), say so.
-	switch s.e.Auth.Status().State {
-	case auth.StateSignedIn:
-	case auth.StateRestoring, auth.StateValidating:
-		return nil, &cli.Error{Code: cli.CodeAccountLoading}
-	default:
-		return nil, &cli.Error{Code: string(CodeNotSignedIn)}
-	}
-	cur := s.e.Coord.Snapshot().Current
-	if cur == nil {
-		return nil, &cli.Error{Code: cli.CodeNothingPlaying}
-	}
-	qi := s.play.item(cur.UID, cur.Item)
-	ref := ItemRef{Kind: applemusic.TypeSongs, ID: qi.ID, Source: qi.Source, CatalogID: qi.CatalogID, LibraryID: qi.LibraryID}
-	liked := func() (bool, error) {
-		st, err := s.lib.States(ctx, []ItemRef{ref})
-		if err != nil {
-			return false, err
-		}
-		return st[0].Rating == applemusic.RatingFavorite, nil
-	}
-	var on bool
-	switch verb {
-	case "on", "off":
-		on = verb == "on"
-	case "toggle":
-		was, err := liked()
-		if err != nil {
-			return nil, s.fail(err)
-		}
-		on = !was
-	case "status":
-		is, err := liked()
-		if err != nil {
-			return nil, s.fail(err)
-		}
-		return cli.Like{Track: track(cur.Item), Liked: is}, nil
-	default:
-		return nil, &cli.Error{Code: cli.CodeUsage}
-	}
-	st, err := s.lib.Favorite(ctx, ref, on)
-	if err != nil {
-		return nil, s.fail(err)
-	}
-	if s.e.Emit != nil {
-		s.e.Emit.Emit(EventItemState, st)
-	}
-	return cli.Like{Track: track(cur.Item), Liked: st.Rating == applemusic.RatingFavorite}, nil
 }
 
 // private shows or switches private listening (the tray's and the

@@ -132,18 +132,20 @@ Returns what you saved in one of the add-on's own secret rows. The add-on names 
 
 Runs one of the `sona` CLI's v1 commands (`site/src/content/docs/reference/cli.md`) for the add-on, as the running Sona answers it.
 
-- `params` is the v1 request: `command`, `args`, and for `search` `kind` and `limit`.
+- `params` is the v1 request: `command`, `args`, for `search` `kind` and `limit`, `shuffle` for `play <link> --shuffle` and `force` for `prev --force`.
 - Only the commands with a permission in [Permissions](#permissions) are accepted, and not the streams (`--follow`).
-- The commands that act on the playing song (`lyrics`, `like`) fail with `nothing_playing` for a hidden listen.
-- `open` keeps the CLI's rules: only Apple Music links Sona can open (`bad_link` otherwise).
+- The commands that act on the playing song (`lyrics`, `like`, `dislike`, and `library` but its lists) fail with `nothing_playing` for a hidden listen.
+- `open` keeps the CLI's rules: only Apple Music links Sona can open (`bad_link` otherwise). So does `play <link>`.
+- `queue jump N` counts places in the queue the add-on sees: hidden listens left out, and the window around the playing song (`Queue`).
 
 | Result | Commands |
 | --- | --- |
-| `Status` | `status`, `play`, `pause`, `toggle`, `next`, `prev` |
-| `Queue` | `queue` |
+| `Status` | `status`, `play`, `pause`, `toggle`, `next`, `prev`, `seek`, `shuffle`, `repeat`, `crossfade`, `queue jump` |
+| `Queue` | `queue`, `queue clear` |
 | `SearchResults` | `search` |
 | `Lyrics` | `lyrics` |
-| `Like` | `like` |
+| `Like` | `like`, `dislike`, `library` |
+| `LibraryItems` | `library playlists`, `library albums` |
 | `Volume` | `volume` |
 | `Private` | `private` |
 | `Opened` | `open` |
@@ -159,7 +161,7 @@ The result types are in [Schema](#schema).
 ```
 
 ```json example StatusResponse
-{"id":5,"result":{"running":true,"state":"paused","track":null,"position":0,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":""}}
+{"id":5,"result":{"running":true,"state":"paused","track":null,"position":0,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}}
 ```
 
 ### `invoke`
@@ -194,7 +196,7 @@ An add-on that cannot do it answers with an `error`. Sona passes only its `code`
 
 | Event | Data | When |
 | --- | --- | --- |
-| `status` | `Status` | Any change of playback, volume, shuffle or repeat, and a position that jumps (a seek). A position that only moves on is not an event; compute it from `position` and the state. |
+| `status` | `Status` | Any change of playback, volume, shuffle, repeat or crossfade, of the playing song's favourite, Suggest Less or library state, and a position that jumps (a seek). A position that only moves on is not an event; compute it from `position` and the state. |
 | `now-playing` | `NowPlaying` | The song that plays changes, and when nothing plays. |
 | `queue` | `Queue` | The queue changes. At most 1000 songs, a window around the playing one. |
 | `settings` | [`SettingsValues`](#settingsvalues) | The value of each of the add-on's non-secret settings rows, now and whenever one changes. A row nobody set has its default. |
@@ -206,7 +208,7 @@ An add-on that cannot do it answers with an `error`. Sona passes only its `code`
 - An add-on that lets more than 256 frames wait unread is ended.
 
 ```json example StatusEvent
-{"event":"status","data":{"running":true,"state":"playing","track":{"id":"1441164430","title":"Come Together","artist":"The Beatles","album":"Abbey Road","duration":259.0,"explicit":false,"artwork":"https://is1-ssl.mzstatic.com/image/thumb/Music/600x600bb.jpg"},"position":12.5,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":""}}
+{"event":"status","data":{"running":true,"state":"playing","track":{"id":"1441164430","title":"Come Together","artist":"The Beatles","album":"Abbey Road","duration":259.0,"explicit":false,"artwork":"https://is1-ssl.mzstatic.com/image/thumb/Music/600x600bb.jpg"},"position":12.5,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":"","liked":true,"disliked":false,"inLibrary":true,"crossfade":false}}
 ```
 
 ```json example NowPlayingEvent
@@ -238,18 +240,20 @@ An add-on names the permissions it wants in `hello`. The user grants some of the
 
 | Permission | What it allows |
 | --- | --- |
-| `playback.read` | Topics `status` and `now-playing`; the `status` call. |
-| `playback.control` | `play`, `pause`, `toggle`, `next`, `prev`. |
+| `playback.read` | Topics `status` and `now-playing`; the `status` call. The status carries whether the playing song is a favourite, rated Suggest Less or in the library. |
+| `playback.control` | `play` (a link too), `pause`, `toggle`, `next`, `prev`, `seek`, `shuffle`, `repeat`, `crossfade`. |
 | `queue.read` | Topic `queue`; the `queue` call. |
+| `queue.control` | `queue jump` and `queue clear`. |
 | `lyrics.read` | The `lyrics` call. |
 | `search` | The `search` call (Apple's catalogue; rate limited). |
 | `open` | The `open` call: Apple Music links only, as the CLI's `open`. |
 | `volume` | The `volume` call. |
-| `like` | The `like` call (rate limited). |
+| `like` | The `like` and `dislike` calls (rate limited). |
+| `library` | The `library` call: the playing song added or removed, the library's playlists and albums listed (rate limited). |
 | `private.read` | The `private` call, to read whether private listening is on. |
 | `network` | Reach the internet. No call needs it: the OS sandbox gives the add-on's process a network when it holds this permission and none otherwise ([How Sona runs an add-on](#how-sona-runs-an-add-on)). |
 
-- Every v1 command maps to exactly one permission, except `network`, which is no call's. An add-on may send only the commands in this table; any other (`help`, `completion`, a typo) is `unknown_command`.
+- Every v1 request maps to exactly one permission: its command's, but `queue.control` for `queue`'s verbs. `network` is no call's. An add-on may send only the commands in this table; any other (`help`, `completion`, a typo) is `unknown_command`.
 - **An add-on can never switch private listening off or on.** `private` takes no argument but `status`, whatever is granted.
 
 ### Granting
@@ -274,7 +278,7 @@ Sona reports its limits in the `hello` answer and enforces each. A refusal is an
 | Unread frames queued for the add-on | 256 | session ends |
 | Call rate | 20 per second, burst 40 | `rate_limited` |
 | `search` | 2 per second, burst 5 | `rate_limited` |
-| `like`, `open` | 1 per second, burst 3 | `rate_limited` |
+| `like`, `library`, `open` | 1 per second, burst 3 | `rate_limited` |
 | Toasts from invocations | 1 per second per add-on | The later answer is dropped |
 | Contributions | 8 actions, 8 commands, 16 rows, 32 in all | The manifest is refused |
 | Toast text | 500 bytes | The answer fails |
@@ -599,8 +603,8 @@ Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` nami
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/coredev-uk/sona-go/docs/addons.md",
   "$defs": {
-    "Permission": {"enum": ["playback.read", "playback.control", "queue.read", "lyrics.read", "search", "open", "volume", "like", "private.read", "network"]},
-    "WasmPermission": {"enum": ["playback.read", "playback.control", "queue.read", "lyrics.read", "search", "open", "volume", "like", "private.read"]},
+    "Permission": {"enum": ["playback.read", "playback.control", "queue.read", "queue.control", "lyrics.read", "search", "open", "volume", "like", "library", "private.read", "network"]},
+    "WasmPermission": {"enum": ["playback.read", "playback.control", "queue.read", "queue.control", "lyrics.read", "search", "open", "volume", "like", "library", "private.read"]},
     "Topic": {"enum": ["status", "now-playing", "queue", "settings"]},
     "Version": {"type": "string", "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})(\\.(0|[1-9][0-9]{0,5}))?$"},
     "Error": {
@@ -632,7 +636,7 @@ Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` nami
     },
     "Status": {
       "type": "object", "additionalProperties": false,
-      "required": ["running", "state", "track", "position", "volume", "shuffle", "repeat", "private", "preview", "error"],
+      "required": ["running", "state", "track", "position", "volume", "shuffle", "repeat", "private", "preview", "error", "liked", "disliked", "inLibrary", "crossfade"],
       "properties": {
         "running": {"type": "boolean"},
         "state": {"enum": ["idle", "loading", "playing", "paused", "ended", "error"]},
@@ -643,7 +647,9 @@ Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` nami
         "repeat": {"enum": ["off", "all", "one"]},
         "private": {"const": false},
         "preview": {"const": false},
-        "error": {"const": ""}
+        "error": {"const": ""},
+        "liked": {"type": "boolean"}, "disliked": {"type": "boolean"}, "inLibrary": {"type": "boolean"},
+        "crossfade": {"type": "boolean"}
       }
     },
     "NowPlaying": {
@@ -694,8 +700,25 @@ Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` nami
       }
     },
     "Like": {
-      "type": "object", "additionalProperties": false, "required": ["track", "liked"],
-      "properties": {"track": {"$ref": "#/$defs/Track"}, "liked": {"type": "boolean"}}
+      "type": "object", "additionalProperties": false, "required": ["track", "liked", "disliked", "inLibrary"],
+      "properties": {
+        "track": {"$ref": "#/$defs/Track"}, "liked": {"type": "boolean"}, "disliked": {"type": "boolean"},
+        "inLibrary": {"type": "boolean"}
+      }
+    },
+    "LibraryItems": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "total", "items"],
+      "properties": {
+        "kind": {"enum": ["playlist", "album"]},
+        "total": {"type": "integer", "minimum": 0},
+        "items": {"type": "array", "maxItems": 500, "items": {
+          "type": "object", "additionalProperties": false, "required": ["id", "name", "subtitle", "artwork", "url"],
+          "properties": {
+            "id": {"type": "string"}, "name": {"type": "string"}, "subtitle": {"type": "string"},
+            "artwork": {"$ref": "#/$defs/Artwork"}, "url": {"$ref": "#/$defs/ShareURL"}
+          }
+        }}
+      }
     },
     "Volume": {
       "type": "object", "additionalProperties": false, "required": ["volume"],
@@ -732,7 +755,7 @@ Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` nami
               "type": "object", "additionalProperties": false, "required": ["min", "max"],
               "properties": {"min": {"$ref": "#/$defs/Version"}, "max": {"$ref": "#/$defs/Version"}}
             },
-            "permissions": {"type": "array", "maxItems": 10, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}}
+            "permissions": {"type": "array", "maxItems": 12, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}}
           }
         }
       }
@@ -779,10 +802,12 @@ Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` nami
         "params": {
           "type": "object", "additionalProperties": false, "required": ["command"],
           "properties": {
-            "command": {"enum": ["play", "pause", "toggle", "next", "prev", "status", "queue", "lyrics", "search", "open", "volume", "like", "private"]},
+            "command": {"enum": ["play", "pause", "toggle", "next", "prev", "seek", "shuffle", "repeat", "crossfade", "status", "queue", "lyrics", "search", "open", "volume", "like", "dislike", "library", "private"]},
             "args": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 4096}},
             "kind": {"enum": ["song", "album", "artist", "playlist", "station", "music-video", "curator"]},
-            "limit": {"type": "integer", "minimum": 1, "maximum": 20}
+            "limit": {"type": "integer", "minimum": 1, "maximum": 20},
+            "shuffle": {"type": "boolean"},
+            "force": {"type": "boolean"}
           }
         }
       }
@@ -801,7 +826,8 @@ Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` nami
         "id": {"type": "integer", "minimum": 1},
         "result": {"oneOf": [
           {"$ref": "#/$defs/Status"}, {"$ref": "#/$defs/Queue"}, {"$ref": "#/$defs/SearchResults"}, {"$ref": "#/$defs/Lyrics"},
-          {"$ref": "#/$defs/Like"}, {"$ref": "#/$defs/Volume"}, {"$ref": "#/$defs/Private"}, {"$ref": "#/$defs/Opened"}
+          {"$ref": "#/$defs/Like"}, {"$ref": "#/$defs/LibraryItems"}, {"$ref": "#/$defs/Volume"}, {"$ref": "#/$defs/Private"},
+          {"$ref": "#/$defs/Opened"}
         ]}
       }
     },
@@ -888,7 +914,7 @@ Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` nami
         "description": {"type": "string", "maxLength": 1200},
         "command": {"type": "string", "pattern": "^[^/\\\\:][^\\\\:]*$", "maxLength": 200},
         "runtime": {"enum": ["native", "wasm"]},
-        "permissions": {"type": "array", "maxItems": 10, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}},
+        "permissions": {"type": "array", "maxItems": 12, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}},
         "contributions": {
           "type": "object", "additionalProperties": false,
           "properties": {

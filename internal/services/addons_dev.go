@@ -25,7 +25,7 @@ import (
 //     others, not a link), and the add-on's ID may not be an installed one;
 //   - the person confirms in Sona's own window, which names the folder and the
 //     permissions; nothing answers for them, and a command from an add-on's
-//     channel never reaches this code (cli.CommandPermission refuses it);
+//     channel never reaches this code (cli.RequestPermission refuses it);
 //   - the permissions are the manifest's, held in memory for the run: nothing
 //     is written to the settings;
 //   - the add-on gets the defaults of its settings rows, none of the user's

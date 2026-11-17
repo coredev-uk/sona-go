@@ -841,6 +841,10 @@ msgid "Call me"
 msgstr "Call me"
 
 #: internal/ui/features/settings/addons.go
+msgid "Can add the song that plays to your library or remove it, and list your library's playlists and albums."
+msgstr "Can add the song that plays to your library or remove it, and list your library's playlists and albums."
+
+#: internal/ui/features/settings/addons.go
 msgid "Can ask Sona to open an Apple Music page."
 msgstr "Can ask Sona to open an Apple Music page."
 
@@ -849,12 +853,16 @@ msgid "Can connect to any address on the network: web sites, your home network a
 msgstr "Can connect to any address on the network: web sites, your home network and this computer's own services."
 
 #: internal/ui/features/settings/addons.go
-msgid "Can love or unlove the song that plays."
-msgstr "Can love or unlove the song that plays."
+msgid "Can jump to a song in the queue and clear the queue."
+msgstr "Can jump to a song in the queue and clear the queue."
 
 #: internal/ui/features/settings/addons.go
-msgid "Can play, pause, skip and go back."
-msgstr "Can play, pause, skip and go back."
+msgid "Can love or unlove the song that plays, or rate it Suggest Less."
+msgstr "Can love or unlove the song that plays, or rate it Suggest Less."
+
+#: internal/ui/features/settings/addons.go
+msgid "Can play, pause, skip, go back and seek, play an Apple Music link, and change shuffle, repeat and crossfade."
+msgstr "Can play, pause, skip, go back and seek, play an Apple Music link, and change shuffle, repeat and crossfade."
 
 #: internal/ui/features/settings/addons.go
 msgid "Can read and change the volume."
@@ -5298,6 +5306,10 @@ msgstr "Question mark"
 msgid "Queue"
 msgstr "Queue"
 
+#: internal/ui/features/settings/addons.go
+msgid "Queue controls"
+msgstr "Queue controls"
+
 #: internal/ui/kit/playerqueue_commands.go
 msgid "Queue replaced"
 msgstr "Queue replaced"
@@ -5883,8 +5895,8 @@ msgid "Seek"
 msgstr "Seek"
 
 #: internal/ui/features/settings/addons.go
-msgid "Sees which song plays, its progress and whether it is paused."
-msgstr "Sees which song plays, its progress and whether it is paused."
+msgid "Sees which song plays, its progress, whether it is paused, and whether it is a favourite or in your library."
+msgstr "Sees which song plays, its progress, whether it is paused, and whether it is a favourite or in your library."
 
 #: internal/ui/app/menubar.go
 msgid "Select All"
@@ -8372,6 +8384,10 @@ msgstr "Your keyring didn't answer or refused. Unlock it, then try again."
 #: internal/ui/features/settings/themes.go
 msgid "Your last edit was refused. This earlier version stays."
 msgstr "Your last edit was refused. This earlier version stays."
+
+#: internal/ui/features/settings/addons.go
+msgid "Your library"
+msgstr "Your library"
 
 #: internal/ui/features/library/gate.go
 msgid "Your library is syncing"

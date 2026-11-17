@@ -240,7 +240,7 @@ func TestTurningAnAddonOnShowsItsPermissionsFirstAndApprovesExactlyThose(t *test
 	r := addonsRig(t, f, 1132, 2600)
 	r.tt.MustClick("Turn on Home bridge")
 	r.tt.Drain()
-	if !r.tt.HasText("Turn on Home bridge?") || !r.tt.HasText("Playback controls") || !r.tt.HasText("Can play, pause, skip and go back.") {
+	if !r.tt.HasText("Turn on Home bridge?") || !r.tt.HasText("Playback controls") || !r.tt.HasText("Can play, pause, skip, go back and seek, play an Apple Music link, and change shuffle, repeat and crossfade.") {
 		t.Fatalf("no approval panel; texts %q", r.tt.Texts())
 	}
 	if !announced(r.tt.Announcements(), "Turn on Home bridge?") {

@@ -346,7 +346,7 @@ func TestAddonHelloOnce(t *testing.T) {
 // can hold; the local ones (help, completion) to none.
 func TestEveryCommandMapsToAPermission(t *testing.T) {
 	for _, c := range commands {
-		perm, ok := CommandPermission(c.name)
+		perm, ok := RequestPermission(Request{Command: c.name})
 		if c.local || c.ownerOnly {
 			if ok {
 				t.Errorf("local or owner-only command %s has permission %q", c.name, perm)
@@ -368,18 +368,27 @@ func TestEveryCommandMapsToAPermission(t *testing.T) {
 			t.Errorf("topic %s: permission %q", topic, perm)
 		}
 	}
+	// Listing the queue reads it; its verbs change it.
+	if p, _ := RequestPermission(Request{Command: "queue"}); p != PermQueueRead {
+		t.Errorf("queue: %q", p)
+	}
+	for _, verb := range [][]string{{"clear"}, {"jump", "2"}} {
+		if p, _ := RequestPermission(Request{Command: "queue", Args: verb}); p != PermQueueControl {
+			t.Errorf("queue %v: %q", verb, p)
+		}
+	}
+	guarded := []string{PermQueueControl}
+	for _, q := range commandPermission {
+		guarded = append(guarded, q)
+	}
+	for _, q := range topicPermission {
+		guarded = append(guarded, q)
+	}
 	for _, p := range Permissions {
 		if p == PermNetwork {
 			continue // the OS sandbox's, not the protocol's
 		}
-		used := false
-		for _, q := range commandPermission {
-			used = used || p == q
-		}
-		for _, q := range topicPermission {
-			used = used || p == q
-		}
-		if !used {
+		if !slices.Contains(guarded, p) {
 			t.Errorf("permission %s guards nothing", p)
 		}
 	}
