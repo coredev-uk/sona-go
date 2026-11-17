@@ -60,6 +60,7 @@ func TestCoreCannotReachTheProcessKeyring(t *testing.T) {
 // makes it: the Core's services, the auth manager's client, a test. "At once"
 // is checked by what it rules out, not by a clock: the error is the
 // Network's own (ErrOffline), so nothing went out to resolve or dial.
+// (ListenBrainz's HTTP runs in its add-on's process, not the Core's.)
 func TestNetworkOutsideTheFixturesFailsFast(t *testing.T) {
 	h := New(t, Version("1.0.0"))
 
@@ -67,20 +68,11 @@ func TestNetworkOutsideTheFixturesFailsFast(t *testing.T) {
 		_, err := services.Service[services.UpdatesService](h.Core).Check(t.Context())
 		assertOffline(t, err, "api.github.com")
 	})
-	t.Run("scrobbler", func(t *testing.T) {
-		// The services' HTTP waits for the first paint.
-		services.Service[services.SystemService](h.Core).FirstPaint()
-		_, err := services.Service[services.ScrobbleService](h.Core).ConnectListenBrainz(t.Context(), "token")
-		assertOffline(t, err, "api.listenbrainz.org")
-		if services.CodeOf(err) != services.CodeNetwork {
-			t.Errorf("the services classify it as %q, not a network error", services.CodeOf(err))
-		}
-	})
 	t.Run("client", func(t *testing.T) {
 		_, err := h.Network.Client().Get("https://example.com/path")
 		assertOffline(t, err, "example.com/path")
 	})
-	if got := h.Network.Blocked(); len(got) < 3 {
+	if got := h.Network.Blocked(); len(got) < 2 {
 		t.Errorf("Blocked lists %v", got)
 	}
 }
