@@ -40,6 +40,10 @@ const (
 	// yet (no account connected, the status off): it starts when it has, so an
 	// integration nobody uses costs no process.
 	AddonIdle AddonState = "idle"
+	// AddonNoSandbox: the OS sandbox can't be set up on this computer, so the
+	// add-on does not run, however it is switched (Sandbox says why). It is
+	// never run without the sandbox.
+	AddonNoSandbox AddonState = "no_sandbox"
 )
 
 // AddonInfo is one add-on of the user's add-ons folder.
@@ -54,8 +58,8 @@ type AddonInfo struct {
 	// WebAssembly module inside Sona with no files or network of its own.
 	Runtime string `json:"runtime"`
 	// Permissions are what the manifest asks for; Granted what the user
-	// approved. Until the OS sandbox (#304) they are advisory: an add-on runs
-	// with the user's rights.
+	// approved. The OS sandbox enforces `network`; the protocol checks the
+	// rest at every call.
 	Permissions []string   `json:"permissions"`
 	Granted     []string   `json:"granted"`
 	Enabled     bool       `json:"enabled"`
@@ -63,6 +67,10 @@ type AddonInfo struct {
 	// Problem is why an invalid add-on is refused: one of the
 	// addons.Problem* codes ("bad_id", "unsafe_owner", …); "" otherwise.
 	Problem string `json:"problem"`
+	// Sandbox is why the sandbox can't be set up when State is
+	// AddonNoSandbox: one of the addons.Sandbox* codes ("userns_restricted",
+	// …); "" otherwise.
+	Sandbox string `json:"sandbox"`
 	// Restarts counts the times it stopped on its own since it was enabled.
 	Restarts int `json:"restarts"`
 	// Bundled is one of Sona's own add-ons (Last.fm, ListenBrainz, Discord):

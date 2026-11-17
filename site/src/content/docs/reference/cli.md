@@ -23,17 +23,34 @@ Removes what the playback host's sandbox left on the computer: its AppContainer 
 
 ## Commands
 
-Options may come anywhere after the command. `--` ends them, and a number such as `-10` is an argument (`sona volume -10`). Every command takes `-h` and `--help`.
+Options may come anywhere after the command. `--` ends them, and a number such as `-10` is an argument (`sona volume -10`, `sona seek -15`). Every command takes `-h` and `--help`.
 
 ### `sona play`, `pause`, `toggle`, `next`, `prev`
 
 Resume, pause, play or pause, skip to the next song, go to the previous song (or restart the song in its first seconds, like the previous key).
 
+- `sona play <link>` - plays an Apple Music link to a song, album, playlist or station in place of the queue, as its page's Play does. Your library's playlists and albums play from the links `sona library playlists` and `sona library albums` print. Other links (artists, curators, music videos) are a usage error: give them to `sona open`.
+- `--shuffle` - with a link, starts the album or playlist shuffled.
+- `--force` - `prev` always plays the previous song, however far into this one.
 - `--json` - prints the status after the command.
+
+### `sona seek`
+
+Moves to a number of seconds into the playing song, or by `+N` or `-N` seconds from where it is, within the song: `sona seek <seconds>|+N|-N`. Seconds may have decimals.
+
+- `--json` - prints the status.
+
+### `sona shuffle`, `repeat`, `crossfade`
+
+Show or switch them, as the player bar's buttons and Settings → Playback do.
+
+- `sona shuffle [on|off|toggle|status]` and `sona crossfade [on|off|toggle|status]`. The default is `status`. Crossfade keeps the length set in Settings → Playback.
+- `sona repeat [off|all|one|cycle|status]`. The default is `status`; `cycle` moves on as the player bar's button does: off, all, one, off.
+- `--json` - prints the status.
 
 ### `sona status`
 
-Prints the playback state, song, position, volume, shuffle, repeat and private listening.
+Prints the playback state, song, position, volume, shuffle, repeat, crossfade and private listening.
 
 - `--follow` - keeps printing on every change.
 - `--format` string (optional) - a template for each line ([Status bars](#status-bars)).
@@ -53,7 +70,9 @@ Prints the playing song's lyrics as plain text.
 
 Prints the queue in play order and marks the playing song.
 
-- `--json` - prints `{"index", "tracks"}`.
+- `sona queue jump N` - plays the song at place `N`, as the list numbers it (from 1; `index + 1` in the JSON). Prints the status.
+- `sona queue clear` - removes every song but the playing one, as the queue's Clear does. Prints the queue.
+- `--json` - prints `{"index", "tracks"}`, or the status after `jump`.
 
 ### `sona search`
 
@@ -75,11 +94,21 @@ Shows the volume, or sets it as the player bar's slider does and keeps it: `sona
 
 - `--json` - prints `{"volume"}`.
 
-### `sona like`
+### `sona like`, `dislike`
 
-Favourites the playing song, which adds it to your library. Needs an Apple Music account signed in to Sona: `sona like [on|off|toggle|status]`. The default is `on`.
+Rate the playing song. Need an Apple Music account signed in to Sona.
 
-- `--json` - prints `{"track", "liked"}`.
+- `sona like [on|off|toggle|status]` - favourites it, which adds it to your library. The default is `on`.
+- `sona dislike [on|off|toggle|status]` - rates it Suggest Less, which replaces a favourite. The default is `on`.
+- `--json` - prints `{"track", "liked", "disliked", "inLibrary"}`.
+
+### `sona library`
+
+The playing song's place in your library, and your library's lists. Needs an Apple Music account signed in to Sona.
+
+- `sona library [add|remove|toggle|status]` - adds the playing song to your library, removes it, switches it, or shows whether it is there. The default is `status`.
+- `sona library playlists`, `sona library albums` - your library's playlists or albums, most recently added first, at most 500, each with the link `sona play` takes.
+- `--json` - prints `{"track", "liked", "disliked", "inLibrary"}`, or for the lists `{"kind", "total", "items"}`.
 
 ### `sona private`
 
@@ -96,6 +125,7 @@ Runs an add-on from a folder without installing it, and prints its log until you
 - Sona asks you to confirm in its window. The question names the add-on, the folder and the permissions its manifest asks for. Without a "Run" there, nothing runs.
 - Nothing is saved. The permissions hold for the run. The add-on gets none of your saved values or secrets.
 - The folder must be yours and not writable by others. Its ID can't be one of your installed add-ons or one reserved for Sona's own.
+- The add-on runs in the same sandbox as an installed one: it reads its folder, writes only its data folder, has no terminal (its log reaches you through Sona, never a terminal of yours) and has the network only if its manifest asks for `network` and you confirmed it. Where the sandbox can't be set up, it doesn't run and the log says why.
 - The add-on's log goes to standard output. On a terminal, escape sequences and control characters are stripped from it. Sona's own lines go to standard error.
 - It exits with status 0 when you press Ctrl+C or the add-on ends. A refusal is status 1, and no Sona is status 3.
 - On _macOS_ and _Windows_ a native add-on fails with "unsupported" before Sona asks anything: they can't yet run the file that was checked. A WebAssembly add-on (`"runtime": "wasm"`) runs there, because Sona reads its `.wasm` once and runs those bytes.
@@ -149,7 +179,11 @@ The status:
   "repeat": "off",
   "private": true,
   "preview": false,
-  "error": ""
+  "error": "",
+  "liked": true,
+  "disliked": false,
+  "inLibrary": true,
+  "crossfade": false
 }
 ```
 
@@ -161,6 +195,11 @@ The status:
 - `position`: as of the moment the status was taken.
 - `repeat`: `off`, `all` or `one`. `preview`: the song plays as its
   30-second preview.
+- `liked`, `disliked`, `inLibrary`: the playing song is a favourite, rated
+  Suggest Less, in your library, as the player bar shows it. Sona looks it
+  up when the song starts, so they are `false` for a moment; they stay
+  `false` for live radio and music videos. `crossfade`: Settings →
+  Playback's crossfade is on.
 - When Sona isn't running, `status --json` prints `"running": false`,
   `"state": "idle"` and every other field empty.
 
@@ -169,7 +208,12 @@ The status:
 playing song's place, `-1` when none. `search`: `{"term": "…", "results":
 [{"kind", "id", "name", "subtitle", "explicit", "url"}…]}`, grouped by kind
 in Apple's order; `url` is the music.apple.com link, `""` when unknown.
-`like`: `{"track": track, "liked": true}`. `private`: `{"on": true,
+`like`, `dislike` and `library`: `{"track": track, "liked": true,
+"disliked": false, "inLibrary": true}`. `library playlists` and `library
+albums`: `{"kind": "playlist"|"album", "total": 120, "items": [{"id":
+"p.…", "name", "subtitle", "artwork", "url"}…]}`; `total` counts the whole
+library, `items` the 500 most recently added, `subtitle` an album's artist,
+`url` the link `sona play` takes. `private`: `{"on": true,
 "source": "setting"|"development"|"environment", "saved": false}`. `open`:
 `{"kind": "album", "id": "1441164426", "storefront": "gb"}`.
 

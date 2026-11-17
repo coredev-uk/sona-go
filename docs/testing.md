@@ -127,6 +127,8 @@ The CDM host sandbox tests (`TestChildCannotOpenInetSockets`, `TestSandboxConfin
 - To run them on Ubuntu, lift the restriction for the session: `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
 - CI does that, and sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
 
+The add-on sandbox's tests (`internal/addons/sandbox`, in the same CI job) need the same user namespaces and follow the same rules: they skip where the system refuses, and `SONA_ADDON_REQUIRE_SANDBOX=1` (CI) fails them instead. The test binary is the add-on too: `TestMain` calls `sandbox.Main`, the sandbox starts the binary again as an add-on's init, and the add-on (the binary with `SONA_SANDBOX_TEST_PROBE` set) reports what it could reach. The supervisor's own tests (`internal/services`, `internal/addons`) run their fake add-ons without the sandbox through `SONA_ADDON_UNSANDBOXED=1`, which only a test binary honours; a simulated sandbox failure tests the refusal.
+
 ### Windows
 
 On Windows the same child runs in an AppContainer. `sandbox_windows_test.go` uses a probe child that must:
@@ -140,7 +142,7 @@ The whole host suite runs through the sandbox, because the child loads no CDM ou
 
 A test binary alone honours `SONA_CDMHOST_ALLOW_UNSANDBOXED=1` to load the CDM outside the sandbox.
 
-`TestRemoveSandbox` covers the uninstaller's cleanup (`sona --remove-sandbox`, `cdmhost.RemoveSandbox`) on a profile of its own, never `sona.cdmhost`. A new grant of the sandbox's SID to a folder (`grantAccess`) must be one `RemoveSandbox` also removes.
+`TestRemoveSandbox` (in `internal/appcontainer`) covers the uninstaller's cleanup (`sona --remove-sandbox`, `cdmhost.RemoveSandbox`) on a profile of its own, never `sona.cdmhost`. A new grant of the sandbox's SID to a folder (`appcontainer.Grant`) must be one `appcontainer.Remove` also removes. The package's tests skip on a machine that refuses AppContainers; `SONA_APPCONTAINER_REQUIRE=1` (CI) fails them instead.
 
 ## Packaging checks
 

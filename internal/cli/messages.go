@@ -25,8 +25,8 @@ const (
 
 // Command summaries (one line) and descriptions (help and the manual page).
 const (
-	msgPlaySummary       l10n.Message = "Resume playback"
-	msgPlayHelp          l10n.Message = "Resumes playback, or starts the queue Sona saved when it last quit. Prints the status line."
+	msgPlaySummary       l10n.Message = "Resume playback, or play a link"
+	msgPlayHelp          l10n.Message = "Without a link, resumes playback, or starts the queue Sona saved when it last quit. With an Apple Music link to a song, album, playlist or station (your library's included, as `sona library playlists` lists them), plays it in place of the queue; --shuffle starts the album or playlist shuffled. Prints the status line."
 	msgPauseSummary      l10n.Message = "Pause playback"
 	msgPauseHelp         l10n.Message = "Pauses playback. Prints the status line."
 	msgToggleSummary     l10n.Message = "Pause when playing, play otherwise"
@@ -34,13 +34,21 @@ const (
 	msgNextSummary       l10n.Message = "Play the next song"
 	msgNextHelp          l10n.Message = "Plays the next song in the queue. Prints the status line."
 	msgPrevSummary       l10n.Message = "Play the previous song"
-	msgPrevHelp          l10n.Message = "Restarts the playing song, or plays the previous one within its first seconds, like the previous key. Prints the status line."
+	msgPrevHelp          l10n.Message = "Restarts the playing song, or plays the previous one within its first seconds, like the previous key; with --force it always plays the previous one. Prints the status line."
+	msgSeekSummary       l10n.Message = "Move to a point in the song"
+	msgSeekHelp          l10n.Message = "Moves playback to a number of seconds into the playing song, or by +N or -N seconds from where it is. Prints the position."
+	msgShuffleSummary    l10n.Message = "Show or switch shuffle"
+	msgShuffleHelp       l10n.Message = "Shows shuffle (status, the default), or turns it on, off or over (toggle), as the player bar's shuffle button does."
+	msgRepeatSummary     l10n.Message = "Show or set repeat"
+	msgRepeatHelp        l10n.Message = "Shows repeat (status, the default), or sets it: off, all (the queue) or one (the playing song). cycle moves on as the player bar's repeat button does: off, all, one, off."
+	msgCrossfadeSummary  l10n.Message = "Show or switch crossfade"
+	msgCrossfadeHelp     l10n.Message = "Shows crossfade (status, the default), or turns it on, off or over (toggle). Its length stays as set in Settings → Playback."
 	msgStatusSummary     l10n.Message = "Show what's playing"
-	msgStatusHelp        l10n.Message = "Shows the playback state, the song, its position, the volume, shuffle, repeat and private listening. With --follow it keeps running and prints one line each time any of them changes (the position alone doesn't count), for status bars such as Waybar and Polybar; it ends when Sona quits. When Sona isn't running, it says so and exits with status 3."
+	msgStatusHelp        l10n.Message = "Shows the playback state, the song, its position, the volume, shuffle, repeat, crossfade and private listening. With --follow it keeps running and prints one line each time any of them changes (the position alone doesn't count), for status bars such as Waybar and Polybar; it ends when Sona quits. When Sona isn't running, it says so and exits with status 3."
 	msgLyricsSummary     l10n.Message = "Print the playing song's lyrics"
 	msgLyricsHelp        l10n.Message = "Prints the lyrics of the playing song, one line to a line, with a blank line between verses. With --lrc it writes an LRC file (a [mm:ss.xx] time before each line, and the title, artist and album tags) for a lyrics player; that needs lyrics with timing. With --follow it keeps running for status bars and shells such as Quickshell, Waybar and Polybar: it prints the line being sung now and another each time it changes (an empty line while the voice rests, and when there are no lyrics), until Sona quits. The lyrics come from the sources chosen in Sona's settings, as in its lyrics view."
-	msgQueueSummary      l10n.Message = "List the queue"
-	msgQueueHelp         l10n.Message = "Lists the queue in play order, marking the playing song."
+	msgQueueSummary      l10n.Message = "List, jump in or clear the queue"
+	msgQueueHelp         l10n.Message = "Lists the queue in play order, marking the playing song. `queue jump N` plays the song at place N, as the list numbers it; `queue clear` removes every song but the playing one, as the queue's Clear does."
 	msgSearchSummary     l10n.Message = "Search Apple Music"
 	msgSearchHelp        l10n.Message = "Searches the Apple Music catalogue in Sona's storefront and lists the results by kind, with their links; give a link to `sona open` to open it in Sona."
 	msgOpenSummary       l10n.Message = "Open an Apple Music link in Sona"
@@ -49,6 +57,10 @@ const (
 	msgVolumeHelp        l10n.Message = "Without a value, shows the volume. A number from 0 to 100 sets it; +N or -N changes it by N."
 	msgLikeSummary       l10n.Message = "Favourite the playing song"
 	msgLikeHelp          l10n.Message = "Favourites the playing song (on, the default), removes it from your favourites (off), switches it (toggle) or shows whether it is one (status). Favouriting a song adds it to your library, as in Sona. Needs an Apple Music account signed in to Sona."
+	msgDislikeSummary    l10n.Message = "Suggest less like the playing song"
+	msgDislikeHelp       l10n.Message = "Rates the playing song Suggest Less (on, the default), takes the rating back (off), switches it (toggle) or shows it (status). Suggest Less replaces a favourite. Needs an Apple Music account signed in to Sona."
+	msgLibrarySummary    l10n.Message = "Add the playing song to your library, or list your library"
+	msgLibraryHelp       l10n.Message = "Shows whether the playing song is in your library (status, the default), adds it (add), removes it (remove) or switches it (toggle). `library playlists` and `library albums` list your library's playlists and albums, most recently added first, with the links `sona play` takes. Needs an Apple Music account signed in to Sona."
 	msgPrivateSummary    l10n.Message = "Show or switch private listening"
 	msgPrivateHelp       l10n.Message = "Shows private listening (status, the default), or turns it on, off or over (toggle). While it is on, nothing you play is reported to Apple, scrobbled or kept in Sona's history."
 	msgAddonsSummary     l10n.Message = "Run an add-on from a folder while you build it"
@@ -72,11 +84,18 @@ const (
 	msgFlagType            l10n.Message = "only results of this kind"
 	msgFlagLimit           l10n.Message = "at most this many results of each kind (1 to 20, default 5)"
 	msgFlagMan             l10n.Message = "print the manual page in roff"
+	msgFlagShuffle         l10n.Message = "start the album or playlist shuffled"
+	msgFlagForce           l10n.Message = "always play the previous song, never restart this one"
 	msgFlagHelp            l10n.Message = "show help for the command"
 	msgArgVolume           l10n.Message = "0 to 100, or +N or -N to change it by N"
 	msgArgTerm             l10n.Message = "what to search for"
 	msgArgURL              l10n.Message = "an Apple Music link"
 	msgArgSwitch           l10n.Message = "on, off, toggle or status"
+	msgArgPlayLink         l10n.Message = "an Apple Music link to a song, album, playlist or station"
+	msgArgSeek             l10n.Message = "seconds into the song, or +N or -N to move by N seconds"
+	msgArgRepeat           l10n.Message = "off, all, one, cycle or status"
+	msgArgQueueVerb        l10n.Message = "jump and a place in the queue, or clear"
+	msgArgLibraryVerb      l10n.Message = "add, remove, toggle, status, playlists or albums"
 	msgArgShell            l10n.Message = "bash, zsh or fish"
 	msgArgHelpCommand      l10n.Message = "a command"
 	msgArgAddonVerb        l10n.Message = "dev, then the add-on's folder"
@@ -134,6 +153,8 @@ const (
 	msgBadAddonFolder   l10n.Message = "%s: the folder must be a path (for example ./my-addon)"
 	msgStatusNotRunning l10n.Message = "Sona isn't running"
 	msgBadVolume        l10n.Message = "volume: %q isn't 0 to 100, +N or -N"
+	msgBadSeek          l10n.Message = "seek: %q isn't a number of seconds, +N or -N"
+	msgBadQueuePlace    l10n.Message = "queue: %q isn't a place in the queue (1, 2, …)"
 	msgBadTemplate      l10n.Message = "%s: --format: %v"
 	msgStarting         l10n.Message = "Sona is starting; try again in a moment"
 	msgShuttingDown     l10n.Message = "Sona is shutting down"
@@ -174,24 +195,25 @@ const (
 	msgFieldLine     l10n.Message = "%s: %s"
 	msgPreviewSuffix l10n.Message = " (preview)"
 
-	msgFieldState    l10n.Message = "state"
-	msgFieldTitle    l10n.Message = "title"
-	msgFieldArtist   l10n.Message = "artist"
-	msgFieldAlbum    l10n.Message = "album"
-	msgFieldPosition l10n.Message = "position"
-	msgFieldVolume   l10n.Message = "volume"
-	msgFieldShuffle  l10n.Message = "shuffle"
-	msgFieldRepeat   l10n.Message = "repeat"
-	msgFieldPrivate  l10n.Message = "private listening"
-	msgFieldPreview  l10n.Message = "preview"
-	msgFieldError    l10n.Message = "error"
-	msgOn            l10n.Message = "on"  // a switch (shuffle, private listening) is on
-	msgOff           l10n.Message = "off" // a switch (shuffle, repeat, private listening) is off
-	msgYes           l10n.Message = "yes"
-	msgRepeatAll     l10n.Message = "all"     // repeat: the whole queue
-	msgRepeatOne     l10n.Message = "one"     // repeat: the playing song
-	msgPositionOf    l10n.Message = "%s / %s" // the position, then the song's length (m:ss)
-	msgPercent       l10n.Message = "%d%%"    // the volume
+	msgFieldState     l10n.Message = "state"
+	msgFieldTitle     l10n.Message = "title"
+	msgFieldArtist    l10n.Message = "artist"
+	msgFieldAlbum     l10n.Message = "album"
+	msgFieldPosition  l10n.Message = "position"
+	msgFieldVolume    l10n.Message = "volume"
+	msgFieldShuffle   l10n.Message = "shuffle"
+	msgFieldRepeat    l10n.Message = "repeat"
+	msgFieldCrossfade l10n.Message = "crossfade"
+	msgFieldPrivate   l10n.Message = "private listening"
+	msgFieldPreview   l10n.Message = "preview"
+	msgFieldError     l10n.Message = "error"
+	msgOn             l10n.Message = "on"  // a switch (shuffle, private listening) is on
+	msgOff            l10n.Message = "off" // a switch (shuffle, repeat, private listening) is off
+	msgYes            l10n.Message = "yes"
+	msgRepeatAll      l10n.Message = "all"     // repeat: the whole queue
+	msgRepeatOne      l10n.Message = "one"     // repeat: the playing song
+	msgPositionOf     l10n.Message = "%s / %s" // the position, then the song's length (m:ss)
+	msgPercent        l10n.Message = "%d%%"    // the volume
 
 	msgQueueEmpty    l10n.Message = "the queue is empty"
 	msgQueueAutoPlay l10n.Message = "(AutoPlay)"
@@ -203,6 +225,15 @@ const (
 
 	msgLiked    l10n.Message = "favourite: on (%s)"
 	msgNotLiked l10n.Message = "favourite: off (%s)"
+
+	msgDisliked    l10n.Message = "suggest less: on (%s)"
+	msgNotDisliked l10n.Message = "suggest less: off (%s)"
+	msgInLibrary   l10n.Message = "in your library: yes (%s)"
+	msgNotLibrary  l10n.Message = "in your library: no (%s)"
+
+	msgNoPlaylists l10n.Message = "your library has no playlists"
+	msgNoAlbums    l10n.Message = "your library has no albums"
+	msgLibraryMore l10n.Message = "…and %d more, added earlier"
 
 	msgPrivateLine      l10n.Message = "private listening: %s"
 	msgPrivateDev       l10n.Message = " (development build: this session only; saved setting %s)"

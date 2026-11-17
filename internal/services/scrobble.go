@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -24,9 +25,11 @@ const (
 
 // ScrobbleService connects Last.fm and ListenBrainz accounts and scrobbles
 // what the coordinator plays (internal/scrobble). The Last.fm session key
-// and the ListenBrainz user token live in the keyring (store.OpenSecretWith);
-// settings hold only the account name and the on/off switch. Undelivered
-// listens wait in <state>/scrobble-queue.json.
+// and the ListenBrainz user token live in the keyring item of the add-on
+// that sends them (`addon.lastfm`, `addon.listenbrainz`; addon_secrets.go),
+// where a version before add-ons' own items (`lastfm`, `listenbrainz`) are
+// moved once at start; settings hold only the account name and the on/off
+// switch. Undelivered listens wait in <state>/scrobble-queue.json.
 //
 // Apple sign-out leaves the scrobbler connections alone: they are separate
 // accounts the user connected on this desktop, like Sona's settings, and
@@ -37,7 +40,6 @@ type ScrobbleService struct {
 	sc     *scrobble.Scrobbler
 	lastfm *scrobble.LastFM // nil: no Last.fm API account in this build
 	lb     *scrobble.ListenBrainz
-	open   func(key string) (store.Secret, error)
 	poll   time.Duration // Last.fm approval polling interval
 
 	loadOnce sync.Once
@@ -59,7 +61,7 @@ func newScrobbleService(e *Env) *ScrobbleService {
 	if key, secret, ok := scrobble.LastFMAccount(); ok {
 		lastfm = &scrobble.LastFM{Key: key, Secret: secret, HTTP: httpc, UserAgent: ua}
 	}
-	s := newScrobble(e, lastfm, &scrobble.ListenBrainz{HTTP: httpc, UserAgent: ua, Version: e.Version}, e.openSecret)
+	s := newScrobble(e, lastfm, &scrobble.ListenBrainz{HTTP: httpc, UserAgent: ua, Version: e.Version})
 	e.Coord.ObserveActivity(s.sc.Observe)
 	e.OnNetwork(func() {
 		e.Go("scrobble start", func() {
@@ -74,9 +76,9 @@ func newScrobbleService(e *Env) *ScrobbleService {
 
 // newScrobble builds the service over the given clients (lastfm nil when
 // the build has no Last.fm account) and follows the settings' switches.
-func newScrobble(e *Env, lastfm *scrobble.LastFM, lb *scrobble.ListenBrainz, open func(string) (store.Secret, error)) *ScrobbleService {
+func newScrobble(e *Env, lastfm *scrobble.LastFM, lb *scrobble.ListenBrainz) *ScrobbleService {
 	s := &ScrobbleService{
-		e: e, lastfm: lastfm, lb: lb, open: open, poll: lastfmPoll,
+		e: e, lastfm: lastfm, lb: lb, poll: lastfmPoll,
 		secrets: map[string]store.Secret{}, connected: map[string]bool{},
 	}
 	providers := []scrobble.Provider{lb}
@@ -195,6 +197,13 @@ func (s *ScrobbleService) Disconnect(provider string) (ScrobbleStatus, error) {
 	if err := sec.Delete(); err != nil {
 		return ScrobbleStatus{}, err
 	}
+	// A sign-in that could not be moved still sits in the old item: it goes
+	// too, or it would come back at the next start.
+	if old, err := s.e.openSecret(provider); err == nil {
+		if err := old.Delete(); err != nil {
+			s.e.Logger.Warn("scrobble: delete the old credentials", "provider", provider, "err", err)
+		}
+	}
 	s.sc.Forget(provider)
 	s.setConnected(provider, false)
 	if err := s.saveAccount(provider, config.ScrobbleAccount{}); err != nil {
@@ -246,12 +255,22 @@ func (s *ScrobbleService) apply(c config.Scrobbling) {
 func (s *ScrobbleService) load() {
 	s.loadOnce.Do(func() {
 		for _, name := range []string{ScrobblerLastFM, ScrobblerListenBrainz} {
+			// The sign-in a version before add-ons kept in the item `name`
+			// moves to the add-on's own, once. A move that failed leaves the
+			// old item to be read below and tried again at the next start.
+			moveErr := s.e.migrateSecret(s.log(), name, name, scrobbleKeys[name])
+			if moveErr != nil {
+				s.e.Logger.Warn("scrobble: move the sign-in to the add-on's secrets", "provider", name, "err", moveErr)
+			}
 			sec, err := s.secret(name)
 			if err != nil {
 				s.e.Logger.Warn("scrobble: open credentials", "provider", name, "err", err)
 				continue
 			}
 			v, err := sec.Get()
+			if errors.Is(err, store.ErrNotFound) && moveErr != nil {
+				v, err = s.legacy(name)
+			}
 			switch {
 			case err == nil:
 				s.sc.SetCredential(name, v)
@@ -263,16 +282,26 @@ func (s *ScrobbleService) load() {
 	})
 }
 
+func (s *ScrobbleService) log() *slog.Logger { return s.e.Logger.With("component", "scrobble") }
+
+// legacy reads the item a version before add-ons kept the sign-in in.
+func (s *ScrobbleService) legacy(name string) (string, error) {
+	old, err := s.e.openSecret(name)
+	if err != nil {
+		return "", err
+	}
+	return old.Get()
+}
+
+// secret is the sign-in of provider in its add-on's keyring item
+// (`addon.<id>`, key scrobbleKeys[provider]; addon_secrets.go).
 func (s *ScrobbleService) secret(name string) (store.Secret, error) {
 	s.secMu.Lock()
 	defer s.secMu.Unlock()
 	if sec, ok := s.secrets[name]; ok {
 		return sec, nil
 	}
-	sec, err := s.open(name)
-	if err != nil {
-		return nil, err
-	}
+	sec := s.e.addonSecrets().slot(name, scrobbleKeys[name])
 	s.secrets[name] = sec
 	if sec.Backend() == store.BackendFile {
 		s.mu.Lock()
@@ -281,6 +310,9 @@ func (s *ScrobbleService) secret(name string) (store.Secret, error) {
 	}
 	return sec, nil
 }
+
+// scrobbleKeys are the keys of the sign-ins in the add-ons' secrets.
+var scrobbleKeys = map[string]string{ScrobblerLastFM: lastfmSecretKey, ScrobblerListenBrainz: listenbrainzSecretKey}
 
 func (s *ScrobbleService) setConnected(name string, on bool) {
 	s.mu.Lock()

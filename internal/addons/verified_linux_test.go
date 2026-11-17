@@ -40,7 +40,7 @@ func TestOpenVerifiedRunsTheFileThatWasChecked(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out strings.Builder
-	p, err := Start(Spec{Exe: exe, ExeFile: f, Dir: dir, Env: []string{"PATH=/usr/bin:/bin"}, Stderr: &out})
+	p, err := Start(Spec{Exe: exe, ExeFile: f, Dir: dir, Data: t.TempDir(), Env: []string{"PATH=/usr/bin:/bin"}, Stderr: &out})
 	if err != nil {
 		t.Fatal(err)
 	}

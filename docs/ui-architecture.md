@@ -1348,7 +1348,7 @@ A master and detail page.
 - A finished domain refreshes its lists and the counts; `sync:done` refreshes everything under `["library"]`.
 - `playlists:changed` with `Tree` (a playlist created or deleted here) refreshes Recently added (`keyRecentlyAdded`, `["library","recently-added"]`). The playlist feature refreshes its own lists, and features don't import each other.
 - The sidebar footer (`Slots.SidebarFooter`) shows, with an account, "Syncing <domain>" with the count and a bar, or "Synced <when>" / "Library sync failed" / "Library not synced yet" with Sync now or Try again.
-- `EventItemState` (a rating changed by `sona like`) is `ItemStates.Remember`: it writes the item's state and refreshes Favourite songs.
+- `EventItemState` (a rating or library change made by `sona like`, `dislike` or `library`) is `ItemStates.Remember`: it writes the item's state and refreshes Favourite songs.
 
 #### Item actions
 

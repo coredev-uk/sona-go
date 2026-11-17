@@ -24,7 +24,7 @@ import (
 // Sandbox describes how the CDM host child is confined on Windows: the
 // parent starts it in an AppContainer (the profile "sona.cdmhost", with no
 // capabilities, so no network of any kind and no access to the user's files
-// beyond the folders granted to it, appcontainer_windows.go) inside a job
+// beyond the folders granted to it, internal/appcontainer) inside a job
 // object that kills it with the parent and lets it start no process, with
 // the process mitigations that fit. Where the parent cannot set that up
 // (the profile, the folder grants or the process creation fail), the child
@@ -109,7 +109,8 @@ type parentSandbox struct {
 	reason string
 }
 
-// startSandboxed starts the child in the AppContainer (appcontainer_windows.go),
+// startSandboxed starts the child in the AppContainer (appcontainer_windows.go,
+// over internal/appcontainer),
 // or unconfined when that cannot be set up (parentSandbox.reason).
 func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSandbox, error) {
 	prof, err := appContainer()

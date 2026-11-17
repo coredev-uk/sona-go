@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -66,6 +67,26 @@ type membership struct {
 	mu     sync.Mutex
 	added  map[string]time.Time // kind + ":" + catalog ID → when the add succeeded
 	states map[applemusic.ItemKey]stateEntry
+
+	watchMu  sync.Mutex
+	watchers []func()
+}
+
+// watch runs fn after every change the user makes to an item's state (a
+// rating, an add, a removal) and at sign-out, outside the locks.
+func (m *membership) watch(fn func()) {
+	m.watchMu.Lock()
+	m.watchers = append(m.watchers, fn)
+	m.watchMu.Unlock()
+}
+
+func (m *membership) changed() {
+	m.watchMu.Lock()
+	ws := slices.Clone(m.watchers)
+	m.watchMu.Unlock()
+	for _, fn := range ws {
+		fn()
+	}
 }
 
 func newMembership(d *db.DB) *membership {
@@ -105,6 +126,7 @@ func (m *membership) markAdded(typ string, ids []string) {
 		m.added[kind+":"+id] = now
 	}
 	m.mu.Unlock()
+	m.changed()
 }
 
 // unmarkAdded forgets recorded adds of catalog items of type typ (they
@@ -146,6 +168,7 @@ func (m *membership) holdRemoved(k applemusic.ItemKey, st applemusic.LibraryStat
 	m.mu.Lock()
 	m.states[k] = stateEntry{st: st, until: m.now().Add(stateHold), gone: true}
 	m.mu.Unlock()
+	m.changed()
 }
 
 // isRemoved reports whether the user removed k from the library, still
@@ -174,6 +197,7 @@ func (m *membership) hold(k applemusic.ItemKey, st applemusic.LibraryState) {
 	m.mu.Lock()
 	m.states[k] = stateEntry{st: st, until: m.now().Add(stateHold)}
 	m.mu.Unlock()
+	m.changed()
 }
 
 // clear forgets every recorded add and cached state (sign-out).
@@ -182,4 +206,5 @@ func (m *membership) clear() {
 	clear(m.added)
 	clear(m.states)
 	m.mu.Unlock()
+	m.changed()
 }

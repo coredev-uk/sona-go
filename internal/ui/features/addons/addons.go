@@ -361,7 +361,7 @@ func (f *feature) devAsk(q services.AddonDevAsk) {
 	f.asking = q.Token
 	kit.Confirm(kit.ConfirmOptions{
 		Title: i18n.T("Run {name}?", "name", clean(q.Name, 60)),
-		Body: i18n.T("It runs from the folder {dir} and asks for these permissions: {permissions}. It runs with your rights until you stop it in the terminal or quit Sona, and nothing is saved.",
+		Body: i18n.T("It runs in the sandbox from the folder {dir} and asks for these permissions: {permissions}. It runs until you stop it in the terminal or quit Sona, and nothing is saved.",
 			"dir", clean(q.Dir, 300), "permissions", perms),
 		ConfirmLabel: i18n.T("Run"),
 		CancelLabel:  i18n.T("Don't run"),

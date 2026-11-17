@@ -221,10 +221,37 @@ func TestAddonsSectionListsEachAddonUnderItsOwnHeadingWithItsState(t *testing.T)
 	}
 }
 
-func TestTheSectionSaysPermissionsAreAdvisoryAndAnAddonRunsWithYourRights(t *testing.T) {
+func TestTheSectionSaysAnAddonRunsInASandbox(t *testing.T) {
 	r := addonsRig(t, standardAddons(), 1132, 1400)
-	if !r.tt.HasText("An add-on is a program that runs with your rights. Permissions limit what Sona gives it, not what the program can do: it can read your files and use the network. Turn on only add-ons you trust.") {
+	if !r.tt.HasText("An add-on is a program that runs beside Sona in a sandbox: it reads only its own folder, writes only its own data folder and has no network unless you allow it to reach the internet. What you approve is what Sona gives it. Turn on only add-ons you trust.") {
 		t.Errorf("texts %q", r.tt.Texts())
+	}
+}
+
+// Where the sandbox can't be set up the add-on does not run, and the page says
+// why in plain words: the reason of each cause, none of them a way to run it.
+func TestAnAddonWithoutASandboxSaysWhyItDoesNotRun(t *testing.T) {
+	for code, want := range map[string]string{
+		addons.SandboxUserNamespaceRestricted: "this computer's security settings (AppArmor)",
+		addons.SandboxNoUserNamespace:         "doesn't let Sona create the isolated space",
+		addons.SandboxNoSeccomp:               "system-call filter",
+		addons.SandboxNoSeatbelt:              "macOS's sandbox tool",
+		addons.SandboxNoAppContainer:          "AppContainer",
+		addons.SandboxUnsupported:             "has no sandbox for add-ons",
+		addons.SandboxSetup:                   "couldn't set up its sandbox",
+	} {
+		a := webhook()
+		a.State, a.Sandbox = services.AddonNoSandbox, code
+		f := &fakeAddons{infos: []services.AddonInfo{a}, rows: map[string][]services.AddonRow{}}
+		r := addonsRig(t, f, 1132, 1400)
+		r.tt.Until("the reason "+code, func() bool {
+			return slices.ContainsFunc(r.tt.Texts(), func(s string) bool {
+				return strings.Contains(s, "It doesn't run:") && strings.Contains(s, want) && strings.Contains(s, "never runs an add-on without")
+			})
+		})
+		if r.tt.HasText("Running.") {
+			t.Errorf("%s: an add-on that isn't running is said to run", code)
+		}
 	}
 }
 
@@ -240,7 +267,7 @@ func TestTurningAnAddonOnShowsItsPermissionsFirstAndApprovesExactlyThose(t *test
 	r := addonsRig(t, f, 1132, 2600)
 	r.tt.MustClick("Turn on Home bridge")
 	r.tt.Drain()
-	if !r.tt.HasText("Turn on Home bridge?") || !r.tt.HasText("Playback controls") || !r.tt.HasText("Can play, pause, skip and go back.") {
+	if !r.tt.HasText("Turn on Home bridge?") || !r.tt.HasText("Playback controls") || !r.tt.HasText("Can play, pause, skip, go back and seek, play an Apple Music link, and change shuffle, repeat and crossfade.") {
 		t.Fatalf("no approval panel; texts %q", r.tt.Texts())
 	}
 	if !announced(r.tt.Announcements(), "Turn on Home bridge?") {
@@ -432,6 +459,14 @@ func TestEveryPermissionAndProblemHasWords(t *testing.T) {
 		name, allows := permissionText(p)
 		if name == p || allows == "" {
 			t.Errorf("permission %q has no words: %q %q", p, name, allows)
+		}
+	}
+	for _, c := range []string{
+		addons.SandboxUserNamespaceRestricted, addons.SandboxNoUserNamespace, addons.SandboxNoSeccomp, addons.SandboxNoSeatbelt,
+		addons.SandboxNoAppContainer, addons.SandboxUnsupported,
+	} {
+		if sandboxText(c) == sandboxText("zzz") {
+			t.Errorf("sandbox reason %q has no words of its own", c)
 		}
 	}
 	for _, c := range []string{

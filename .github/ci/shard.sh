@@ -5,8 +5,8 @@
 #
 # Pools split the packages by what they need:
 #   playback  the packages that need the real CDM, GStreamer's plugins or user
-#             namespaces: the real-CDM, sandbox, preview, pipeline and
-#             motion-decoder tests (one job)
+#             namespaces: the real-CDM, sandbox (the CDM host's and the add-ons'),
+#             preview, pipeline and motion-decoder tests (one job)
 #   ui-race   the native UI's packages that start goroutines (store, kit,
 #             lyricsync); a pull request runs them under -race
 #   ui        the other native UI packages (internal/ui/..., their dev-tag runs)
@@ -21,7 +21,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 pool=${1:?pool} idx=${2:?index} count=${3:?count}
 here=.github/ci
-playback=(./internal/playback/widevine ./internal/playback/cdmhost ./internal/diag ./internal/playback/native ./internal/playback/gst ./internal/ui/media)
+playback=(./internal/playback/widevine ./internal/playback/cdmhost ./internal/addons/sandbox ./internal/diag ./internal/playback/native ./internal/playback/gst ./internal/ui/media)
 split=(./internal/ui/kit:2)
 uirace=(./internal/ui/store ./internal/ui/kit ./internal/ui/lyricsync)
 dev=(./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/ui/features/inspect ./internal/ui/features/discover ./internal/app ./internal/mpris)

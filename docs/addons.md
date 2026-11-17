@@ -6,9 +6,9 @@ An add-on is a program that runs beside Sona, hears what plays and may ask Sona 
 - It can be written in any language. `internal/cli/testdata/addon-client.sh` (shell) and `addon-client.py` (Python) are two complete clients; Sona's tests run both.
 - Complete add-ons to read, copy and run are in [coredev-uk/sona-addons](https://github.com/coredev-uk/sona-addons) (MIT): a now-playing webhook, a Home Assistant bridge, a song.link action and a Python client, all for protocol v2.
 - The Go side is `internal/cli` (`addon.go`, `addon_session.go`). The plan is `docs/maintainers/proposals/addons-and-remaining-work.md`.
-- Status: the protocol, manifests, the supervisor that starts add-ons, UI contributions, Settings → Add-ons, `sona addons dev` and [WebAssembly add-ons](#webassembly-add-ons) are implemented. `sona addons dev` runs a native add-on on Linux only for now, and a WebAssembly one on every system.
+- Status: the protocol, manifests, the supervisor that starts add-ons, UI contributions, Settings → Add-ons, `sona addons dev`, the OS sandbox for native add-ons and [WebAssembly add-ons](#webassembly-add-ons) are implemented. `sona addons dev` runs a native add-on on Linux only for now, and a WebAssembly one on every system.
 
-> **Permissions are advisory until the OS sandbox (#304) lands.** A native add-on is a program that runs with your rights. It can read what you can read, including files and the keyring, and it can reach the network. Permissions limit what Sona's protocol hands it; they do not limit the process. Run only add-ons you trust, and say so wherever one is offered for approval. A [WebAssembly add-on](#webassembly-add-ons) is the exception: it runs inside Sona and has no files or network of its own, whatever it asks for.
+> **Every native add-on runs in an OS sandbox.** It reads its own folder and writes its own data folder, and nothing else of your files; it has no network unless you approve **Reach the internet** (`network`); it can't see your other programs, the keyring, D-Bus or your terminal. Where a computer can't set the sandbox up, the add-on **does not run**: there is no way to run one without it. The sandbox is a limit, not a promise of safety: [what it does not stop](#what-the-sandbox-does-not-stop). Run only add-ons you trust, and say so wherever one is offered for approval. A [WebAssembly add-on](#webassembly-add-ons) is the other kind: it runs inside Sona and has no files but its data folder and no network, whatever it asks for.
 
 ## Contents
 
@@ -23,6 +23,7 @@ An add-on is a program that runs beside Sona, hears what plays and may ask Sona 
 - [Manifest and supervisor](#manifest-and-supervisor)
 - [WebAssembly add-ons](#webassembly-add-ons)
 - [Bundled add-ons](#bundled-add-ons)
+- [The sandbox](#the-sandbox)
 - [Security notes](#security-notes)
 - [Schema](#schema)
 
@@ -97,6 +98,12 @@ The answer lists the asked-for permissions that are granted now, and the session
 {"id":1,"result":{"id":"now-playing-webhook","protocol":"2.0.0","permissions":["playback.read"],"limits":{"maxFrame":1048576,"calls":8,"invokes":4,"subscriptions":8,"args":32,"argBytes":4096,"queue":256}}}
 ```
 
+Only one of Sona's own add-ons (see [Bundled add-ons](#bundled-add-ons)) gets `credentials` in the answer; yours never do.
+
+```json example HelloBundledResponse
+{"id":1,"result":{"id":"lastfm","protocol":"2.0.0","permissions":[],"limits":{"maxFrame":1048576,"calls":8,"invokes":4,"subscriptions":8,"args":32,"argBytes":4096,"queue":256},"credentials":{"apiKey":"example-key","apiSecret":"example-secret"}}}
+```
+
 ### `subscribe` and `unsubscribe`
 
 - Both take `topics` and answer with the topics subscribed to afterwards.
@@ -133,18 +140,20 @@ Returns what you saved in one of the add-on's own secret rows. The add-on names 
 
 Runs one of the `sona` CLI's v1 commands (`site/src/content/docs/reference/cli.md`) for the add-on, as the running Sona answers it.
 
-- `params` is the v1 request: `command`, `args`, and for `search` `kind` and `limit`.
+- `params` is the v1 request: `command`, `args`, for `search` `kind` and `limit`, `shuffle` for `play <link> --shuffle` and `force` for `prev --force`.
 - Only the commands with a permission in [Permissions](#permissions) are accepted, and not the streams (`--follow`).
-- The commands that act on the playing song (`lyrics`, `like`) fail with `nothing_playing` for a hidden listen.
-- `open` keeps the CLI's rules: only Apple Music links Sona can open (`bad_link` otherwise).
+- The commands that act on the playing song (`lyrics`, `like`, `dislike`, and `library` but its lists) fail with `nothing_playing` for a hidden listen.
+- `open` keeps the CLI's rules: only Apple Music links Sona can open (`bad_link` otherwise). So does `play <link>`.
+- `queue jump N` counts places in the queue the add-on sees: hidden listens left out, and the window around the playing song (`Queue`).
 
 | Result | Commands |
 | --- | --- |
-| `Status` | `status`, `play`, `pause`, `toggle`, `next`, `prev` |
-| `Queue` | `queue` |
+| `Status` | `status`, `play`, `pause`, `toggle`, `next`, `prev`, `seek`, `shuffle`, `repeat`, `crossfade`, `queue jump` |
+| `Queue` | `queue`, `queue clear` |
 | `SearchResults` | `search` |
 | `Lyrics` | `lyrics` |
-| `Like` | `like` |
+| `Like` | `like`, `dislike`, `library` |
+| `LibraryItems` | `library playlists`, `library albums` |
 | `Volume` | `volume` |
 | `Private` | `private` |
 | `Opened` | `open` |
@@ -160,7 +169,7 @@ The result types are in [Schema](#schema).
 ```
 
 ```json example StatusResponse
-{"id":5,"result":{"running":true,"state":"paused","track":null,"position":0,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":""}}
+{"id":5,"result":{"running":true,"state":"paused","track":null,"position":0,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}}
 ```
 
 ### `invoke`
@@ -195,7 +204,7 @@ An add-on that cannot do it answers with an `error`. Sona passes only its `code`
 
 | Event | Data | When |
 | --- | --- | --- |
-| `status` | `Status` | Any change of playback, volume, shuffle or repeat, and a position that jumps (a seek). A position that only moves on is not an event; compute it from `position` and the state. |
+| `status` | `Status` | Any change of playback, volume, shuffle, repeat or crossfade, of the playing song's favourite, Suggest Less or library state, and a position that jumps (a seek). A position that only moves on is not an event; compute it from `position` and the state. |
 | `now-playing` | `NowPlaying` | The song that plays changes, and when nothing plays. |
 | `queue` | `Queue` | The queue changes. At most 1000 songs, a window around the playing one. |
 | `settings` | [`SettingsValues`](#settingsvalues) | The value of each of the add-on's non-secret settings rows, now and whenever one changes. A row nobody set has its default. |
@@ -207,7 +216,7 @@ An add-on that cannot do it answers with an `error`. Sona passes only its `code`
 - An add-on that lets more than 256 frames wait unread is ended.
 
 ```json example StatusEvent
-{"event":"status","data":{"running":true,"state":"playing","track":{"id":"1441164430","title":"Come Together","artist":"The Beatles","album":"Abbey Road","duration":259.0,"explicit":false,"artwork":"https://is1-ssl.mzstatic.com/image/thumb/Music/600x600bb.jpg"},"position":12.5,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":""}}
+{"event":"status","data":{"running":true,"state":"playing","track":{"id":"1441164430","title":"Come Together","artist":"The Beatles","album":"Abbey Road","duration":259.0,"explicit":false,"artwork":"https://is1-ssl.mzstatic.com/image/thumb/Music/600x600bb.jpg"},"position":12.5,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":"","liked":true,"disliked":false,"inLibrary":true,"crossfade":false}}
 ```
 
 ```json example NowPlayingEvent
@@ -239,18 +248,20 @@ An add-on names the permissions it wants in `hello`. The user grants some of the
 
 | Permission | What it allows |
 | --- | --- |
-| `playback.read` | Topics `status` and `now-playing`; the `status` call. |
-| `playback.control` | `play`, `pause`, `toggle`, `next`, `prev`. |
+| `playback.read` | Topics `status` and `now-playing`; the `status` call. The status carries whether the playing song is a favourite, rated Suggest Less or in the library. |
+| `playback.control` | `play` (a link too), `pause`, `toggle`, `next`, `prev`, `seek`, `shuffle`, `repeat`, `crossfade`. |
 | `queue.read` | Topic `queue`; the `queue` call. |
+| `queue.control` | `queue jump` and `queue clear`. |
 | `lyrics.read` | The `lyrics` call. |
 | `search` | The `search` call (Apple's catalogue; rate limited). |
 | `open` | The `open` call: Apple Music links only, as the CLI's `open`. |
 | `volume` | The `volume` call. |
-| `like` | The `like` call (rate limited). |
+| `like` | The `like` and `dislike` calls (rate limited). |
+| `library` | The `library` call: the playing song added or removed, the library's playlists and albums listed (rate limited). |
 | `private.read` | The `private` call, to read whether private listening is on. |
-| `network` | Reach the internet. No call needs it: the OS sandbox gives the add-on's process a network when it holds this permission and none otherwise ([How Sona runs an add-on](#how-sona-runs-an-add-on)). |
+| `network` | Reach the internet. No call needs it: the OS sandbox gives the add-on's process a network when it holds this permission and none otherwise ([The sandbox](#the-sandbox)). It is any address the computer can reach. |
 
-- Every v1 command maps to exactly one permission, except `network`, which is no call's. An add-on may send only the commands in this table; any other (`help`, `completion`, a typo) is `unknown_command`.
+- Every v1 request maps to exactly one permission: its command's, but `queue.control` for `queue`'s verbs. `network` is no call's. An add-on may send only the commands in this table; any other (`help`, `completion`, a typo) is `unknown_command`.
 - **An add-on can never switch private listening off or on.** `private` takes no argument but `status`, whatever is granted.
 
 ### Granting
@@ -258,8 +269,8 @@ An add-on names the permissions it wants in `hello`. The user grants some of the
 - Enabling an add-on shows the permissions its manifest asks for. Once you approve them, Sona saves them as granted.
 - The grant is yours and stays on this computer. A settings export leaves it out, and a settings import never sets it.
 - An update that **asks for another permission** does not run until you approve again.
-- Revoking a permission refuses the add-on's very next call, and the add-on needs approval before it runs again.
-- Permissions are advisory until the OS sandbox (#304), so enabling an add-on is trusting it as you trust any program you run.
+- Revoking a permission refuses the add-on's very next call, and the add-on needs approval before it runs again. Revoking `network` also stops the add-on at once: its network is fixed when its process starts.
+- The protocol checks every permission but `network` at each call; the OS sandbox enforces `network` and the folders. Enabling an add-on is still trusting it: see [what the sandbox does not stop](#what-the-sandbox-does-not-stop).
 
 ## Limits
 
@@ -275,7 +286,7 @@ Sona reports its limits in the `hello` answer and enforces each. A refusal is an
 | Unread frames queued for the add-on | 256 | session ends |
 | Call rate | 20 per second, burst 40 | `rate_limited` |
 | `search` | 2 per second, burst 5 | `rate_limited` |
-| `like`, `open` | 1 per second, burst 3 | `rate_limited` |
+| `like`, `library`, `open` | 1 per second, burst 3 | `rate_limited` |
 | Toasts from invocations | 1 per second per add-on | The later answer is dropped |
 | Contributions | 8 actions, 8 commands, 16 rows, 32 in all | The manifest is refused |
 | Toast text | 500 bytes | The answer fails |
@@ -453,12 +464,13 @@ These rules are for native add-ons; a [WebAssembly add-on](#webassembly-add-ons)
 
 - **After the first paint**, never during start-up. A hello must arrive within 10 seconds, or the add-on is killed.
 - **Its environment** is an allowlist:
-  - `HOME`, `PATH`, `LANG`, `LANGUAGE`, `LC_*`, `TZ`, `TMPDIR`;
-  - on Windows, what a process needs to start: `SystemRoot`, `SystemDrive`, `TEMP`, `TMP`, `USERPROFILE`, `PATHEXT`, `ComSpec`;
-  - `SONA_ADDON_ID` and `SONA_ADDON_PROTOCOL=2`.
-  - A token, a key, a bus address or anything else in Sona's environment never reaches it. Its working directory is its folder.
-- **Its processes end with Sona's.** An add-on leads a process group of its own (a job object on Windows). When Sona quits, it sends the `shutdown` event, closes the add-on's input, gives it a second, asks it to terminate, gives it a second more, then kills the whole group and reaps it.
-- On Linux the kernel also kills the add-on if Sona dies without quitting. macOS has no such signal: when Sona is killed the add-on's input closes, and **an add-on must exit when its input ends**. Do not start children that leave the group.
+  - `PATH`, `LANG`, `LANGUAGE`, `LC_*`, `TZ`;
+  - on Windows, what a process needs to start: `SystemRoot`, `SystemDrive`, `PATHEXT`, `ComSpec`;
+  - `SONA_ADDON_ID`, `SONA_ADDON_PROTOCOL=2` and `SONA_ADDON_DATA`, the path of its [data folder](#the-data-folder); `HOME` and `TMPDIR` (on Windows also `USERPROFILE`, `TEMP` and `TMP`) are inside that folder, never your own.
+  - A token, a key, a bus address or anything else in Sona's environment never reaches it. Its working directory is its folder, which it can't write to.
+- **It runs in the [sandbox](#the-sandbox)**, started by the absolute path Sona checked, with a session of its own and no terminal.
+- **Its processes end with Sona's.** An add-on leads a process group of its own (a job object on Windows; on Linux its own PID namespace, which ends with it). When Sona quits, it sends the `shutdown` event, closes the add-on's input, gives it a second, asks it to terminate, gives it a second more, then kills the whole group and reaps it.
+- On Linux the kernel also kills the add-on, and everything it started, if Sona dies without quitting. macOS has no such signal: when Sona is killed the add-on's input closes, and **an add-on must exit when its input ends**. Do not start children that leave the group.
 - **It is restarted when it stops on its own**, after 1, 2, 5, 15 and then 30 seconds. After 5 stops in a row, with no run of a minute between, it is switched off and Sona tells you.
 - **Its log** is `addons/<id>.log` in Sona's state directory, beside `sona.log`:
   - what it writes to standard error, with the time, control characters replaced by spaces and lines cut at 4 KiB;
@@ -474,7 +486,8 @@ These rules are for native add-ons; a [WebAssembly add-on](#webassembly-add-ons)
 - **Rows.** The add-on's settings rows, saved at once (a text field with "Save").
 - **Log.** "Show log" reads the last 200 lines. They are plain text.
 - **Folder.** "Open add-ons folder" creates the folder (mode 0700) and opens it. "Look again" reads the folder again, and so does coming back to the page.
-- The page says first that a native add-on runs with your rights and that permissions are advisory until the OS sandbox (#304). A WebAssembly add-on says in its own panel that it runs inside Sona with no files or network, and is marked "WebAssembly" under its name.
+- The page says first that a native add-on runs in a sandbox and still deserves trust. A WebAssembly add-on says in its own panel that it runs inside Sona with no network and no files but its data folder, and is marked "WebAssembly" under its name.
+- **No sandbox, no add-on.** Where the sandbox can't be set up, the switch stays and the row says in plain words why it doesn't run ([When the sandbox can't be set up](#when-the-sandbox-cant-be-set-up)). A WebAssembly add-on needs none.
 
 ### Developing an add-on
 
@@ -494,7 +507,7 @@ These rules are for native add-ons; a [WebAssembly add-on](#webassembly-add-ons)
 | It ends when you leave. | Ctrl+C stops it. A terminal that dies without saying so is noticed after 15 seconds without a poll. It also ends when Sona quits. |
 | The log is safe for a terminal. | Sona's log already replaces control characters. On a terminal the client also removes escape sequences (CSI, OSC, DCS, and their 8-bit forms), bidirectional characters and the other control characters. |
 
-- A native add-on runs with your rights and with the descriptor of its own program open as file 3. A script sees `/proc/self/fd/3` as `$0`.
+- A native add-on runs in the same [sandbox](#the-sandbox) as an installed one, with the descriptor of its own program open as file 3. A script sees `/proc/self/fd/3` as `$0`. Its data folder is the one an installed add-on of that ID would have.
 - A WebAssembly add-on runs in Sona like an installed one, with no data folder: it gets none of your data.
 - Its actions and commands are offered while it runs. It has no settings rows.
 - The log is also written to `addons/<id>.dev.log`, beside the log of installed add-ons.
@@ -520,13 +533,13 @@ An add-on with `"runtime": "wasm"` is a [WebAssembly](https://webassembly.org/) 
 - **A WASI command.** The module is built for WASI preview 1 (`wasip1`) and exports `_start`. Its standard input and output are the channel, its standard error is its [log](#how-sona-runs-an-add-on). A module that needs an import Sona doesn't give (WASI preview 2, threads, a host function of another runtime) fails to start, and its log says why.
 - **It has no ambient authority.** It can use only what Sona hands it:
   - its standard streams, the clock, random bytes, its arguments (the first is `<id>.wasm`) and its environment: `LANG`, `LANGUAGE`, `LC_*`, `TZ`, `SONA_ADDON_ID` and `SONA_ADDON_PROTOCOL=2`. `HOME`, `PATH` and `TMPDIR` are left out: they name places that don't exist for it;
-  - no folder of yours. It sees no file at all, so `open("/etc/passwd")`, `..` and a host path all fail. A module with a data folder sees only that folder, as `/data`, in `SONA_ADDON_DATA`; links in it are refused, and the module can't make one (see [Why it needs no OS sandbox](#why-it-needs-no-os-sandbox)).
+  - no folder of yours. It sees no file at all but its [data folder](#the-data-folder), so `open("/etc/passwd")`, `..` and a host path all fail. The data folder is the same one a native add-on has (`<state>/addons/<id>/data`, made by Sona with mode 0700); the module sees only that folder, as `/data`, in `SONA_ADDON_DATA`. Links in it are refused, and the module can't make one (see [Why it needs no OS sandbox](#why-it-needs-no-os-sandbox)). `sona addons dev` gives a module no data folder.
 - **It has no network.** WASI preview 1 has no sockets, so there is nothing for a module to import. That is why a manifest with `"runtime": "wasm"` that asks for `network` is refused (`bad_permission`): it would promise what the module can never use. A module can still show you a link: the `url` of an [`invoke`](#invoke) answer, which opens only after you click it.
 - **No processes, no threads.** A module is one thread, and a read of its standard input blocks that thread: while any part of the module waits for the next frame, **nothing else in it runs**, goroutines of a Go module included. A Go client that reads standard input in a goroutine of its own hangs after its first answer, because the reader is back in its blocking read before the goroutine that should send the next request has run. Write the add-on as one loop that reads a frame, acts and answers, and make a request by writing it and reading frames until its answer comes. The same code runs natively. Don't wait on a timer while waiting for input.
 
 ### Why it needs no OS sandbox
 
-The OS sandbox for native add-ons (#304) exists because the OS runs a program with your rights and something must take them away. A module is not that. It is bytes a runtime compiles, and the only way out of it is through functions the host defines:
+The [OS sandbox](#the-sandbox) for native add-ons exists because the OS runs a program with your rights and something must take them away. A module is not that. It is bytes a runtime compiles, and the only way out of it is through functions the host defines:
 
 - the module can reach a file only by a WASI call on a folder Sona opened for it, and the file functions Sona gives it are `confinedFS` (`internal/addons/wasmfs.go`): wazero's own directory mount follows a link wherever it points and lets a module create one, so Sona refuses every path through a link and every `symlink`;
 - WASI has no call for a socket, a process or the environment of the host, so nothing is there to be denied;
@@ -579,6 +592,67 @@ cargo build --target wasm32-wasip1 --release   # target/wasm32-wasip1/release/<n
 ```
 
 Put the module and an `addon.json` with `"runtime": "wasm"` and `"command"` naming it in a folder, and run it with [`sona addons dev`](#developing-an-add-on).
+## The sandbox
+
+Every native add-on process runs confined by the operating system. The CDM host's sandbox is the model (`docs/security-review.md`, "Linux sandbox" and the others); the threat model for add-ons is its "Native add-ons" section. What the add-on may reach is its **policy**: its folder, its data folder and, if it asks and you approve, the network.
+
+### What an add-on can reach
+
+| | Linux | macOS | Windows |
+| --- | --- | --- | --- |
+| Its own folder (where `addon.json` is) | Read, run | Read | Read, run |
+| [Its data folder](#the-data-folder) | Read, write; nothing in it runs | Read, write | Read, write |
+| System programs and libraries | `/usr`, `/bin`, `/sbin`, `/lib*`, the Nix and Guix stores, read-only; `/etc` only for certificates, name resolution, users, time zone and the loader | Readable | The Windows folder and Program Files |
+| Your home, documents, other volumes, `/tmp`, `/run`, `/sys`, the keyring, Sona's own folders | Not there | Home, `/Users`, `/Volumes`, temporary folders and the keychains are denied | Not granted |
+| D-Bus, agents, X11 and Wayland, the audio server, other Unix sockets | Not there | Not reachable without `network`; with it, not blocked | Not reachable |
+| Other processes | Not visible, not signalled (its own PID namespace) | Visible | Not reachable |
+| Your terminal | None: no controlling terminal, no `/dev/tty`, no terminal descriptor | None: new session, devices denied | None: no console |
+| The network without `network` | None, not even the loopback | None | None |
+| The network with `network` | Everything the computer reaches: TCP and UDP over IPv4 and IPv6 | Everything | The internet; not the loopback, not your private network |
+
+### The network
+
+- **Without `network`** an add-on can't open a connection, listen, or even talk to a service on the same computer.
+- **With it**, on Linux and macOS, an add-on can connect to any address: web sites, devices on your home network and services that listen on this computer. Sona doesn't see or limit the hosts. On Windows the `internetClient` capability stops at the internet.
+- It is a permission like the others in the approval panel: **Reach the internet**. An update that adds it needs approval again, as for any permission.
+
+### The data folder
+
+- **Where.** `<state>/addons/<id>/data` (on Linux `~/.local/state/sona/addons/<id>/data`), made by Sona with mode 0700 when the add-on first runs, with a `tmp` folder in it.
+- **What it is.** The one place an add-on can write. For a native add-on `SONA_ADDON_DATA` is its path, and `HOME` and `TMPDIR` are inside it; a [WebAssembly add-on](#webassembly-add-ons) sees the same folder as `/data`. Its own folder is read-only, so a program that wrote to its working directory must write here instead.
+- **What happens to it.** Sona never reads, lists or removes it: not when the add-on is switched off, updated or uninstalled. Delete it yourself to forget what an add-on kept. An add-on that is installed again with the same ID finds it. Nothing in it is ever run or followed by Sona.
+- **Limits.** There is no quota: an add-on can fill the disk it lives on.
+
+### When the sandbox can't be set up
+
+The add-on **does not run**, and nothing runs it without the sandbox: not a setting, not a switch. Settings → Add-ons says why in plain words, the add-on's log has the system's words, and a failure of this kind is not a crash, so Sona doesn't restart the add-on. Turn it off and on, or restart Sona, to try again.
+
+| Reason (code) | What it means | What to do |
+| --- | --- | --- |
+| This computer's security settings stop Sona creating the isolated space (`userns_restricted`) | Linux, Ubuntu 23.10 and later: AppArmor takes the rights of user namespaces away from programs it doesn't know | Allow it for Sona's program with an AppArmor profile, or lift the restriction: `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` |
+| The system doesn't let Sona create the isolated space (`no_userns`) | Linux: user namespaces are off in the kernel, or Sona runs in a container or a Flatpak that forbids them | Allow them, or run Sona outside the container. Add-ons don't run in Sona's Flatpak |
+| The system-call filter can't be set up (`no_seccomp`) | Linux on a processor other than x86-64 and ARM64, or a kernel that refuses the filter | None |
+| macOS's sandbox tool is missing or refused Sona's rules (`no_seatbelt`) | `/usr/bin/sandbox-exec` is gone, or refused the profile, or the profile didn't hide your home when Sona tried it | None |
+| Windows couldn't create the AppContainer (`no_appcontainer`) | The profile, the folder grants or the process in it failed | Put the add-on's folder in your profile |
+| This system has no sandbox for add-ons (`unsupported`) | Any other operating system | None |
+| Sona couldn't set up its sandbox (`setup_failed`) | Anything else; the log has the detail | |
+
+### What the sandbox does not stop
+
+- **An add-on with `network` reaches any address**, your home network included (the internet only on Windows). What it reads of what Sona gives it (the permissions you approved) it can send anywhere.
+- **It can use the resources it is given**: CPU, memory and disk. The sandbox sets no limits on Linux and macOS.
+- **It is a program on your computer.** It can call every system call the filter doesn't deny, so a bug in the kernel can still matter. Run add-ons you trust.
+- **macOS is weaker.** The sandbox there denies what an add-on has no business with (the network, writes outside its data folder, your home and volumes, the keychain, the terminal) over a profile that otherwise allows what a program may do: the rest of the system's files, other processes and some system services stay reachable. And an add-on with `network` can use Unix sockets.
+- **Linux without Landlock** (older kernels) keeps the isolated root, the namespaces and the system-call filter; the kernel's second check of the files is missing, and the log says so at each start.
+- **On Windows** an add-on's runtime must be in the Windows folder, Program Files or the add-on's own folder: the AppContainer can't read a program that lives in your profile (a Python installed for your user, say).
+
+### Writing an add-on for the sandbox
+
+- Put everything the add-on needs to run in its folder or in the system's folders. On Linux a program under your home directory (`pyenv`, `nvm`, `~/.cargo/bin`) does **not exist** for the add-on.
+- Write only to `$SONA_ADDON_DATA` (or `$TMPDIR`). Don't write to the working directory.
+- Don't expect D-Bus, a desktop, a terminal or `/tmp`. To talk to a web service, ask for `network`.
+- A program that needs more than one process may start them: they are in the add-on's sandbox, and end with it.
+- `sona addons dev` runs the add-on in the same sandbox, so what works there works installed.
 
 ## Bundled add-ons
 
@@ -589,11 +663,14 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
 - **The same supervisor, protocol and checks.** They are started after the first paint, restarted with the same backoff, bounded by the same limits, and hold only the permissions their manifest names. Like yours they see no private listen and no preview.
 - **On by default, running when there is something to do.** Settings → Add-ons lists them as Sona's own, each with a switch and a log. There is nothing to approve and no permission to revoke: they are part of the signed release. Each is a process of Sona's size, so one runs only while its integration is in use: Last.fm and ListenBrainz while an account is connected (also paused, as listens already queued are still delivered), Discord while its status is on. Until then the page says it is on and starts when Sona has something for it to do. Settings → Connections stays where you connect an account and switch each one on or off.
 - **The folder they run from** is the folder Sona is installed in.
-- **Status.** The registry, the entry point and the supervision are in. Last.fm, ListenBrainz and Discord still do their work inside Sona; their add-ons say hello and wait until each one moves onto the API.
+- **The same sandbox.** They run in the [sandbox](#the-sandbox) like yours: they read the folder Sona is installed in (and the library folders it runs with: an AppImage's `APPDIR`, `LD_LIBRARY_PATH`) and their own data folder, and nothing of your configuration, state or keyring. Their manifests ask for `network` where the integration talks to a server. The one exception a manifest can't ask for is code's: Discord's add-on is given the one Unix socket of Discord's IPC, named in Sona.
+- **Their sign-in is in the keyring item `addon.<id>`**, like any add-on's secrets: the Last.fm session key as `session` in `addon.lastfm`, the ListenBrainz token as `token` in `addon.listenbrainz`. They read it with [`secret`](#secret), for exactly those keys (no settings row shows or edits them). A version before add-ons kept them in the items `lastfm` and `listenbrainz`; at start Sona copies each to the new item, reads the copy back, then deletes the old one. A crash between the steps leaves both and the next start finishes; if the new item already holds a different value, it is newer and wins.
+- **Build credentials arrive in `hello`.** The answer to a bundled add-on's `hello` may carry `credentials`: `apiKey` and `apiSecret` (Last.fm's API account, to `lastfm`), `applicationId` (Discord's, to `discord`). They are in that one answer: never the environment, a request, an event or a log, and never an add-on of yours.
+- **Status.** The registry, the entry point, the supervision and the secrets are in. Last.fm, ListenBrainz and Discord still do their work inside Sona; their add-ons say hello and wait until each one moves onto the API.
 
 ## Security notes
 
-- **Permissions are advisory until #304 for native add-ons.** See the callout at the top.
+- **A sandbox, or no native add-on.** See [The sandbox](#the-sandbox).
 - **A WebAssembly add-on has no ambient authority.** No file but its data folder, no network, no process; links in its folder are refused. Its CPU and memory are capped, and it runs inside Sona's process, so a flaw in the runtime is a flaw in Sona.
 - **No ambient secrets.** The environment is an allowlist; tokens, keys and bus addresses never reach the add-on.
 - **No guessable channel.** It is inherited, and the bus and command socket refuse v2.
@@ -612,8 +689,8 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/coredev-uk/sona-go/docs/addons.md",
   "$defs": {
-    "Permission": {"enum": ["playback.read", "playback.control", "queue.read", "lyrics.read", "search", "open", "volume", "like", "private.read", "network"]},
-    "WasmPermission": {"enum": ["playback.read", "playback.control", "queue.read", "lyrics.read", "search", "open", "volume", "like", "private.read"]},
+    "Permission": {"enum": ["playback.read", "playback.control", "queue.read", "queue.control", "lyrics.read", "search", "open", "volume", "like", "library", "private.read", "network"]},
+    "WasmPermission": {"enum": ["playback.read", "playback.control", "queue.read", "queue.control", "lyrics.read", "search", "open", "volume", "like", "library", "private.read"]},
     "Topic": {"enum": ["status", "now-playing", "queue", "settings"]},
     "Version": {"type": "string", "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})(\\.(0|[1-9][0-9]{0,5}))?$"},
     "Error": {
@@ -645,7 +722,7 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
     },
     "Status": {
       "type": "object", "additionalProperties": false,
-      "required": ["running", "state", "track", "position", "volume", "shuffle", "repeat", "private", "preview", "error"],
+      "required": ["running", "state", "track", "position", "volume", "shuffle", "repeat", "private", "preview", "error", "liked", "disliked", "inLibrary", "crossfade"],
       "properties": {
         "running": {"type": "boolean"},
         "state": {"enum": ["idle", "loading", "playing", "paused", "ended", "error"]},
@@ -656,7 +733,9 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         "repeat": {"enum": ["off", "all", "one"]},
         "private": {"const": false},
         "preview": {"const": false},
-        "error": {"const": ""}
+        "error": {"const": ""},
+        "liked": {"type": "boolean"}, "disliked": {"type": "boolean"}, "inLibrary": {"type": "boolean"},
+        "crossfade": {"type": "boolean"}
       }
     },
     "NowPlaying": {
@@ -707,8 +786,25 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
       }
     },
     "Like": {
-      "type": "object", "additionalProperties": false, "required": ["track", "liked"],
-      "properties": {"track": {"$ref": "#/$defs/Track"}, "liked": {"type": "boolean"}}
+      "type": "object", "additionalProperties": false, "required": ["track", "liked", "disliked", "inLibrary"],
+      "properties": {
+        "track": {"$ref": "#/$defs/Track"}, "liked": {"type": "boolean"}, "disliked": {"type": "boolean"},
+        "inLibrary": {"type": "boolean"}
+      }
+    },
+    "LibraryItems": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "total", "items"],
+      "properties": {
+        "kind": {"enum": ["playlist", "album"]},
+        "total": {"type": "integer", "minimum": 0},
+        "items": {"type": "array", "maxItems": 500, "items": {
+          "type": "object", "additionalProperties": false, "required": ["id", "name", "subtitle", "artwork", "url"],
+          "properties": {
+            "id": {"type": "string"}, "name": {"type": "string"}, "subtitle": {"type": "string"},
+            "artwork": {"$ref": "#/$defs/Artwork"}, "url": {"$ref": "#/$defs/ShareURL"}
+          }
+        }}
+      }
     },
     "Volume": {
       "type": "object", "additionalProperties": false, "required": ["volume"],
@@ -745,11 +841,12 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
               "type": "object", "additionalProperties": false, "required": ["min", "max"],
               "properties": {"min": {"$ref": "#/$defs/Version"}, "max": {"$ref": "#/$defs/Version"}}
             },
-            "permissions": {"type": "array", "maxItems": 10, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}}
+            "permissions": {"type": "array", "maxItems": 12, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}}
           }
         }
       }
     },
+    "HelloBundledResponse": {"$ref": "#/$defs/HelloResponse"},
     "HelloResponse": {
       "type": "object", "additionalProperties": false, "required": ["id", "result"],
       "properties": {
@@ -759,7 +856,8 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
           "properties": {
             "id": {"type": "string"}, "protocol": {"$ref": "#/$defs/Version"},
             "permissions": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}},
-            "limits": {"$ref": "#/$defs/Limits"}
+            "limits": {"$ref": "#/$defs/Limits"},
+            "credentials": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 256}}
           }
         }
       }
@@ -792,10 +890,12 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         "params": {
           "type": "object", "additionalProperties": false, "required": ["command"],
           "properties": {
-            "command": {"enum": ["play", "pause", "toggle", "next", "prev", "status", "queue", "lyrics", "search", "open", "volume", "like", "private"]},
+            "command": {"enum": ["play", "pause", "toggle", "next", "prev", "seek", "shuffle", "repeat", "crossfade", "status", "queue", "lyrics", "search", "open", "volume", "like", "dislike", "library", "private"]},
             "args": {"type": "array", "maxItems": 32, "items": {"type": "string", "maxLength": 4096}},
             "kind": {"enum": ["song", "album", "artist", "playlist", "station", "music-video", "curator"]},
-            "limit": {"type": "integer", "minimum": 1, "maximum": 20}
+            "limit": {"type": "integer", "minimum": 1, "maximum": 20},
+            "shuffle": {"type": "boolean"},
+            "force": {"type": "boolean"}
           }
         }
       }
@@ -814,7 +914,8 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         "id": {"type": "integer", "minimum": 1},
         "result": {"oneOf": [
           {"$ref": "#/$defs/Status"}, {"$ref": "#/$defs/Queue"}, {"$ref": "#/$defs/SearchResults"}, {"$ref": "#/$defs/Lyrics"},
-          {"$ref": "#/$defs/Like"}, {"$ref": "#/$defs/Volume"}, {"$ref": "#/$defs/Private"}, {"$ref": "#/$defs/Opened"}
+          {"$ref": "#/$defs/Like"}, {"$ref": "#/$defs/LibraryItems"}, {"$ref": "#/$defs/Volume"}, {"$ref": "#/$defs/Private"},
+          {"$ref": "#/$defs/Opened"}
         ]}
       }
     },
@@ -901,7 +1002,7 @@ Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons: `lastfm`,
         "description": {"type": "string", "maxLength": 1200},
         "command": {"type": "string", "pattern": "^[^/\\\\:][^\\\\:]*$", "maxLength": 200},
         "runtime": {"enum": ["native", "wasm"]},
-        "permissions": {"type": "array", "maxItems": 10, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}},
+        "permissions": {"type": "array", "maxItems": 12, "uniqueItems": true, "items": {"$ref": "#/$defs/Permission"}},
         "contributions": {
           "type": "object", "additionalProperties": false,
           "properties": {
