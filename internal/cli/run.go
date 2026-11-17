@@ -25,6 +25,8 @@ const (
 // Env is what Run needs from the process.
 type Env struct {
 	Stdout, Stderr io.Writer
+	// Stdin is what `sona connect` reads its frames from.
+	Stdin io.Reader
 	// Dial connects to the running Sona; it fails with ErrNotRunning when
 	// none runs.
 	Dial func() (Transport, error)
@@ -71,8 +73,11 @@ func Run(ctx context.Context, argv []string, env Env) int {
 		return env.unreachable(in, err)
 	}
 	defer func() { _ = t.Close() }()
-	if in.cmd.name == "addons" {
+	switch in.cmd.name {
+	case "addons":
 		return env.addonsDev(ctx, in, t)
+	case "connect":
+		return env.connect(ctx, t)
 	}
 	if in.follow {
 		if in.cmd.name == "lyrics" {

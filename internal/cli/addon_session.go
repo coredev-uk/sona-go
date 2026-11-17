@@ -60,6 +60,10 @@ type AddonConfig struct {
 	// Credentials are sent in the hello answer: the build credentials of one
 	// of Sona's own add-ons, never of another. The session logs none of it.
 	Credentials map[string]string
+	// Owner serves the person's own program (`sona connect`), not an
+	// add-on: hello may name any ID (ID is unset), and private listening
+	// may be switched, as the person may from the command line.
+	Owner bool
 }
 
 const (
@@ -404,7 +408,7 @@ func (s *Session) handle(line []byte) bool {
 // hello accepts or refuses the add-on's hello; false ends the session.
 func (s *Session) hello(f Frame) bool {
 	var p HelloParams
-	if err := json.Unmarshal(f.Params, &p); err != nil || p.ID == "" || p.ID != s.cfg.ID || len(p.Permissions) > len(Permissions) {
+	if err := json.Unmarshal(f.Params, &p); err != nil || p.ID == "" || (!s.cfg.Owner && p.ID != s.cfg.ID) || len(p.Permissions) > len(Permissions) {
 		s.failAndClose(f.ID, AddonErrBadHello)
 		return false
 	}
@@ -647,7 +651,7 @@ func (s *Session) call(f Frame) {
 		return
 	}
 	// Private listening is the user's alone to switch: an add-on may read it.
-	if !s.cfg.Allowed(perm) || (req.Command == "private" && (len(req.Args) > 1 || (len(req.Args) == 1 && req.Args[0] != "status"))) {
+	if !s.cfg.Allowed(perm) || (!s.cfg.Owner && req.Command == "private" && (len(req.Args) > 1 || (len(req.Args) == 1 && req.Args[0] != "status"))) {
 		s.fail(f.ID, AddonErrPermission)
 		return
 	}
