@@ -428,7 +428,7 @@ done
 // `addons` is the person's: the command server answers it, an add-on's
 // channel refuses it, and a request must carry an absolute folder.
 func TestDevCommandIsNotReachableFromAnAddonChannelAndNeedsAnAbsoluteFolder(t *testing.T) {
-	if _, ok := cli.CommandPermission("addons"); ok {
+	if _, ok := cli.RequestPermission(cli.Request{Command: "addons"}); ok {
 		t.Error("an add-on may send `addons`")
 	}
 	a := newAddonEnv(t)

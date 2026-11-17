@@ -692,7 +692,14 @@ func (c *Coordinator) Next(ctx context.Context) error {
 // Previous restarts the current item if it has played for more than
 // RestartThreshold (or there is nothing before it), else plays the previous
 // item (wrapping when repeat is on).
-func (c *Coordinator) Previous(ctx context.Context) error {
+func (c *Coordinator) Previous(ctx context.Context) error { return c.previous(ctx, false) }
+
+// PreviousItem plays the previous item however long the current one has
+// played (wrapping when repeat is on); with nothing before it, it acts as
+// Previous.
+func (c *Coordinator) PreviousItem(ctx context.Context) error { return c.previous(ctx, true) }
+
+func (c *Coordinator) previous(ctx context.Context, force bool) error {
 	ctx, leave := c.enter(ctx, func() bool {
 		return c.index >= 0 && !c.liveLocked() &&
 			(c.station == nil || c.station.AutoPlay || c.st.PositionAt(c.now()) > RestartThreshold)
@@ -720,7 +727,7 @@ func (c *Coordinator) Previous(ctx context.Context) error {
 	if prev < 0 && c.repeat != RepeatOff {
 		prev = len(c.queue) - 1
 	}
-	if c.st.PositionAt(c.now()) <= RestartThreshold && prev >= 0 && prev != c.index {
+	if (force || c.st.PositionAt(c.now()) <= RestartThreshold) && prev >= 0 && prev != c.index {
 		fx := c.finalizeLocked(false, EndSkipBackward)
 		c.failures, c.lastErr = 0, nil
 		c.mu.Unlock()

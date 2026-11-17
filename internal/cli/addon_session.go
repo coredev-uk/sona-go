@@ -638,7 +638,7 @@ func (s *Session) call(f Frame) {
 		s.fail(f.ID, AddonErrBadArguments)
 		return
 	}
-	perm, ok := CommandPermission(req.Command)
+	perm, ok := RequestPermission(req)
 	if !ok {
 		s.fail(f.ID, CodeUnknownCommand)
 		return

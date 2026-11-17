@@ -30,7 +30,7 @@ type command struct {
 	// are sent to the running Sona.
 	local bool
 	// ownerOnly commands are for the person at the terminal: an add-on's
-	// channel may not send them (CommandPermission refuses them).
+	// channel may not send them (RequestPermission refuses them).
 	ownerOnly bool
 	// timeout bounds the round trip; commandTimeout when zero.
 	timeout time.Duration
@@ -58,20 +58,57 @@ const (
 )
 
 var (
-	switches   = []string{"on", "off", "toggle", "status"}
-	shells     = []string{"bash", "zsh", "fish"}
-	kinds      = []string{"song", "album", "artist", "playlist", "station", "music-video", "curator"}
-	flagJSON   = flag{name: "json", help: msgFlagJSON}
-	volumeExpr = regexp.MustCompile(`^[+-]?[0-9]{1,3}$`)
+	switches     = []string{"on", "off", "toggle", "status"}
+	repeats      = []string{"off", "all", "one", "cycle", "status"}
+	libraryVerbs = []string{"add", "remove", "toggle", "status", "playlists", "albums"}
+	queueVerbs   = []string{"jump", "clear"}
+	shells       = []string{"bash", "zsh", "fish"}
+	kinds        = []string{"song", "album", "artist", "playlist", "station", "music-video", "curator"}
+	flagJSON     = flag{name: "json", help: msgFlagJSON}
+	volumeExpr   = regexp.MustCompile(`^[+-]?[0-9]{1,3}$`)
+	seekExpr     = regexp.MustCompile(`^[+-]?[0-9]{1,5}(\.[0-9]{1,3})?$`)
+	// negative is a lone dash before a number ("-10", "-2.5"): an
+	// argument (a volume or seek change), not an option.
+	negative = regexp.MustCompile(`^-[0-9]+(\.[0-9]+)?$`)
 )
 
 // commands is the command table, in help order.
 var commands = []*command{
-	{name: "play", summary: msgPlaySummary, help: msgPlayHelp, flags: []flag{flagJSON}},
+	{
+		name: "play", args: "[<link>]", argName: "link", argHelp: msgArgPlayLink,
+		summary: msgPlaySummary, help: msgPlayHelp, maxArgs: 1, timeout: networkTimeout,
+		flags: []flag{flagJSON, {name: "shuffle", help: msgFlagShuffle}},
+		check: func(in *invocation) error {
+			if in.shuffle && len(in.args) == 0 {
+				return Usage(msgFlagNeeds, "play", "--shuffle", "<link>")
+			}
+			return nil
+		},
+	},
 	{name: "pause", summary: msgPauseSummary, help: msgPauseHelp, flags: []flag{flagJSON}},
 	{name: "toggle", summary: msgToggleSummary, help: msgToggleHelp, flags: []flag{flagJSON}},
 	{name: "next", summary: msgNextSummary, help: msgNextHelp, flags: []flag{flagJSON}},
-	{name: "prev", summary: msgPrevSummary, help: msgPrevHelp, flags: []flag{flagJSON}},
+	{name: "prev", summary: msgPrevSummary, help: msgPrevHelp, flags: []flag{flagJSON, {name: "force", help: msgFlagForce}}},
+	{
+		name: "seek", args: "<seconds>|+N|-N", argName: "position", argHelp: msgArgSeek,
+		summary: msgSeekSummary, help: msgSeekHelp, minArgs: 1, maxArgs: 1, flags: []flag{flagJSON},
+		check: func(in *invocation) error {
+			_, _, err := ParseSeek(in.args[0])
+			return err
+		},
+	},
+	{
+		name: "shuffle", args: "[on|off|toggle|status]", argHelp: msgArgSwitch, choices: switches,
+		summary: msgShuffleSummary, help: msgShuffleHelp, maxArgs: 1, flags: []flag{flagJSON},
+	},
+	{
+		name: "repeat", args: "[off|all|one|cycle|status]", argHelp: msgArgRepeat, choices: repeats,
+		summary: msgRepeatSummary, help: msgRepeatHelp, maxArgs: 1, flags: []flag{flagJSON},
+	},
+	{
+		name: "crossfade", args: "[on|off|toggle|status]", argHelp: msgArgSwitch, choices: switches,
+		summary: msgCrossfadeSummary, help: msgCrossfadeHelp, maxArgs: 1, flags: []flag{flagJSON},
+	},
 	{
 		name: "status", summary: msgStatusSummary, help: msgStatusHelp,
 		flags: []flag{
@@ -103,7 +140,10 @@ var commands = []*command{
 		},
 		check: checkLyrics,
 	},
-	{name: "queue", summary: msgQueueSummary, help: msgQueueHelp, flags: []flag{flagJSON}},
+	{
+		name: "queue", args: "[jump <n>|clear]", argName: "verb", argHelp: msgArgQueueVerb, choices: queueVerbs,
+		summary: msgQueueSummary, help: msgQueueHelp, maxArgs: 2, flags: []flag{flagJSON}, check: checkQueue,
+	},
 	{
 		name: "search", args: "<term>…", argName: "term", argHelp: msgArgTerm,
 		summary: msgSearchSummary, help: msgSearchHelp, minArgs: 1, maxArgs: -1, timeout: networkTimeout,
@@ -132,6 +172,14 @@ var commands = []*command{
 	{
 		name: "like", args: "[on|off|toggle|status]", argHelp: msgArgSwitch, choices: switches,
 		summary: msgLikeSummary, help: msgLikeHelp, maxArgs: 1, timeout: networkTimeout, flags: []flag{flagJSON},
+	},
+	{
+		name: "dislike", args: "[on|off|toggle|status]", argHelp: msgArgSwitch, choices: switches,
+		summary: msgDislikeSummary, help: msgDislikeHelp, maxArgs: 1, timeout: networkTimeout, flags: []flag{flagJSON},
+	},
+	{
+		name: "library", args: "[add|remove|toggle|status|playlists|albums]", argHelp: msgArgLibraryVerb, choices: libraryVerbs,
+		summary: msgLibrarySummary, help: msgLibraryHelp, maxArgs: 1, timeout: networkTimeout, flags: []flag{flagJSON},
 	},
 	{
 		name: "private", args: "[on|off|toggle|status]", argHelp: msgArgSwitch, choices: switches,
@@ -178,6 +226,30 @@ func checkLyrics(in *invocation) error {
 		if _, err := statusTemplate(in.format); err != nil {
 			return Usage(msgBadTemplate, "lyrics", err)
 		}
+	}
+	return nil
+}
+
+// checkQueue validates `queue`'s verbs: none lists the queue, `clear`
+// takes nothing more and `jump` a place in the queue.
+func checkQueue(in *invocation) error {
+	if len(in.args) == 0 {
+		return nil
+	}
+	switch in.args[0] {
+	case "clear":
+		if len(in.args) > 1 {
+			return Usage(msgTooManyArgs, "queue")
+		}
+	case "jump":
+		if len(in.args) < 2 {
+			return Usage(msgMissingArg, "queue", "n")
+		}
+		if _, err := ParseQueuePlace(in.args[1]); err != nil {
+			return err
+		}
+	default:
+		return Usage(msgBadChoice, "queue", in.args[0], strings.Join(queueVerbs, ", "))
 	}
 	return nil
 }
@@ -243,11 +315,13 @@ type invocation struct {
 	// fromRequest: the invocation is a request the running Sona received, not
 	// a command line (the verbs the client sends for itself are valid).
 	fromRequest bool
+	// shuffle: `play <link> --shuffle`; force: `prev --force`.
+	shuffle, force bool
 }
 
 // parse reads a command line whose first argument is a command (see
 // IsCommand). Options may come anywhere after the command; `--` ends them.
-// A lone dash before digits ("-10") is an argument, not an option.
+// A lone dash before a number ("-10", "-2.5") is an argument, not an option.
 func parse(argv []string) (*invocation, error) {
 	name := argv[0]
 	if name == "--help" || name == "-h" {
@@ -263,7 +337,7 @@ func parse(argv []string) (*invocation, error) {
 	for i := 0; i < len(rest); i++ {
 		a := rest[i]
 		switch {
-		case done || !strings.HasPrefix(a, "-") || a == "-" || volumeExpr.MatchString(a):
+		case done || !strings.HasPrefix(a, "-") || a == "-" || negative.MatchString(a):
 			in.args = append(in.args, a)
 			continue
 		case a == "--":
@@ -335,7 +409,16 @@ func checkRequest(req Request) error {
 	if c == nil || c.local {
 		return &Error{Code: CodeUnknownCommand, Message: req.Command}
 	}
-	in := &invocation{cmd: c, args: req.Args, kind: req.Kind, limit: req.Limit, fromRequest: true}
+	in := &invocation{
+		cmd: c, args: req.Args, kind: req.Kind, limit: req.Limit, shuffle: req.Shuffle, force: req.Force,
+		fromRequest: true,
+	}
+	switch {
+	case req.Shuffle && c.flag("shuffle") == nil:
+		return Usage(msgUnknownFlag, c.name, "--shuffle")
+	case req.Force && c.flag("force") == nil:
+		return Usage(msgUnknownFlag, c.name, "--force")
+	}
 	return in.validate()
 }
 
@@ -356,6 +439,10 @@ func (in *invocation) set(key, val string) error {
 		in.translation = true
 	case "transliteration":
 		in.transliteration = true
+	case "shuffle":
+		in.shuffle = true
+	case "force":
+		in.force = true
 	case "type":
 		in.kind = val
 	case "limit":
@@ -370,7 +457,7 @@ func (in *invocation) set(key, val string) error {
 
 // request is what the invocation sends to the running Sona.
 func (in *invocation) request() Request {
-	req := Request{Command: in.cmd.name, Args: in.args}
+	req := Request{Command: in.cmd.name, Args: in.args, Shuffle: in.shuffle, Force: in.force}
 	if in.cmd.name == "search" {
 		req.Args = []string{strings.Join(in.args, " ")}
 		req.Kind = in.kind
@@ -391,6 +478,26 @@ func ParseVolume(arg string) (n int, relative bool, err error) {
 		return 0, false, Usage(msgBadVolume, arg)
 	}
 	return n, relative, nil
+}
+
+// ParseSeek reads `sona seek`'s argument: a position in seconds, or a
+// change (+N, -N seconds) when relative.
+func ParseSeek(arg string) (seconds float64, relative bool, err error) {
+	if !seekExpr.MatchString(arg) {
+		return 0, false, Usage(msgBadSeek, arg)
+	}
+	seconds, _ = strconv.ParseFloat(arg, 64)
+	return seconds, arg[0] == '+' || arg[0] == '-', nil
+}
+
+// ParseQueuePlace reads `sona queue jump`'s argument: a place in the queue
+// as `sona queue` numbers it, from 1. It returns the index, from 0.
+func ParseQueuePlace(arg string) (int, error) {
+	n, err := strconv.Atoi(arg)
+	if err != nil || n < 1 || strings.HasPrefix(arg, "+") {
+		return 0, Usage(msgBadQueuePlace, arg)
+	}
+	return n - 1, nil
 }
 
 // SearchLimit is the number of results per kind a search request asks

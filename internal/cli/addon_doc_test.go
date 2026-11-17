@@ -317,14 +317,14 @@ func TestAddonDocCoversTheCode(t *testing.T) {
 		fmt.Sprintf("| Unread frames queued for the add-on | %d |", l.Queue),
 		fmt.Sprintf("| Call rate | %.0f per second, burst %d |", defaultRates[""].PerSecond, defaultRates[""].Burst),
 		fmt.Sprintf("| `search` | %.0f per second, burst %d |", defaultRates[PermSearch].PerSecond, defaultRates[PermSearch].Burst),
-		fmt.Sprintf("| `like`, `open` | %.0f per second, burst %d |", defaultRates[PermLike].PerSecond, defaultRates[PermLike].Burst),
+		fmt.Sprintf("| `like`, `library`, `open` | %.0f per second, burst %d |", defaultRates[PermLike].PerSecond, defaultRates[PermLike].Burst),
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the page's limits lack %q", want)
 		}
 	}
-	if defaultRates[PermLike] != defaultRates[PermOpen] {
-		t.Error("like and open no longer share a rate; the page's row says they do")
+	if defaultRates[PermLike] != defaultRates[PermOpen] || defaultRates[PermLike] != defaultRates[PermLibrary] {
+		t.Error("like, library and open no longer share a rate; the page's row says they do")
 	}
 	if !strings.Contains(text, "never more than 30") || MaxInvokeDeadline != 30*time.Second || DefaultInvokeDeadline != 10*time.Second {
 		t.Error("the invoke deadlines moved; update the page")
@@ -356,7 +356,11 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 		"queue":   Queue{Index: 0, Tracks: []QueueTrack{{Track: track}}},
 		"search":  SearchResults{Term: "x", Results: []SearchResult{{Kind: "album", ID: "1", Name: "n", URL: "https://music.apple.com/gb/album/n/1"}}},
 		"lyrics":  Lyrics{Track: track, State: StatePlaying, Timing: "line", Synced: true, Lines: []LyricLine{{Start: 1, End: 2, Text: "la"}}},
-		"like":    Like{Track: track, Liked: true},
+		"like":    Like{Track: track, Liked: true, InLibrary: true},
+		"dislike": Like{Track: track, Disliked: true},
+		"library": LibraryItems{Kind: "playlist", Total: 2, Items: []LibraryItem{{
+			ID: "p.1", Name: "Mix", Artwork: "https://is1-ssl.mzstatic.com/a/600x600bb.jpg", URL: "https://music.apple.com/library/playlist/p.1",
+		}}},
 		"volume":  Volume{Volume: 30},
 		"private": Private{On: true, Source: SourceSetting, Saved: true},
 		"open":    Opened{Kind: "album", ID: "1", Storefront: "gb"},
@@ -369,7 +373,7 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 	}
 	defs := map[string]string{
 		"status": "Status", "play": "Status", "queue": "Queue", "search": "SearchResults", "lyrics": "Lyrics",
-		"like": "Like", "volume": "Volume", "private": "Private", "open": "Opened",
+		"like": "Like", "dislike": "Like", "library": "LibraryItems", "volume": "Volume", "private": "Private", "open": "Opened",
 	}
 	var raws [][]byte
 	next := func() []byte { raw := a.recvRaw(); raws = append(raws, raw); return raw }
@@ -381,9 +385,9 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 	a.host.hub.Publish(TopicNowPlaying, NowPlaying{Track: &track, StartedAt: 9})
 	a.host.hub.Publish(TopicQueue, results["queue"])
 	id := int64(2)
-	for _, cmd := range []string{"status", "play", "queue", "search", "lyrics", "like", "volume", "private", "open"} {
+	for _, cmd := range []string{"status", "play", "queue", "search", "lyrics", "like", "dislike", "library", "volume", "private", "open"} {
 		id++
-		args := map[string]string{"search": `["abbey"]`, "open": `["https://music.apple.com/gb/album/n/1"]`}[cmd]
+		args := map[string]string{"search": `["abbey"]`, "open": `["https://music.apple.com/gb/album/n/1"]`, "library": `["playlists"]`}[cmd]
 		if args == "" {
 			args = "[]"
 		}

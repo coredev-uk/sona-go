@@ -107,6 +107,12 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 			return err
 		}
 		return env.writeStatus(in, s)
+	case "seek", "shuffle", "repeat", "crossfade":
+		var s Status
+		if err := decode(raw, &s); err != nil {
+			return err
+		}
+		return writeLine(w, settingLine(p, in.cmd.name, s))
 	case "lyrics":
 		var l Lyrics
 		if err := decode(raw, &l); err != nil {
@@ -114,6 +120,13 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 		}
 		return writeLyrics(w, in, l)
 	case "queue":
+		if len(in.args) > 0 && in.args[0] == "jump" {
+			var s Status
+			if err := decode(raw, &s); err != nil {
+				return err
+			}
+			return env.writeStatus(in, s)
+		}
 		var q Queue
 		if err := decode(raw, &q); err != nil {
 			return err
@@ -137,12 +150,19 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 			return err
 		}
 		return writeLine(w, p.Sprintf(msgFieldLine, p.T(msgFieldVolume), p.Sprintf(msgPercent, v.Volume)))
-	case "like":
+	case "like", "dislike", "library":
+		if len(in.args) > 0 && (in.args[0] == "playlists" || in.args[0] == "albums") {
+			var l LibraryItems
+			if err := decode(raw, &l); err != nil {
+				return err
+			}
+			return writeLibraryItems(w, p, l)
+		}
 		var l Like
 		if err := decode(raw, &l); err != nil {
 			return err
 		}
-		return writeLine(w, likeLine(p, l))
+		return writeLine(w, songStateLine(p, in.cmd.name, l))
 	case "private":
 		var pv Private
 		if err := decode(raw, &pv); err != nil {

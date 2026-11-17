@@ -3,14 +3,20 @@ title: Command Line
 description: Control the running Sona from a terminal, a script or a status bar.
 ---
 
-`sona <command>` controls the Sona that is running: playback, the volume, favourites, lyrics, search, links and private listening. It prints text for people and, with `--json`, one line of JSON for scripts and status bars. Commands never start Sona.
+`sona <command>` controls the Sona that is running: playback, the queue, the volume, favourites, your library, lyrics, search, links and private listening. It prints text for people and, with `--json`, one line of JSON for scripts, status bars and stream decks. Commands never start Sona.
 
 ```sh
 sona status                 # what's playing
 sona toggle                 # play/pause
 sona next; sona prev
+sona seek +15               # seconds into the song, or +N/-N
 sona volume +10             # 0 to 100, or +N/-N
-sona like                   # favourite the playing song
+sona shuffle toggle; sona repeat cycle; sona crossfade on
+sona like                   # favourite the playing song (dislike: Suggest Less)
+sona library add            # add the playing song to your library
+sona library playlists      # your playlists, with links to play
+sona play --shuffle https://music.apple.com/library/playlist/p.…
+sona queue jump 3           # play the third song in the queue
 sona lyrics                 # the playing song's lyrics (--lrc for an LRC file)
 sona search abbey road      # results with their links
 sona open https://music.apple.com/gb/album/abbey-road/1441164426

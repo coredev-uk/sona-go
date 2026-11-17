@@ -120,11 +120,13 @@ func (u *addonsUI) draft(key, value string) *string {
 func permissionText(p string) (name, allows string) {
 	switch p {
 	case cli.PermPlaybackRead:
-		return i18n.T("Playback state"), i18n.T("Sees which song plays, its progress and whether it is paused.")
+		return i18n.T("Playback state"), i18n.T("Sees which song plays, its progress, whether it is paused, and whether it is a favourite or in your library.")
 	case cli.PermPlaybackControl:
-		return i18n.T("Playback controls"), i18n.T("Can play, pause, skip and go back.")
+		return i18n.T("Playback controls"), i18n.T("Can play, pause, skip, go back and seek, play an Apple Music link, and change shuffle, repeat and crossfade.")
 	case cli.PermQueueRead:
 		return i18n.T("The queue"), i18n.T("Can read the songs that are queued.")
+	case cli.PermQueueControl:
+		return i18n.T("Queue controls"), i18n.T("Can jump to a song in the queue and clear the queue.")
 	case cli.PermLyricsRead:
 		return i18n.T("Lyrics"), i18n.T("Can read the lyrics of the song that plays.")
 	case cli.PermSearch:
@@ -134,7 +136,9 @@ func permissionText(p string) (name, allows string) {
 	case cli.PermVolume:
 		return i18n.T("Volume"), i18n.T("Can read and change the volume.")
 	case cli.PermLike:
-		return i18n.T("Likes"), i18n.T("Can love or unlove the song that plays.")
+		return i18n.T("Likes"), i18n.T("Can love or unlove the song that plays, or rate it Suggest Less.")
+	case cli.PermLibrary:
+		return i18n.T("Your library"), i18n.T("Can add the song that plays to your library or remove it, and list your library's playlists and albums.")
 	case cli.PermPrivateRead:
 		return i18n.T("Private listening, read only"), i18n.T("Can see whether private listening is on. It never hears a private listen and can't change the setting.")
 	case cli.PermNetwork:
