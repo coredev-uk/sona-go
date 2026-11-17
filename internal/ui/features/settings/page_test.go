@@ -7,6 +7,29 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+// The shell's sidebar takes 233 DIP of a 1132 DIP window: the page lays out
+// in what is left (899, under 960: the index wraps above the section), not
+// in the window's width, where three columns squeezed a row's title beside
+// the Add-ons folder's two buttons to a letter a line.
+func TestThePageLaysOutInItsOwnWidthNotTheWindows(t *testing.T) {
+	caps := linuxCaps()
+	r := newRigBeside(t, 1132, 900, 233, nil, &caps)
+	r.s.addons = standardAddons()
+	r.router.Replace(settingsPath + "?section=addons")
+	r.tt.Until("the section", r.tt.Shows("Open add-ons folder"))
+	r.tt.Settle()
+	if r.s.wide {
+		t.Error("the groups keep a left margin in a page 899 DIP wide")
+	}
+	title, ok := r.tt.Find("Add-ons folder")
+	if !ok {
+		t.Fatal("no Add-ons folder row")
+	}
+	if title.W < 100 || title.H > 30 {
+		t.Errorf("the row's title is squeezed: %v", title)
+	}
+}
+
 func TestChoosingASectionReplacesTheLocationAndTheLastOneReopens(t *testing.T) {
 	r := newRig(t, 1132, 900, nil)
 	r.tt.Until("the page", r.tt.Shows("Settings", "Appearance"))

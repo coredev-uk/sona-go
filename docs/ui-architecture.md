@@ -1372,7 +1372,9 @@ A master and detail page.
 
 - The index column holds the title, Find a setting, and the section list with each section's state in one line (`summaries.go`).
 - A bare `/settings` opens the section shown last in the run. Choosing one `Replace`s the location, so Back leaves Settings.
-- Below 960 DIP of window width the index wraps above the section and the summaries are for assistive technology only. The index is held in view (outside the section's scroll container) only from 700 DIP of height.
+- The breakpoints read the page's own width (the window's less the sidebar, measured at the last layout; `settings.width`), never the window's.
+  - Below 960 DIP the index wraps above the section and the summaries are for assistive technology only. The index is held in view (outside the section's scroll container) only from 700 DIP of height.
+  - A group keeps its heading in a left margin only where the section's column beside the index is at least `marginRoom` (728 DIP: the margin, its gap and rows that fit a title beside two buttons); otherwise the heading sits above its rows.
 - `?section=account` opens the account dialog (`Env.Surfaces.OpenAccount`) and replaces itself with `/settings`.
 
 #### Rows
