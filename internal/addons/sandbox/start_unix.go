@@ -20,7 +20,10 @@ const waitDelay = 2 * time.Second
 type launch struct {
 	ready   func() error
 	release func()
-	notes   []string // set by ready
+	// failed, when set, words a failure of ready once the process is gone,
+	// given how it ended.
+	failed func(err, exit error) error
+	notes  []string // set by ready
 }
 
 // prepare sets cmd up to run the add-on confined (or, in a test, not).
@@ -67,9 +70,12 @@ func startUnix(spec Spec, prep prepare) (*Child, error) {
 	signalGroup := func(sig syscall.Signal) { _ = syscall.Kill(-pid, sig) }
 	if err := l.ready(); err != nil {
 		signalGroup(syscall.SIGKILL)
-		_ = cmd.Wait()
+		exit := cmd.Wait()
 		_ = inW.Close()
 		_ = outR.Close()
+		if l.failed != nil {
+			err = l.failed(err, exit)
+		}
 		return nil, err
 	}
 	c := &Child{

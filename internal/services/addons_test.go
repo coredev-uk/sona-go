@@ -486,6 +486,10 @@ func TestAddonsDiagnosticsExcludeLogs(t *testing.T) {
 	if strings.Contains(string(b), "hunter2") || !strings.Contains(string(b), `"id":"talky"`) || !strings.Contains(string(b), `"version":"1.0.0"`) {
 		t.Errorf("bundle = %s", b)
 	}
+	// Why it stopped is in the report, as a code.
+	if !strings.Contains(string(b), `"reason":"`+string(AddonReasonEndedAtStart)+`"`) {
+		t.Errorf("bundle lacks the reason: %s", b)
+	}
 }
 
 func TestAddonsCapabilityIsReported(t *testing.T) {

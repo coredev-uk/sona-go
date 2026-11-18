@@ -80,3 +80,31 @@ func TestEnvironmentGivesBundledAddonsTheirProxy(t *testing.T) {
 		}
 	}
 }
+
+// Sona's own add-ons are Sona's executable, and where its libraries are found
+// through LD_LIBRARY_PATH (the published Nix package has no rpath; its wrapper
+// sets the path), a program started without it ends at the dynamic loader with
+// status 127 before it can say hello: the sandbox's init, which is the same
+// binary, and the plain child that runs where the sandbox can't start, were
+// both started that way on NixOS. So they inherit it; an add-on of the user's
+// never does.
+func TestEnvironmentGivesBundledAddonsTheLoaderPath(t *testing.T) {
+	const path = "LD_LIBRARY_PATH=/nix/store/a-glib/lib:/nix/store/b-gstreamer/lib"
+	parent := []string{path, "LD_PRELOAD=/tmp/evil.so", "GST_PLUGIN_SYSTEM_PATH_1_0=/nix/store/c/lib/gstreamer-1.0", "PATH=/usr/bin"}
+	for _, id := range BundledIDs {
+		got := Environment(parent, id, "/data")
+		if !slices.Contains(got, path) {
+			t.Errorf("%s lacks the loader path: %v", id, got)
+		}
+		for _, kv := range got {
+			if strings.HasPrefix(kv, "LD_PRELOAD") || strings.HasPrefix(kv, "GST_") {
+				t.Errorf("%s inherits %q: only the path of the libraries it links is passed on", id, kv)
+			}
+		}
+	}
+	for _, kv := range Environment(parent, "demo", "/data") {
+		if strings.HasPrefix(kv, "LD_") {
+			t.Errorf("an add-on of the user's inherits %q", kv)
+		}
+	}
+}

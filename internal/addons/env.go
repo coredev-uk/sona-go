@@ -19,12 +19,24 @@ var allowedEnv = []string{"PATH", "LANG", "LANGUAGE", "TZ"}
 var allowedEnvWindows = []string{"SYSTEMROOT", "SYSTEMDRIVE", "PATHEXT", "COMSPEC"}
 
 // bundledEnv are the variables only Sona's own add-ons inherit besides the
-// above: the proxy and certificate settings the Go HTTP client reads, which
-// Last.fm's and ListenBrainz's requests honoured when they ran inside Sona.
+// above:
+//
+//   - the proxy and certificate settings the Go HTTP client reads, which
+//     Last.fm's and ListenBrainz's requests honoured when they ran inside
+//     Sona;
+//   - LD_LIBRARY_PATH, where the dynamic loader finds Sona's own libraries. An
+//     add-on of Sona's is Sona's executable and has its loader needs: the
+//     published Nix package's binary has no rpath (build/linux/nix/release.nix),
+//     its wrapper sets the path, so without it the program (the sandbox's
+//     init, then the add-on) ends at the loader with status 127 before it can
+//     say anything. The folders it names are the ones sandbox.ProgramReads
+//     shows the sandbox.
+//
 // Nothing in them is a secret of Sona's.
 var bundledEnv = []string{
 	"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy",
 	"SSL_CERT_FILE", "SSL_CERT_DIR",
+	"LD_LIBRARY_PATH",
 }
 
 // bundledAllowed reports whether Sona's own add-ons inherit name: bundledEnv,

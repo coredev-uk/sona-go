@@ -137,9 +137,12 @@
 // Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons too
 // (#302): internal/addons registers them in code with embedded manifests, scan
 // lists them before the user's folders (a folder claiming their IDs is left
-// out), they are on unless the user turned one off and hold their manifest's
+// out), they are always on (whether one runs follows its integration, which
+// Settings → Connections switches; the crash rule never switches one off and a
+// stuck saved `enabled: false` is healed at start) and hold their manifest's
 // permissions with nothing to approve, and their program is this executable
-// run as `sona --addon <id>` (internal/addons/own).
+// run as `sona --addon <id>` (internal/addons/own). AddonInfo.Reason says why
+// an add-on that should be up isn't.
 //
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls

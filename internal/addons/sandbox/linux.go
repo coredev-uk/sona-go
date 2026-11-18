@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -73,6 +74,33 @@ type notExecError struct{ detail string }
 
 func (e *notExecError) Error() string { return "addons: start: " + e.detail }
 
+// noReportError is the init ending, or taking too long, before it made its
+// report: it died before it could (at the dynamic loader, say, which is where
+// a program whose libraries its environment didn't name ends), or it hung.
+type noReportError struct{ cause error }
+
+func (e *noReportError) Error() string {
+	return "the sandbox's init ended without a report: " + e.cause.Error()
+}
+
+// exitedWithoutReport words the init's end for the log: its exit status,
+// which tells a loader that couldn't run it (127) from a crash, and where
+// what it printed is.
+func exitedWithoutReport(err, exit error) error {
+	var nr *noReportError
+	if !errors.As(err, &nr) {
+		return err
+	}
+	if !errors.Is(nr.cause, io.EOF) {
+		return fail(ReasonSetup, "the sandbox's init made no report in %s: %v", readyTimeout, nr.cause)
+	}
+	status := "exit status 0"
+	if exit != nil {
+		status = exit.Error()
+	}
+	return fail(ReasonSetup, "the sandbox's init ended without a report (%s); what it printed is in the add-on's log", status)
+}
+
 func prepareSandboxed(spec Spec) prepare {
 	return func(cmd *exec.Cmd) (*launch, error) {
 		req, err := json.Marshal(request{Policy: spec.Policy, Exe: spec.Exe, ExeFD: spec.ExeFile != nil, Args: spec.Args})
@@ -96,6 +124,7 @@ func prepareSandboxed(spec Spec) prepare {
 			}
 			return err
 		}
+		l.failed = exitedWithoutReport
 		return l, nil
 	}
 }
@@ -129,7 +158,7 @@ func readReport(r *os.File) (report, error) {
 	_ = r.SetReadDeadline(time.Now().Add(readyTimeout))
 	line, err := bufio.NewReader(r).ReadBytes('\n')
 	if err != nil {
-		return report{}, fail(ReasonSetup, "the sandbox's init ended without a report: %v", err)
+		return report{}, &noReportError{err}
 	}
 	var rep report
 	if err := json.Unmarshal(line, &rep); err != nil {
