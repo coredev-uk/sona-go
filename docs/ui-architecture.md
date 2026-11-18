@@ -633,12 +633,17 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 ### Developer actions (`features/inspect`)
 
-A development build (`-tags dev`) adds one module, `inspect` (`app/modules_dev.go`), and nothing else: a release build holds neither the module nor the service behind it.
+The `inspect` module is in every build (`app/modules.go`). It offers **Inspect** in a development build always, and in a release build only while Settings → Diagnostics → Developer tools is on (`config.Settings.DeveloperTools`, off by default). MyGo's own element inspector (F12, `mygo_noinspector`) is a different tool and stays out of release builds.
 
-- **One action per kind** (`inspect.song`, `inspect.album`…), registered through `Module.Actions` in the `kit.GroupDeveloper` group, the last section of every menu. Every surface with an item menu (tile, row, header, card; right-click, the "more" button) lists "Inspect" with no code of its own, so right-click coverage follows the item menus (#337).
-- **The panel** is a plain `kit.Dialog` built in the module's `Layer` slot: the item's kind, ID and artwork URL, then the mapped DTO, Apple's resource as Go's catalogue cache holds it, and the SQLite row of a library item. The text is a text field whose edits are undone, so it selects, copies and scrolls. Copy as JSON, Copy ID and Copy artwork URL (the item's largest size) follow. It is not translated or designed for end users.
-- **The data** comes from `InspectService.Inspect` (`services/inspect_dev.go`, dev tag): the mapped item the UI passes, `catalog.Catalog.Raw` (`catalog/raw_dev.go`, the cache's body, never a request to Apple) and the library row. Every text passes through `logging.Redact`; no request header is ever held, and the UI still never calls Apple. An item whose page Sona has not fetched shows "not in Go's catalog cache".
-- **The release check:** `inspect`'s release test asserts `cmd/sona`'s dependencies leave the package out, and `app`'s module-list test (`devModules`) lists no extra module without the tag.
+- **One action per kind** (`inspect.song`, `inspect.album`…) in the `kit.GroupDeveloper` group, the last section of every menu. Every surface with an item menu (tile, row, header, card; right-click, the "more" button) lists "Inspect" with no code of its own, so right-click coverage follows the item menus (#337).
+- **The setting applies at once.** The module registers nothing itself. Its `Init` reads the setting (`Env.Dev || DeveloperTools`) and follows `settings:changed`, and `ActionRegistry.ReplacePrefix("inspect.", …)` puts the actions in or takes them out in one step, so a menu opened meanwhile sees the old set or the new one. The registry is chosen over an action that is always registered and hides itself (`Available`) because `ActionRegistry.Has` decides which kinds get a ⋯ button: with the action unregistered a kind whose only action it is gets no button while the setting is off. Turning the setting off closes an open panel.
+- **The panel** is a `kit.Dialog` built in the module's `Layer` slot: the item's kind, ID and artwork URL, then the mapped DTO, Apple's resource as Go's catalogue cache holds it, and the SQLite row of a library item, with Copy as JSON, Copy ID and Copy artwork URL (the item's largest size). Under it, **What an add-on gets** shows the protocol JSON an add-on is sent for the item, with its own Copy as JSON and a line saying that add-ons never see private listens or previews but this is the user's own inspection. The text is a field whose edits are undone, so it selects, copies and scrolls. It is not translated.
+- **What an add-on gets** is built in Go (`InspectReport.Addon`) with the code the protocol uses, not a copy of it:
+  - the `invoke` `target` is `services.AddonTargetOf`, which the item menus' add-on actions call to build the target they invoke with, then `invokeTarget`, the encoding `AddonsService.Invoke` sends;
+  - for a song, the `now-playing` event's `track` is the command line's `track` mapper over a queue item (`itemOf`, the artwork template found again through `artwork.Cache.Template`), encoded by `cli.AddonEventData`, which `Session.pump` also uses;
+  - a station and a music video have no target (no add-on action is offered on them) and no track.
+- **The data** comes from `InspectService.Inspect` (`services/inspect.go`): the mapped item the UI passes, `catalog.Catalog.Raw` (`catalog/raw.go`, the cache's body, never a request to Apple), the library row and the add-on section. Every text passes through `logging.Redact`; no request header is ever held, and the UI still never calls Apple. An item whose page Sona has not fetched shows "not in Go's catalog cache".
+- **The release check** is behavioural: `inspect`'s tests run a release-style Env (`Env.Dev` false) and assert Inspect is offered on a song row, an album tile, a station and a playlist only while the setting is on, and leaves again when it goes off; a development Env offers it whatever the setting says.
 
 **Toaster** (`ShowToast`, `ToastSuccessf`, `ToastErrorf`, `CloseToast`, `Unavailable`) is sonner's look on MyGo's toast manager.
 
@@ -1411,7 +1416,9 @@ A master and detail page.
 | Storage | Usage, the artwork cache limit, Clear caches, Compact now, the settings file (export, import) |
 | Diagnostics | The checks (`SystemService.Diagnostics`, on every open), Motion artwork diagnostics, Copy diagnostics (the redacted bundle on the clipboard), Open log folder, Developer tools |
 
-**Developer tools** is MyGo's inspector. `Open the inspector` calls `DesktopService.OpenDeveloperTools` when `Capabilities.DeveloperTools` says the run has it (a development build started with `SONA_INSPECTOR=1`), and is an unavailable row otherwise.
+**Developer Tools** is the section's last group, of two rows. The first is the **Developer tools** switch (`config.Settings.DeveloperTools`, `developerTools` in `settings.json`, off by default, carried by a settings export): "Adds Inspect to every item's menu: its IDs, artwork, what Apple sent, and what an add-on receives for it." Find a setting finds it under developer, inspect, add-on developers and artwork. The `inspect` feature follows it at once ("Developer actions", above). The second is MyGo's inspector.
+
+**Open the inspector** is MyGo's inspector. `Open the inspector` calls `DesktopService.OpenDeveloperTools` when `Capabilities.DeveloperTools` says the run has it (a development build started with `SONA_INSPECTOR=1`), and is an unavailable row otherwise.
 
 #### Previous version
 

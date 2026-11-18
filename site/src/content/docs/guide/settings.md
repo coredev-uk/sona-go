@@ -127,4 +127,4 @@ To copy one value, such as a version or a path, select it (triple-click takes a 
 | Library database | The file, its size, schema, contents, last full sync and the artwork cache. |
 | Sona | The version, platform, start-up time and the paths of the log, settings, data and cache. |
 | Updates | Previous version, with Restore… to go back to the version from your last update. Shown only when one is kept. |
-| Developer tools | Open the inspector. Available only in development builds started with `SONA_INSPECTOR=1`. |
+| Developer tools | A switch, off by default: adds **Inspect** to every item's menu, with its IDs, artwork, what Apple sent, and what an add-on receives for it. It is for people who write add-ons; it only reads your own data from Sona's cache and sends nothing anywhere. Below it, Open the inspector (MyGo's element inspector), available only in development builds started with `SONA_INSPECTOR=1`. |

@@ -1,5 +1,3 @@
-//go:build dev
-
 package inspect
 
 import (
@@ -9,9 +7,11 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -36,7 +36,9 @@ type inspector struct {
 	report  services.InspectReport
 	text    string // the panel's text, shown selectable
 	shown   string // text as the field was last given it: edits are undone
-	scroll  ui.ScrollState
+	// addonText and addonShown are the same for "What an add-on gets".
+	addonText, addonShown string
+	scroll                ui.ScrollState
 	// gen tells a late answer from one for an item opened since.
 	gen int
 }
@@ -52,17 +54,46 @@ func newInspector(env *module.Env) *inspector {
 	return in
 }
 
+// module registers nothing until Init has the setting: Inspect is offered in
+// a development build, and in a release build while Settings → Diagnostics →
+// Developer tools is on.
 func (in *inspector) module() module.Module {
-	var defs []kit.ActionDef
-	for _, k := range []kit.ItemKind{kit.KindSong, kit.KindAlbum, kit.KindPlaylist, kit.KindArtist, kit.KindStation, kit.KindMusicVideo} {
-		defs = append(defs, in.action(k))
-	}
 	return module.Module{
-		ID:      "inspect",
-		Actions: defs,
-		Slots:   module.Slots{Layer: in.panel},
+		ID:    "inspect",
+		Init:  in.init,
+		Slots: module.Slots{Layer: in.panel},
 	}
 }
+
+// init offers Inspect as the setting says now, and follows it: the setting
+// applies at once, with no restart.
+func (in *inspector) init() {
+	on := in.env.Dev
+	if in.env.Core != nil {
+		on = on || services.Service[services.SystemService](in.env.Core).Settings().DeveloperTools
+	}
+	in.offer(on)
+	store.On(in.env.Bus, services.EventSettingsChanged, func(s config.Settings) { in.offer(in.env.Dev || s.DeveloperTools) })
+}
+
+// offer puts Inspect in every item menu, or takes it out: the registry holds
+// the action only while it is offered, so a kind whose only action it is gets
+// no ⋯ button while it is off.
+func (in *inspector) offer(on bool) {
+	var defs []kit.ActionDef
+	if on {
+		for _, k := range kinds {
+			defs = append(defs, in.action(k))
+		}
+	}
+	in.env.Actions.ReplacePrefix(ActionID, defs...)
+	if !on {
+		in.open = false
+	}
+}
+
+// kinds are the item kinds that get an Inspect.
+var kinds = []kit.ItemKind{kit.KindSong, kit.KindAlbum, kit.KindPlaylist, kit.KindArtist, kit.KindStation, kit.KindMusicVideo}
 
 // action is the item menu's Inspect for one kind (group Developer: after every
 // other group, so it is the menu's last entry).
@@ -83,7 +114,7 @@ func (in *inspector) show(item kit.Item) {
 	gen := in.gen
 	in.open, in.item, in.loading, in.err, in.report = true, item, true, "", services.InspectReport{}
 	in.query = queryOf(item)
-	in.text = in.render()
+	in.text, in.addonText = in.render(), in.renderAddon()
 	in.scroll = ui.ScrollState{}
 	if in.inspect == nil {
 		in.loading = false
@@ -102,7 +133,7 @@ func (in *inspector) show(item kit.Item) {
 			if err != nil {
 				in.err = err.Error()
 			}
-			in.text = in.render()
+			in.text, in.addonText = in.render(), in.renderAddon()
 		})
 	}()
 }
@@ -174,6 +205,60 @@ func (in *inspector) render() string {
 	return s
 }
 
+// addonNote says why the section shows what it does: an add-on is never sent
+// a private listen, but this is the user's own inspection.
+const addonNote = "Exactly what an add-on is sent for this item. Add-ons never see private listens or previews; this is your own inspection, so it shows the item regardless."
+
+// renderAddon is the "What an add-on gets" text: the protocol's JSON for this
+// item, as Go builds it.
+func (in *inspector) renderAddon() string {
+	if in.loading {
+		return "Loading…\n"
+	}
+	var s string
+	if t := in.report.Addon.Target; t != "" {
+		s += "invoke · params.target\n" + t + "\n\n"
+	} else {
+		s += "invoke · no add-on action is offered on a " + string(in.item.Kind) + "\n\n"
+	}
+	if t := in.report.Addon.Track; t != "" {
+		s += "now-playing · data.track\n" + t + "\n"
+	}
+	return s
+}
+
+// addonJSON is the add-on's view of the item as one JSON object, for the
+// section's own Copy as JSON.
+func (in *inspector) addonJSON() string {
+	raw := func(s string) json.RawMessage {
+		if s == "" || !json.Valid([]byte(s)) {
+			return nil
+		}
+		return json.RawMessage(s)
+	}
+	type invoke struct {
+		Target json.RawMessage `json:"target"`
+	}
+	type nowPlaying struct {
+		Track json.RawMessage `json:"track"`
+	}
+	doc := struct {
+		Invoke     *invoke     `json:"invoke,omitempty"`
+		NowPlaying *nowPlaying `json:"now-playing,omitempty"`
+	}{}
+	if t := raw(in.report.Addon.Target); t != nil {
+		doc.Invoke = &invoke{t}
+	}
+	if t := raw(in.report.Addon.Track); t != nil {
+		doc.NowPlaying = &nowPlaying{t}
+	}
+	b, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return in.addonText
+	}
+	return string(b)
+}
+
 // asJSON is the whole report as one JSON object, for Copy as JSON.
 func (in *inspector) asJSON() string {
 	raw := func(s string) json.RawMessage {
@@ -197,24 +282,30 @@ func (in *inspector) asJSON() string {
 	return string(b)
 }
 
-// panel is the dialog: plain, monospaced-feeling text in a scroll, three copy
-// buttons. Not designed for end users.
+// panel is the dialog: plain text in a scroll, three copy buttons, then what
+// an add-on gets with its own. Not designed for end users.
 func (in *inspector) panel(c *ui.Context) {
 	if in.text != in.shown {
 		in.shown = in.text // the field edits its own copy; a new report replaces it
 	}
+	if in.addonText != in.addonShown {
+		in.addonShown = in.addonText
+	}
 	_, wh := c.Size()
 	kit.Dialog(c.Key("inspect"), &in.open, kit.DialogOpts{
-		Title: "Inspect " + in.item.Name(), Description: "Development build: what Sona mapped and what Apple sent",
-		MaxWidth: 880, Top: wh * 0.06,
+		Title: "Inspect " + in.item.Name(), Description: "Developer tools: what Sona mapped, what Apple sent and what an add-on gets",
+		MaxWidth: 880, Top: wh * 0.04,
 	}, func() {
 		t := theme.Current().Type["secondary"]
-		area := ui.TextAreaBase(c.Key("text"), &in.shown)
-		area.FillWidth().MinHeight(200).MaxHeight(max(wh*0.7-120, 200)).Padding(8, 12).FontSize(t.Size).
-			TextColor(theme.C("ink")).Background(theme.C("raised")).Radius(theme.Current().Radius["md"]).Label("Item properties")
-		if in.shown != in.text {
-			in.shown = in.text // read-only: any edit is undone
+		field := func(key string, shown *string, text string, label string, maxHeight float32) {
+			area := ui.TextAreaBase(c.Key(key), shown)
+			area.FillWidth().MinHeight(100).MaxHeight(maxHeight).Padding(8, 12).FontSize(t.Size).
+				TextColor(theme.C("ink")).Background(theme.C("raised")).Radius(theme.Current().Radius["md"]).Label(label)
+			if *shown != text {
+				*shown = text // read-only: any edit is undone
+			}
 		}
+		field("text", &in.shown, in.text, "Item properties", max(wh*0.28, 140))
 		ui.Row(c.Key("actions")).Gap(8).Children(func() {
 			btn := func(key, label string, text func() string, enabled bool) {
 				if kit.Button(c.Key(key), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Disabled: !enabled}).Clicked() {
@@ -224,6 +315,18 @@ func (in *inspector) panel(c *ui.Context) {
 			btn("copy-json", "Copy as JSON", in.asJSON, !in.loading)
 			btn("copy-id", "Copy ID", in.id, in.id() != "")
 			btn("copy-art", "Copy artwork URL", func() string { return artURL(in.item) }, artURL(in.item) != "")
+		})
+		ui.Column(c.Key("addon")).FillWidth().Gap(8).Margin(8, 0, 0, 0).Children(func() {
+			theme.Text(c, "What an add-on gets", "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
+			theme.Text(c, addonNote, "secondary").TextColor(theme.C("ink-muted"))
+			field("addon-text", &in.addonShown, in.addonText, "What an add-on gets", max(wh*0.22, 110))
+			ui.Row(c.Key("addon-actions")).Children(func() {
+				if kit.Button(c.Key("copy-addon"), "Copy as JSON", kit.ButtonOpts{
+					Variant: kit.Outline, Size: kit.SizeSM, Disabled: in.loading, A11yLabel: "Copy what an add-on gets as JSON",
+				}).Clicked() {
+					in.env.Copy(in.addonJSON())
+				}
+			})
 		})
 	})
 }

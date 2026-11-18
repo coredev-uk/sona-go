@@ -256,6 +256,10 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 			ID: "diagnostics-logs", Section: secDiagnostics, Group: diagnostics, Title: i18n.T("Open log folder"),
 			Keywords: i18n.T("logs"),
 		},
+		{
+			ID: "developer-inspect", Section: secDiagnostics, Group: developerTools, Title: i18n.T("Developer tools"),
+			Keywords: i18n.T("inspect, add-on developers, debug, ids, artwork, raw data, protocol"),
+		},
 		// The web inspector is MyGo's now: one row, in dev builds started with
 		// SONA_INSPECTOR=1; elsewhere the row says it is unavailable.
 		{

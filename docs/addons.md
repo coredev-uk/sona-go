@@ -512,6 +512,8 @@ These rules are for native add-ons; a [WebAssembly add-on](#webassembly-add-ons)
 
 [coredev-uk/sona-addons](https://github.com/coredev-uk/sona-addons) has samples that run under this command, a small Go client of the protocol and a fake Sona for tests.
 
+**See what your add-on is sent.** Turn on Settings → Diagnostics → Developer tools, then right-click any song, album, artist or playlist and choose **Inspect**. Its section **What an add-on gets** shows the exact protocol JSON for that item: the `target` of an `invoke` (`{"kind","id","name"}`) and, for a song, the `track` of a `now-playing` event. Sona builds both with the code that talks to add-ons, not a copy of it, and **Copy as JSON** puts them on the clipboard for your tests. An add-on never sees a private listen or a preview; Inspect is your own look at your own data, so it shows the item regardless, and says so. It sends nothing anywhere ([Security review](security-review.md#the-item-inspector)).
+
 `sona addons dev <folder>` runs an add-on from a folder **without installing it**, and prints its log until you press Ctrl+C. It needs Sona running. A native add-on needs Linux for now; a [WebAssembly add-on](#webassembly-add-ons) runs on every system Sona does.
 
 | Rule | How it is kept |

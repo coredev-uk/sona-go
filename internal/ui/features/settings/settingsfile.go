@@ -82,6 +82,8 @@ func listedRow(key string) string {
 		return i18n.T("Keyboard shortcuts")
 	case "storage.artCacheMiB":
 		return i18n.T("Artwork cache limit")
+	case "developerTools":
+		return i18n.T("Developer tools")
 	case "updates.check":
 		return i18n.T("Check for updates")
 	}

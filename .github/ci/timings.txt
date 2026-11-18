@@ -26,6 +26,7 @@
 ./internal/playback/native 11
 ./internal/ui/app@dev 8
 ./internal/ui/features/private 5
+./internal/ui/features/inspect 3
 ./internal/i18n/l10n/extract 4
 ./internal/lyrics 4
 ./cmd/i18ntool 3
@@ -71,7 +72,6 @@
 ./internal/playback/video 0
 ./internal/ui/devstate@dev 0
 ./internal/ui/features/song@dev 0
-./internal/ui/features/inspect@dev 0
 ./internal/ui/features/discover@dev 72
 ./internal/devinstance@dev 0
 ./internal/app@dev 0

@@ -222,3 +222,18 @@ func ids(es []settingEntry) []string {
 	}
 	return out
 }
+
+// Find a setting finds the Developer tools switch by developer, inspect and
+// add-on words; the MyGo inspector's row is a different one.
+func TestFindFindsDeveloperToolsByDeveloperAndInspect(t *testing.T) {
+	ctx := testContext()
+	for _, q := range []string{"developer", "inspect", "developer tools", "add-on developers", "artwork"} {
+		got := findIDs(q, ctx)
+		if !slices.Contains(got, "developer-inspect") {
+			t.Errorf("%q: %v", q, got)
+		}
+	}
+	if got := findIDs("developer tools", ctx); len(got) == 0 || got[0] != "developer-inspect" {
+		t.Errorf("developer tools: %v", got)
+	}
+}

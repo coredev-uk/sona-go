@@ -18,6 +18,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [Lyrics from other services](#lyrics-from-other-services)
   - [TuneIn metadata](#tunein-metadata)
   - [WebAssembly add-ons](#webassembly-add-ons)
+  - [The item inspector](#the-item-inspector)
   - [Sona's own add-ons](#sonas-own-add-ons)
   - [Secret scanning](#secret-scanning)
 - [Findings](#findings)
@@ -51,6 +52,7 @@ Each row is a trust boundary. The sections below give the detail.
 | Secrets and tokens | The keyring, with a 0600 file fallback | Tokens never reach URLs, errors or logs. Build credentials are redacted from logs and diagnostics ([F10](#f10-development-builds-logged-the-build-credentials)). Secret scanning guards the repository ([Secret scanning](#secret-scanning)) |
 | Loopback sign-in server | Apple's sign-in redirect on `127.0.0.1` | The owner uid of each connection, single-use start links and a cookie ([F7](#f7-another-local-user-could-complete-the-loopback-sign-in)) |
 | Add-ons, WebAssembly runtime | Running a third party's module inside Sona's process, with the user's grant | No ambient authority: no file but its data folder (links refused), no network, no process; memory and CPU capped. The module is checked and read once; the compiled cache is private ([WebAssembly add-ons](#webassembly-add-ons)). The exposure is the runtime itself: a bug in wazero is a bug in Sona's process |
+| Item inspector (Settings → Diagnostics → Developer tools) | The user's own item data, shown to the user | Off by default and only offered when the person turns it on (always in a development build). Reads Go's caches through one service method, never Apple; every text passes `logging.Redact`; no request header, token or credential is ever held. Nothing leaves the machine ([The item inspector](#the-item-inspector)) |
 | Add-ons, Sona's own | Sona's own signed code, run as `sona --addon <id>`, holding the Last.fm and ListenBrainz sign-ins | Registered in code, never from a folder. Sona keeps the private filter and the queue and sends only filtered listens; `scrobble.*` requests go to bundled add-ons only ([Sona's own add-ons](#sonas-own-add-ons)) |
 | Other local users | Nothing | Discord IPC socket and named pipe ownership checks ([F4](#f4-discord-ipc-trusted-any-users-socket)); the loopback checks above |
 | Third-party services | Apple, Google, Mozilla, Musixmatch, LRCLIB, NetEase, TuneIn | Trusted for what their text says, not for code. The Widevine package needs two Google signatures. Lyrics sources can be switched off in Settings → Playback → Lyrics |
@@ -618,6 +620,27 @@ Sona doesn't ship a privileged helper to get around a restricted user namespace,
 - **Resources are shared.** The caps are per module. There is no total across add-ons, and compiling a large module takes up to two cores for a few seconds, once.
 - **The CPU budget is wall time between host calls.** It is not a CPU-time counter: a machine paused or overloaded can charge a module for time it didn't run (a long pause is clamped to a few ticks).
 - **Same trust as native for the user.** A module still answers the user's invokes and may show a link, which opens only after a click.
+
+### The item inspector
+
+**What it does.** **Inspect** in an item's menu (`internal/ui/features/inspect`, `services/inspect.go`) shows what Sona mapped for a song, album, playlist, artist, station or music video, the response Go's catalogue cache holds for it, its library row and what an add-on is sent for it ("What an add-on gets": the `invoke` target and, for a song, the `now-playing` track). It began as a development-build tool (#373). A release build now has it too, for add-on developers, behind **Settings → Diagnostics → Developer tools**, off by default and saved as `developerTools` in `settings.json`. A development build offers it regardless of the setting. MyGo's own element inspector (F12) stays out of release builds.
+
+**Threat model.** What it exposes is the user's own item data: names, IDs, artwork URLs and cached catalogue responses they could read in the app anyway. It runs only when the person turns it on. Nothing new leaves the machine: the panel makes no request, and its copy buttons write to the user's clipboard on a click.
+
+**Threats and controls.**
+
+| Threat | Control | Test |
+| --- | --- | --- |
+| A token or credential appears in the panel | Every text passes `logging.Redact` (`redactedJSON`, the cache key). The cache holds response bodies only, never a request, so there is no header to show | `TestInspectShowsIDsArtworkAndTheCachedAppleResource` (a JWT-shaped value in a cached body, and no `Authorization`, `Bearer` or user-token header name anywhere in the report or either copy) |
+| The UI reaches Apple through it | Raw data comes from `catalog.Catalog.Raw`, a cache read that never asks Apple; the UI holds no token and calls no Apple host | `internal/catalog` `Raw` reads `GetCache` only |
+| A release build shows it without being asked | The action is registered only while `DeveloperTools` is on (or in a development build); turning it off unregisters it at once | `TestReleaseBuildOffersInspectOnlyWhileTheSettingIsOn`, `TestDevelopmentBuildOffersInspectWhateverTheSettingSays` |
+| A settings import turns it on | An export carries the setting, like any preference. An import does not run code; the worst it does is add a menu entry that reads the user's own data. A file from someone else is still checked as before ([F1](#f1-settings-import-could-set-the-cdm-path)) | `TestDeveloperToolsIsOffByDefaultAndTravelsInAnExport` |
+| "What an add-on gets" misleads about what add-ons see | It is built by the protocol's own code (`AddonTargetOf`, `invokeTarget`, `track`, `cli.AddonEventData`), and the section says add-ons never see private listens or previews while this inspection shows the item regardless | `TestInspectShowsTheTargetAnAddonReceivesAndTheNowPlayingTrack` (the target equals what a running add-on is sent), `TestWhatAnAddonGetsIsTheProtocolsJSONForTheItem` |
+
+**Residual risks.**
+
+- Someone with the user's session can turn the setting on and read cached item data. They already have the same session, the settings file and the database.
+- The `InspectService.Inspect` method itself does not check the setting: the UI is its only caller, and it offers the action only when the setting is on. No add-on, command line or other process can reach it.
 
 ### Sona's own add-ons
 

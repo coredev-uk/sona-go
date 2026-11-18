@@ -589,7 +589,7 @@ func (s *Session) pump(topic string, ch <-chan any) {
 		if perm != "" && !s.cfg.Allowed(perm) {
 			continue
 		}
-		data, err := json.Marshal(forAddon(v))
+		data, err := AddonEventData(v)
 		if err != nil {
 			s.log.Warn("addon: encode event", "addon", s.cfg.ID, "topic", topic, "err", err)
 			continue

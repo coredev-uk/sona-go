@@ -599,8 +599,7 @@ func (s *AddonsService) Invoke(ctx context.Context, id, action string, target *A
 		if target == nil || !slices.Contains(addons.ActionKinds, target.Kind) || target.ID == "" || len(target.ID) > 200 {
 			return AddonResult{}, fmt.Errorf("%w: action %q needs an item", ErrInvalidArgument, action)
 		}
-		t := AddonTarget{Kind: target.Kind, ID: target.ID, Name: addons.Sanitize(target.Name, 400)}
-		raw, _ = json.Marshal(t)
+		raw = invokeTarget(*target)
 	case slices.ContainsFunc(m.Contributions.Commands, func(a addons.Command) bool { return a.ID == local }):
 		if target != nil {
 			return AddonResult{}, fmt.Errorf("%w: command %q has no item", ErrInvalidArgument, action)
@@ -619,6 +618,44 @@ func (s *AddonsService) Invoke(ctx context.Context, id, action string, target *A
 	// What the add-on says is text for a person: clean of control and
 	// bidirectional characters and cut, whatever it sent.
 	return AddonResult{Toast: addons.Sanitize(res.Toast, cli.MaxToast), URL: res.URL}, nil
+}
+
+// AddonTargetOf is what an item action was chosen on, as the add-on is told:
+// the catalogue ID when the item has one, else the library's. item is the DTO
+// the menu holds (Song, Album, Artist or Playlist); false for any other kind
+// of item or one with no ID, which no add-on action is offered on. The menus
+// build every invocation's target with it, and so does the item inspector's
+// "What an add-on gets".
+func AddonTargetOf(item any) (AddonTarget, bool) {
+	var kind, id, name string
+	first := func(catalog, other string) string {
+		if catalog != "" {
+			return catalog
+		}
+		return other
+	}
+	switch t := item.(type) {
+	case Song:
+		kind, id, name = "song", first(t.CatalogID, t.ID), t.Name
+	case Album:
+		kind, id, name = "album", first(t.CatalogID, t.ID), t.Name
+	case Artist:
+		kind, id, name = "artist", first(t.CatalogID, t.ID), t.Name
+	case Playlist:
+		kind, id, name = "playlist", first(t.CatalogID, t.ID), t.Name
+	}
+	if id == "" {
+		return AddonTarget{}, false
+	}
+	return AddonTarget{Kind: kind, ID: id, Name: name}, true
+}
+
+// invokeTarget is the target as an invoke request carries it to the add-on:
+// the name cleaned of control and bidirectional characters and cut.
+func invokeTarget(t AddonTarget) json.RawMessage {
+	t.Name = addons.Sanitize(t.Name, 400)
+	raw, _ := json.Marshal(t)
+	return raw
 }
 
 func (s *AddonsService) changed() {

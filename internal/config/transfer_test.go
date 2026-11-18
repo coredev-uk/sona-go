@@ -38,6 +38,7 @@ func custom() Settings {
 	s.Sidebar = Sidebar{OpenFolders: []string{"f.1"}, FoldedSections: []string{"apple"}}
 	s.LyricsView = LyricsView{Translation: true, Pronunciation: true}
 	s.Addons = Addons{"demo": {Enabled: true, Granted: []string{"playback.read"}}}
+	s.DeveloperTools = true
 	return s.Normalized()
 }
 
@@ -302,5 +303,31 @@ func TestAccentsTravelInAnExport(t *testing.T) {
 	im.Apply(&to)
 	if to.Accents["oled"] != "lime" || to.Accents["sona"] != "rose" {
 		t.Errorf("accents %v after import", to.Accents)
+	}
+}
+
+// Developer tools is off by default, and an export carries it: it is how this
+// person likes Sona, not a fact about this computer.
+func TestDeveloperToolsIsOffByDefaultAndTravelsInAnExport(t *testing.T) {
+	if Defaults().DeveloperTools {
+		t.Fatal("Developer tools is on by default")
+	}
+	from := Defaults()
+	from.DeveloperTools = true
+	b, err := Export(from)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"developerTools": true`) {
+		t.Errorf("export lacks developerTools:\n%s", b)
+	}
+	im, err := ParseExport(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	to := Defaults()
+	im.Apply(&to)
+	if !to.DeveloperTools {
+		t.Error("developerTools did not come back from the export")
 	}
 }
