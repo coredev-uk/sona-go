@@ -173,16 +173,27 @@ func addonsRig(t *testing.T, f *fakeAddons, width, height int, opts ...uitest.Op
 	r.s.addons = f
 	r.router.Replace(settingsPath + "?section=addons")
 	r.tt.Until("the section", r.tt.Shows("Open add-ons folder"))
-	// The list and the rows come from goroutines: wait for them as well.
+	// The list comes from a goroutine: wait for it as well.
 	if infos := f.List(); len(infos) > 0 {
-		r.tt.Until("the add-ons", r.tt.Shows(infos[0].Name))
-		for id, rows := range f.rows {
-			if len(rows) > 0 {
-				r.tt.Until("the rows of "+id, r.tt.Shows(rows[0].Label))
-			}
-		}
+		r.tt.Until("the add-ons", r.tt.Shows(addonName(infos[0])))
 	}
 	return r
+}
+
+// openAddon opens an add-on's row and waits for its details (and its
+// settings rows, which come from a goroutine of their own).
+func openAddon(r *rig, f *fakeAddons, id, name string) {
+	r.t.Helper()
+	r.tt.MustClick(name)
+	r.tt.Until("the details of "+name, r.tt.Shows("Permissions"))
+	if rows := f.rows[id]; len(rows) > 0 {
+		r.tt.Until("the rows of "+name, r.tt.Shows(rows[0].Label))
+	}
+}
+
+// hasPrefix reports a text on screen that starts with prefix.
+func hasPrefix(r *rig, prefix string) bool {
+	return slices.ContainsFunc(r.tt.Texts(), func(s string) bool { return strings.HasPrefix(s, prefix) })
 }
 
 func standardAddons() *fakeAddons {
@@ -193,42 +204,112 @@ func standardAddons() *fakeAddons {
 	}
 }
 
-func TestAddonsSectionListsEachAddonUnderItsOwnHeadingWithItsState(t *testing.T) {
+// ownAddons are Sona's own three as a person with Last.fm connected sees
+// them where the sandbox can't be set up.
+func ownAddons() []services.AddonInfo {
+	return []services.AddonInfo{
+		{
+			ID: "lastfm", Name: "Last.fm", Bundled: true, Enabled: true, State: services.AddonRunning, Unsandboxed: addons.SandboxNoUserNamespace,
+			Permissions: []string{"playback.read", "network"}, Granted: []string{"playback.read", "network"},
+		},
+		{
+			ID: "listenbrainz", Name: "ListenBrainz", Bundled: true, Enabled: true, State: services.AddonOff,
+			Permissions: []string{"playback.read", "network"}, Granted: []string{"playback.read", "network"},
+		},
+		{
+			ID: "discord", Name: "Discord", Version: "1.0.0", Bundled: true, Enabled: true, State: services.AddonIdle,
+			Permissions: []string{"playback.read"}, Granted: []string{"playback.read"},
+		},
+	}
+}
+
+// Each add-on is one row that says where it is in words: its state, how it
+// runs and, when it needs the person, why. The details open under it.
+func TestAddonsAreARosterOfRowsThatSayTheirState(t *testing.T) {
 	f := standardAddons()
-	r := addonsRig(t, f, 1132, 2600)
-	r.tt.Until("the add-ons", r.tt.Shows("Now playing webhook", "Home bridge"))
+	r := addonsRig(t, f, 1132, 1400)
+	r.tt.Until("the rows", r.tt.Shows("Now playing webhook", "Home bridge", "sloppy"))
 	for _, want := range []string{
-		"Version 1.2.0 · Posts the song that plays to a web address.", "Running.", "Off. It isn't running.",
-		"Playback state", "Private listening, read only", "Web address", "Post songs", "Format", "Access token",
-		"Sona won't run this add-on", "The folder or the program isn't yours alone: it belongs to someone else or others may change it.",
+		"Running · Sandboxed", "Off · Sandboxed", "Won't run",
+		"The folder or the program isn't yours alone: it belongs to someone else or others may change it.",
 	} {
 		if !r.tt.HasText(want) {
 			t.Errorf("the section does not show %q; texts %q", want, r.tt.Texts())
 		}
 	}
-	tr := access.Read(t, r.tt.Tester)
-	for _, name := range []string{"Now playing webhook", "Home bridge", "sloppy"} {
-		if _, ok := tr.Find(ui.RoleHeading, name); !ok {
-			t.Errorf("no heading %q:\n%s", name, tr.Dump())
+	// Closed, a row shows none of its details.
+	for _, hidden := range []string{"Playback state", "Web address", "Version 1.2.0 · Posts the song that plays to a web address."} {
+		if r.tt.HasText(hidden) {
+			t.Errorf("%q shows before its row is opened", hidden)
 		}
 	}
-	// A refused add-on has nothing to turn on.
+	tr := access.Read(t, r.tt.Tester)
+	for _, name := range []string{"Now playing webhook", "Home bridge", "sloppy"} {
+		if _, ok := tr.Find(ui.RoleDisclosure, name); !ok {
+			t.Errorf("no disclosure %q:\n%s", name, tr.Dump())
+		}
+	}
 	if _, ok := tr.Find(ui.RoleSwitch, "Turn on sloppy"); ok {
 		t.Error("a refused add-on has a switch")
 	}
-	if got := r.s.addonsSummary(); got != "3 add-ons · 1 on" {
+	if got := r.s.addonsSummary(); got != "3 installed · 1 needs you" {
 		t.Errorf("summary %q", got)
 	}
-}
 
-func TestTheSectionSaysAnAddonRunsInASandbox(t *testing.T) {
-	r := addonsRig(t, standardAddons(), 1132, 1400)
-	if !r.tt.HasText("An add-on is a program that runs beside Sona in a sandbox: it reads only its own folder, writes only its own data folder and has no network unless you allow it to reach the internet. What you approve is what Sona gives it. Turn on only add-ons you trust.") {
-		t.Errorf("texts %q", r.tt.Texts())
+	openAddon(r, f, "webhook", "Now playing webhook")
+	for _, want := range []string{
+		"Version 1.2.0 · Posts the song that plays to a web address.", "Playback state", "Private listening, read only",
+		"Web address", "Post songs", "Format", "Access token",
+	} {
+		if !r.tt.HasText(want) {
+			t.Errorf("the opened row does not show %q", want)
+		}
+	}
+	// One open at a time: opening another closes it.
+	r.tt.MustClick("Home bridge")
+	r.tt.Drain()
+	if r.tt.HasText("Web address") {
+		t.Error("two add-ons are open at once")
 	}
 }
 
-// Where the sandbox can't be set up the add-on does not run, and the page says
+// Sona's own three come first, under a heading of their own, as status only:
+// no switch, no approval, nothing to revoke, and a way to Connections, where
+// their accounts are.
+func TestSonasOwnAddonsAreStatusOnlyWithAWayToConnections(t *testing.T) {
+	f := standardAddons()
+	f.infos = append(ownAddons(), f.infos...)
+	r := addonsRig(t, f, 1132, 1600)
+	r.tt.Until("the own group", r.tt.Shows("Sona's Own", "Last.fm", "ListenBrainz", "Discord", "Installed"))
+	if !hasPrefix(r, "Running without isolation: this system doesn't let Sona create the isolated space") {
+		t.Errorf("Last.fm's reason is missing; texts %q", r.tt.Texts())
+	}
+	for _, want := range []string{"Not in use", "On"} {
+		if !r.tt.HasText(want) {
+			t.Errorf("no %q", want)
+		}
+	}
+	tr := access.Read(t, r.tt.Tester)
+	for _, name := range []string{"Last.fm", "ListenBrainz", "Discord"} {
+		if _, ok := tr.Find(ui.RoleSwitch, "Turn on "+name); ok {
+			t.Errorf("%s has a switch of its own here", name)
+		}
+	}
+	if got := r.s.addonsSummary(); got != "3 installed · 1 needs you" {
+		t.Errorf("Sona's own are counted as installed: %q", got)
+	}
+	openAddon(r, f, "discord", "Discord")
+	if r.tt.HasText("Revoke") || hasPrefix(r, "Version 1.0.0") {
+		t.Error("one of Sona's own shows a version or a Revoke")
+	}
+	r.tt.MustClick("Manage Discord in Connections")
+	r.tt.Drain()
+	if got := r.router.Location(); got != "/settings?section=connections" {
+		t.Errorf("location %q", got)
+	}
+}
+
+// Where the sandbox can't be set up the add-on does not run, and its row says
 // why in plain words: the reason of each cause, none of them a way to run it.
 func TestAnAddonWithoutASandboxSaysWhyItDoesNotRun(t *testing.T) {
 	for code, want := range map[string]string{
@@ -243,29 +324,25 @@ func TestAnAddonWithoutASandboxSaysWhyItDoesNotRun(t *testing.T) {
 		a := webhook()
 		a.State, a.Sandbox = services.AddonNoSandbox, code
 		f := &fakeAddons{infos: []services.AddonInfo{a}, rows: map[string][]services.AddonRow{}}
-		r := addonsRig(t, f, 1132, 1400)
+		r := addonsRig(t, f, 1132, 1000)
 		r.tt.Until("the reason "+code, func() bool {
 			return slices.ContainsFunc(r.tt.Texts(), func(s string) bool {
 				return strings.Contains(s, "It doesn't run:") && strings.Contains(s, want) && strings.Contains(s, "never runs an add-on without")
 			})
 		})
-		if r.tt.HasText("Running.") {
-			t.Errorf("%s: an add-on that isn't running is said to run", code)
+		if !r.tt.HasText("Can't run · Sandboxed") || hasPrefix(r, "Running") {
+			t.Errorf("%s: the row's state; texts %q", code, r.tt.Texts())
 		}
 	}
 }
 
 // One of Sona's own add-ons that runs without the sandbox shows as running,
-// with the reason in a muted line; every reason has words of its own.
+// with the reason under it; every reason has words of its own.
 func TestAnAddonRunningWithoutIsolationSaysWhy(t *testing.T) {
-	a := webhook()
-	a.State, a.Bundled, a.Unsandboxed = services.AddonRunning, true, addons.SandboxNoUserNamespace
-	f := &fakeAddons{infos: []services.AddonInfo{a}, rows: map[string][]services.AddonRow{}}
-	r := addonsRig(t, f, 1132, 1400)
+	f := &fakeAddons{infos: ownAddons()[:1], rows: map[string][]services.AddonRow{}}
+	r := addonsRig(t, f, 1132, 1000)
 	r.tt.Until("the line", func() bool {
-		return slices.ContainsFunc(r.tt.Texts(), func(s string) bool {
-			return strings.HasPrefix(s, "Running without isolation:") && strings.Contains(s, "doesn't let Sona create the isolated space")
-		})
+		return hasPrefix(r, "Running without isolation:") && r.tt.HasText("Running")
 	})
 	for _, c := range []string{
 		addons.SandboxUserNamespaceRestricted, addons.SandboxNoUserNamespace, addons.SandboxNoSeccomp, addons.SandboxNoSeatbelt,
@@ -286,7 +363,7 @@ func TestOpenAddonsFolderOpensIt(t *testing.T) {
 
 func TestTurningAnAddonOnShowsItsPermissionsFirstAndApprovesExactlyThose(t *testing.T) {
 	f := standardAddons()
-	r := addonsRig(t, f, 1132, 2600)
+	r := addonsRig(t, f, 1132, 1400)
 	r.tt.MustClick("Turn on Home bridge")
 	r.tt.Drain()
 	if !r.tt.HasText("Turn on Home bridge?") || !r.tt.HasText("Playback controls") || !r.tt.HasText("Can play, pause, skip, go back and seek, play an Apple Music link, and change shuffle, repeat and crossfade.") {
@@ -302,31 +379,7 @@ func TestTurningAnAddonOnShowsItsPermissionsFirstAndApprovesExactlyThose(t *test
 		t.Fatal(err)
 	}
 	r.tt.Until("the enable", func() bool { return slices.Contains(f.seen(), "enable home-bridge [playback.control]") })
-	r.tt.Until("it runs", r.tt.Shows("Running."))
-}
-
-// Sona's own add-ons (Last.fm, ListenBrainz, Discord) are part of the signed
-// release: turning one on approves nothing, there is no permission to revoke
-// and no version of their own to show.
-func TestSonasOwnAddonsNeedNoApprovalAndHaveNothingToRevoke(t *testing.T) {
-	f := &fakeAddons{infos: []services.AddonInfo{{
-		ID: "discord", Name: "Discord", Version: "1.0.0", Description: "Shows the song you play on your Discord profile.",
-		Permissions: []string{"playback.read"}, Granted: []string{"playback.read"},
-		Bundled: true, Enabled: false, State: services.AddonOff,
-	}}}
-	r := addonsRig(t, f, 1132, 2000)
-	if r.tt.HasText("Version 1.0.0") {
-		t.Error("a bundled add-on shows a version of its own")
-	}
-	if r.tt.HasText("Revoke Playback state · Discord") {
-		t.Error("a bundled add-on's permission can be revoked")
-	}
-	r.tt.MustClick("Turn on Discord")
-	r.tt.Until("the enable", func() bool { return slices.Contains(f.seen(), "enable discord [playback.read]") })
-	if r.tt.HasText("Turn on Discord?") {
-		t.Error("a bundled add-on asked for approval")
-	}
-	r.tt.Until("it runs", r.tt.Shows("Running."))
+	r.tt.Until("it runs", func() bool { return !r.tt.HasText("Off · Sandboxed") })
 }
 
 func announced(ann []string, prefix string) bool {
@@ -335,7 +388,7 @@ func announced(ann []string, prefix string) bool {
 
 func TestCancellingTheApprovalOrEscapeEnablesNothing(t *testing.T) {
 	f := standardAddons()
-	r := addonsRig(t, f, 1132, 2600)
+	r := addonsRig(t, f, 1132, 1400)
 	r.tt.MustClick("Turn on Home bridge")
 	r.tt.Drain()
 	r.tt.MustClick("Cancel")
@@ -357,25 +410,26 @@ func TestCancellingTheApprovalOrEscapeEnablesNothing(t *testing.T) {
 
 func TestTurningAnAddonOffStopsItAtOnce(t *testing.T) {
 	f := standardAddons()
-	r := addonsRig(t, f, 1132, 2600)
+	r := addonsRig(t, f, 1132, 1400)
 	r.tt.MustClick("Turn on Now playing webhook") // the switch is on: a click turns it off
 	r.tt.Until("the disable", func() bool { return slices.Contains(f.seen(), "disable webhook") })
-	r.tt.Until("it is off", func() bool { return r.s.addonsSummary() == "3 add-ons · 0 on" })
+	r.tt.Until("it is off", func() bool { return !hasPrefix(r, "Running") })
 }
 
 func TestRevokingAPermissionIsOneClickAndSaysWhatIsLeft(t *testing.T) {
 	f := standardAddons()
-	r := addonsRig(t, f, 1132, 2600)
+	r := addonsRig(t, f, 1132, 1600)
+	openAddon(r, f, "webhook", "Now playing webhook")
 	r.tt.MustClick("Revoke Playback state · Now playing webhook")
 	r.tt.Until("the revoke", func() bool { return slices.Contains(f.seen(), "revoke webhook playback.read") })
 	r.tt.Until("the permission is not approved", r.tt.Shows("Not approved"))
-	r.tt.Until("it waits for approval", r.tt.Shows("Waiting for you: it asks for a permission you haven't approved. It doesn't run until you do."))
+	r.tt.Until("it waits for approval", r.tt.Shows("Needs your approval · Sandboxed", "It asks for a permission you haven't approved. It doesn't run until you do."))
 }
 
 func TestSettingsRowsSaveAndASecretIsNeverShown(t *testing.T) {
 	f := standardAddons()
-	r := addonsRig(t, f, 1132, 2600)
-	r.tt.Until("the rows", r.tt.Shows("Post songs"))
+	r := addonsRig(t, f, 1132, 1600)
+	openAddon(r, f, "webhook", "Now playing webhook")
 
 	// A switch row saves at once.
 	r.tt.MustClick("Post songs")
@@ -419,16 +473,10 @@ func TestSettingsRowsSaveAndASecretIsNeverShown(t *testing.T) {
 func TestAFailedCallIsASentenceUnderTheAddon(t *testing.T) {
 	f := standardAddons()
 	f.failOn = "revoke"
-	r := addonsRig(t, f, 1132, 2600)
+	r := addonsRig(t, f, 1132, 1600)
+	openAddon(r, f, "webhook", "Now playing webhook")
 	r.tt.MustClick("Revoke Playback state · Now playing webhook")
-	r.tt.Until("the sentence", func() bool {
-		for _, s := range r.tt.Texts() {
-			if strings.HasPrefix(s, "Sona couldn't do that") {
-				return true
-			}
-		}
-		return false
-	})
+	r.tt.Until("the sentence", func() bool { return hasPrefix(r, "Sona couldn't do that") })
 	// The error is an alert for assistive technology, and the add-on is as it was.
 	tr := access.Read(t, r.tt.Tester)
 	if n := tr.Roles(ui.RoleAlert); len(n) == 0 {
@@ -438,7 +486,8 @@ func TestAFailedCallIsASentenceUnderTheAddon(t *testing.T) {
 
 func TestTheLogIsReadWhenAskedForAndShownAsPlainLines(t *testing.T) {
 	f := standardAddons()
-	r := addonsRig(t, f, 1132, 2600)
+	r := addonsRig(t, f, 1132, 1600)
+	openAddon(r, f, "webhook", "Now playing webhook")
 	if slices.ContainsFunc(f.seen(), func(c string) bool { return strings.HasPrefix(c, "log ") }) {
 		t.Fatal("a log was read before it was asked for")
 	}
@@ -459,8 +508,8 @@ func TestTheLogIsReadWhenAskedForAndShownAsPlainLines(t *testing.T) {
 }
 
 func TestAnEmptyFolderSaysHowToInstallAndAnUnsupportedPlatformSaysItCannot(t *testing.T) {
-	r := addonsRig(t, &fakeAddons{}, 1132, 1400)
-	r.tt.Until("the empty line", r.tt.Shows("No add-ons are installed. Open the folder, put an add-on's folder in it and it appears here."))
+	r := addonsRig(t, &fakeAddons{}, 1132, 1000)
+	r.tt.Until("the empty block", r.tt.Shows("No add-ons installed", "Put an add-on's folder in the add-ons folder, then look again."))
 	if got := r.s.addonsSummary(); got != "None installed" {
 		t.Errorf("summary %q", got)
 	}
@@ -504,12 +553,12 @@ func TestEveryPermissionAndProblemHasWords(t *testing.T) {
 }
 
 // Nothing in the section is nameless or nested, every control that is
-// pressed names its add-on, and the Tab walk reaches the switch, the
-// permissions, the rows and the log in the order they are drawn.
+// pressed names its add-on, and the Tab walk goes row by row: a row's
+// disclosure, its switch, then, while it is open, its details.
 func TestA11yAddonsSection(t *testing.T) {
 	f := standardAddons()
-	r := addonsRig(t, f, 1132, 2600)
-	r.tt.Until("the rows", r.tt.Shows("Post songs"))
+	r := addonsRig(t, f, 1132, 1600)
+	openAddon(r, f, "webhook", "Now playing webhook")
 	tt := r.tt.Tester
 	access.NoNestedControls(t, tt)
 	tr := access.Read(t, tt)
@@ -522,6 +571,7 @@ func TestA11yAddonsSection(t *testing.T) {
 		role  ui.Role
 		label string
 	}{
+		{ui.RoleDisclosure, "Now playing webhook"},
 		{ui.RoleSwitch, "Turn on Now playing webhook"},
 		{ui.RoleSwitch, "Turn on Home bridge"},
 		{ui.RoleButton, "Revoke Playback state · Now playing webhook"},
@@ -534,8 +584,12 @@ func TestA11yAddonsSection(t *testing.T) {
 			t.Errorf("no %v %q:\n%s", want.role, want.label, tr.Dump())
 		}
 	}
+	// The walk starts at the disclosure just pressed and wraps round.
 	stops := stopLabels(access.TabWalk(t, tt, 200))
-	if !inOrder(stops, []string{"Open add-ons folder", "Turn on Home bridge", "Turn on Now playing webhook", "Revoke Playback state · Now playing webhook", "Show log · Now playing webhook"}) {
+	if !inOrder(stops, []string{
+		"Turn on Now playing webhook", "Revoke Playback state · Now playing webhook", "Web address", "Show log · Now playing webhook",
+		"Open add-ons folder", "Home bridge", "Turn on Home bridge", "sloppy", "Now playing webhook",
+	}) {
 		t.Errorf("Tab walk %q", stops)
 	}
 }
@@ -553,8 +607,9 @@ func TestAddonsGolden(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := standardAddons()
-			r := addonsRig(t, f, 1132, 1230, tc.opts...)
-			r.tt.Until("the add-ons", r.tt.Shows("Post songs", "Home bridge"))
+			f.infos = append(ownAddons(), f.infos...)
+			r := addonsRig(t, f, 1132, 1420, tc.opts...)
+			openAddon(r, f, "webhook", "Now playing webhook")
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), tc.name)
 		})
@@ -562,7 +617,6 @@ func TestAddonsGolden(t *testing.T) {
 	t.Run("settings-addons-approval-light", func(t *testing.T) {
 		f := standardAddons()
 		r := addonsRig(t, f, 1132, 760)
-		r.tt.Until("the add-ons", r.tt.Shows("Home bridge"))
 		r.tt.MustClick("Turn on Home bridge")
 		r.tt.Until("the panel", r.tt.Shows("Turn on Home bridge?"))
 		r.tt.Settle()

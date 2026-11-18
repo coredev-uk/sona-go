@@ -17,11 +17,12 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// Settings → Add-ons (docs/addons.md): a note on what an add-on is, the
-// folder to put one in, then each add-on under a heading of its own with its
-// switch, permissions, settings rows and log. Sona draws every word of it:
-// the manifest's labels are plain text, cleaned by the service and again
-// here, always beside the add-on's name.
+// Settings → Add-ons (docs/addons.md, docs/design.md "Settings"): a roster.
+// Sona's own add-ons come first, as status only (their accounts and switches
+// are in Connections); then the installed ones, one ledger row each with its
+// state in words and its switch. A row opens its permissions, settings and
+// log under it, one add-on at a time. Sona draws every word: the manifest's
+// labels are plain text, cleaned by the service and again here.
 
 // addonsAPI is what the section asks of AddonsService.
 type addonsAPI interface {
@@ -70,7 +71,9 @@ func (s *settings) addonRows() store.Result[[]services.AddonContribution] {
 
 // addonsUI is the section's state that outlives a frame.
 type addonsUI struct {
-	// approving is the add-on whose approval panel is open.
+	// open is the add-on whose details are open under its row ("" none);
+	// approving the one whose approval panel is open.
+	open      string
 	approving string
 	// busy is the add-ons with a call in flight; errs the last failure of
 	// each, in words.
@@ -226,33 +229,55 @@ func unisolatedText(code string) string {
 	return i18n.T("Running without isolation: Sona couldn't set up its sandbox. This add-on is part of Sona and has the same access Sona has. The add-on's log has the details.")
 }
 
-// addonStatus is one sentence on where an add-on is.
-func addonStatus(a services.AddonInfo) string {
-	if a.Unsandboxed != "" && a.State == services.AddonRunning {
-		return unisolatedText(a.Unsandboxed)
-	}
+// tone is the colour of a row's state dot; the state is always also said in
+// words beside it.
+type tone int
+
+const (
+	toneOff tone = iota
+	toneOK
+	toneAttention
+)
+
+// addonState is where an add-on is: a word or two for its row, the tone of
+// its dot, and, when the word alone doesn't say what to do, a sentence under
+// it.
+func addonState(a services.AddonInfo) (word string, t tone, reason string) {
 	switch a.State {
 	case services.AddonRunning:
-		return i18n.T("Running.")
+		if a.Unsandboxed != "" {
+			return i18n.T("Running"), toneOK, unisolatedText(a.Unsandboxed)
+		}
+		return i18n.T("Running"), toneOK, ""
 	case services.AddonStarting:
-		return i18n.T("Starting.")
-	case services.AddonRestarting:
-		return i18n.T("It stopped on its own. Sona starts it again in a moment.")
-	case services.AddonCrashed:
-		return i18n.T("Switched off: it stopped on its own too many times in a row. Turn it on to try again.")
+		return i18n.T("Starting"), toneOK, ""
 	case services.AddonIdle:
-		return i18n.T("On. It starts when Sona has something for it to do.")
+		return i18n.T("On"), toneOK, i18n.T("It starts when Sona has something for it to do.")
+	case services.AddonRestarting:
+		return i18n.T("Restarting"), toneAttention, i18n.T("It stopped on its own. Sona starts it again in a moment.")
+	case services.AddonCrashed:
+		return i18n.T("Switched off"), toneAttention, i18n.T("It stopped on its own too many times in a row. Turn it on to try again.")
 	case services.AddonNeedsApproval:
-		return i18n.T("Waiting for you: it asks for a permission you haven't approved. It doesn't run until you do.")
+		return i18n.T("Needs your approval"), toneAttention, i18n.T("It asks for a permission you haven't approved. It doesn't run until you do.")
 	case services.AddonInvalid:
-		return addonProblemText(a.Problem)
+		return i18n.T("Won't run"), toneAttention, addonProblemText(a.Problem)
 	case services.AddonNoSandbox:
-		return sandboxText(a.Sandbox)
+		return i18n.T("Can't run"), toneAttention, sandboxText(a.Sandbox)
 	}
-	return i18n.T("Off. It isn't running.")
+	if a.Bundled {
+		return i18n.T("Not in use"), toneOff, ""
+	}
+	return i18n.T("Off"), toneOff, ""
 }
 
-// addons is Settings → Add-ons.
+// needsYou reports an add-on whose row asks for the person: one that can't
+// run, was switched off, or waits for an approval.
+func needsYou(a services.AddonInfo) bool {
+	_, t, _ := addonState(a)
+	return t == toneAttention
+}
+
+// addonsSection is Settings → Add-ons.
 func (s *settings) addonsSection(c *ui.Context) {
 	_, caps, ok := s.ready()
 	if !ok {
@@ -261,7 +286,7 @@ func (s *settings) addonsSection(c *ui.Context) {
 	}
 	if !caps.Addons {
 		s.stack(c, func() {
-			s.group(c, "addons-about", i18n.T("Add-ons"), "", func() {
+			s.group(c, "addons-installed", i18n.T("Installed"), "", func() {
 				s.unavailableRow(c, "addons-folder", i18n.T("Add-ons folder"), "")
 			})
 		})
@@ -271,25 +296,56 @@ func (s *settings) addonsSection(c *ui.Context) {
 	u.init()
 	list := s.addonList()
 	rows := s.addonRows()
+	var own, installed []services.AddonInfo
+	for _, a := range list.Data {
+		if a.Bundled {
+			own = append(own, a)
+		} else {
+			installed = append(installed, a)
+		}
+	}
 	s.stack(c, func() {
-		s.group(c, "addons-about", i18n.T("Add-ons"), i18n.T("Programs that run beside Sona and add small things to it."), func() {
-			s.addonsTrustNote(c)
-			s.addonsFolderRow(c, u)
-		})
-		if !list.HasData {
-			s.loading(c, 2)
-			return
+		if len(own) > 0 {
+			s.group(c, "addons-own", i18n.T("Sona's Own"), i18n.T("Part of Sona. Their accounts are in Connections."), func() {
+				for _, a := range own {
+					s.addonEntry(c, u, a, nil)
+				}
+			})
 		}
-		if list.Err != nil {
-			kit.AlertLine(c.Key("addons-error"), i18n.T("Couldn't read the add-ons: {statusError}", "statusError", i18n.ErrorMessage(list.Err)))
-		}
-		for _, a := range list.Data {
-			s.addonGroup(c, u, a, rowsOf(rows.Data, a.ID))
-		}
-		if len(list.Data) == 0 {
-			s.group(c, "addons-none", i18n.T("Installed"), "", func() {
-				theme.Text(c, i18n.T("No add-ons are installed. Open the folder, put an add-on's folder in it and it appears here."), "secondary").
-					TextColor(theme.C("ink-muted")).Padding(rowPadY, 0).MaxWidth(rowTextWidth)
+		s.group(c, "addons-installed", i18n.T("Installed"),
+			i18n.T("Programs you add. Each runs in a sandbox with only what you approve, so turn on only add-ons you trust."), func() {
+				switch {
+				case !list.HasData:
+					s.addonsLoading(c)
+				case list.Err != nil:
+					ui.Column(c.Key("addons-error")).FillWidth().Padding(rowPadY, 0).Children(func() {
+						kit.AlertLine(c, i18n.T("Couldn't read the add-ons: {statusError}", "statusError", i18n.ErrorMessage(list.Err)))
+					})
+				case len(installed) == 0:
+					ui.Column(c.Key("addons-none")).FillWidth().Padding(rowPadY, 0).Children(func() {
+						kit.EmptyState(c, i18n.T("No add-ons installed"),
+							i18n.T("Put an add-on's folder in the add-ons folder, then look again."), kit.EmptyOpts{})
+					})
+				}
+				for _, a := range installed {
+					s.addonEntry(c, u, a, rowsOf(rows.Data, a.ID))
+				}
+				s.addonsFolderRow(c, u)
+			})
+	})
+}
+
+// addonsLoading is the roster's rows in their shape while the list loads.
+func (s *settings) addonsLoading(c *ui.Context) {
+	ui.Column(c.Key("addons-loading")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
+		for i := range 2 {
+			k := c.Key(i)
+			ui.Column(k).FillWidth().Children(func() {
+				s.line(k)
+				ui.Column(k.Key("r")).Gap(8).Padding(rowPadY, 0).Children(func() {
+					kit.Bar(k.Key("t"), 160, 14)
+					kit.Bar(k.Key("d"), 220, 12)
+				})
 			})
 		}
 	})
@@ -303,18 +359,6 @@ func rowsOf(list []services.AddonContribution, id string) []services.AddonRow {
 		}
 	}
 	return nil
-}
-
-// addonsTrustNote says, before anything else, what an add-on is: a program
-// Sona runs in a sandbox, which still deserves trust.
-func (s *settings) addonsTrustNote(c *ui.Context) {
-	c = c.Key("trust")
-	msg := i18n.T("An add-on is a program that runs beside Sona in a sandbox: it reads only its own folder, writes only its own data folder and has no network unless you allow it to reach the internet. What you approve is what Sona gives it. Turn on only add-ons you trust.")
-	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Start).Padding(12, 16).Margin(rowPadY, 0, 0, 0).Radius(theme.Current().Radius["lg"]).
-		Background(theme.C("raised")).Border(1, theme.C("control-line")).Role(ui.RoleGroup).Label(msg).Children(func() {
-		ui.Icon(c.Key("i"), theme.Icon("shield-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
-		theme.Text(c, msg, "secondary").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
-	})
 }
 
 // addonsFolderRow is Open add-ons folder: how an add-on is installed.
@@ -344,99 +388,173 @@ func (s *settings) addonsFolderRow(c *ui.Context, u *addonsUI) {
 	})
 }
 
-// addonGroup is one add-on under its own heading.
-func (s *settings) addonGroup(c *ui.Context, u *addonsUI, a services.AddonInfo, rows []services.AddonRow) {
-	name := clean(a.Name, 60)
-	if name == "" {
-		name = clean(a.ID, 60)
+// addonName is what the add-on is called on its row.
+func addonName(a services.AddonInfo) string {
+	if name := clean(a.Name, 60); name != "" {
+		return name
 	}
-	desc := clean(a.Description, 300)
-	if a.Version != "" && !a.Bundled {
-		desc = i18n.Meta(i18n.T("Version {version}", "version", clean(a.Version, 40)), desc)
-	}
-	if a.Runtime == addons.RuntimeWasm {
-		desc = i18n.Meta(i18n.T("WebAssembly"), desc)
-	}
-	s.group(c, "addon:"+a.ID, name, desc, func() {
-		if a.State == services.AddonInvalid {
-			s.addonProblem(c, a)
-			return
-		}
-		s.addonSwitch(c, u, a, name)
+	return clean(a.ID, 60)
+}
+
+// addonEntry is one add-on's row in the roster: a disclosure with its name
+// and its state in words, and at the right its switch (an installed one) or
+// the way to Connections (one of Sona's own). Under it, while open, the
+// approval panel, a failed call, and its details.
+func (s *settings) addonEntry(c *ui.Context, u *addonsUI, a services.AddonInfo, rows []services.AddonRow) {
+	c = c.Key("addon:" + a.ID)
+	name := addonName(a)
+	open := u.open == a.ID
+	ui.Column(c).FillWidth().Children(func() {
+		s.line(c)
+		// The control sits level with the name line (6 DIP of padding, a
+		// 20 DIP line), however many lines the state takes under it.
+		ui.Row(c.Key("head")).FillWidth().AlignItems(ui.Start).Gap(rowGap).Padding(rowPadY-6, 0).Children(func() {
+			s.addonDisclosure(c, u, a, name, open)
+			switch {
+			case a.Bundled:
+				s.connectionsLink(c, name)
+			case a.State != services.AddonInvalid:
+				s.addonSwitch(c, u, a, name)
+			}
+		})
 		if u.approving == a.ID {
 			s.addonApproval(c, u, a, name)
 		}
 		if msg := u.errs[a.ID]; msg != "" {
-			ui.Column(c.Key("err:"+a.ID)).FillWidth().Padding(0, 0, rowPadY, 0).Children(func() { kit.AlertLine(c, msg) })
+			ui.Column(c.Key("err")).FillWidth().Padding(0, 0, rowPadY, 0).Children(func() { kit.AlertLine(c, msg) })
 		}
-		s.addonPermissions(c, u, a, name)
-		for _, r := range rows {
-			s.addonRow(c, u, a, name, r)
+		if open {
+			s.addonDetails(c, u, a, name, rows)
 		}
-		s.addonLogRow(c, u, a, name)
 	})
+}
+
+// addonDisclosure is the row's text as one button: the chevron and the name,
+// then the state dot, the state in words and how it runs, and the sentence
+// under it when there is one. It opens and closes the add-on's details.
+func (s *settings) addonDisclosure(c *ui.Context, u *addonsUI, a services.AddonInfo, name string, open bool) {
+	word, t, reason := addonState(a)
+	line := word
+	if a.Restarts > 0 && a.State != services.AddonCrashed {
+		line = i18n.Meta(line, i18n.T("{n, plural, one {stopped once} other {stopped # times}}", "n", a.Restarts))
+	}
+	if how := addonRunsAs(a); how != "" {
+		line = i18n.Meta(line, how)
+	}
+	tk := theme.Current()
+	b := ui.ButtonBase(c.Key("open")).Grow(1).Shrink(1).MinWidth(0).Margin(0, 0, 0, -rowWashInset).Padding(6, rowWashInset).
+		Radius(tk.Radius["md"]).Role(ui.RoleDisclosure).Expanded(open).Label(name).Description(strings.TrimSpace(line + ". " + reason))
+	if b.Hovered() {
+		b.Background(theme.C("hover"))
+	}
+	theme.Fade(b, "feedback")
+	b.Children(func() {
+		ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Start).Children(func() {
+			ui.Row(c.Key("name")).AlignItems(ui.Center).Gap(6).Children(func() {
+				ic := theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: theme.C("ink-muted")})
+				turn := float32(0)
+				if open {
+					turn = 90
+				}
+				if theme.ReducedMotion() {
+					ic.Rotate(turn)
+				} else {
+					ic.Rotate(ic.Animate("turn", turn, tk.Motion["press"].Duration))
+				}
+				theme.Text(c, name, "label").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
+			})
+			ui.Row(c.Key("state")).AlignItems(ui.Center).Gap(8).Margin(2, 0, 0, 20).Children(func() {
+				dot := theme.C("ink-faint")
+				switch t {
+				case toneOK:
+					dot = theme.C("positive")
+				case toneAttention:
+					dot = theme.C("danger")
+				}
+				ui.Box(c.Key("dot")).Width(7).Height(7).Shrink(0).Radius(tk.Radius["full"]).Background(dot)
+				theme.Text(c, line, "secondary").TextColor(theme.C("ink-muted")).Shrink(1).MinWidth(0)
+			})
+			if reason != "" {
+				theme.Text(c.Key("why"), reason, "secondary").TextColor(theme.C("ink-muted")).MaxWidth(rowTextWidth).Margin(2, 0, 0, 35)
+			}
+		})
+	})
+	if b.Clicked() {
+		if open {
+			u.open = ""
+		} else {
+			u.open = a.ID
+		}
+	}
+}
+
+// addonRunsAs is how an add-on runs, in a word or two: inside Sona as
+// WebAssembly, or in its sandbox, with the internet when that is approved.
+// Sona's own say nothing: they are part of Sona.
+func addonRunsAs(a services.AddonInfo) string {
+	if a.Bundled || a.State == services.AddonInvalid {
+		return ""
+	}
+	if a.Runtime == addons.RuntimeWasm {
+		return i18n.T("WebAssembly")
+	}
+	if slices.Contains(a.Granted, cli.PermNetwork) {
+		return i18n.Meta(i18n.T("Sandboxed"), i18n.T("Internet"))
+	}
+	return i18n.T("Sandboxed")
+}
+
+// connectionsLink is the way from one of Sona's own add-ons to where its
+// account and switch are.
+func (s *settings) connectionsLink(c *ui.Context, name string) {
+	tk := theme.Current()
+	e := ui.ButtonBase(c.Key("connections")).Role(ui.RoleLink).Label(i18n.T("Manage {name} in Connections", "name", name)).
+		Height(28).PaddingX(8).Gap(2).Radius(tk.Radius["md"]).Center().Shrink(0).Margin(2, 0, 0, 0)
+	ink := theme.C("ink-muted")
+	if e.Hovered() {
+		e.Background(theme.C("hover"))
+		ink = theme.C("ink")
+	}
+	theme.Fade(e, "feedback")
+	e.TextColor(ink).Children(func() {
+		theme.Text(c, i18n.T("Connections"), "secondary").SingleLine()
+		theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: ink, Inherit: true})
+	})
+	if e.Clicked() {
+		s.env.Nav.Replace(settingsPath + "?section=" + secConnections)
+	}
 }
 
 // clean is plain text of at most n bytes; the service cleans it already.
 func clean(text string, n int) string { return strings.TrimSpace(addons.Sanitize(text, n)) }
 
-// addonProblem is what a refused add-on shows: the reason and nothing to
-// turn on.
-func (s *settings) addonProblem(c *ui.Context, a services.AddonInfo) {
-	id := "addon:" + a.ID + ":problem"
-	why := addonProblemText(a.Problem)
-	s.seen[id] = true
-	ui.Column(c.Key(id)).FillWidth().Children(func() {
-		s.line(c)
-		ui.Row(c.Key("in")).FillWidth().Gap(8).AlignItems(ui.Start).Padding(rowPadY, 0).Role(ui.RoleGroup).Label(why).Children(func() {
-			ui.Icon(c.Key("i"), theme.Icon("circle-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
-			ui.Column(c.Key("t")).Shrink(1).MinWidth(0).Children(func() {
-				theme.Text(c, i18n.T("Sona won't run this add-on"), "label").TextColor(theme.C("ink"))
-				theme.Text(c, why, "secondary").TextColor(theme.C("ink-muted")).MaxWidth(rowTextWidth).Margin(2, 0, 0, 0)
-			})
-		})
-	})
-}
-
-// addonSwitch is the on/off switch, with where the add-on is in words.
+// addonSwitch is the on/off switch at the right of an installed add-on's row.
 // Turning it on asks first, in a panel under the row, naming each permission;
 // turning it off stops the add-on at once.
 func (s *settings) addonSwitch(c *ui.Context, u *addonsUI, a services.AddonInfo, name string) {
-	status := addonStatus(a)
-	if a.Restarts > 0 && a.State != services.AddonCrashed {
-		status += " " + i18n.T("{n, plural, one {It has stopped on its own once.} other {It has stopped on its own # times.}}", "n", a.Restarts)
+	on := a.Enabled && a.State != services.AddonNeedsApproval || u.approving == a.ID
+	sw := kit.Switch(c.Key("on"), &on, kit.SwitchOpts{A11yLabel: i18n.T("Turn on {name}", "name", name), Disabled: u.busy[a.ID]})
+	sw.Shrink(0).Margin(7, 0, 0, 0)
+	if !sw.Changed() {
+		return
 	}
-	id := "addon:" + a.ID + ":on"
-	s.tell(c, id, status)
-	busy := u.busy[a.ID]
-	s.row(c, rowOpts{ID: id, Title: i18n.T("Turned on"), Desc: status}, func() ui.Element {
-		on := a.Enabled && a.State != services.AddonNeedsApproval || u.approving == a.ID
-		sw := kit.Switch(c, &on, kit.SwitchOpts{A11yLabel: i18n.T("Turn on {name}", "name", name), Disabled: busy})
-		if sw.Changed() {
-			switch {
-			case on && a.Bundled:
-				// Sona's own add-on: part of the app Sona is, nothing to approve.
-				approve := slices.Clone(a.Permissions)
-				s.addonCall(u, a.ID, func() error { return s.addons.Enable(a.ID, approve) })
-			case on:
-				// Never on without the person seeing what it asks for.
-				u.approving, u.focus = a.ID, 0
-				u.errs[a.ID] = ""
-			case u.approving == a.ID:
-				u.approving = ""
-			default:
-				s.addonCall(u, a.ID, func() error { return s.addons.Disable(a.ID) })
-			}
-		}
-		return sw
-	})
+	switch {
+	case on:
+		// Never on without the person seeing what it asks for.
+		u.approving, u.focus = a.ID, 0
+		u.errs[a.ID] = ""
+	case u.approving == a.ID:
+		u.approving = ""
+	default:
+		s.addonCall(u, a.ID, func() error { return s.addons.Disable(a.ID) })
+	}
 }
 
-// addonApproval is the panel under the switch: what the add-on asks for and
+// addonApproval is the panel under the row: what the add-on asks for and
 // what that is worth, then Turn on or Cancel (Escape cancels). The permissions
 // approved are the ones shown.
 func (s *settings) addonApproval(c *ui.Context, u *addonsUI, a services.AddonInfo, name string) {
-	c = c.Key("approve:" + a.ID)
+	c = c.Key("approve")
 	title := i18n.T("Turn on {name}?", "name", name)
 	panel := ui.Column(c).FillWidth().Gap(10).Padding(14, 16).Margin(0, 0, rowPadY, 0).Radius(theme.Current().Radius["lg"]).
 		Background(theme.C("raised")).Border(1, theme.C("control-line")).Role(ui.RoleGroup).Label(title)
@@ -474,6 +592,52 @@ func (s *settings) addonApproval(c *ui.Context, u *addonsUI, a services.AddonInf
 	}
 }
 
+// facetWidth is the column an add-on's details name their parts in.
+const facetWidth = 104
+
+// addonDetails is an add-on's opened row: its version and description, then
+// its permissions, its settings rows and its log, each named in a column of
+// its own, on the hover wash so the block reads as the row's own.
+func (s *settings) addonDetails(c *ui.Context, u *addonsUI, a services.AddonInfo, name string, rows []services.AddonRow) {
+	c = c.Key("details")
+	about := clean(a.Description, 300)
+	if a.Version != "" && !a.Bundled {
+		about = i18n.Meta(i18n.T("Version {version}", "version", clean(a.Version, 40)), about)
+	}
+	ui.Column(c).FillWidth().Margin(0, 0, rowPadY, 0).Padding(6, 20).Radius(theme.Current().Radius["lg"]).
+		Background(theme.C("hover")).Role(ui.RoleGroup).Label(name).Children(func() {
+		first := true
+		facet := func(key, title string, body func()) {
+			k := c.Key("facet:" + key)
+			if !first {
+				ui.Box(c.Key("line:" + key)).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
+			}
+			first = false
+			ui.Row(k).FillWidth().Gap(16).AlignItems(ui.Start).Padding(12, 0).Children(func() {
+				theme.Text(k, title, "secondary").FontWeight(600).TextColor(theme.C("ink")).Width(facetWidth).Shrink(0).Margin(1, 0, 0, 0)
+				ui.Column(k.Key("body")).Grow(1).Shrink(1).MinWidth(0).Gap(12).Children(body)
+			})
+		}
+		if about != "" {
+			facet("about", i18n.T("About"), func() {
+				theme.Text(c, about, "secondary").TextColor(theme.C("ink-muted")).MaxWidth(rowTextWidth)
+			})
+		}
+		if a.State == services.AddonInvalid {
+			return // nothing runs: no permissions to show, no rows, no log
+		}
+		facet("permissions", i18n.T("Permissions"), func() { s.addonPermissions(c, u, a, name) })
+		if len(rows) > 0 {
+			facet("settings", i18n.T("Settings"), func() {
+				for _, r := range rows {
+					s.addonRow(c, u, a, name, r)
+				}
+			})
+		}
+		facet("log", i18n.T("Log"), func() { s.addonLog(c, u, a, name) })
+	})
+}
+
 // permissionList is the permissions as a list: each one's name and what it
 // allows, and, with granted given, whether it is approved and a Revoke button.
 func (s *settings) permissionList(c *ui.Context, addon string, asked []string, granted func(string) (bool, func())) {
@@ -505,30 +669,22 @@ func (s *settings) permissionList(c *ui.Context, addon string, asked []string, g
 	})
 }
 
-// addonPermissions is the permissions row: each one asked for, whether it is
-// approved, and Revoke on the approved ones (it takes effect on the add-on's
-// very next call).
+// addonPermissions is what an add-on asks for, whether each is approved, and
+// Revoke on the approved ones (it takes effect on the add-on's very next
+// call). Sona's own have nothing to revoke: they are part of Sona.
 func (s *settings) addonPermissions(c *ui.Context, u *addonsUI, a services.AddonInfo, name string) {
-	id := "addon:" + a.ID + ":permissions"
-	desc := i18n.T("What Sona lets it do. The sandbox holds it either way.")
-	if a.Runtime == addons.RuntimeWasm {
-		desc = i18n.T("What Sona lets it do. It can use only its own data folder and can't reach the network either way.")
+	if len(a.Permissions) == 0 {
+		theme.Text(c, i18n.T("It asks for no permissions."), "secondary").TextColor(theme.C("ink-muted"))
+		return
 	}
-	s.row(c, rowOpts{ID: id, Title: i18n.T("Permissions"), Desc: desc, Stacked: true}, func() ui.Element {
-		if len(a.Permissions) == 0 {
-			theme.Text(c, i18n.T("It asks for no permissions."), "secondary").TextColor(theme.C("ink-muted"))
-			return ui.Element{}
+	s.permissionList(c, name, a.Permissions, func(p string) (bool, func()) {
+		if !slices.Contains(a.Granted, p) {
+			return false, nil
 		}
-		s.permissionList(c, name, a.Permissions, func(p string) (bool, func()) {
-			if !slices.Contains(a.Granted, p) {
-				return false, nil
-			}
-			if a.Bundled {
-				return true, nil // Sona's own: part of it, nothing to revoke
-			}
-			return true, func() { s.addonCall(u, a.ID, func() error { return s.addons.Revoke(a.ID, p) }) }
-		})
-		return ui.Element{}
+		if a.Bundled {
+			return true, nil
+		}
+		return true, func() { s.addonCall(u, a.ID, func() error { return s.addons.Revoke(a.ID, p) }) }
 	})
 }
 
@@ -565,7 +721,33 @@ func addonErrorText(err error) string {
 	return i18n.T("Sona couldn't do that: {why}", "why", i18n.ErrorMessage(err))
 }
 
-// addonRow is one settings row of an add-on, under its heading: a switch, a
+// panelRow is one line of an opened add-on's settings: its label and what it
+// does, and its control at the right, or under it (wide), full width.
+func panelRow(c *ui.Context, key, title, desc string, below bool, control func()) (label ui.Element) {
+	c = c.Key("prow:" + key)
+	text := func() {
+		ui.Column(c.Key("t")).Grow(1).Shrink(1).MinWidth(0).MaxWidth(rowTextWidth).Children(func() {
+			label = theme.Text(c, title, "label").TextColor(theme.C("ink"))
+			if desc != "" {
+				theme.Text(c, desc, "secondary").TextColor(theme.C("ink-muted"))
+			}
+		})
+	}
+	if below {
+		ui.Column(c).FillWidth().Gap(8).Children(func() {
+			text()
+			control()
+		})
+		return label
+	}
+	ui.Row(c).FillWidth().Gap(rowGap).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
+		text()
+		ui.Row(c.Key("c")).Shrink(0).AlignItems(ui.Center).Gap(8).Children(control)
+	})
+	return label
+}
+
+// addonRow is one settings row of an add-on, in its Settings: a switch, a
 // field, a select, or a secret. Values save at once (a field with Save or
 // Enter); a secret is kept in the keyring and never shown again.
 func (s *settings) addonRow(c *ui.Context, u *addonsUI, a services.AddonInfo, name string, r services.AddonRow) {
@@ -574,7 +756,7 @@ func (s *settings) addonRow(c *ui.Context, u *addonsUI, a services.AddonInfo, na
 	if label == "" {
 		return
 	}
-	id := "addon:" + a.ID + ":row:" + r.ID
+	c = c.Key("row:" + r.ID)
 	key := a.ID + "/" + r.ID
 	busy := u.busy[a.ID]
 	save := func(value string) {
@@ -583,46 +765,57 @@ func (s *settings) addonRow(c *ui.Context, u *addonsUI, a services.AddonInfo, na
 	switch r.Kind {
 	case "toggle":
 		d := u.draft(key, r.Value)
-		s.row(c, rowOpts{ID: id, Title: label, Desc: desc, Labels: true}, func() ui.Element {
+		var sw ui.Element
+		title := panelRow(c, r.ID, label, desc, false, func() {
 			on := *d == "true"
-			sw := kit.Switch(c, &on, kit.SwitchOpts{Disabled: busy})
+			sw = kit.Switch(c.Key("sw:"+r.ID), &on, kit.SwitchOpts{A11yLabel: label, Disabled: busy})
 			if sw.Changed() {
 				*d = map[bool]string{true: "true", false: "false"}[on]
 				save(*d)
 			}
-			return sw
 		})
+		// The title is the switch's label: a click on it flips the switch,
+		// as a Settings row's does.
+		if title.Clicked() && !busy {
+			*d = map[bool]string{true: "false", false: "true"}[*d == "true"]
+			save(*d)
+			sw.Focus()
+		}
 	case "choice":
 		d := u.draft(key, r.Value)
 		items := make([]kit.SelectItem, 0, len(r.Options))
 		for _, o := range r.Options {
 			items = append(items, kit.SelectItem{Value: o.Value, Label: clean(o.Label, 60)})
 		}
-		s.row(c, rowOpts{ID: id, Title: label, Desc: desc, Labels: true}, func() ui.Element {
+		var sel ui.Element
+		title := panelRow(c, r.ID, label, desc, false, func() {
 			v := *d
-			sel := kit.Select(c, &v, items, kit.SelectOpts{Small: true, Disabled: busy, Width: selectWidthFor(items, v)})
+			sel = kit.Select(c.Key("sel:"+r.ID), &v, items, kit.SelectOpts{Small: true, A11yLabel: label, Disabled: busy, Width: selectWidthFor(items, v)})
 			if sel.Changed() && v != *d {
 				*d = v
 				save(v)
 			}
-			return sel
 		})
+		if title.Clicked() {
+			sel.Focus()
+		}
 	case "text":
 		d := u.draft(key, r.Value)
-		s.row(c, rowOpts{ID: id, Title: label, Desc: desc, Stacked: true}, func() ui.Element {
-			var first ui.Element
-			ui.Row(c.Key("field")).FillWidth().Gap(8).Children(func() {
-				in := kit.Input(c, d, kit.InputOpts{A11yLabel: label, Disabled: busy})
+		var in ui.Element
+		title := panelRow(c, r.ID, label, desc, true, func() {
+			ui.Row(c.Key("field:" + r.ID)).FillWidth().Gap(8).Children(func() {
+				in = kit.Input(c, d, kit.InputOpts{A11yLabel: label, Disabled: busy})
 				in.Grow(1).Shrink(1).MinWidth(0).Height(32)
-				first = in
 				changed := *d != r.Value
 				b := kit.Button(c.Key("save"), i18n.T("Save"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Disabled: busy || !changed, A11yLabel: i18n.T("Save {label} · {name}", "label", label, "name", name)})
 				if (b.Clicked() || in.Submitted()) && changed && !busy {
 					save(*d)
 				}
 			})
-			return first
 		})
+		if title.Clicked() {
+			in.Focus()
+		}
 	case "secret":
 		d := u.draft(key, "")
 		// A secret is never sent to the window: only that one is stored.
@@ -630,16 +823,15 @@ func (s *settings) addonRow(c *ui.Context, u *addonsUI, a services.AddonInfo, na
 		if r.Saved {
 			note = i18n.T("Saved in your system keyring. It isn't shown again.")
 		}
-		s.row(c, rowOpts{ID: id, Title: label, Desc: strings.TrimSpace(desc + " " + note), Stacked: true}, func() ui.Element {
-			var first ui.Element
-			ui.Row(c.Key("field")).FillWidth().Gap(8).Children(func() {
+		var in ui.Element
+		title := panelRow(c, r.ID, label, strings.TrimSpace(desc+" "+note), true, func() {
+			ui.Row(c.Key("field:" + r.ID)).FillWidth().Gap(8).Children(func() {
 				ph := ""
 				if r.Saved {
 					ph = i18n.T("Saved")
 				}
-				in := kit.Input(c, d, kit.InputOpts{A11yLabel: label, Password: true, Placeholder: ph, Disabled: busy})
+				in = kit.Input(c, d, kit.InputOpts{A11yLabel: label, Password: true, Placeholder: ph, Disabled: busy})
 				in.Grow(1).Shrink(1).MinWidth(0).Height(32)
-				first = in
 				ready := strings.TrimSpace(*d) != ""
 				b := kit.Button(c.Key("save"), i18n.T("Save"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Disabled: busy || !ready, A11yLabel: i18n.T("Save {label} · {name}", "label", label, "name", name)})
 				if (b.Clicked() || in.Submitted()) && ready && !busy {
@@ -653,44 +845,39 @@ func (s *settings) addonRow(c *ui.Context, u *addonsUI, a services.AddonInfo, na
 					}
 				}
 			})
-			return first
 		})
+		if title.Clicked() {
+			in.Focus()
+		}
 	}
 }
 
-// addonLogRow is the add-on's log: its last lines, read when the person asks
-// (Show log) and again with Refresh. The lines are the add-on's own words,
-// plain text, selectable as a block.
-func (s *settings) addonLogRow(c *ui.Context, u *addonsUI, a services.AddonInfo, name string) {
-	id := "addon:" + a.ID + ":log"
+// addonLog is an opened add-on's Log: its last lines, read when the person
+// asks (Show log) and again with Refresh. The lines are the add-on's own
+// words, plain text, selectable as a block.
+func (s *settings) addonLog(c *ui.Context, u *addonsUI, a services.AddonInfo, name string) {
 	open := u.logOpen[a.ID]
 	l := u.logs[a.ID]
-	s.row(c, rowOpts{ID: id, Title: i18n.T("Log"), Desc: i18n.T("What it wrote to its standard error, the last 200 lines."), Stacked: open}, func() ui.Element {
-		var first ui.Element
-		ui.Row(c.Key("buttons")).Gap(8).Children(func() {
-			label := i18n.T("Show log")
-			if open {
-				label = i18n.T("Hide log")
-			}
-			b := kit.Button(c.Key("toggle"), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, A11yLabel: label + " · " + name})
-			first = b
-			if b.Clicked() {
-				u.logOpen[a.ID] = !open
-				if !open {
-					s.readLog(u, a.ID)
-				}
-			}
-			if open {
-				if kit.Button(c.Key("refresh"), i18n.T("Refresh"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Disabled: l != nil && l.loading, A11yLabel: i18n.T("Refresh the log of {name}", "name", name)}).Clicked() {
-					s.readLog(u, a.ID)
-				}
-			}
-		})
+	panelRow(c, "log", i18n.T("What it wrote to its standard error"), i18n.T("The last 200 lines."), false, func() {
+		label := i18n.T("Show log")
 		if open {
-			s.logLines(c, l)
+			label = i18n.T("Hide log")
 		}
-		return first
+		if open {
+			if kit.Button(c.Key("refresh"), i18n.T("Refresh"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Disabled: l != nil && l.loading, A11yLabel: i18n.T("Refresh the log of {name}", "name", name)}).Clicked() {
+				s.readLog(u, a.ID)
+			}
+		}
+		if kit.Button(c.Key("toggle"), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, A11yLabel: label + " · " + name}).Clicked() {
+			u.logOpen[a.ID] = !open
+			if !open {
+				s.readLog(u, a.ID)
+			}
+		}
 	})
+	if open {
+		s.logLines(c, l)
+	}
 }
 
 // readLog reads the log off the main thread.
@@ -743,19 +930,35 @@ func (s *settings) logLines(c *ui.Context, l *addonLog) {
 	})
 }
 
-// addonsSummary is the section's line in the list: how many add-ons run.
+// addonsSummary is the section's line in the list: how many add-ons are
+// installed, and how many need the person (or how many are on).
 func (s *settings) addonsSummary() string {
 	list := s.addonList()
-	if !list.HasData || len(list.Data) == 0 {
+	if !list.HasData {
 		return i18n.T("None installed")
 	}
-	on := 0
+	installed, on, attention := 0, 0, 0
 	for _, a := range list.Data {
+		if needsYou(a) {
+			attention++
+		}
+		if a.Bundled {
+			continue
+		}
+		installed++
 		if a.Enabled {
 			on++
 		}
 	}
-	return i18n.Meta(
-		i18n.T("{n, plural, one {# add-on} other {# add-ons}}", "n", len(list.Data)),
-		i18n.T("{n, plural, one {# on} other {# on}}", "n", on))
+	first := i18n.T("None installed")
+	if installed > 0 {
+		first = i18n.T("{n, plural, one {# installed} other {# installed}}", "n", installed)
+	}
+	switch {
+	case attention > 0:
+		return i18n.Meta(first, i18n.T("{n, plural, one {# needs you} other {# need you}}", "n", attention))
+	case installed > 0:
+		return i18n.Meta(first, i18n.T("{n, plural, one {# on} other {# on}}", "n", on))
+	}
+	return first
 }
