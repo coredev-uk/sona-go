@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"golang.org/x/text/collate"
 
 	"github.com/coredev-uk/sona-go/internal/addons"
 	"github.com/coredev-uk/sona-go/internal/cli"
@@ -72,8 +73,10 @@ func (s *settings) addonRows() store.Result[[]services.AddonContribution] {
 // addonsUI is the section's state that outlives a frame.
 type addonsUI struct {
 	// open is the add-on whose details are open under its row ("" none);
+	// reveal the one just opened, scrolled into view on its first frame;
 	// approving the one whose approval panel is open.
 	open      string
+	reveal    string
 	approving string
 	// busy is the add-ons with a call in flight; errs the last failure of
 	// each, in words.
@@ -245,18 +248,21 @@ const (
 func addonState(a services.AddonInfo) (word string, t tone, reason string) {
 	switch a.State {
 	case services.AddonRunning:
-		if a.Unsandboxed != "" {
-			return i18n.T("Running"), toneOK, unisolatedText(a.Unsandboxed)
-		}
+		// Running without the sandbox is said on the row as "Not isolated"
+		// (addonRunsAs) and in full in its details, so a healthy row stays one
+		// line.
 		return i18n.T("Running"), toneOK, ""
 	case services.AddonStarting:
+		if a.Reason != "" { // tried again after a run that ended
+			return i18n.T("Starting again"), toneAttention, endedText(a.Reason) + " " + i18n.T("Sona is trying again.")
+		}
 		return i18n.T("Starting"), toneOK, ""
 	case services.AddonIdle:
 		return i18n.T("On"), toneOK, i18n.T("It starts when Sona has something for it to do.")
 	case services.AddonRestarting:
-		return i18n.T("Restarting"), toneAttention, i18n.T("It stopped on its own. Sona starts it again in a moment.")
+		return i18n.T("Restarting"), toneAttention, endedText(a.Reason) + " " + i18n.T("Sona starts it again in a moment.")
 	case services.AddonCrashed:
-		return i18n.T("Switched off"), toneAttention, i18n.T("It stopped on its own too many times in a row. Turn it on to try again.")
+		return i18n.T("Switched off"), toneAttention, endedText(a.Reason) + " " + i18n.T("That happened too many times in a row. Turn it on to try again.")
 	case services.AddonNeedsApproval:
 		return i18n.T("Needs your approval"), toneAttention, i18n.T("It asks for a permission you haven't approved. It doesn't run until you do.")
 	case services.AddonInvalid:
@@ -268,6 +274,20 @@ func addonState(a services.AddonInfo) (word string, t tone, reason string) {
 		return i18n.T("Not in use"), toneOff, ""
 	}
 	return i18n.T("Off"), toneOff, ""
+}
+
+// endedText is how an add-on's last run ended (AddonInfo.Reason), in a
+// sentence. Its log has the program's own words.
+func endedText(r services.AddonReason) string {
+	switch r {
+	case services.AddonReasonStartFailed:
+		return i18n.T("Sona couldn't start its program.")
+	case services.AddonReasonEndedAtStart:
+		return i18n.T("Its program ended before it said hello. Its log may say why.")
+	case services.AddonReasonNoHello:
+		return i18n.T("Its program didn't say hello in time.")
+	}
+	return i18n.T("It stopped on its own.")
 }
 
 // needsYou reports an add-on whose row asks for the person: one that can't
@@ -324,9 +344,14 @@ func (s *settings) addonsSection(c *ui.Context) {
 				case len(installed) == 0:
 					ui.Column(c.Key("addons-none")).FillWidth().Padding(rowPadY, 0).Children(func() {
 						kit.EmptyState(c, i18n.T("No add-ons installed"),
-							i18n.T("Put an add-on's folder in the add-ons folder, then look again."), kit.EmptyOpts{})
+							i18n.T("Add-ons you install show here, each with its switch."), kit.EmptyOpts{})
 					})
 				}
+				// By the name people see, not the folder's.
+				coll := i18n.Collator(collate.Numeric)
+				slices.SortStableFunc(installed, func(x, y services.AddonInfo) int {
+					return coll.CompareString(addonName(x), addonName(y))
+				})
 				for _, a := range installed {
 					s.addonEntry(c, u, a, rowsOf(rows.Data, a.ID))
 				}
@@ -396,25 +421,64 @@ func addonName(a services.AddonInfo) string {
 	return clean(a.ID, 60)
 }
 
-// addonEntry is one add-on's row in the roster: a disclosure with its name
-// and its state in words, and at the right its switch (an installed one) or
-// the way to Connections (one of Sona's own). Under it, while open, the
-// approval panel, a failed call, and its details.
+// addonAbout is an add-on's version and description, in one meta line.
+func addonAbout(a services.AddonInfo) string {
+	about := clean(a.Description, 300)
+	if a.Version != "" && !a.Bundled {
+		about = i18n.Meta(i18n.T("Version {version}", "version", clean(a.Version, 40)), about)
+	}
+	return about
+}
+
+// addonEntry is one add-on's row in the roster: its name and its state in
+// words, and at the right its switch (an installed one) or the way to
+// Connections (one of Sona's own). The row is a disclosure where there is
+// something to open; while open, the row and its details are one block on
+// --raised. Under it, the approval panel and a failed call.
 func (s *settings) addonEntry(c *ui.Context, u *addonsUI, a services.AddonInfo, rows []services.AddonRow) {
 	c = c.Key("addon:" + a.ID)
 	name := addonName(a)
-	open := u.open == a.ID
+	// A refused add-on whose manifest couldn't be read has nothing to show
+	// but its reason, which its row already says.
+	expandable := a.State != services.AddonInvalid || addonAbout(a) != ""
+	open := expandable && u.open == a.ID
+	word, _, _ := addonState(a)
+	s.tell(c, "addon:"+a.ID+":state", i18n.Meta(name, word))
+	tk := theme.Current()
 	ui.Column(c).FillWidth().Children(func() {
 		s.line(c)
-		// The control sits level with the name line (6 DIP of padding, a
-		// 20 DIP line), however many lines the state takes under it.
-		ui.Row(c.Key("head")).FillWidth().AlignItems(ui.Start).Gap(rowGap).Padding(rowPadY-6, 0).Children(func() {
-			s.addonDisclosure(c, u, a, name, open)
-			switch {
-			case a.Bundled:
-				s.connectionsLink(c, name)
-			case a.State != services.AddonInvalid:
-				s.addonSwitch(c, u, a, name)
+		// The block reaches rowWashInset past the text column on both sides,
+		// as a Settings row's wash does, so the row's wash and its details
+		// share their edges.
+		block := ui.Column(c.Key("block")).AlignSelf(ui.Stretch).Margin(0, -rowWashInset).Radius(tk.Radius["lg"])
+		if open {
+			block.Background(theme.C("raised")).Margin(0, -rowWashInset, rowPadY, -rowWashInset)
+		}
+		block.Children(func() {
+			// The control sits level with the name line (a 20 DIP line),
+			// however many lines the state takes under it.
+			head := ui.Row(c.Key("head")).FillWidth().AlignItems(ui.Start).Gap(rowGap).Padding(rowPadY-6, rowWashInset).
+				Radius(tk.Radius["md"])
+			if head.Hovered() {
+				head.Background(theme.C("hover"))
+			}
+			theme.Fade(head, "feedback")
+			head.Children(func() {
+				s.addonHead(c, u, a, name, expandable, open)
+				switch {
+				case a.Bundled:
+					s.connectionsLink(c, name)
+				case a.State != services.AddonInvalid:
+					s.addonSwitch(c, u, a, name)
+				}
+			})
+			if open && u.reveal == a.ID {
+				// Opening a row closes the one above it: keep this one in view.
+				u.reveal = ""
+				head.ScrollIntoView(ui.ScrollIntoViewOptions{Block: ui.ScrollNearest})
+			}
+			if open {
+				s.addonDetails(c, u, a, name, rows)
 			}
 		})
 		if u.approving == a.ID {
@@ -423,16 +487,14 @@ func (s *settings) addonEntry(c *ui.Context, u *addonsUI, a services.AddonInfo, 
 		if msg := u.errs[a.ID]; msg != "" {
 			ui.Column(c.Key("err")).FillWidth().Padding(0, 0, rowPadY, 0).Children(func() { kit.AlertLine(c, msg) })
 		}
-		if open {
-			s.addonDetails(c, u, a, name, rows)
-		}
 	})
 }
 
-// addonDisclosure is the row's text as one button: the chevron and the name,
-// then the state dot, the state in words and how it runs, and the sentence
-// under it when there is one. It opens and closes the add-on's details.
-func (s *settings) addonDisclosure(c *ui.Context, u *addonsUI, a services.AddonInfo, name string, open bool) {
+// addonHead is the row's text: the chevron and the name, then the state dot,
+// the state in words and how it runs, and the sentence under it when there
+// is one. Where there is something to open it is one button, a disclosure;
+// otherwise plain text, the name still where a chevron would put it.
+func (s *settings) addonHead(c *ui.Context, u *addonsUI, a services.AddonInfo, name string, expandable, open bool) {
 	word, t, reason := addonState(a)
 	line := word
 	if a.Restarts > 0 && a.State != services.AddonCrashed {
@@ -442,24 +504,22 @@ func (s *settings) addonDisclosure(c *ui.Context, u *addonsUI, a services.AddonI
 		line = i18n.Meta(line, how)
 	}
 	tk := theme.Current()
-	b := ui.ButtonBase(c.Key("open")).Grow(1).Shrink(1).MinWidth(0).Margin(0, 0, 0, -rowWashInset).Padding(6, rowWashInset).
-		Radius(tk.Radius["md"]).Role(ui.RoleDisclosure).Expanded(open).Label(name).Description(strings.TrimSpace(line + ". " + reason))
-	if b.Hovered() {
-		b.Background(theme.C("hover"))
-	}
-	theme.Fade(b, "feedback")
-	b.Children(func() {
+	text := func() {
 		ui.Column(c.Key("text")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Start).Children(func() {
 			ui.Row(c.Key("name")).AlignItems(ui.Center).Gap(6).Children(func() {
-				ic := theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: theme.C("ink-muted")})
-				turn := float32(0)
-				if open {
-					turn = 90
-				}
-				if theme.ReducedMotion() {
-					ic.Rotate(turn)
+				if expandable {
+					ic := theme.Glyph(c, "chevron-right", 14, theme.GlyphOpts{Color: theme.C("ink-muted")})
+					turn := float32(0)
+					if open {
+						turn = 90
+					}
+					if theme.ReducedMotion() {
+						ic.Rotate(turn)
+					} else {
+						ic.Rotate(ic.Animate("turn", turn, tk.Motion["press"].Duration))
+					}
 				} else {
-					ic.Rotate(ic.Animate("turn", turn, tk.Motion["press"].Duration))
+					ui.Box(c.Key("slot")).Width(14).Height(14).Shrink(0)
 				}
 				theme.Text(c, name, "label").TextColor(theme.C("ink")).Shrink(1).MinWidth(0)
 			})
@@ -478,21 +538,35 @@ func (s *settings) addonDisclosure(c *ui.Context, u *addonsUI, a services.AddonI
 				theme.Text(c.Key("why"), reason, "secondary").TextColor(theme.C("ink-muted")).MaxWidth(rowTextWidth).Margin(2, 0, 0, 35)
 			}
 		})
-	})
+	}
+	if !expandable {
+		ui.Column(c.Key("plain")).Grow(1).Shrink(1).MinWidth(0).Role(ui.RoleGroup).Label(name).Children(text)
+		return
+	}
+	b := ui.ButtonBase(c.Key("open")).Grow(1).Shrink(1).MinWidth(0).Role(ui.RoleDisclosure).Expanded(open).
+		Label(name).Description(strings.TrimSpace(line + ". " + reason))
+	b.Children(text)
 	if b.Clicked() {
 		if open {
 			u.open = ""
 		} else {
-			u.open = a.ID
+			u.open, u.reveal = a.ID, a.ID
 		}
 	}
 }
 
 // addonRunsAs is how an add-on runs, in a word or two: inside Sona as
 // WebAssembly, or in its sandbox, with the internet when that is approved.
-// Sona's own say nothing: they are part of Sona.
+// Sona's own say only when they run without the sandbox: they are part of
+// Sona.
 func addonRunsAs(a services.AddonInfo) string {
-	if a.Bundled || a.State == services.AddonInvalid {
+	if a.Bundled {
+		if a.Unsandboxed != "" && a.State == services.AddonRunning {
+			return i18n.T("Not isolated")
+		}
+		return ""
+	}
+	if a.State == services.AddonInvalid {
 		return ""
 	}
 	if a.Runtime == addons.RuntimeWasm {
@@ -595,27 +669,26 @@ func (s *settings) addonApproval(c *ui.Context, u *addonsUI, a services.AddonInf
 // facetWidth is the column an add-on's details name their parts in.
 const facetWidth = 104
 
-// addonDetails is an add-on's opened row: its version and description, then
-// its permissions, its settings rows and its log, each named in a column of
-// its own, on the hover wash so the block reads as the row's own.
+// addonDetails is an add-on's opened row: why it runs without isolation
+// (one of Sona's own, where the sandbox can't be set up), its version and
+// description, then its permissions, its settings rows and its log, each
+// named in a column of its own, in the row's --raised block.
 func (s *settings) addonDetails(c *ui.Context, u *addonsUI, a services.AddonInfo, name string, rows []services.AddonRow) {
 	c = c.Key("details")
-	about := clean(a.Description, 300)
-	if a.Version != "" && !a.Bundled {
-		about = i18n.Meta(i18n.T("Version {version}", "version", clean(a.Version, 40)), about)
-	}
-	ui.Column(c).FillWidth().Margin(0, 0, rowPadY, 0).Padding(6, 20).Radius(theme.Current().Radius["lg"]).
-		Background(theme.C("hover")).Role(ui.RoleGroup).Label(name).Children(func() {
-		first := true
+	about := addonAbout(a)
+	// The label column lines up with the name above it: rowWashInset into
+	// the block, then the chevron's 20 DIP.
+	ui.Column(c).FillWidth().Padding(2, rowWashInset, 10, rowWashInset+20).Role(ui.RoleGroup).Label(name).Children(func() {
 		facet := func(key, title string, body func()) {
 			k := c.Key("facet:" + key)
-			if !first {
-				ui.Box(c.Key("line:" + key)).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
-			}
-			first = false
 			ui.Row(k).FillWidth().Gap(16).AlignItems(ui.Start).Padding(12, 0).Children(func() {
 				theme.Text(k, title, "secondary").FontWeight(600).TextColor(theme.C("ink")).Width(facetWidth).Shrink(0).Margin(1, 0, 0, 0)
 				ui.Column(k.Key("body")).Grow(1).Shrink(1).MinWidth(0).Gap(12).Children(body)
+			})
+		}
+		if a.Unsandboxed != "" && a.State == services.AddonRunning {
+			facet("isolation", i18n.T("Isolation"), func() {
+				theme.Text(c, unisolatedText(a.Unsandboxed), "secondary").TextColor(theme.C("ink-muted")).MaxWidth(rowTextWidth)
 			})
 		}
 		if about != "" {

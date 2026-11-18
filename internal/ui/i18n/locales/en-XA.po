@@ -186,6 +186,10 @@ msgstr ""
 msgid "Add-ons folder"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Add-ons you install show here, each with its switch."
+msgstr ""
+
 #: internal/ui/kit/collections_tracklist.go
 msgid "Added By"
 msgstr ""
@@ -3080,6 +3084,10 @@ msgstr ""
 msgid "Invalid"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Isolation"
+msgstr ""
+
 #: internal/ui/kit/song_itemstate.go
 msgid "It also leaves any playlists it's in."
 msgstr ""
@@ -3193,11 +3201,7 @@ msgid "It starts when Sona has something for it to do."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "It stopped on its own too many times in a row. Turn it on to try again."
-msgstr ""
-
-#: internal/ui/features/settings/addons.go
-msgid "It stopped on its own. Sona starts it again in a moment."
+msgid "It stopped on its own."
 msgstr ""
 
 #: internal/ui/features/addons/addons.go
@@ -3256,6 +3260,14 @@ msgstr ""
 
 #: internal/ui/features/settings/addons.go
 msgid "Its name isn't plain text of 1 to 60 characters."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its program didn't say hello in time."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its program ended before it said hello. Its log may say why."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
@@ -4338,6 +4350,10 @@ msgstr ""
 msgid "Not in use"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Not isolated"
+msgstr ""
+
 #: internal/ui/features/onboarding/layer.go
 msgid "Not now"
 msgstr ""
@@ -5368,10 +5384,6 @@ msgstr ""
 
 #: internal/ui/features/settings/addons.go
 msgid "Put an add-on's folder here to install it. Sona doesn't run it until you turn it on."
-msgstr ""
-
-#: internal/ui/features/settings/addons.go
-msgid "Put an add-on's folder in the add-ons folder, then look again."
 msgstr ""
 
 #: internal/ui/features/player/nowplaying_shortcuts.go
@@ -6707,6 +6719,10 @@ msgstr ""
 msgid "Sona couldn't save your sign-in"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Sona couldn't start its program."
+msgstr ""
+
 #: internal/ui/i18n/cdm.go
 msgid "Sona couldn't tell which version of Widevine to download. Try again later."
 msgstr ""
@@ -6745,6 +6761,10 @@ msgstr ""
 
 #: internal/ui/app/menubar.go
 msgid "Sona has no page for that link."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Sona is trying again."
 msgstr ""
 
 #: internal/ui/kit/keyring_copy.go
@@ -6829,6 +6849,10 @@ msgstr ""
 
 #: internal/ui/i18n/errors.go
 msgid "Sona signed out, but couldn't remove everything it saved. Unlock your keyring, then sign out again."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Sona starts it again in a moment."
 msgstr ""
 
 #: internal/ui/features/onboarding/desktop.go
@@ -7075,6 +7099,10 @@ msgstr ""
 msgid "Starting Widevine's download…"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Starting again"
+msgstr ""
+
 #: internal/ui/features/onboarding/status.go
 #: internal/ui/features/onboarding/widevine.go
 msgid "Starting…"
@@ -7304,6 +7332,10 @@ msgstr ""
 
 #: internal/ui/i18n/errors.go
 msgid "That file was exported by a newer version of Sona. Update Sona, then import it."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "That happened too many times in a row. Turn it on to try again."
 msgstr ""
 
 #: internal/ui/i18n/errors.go

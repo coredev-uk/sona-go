@@ -1283,19 +1283,20 @@ Settings (h1)                  Playback (h2 at 24/650)
 - **What the platform can't do** keeps its row: the title in `--ink-muted` and, where the control would be described, a `CircleSlash` and why ("Not available on macOS yet.", or the specific reason: no tray to keep playing from, a player that reports plays itself). Nothing disappears quietly. Without any playback, Playback is that one row and the lyrics.
 - **Theme** is three segments (System, Light, Dark) in one 32px outlined control, radio buttons underneath: every choice in view, ←/→ to move.
 - **Add-ons** sits after Connections. It is a roster rather than a document: one ledger row per add-on, in two groups, so ten add-ons read as ten rows.
-  - **Sona's Own** (Last.fm, ListenBrainz, Discord) comes first, as status only: no switch here, and a muted *Connections ›* link at the right, since their accounts and switches are there. **Installed** follows, its margin line saying that an add-on runs in a sandbox with only what you approve. Its last row is *Add-ons folder* with *Open add-ons folder* and *Look again*. With none installed, the group holds the dashed empty block.
+  - **Sona's Own** (Last.fm, ListenBrainz, Discord) comes first, as status only: no switch here, and a muted *Connections ›* link at the right, since their accounts and switches are there. **Installed** follows in the order of the add-ons' names, its margin line saying that an add-on runs in a sandbox with only what you approve. Its last row is *Add-ons folder* with *Open add-ons folder* and *Look again*. With none installed, the group holds the dashed empty block.
   - **A row** is a disclosure:
     - a 14 DIP chevron that turns to point down while open, and the add-on's name at 14/500;
-    - under it, a 7 DIP state dot and the state in words at 13 muted, with how it runs after a middle dot ("Running · Sandboxed", "Off · WebAssembly", "Needs your approval · Sandboxed · Internet");
+    - under it, a 7 DIP state dot and the state in words at 13 muted, with how it runs after a middle dot ("Running · Sandboxed", "Off · WebAssembly", "Needs your approval · Sandboxed · Internet", "Running · Not isolated" for one of Sona's own that runs without the sandbox);
     - when the words don't say what to do, the reason under them at 13 muted.
 
-    The dot is `--positive` while it runs or waits for work, `--danger` when it needs you (can't run, switched off, waiting for an approval) and `--ink-faint` when off. Colour is never the only sign, because the word is always there. The installed add-on's switch, or Sona's own link, sits at the right, level with the name.
-  - **Open, one at a time**, a row shows its details under it on a `--hover` wash at radius 8. Each part is named at 13/600 in a 104 DIP column, with 1px `--line` rules between the parts:
+    The dot is `--positive` while it runs or waits for work, `--danger` when it needs you (can't run, keeps stopping, switched off, waiting for an approval) and `--ink-faint` when off. Colour is never the only sign, because the word is always there. The installed add-on's switch, or Sona's own link, sits at the right, level with the name. A refused add-on whose manifest gave nothing to show is plain text, not a disclosure: its row already says all there is. A change of state is announced (polite) as the add-on's name and its word.
+  - **Open, one at a time**, the row and its details are one block on `--raised` at radius 8. The block reaches 12 DIP past the text column on both sides, as a row's hover wash does, so the wash and the details share their edges. Opening a row scrolls it into view, since closing the one above can move it. Each part is named at 13/600 in a 104 DIP column, and the parts are set apart by space alone (the block is already a tone step, so no rules):
+    - Isolation: one of Sona's own running without the sandbox, and why;
     - About: the version and description;
     - Permissions: each name at 14/500 over what it allows, then *Not approved* or a ghost *Revoke* (Sona's own have none);
-    - Settings: the add-on's own rows;
+    - Settings: the add-on's own rows (a title works its control, as a ledger row's does);
     - Log.
-  - **Turning one on never saves anything by itself.** The switch opens a panel under the row on `--raised`: each permission, the warning, *Turn on* (the one filled button) and *Cancel*. The panel is announced as a group; Escape cancels.
+  - **Turning one on never saves anything by itself.** The switch opens a panel under the row on `--raised` with a 1px `--control-line` border: each permission, the warning, *Turn on* (the one filled button) and *Cancel*. The panel is announced as a group; Escape cancels.
   - A secret field is a password field that shows *Saved* as its placeholder and never the value. A refused add-on has no switch: its row says *Won't run* and the reason.
   - Every text the add-on supplies is plain, cut and never in ink-on-ink emphasis: the add-on's name is the row's title, never a badge or a picture. The log is selectable text in a scrolling `--raised` box.
   - The section's line in the index counts the installed add-ons and how many need you ("3 installed · 1 needs you"), or how many are on.

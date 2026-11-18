@@ -244,13 +244,22 @@ func TestAddonsAreARosterOfRowsThatSayTheirState(t *testing.T) {
 		}
 	}
 	tr := access.Read(t, r.tt.Tester)
-	for _, name := range []string{"Now playing webhook", "Home bridge", "sloppy"} {
+	for _, name := range []string{"Now playing webhook", "Home bridge"} {
 		if _, ok := tr.Find(ui.RoleDisclosure, name); !ok {
 			t.Errorf("no disclosure %q:\n%s", name, tr.Dump())
 		}
 	}
+	// A refused add-on with nothing in its manifest to show has nothing to
+	// open and nothing to turn on: its row says why, and that is all.
+	if _, ok := tr.Find(ui.RoleDisclosure, "sloppy"); ok {
+		t.Error("a refused add-on with no details opens")
+	}
 	if _, ok := tr.Find(ui.RoleSwitch, "Turn on sloppy"); ok {
 		t.Error("a refused add-on has a switch")
+	}
+	// The rows are in the order of the names people see.
+	if stops := stopLabels(access.TabWalk(t, r.tt.Tester, 100)); !inOrder(stops, []string{"Home bridge", "Now playing webhook"}) {
+		t.Errorf("order %q", stops)
 	}
 	if got := r.s.addonsSummary(); got != "3 installed · 1 needs you" {
 		t.Errorf("summary %q", got)
@@ -281,8 +290,8 @@ func TestSonasOwnAddonsAreStatusOnlyWithAWayToConnections(t *testing.T) {
 	f.infos = append(ownAddons(), f.infos...)
 	r := addonsRig(t, f, 1132, 1600)
 	r.tt.Until("the own group", r.tt.Shows("Sona's Own", "Last.fm", "ListenBrainz", "Discord", "Installed"))
-	if !hasPrefix(r, "Running without isolation: this system doesn't let Sona create the isolated space") {
-		t.Errorf("Last.fm's reason is missing; texts %q", r.tt.Texts())
+	if !r.tt.HasText("Running · Not isolated") || hasPrefix(r, "Running without isolation:") {
+		t.Errorf("Last.fm's row should say Not isolated and leave the why to its details; texts %q", r.tt.Texts())
 	}
 	for _, want := range []string{"Not in use", "On"} {
 		if !r.tt.HasText(want) {
@@ -336,13 +345,15 @@ func TestAnAddonWithoutASandboxSaysWhyItDoesNotRun(t *testing.T) {
 	}
 }
 
-// One of Sona's own add-ons that runs without the sandbox shows as running,
-// with the reason under it; every reason has words of its own.
+// One of Sona's own add-ons that runs without the sandbox says so on its row
+// in two words, and why in its details; every reason has words of its own.
 func TestAnAddonRunningWithoutIsolationSaysWhy(t *testing.T) {
 	f := &fakeAddons{infos: ownAddons()[:1], rows: map[string][]services.AddonRow{}}
 	r := addonsRig(t, f, 1132, 1000)
-	r.tt.Until("the line", func() bool {
-		return hasPrefix(r, "Running without isolation:") && r.tt.HasText("Running")
+	r.tt.Until("the row", r.tt.Shows("Running · Not isolated"))
+	openAddon(r, f, "lastfm", "Last.fm")
+	r.tt.Until("the reason", func() bool {
+		return hasPrefix(r, "Running without isolation: this system doesn't let Sona create the isolated space")
 	})
 	for _, c := range []string{
 		addons.SandboxUserNamespaceRestricted, addons.SandboxNoUserNamespace, addons.SandboxNoSeccomp, addons.SandboxNoSeatbelt,
@@ -509,7 +520,7 @@ func TestTheLogIsReadWhenAskedForAndShownAsPlainLines(t *testing.T) {
 
 func TestAnEmptyFolderSaysHowToInstallAndAnUnsupportedPlatformSaysItCannot(t *testing.T) {
 	r := addonsRig(t, &fakeAddons{}, 1132, 1000)
-	r.tt.Until("the empty block", r.tt.Shows("No add-ons installed", "Put an add-on's folder in the add-ons folder, then look again."))
+	r.tt.Until("the empty block", r.tt.Shows("No add-ons installed", "Add-ons you install show here, each with its switch.", "Open add-ons folder"))
 	if got := r.s.addonsSummary(); got != "None installed" {
 		t.Errorf("summary %q", got)
 	}
@@ -588,7 +599,7 @@ func TestA11yAddonsSection(t *testing.T) {
 	stops := stopLabels(access.TabWalk(t, tt, 200))
 	if !inOrder(stops, []string{
 		"Turn on Now playing webhook", "Revoke Playback state · Now playing webhook", "Web address", "Show log · Now playing webhook",
-		"Open add-ons folder", "Home bridge", "Turn on Home bridge", "sloppy", "Now playing webhook",
+		"Open add-ons folder", "Home bridge", "Turn on Home bridge", "Now playing webhook",
 	}) {
 		t.Errorf("Tab walk %q", stops)
 	}
@@ -646,5 +657,22 @@ func TestAddonRowsAreOnlyInTheAddonsSection(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// One of Sona's own add-ons that keeps stopping says, on its row, how its
+// last run ended: the case of 0.7.0-rc.3 on NixOS, whose program couldn't
+// load and ended before it said hello.
+func TestAnAddonThatKeepsStoppingSaysHowItEnded(t *testing.T) {
+	a := ownAddons()[0]
+	a.State, a.Unsandboxed, a.Reason, a.Restarts = services.AddonRestarting, "", services.AddonReasonEndedAtStart, 4
+	f := &fakeAddons{infos: []services.AddonInfo{a}, rows: map[string][]services.AddonRow{}}
+	r := addonsRig(t, f, 1132, 1000)
+	r.tt.Until("the reason", r.tt.Shows("Restarting · stopped 4 times",
+		"Its program ended before it said hello. Its log may say why. Sona starts it again in a moment."))
+	for _, code := range []services.AddonReason{services.AddonReasonStartFailed, services.AddonReasonEndedAtStart, services.AddonReasonNoHello} {
+		if endedText(code) == endedText("zzz") {
+			t.Errorf("reason %q has no words of its own", code)
+		}
 	}
 }
