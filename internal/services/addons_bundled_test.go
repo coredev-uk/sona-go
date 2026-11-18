@@ -3,6 +3,7 @@
 package services
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -29,6 +30,19 @@ func (a *addonEnv) useAll(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// notices are the "switched off" notices Sona emitted so far.
+func (a *addonEnv) notices() []AddonNotice {
+	a.rec.mu.Lock()
+	defer a.rec.mu.Unlock()
+	var out []AddonNotice
+	for k, name := range a.rec.events {
+		if name == EventAddonsNotice {
+			out = append(out, a.rec.data[k].(AddonNotice))
+		}
+	}
+	return out
 }
 
 // bundledProgram makes a script stand in for Sona's executable: it logs how
@@ -91,26 +105,31 @@ func TestAddonsBundledRunAsSonaItself(t *testing.T) {
 	}
 }
 
-// Turning one off is saved (it is on without an entry), stops it, and stays
-// off; turning it on again runs it. Its permissions can't be revoked.
-func TestAddonsBundledSwitchAndRevoke(t *testing.T) {
+// Sona's own add-ons have no switch of their own: whether one runs is its
+// integration's (the connected account, the Discord status). Turning one off
+// is refused and saves nothing, it goes on running, and "turn on" saves
+// nothing either. Its permissions can't be revoked.
+func TestAddonsBundledHaveNoSwitchOfTheirOwn(t *testing.T) {
 	a := newAddonEnv(t)
 	a.bundledProgram(t)
 	a.useAll(t)
 	a.svc.start()
 	a.waitState(t, "lastfm", AddonRunning)
-	if err := a.svc.Disable("lastfm"); err != nil {
-		t.Fatal(err)
+	err := a.svc.Disable("lastfm")
+	if !errors.Is(err, ErrInvalidArgument) || !strings.Contains(err.Error(), "Settings → Connections") {
+		t.Fatalf("Disable = %v, want ErrInvalidArgument naming Settings → Connections", err)
 	}
-	if st, ok := a.settings.Get().Addons["lastfm"]; !ok || st.Enabled {
-		t.Errorf("after disable: %+v, saved %v", st, ok)
+	if st, ok := a.settings.Get().Addons["lastfm"]; ok {
+		t.Errorf("a refused Disable saved %+v", st)
 	}
-	a.waitState(t, "lastfm", AddonOff)
-	if i := a.info(t, "listenbrainz"); !i.Enabled {
-		t.Errorf("turning lastfm off turned listenbrainz off: %+v", i)
+	if i := a.info(t, "lastfm"); !i.Enabled || i.State != AddonRunning {
+		t.Errorf("lastfm after a refused Disable = %+v", i)
 	}
 	if err := a.svc.Enable("lastfm", a.info(t, "lastfm").Permissions); err != nil {
 		t.Fatal(err)
+	}
+	if st, ok := a.settings.Get().Addons["lastfm"]; ok {
+		t.Errorf("Enable saved %+v for an add-on that has no switch", st)
 	}
 	a.waitState(t, "lastfm", AddonRunning)
 	for _, p := range a.info(t, "lastfm").Permissions {
@@ -198,29 +217,176 @@ func TestAddonsBundledRunOnlyWhileTheirIntegrationIsUsed(t *testing.T) {
 	a.waitState(t, "discord", AddonIdle)
 }
 
-// An add-on that crashes for good stays reported as crashed, and turning it
-// on again runs it.
-func TestAddonsBundledCrashedStaysCrashedUntilTurnedOn(t *testing.T) {
+// A program of Sona's that stops at once, again and again (the loader that
+// can't find its libraries, 127, was how it ended on NixOS) is never switched
+// off by the crash rule: not in this run, where it goes on at the longest
+// wait, and nothing is saved, so that no Sona that starts later finds it off.
+// Meanwhile the add-on's info says why it isn't up; once the program runs, it
+// is up and the reason is gone. An add-on of the user's is switched off still.
+func TestAddonsBundledAreNeverSwitchedOffByTheCrashRule(t *testing.T) {
 	a := newAddonEnv(t)
 	exe, _ := a.bundledProgram(t)
-	if err := os.WriteFile(exe, []byte("#!/bin/sh\nexit 1\n"), 0o700); err != nil {
+	if err := os.WriteFile(exe, []byte("#!/bin/sh\necho 'error while loading shared libraries: libgstapp-1.0.so.0' >&2\nexit 127\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	a.svc.opts.maxCrashes = 3
+	a.install(t, "demo", manifestJSON("demo"), "exit 1\n")
+	if err := a.svc.Enable("demo", nil); err != nil {
+		t.Fatal(err)
+	}
 	a.useAll(t)
 	a.svc.start()
-	a.waitState(t, "lastfm", AddonCrashed)
-	waitUntil(t, "the switch to be saved off", func() bool { return !a.info(t, "lastfm").Enabled })
-	if st := a.settings.Get().Addons["lastfm"]; st.Enabled {
-		t.Errorf("settings %+v", st)
+
+	// Well past the rule's three, and the user's add-on is switched off by it.
+	waitUntil(t, "lastfm to stop on its own more than maxCrashes times", func() bool { return a.info(t, "lastfm").Restarts > 2*a.svc.opts.maxCrashes })
+	a.waitState(t, "demo", AddonCrashed)
+	for _, id := range []string{"lastfm", "discord", "listenbrainz"} {
+		i := a.info(t, id)
+		if i.State == AddonCrashed || !i.Enabled {
+			t.Errorf("%s = %+v: switched off by the crash rule", id, i)
+		}
+		if st, ok := a.settings.Get().Addons[id]; ok {
+			t.Errorf("%s: the crash rule saved %+v", id, st)
+		}
 	}
+	if i := a.info(t, "lastfm"); (i.State != AddonRestarting && i.State != AddonStarting) || i.Reason != AddonReasonEndedAtStart {
+		t.Errorf("lastfm = %+v, want to be started again with the reason %q", i, AddonReasonEndedAtStart)
+	}
+	if i := a.info(t, "demo"); i.Enabled || i.Reason != AddonReasonEndedAtStart {
+		t.Errorf("demo = %+v, want switched off", i)
+	}
+	if st := a.settings.Get().Addons["demo"]; st.Enabled {
+		t.Errorf("the user's add-on stayed on in the settings: %+v", st)
+	}
+	if got := a.notices(); len(got) != 1 || got[0].ID != "demo" {
+		t.Errorf("notices = %+v, want one, for the user's add-on that was switched off", got)
+	}
+	lines, _ := a.svc.Log("lastfm")
+	if log := strings.Join(lines, "\n"); !strings.Contains(log, "never switched off") || strings.Contains(log, ": switched off") {
+		t.Errorf("lastfm's log = %q", log)
+	}
+
+	// The program starts to run: the same supervisor takes it up with no
+	// one's help, and the reason goes.
 	if err := os.WriteFile(exe, []byte("#!/bin/sh\nprintf '{\"id\":1,\"method\":\"hello\",\"params\":{\"id\":\"lastfm\",\"protocol\":{\"min\":\"2.0.0\",\"max\":\"2.0.0\"},\"permissions\":[]}}\\n'\ncat >/dev/null\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if i := a.waitState(t, "lastfm", AddonRunning); i.Reason != "" || i.Restarts == 0 {
+		t.Errorf("lastfm = %+v, want running with no reason", i)
+	}
+}
+
+// What rc.3 saved (all three bundled add-ons off after five quick stops) is
+// healed at the next start: it is never read, the file says on again, and the
+// add-ons run. A user's add-on that is off stays off.
+func TestAddonsBundledStuckSwitchesHealAtStart(t *testing.T) {
+	a := newAddonEnv(t)
+	a.bundledProgram(t)
+	a.install(t, "demo", manifestJSON("demo"), hello("demo")+"cat > /dev/null\n")
+	if _, err := a.settings.Update(func(s *config.Settings) {
+		s.Addons = config.Addons{
+			"discord":      {Enabled: false, Granted: []string{"playback.read"}},
+			"lastfm":       {Enabled: false, Granted: []string{"network"}},
+			"listenbrainz": {Enabled: false},
+			"demo":         {Enabled: false},
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	a.useAll(t)
+	// Before the heal: nothing is read from the stuck value.
+	if i := a.info(t, "lastfm"); !i.Enabled {
+		t.Fatalf("lastfm = %+v: the stuck switch is read", i)
+	}
+	a.svc.start()
+	for _, id := range addons.BundledIDs {
+		a.waitState(t, id, AddonRunning)
+		if st := a.settings.Get().Addons[id]; !st.Enabled {
+			t.Errorf("%s still saved as off: %+v", id, st)
+		}
+	}
+	if st := a.settings.Get().Addons["lastfm"]; !slices.Equal(st.Granted, []string{"network"}) {
+		t.Errorf("the heal changed more than the switch: %+v", st)
+	}
+	if st := a.settings.Get().Addons["demo"]; st.Enabled {
+		t.Errorf("the heal switched on an add-on of the user's: %+v", st)
+	}
+	if i := a.info(t, "demo"); i.State != AddonOff {
+		t.Errorf("demo = %+v", i)
+	}
+}
+
+// Turning a bundled add-on on again is its retry: one that waits out its
+// longest backoff is begun at once.
+func TestAddonsBundledEnableTriesAgainAtOnce(t *testing.T) {
+	a := newAddonEnv(t)
+	exe, _ := a.bundledProgram(t)
+	good, err := os.ReadFile(exe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(exe, []byte("#!/bin/sh\nexit 127\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.opts.backoff = []time.Duration{time.Hour}
+	a.useAll(t)
+	a.svc.start()
+	a.waitState(t, "lastfm", AddonRestarting)
+	if err := os.WriteFile(exe, good, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.svc.Enable("lastfm", a.info(t, "lastfm").Permissions); err != nil {
 		t.Fatal(err)
 	}
 	a.waitState(t, "lastfm", AddonRunning)
+}
+
+// Sona's own add-ons are started with the loader's path (LD_LIBRARY_PATH): a
+// program that needs it to load ends with status 127 without it. The plain
+// child that runs where the sandbox can't start gets it too, which it didn't
+// (it ended at once, five times, and was switched off); an add-on of the
+// user's never has the variable.
+func TestBundledAddonsGetTheLoaderPathInBothStarts(t *testing.T) {
+	a := newAddonEnv(t)
+	exe, _ := a.bundledProgram(t)
+	const path = "/nix/store/a-glib/lib:/nix/store/b-gstreamer/lib"
+	script := "#!/bin/sh\n[ \"$LD_LIBRARY_PATH\" = '" + path + "' ] || exit 127\n" +
+		"printf '{\"id\":1,\"method\":\"hello\",\"params\":{\"id\":\"%s\",\"protocol\":{\"min\":\"2.0.0\",\"max\":\"2.0.0\"},\"permissions\":[]}}\\n' \"$2\"\ncat > /dev/null\n"
+	if err := os.WriteFile(exe, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.opts.environ = func() []string { return append(os.Environ(), "LD_LIBRARY_PATH="+path) }
+	a.install(t, "demo", manifestJSON("demo"), "[ -z \"$LD_LIBRARY_PATH\" ] || exit 127\n"+hello("demo")+"cat > /dev/null\n")
+	if err := a.svc.Enable("demo", nil); err != nil {
+		t.Fatal(err)
+	}
+	a.useAll(t)
+	a.svc.start()
+	a.waitState(t, "lastfm", AddonRunning)
+	a.waitState(t, "demo", AddonRunning)
+	if r := a.info(t, "lastfm").Restarts; r != 0 {
+		t.Errorf("lastfm stopped %d times", r)
+	}
+
+	// Where the sandbox can't start, the plain start has it as well.
+	b := newAddonEnv(t)
+	exe2, _ := b.bundledProgram(t)
+	if err := os.WriteFile(exe2, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	b.svc.opts.environ = a.svc.opts.environ
+	b.svc.opts.start = func(sp addons.Spec) (*addons.Proc, error) {
+		if !sp.Unsandboxed {
+			return nil, &sandbox.Error{Reason: sandbox.ReasonSetup, Detail: "the sandbox's init ended without a report (exit status 127)"}
+		}
+		return addons.Start(sp)
+	}
+	b.useAll(t)
+	b.svc.start()
+	i := b.waitState(t, "lastfm", AddonRunning)
+	if i.Unsandboxed != addons.SandboxSetup || i.Restarts != 0 || i.Reason != "" {
+		t.Errorf("lastfm = %+v, want to run without the sandbox, not restarted", i)
+	}
 }
 
 // A bundled add-on reads its own sign-in with the secret method, no other

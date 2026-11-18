@@ -1219,8 +1219,8 @@ The account menu, Settings, the setup, the player bar and an album page use thos
 
 **Settings → Add-ons** (`features/settings/addons.go`, section `addons`)
 
-- A trust note, "Add-ons folder" (Open and Look again), then one group per add-on under an h3 of its name.
-- Rows of a valid add-on: the switch, Permissions, its settings rows, Log. A refused add-on has the reason and nothing to turn on.
+- Two groups: "Sona's Own" (bundled add-ons: status rows with a link to Connections, no switch) and "Installed" (the rest, then "Add-ons folder" with Open and Look again; the dashed empty block when there are none).
+- **A row** (`addonEntry`) is a disclosure (`ui.RoleDisclosure`, named by the add-on) with the state in words from `addonState`: a word, a tone for the dot, and the reason when the word isn't enough. The switch or the Connections link sits at the right. One row is open at a time (`addonsUI.open`): About, Permissions, Settings and Log on the hover wash. A refused add-on has the reason and nothing to turn on.
 - **The switch.** Turning it on opens an approval panel under the row, announced as a group. "Turn on" enables with exactly the permissions listed. Cancel and Escape do nothing. Turning it off calls `Disable` at once.
 - **Rows.** A toggle and a choice save at once, a text row with Save or Enter. A secret is never sent to the window: it shows "Saved" and a Remove button.
 - **Names.** Every button carries the add-on's name, so two add-ons never share an accessible name.

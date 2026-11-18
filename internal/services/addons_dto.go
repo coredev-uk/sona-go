@@ -33,6 +33,8 @@ const (
 	// wait.
 	AddonRestarting AddonState = "restarting"
 	// AddonCrashed: it stopped on its own too often and was switched off.
+	// Never one of Sona's own add-ons: they are started again for as long as
+	// Sona runs (Restarting, with a Reason).
 	AddonCrashed AddonState = "crashed"
 	// AddonInvalid: its folder or manifest is refused (Problem says why).
 	AddonInvalid AddonState = "invalid"
@@ -44,6 +46,25 @@ const (
 	// add-on does not run, however it is switched (Sandbox says why). Only
 	// Sona's own add-ons run without the sandbox (Unsandboxed); no other.
 	AddonNoSandbox AddonState = "no_sandbox"
+)
+
+// AddonReason is why an add-on that should be running isn't
+// (AddonInfo.Reason), a code the UI words.
+type AddonReason string
+
+const (
+	// AddonReasonStartFailed: Sona couldn't start its program (the file is
+	// gone or can't be run, or its data folder couldn't be made).
+	AddonReasonStartFailed AddonReason = "start_failed"
+	// AddonReasonEndedAtStart: the program ended before it said hello: it
+	// couldn't load (a library the system or its environment doesn't give
+	// it), or it crashed at once.
+	AddonReasonEndedAtStart AddonReason = "ended_at_start"
+	// AddonReasonNoHello: the program runs but didn't say hello in time, and
+	// was killed.
+	AddonReasonNoHello AddonReason = "no_hello"
+	// AddonReasonStopped: it said hello and ran, then stopped on its own.
+	AddonReasonStopped AddonReason = "stopped"
 )
 
 // AddonInfo is one add-on of the user's add-ons folder.
@@ -78,9 +99,16 @@ type AddonInfo struct {
 	Unsandboxed string `json:"unsandboxed"`
 	// Restarts counts the times it stopped on its own since it was enabled.
 	Restarts int `json:"restarts"`
+	// Reason is why an add-on that should be running isn't, one of the
+	// AddonReason* codes: how its last run ended, or why it never began,
+	// while State is starting or restarting (it is tried again, one of
+	// Sona's own for as long as Sona runs) or crashed. "" while it runs or
+	// before a run has ended. The add-on's log has the details.
+	Reason AddonReason `json:"reason"`
 	// Bundled is one of Sona's own add-ons (Last.fm, ListenBrainz, Discord):
-	// part of Sona, on unless turned off, with nothing to approve and no
-	// permission to revoke.
+	// part of Sona, always on (Enabled is true; it runs while its integration
+	// is in use, which Settings → Connections switches), never switched off by
+	// the crash rule, with nothing to approve and no permission to revoke.
 	Bundled bool `json:"bundled"`
 }
 

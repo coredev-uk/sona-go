@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/cli"
+	"github.com/coredev-uk/sona-go/internal/config"
 )
 
 // A lease runs one of Sona's own add-ons that has nothing to do, and lets it
@@ -35,23 +36,27 @@ func TestAddonsLeaseRunsAnIdleBundledAddon(t *testing.T) {
 	a.svc.Lease("demo")()
 }
 
-// A lease does not start an add-on the user switched off.
-func TestAddonsLeaseKeepsAnAddonTheUserSwitchedOff(t *testing.T) {
+// A stuck `"enabled": false`, as 0.7.0-rc.3's crash rule saved it for one of
+// Sona's own add-ons, keeps nothing from it: a lease runs the add-on, and a
+// request reaches it.
+func TestAddonsLeaseRunsABundledAddonWhateverAStuckSavedSwitchSays(t *testing.T) {
 	a := newAddonEnv(t)
-	a.bundledProgram(t)
-	a.svc.start()
-	if err := a.svc.Disable("listenbrainz"); err != nil {
+	a.answeringProgram(t)
+	if _, err := a.settings.Update(func(s *config.Settings) {
+		s.Addons = config.Addons{"listenbrainz": {Enabled: false}}
+	}); err != nil {
 		t.Fatal(err)
 	}
+	a.svc.start()
 	defer a.svc.Lease("listenbrainz")()
-	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
-	err := a.svc.Request(ctx, "listenbrainz", cli.AddonMethodScrobbleStatus, cli.ScrobbleStatusParams{}, nil)
-	if !errors.Is(err, ErrAddonUnavailable) {
-		t.Errorf("Request to an add-on that is off = %v", err)
+	var res cli.ScrobbleResult
+	if err := a.svc.Request(ctx, "listenbrainz", cli.AddonMethodScrobbleStatus, cli.ScrobbleStatusParams{Credential: "tok"}, &res); err != nil {
+		t.Fatal(err)
 	}
-	if st := a.info(t, "listenbrainz").State; st != AddonOff {
-		t.Errorf("state = %s", st)
+	if !res.OK || res.Account != "acct" {
+		t.Errorf("result = %+v", res)
 	}
 }
 
