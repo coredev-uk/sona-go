@@ -14,7 +14,7 @@ packages). A pull request and a push to main run `-race` on core, playback
 and `ui-race` and none on `ui`, a couple of minutes a job, so Clarence's
 check of each merge commit is the same check its pull request passed. The
 nightly, a release (`release.yml`'s call) and a dispatch with `only=all` also
-run every `ui` package under `-race`, in three shards of 4–10 min each, which
+run every `ui` package under `-race`, in four shards with a 20-minute limit each (every other shard keeps 10), which
 is too slow for every merge (the nightly with `-count=1`, so the test cache
 can't hide what changed outside the code). A release or nightly build skips
 its checks only when the nightly's full pass already passed on that commit.
