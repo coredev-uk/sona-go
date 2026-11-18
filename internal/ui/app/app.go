@@ -439,6 +439,11 @@ func (a *App) openWindow() {
 // keyboard focus from the focus and blur events, with a redraw on each, so
 // views that hold while the window is unfocused build again.
 func (a *App) followWindow(win *mygo.Window) {
+	a.env.Window.BindScreen(func() func() {
+		return mygo.Power.KeepAwake(i18n.T("Showing lyrics"), true)
+	})
+	// Before the app quits, so the release does not wait on a loop that ended.
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { a.env.Window.KeepScreenOn(false) })
 	a.env.Window.Bind(win.IsFullScreen, win.SetFullScreen)
 	set := func(on bool) func() {
 		return func() {

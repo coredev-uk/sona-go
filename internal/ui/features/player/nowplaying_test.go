@@ -166,6 +166,13 @@ func (r *npRig) settle() {
 	}
 }
 
+// wake moves the pointer over the window: Full-Screen Lyrics' strip comes
+// back.
+func (r *npRig) wake() {
+	r.tt.Move(float32(r.width)/2, float32(r.height)/2)
+	r.tt.Drain()
+}
+
 func TestNowPlayingLayoutFollowsItsBoxNotTheWindow(t *testing.T) {
 	for _, c := range []struct {
 		w, h    float32
@@ -632,13 +639,16 @@ func TestOpeningRoomLyricsAndLeavingThem(t *testing.T) {
 	r.open("")
 	r.tt.Until("tools", r.tt.Shows("Full screen"))
 	r.tt.MustClick("Full screen")
-	r.tt.Until("the room", r.tt.Shows("Lyrics, full screen", "Exit full screen", "Song Title"))
+	r.tt.Until("the room", r.tt.Shows("Full-Screen Lyrics", "Line 0 sung words"))
 	if r.p.ui.overlay != overlayRoom || !r.p.roomOpen() {
 		t.Errorf("overlay %v", r.p.ui.overlay)
 	}
-	if !r.tt.HasText("Line 0 sung words") || !r.tt.HasText("Lyrics on time") {
-		t.Errorf("the room lacks the sheet or the timing: %q", r.tt.Texts())
+	// The strip is not there at first; the pointer brings it.
+	if r.tt.HasText("Exit full screen") || r.tt.HasText("Lyrics on time") {
+		t.Errorf("the strip shows before the pointer moves: %q", r.tt.Texts())
 	}
+	r.wake()
+	r.tt.Until("the strip", r.tt.Shows("Exit full screen", "Lyrics on time", "Song Title"))
 	// Leaving returns to Now Playing, whose Full screen button has the focus.
 	r.tt.MustClick("Exit full screen")
 	r.tt.Until("Now Playing again", r.tt.Shows("Now playing", "Full screen"))
@@ -661,7 +671,7 @@ func TestRoomLyricsCloseWhenTheSongHasNone(t *testing.T) {
 	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(5, false)}, nil)
 	r.play(2000)
 	r.p.ui.openRoom()
-	r.tt.Until("the room", r.tt.Shows("Lyrics, full screen"))
+	r.tt.Until("the room", r.tt.Shows("Full-Screen Lyrics"))
 	// A music video plays: no lyrics id.
 	r.play(0, func(s *services.PlaybackState) { s.Current.Video = true })
 	r.settle()
@@ -909,7 +919,7 @@ func TestNowPlayingEvidence(t *testing.T) {
 			save(r, "now-playing-"+label)
 			if size[0] == 1132 {
 				r.p.ui.openRoom()
-				r.tt.Until("the room", r.tt.Shows("Lyrics, full screen"))
+				r.tt.Until("the room", r.tt.Shows("Full-Screen Lyrics"))
 				save(r, "full-screen-lyrics-"+label)
 			}
 			e := newNPRigWith(t, opts, func(r *npRig) { r.width, r.height = size[0], size[1] })

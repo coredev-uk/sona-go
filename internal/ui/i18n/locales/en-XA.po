@@ -2596,6 +2596,10 @@ msgid "Exit Full Screen"
 msgstr ""
 
 #: internal/ui/features/player/nowplaying_room.go
+msgid "Exit Full-Screen Lyrics"
+msgstr ""
+
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/video/view.go
 msgid "Exit full screen"
 msgstr ""
@@ -2831,8 +2835,33 @@ msgstr ""
 msgid "Full screen"
 msgstr ""
 
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/player/nowplaying_shortcuts.go
-msgid "Full-screen lyrics"
+msgid "Full-Screen Lyrics"
+msgstr ""
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: ahead 5 seconds"
+msgstr ""
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: back 5 seconds"
+msgstr ""
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: next line"
+msgstr ""
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: previous line"
+msgstr ""
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: start of the song"
+msgstr ""
+
+#: internal/ui/features/player/nowplaying_view.go
+msgid "Full-Screen Lyrics: the words across the whole screen, each as large as it is held long"
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
@@ -3758,6 +3787,7 @@ msgstr ""
 #: internal/ui/app/menubar.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/player/lyrics_sheet.go
+#: internal/ui/features/player/lyrics_stage.go
 #: internal/ui/features/player/nowplaying_view.go
 #: internal/ui/features/settings/addons.go
 #: internal/ui/features/settings/find.go
@@ -3765,10 +3795,6 @@ msgstr ""
 #: internal/ui/features/settings/settingsfile.go
 #: internal/ui/features/song/page.go
 msgid "Lyrics"
-msgstr ""
-
-#: internal/ui/features/player/nowplaying_view.go
-msgid "Lyrics across the whole screen, large enough to read across a room"
 msgstr ""
 
 #: internal/ui/features/player/lyrics_sheet.go
@@ -3800,10 +3826,6 @@ msgstr ""
 
 #: internal/ui/features/player/lyrics_timing_ui.go
 msgid "Lyrics {words}"
-msgstr ""
-
-#: internal/ui/features/player/nowplaying_room.go
-msgid "Lyrics, full screen"
 msgstr ""
 
 #: internal/ui/features/playlist/header.go
@@ -4256,12 +4278,9 @@ msgstr ""
 msgid "No live stations"
 msgstr ""
 
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/player/nowplaying_view.go
 msgid "No lyrics for this song"
-msgstr ""
-
-#: internal/ui/features/player/nowplaying_room.go
-msgid "No lyrics for this song."
 msgstr ""
 
 #: internal/ui/features/inspect/views.go
@@ -6429,6 +6448,10 @@ msgstr ""
 msgid "Show video"
 msgstr ""
 
+#: internal/ui/app/app.go
+msgid "Showing lyrics"
+msgstr ""
+
 #: internal/ui/features/inspect/views.go
 msgid "Showing the first {shown} of {matches} matches"
 msgstr ""
@@ -7093,9 +7116,14 @@ msgstr ""
 #: internal/ui/features/commands/palette.go
 #: internal/ui/features/home/catalogue.go
 #: internal/ui/features/inspect/model.go
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/search/groups.go
 #: internal/ui/features/song/song.go
 msgid "Song"
+msgstr ""
+
+#: internal/ui/features/player/nowplaying_room.go
+msgid "Song progress"
 msgstr ""
 
 #: internal/ui/features/library/library.go
@@ -7226,6 +7254,10 @@ msgstr ""
 
 #: internal/ui/features/video/view.go
 msgid "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, F switches full screen, M mutes, Escape closes the video."
+msgstr ""
+
+#: internal/ui/features/player/nowplaying_room.go
+msgid "Space plays and pauses, Up and Down go to the previous or next line, Left and Right go back or ahead 5 seconds, Home goes to the start, Escape leaves."
 msgstr ""
 
 #: internal/ui/kit/controls_badge.go
@@ -7947,6 +7979,7 @@ msgid "Today"
 msgstr ""
 
 #: internal/ui/features/player/lyrics_sheet.go
+#: internal/ui/features/player/lyrics_stage.go
 msgid "Together"
 msgstr ""
 
@@ -9248,6 +9281,7 @@ msgstr ""
 
 #: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/video/view.go
 msgid "{at} of {total}"
 msgstr ""

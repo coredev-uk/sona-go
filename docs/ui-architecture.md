@@ -1080,7 +1080,7 @@ The bar is a `Bottom` slot: 72 DIP, `surface`, over a wash of the cover, the tra
 
 Now Playing is the player's `Overlay` slot. It is open while `view.overlay` is `overlayNowPlaying`. The panels' shared state is `view.go`: the overlay, the pane, the queue beside the page, `fromRoom`.
 
-Full-screen lyrics are its `Layer`, open (`LayerOpen`) as `overlayRoom` with a song that has lyrics. The window behind is inert and the layer's wrapper takes no input while closed.
+Full-Screen Lyrics are its `Layer`, open (`LayerOpen`) as `overlayRoom` with a song that has lyrics. The window behind is inert and the layer's wrapper takes no input while closed.
 
 Both are built only while open, so scroll and focus start again on each opening. The view closes itself when the queue is cleared.
 
@@ -1090,7 +1090,7 @@ Both are built only while open, so scroll and focus start again on each opening.
 | `N` | Now Playing |
 | `V` | The music video view (`Env.Video`) |
 | Escape | Scope `now-playing`: room to Now Playing to the page |
-| `Shift+L` | Full screen |
+| `Shift+L` | Full-Screen Lyrics |
 | `[`, `]`, `\` | Timing |
 
 #### Layout
@@ -1123,7 +1123,7 @@ The layout follows the view's own box as last drawn (`measureLayout`, `nowPlayin
 
 #### The sheet
 
-`lyrics_sheet.go`, shared by Now Playing and the room, is a `ui.Scroll` of verses of lines.
+`lyrics_sheet.go`, Now Playing's lyrics column, is a `ui.Scroll` of verses of lines.
 
 - A synced line is a button that seeks to its begin plus the offset (one Tab stop; Up, Down, Home and End move between lines). A plain one is a paragraph.
 - The view is built again only when the sung line changes (a `c.After` for the next line or rest).
@@ -1135,23 +1135,29 @@ The layout follows the view's own box as last drawn (`measureLayout`, `nowPlayin
 
 *The reading band.* The band (14%–72% of the sheet's height) holds the words still. When the anchor line leaves it, the sheet turns to put the anchor's verse (or the line, when the verse is too long) at the band's top. It jumps the first time and under reduced motion, else `ScrollTo(…, Smooth)`. A scroll the user made (the offset moved with no glide of ours) or an arrow key keeps it still for 4 s.
 
-#### Full-screen lyrics
+#### Full-Screen Lyrics
 
-- The same sheet at room size (`roomLook`: `clamp(36, 4.4vw, 84)` bold in a 24 ch column, 7vw of side padding, 12% fades), lines as paragraphs.
-- A footer strip sits under a 1 DIP rule with the cover (48 DIP), the song, the timing nudge and Exit full screen.
-- It puts the window in full screen through `Env.Video.SetFullscreen` (the video view's own window binding, so no second hook) and leaves it only if it entered it.
+The view the Layer slot builds (`nowplaying_room.go`, with the cascade in `lyrics_stage.go`). Its identifiers keep the old name (`overlayRoom`, `roomLayer`, the shortcut ID `player.lyrics-room`, which a saved binding may use); the product name is Full-Screen Lyrics. `docs/design.md`, "Full-Screen Lyrics", has what it looks like; this is how it is built.
+
+- **The stage** (`stage`) is one song's state: the lyrics' derived data (`lyricsModel`, which the sheet shares: spans, voices, verses), the size step of each line (`heldSteps`), the shaped lines (`stageBlock`: a `kit.SweepText` per part, cached per line, size and width, dropped when the window, the translation choices or the motion setting change) and the idle clock. A new song gets a new one, which takes over the chrome's clock and the drift.
+- **The column is laid out lazily.** Line tops are cumulative heights from the first line shaped (`reach`), so a song opened in the middle shapes only the lines around the sung one. A seek of more than a few lines restarts it (a cut).
+- **The cascade** builds the sung line and three lines each side as absolute children of one container keyed by the song. The container's pose (`AnimatePose`, the `climb` token) puts the sung line's middle at 45% of the height; each line's pose (scale and fade by its rank) animates with it. The view builds when the sung line changes (a `c.After` for the next line or rest, as the sheet does), never per frame. Under reduced motion, or on a cut, `c.DisableAnimations` makes the poses jump. The container's `Transition` is the song change: the old column's copy fades out and the new one rises in.
+- **Words** are painted by `sweepDraw`, which the sheet's lines use too: the same `kit.SweepText`, the same clock, the same frame requests.
+- **The wash** is `kit.Backdrop` as an absolute element under the column, with the dark theme's scrim, posed to drift (`drift`) while `MotionPolicy.Ambient` holds. Everything is built inside `theme.Scope` over the dark tokens.
+- **The strip** is built only while shown (the idle clock: the pointer or a key within 3 s, or the song not playing) and enters and leaves with a fade. Its keys are shortcuts in the `lyrics-room` context (`stageShortcuts`): ↑↓ line, ←→ 5 s, Home; Space, Escape and Shift+L are the player's.
+- **Window.** It puts the window in full screen through `Env.Window.SetFullScreen` and leaves it only if it entered it. `Env.Window.KeepScreenOn` holds the display awake (MyGo's `Power.KeepAwake` with `display` true; the shell binds it in `followWindow`) while the view is open and the song plays: the player's suspend inhibitor, held while playing, does not cover the display.
 
 #### Focus on close
 
 - The bar's cover, Lyrics and Show video buttons are the openers of what they open (`view.opening`, `ui.Handle`s bound in `bar.go`). Closing Now Playing (Escape, Close, a toggle) puts the keyboard focus back on the opener when it was inside the view.
 - `returnFocus`, called by the bar every frame, takes its request back a frame later, so a control that is gone never takes the focus when it returns.
 - A view a key opened has no opener and leaves the focus with the page.
-- Full-screen lyrics close into Now Playing, on its Full screen button. The queue beside the page returns to the bar's Queue button.
+- Full-Screen Lyrics close into Now Playing, on its Full screen button. The queue beside the page returns to the bar's Queue button.
 - The video view's opener is `store.VideoView`'s. A Play control that opens it is bound to a handle (`kit.CoverPlay.RunFrom` gets the tile's own, `kit.PlayButtonsOpts.Bind` takes the page's, `kit.ItemPlayers.PlayItemFrom`/`PlayVideoFrom` and the video player `RegisterVideo` pass it on). The view calls `OpenFrom` with it, so closing the view returns the focus to that Play button.
 
 #### Tests
 
-`lyricsync` has its own timing tests. The player's `nowplaying_test.go` runs the views over `uitest` with a fake lyrics source. It covers the layout and cover policy, panes, loading, not found and failure with retry, the sheet following the line, the user-scroll hold, click to seek under an offset, the timing nudge and reset, translation and pronunciation, keyboard between lines, the room, Escape levels and golden images (light and dark). `NP_EVIDENCE_DIR=<dir> go test ./internal/ui/features/player -run Evidence` writes the PR's pictures.
+`lyricsync` has its own timing tests. The player's `nowplaying_test.go` runs the views over `uitest` with a fake lyrics source. It covers the layout and cover policy, panes, loading, not found and failure with retry, the sheet following the line, the user-scroll hold, click to seek under an offset, the timing nudge and reset, translation and pronunciation, keyboard between lines, Escape levels and golden images (light and dark). `lyrics_stage_test.go` covers Full-Screen Lyrics: sizes from held time, the climb, the still form, the strip's idle clock, the keys, duets and background vocals, the states, the accessibility walk, and that the view is not built per frame; `lyrics_stage_golden_test.go` has its pictures. `NP_EVIDENCE_DIR=<dir> go test ./internal/ui/features/player -run Evidence` writes the PR's pictures.
 
 ### The mini player (`features/miniplayer`)
 

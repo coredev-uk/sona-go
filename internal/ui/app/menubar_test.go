@@ -537,7 +537,13 @@ func TestEveryShortcutIsInTheMenuBarOrLeftOutOnPurpose(t *testing.T) {
 		"player.lyrics-earlier": "lyrics timing, a key of the lyrics view",
 		"player.lyrics-later":   "lyrics timing, a key of the lyrics view",
 		"player.lyrics-reset":   "lyrics timing, a key of the lyrics view",
-		"player.lyrics-room":    "the lyrics view's layout",
+		"player.lyrics-room":    "Full-Screen Lyrics' own view, left by Shift+L or Escape",
+
+		"player.lyrics-line-previous": "a key of Full-Screen Lyrics",
+		"player.lyrics-line-next":     "a key of Full-Screen Lyrics",
+		"player.lyrics-seek-back":     "a key of Full-Screen Lyrics",
+		"player.lyrics-seek-forward":  "a key of Full-Screen Lyrics",
+		"player.lyrics-start":         "a key of Full-Screen Lyrics",
 	}
 	for _, s := range a.keys.shortcuts {
 		if _, ok := findEntry(bar, s.ID); ok {

@@ -21,9 +21,10 @@ type nowPlayingState struct {
 	lyrics store.LyricsSource
 	motion motionSource
 
-	// sheet is the lyrics pane's sheet and room the full-screen one; each
+	// sheet is the lyrics pane's sheet and stage the full-screen one; each
 	// belongs to a song and starts again with the next.
-	sheet, room *lyricsSheet
+	sheet *lyricsSheet
+	stage *stage
 
 	// shown: the view has been built since it opened (focus goes to its first
 	// stop once); roomShown is the same for full-screen lyrics.
@@ -42,8 +43,8 @@ type nowPlayingState struct {
 	// rating builds Favourite and Suggest Less for the playing song; nil: none.
 	rating func(c *ui.Context, cur *services.QueueItem)
 
-	root, roomRoot, closeBtn, roomToggle, roomExit ui.Handle
-	tabs                                           [2]ui.Handle
+	root, closeBtn, roomToggle, roomExit ui.Handle
+	tabs                                 [2]ui.Handle
 
 	// lastPane is the pane the last build showed and tabHad whether one of
 	// the tabs had the focus then: a pane changed from outside (the Queue

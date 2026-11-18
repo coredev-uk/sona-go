@@ -181,6 +181,15 @@ func (p *MotionPolicy) SetVisible(v bool) {
 // Visible reports what SetVisible last said (true at first).
 func (p *MotionPolicy) Visible() bool { return p != nil && !p.hidden.Load() }
 
+// Ambient reports whether quiet motion of a view's own may run (the wash's
+// drift behind full-screen lyrics): the window shows, Reduce effects and
+// reduced motion are off and the computer is not on battery. It needs
+// neither the motion artwork setting nor a decoder, which Allowed does. A
+// nil policy allows nothing.
+func (p *MotionPolicy) Ambient() bool {
+	return p != nil && p.Visible() && !theme.ReduceEffects() && !theme.ReducedMotion() && !p.onBattery
+}
+
 // Cover marks the page as covered (Now Playing, full-screen lyrics, a modal
 // dialog) until release is called: the videos and equalisers of the page
 // pause. Calls nest.

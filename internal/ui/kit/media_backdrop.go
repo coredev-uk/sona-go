@@ -31,7 +31,48 @@ type BackdropOpts struct {
 	Color string
 	// Tone is the scrim's token: ToneSurface or ToneGround.
 	Tone BackdropTone
+	// Scrim is the scrim's opacity where it is not the theme's
+	// (--backdrop-scrim): full-screen lyrics are dark in a light theme, and
+	// take the dark theme's. 0 is the theme's.
+	Scrim float32
+	// Drift, when set, moves the wash slowly to and fro. It is worked out in
+	// the wash's own paint, which asks for its next paint only when the picture
+	// has moved by about a device pixel (Painter.After), so the window repaints
+	// a few times a second, not at the display's rate. The caller sets it only
+	// where MotionPolicy.Ambient allows.
+	Drift *BackdropDrift
 }
+
+// BackdropDrift is the wash's slow motion: a ping-pong between rest and a
+// pose scaled by Scale about the centre and moved by (X, Y) of the box's
+// width and height, Period each way, eased in and out.
+type BackdropDrift struct {
+	Start  time.Time
+	Period time.Duration
+	Scale  float32
+	X, Y   float32
+}
+
+// at is the pose at now: the extra scale and the offset in DIPs, and the
+// time until the picture has moved by a device pixel at the fastest.
+func (d *BackdropDrift) at(now time.Time, r ui.Rect, scale float32) (s, dx, dy float32, next time.Duration) {
+	if d.Period <= 0 {
+		return 1, 0, 0, time.Hour
+	}
+	ph := float64(now.Sub(d.Start)) / float64(d.Period)
+	ph -= 2 * math.Floor(ph/2) // 0..2: out, then back
+	if ph > 1 {
+		ph = 2 - ph
+	}
+	e := float32(0.5 - 0.5*math.Cos(math.Pi*ph))
+	s, dx, dy = 1+(d.Scale-1)*e, d.X*r.W*e, d.Y*r.H*e
+	// The edge that moves furthest, and the peak speed of the eased path.
+	travel := max(r.W*(d.Scale-1)/2+abs32(d.X*r.W), r.H*(d.Scale-1)/2+abs32(d.Y*r.H)) * max(scale, 1)
+	next = max(time.Duration(float64(d.Period)/(float64(travel)*math.Pi/2)), time.Second/60)
+	return s, dx, dy, next
+}
+
+func abs32(v float32) float32 { return max(v, -v) }
 
 // backdropZoom is how much larger than its box the tiny image is drawn:
 // its edges, which the blur leaves darker, stay out of sight.
@@ -92,18 +133,28 @@ func Backdrop(c *ui.Context, l *ArtLoader, o BackdropOpts, children func()) ui.E
 	if o.Tone == ToneGround {
 		tone = "ground"
 	}
-	scrim := theme.C(tone).Alpha(theme.Current().Scalar["backdrop-scrim"])
-	cur, prev := st.cur, st.prev
+	scrimAlpha := theme.Current().Scalar["backdrop-scrim"]
+	if o.Scrim > 0 {
+		scrimAlpha = o.Scrim
+	}
+	scrim := theme.C(tone).Alpha(scrimAlpha)
+	cur, prev, drift := st.cur, st.prev, o.Drift
 	box.Draw(func(p *ui.Painter, r ui.Rect) {
 		if hasColour {
 			p.Fill(r, colour, 0)
 		}
+		img := r
+		if drift != nil {
+			s, dx, dy, next := drift.at(p.Now(), r, p.Scale())
+			img = ui.Rect{X: r.X + r.W*(1-s)/2 + dx, Y: r.Y + r.H*(1-s)/2 + dy, W: r.W * s, H: r.H * s}
+			p.After(next)
+		}
 		p.Clip(r, 0, func() {
 			if prev != nil {
-				drawBackdropImage(p, r, prev, 1)
+				drawBackdropImage(p, img, prev, 1)
 			}
 			if cur != nil {
-				drawBackdropImage(p, r, cur, fade)
+				drawBackdropImage(p, img, cur, fade)
 			}
 		})
 		p.Fill(r, scrim, 0)

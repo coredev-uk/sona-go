@@ -2596,6 +2596,10 @@ msgid "Exit Full Screen"
 msgstr "Exit Full Screen"
 
 #: internal/ui/features/player/nowplaying_room.go
+msgid "Exit Full-Screen Lyrics"
+msgstr "Exit Full-Screen Lyrics"
+
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/video/view.go
 msgid "Exit full screen"
 msgstr "Exit full screen"
@@ -2831,9 +2835,34 @@ msgstr "Full artist page"
 msgid "Full screen"
 msgstr "Full screen"
 
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/player/nowplaying_shortcuts.go
-msgid "Full-screen lyrics"
-msgstr "Full-screen lyrics"
+msgid "Full-Screen Lyrics"
+msgstr "Full-Screen Lyrics"
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: ahead 5 seconds"
+msgstr "Full-Screen Lyrics: ahead 5 seconds"
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: back 5 seconds"
+msgstr "Full-Screen Lyrics: back 5 seconds"
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: next line"
+msgstr "Full-Screen Lyrics: next line"
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: previous line"
+msgstr "Full-Screen Lyrics: previous line"
+
+#: internal/ui/features/player/nowplaying_shortcuts.go
+msgid "Full-Screen Lyrics: start of the song"
+msgstr "Full-Screen Lyrics: start of the song"
+
+#: internal/ui/features/player/nowplaying_view.go
+msgid "Full-Screen Lyrics: the words across the whole screen, each as large as it is held long"
+msgstr "Full-Screen Lyrics: the words across the whole screen, each as large as it is held long"
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "GStreamer"
@@ -3758,6 +3787,7 @@ msgstr "Loudness"
 #: internal/ui/app/menubar.go
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/player/lyrics_sheet.go
+#: internal/ui/features/player/lyrics_stage.go
 #: internal/ui/features/player/nowplaying_view.go
 #: internal/ui/features/settings/addons.go
 #: internal/ui/features/settings/find.go
@@ -3766,10 +3796,6 @@ msgstr "Loudness"
 #: internal/ui/features/song/page.go
 msgid "Lyrics"
 msgstr "Lyrics"
-
-#: internal/ui/features/player/nowplaying_view.go
-msgid "Lyrics across the whole screen, large enough to read across a room"
-msgstr "Lyrics across the whole screen, large enough to read across a room"
 
 #: internal/ui/features/player/lyrics_sheet.go
 msgid "Lyrics from {source}"
@@ -3801,10 +3827,6 @@ msgstr "Lyrics translation"
 #: internal/ui/features/player/lyrics_timing_ui.go
 msgid "Lyrics {words}"
 msgstr "Lyrics {words}"
-
-#: internal/ui/features/player/nowplaying_room.go
-msgid "Lyrics, full screen"
-msgstr "Lyrics, full screen"
 
 #: internal/ui/features/playlist/header.go
 msgid "Made for you"
@@ -4256,13 +4278,10 @@ msgstr "No labels for “{q}”"
 msgid "No live stations"
 msgstr "No live stations"
 
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/player/nowplaying_view.go
 msgid "No lyrics for this song"
 msgstr "No lyrics for this song"
-
-#: internal/ui/features/player/nowplaying_room.go
-msgid "No lyrics for this song."
-msgstr "No lyrics for this song."
 
 #: internal/ui/features/inspect/views.go
 msgid "No matches"
@@ -6429,6 +6448,10 @@ msgstr "Show the mini player"
 msgid "Show video"
 msgstr "Show video"
 
+#: internal/ui/app/app.go
+msgid "Showing lyrics"
+msgstr "Showing lyrics"
+
 #: internal/ui/features/inspect/views.go
 msgid "Showing the first {shown} of {matches} matches"
 msgstr "Showing the first {shown} of {matches} matches"
@@ -7093,10 +7116,15 @@ msgstr "Sona's, without window buttons"
 #: internal/ui/features/commands/palette.go
 #: internal/ui/features/home/catalogue.go
 #: internal/ui/features/inspect/model.go
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/search/groups.go
 #: internal/ui/features/song/song.go
 msgid "Song"
 msgstr "Song"
+
+#: internal/ui/features/player/nowplaying_room.go
+msgid "Song progress"
+msgstr "Song progress"
 
 #: internal/ui/features/library/library.go
 #: internal/ui/features/library/songs.go
@@ -7227,6 +7255,10 @@ msgstr "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, 
 #: internal/ui/features/video/view.go
 msgid "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, F switches full screen, M mutes, Escape closes the video."
 msgstr "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, F switches full screen, M mutes, Escape closes the video."
+
+#: internal/ui/features/player/nowplaying_room.go
+msgid "Space plays and pauses, Up and Down go to the previous or next line, Left and Right go back or ahead 5 seconds, Home goes to the start, Escape leaves."
+msgstr "Space plays and pauses, Up and Down go to the previous or next line, Left and Right go back or ahead 5 seconds, Home goes to the start, Escape leaves."
 
 #: internal/ui/kit/controls_badge.go
 msgctxt "a song playing as its Spatial Audio rendition, as a short badge"
@@ -7947,6 +7979,7 @@ msgid "Today"
 msgstr "Today"
 
 #: internal/ui/features/player/lyrics_sheet.go
+#: internal/ui/features/player/lyrics_stage.go
 msgid "Together"
 msgstr "Together"
 
@@ -9248,6 +9281,7 @@ msgstr "{artworkUsed} of {artworkLimit}"
 
 #: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/video/view.go
 msgid "{at} of {total}"
 msgstr "{at} of {total}"
