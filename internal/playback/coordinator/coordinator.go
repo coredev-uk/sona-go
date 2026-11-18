@@ -311,6 +311,7 @@ func (c *Coordinator) Snapshot() Snapshot {
 		NoCDM:          c.noCDM,
 		Preview:        c.index >= 0 && c.st.Preview,
 		Spatial:        c.index >= 0 && c.st.Spatial,
+		SpatialMiss:    c.spatialMiss(),
 		OnAir:          c.onAirLocked(),
 		Info:           c.infoLocked(),
 		AutoPlay:       c.autoplay,
@@ -339,6 +340,15 @@ func (c *Coordinator) Snapshot() Snapshot {
 	}
 	s.Controls = s.controls()
 	return s
+}
+
+// spatialMiss is the current item's playback.Status.SpatialMiss; with mu
+// held.
+func (c *Coordinator) spatialMiss() string {
+	if c.index < 0 {
+		return ""
+	}
+	return c.st.SpatialMiss
 }
 
 // liveLocked reports whether the current item is a live radio stream.

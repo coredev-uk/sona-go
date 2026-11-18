@@ -40,7 +40,7 @@ Press Ctrl+Shift+M, or use the mini player button, for a small window that stays
 
 - **Equaliser**: press Ctrl+Shift+E for ten bands, presets and a preamp. You hear changes as you move them.
 - **Crossfade** and **Sound Check** (every song at about the same loudness): Settings → Playback → Sound.
-- **Spatial Audio**: Settings → Playback → Sound. Songs with a Dolby Atmos mix play Apple's headphone rendition of it where Apple allows it for Sona, from the next song on; every other song plays in stereo. A quiet **Spatial** badge beside the title in the player bar (and under the title in Now Playing) shows when the song playing is the Spatial Audio one.
+- **Spatial Audio**: Settings → Playback → Sound. It is for headphones: it plays Apple's own headphone mix of songs made in Dolby Atmos. It works for many of them but not all, because Apple offers some only to its own apps; those play in stereo. It applies at once, so you can turn it on and off while a song plays and hear the two mixes at the same place in the song. A quiet **Spatial** badge beside the title in the player bar (and under the title in Now Playing) shows when the song playing is the Spatial Audio one. When it is on and a song that has a Spatial Audio mix plays in stereo, Now Playing says why under the album, such as "Stereo · Apple keeps this song's Spatial Audio mix for its own apps".
 - **Output device**: choose it in Settings → Playback. Switching moves the music without a pause. If the device is unplugged, Sona plays to the system default until it returns.
 
 ## Set volume

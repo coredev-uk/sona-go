@@ -174,7 +174,7 @@ func TestJSONSchemas(t *testing.T) {
 		v    any
 		want string
 	}{
-		{Status{}, "crossfade disliked error inLibrary liked position preview private repeat running shuffle spatial state track volume"},
+		{Status{}, "crossfade disliked error inLibrary liked position preview private repeat running shuffle spatial spatialMiss state track volume"},
 		{Track{}, "album artist artwork duration explicit id title"},
 		{Queue{}, "index tracks"},
 		{QueueTrack{}, "album artist artwork autoPlay duration explicit id title"},
@@ -193,7 +193,7 @@ func TestJSONSchemas(t *testing.T) {
 		}
 	}
 	b, _ := json.Marshal(NotRunning())
-	if string(b) != `{"running":false,"state":"idle","track":null,"position":0,"volume":0,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}` {
+	if string(b) != `{"running":false,"state":"idle","track":null,"position":0,"volume":0,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"spatialMiss":"","error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}` {
 		t.Errorf("not running = %s", b)
 	}
 }
@@ -261,7 +261,7 @@ func TestRunNotRunning(t *testing.T) {
 		out  string
 	}{
 		{[]string{"status"}, "Sona isn't running\n"},
-		{[]string{"status", "--json"}, `{"running":false,"state":"idle","track":null,"position":0,"volume":0,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}` + "\n"},
+		{[]string{"status", "--json"}, `{"running":false,"state":"idle","track":null,"position":0,"volume":0,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"spatialMiss":"","error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}` + "\n"},
 		{[]string{"status", "--follow"}, "not running\n"},
 		{[]string{"status", "--follow", "--format", "{{if .running}}on{{else}}off{{end}}"}, "off\n"},
 	} {

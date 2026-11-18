@@ -128,7 +128,7 @@ func (s *settings) soundCheckRow(c *ui.Context, st config.Settings, caps service
 
 // spatialAudioRow is the Spatial Audio switch.
 func (s *settings) spatialAudioRow(c *ui.Context, st config.Settings, caps services.Capabilities) {
-	title := i18n.T("Spatial Audio")
+	title := i18n.T("Spatial Audio for Headphones")
 	if !caps.Playback.Spatial {
 		s.unavailableRow(c, "spatial-audio", title, "")
 		return
@@ -136,7 +136,7 @@ func (s *settings) spatialAudioRow(c *ui.Context, st config.Settings, caps servi
 	s.switchRow(c, rowOpts{
 		ID:    "spatial-audio",
 		Title: title,
-		Desc:  i18n.T("Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona. Other songs keep playing in stereo. Applies from the next song."),
+		Desc:  i18n.T("Plays Apple's own headphone mix of songs made in Dolby Atmos. It works for many of them but not all, because Apple keeps some for its own apps; the Spatial tag beside the title shows when it's playing."),
 	}, st.Audio.SpatialAudio, false, func(on bool) {
 		s.save(func(x *config.Settings) { x.Audio.SpatialAudio = on })
 	})

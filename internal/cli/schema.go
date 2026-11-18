@@ -28,6 +28,12 @@ type Status struct {
 	Preview bool `json:"preview"`
 	// Spatial: Track plays as its Spatial Audio rendition.
 	Spatial bool `json:"spatial"`
+	// SpatialMiss says why Track plays in stereo although Spatial Audio is
+	// on and Apple lists it with a Spatial Audio or Atmos mix: "no_mix"
+	// (Apple publishes none Sona can play), "apple_only" (Apple keeps the
+	// mix for its own apps) or "unavailable"; "" otherwise, and while
+	// Spatial Audio is off.
+	SpatialMiss string `json:"spatialMiss"`
 	// Error describes the latest playback failure; "" when none.
 	Error string `json:"error"`
 	// Liked, Disliked and InLibrary are the playing song's state: a
@@ -142,8 +148,8 @@ type Private struct {
 	Saved bool `json:"saved"`
 }
 
-// Spatial is `sona spatial`: the Spatial Audio setting, which applies from
-// the next song.
+// Spatial is `sona spatial`: the Spatial Audio setting, which applies to the
+// song playing at once.
 type Spatial struct {
 	On bool `json:"on"`
 }

@@ -387,6 +387,12 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 			if cur.Album != "" {
 				p.outLink(c, "album", cur.Album, idPath("/album/", cur.AlbumID), 13, 18, 400, 2)
 			}
+			// Why the song is not in Spatial Audio although the setting is on
+			// (the engine says it only for a song Apple lists with a mix).
+			miss := ""
+			if !s.Spatial {
+				miss = kit.SpatialMissNote(s.SpatialMiss)
+			}
 			if cur.Explicit || s.Preview || s.Spatial {
 				ui.Row(c.Key("marks")).Margin(10, 0, 0, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 					if cur.Explicit {
@@ -399,6 +405,9 @@ func (p *player) songCopy(c *ui.Context, cur *services.QueueItem, large bool) {
 						kit.SpatialMark(c.Key("spatial"))
 					}
 				})
+			}
+			if miss != "" {
+				lineText(c.Key("spatial-miss"), miss, 12, 16, 450, theme.C("ink-muted")).Margin(8, 0, 0, 0).MaxLines(2)
 			}
 		}
 		if cur.Video {

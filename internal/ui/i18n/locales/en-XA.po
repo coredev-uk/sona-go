@@ -5135,8 +5135,12 @@ msgstr ""
 msgid "Playlists you make or add in Apple Music appear here after the next sync."
 msgstr ""
 
+#: internal/ui/features/settings/audio.go
+msgid "Plays Apple's own headphone mix of songs made in Dolby Atmos. It works for many of them but not all, because Apple keeps some for its own apps; the Spatial tag beside the title shows when it's playing."
+msgstr ""
+
 #: internal/ui/features/onboarding/playback.go
-msgid "Plays Apple's headphone mix of a song where there is one."
+msgid "Plays Apple's own headphone mix of songs made in Dolby Atmos. It works for many of them but not all; the Spatial tag beside the title shows when it's playing."
 msgstr ""
 
 #: internal/ui/features/radio/station.go
@@ -5166,10 +5170,6 @@ msgstr ""
 #. Under the account menu's Private listening switch
 #: internal/ui/features/auth/menu.go
 msgid "Plays stay out of your listening history, scrobbles and Discord."
-msgstr ""
-
-#: internal/ui/features/settings/audio.go
-msgid "Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona. Other songs keep playing in stereo. Applies from the next song."
 msgstr ""
 
 #: internal/ui/features/settings/motionartwork.go
@@ -7047,13 +7047,16 @@ msgctxt "a song playing as its Spatial Audio rendition, as a short badge"
 msgid "Spatial"
 msgstr ""
 
-#: internal/ui/features/onboarding/playback.go
-#: internal/ui/features/settings/audio.go
-#: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/settingsfile.go
 #: internal/ui/features/settings/summaries.go
 #: internal/ui/kit/controls_badge.go
 msgid "Spatial Audio"
+msgstr ""
+
+#: internal/ui/features/onboarding/playback.go
+#: internal/ui/features/settings/audio.go
+#: internal/ui/features/settings/find.go
+msgid "Spatial Audio for Headphones"
 msgstr ""
 
 #. Name of one of Apple Music's playlist cover designs: two gradients side by side.
@@ -7125,6 +7128,18 @@ msgstr ""
 #: internal/ui/features/settings/integrations_rows.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "Stay awake while playing"
+msgstr ""
+
+#: internal/ui/kit/controls_badge.go
+msgid "Stereo · Apple has no Spatial Audio mix of this song for Sona"
+msgstr ""
+
+#: internal/ui/kit/controls_badge.go
+msgid "Stereo · Apple keeps this song's Spatial Audio mix for its own apps"
+msgstr ""
+
+#: internal/ui/kit/controls_badge.go
+msgid "Stereo · This song's Spatial Audio mix couldn't be loaded"
 msgstr ""
 
 #: internal/ui/features/onboarding/done.go

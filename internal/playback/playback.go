@@ -45,6 +45,13 @@ type Status struct {
 	// binaural headphone mix of the Dolby Atmos master), not the stereo
 	// stream.
 	Spatial bool
+	// SpatialMiss says why a song that Apple lists with a Spatial Audio or
+	// Atmos trait plays the stereo stream although Spatial Audio is on: one
+	// of the Spatial* codes below. It is "" while the song plays spatial,
+	// when the setting is off, for a song with neither trait, for anything
+	// that is not a song, and when the lookup of the traits failed (nothing
+	// is known then).
+	SpatialMiss string
 	// OnAir is what a live broadcaster says is on air now (its stream's
 	// metadata, as heard: ICY titles, ID3 tags, playlist titles); zero
 	// when it says nothing.
@@ -54,6 +61,19 @@ type Status struct {
 	// when nothing is.
 	Info StationInfo
 }
+
+// Status.SpatialMiss codes.
+const (
+	// SpatialNoMix: Apple lists the song with a Spatial Audio mix but
+	// publishes none Sona can play.
+	SpatialNoMix = "no_mix"
+	// SpatialAppleOnly: Apple keeps the song's mix for its own apps
+	// (FairPlay-only keys, or its licence server refused the licence).
+	SpatialAppleOnly = "apple_only"
+	// SpatialUnavailable: anything else went wrong, a network or catalogue
+	// failure for one.
+	SpatialUnavailable = "unavailable"
+)
 
 // PositionAt extrapolates Position to now: while playing it advances by
 // the time since UpdatedAt, clamped to Duration (when known) and never

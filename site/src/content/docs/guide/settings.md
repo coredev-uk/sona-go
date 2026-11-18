@@ -51,7 +51,7 @@ On a platform with no playback engine this section says so, and only Lyrics rema
 | Audio quality | Chooses High (256 kbps AAC) or Data saver (64 kbps). Applies from the next song. | |
 | Output | Chooses where Sona plays. Switching moves the music without a pause. | Where the engine can pick a device |
 | Sound Check | Plays every song at about the same loudness. | Where the engine supports it |
-| Spatial Audio | Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona; other songs stay in stereo. Off by default, applies from the next song. | Where the engine supports it |
+| Spatial Audio for Headphones | Plays Apple's own headphone mix of songs made in Dolby Atmos. It works for many of them but not all, because Apple keeps some for its own apps; the Spatial tag beside the title shows when it's playing. Off by default, and it applies at once, to the song playing too. | Where the engine supports it |
 | Equaliser | Opens the ten-band equaliser. | Where the engine supports it |
 | Crossfade and Crossfade length | Fades each song into the next. Songs that follow each other on an album always play without a gap. | Where the engine supports it |
 
