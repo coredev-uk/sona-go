@@ -289,10 +289,12 @@ func (p *player) stageStrip(c *ui.Context, st *stage, cur *services.QueueItem, g
 	text := func(key, s string, size, h float32, weight int, tone string) ui.Element {
 		return lineText(c.Key(key), s, round32(size*ss), round32(h*ss), weight, theme.C(tone)).SingleLine()
 	}
-	// A dissolve under the strip, so the coming lines do not run into its rule.
+	// A dissolve under the strip: the coming lines fade out over the 150 DIP
+	// above its rule and are gone from the rule down, so no glyph shows behind
+	// the cover, the song or the time (the strip is 110 DIP of the 260).
 	ground := theme.C("ground")
 	fade := ui.Box(c.Key("strip-fade")).Absolute().Left(0).Right(0).Bottom(0).Height(round32(260 * ss)).IgnoreInput(true).
-		LinearGradient(ui.LinearGradient{From: ground.Alpha(0), To: ground.Alpha(0.92), Angle: 180, End: 0.6})
+		LinearGradient(ui.LinearGradient{From: ground.Alpha(0), To: ground, Angle: 180, End: 150.0 / 260})
 	strip := ui.Column(c.Key("strip")).Absolute().Left(g.left).Right(g.left).Bottom(0)
 	if !reduced {
 		m := theme.Current().Motion["backdrop"]
