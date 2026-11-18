@@ -105,12 +105,14 @@ jobs:
           # passed, so Clarence's one-at-a-time queue isn't paced by the full
           # pass. The nightly, a release (release.yml calls this with
           # linux-only) and a dispatch with only=all also run all of ui under
-          # -race, in three shards; that full pass is 4-10 min a shard, too
-          # long for every merge. The same pool, shard count and mode make the
-          # same cache flavour, so a pull request restores what main saved.
+          # -race, in four shards of up to 20 min (the release of 18 Nov had
+          # two of three shards cut at 10 min once Full-Screen Lyrics' and
+          # Inspect's tests landed); too long for every merge. The same pool,
+          # shard count and mode make the same cache flavour, so a pull
+          # request restores what main saved.
           ui='{"pool":"ui","index":1,"count":2,"race":"0"},{"pool":"ui","index":2,"count":2,"race":"0"},{"pool":"ui-race","index":1,"count":1,"race":"1"}'
           if [ "$EVENT" = schedule ] || [ "$RELEASE" = true ] || { [ "$EVENT" = workflow_dispatch ] && { [ -z "$ONLY" ] || [ "$ONLY" = all ]; }; }; then
-            ui="$ui"',{"pool":"ui","index":1,"count":3,"race":"1"},{"pool":"ui","index":2,"count":3,"race":"1"},{"pool":"ui","index":3,"count":3,"race":"1"}'
+            ui="$ui"',{"pool":"ui","index":1,"count":4,"race":"1"},{"pool":"ui","index":2,"count":4,"race":"1"},{"pool":"ui","index":3,"count":4,"race":"1"},{"pool":"ui","index":4,"count":4,"race":"1"}'
           fi
           echo "ui-matrix=[$ui]" >>"$GITHUB_OUTPUT"
 
@@ -231,7 +233,9 @@ jobs:
     needs: [changes, image]
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    # The full race pass (the ui pool's four shards) gets 20 min; every other
+    # shard keeps 10.
+    timeout-minutes: ${{ matrix.pool == 'ui' && matrix.race == '1' && 20 || 10 }}
     permissions:
       contents: read
       packages: read # pull the image
