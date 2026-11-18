@@ -1,5 +1,3 @@
-//go:build dev
-
 package catalog
 
 import (
@@ -10,7 +8,7 @@ import (
 )
 
 // RawKinds are the cache kinds that hold each kind of item, most specific
-// page first, for the dev build's inspector.
+// page first, for the item inspector (Settings → Diagnostics → Developer tools).
 var RawKinds = map[string][]string{
 	"song":        {"song-page", songKind},
 	"album":       {albumPageKind},
@@ -21,7 +19,7 @@ var RawKinds = map[string][]string{
 
 // Raw returns the cached response of catalog item id of kind (a key of
 // RawKinds) as the cache stores it, with the cache key it came from; ok is
-// false when nothing is cached (it never asks Apple). Development builds only.
+// false when nothing is cached (it never asks Apple).
 func (c *Catalog) Raw(ctx context.Context, kind, id string) (key string, body []byte, ok bool, err error) {
 	sf := c.storefront()
 	if sf == "" {

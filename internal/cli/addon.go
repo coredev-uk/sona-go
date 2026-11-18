@@ -593,6 +593,10 @@ func SafeLink(raw string) (host string, ok bool) {
 	return p.Hostname(), true
 }
 
+// AddonEventData is the data of the event v is for an add-on, as the session
+// writes it: v as forAddon lets an add-on see it, encoded.
+func AddonEventData(v any) ([]byte, error) { return json.Marshal(forAddon(v)) }
+
 // forAddon is v, a result or an event payload, as an add-on may see it:
 // artwork only from the public CDN, links only on music.apple.com, a queue
 // no longer than a frame can hold. Values of other types pass unchanged.

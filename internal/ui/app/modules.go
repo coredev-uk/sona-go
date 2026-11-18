@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/discover"
 	"github.com/coredev-uk/sona-go/internal/ui/features/equalizer"
 	"github.com/coredev-uk/sona-go/internal/ui/features/home"
+	"github.com/coredev-uk/sona-go/internal/ui/features/inspect"
 	"github.com/coredev-uk/sona-go/internal/ui/features/library"
 	"github.com/coredev-uk/sona-go/internal/ui/features/miniplayer"
 	"github.com/coredev-uk/sona-go/internal/ui/features/newreleases"
@@ -58,4 +59,5 @@ var factories = []module.Factory{
 	reminders.New,   // release reminders' album action
 	newreleases.New, // the artist tracker's new releases page and its unread count
 	onboarding.New,  // the first-run setup layer
+	inspect.New,     // Inspect in every item's menu: a development build's, or Settings → Diagnostics → Developer tools
 }

@@ -414,6 +414,27 @@ func TestDeveloperToolsOpensTheInspectorWhereItIsOn(t *testing.T) {
 	}
 }
 
+// Developer tools is off until the person turns it on, saves at once to
+// settings.json and is the first row of the group.
+func TestDeveloperToolsSwitchOffersInspectAndSaves(t *testing.T) {
+	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
+	g.tt.Until("row", g.tt.Shows("Developer tools",
+		"Adds Inspect to every item's menu: its IDs, artwork, what Apple sent, and what an add-on receives for it."))
+	if g.h.Settings.Get().DeveloperTools {
+		t.Fatal("Developer tools is on by default")
+	}
+	g.reveal("developer-inspect")
+	g.tt.Key(0, ui.KeySpace)
+	g.tt.Drain()
+	g.tt.Until("saved on", func() bool { g.tt.Drain(); return g.h.Settings.Get().DeveloperTools })
+	g.reveal("developer-inspect")
+	g.tt.Key(0, ui.KeySpace)
+	g.tt.Until("saved off", func() bool { g.tt.Drain(); return !g.h.Settings.Get().DeveloperTools })
+	if !g.s.seen["developer-inspect"] {
+		t.Error("no developer-inspect row")
+	}
+}
+
 func TestDeveloperToolsIsUnavailableOutsideDevelopmentBuilds(t *testing.T) {
 	caps := linuxCaps()
 	caps.DeveloperTools = false

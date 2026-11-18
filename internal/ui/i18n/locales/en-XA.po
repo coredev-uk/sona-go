@@ -227,6 +227,10 @@ msgstr ""
 msgid "Added “{name}” to your library"
 msgstr ""
 
+#: internal/ui/features/settings/devtools.go
+msgid "Adds Inspect to every item's menu: its IDs, artwork, what Apple sent, and what an add-on receives for it."
+msgstr ""
+
 #: internal/ui/features/onboarding/desktop.go
 #: internal/ui/features/settings/desktop.go
 msgid "Adds Sona to the login items in System Settings → General."
@@ -2178,6 +2182,12 @@ msgstr ""
 #: internal/ui/features/settings/devtools.go
 #: internal/ui/features/settings/find.go
 msgid "Developer Tools"
+msgstr ""
+
+#: internal/ui/features/settings/devtools.go
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/settingsfile.go
+msgid "Developer tools"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
@@ -8731,6 +8741,10 @@ msgstr ""
 #. When something happened, two calendar years ago or more, after a verb ("Updated in 2023"); year is the year's number.
 #: internal/ui/i18n/relative.go
 msgid "in {year}"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+msgid "inspect, add-on developers, debug, ids, artwork, raw data, protocol"
 msgstr ""
 
 #: internal/ui/features/settings/find.go

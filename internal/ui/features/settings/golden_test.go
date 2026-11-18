@@ -78,4 +78,22 @@ func TestSettingsGoldenSections(t *testing.T) {
 		g.tt.Settle()
 		uitest.Golden(t, g.tt.Image(), "settings-diagnostics-light")
 	})
+	// The Developer tools switch, off then on, with the group's other row.
+	for _, tc := range []struct {
+		name string
+		dark bool
+	}{{"settings-diagnostics-developer-light", false}, {"settings-diagnostics-developer-dark", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newDiagRig(t, linuxCaps(), engineReport(), func(*diagRig) {
+				if tc.dark {
+					theme.SetMode(theme.ModeDark)
+				}
+			})
+			g.router.Replace(settingsPath + "?section=diagnostics")
+			g.tt.Until("the verdict", g.tt.Shows("Everything Sona needs is working", "Developer tools"))
+			g.toEnd()
+			g.tt.Settle()
+			uitest.Golden(t, g.tt.Image(), tc.name)
+		})
+	}
 }
