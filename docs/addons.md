@@ -181,7 +181,7 @@ The result types are in [Schema](#schema).
 ```
 
 ```json example StatusResponse
-{"id":5,"result":{"running":true,"state":"paused","track":null,"position":0,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}}
+{"id":5,"result":{"running":true,"state":"paused","track":null,"position":0,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"spatialMiss":"","error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}}
 ```
 
 ### `invoke`
@@ -228,7 +228,7 @@ An add-on that cannot do it answers with an `error`. Sona passes only its `code`
 - An add-on that lets more than 256 frames wait unread is ended.
 
 ```json example StatusEvent
-{"event":"status","data":{"running":true,"state":"playing","track":{"id":"1441164430","title":"Come Together","artist":"The Beatles","album":"Abbey Road","duration":259.0,"explicit":false,"artwork":"https://is1-ssl.mzstatic.com/image/thumb/Music/600x600bb.jpg"},"position":12.5,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"error":"","liked":true,"disliked":false,"inLibrary":true,"crossfade":false}}
+{"event":"status","data":{"running":true,"state":"playing","track":{"id":"1441164430","title":"Come Together","artist":"The Beatles","album":"Abbey Road","duration":259.0,"explicit":false,"artwork":"https://is1-ssl.mzstatic.com/image/thumb/Music/600x600bb.jpg"},"position":12.5,"volume":80,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"spatialMiss":"","error":"","liked":true,"disliked":false,"inLibrary":true,"crossfade":false}}
 ```
 
 ```json example NowPlayingEvent
@@ -261,7 +261,7 @@ An add-on names the permissions it wants in `hello`. The user grants some of the
 | Permission | What it allows |
 | --- | --- |
 | `playback.read` | Topics `status` and `now-playing`; the `status` call. The status carries whether the playing song is a favourite, rated Suggest Less or in the library. `spatial` with no argument or `status` reads whether Spatial Audio is on. |
-| `playback.control` | `play` (a link too), `pause`, `toggle`, `next`, `prev`, `seek`, `shuffle`, `repeat`, `crossfade`, `spatial on`, `spatial off`, `spatial toggle` (Spatial Audio applies from the next song). |
+| `playback.control` | `play` (a link too), `pause`, `toggle`, `next`, `prev`, `seek`, `shuffle`, `repeat`, `crossfade`, `spatial on`, `spatial off`, `spatial toggle` (Spatial Audio applies at once: the song playing switches mix at its position). |
 | `queue.read` | Topic `queue`; the `queue` call. |
 | `queue.control` | `queue jump` and `queue clear`. |
 | `lyrics.read` | The `lyrics` call. |
@@ -804,6 +804,7 @@ Their connect flows (Settings → Connections) start an add-on that has no accou
         "private": {"const": false},
         "preview": {"const": false},
         "spatial": {"type": "boolean"},
+        "spatialMiss": {"enum": ["", "no_mix", "apple_only", "unavailable"]},
         "error": {"const": ""},
         "liked": {"type": "boolean"}, "disliked": {"type": "boolean"}, "inLibrary": {"type": "boolean"},
         "crossfade": {"type": "boolean"}

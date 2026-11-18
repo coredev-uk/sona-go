@@ -141,6 +141,10 @@ type Snapshot struct {
 	// Spatial: the current item plays as its Spatial Audio rendition
 	// (playback.Status.Spatial).
 	Spatial bool `json:"spatial"`
+	// SpatialMiss: why the current song, which Apple lists with a Spatial
+	// Audio mix, plays stereo although Spatial Audio is on
+	// (playback.Status.SpatialMiss); "" otherwise.
+	SpatialMiss string `json:"spatialMiss"`
 	// OnAir is what the current live broadcaster's stream says is on air,
 	// as heard (playback.Status.OnAir); zero when it says nothing.
 	OnAir playback.OnAir `json:"onAir"`

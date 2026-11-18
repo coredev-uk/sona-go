@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -298,15 +299,37 @@ func TestSoundCheckIsSaved(t *testing.T) {
 	p.saved("sound check", func(s config.Settings) bool { return s.Audio.SoundCheck })
 }
 
+// settingsSpatialCopy is the Spatial Audio row's description: for
+// headphones' sake it says what the setting plays, that it works for many
+// songs and not all, why, and where the tag shows. It must not promise the
+// old "from the next song": the playing song switches at once.
+const settingsSpatialCopy = "Plays Apple's own headphone mix of songs made in Dolby Atmos. It works for many of them but not all, because Apple keeps some for its own apps; the Spatial tag beside the title shows when it's playing."
+
+func TestSpatialAudioCopy(t *testing.T) {
+	for _, bad := range []string{"next song", "Applies from"} {
+		if strings.Contains(settingsSpatialCopy, bad) {
+			t.Errorf("the description still says %q", bad)
+		}
+	}
+	for _, want := range []string{"headphone", "Dolby Atmos", "many of them but not all", "own apps", "Spatial tag"} {
+		if !strings.Contains(settingsSpatialCopy, want) {
+			t.Errorf("the description doesn't say %q", want)
+		}
+	}
+	if n := strings.Count(settingsSpatialCopy, ". ") + 1; n != 2 {
+		t.Errorf("the description is %d sentences, want 2", n)
+	}
+}
+
 func TestSpatialAudioIsOffByDefaultAndSaved(t *testing.T) {
 	p := newPBRig(t, pbCaps(), pbReadyCDM())
-	p.shows("Spatial Audio", "Applies from the next song.")
+	p.shows("Spatial Audio for Headphones", settingsSpatialCopy)
 	if p.h.Settings.Get().Audio.SpatialAudio {
 		t.Fatal("Spatial Audio is on by default")
 	}
-	p.toggle("Spatial Audio")
+	p.toggle("Spatial Audio for Headphones")
 	p.saved("spatial audio on", func(s config.Settings) bool { return s.Audio.SpatialAudio })
-	p.toggle("Spatial Audio")
+	p.toggle("Spatial Audio for Headphones")
 	p.saved("spatial audio off", func(s config.Settings) bool { return !s.Audio.SpatialAudio })
 }
 
@@ -314,8 +337,8 @@ func TestSpatialAudioIsExplainedWhereThePlayerHasNone(t *testing.T) {
 	caps := pbCaps()
 	caps.Playback.Spatial = false
 	p := newPBRig(t, caps, pbReadyCDM())
-	p.shows("Spatial Audio", "Not available on Linux yet.")
-	p.lacks("Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona. Other songs keep playing in stereo. Applies from the next song.")
+	p.shows("Spatial Audio for Headphones", "Not available on Linux yet.")
+	p.lacks(settingsSpatialCopy)
 }
 
 func TestOutputDeviceListAndChoice(t *testing.T) {

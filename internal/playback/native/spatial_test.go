@@ -176,6 +176,20 @@ func spatialHarness(t *testing.T, on bool) (*harness, *logBuffer) {
 	return h, buf
 }
 
+// queued is how many items were queued behind the current one (a drop
+// is a Next of track 0).
+func (f *fakeHost) queued() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, c := range f.nexts {
+		if c.track != 0 {
+			n++
+		}
+	}
+	return n
+}
+
 func kids(feeds []feedCall) [][]byte {
 	out := make([][]byte, len(feeds))
 	for i, f := range feeds {
@@ -306,15 +320,16 @@ func TestSpatialFallsBackToTheStereoStream(t *testing.T) {
 	for _, tc := range []struct {
 		id    string
 		why   string // in the log
+		miss  string // Status.SpatialMiss
 		quiet bool   // not logged above debug level
 	}{
-		{id: "SN", why: "the song has no Spatial Audio mix", quiet: true},
-		{id: "SF", why: "segment 0 has no Widevine key (FairPlay only)"},
-		{id: "SR", why: "a licence was refused: key 2 of 2: apple music: licence rejected"},
-		{id: "SM", why: "the master has no audio-stereo-256-binaural rendition"},
-		{id: "SP", why: "the rendition's playlist"},
-		{id: "SE", why: "the song has no enhancedHls master"},
-		{id: "SX", why: "the catalogue lookup failed"},
+		{id: "SN", miss: "", why: "the song has no Spatial Audio mix", quiet: true},
+		{id: "SF", miss: playback.SpatialAppleOnly, why: "segment 0: no Widevine key (FairPlay only)"},
+		{id: "SR", miss: playback.SpatialAppleOnly, why: "a licence was refused: key 2 of 2: apple music: licence rejected"},
+		{id: "SM", miss: playback.SpatialNoMix, why: "the master has no audio-stereo-256-binaural rendition"},
+		{id: "SP", miss: playback.SpatialUnavailable, why: "the rendition's playlist"},
+		{id: "SE", miss: playback.SpatialNoMix, why: "the song has no enhancedHls master"},
+		{id: "SX", miss: "", why: "the catalogue lookup failed"},
 	} {
 		t.Run(tc.id, func(t *testing.T) {
 			h, log := spatialHarness(t, true)
@@ -322,8 +337,8 @@ func TestSpatialFallsBackToTheStereoStream(t *testing.T) {
 				t.Fatalf("a fallback must still play: %v", err)
 			}
 			st := h.e.Status()
-			if st.State != playback.StatePlaying || st.ItemID != tc.id || st.Spatial || st.Duration != trimmed {
-				t.Fatalf("status %+v", st)
+			if st.State != playback.StatePlaying || st.ItemID != tc.id || st.Spatial || st.Duration != trimmed || st.SpatialMiss != tc.miss {
+				t.Fatalf("status %+v, want the reason %q", st, tc.miss)
 			}
 			f := h.host(0)
 			eventually(t, "the stereo stream fed", func() bool { _, feeds, _ := f.snapshot(); return len(feeds) == 3 })
@@ -403,43 +418,153 @@ func TestSpatialCachesTheCatalogue(t *testing.T) {
 	}
 }
 
-// The setting applies from the next item, as the quality does: the playing
-// item keeps its stream, a prepared item of the other mode is prepared
-// again.
-func TestSpatialSettingAppliesFromTheNextItem(t *testing.T) {
+// Turning Spatial Audio on or off reloads the playing song, paused or
+// playing as it was, at its position, in the other mix.
+func TestSpatialToggleSwitchesThePlayingSong(t *testing.T) {
 	h, _ := spatialHarness(t, false)
 	if err := h.e.Play(ctx(t), "S1", 0); err != nil {
 		t.Fatal(err)
 	}
-	if err := h.e.Preload(ctx(t), "SN"); err != nil {
+	f := h.host(0)
+	eventually(t, "played in stereo", func() bool { _, feeds, _ := f.snapshot(); return len(feeds) == 3 })
+	if err := h.e.Seek(ctx(t), 12*time.Second); err != nil {
 		t.Fatal(err)
 	}
+	eventually(t, "fed after the seek", func() bool { _, feeds, _ := f.snapshot(); return len(feeds) == 5 })
+	if err := h.e.Pause(ctx(t)); err != nil { // the fake host paused at 12.5 s
+		t.Fatal(err)
+	}
+	at := h.e.Status().Position
+	if at != 12500*time.Millisecond {
+		t.Fatalf("paused at %v", at)
+	}
+	_, before, _ := f.snapshot()
+
 	h.e.SetSpatial(true)
-	if err := h.e.Seek(ctx(t), 0); err != nil {
+	eventually(t, "the spatial mix", func() bool { return h.e.Status().Spatial })
+	st := h.e.Status()
+	if st.State != playback.StatePaused || st.Position != at || st.SpatialMiss != "" {
+		t.Fatalf("status %+v, want paused at %v", st, at)
+	}
+	eventually(t, "the mix fed from the position", func() bool { _, feeds, _ := f.snapshot(); return len(feeds)-len(before) == 2 })
+	loads, feeds, _ := f.snapshot()
+	if l := loads[len(loads)-1]; len(loads) != 3 || l.start != at || l.dur != trimmed {
+		t.Fatalf("loads %+v, want a reload at %v", loads, at)
+	}
+	wantKIDs(t, feeds[len(before):], spatialKID2, spatialKID2)
+	if n := h.fx.requests("/S1/spatial/audio-stereo-256-binaural.m3u8", ""); n != 1 {
+		t.Errorf("binaural playlist fetched %d times", n)
+	}
+
+	// Playing again, back to stereo.
+	if err := h.e.Resume(ctx(t)); err != nil {
 		t.Fatal(err)
 	}
-	if st := h.e.Status(); st.Spatial || h.fx.requests("/S1/spatial/audio-stereo-256-binaural.m3u8", "") != 0 {
-		t.Fatalf("the playing item switched: %+v", st)
-	}
-	if err := h.e.Play(ctx(t), "SN", 0); err != nil { // prepared with the setting off: prepared again
-		t.Fatal(err)
-	}
-	if n := h.fx.requests("/v1/catalog/gb/songs/SN", ""); n != 1 {
-		t.Errorf("the catalogue was asked %d times for SN", n)
-	}
-	if err := h.e.Play(ctx(t), "S1", 0); err != nil {
-		t.Fatal(err)
-	}
-	if !h.e.Status().Spatial {
-		t.Fatalf("a replay didn't pick up the setting: %+v", h.e.Status())
-	}
+	_, before, _ = f.snapshot()
 	h.e.SetSpatial(false)
+	eventually(t, "the stereo mix", func() bool { st := h.e.Status(); return !st.Spatial && st.State == playback.StatePlaying })
+	eventually(t, "stereo fed from the position", func() bool { _, feeds, _ := f.snapshot(); return len(feeds)-len(before) == 2 })
+	loads, feeds, _ = f.snapshot()
+	if l := loads[len(loads)-1]; len(loads) != 4 || l.start < at || l.start > at+5*time.Second {
+		t.Fatalf("loads %+v, want a reload at about %v", loads, at)
+	}
+	wantKIDs(t, feeds[len(before):], nil, nil)
+	// The spatial mix's sessions are forgotten, the stereo stream's one is held.
+	eventually(t, "the sessions of the mix left are forgotten", func() bool {
+		h.e.mu.Lock()
+		defer h.e.mu.Unlock()
+		return len(h.e.sessions) == 1
+	})
+}
+
+// A song with no mix to switch to plays on untouched, and says why.
+func TestSpatialToggleLeavesASongWithNoMixAlone(t *testing.T) {
+	for _, tc := range []struct {
+		id, miss string
+	}{
+		{"SN", ""}, // no Spatial Audio mix at all: nothing to say
+		{"SF", playback.SpatialAppleOnly},
+		{"SR", playback.SpatialAppleOnly},
+		{"SM", playback.SpatialNoMix},
+		{"SP", playback.SpatialUnavailable},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			h, _ := spatialHarness(t, false)
+			if err := h.e.Play(ctx(t), tc.id, 0); err != nil {
+				t.Fatal(err)
+			}
+			f := h.host(0)
+			eventually(t, "played", func() bool { _, feeds, _ := f.snapshot(); return len(feeds) == 3 })
+			h.e.SetSpatial(true)
+			eventually(t, "the switch has looked at the song and ended", func() bool {
+				if h.fx.requests("/v1/catalog/gb/songs/"+tc.id, "") == 0 || !h.e.mixMu.TryLock() {
+					return false
+				}
+				h.e.mixMu.Unlock()
+				return true
+			})
+			if got := h.e.Status().SpatialMiss; got != tc.miss {
+				t.Fatalf("reason %q, want %q", got, tc.miss)
+			}
+			if st := h.e.Status(); st.Spatial || st.State != playback.StatePlaying {
+				t.Fatalf("status %+v", st)
+			}
+			if loads, feeds, sessions := f.snapshot(); len(loads) != 1 || len(feeds) != 3 || sessions != 1 {
+				t.Fatalf("%d loads, %d feeds, %d sessions: the song was reloaded", len(loads), len(feeds), sessions)
+			}
+			h.e.SetSpatial(false)
+			if st := h.e.Status(); st.SpatialMiss != "" || st.Spatial {
+				t.Fatalf("status %+v", st)
+			}
+			if loads, _, _ := f.snapshot(); len(loads) != 1 {
+				t.Fatalf("%d loads", len(loads))
+			}
+		})
+	}
+}
+
+// A switch that fails leaves the audio as it was.
+func TestSpatialFailedSwitchKeepsTheAudio(t *testing.T) {
+	h, log := spatialHarness(t, false)
 	if err := h.e.Play(ctx(t), "S1", 0); err != nil {
 		t.Fatal(err)
 	}
-	if h.e.Status().Spatial {
-		t.Fatalf("turning it off didn't apply to the next play: %+v", h.e.Status())
+	f := h.host(0)
+	eventually(t, "played", func() bool { _, feeds, _ := f.snapshot(); return len(feeds) == 3 })
+	h.fx.webDown.Store(true)
+	h.e.SetSpatial(true)
+	eventually(t, "the failure is logged", func() bool { return strings.Contains(log.String(), "switching the playing song failed") })
+	st := h.e.Status()
+	if st.State != playback.StatePlaying || st.Spatial || st.Err != "" {
+		t.Fatalf("status %+v: the song must play on", st)
 	}
+	if loads, _, _ := f.snapshot(); len(loads) != 1 {
+		t.Fatalf("%d loads", len(loads))
+	}
+	// The song still seeks and is the engine's cached media.
+	h.fx.webDown.Store(false)
+	if err := h.e.Seek(ctx(t), time.Second); err != nil {
+		t.Fatal(err)
+	}
+	// And toggling again gets there.
+	h.e.SetSpatial(false)
+	h.e.SetSpatial(true)
+	eventually(t, "the spatial mix", func() bool { return h.e.Status().Spatial })
+}
+
+// The armed next item follows the setting too.
+func TestSpatialToggleRearmsTheNextItem(t *testing.T) {
+	h, _ := spatialHarness(t, false)
+	if err := h.e.Play(ctx(t), "SN", 0); err != nil {
+		t.Fatal(err)
+	}
+	h.e.SetNext(playback.Next{ID: "S1"})
+	f := h.host(0)
+	eventually(t, "the next item queued", func() bool { return f.queued() == 1 })
+	h.e.SetSpatial(true)
+	eventually(t, "the next item queued again as its spatial mix", func() bool {
+		return h.fx.requests("/S1/spatial/audio-stereo-256-binaural.m3u8", "") == 1 && f.queued() == 2
+	})
 }
 
 // A seek feeds from the segment that holds the position, each with its

@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,6 +41,7 @@ type fakeHost struct {
 	inits    map[string][]byte // session → the init data CreateSession was given
 	loads    []loadCall
 	nexts    []nextCall
+	made     int    // sessions created, for their IDs
 	next     uint64 // queued with Next
 	feeds    []feedCall
 	track    uint64
@@ -125,7 +127,8 @@ func (f *fakeHost) SetServerCertificate(context.Context, []byte) error {
 func (f *fakeHost) CreateSession(_ context.Context, kid []byte) (string, []byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	sid := fmt.Sprintf("s%d", len(f.sessions)+1)
+	f.made++
+	sid := fmt.Sprintf("s%d", f.made)
 	f.sessions[sid] = nil
 	f.inits[sid] = kid
 	return sid, append([]byte("challenge:"), kid...), f.alive()
@@ -284,6 +287,8 @@ type fixture struct {
 	mu    sync.Mutex
 	count map[string]int // "path range" → requests
 	lics  []licenceReq   // every licence request, in order (spatial_test.go)
+	// webDown makes webPlayback answer 403, as a failed preparation.
+	webDown atomic.Bool
 }
 
 // initSeg is a minimal AAC-LC 44.1 kHz stereo init segment.
@@ -329,6 +334,8 @@ func newFixture(t *testing.T) *fixture {
 			return
 		}
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/webPlayback") && fx.webDown.Load():
+			w.WriteHeader(http.StatusForbidden)
 		case strings.HasSuffix(r.URL.Path, "/webPlayback"):
 			var body struct {
 				SalableAdamID      string `json:"salableAdamId"`

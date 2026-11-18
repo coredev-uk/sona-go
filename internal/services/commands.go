@@ -274,17 +274,18 @@ func (s *commandServer) transport(ctx context.Context, name string, run func(con
 // status maps the coordinator's state for the command line.
 func (s *commandServer) status(snap coordinator.Snapshot) cli.Status {
 	st := cli.Status{
-		Running:   true,
-		State:     cmp.Or(string(snap.State), cli.StateIdle),
-		Position:  position(snap, time.Now()).Seconds(),
-		Volume:    percent(snap.Volume),
-		Shuffle:   snap.Shuffle,
-		Repeat:    cmp.Or(string(snap.Repeat), string(coordinator.RepeatOff)),
-		Private:   s.e.Private.On(),
-		Preview:   snap.Preview,
-		Spatial:   snap.Spatial,
-		Error:     snap.Error,
-		Crossfade: s.crossfadeOn.Load(),
+		Running:     true,
+		State:       cmp.Or(string(snap.State), cli.StateIdle),
+		Position:    position(snap, time.Now()).Seconds(),
+		Volume:      percent(snap.Volume),
+		Shuffle:     snap.Shuffle,
+		Repeat:      cmp.Or(string(snap.Repeat), string(coordinator.RepeatOff)),
+		Private:     s.e.Private.On(),
+		Preview:     snap.Preview,
+		Spatial:     snap.Spatial,
+		SpatialMiss: snap.SpatialMiss,
+		Error:       snap.Error,
+		Crossfade:   s.crossfadeOn.Load(),
 	}
 	if snap.Current != nil {
 		t := track(snap.Current.Item)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/fmp4"
 	"github.com/coredev-uk/sona-go/internal/playback/hls"
 	"github.com/coredev-uk/sona-go/internal/playback/soundcheck"
@@ -65,7 +66,11 @@ type spatialMedia struct {
 // Audio is on.
 type spatialFallback struct {
 	reason string
-	err    error
+	// code is the playback.Status.SpatialMiss code the UI shows; "" where
+	// nothing is known of a mix (the lookup failed, or the song has no
+	// Spatial Audio or Atmos trait): the UI says nothing then.
+	code string
+	err  error
 	// quiet: nothing is wrong, the song just has no Spatial Audio mix
 	// (logged at debug level).
 	quiet bool
@@ -90,8 +95,37 @@ func fallback(ctx context.Context, reason string, err error) error {
 	if errors.Is(err, applemusic.ErrUnauthorized) {
 		return err
 	}
-	return &spatialFallback{reason: reason, err: err}
+	return &spatialFallback{reason: reason, code: playback.SpatialUnavailable, err: err}
 }
+
+// lookupFailed is the fallback for a catalogue lookup that failed: the
+// song's traits are unknown, so nothing is said of a mix it may not have.
+func lookupFailed(ctx context.Context, err error) error {
+	switch err := fallback(ctx, "the catalogue lookup failed", err).(type) {
+	case *spatialFallback:
+		err.code = ""
+		return err
+	default:
+		return err
+	}
+}
+
+// refused is the fallback for a licence the server refused (Apple keeps the
+// mix for its own apps) or one that failed otherwise.
+func refused(ctx context.Context, err error) error {
+	var le *applemusic.LicenseError
+	if errors.As(err, &le) {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return &spatialFallback{reason: "a licence was refused", code: playback.SpatialAppleOnly, err: err}
+	}
+	return fallback(ctx, "a licence failed", err)
+}
+
+// errFairPlayOnly marks a rendition whose segments have no Widevine key:
+// Apple serves it to its own apps only.
+var errFairPlayOnly = errors.New("no Widevine key (FairPlay only)")
 
 // Limits of the catalogue cache.
 const (
@@ -207,7 +241,7 @@ func spatialKeys(pl *hls.Playlist) ([]*hls.Key, error) {
 	for i, s := range pl.Segments {
 		k := s.Key
 		if k == nil || k.KeyFormat != hls.WidevineKeyFormat || len(k.InitData) == 0 || len(k.KID) == 0 {
-			return nil, fmt.Errorf("segment %d has no Widevine key (FairPlay only)", i)
+			return nil, fmt.Errorf("segment %d: %w", i, errFairPlayOnly)
 		}
 		if s.Map == nil || *s.Map != *first.Map {
 			return nil, fmt.Errorf("segment %d changes the init segment", i)
@@ -241,16 +275,16 @@ func (e *Engine) prepareSpatial(ctx context.Context, m *media, info applemusic.P
 	}
 	switch {
 	case a.err != nil:
-		return fallback(ctx, "the catalogue lookup failed", a.err)
+		return lookupFailed(ctx, a.err)
 	case !hasSpatialTrait(a.traits):
 		return &spatialFallback{reason: "the song has no Spatial Audio mix", quiet: true}
 	case a.master == "":
-		return &spatialFallback{reason: "the song has no enhancedHls master"}
+		return &spatialFallback{reason: "the song has no enhancedHls master", code: playback.SpatialNoMix}
 	}
 	rendition := spatialRendition(m.quality)
 	vi := slices.IndexFunc(a.variants, func(v hls.Variant) bool { return v.Audio == rendition })
 	if vi < 0 {
-		return &spatialFallback{reason: "the master has no " + rendition + " rendition"}
+		return &spatialFallback{reason: "the master has no " + rendition + " rendition", code: playback.SpatialNoMix}
 	}
 	plURL, err := hls.Resolve(a.master, a.variants[vi].URI)
 	if err != nil {
@@ -266,7 +300,11 @@ func (e *Engine) prepareSpatial(ctx context.Context, m *media, info applemusic.P
 	}
 	keys, err := spatialKeys(pl)
 	if err != nil {
-		return &spatialFallback{reason: "the rendition can't be played", err: err}
+		code := playback.SpatialUnavailable
+		if errors.Is(err, errFairPlayOnly) {
+			code = playback.SpatialAppleOnly
+		}
+		return &spatialFallback{reason: "the rendition can't be played", code: code, err: err}
 	}
 	initURL, err := hls.Resolve(plURL, pl.Segments[0].Map.URI)
 	if err != nil {
@@ -291,7 +329,7 @@ func (e *Engine) prepareSpatial(ctx context.Context, m *media, info applemusic.P
 	if err == nil {
 		if err = e.licenseSpatial(ctx, m, h, gen); err != nil {
 			e.discardSessions(m, h)
-			err = fallback(ctx, "a licence was refused", err)
+			err = refused(ctx, err)
 		}
 	}
 	if err != nil {
@@ -418,4 +456,167 @@ func (e *Engine) renewSpatial(ctx context.Context, m *media, gen int, sid string
 		m.spatial.slots[sid] = lic.SlotToken
 	}
 	return lic, true, err
+}
+
+// missOf is the Status.SpatialMiss of m while it is the item heard; with mu
+// held.
+func (e *Engine) missOf(m *media) string {
+	if m.spatial != nil || !e.spatial || !m.wantSpatial {
+		return ""
+	}
+	return m.spatialMiss
+}
+
+// switchTimeout bounds preparing the other mix of the playing song.
+const switchTimeout = 30 * time.Second
+
+// SetSpatial turns Spatial Audio on or off. The armed next item follows
+// the setting (it is prepared again), and so does the playing song: when
+// it has a mix of the other kind to play, it is prepared and reloaded at
+// its position, paused or playing as it was, in the background
+// (switchMix). A song with no such mix, a station, a video or a preview
+// plays on as it was.
+func (e *Engine) SetSpatial(on bool) {
+	e.mu.Lock()
+	if e.spatial == on {
+		e.mu.Unlock()
+		return
+	}
+	e.spatial = on
+	e.mixGen++
+	it := e.cur
+	if it != nil && it.pending != nil {
+		e.dropPendingLocked(it, true)
+		e.armLocked()
+	}
+	if !on && e.st.SpatialMiss != "" {
+		e.st.SpatialMiss = ""
+		e.emit(playback.EventState)
+	}
+	if it != nil && e.switchableLocked(it, it.m) {
+		go e.switchMix(it, it.m)
+	}
+	e.mu.Unlock()
+}
+
+// switchableLocked reports whether the other Spatial Audio setting can
+// change what it plays from m: a prepared, loaded song (not a station, a
+// video, an upload or a preview) that is not playing the mix the setting
+// asks for. With mu held.
+func (e *Engine) switchableLocked(it *item, m *media) bool {
+	if e.closed || e.preview || e.cur != it || it.m != m || m == nil || !it.loaded || e.h == nil {
+		return false
+	}
+	if !m.trim || m.pl == nil || m.stream != nil || m.broadcast != nil || m.file != nil || m.video != nil || m.clip {
+		return false
+	}
+	switch e.st.State {
+	case playback.StatePlaying, playback.StatePaused, playback.StateLoading:
+	default:
+		return false
+	}
+	return (m.spatial != nil) != e.spatial
+}
+
+// switchMix plays the current song again from the mix the Spatial Audio
+// setting now asks for, at its position. Whatever fails before the host is
+// told to load leaves the audio as it is.
+func (e *Engine) switchMix(it *item, old *media) {
+	e.mixMu.Lock()
+	defer e.mixMu.Unlock()
+	ctx, cancel := context.WithTimeout(e.bg, switchTimeout)
+	defer cancel()
+
+	e.mu.Lock()
+	if !e.switchableLocked(it, old) {
+		e.mu.Unlock()
+		return
+	}
+	gen, h, hostGen, on := e.mixGen, e.h, e.hostGen, e.spatial
+	// The song is prepared afresh: the current media would be handed back.
+	if e.cache[old.id] == old {
+		delete(e.cache, old.id)
+	}
+	e.mu.Unlock()
+
+	m2, err := e.media(ctx, old.id, false)
+	if err == nil && (m2.spatial != nil) != (old.spatial != nil) {
+		err = e.license(ctx, m2, h, hostGen) // else there is nothing to play, and nothing to license
+	}
+	e.ctl.Lock()
+	defer e.ctl.Unlock()
+	e.mu.Lock()
+	// keep puts old back as the song's prepared media and forgets m2.
+	keep := func() {
+		if m2 != nil {
+			e.dropLocked(m2)
+		}
+		if e.cache[old.id] == nil {
+			e.cache[old.id] = old
+		}
+	}
+	switch {
+	case err != nil:
+		keep()
+		e.mu.Unlock()
+		if e.bg.Err() == nil {
+			e.log.Warn("spatial audio: switching the playing song failed; it keeps playing as it was", "id", old.id, "spatial", on, "err", err)
+		}
+		return
+	case !e.switchableLocked(it, old) || e.mixGen != gen || e.h != h || e.hostGen != hostGen:
+		keep() // a later command changed what plays, or the setting again
+		e.mu.Unlock()
+		return
+	case (m2.spatial != nil) == (old.spatial != nil):
+		// Nothing to hear: the song has no Spatial Audio mix to play.
+		old.wantSpatial, old.spatialMiss = e.spatial, m2.spatialMiss
+		keep()
+		if st := e.missOf(old); st != e.st.SpatialMiss {
+			e.st.SpatialMiss = st
+			e.emit(playback.EventState)
+		}
+		e.mu.Unlock()
+		e.log.Debug("spatial audio: the playing song has no other mix", "id", old.id, "why", m2.spatialMiss)
+		return
+	}
+	now := time.Now()
+	pos := e.st.PositionAt(now)
+	if m2.duration > 0 {
+		pos = min(pos, m2.duration)
+	}
+	e.track++
+	tok := e.track
+	it.tok, it.m, it.fed = tok, m2, false
+	e.dropPendingLocked(it, false) // a reload drops what the host had queued
+	if it.cancel != nil {
+		it.cancel()
+	}
+	feedCtx, stopFeed := context.WithCancel(context.Background())
+	it.cancel = stopFeed
+	play := it.wantPlay
+	state := playback.StatePaused
+	if play {
+		state = playback.StateLoading
+	}
+	e.st.Duration, e.st.Spatial, e.st.SpatialMiss = m2.duration, m2.spatial != nil, e.missOf(m2)
+	e.setState(state, pos, now)
+	e.mu.Unlock()
+
+	e.prefetch(m2, m2.startSegment(pos))
+	err = e.load(ctx, h, tok, m2, pos)
+	if err == nil {
+		e.startFeed(feedCtx, it, tok, h, hostGen, m2, pos)
+		if play {
+			err = h.Play(ctx)
+		}
+	}
+	if err != nil {
+		stopFeed()
+		_ = e.fail(it, err)
+		return
+	}
+	e.mu.Lock()
+	e.dropLocked(old)
+	e.mu.Unlock()
+	e.log.Info("spatial audio: switched the playing song", "id", m2.id, "spatial", m2.spatial != nil, "at", pos)
 }

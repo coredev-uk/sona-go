@@ -100,6 +100,8 @@ func writeStatus(w io.Writer, p *l10n.Printer, s Status) error {
 	}
 	if s.Spatial {
 		field(msgFieldSpatial, p.T(msgYes))
+	} else if m := spatialMissText(s.SpatialMiss); m != "" {
+		field(msgFieldSpatial, p.T(m))
 	}
 	if s.Error != "" {
 		field(msgFieldError, s.Error)
@@ -182,6 +184,19 @@ func privateLine(p *l10n.Printer, pv Private) string {
 // songStateLine is what like, dislike and library print: the state the
 // command is about, and the song.
 // spatialLine is `sona spatial`'s line: on or off.
+// spatialMissText is the line for Status.SpatialMiss code; "" for none.
+func spatialMissText(code string) l10n.Message {
+	switch code {
+	case "no_mix":
+		return msgSpatialNoMix
+	case "apple_only":
+		return msgSpatialAppleOnly
+	case "unavailable":
+		return msgSpatialUnavailable
+	}
+	return ""
+}
+
 func spatialLine(p *l10n.Printer, sp Spatial) string {
 	return p.Sprintf(msgSpatialLine, onOff(p, sp.On))
 }

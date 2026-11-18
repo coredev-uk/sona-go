@@ -63,6 +63,10 @@ type media struct {
 	// is set when it plays the song's binaural rendition (spatial.go).
 	wantSpatial bool
 	spatial     *spatialMedia
+	// spatialMiss is why a song prepared with wantSpatial plays stereo
+	// (playback.Status.SpatialMiss); "" otherwise. With mu held once the
+	// media is current.
+	spatialMiss string
 }
 
 func (m *media) done() bool {
@@ -221,6 +225,7 @@ func (e *Engine) prepare(ctx context.Context, m *media) error {
 			}
 			return err
 		}
+		m.spatialMiss = fb.code
 		if fb.quiet {
 			e.log.Debug("spatial audio: playing the stereo stream", "id", m.id, "why", fb)
 		} else {

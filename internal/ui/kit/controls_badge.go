@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
@@ -140,6 +141,21 @@ func PreviewMark(c *ui.Context) ui.Element {
 // rendition (Apple's binaural mix), not the stereo stream.
 func SpatialMark(c *ui.Context) ui.Element {
 	return Tag(c, i18n.TC("a song playing as its Spatial Audio rendition, as a short badge", "Spatial"), i18n.T("Playing in Spatial Audio, Apple's headphone mix of this song"))
+}
+
+// SpatialMissNote says why a song that has a Spatial Audio mix plays in
+// stereo although Spatial Audio is on, for the code of
+// PlaybackState.SpatialMiss; "" for no code (nothing to say).
+func SpatialMissNote(code string) string {
+	switch code {
+	case playback.SpatialNoMix:
+		return i18n.T("Stereo · Apple has no Spatial Audio mix of this song for Sona")
+	case playback.SpatialAppleOnly:
+		return i18n.T("Stereo · Apple keeps this song's Spatial Audio mix for its own apps")
+	case playback.SpatialUnavailable:
+		return i18n.T("Stereo · This song's Spatial Audio mix couldn't be loaded")
+	}
+	return ""
 }
 
 // SDMark reads "SD" beside a music video playing in standard definition, the

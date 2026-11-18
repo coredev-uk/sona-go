@@ -50,7 +50,7 @@ Show or switch them, as the player bar's buttons and Settings → Playback do.
 
 ### `sona status`
 
-Prints the playback state, song, position, volume, shuffle, repeat, crossfade and private listening. The text shows `spatial audio: yes` only while the song plays in Spatial Audio.
+Prints the playback state, song, position, volume, shuffle, repeat, crossfade and private listening. The text shows `spatial audio: yes` while the song plays in Spatial Audio, and `spatial audio: no, stereo: …` with the reason while Spatial Audio is on and a song that has a Spatial Audio mix plays in stereo.
 
 - `--follow` - keeps printing on every change.
 - `--format` string (optional) - a template for each line ([Status bars](#status-bars)).
@@ -118,7 +118,7 @@ Shows or sets private listening: `sona private [on|off|toggle|status]`. The defa
 
 ### `sona spatial`
 
-Shows or sets Spatial Audio: `sona spatial [on|off|toggle|status]`. The default is `status`. While it is on, songs with Spatial Audio play as Apple's binaural rendition where Apple allows it, and in stereo otherwise. The setting applies from the next song. It fails on a system where Sona can't play Spatial Audio.
+Shows or sets Spatial Audio: `sona spatial [on|off|toggle|status]`. The default is `status`. While it is on, songs with Spatial Audio play as Apple's binaural rendition where Apple allows it, and in stereo otherwise. The setting applies at once: the song playing switches between its two mixes at the same position, paused or playing, where it has both. It fails on a system where Sona can't play Spatial Audio.
 
 - `--json` - prints `{"on"}`.
 
@@ -209,7 +209,12 @@ The status:
 - `position`: as of the moment the status was taken.
 - `repeat`: `off`, `all` or `one`. `preview`: the song plays as its
   30-second preview. `spatial`: the song plays as its Spatial Audio
-  rendition (not the stereo one).
+  rendition (not the stereo one). `spatialMiss`: why a song that has a
+  Spatial Audio mix plays in stereo while Spatial Audio is on: `no_mix`
+  (Apple publishes none Sona can play), `apple_only` (Apple keeps the mix
+  for its own apps: FairPlay only, or a licence it refused) or
+  `unavailable` (any other failure); `""` otherwise, including while
+  Spatial Audio is off.
 - `liked`, `disliked`, `inLibrary`: the playing song is a favourite, rated
   Suggest Less, in your library, as the player bar shows it. Sona looks it
   up when the song starts, so they are `false` for a moment; they stay
