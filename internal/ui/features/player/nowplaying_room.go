@@ -289,16 +289,22 @@ func (p *player) stageStrip(c *ui.Context, st *stage, cur *services.QueueItem, g
 	text := func(key, s string, size, h float32, weight int, tone string) ui.Element {
 		return lineText(c.Key(key), s, round32(size*ss), round32(h*ss), weight, theme.C(tone)).SingleLine()
 	}
+	// A dissolve under the strip, so the coming lines do not run into its rule.
+	ground := theme.C("ground")
+	fade := ui.Box(c.Key("strip-fade")).Absolute().Left(0).Right(0).Bottom(0).Height(round32(260 * ss)).IgnoreInput(true).
+		LinearGradient(ui.LinearGradient{From: ground.Alpha(0), To: ground.Alpha(0.92), Angle: 180, End: 0.6})
 	strip := ui.Column(c.Key("strip")).Absolute().Left(g.left).Right(g.left).Bottom(0)
 	if !reduced {
 		m := theme.Current().Motion["backdrop"]
-		strip.Transition(ui.ElementTransition{Colors: true, Enter: &ui.Motion{}, Exit: &ui.Motion{}, Duration: m.Duration, Ease: m.Ease})
+		tr := ui.ElementTransition{Colors: true, Enter: &ui.Motion{}, Exit: &ui.Motion{}, Duration: m.Duration, Ease: m.Ease}
+		fade.Transition(tr)
+		strip.Transition(tr)
 	}
 	strip.Role(ui.RoleGroup).Label(i18n.T("Song")).Children(func() {
 		ui.Box(c.Key("rule")).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 		ui.Row(c.Key("foot")).FillWidth().Height(round32(109 * ss)).Gap(round32(18 * ss)).AlignItems(ui.Center).Children(func() {
 			kit.Artwork(c.Key("art"), p.env.Art, cur.Art.Small, round32(56*ss), kit.ArtOpts{}).Shrink(0)
-			ui.Column(c.Key("song")).MinWidth(0).MaxWidth(round32(0.3 * g.w)).Children(func() {
+			ui.Column(c.Key("song")).Shrink(0).MaxWidth(round32(0.3 * g.w)).Children(func() {
 				text("name", cur.Name, 20, 26, 600, "ink")
 				text("artist", cur.Artist, 17, 24, 400, "ink-muted")
 			})
@@ -309,8 +315,8 @@ func (p *player) stageStrip(c *ui.Context, st *stage, cur *services.QueueItem, g
 				kit.ProgressBar(c.Key("progress"), frac, kit.ProgressOpts{
 					A11yLabel: i18n.T("Song progress"),
 					ValueText: i18n.T("{at} of {total}", "at", i18n.FormatDuration(pos), "total", i18n.FormatDuration(dur)),
-					Width:     min(round32(0.2*g.w), round32(420*ss)), Height: 4, Fill: theme.C("amber-ink"),
-				}).Shrink(0)
+					Width:     min(round32(0.15*g.w), round32(420*ss)), Height: 4, Fill: theme.C("amber-ink"),
+				}).MinWidth(0)
 				text("left", "\u2212"+i18n.FormatDuration(dur-pos), 17, 24, 400, "ink-muted").FontFeatures("tnum").Shrink(0)
 			}
 			if kit.Button(c.Key("exit"), i18n.T("Exit full screen"), kit.ButtonOpts{
