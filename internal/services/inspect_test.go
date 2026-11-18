@@ -19,7 +19,7 @@ while read -r line; do
     *'"method":"invoke"'*)
       id=${line#'{"id":'}; id=${id%%,*}
       t=${line#*'"target":'}; t=${t%%,'"deadlineMs"'*}
-      t=${t//\"/\\\"}
+      t=$(printf '%s' "$t" | sed 's/"/\\"/g')
       printf '{"id":%s,"result":{"toast":"%s"}}\n' "$id" "$t" ;;
   esac
 done
