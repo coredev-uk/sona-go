@@ -16,7 +16,7 @@ devenv shell -- dev
 - Press `r` to rebuild and `q` to quit.
 - Run `dev -background -- <app args>` to start the app without taking focus.
 - Design tokens (`internal/ui/theme/tokens.json`) and `.po` catalogues reload in the running app with no build.
-- Right-click an item and choose **Inspect** to see its IDs, its artwork and what Apple sent for it, from the cache. Release builds do not have it.
+- Right-click an item and choose **Inspect** to see its IDs, its artwork, what Apple sent for it (from the cache) and what an add-on receives for it. A development build always has it; a release build has it while Settings → Diagnostics → Developer tools is on.
 - Set `SONA_INSPECTOR=1` to open MyGo's inspector (F12 or Ctrl+Shift+I toggles it).
 
 A development build starts in [private mode](#use-private-mode). A plain `go build ./cmd/sona` is not a development build; only `-tags dev` is.

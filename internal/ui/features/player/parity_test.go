@@ -100,7 +100,9 @@ func TestLyricsToolsShowTheirKeysInTheirTips(t *testing.T) {
 		t.Errorf("Full screen's tip lacks its chord: %q", r.tt.Texts())
 	}
 	r.tt.MustClick("Full screen")
-	r.tt.Until("the room", r.tt.Shows("Exit full screen"))
+	r.tt.Until("the room", r.tt.Shows("Full-Screen Lyrics"))
+	r.wake()
+	r.tt.Until("the strip", r.tt.Shows("Exit full screen"))
 	r.tt.Hover("Exit full screen")
 	if !r.tt.HasText("Esc") {
 		t.Errorf("Exit full screen's tip lacks Esc: %q", r.tt.Texts())

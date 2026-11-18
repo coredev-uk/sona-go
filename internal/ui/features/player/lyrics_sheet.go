@@ -56,10 +56,8 @@ func lineTone(state lineState, wordTimed bool) ui.Color {
 	return theme.C("ink")
 }
 
-// lyricLook is the type and spacing of a sheet: Now Playing's, or the room's
-// (which scales with the window).
+// lyricLook is the type and spacing of a sheet (Now Playing's).
 type lyricLook struct {
-	room              bool
 	size, lineH       float32 // the main vocal
 	weight            int
 	subSize, subLineH float32 // background vocals, pronunciation, translation
@@ -69,8 +67,6 @@ type lyricLook struct {
 	togetherSize      float32
 	topPad, botPad    float32 // the sheet's padding, as fractions of its height
 	fadeDIP           float32 // the height of the fade at the top and bottom
-	columnMax         float32 // 0: the sheet's whole width
-	sidePad           float32
 }
 
 // sheetLook is the Now Playing sheet: 24/30 type, lines padded 6×12.
@@ -78,18 +74,6 @@ func sheetLook() lyricLook {
 	return lyricLook{
 		size: 24, lineH: 30, weight: 650, subSize: 16, subLineH: 22, padX: 12, padY: 6,
 		subGap: 2, verseGap: 32, indent: 36, togetherSize: 12, topPad: bandTop, botPad: 0.70, fadeDIP: 48,
-	}
-}
-
-// roomLook is full-screen lyrics: clamp(2.25rem, 4.4vw, 5.25rem) bold, a
-// column 24ch wide down the middle, 7vw of side padding.
-func roomLook(winW, winH float32) lyricLook {
-	s := min(max(0.044*winW, 36), 84)
-	sub := s / 2
-	return lyricLook{
-		room: true, size: s, lineH: s * 1.1, weight: 700, subSize: sub, subLineH: sub * 1.2, padY: s * 0.2,
-		subGap: s * 0.15, verseGap: s * 0.9, indent: s * 1.5, togetherSize: s * 0.3,
-		topPad: 0.12, botPad: 0.70, fadeDIP: 0.12 * winH, columnMax: 24 * s * 0.55, sidePad: 0.07 * winW,
 	}
 }
 
@@ -121,15 +105,8 @@ type lyricsSheet struct {
 	// before any; want is the line a key asked the focus for.
 	focused, want int
 
-	// Derived from the lyrics (bind).
-	lyr       *services.Lyrics
-	spans     []lyricsync.Span
-	voices    []lyricsync.Voice
-	verseOf   []int
-	verseList [][]int
-	synced    bool
-	wordTimed bool
-	sweeps    map[sweepKey]*kit.SweepText
+	lyricsModel
+	sweeps map[sweepKey]*kit.SweepText
 
 	// Last frame's picture, for tests and for the reading band.
 	active, anchor int
@@ -140,25 +117,45 @@ func newLyricsSheet(songID string) *lyricsSheet {
 	return &lyricsSheet{songID: songID, anchored: -1, focused: -1, want: -1}
 }
 
-// bind derives what the sheet needs from the lyrics, once per lyrics. The
-// query hands out a copy of the DTO each frame, so the lines' backing array
-// says whether they are the same lyrics.
-func (sh *lyricsSheet) bind(l *services.Lyrics) {
-	if sh.lyr != nil && lyricsync.SameLines(sh.lyr.Lines, l.Lines) {
-		sh.lyr = l
-		return
+// lyricsModel is what a view of lyrics derives from them, once per lyrics:
+// the sheet in Now Playing and full-screen lyrics share it.
+type lyricsModel struct {
+	lyr       *services.Lyrics
+	spans     []lyricsync.Span
+	voices    []lyricsync.Voice
+	verseOf   []int
+	verseList [][]int
+	synced    bool
+	wordTimed bool
+}
+
+// bind derives what a view needs from the lyrics, once per lyrics. The query
+// hands out a copy of the DTO each frame, so the lines' backing array says
+// whether they are the same lyrics. It reports whether these are new lyrics.
+func (m *lyricsModel) bind(l *services.Lyrics) bool {
+	if m.lyr != nil && lyricsync.SameLines(m.lyr.Lines, l.Lines) {
+		m.lyr = l
+		return false
 	}
-	sh.lyr = l
-	sh.spans = lyricsync.LineSpans(l.Lines)
-	sh.voices = lyricsync.LineVoices(l.Lines)
-	sh.synced = lyricsync.IsSynced(l)
-	sh.wordTimed = lyricsync.HasWordTiming(l)
-	sh.verseList = lyricsync.Verses(l.Lines, sh.spans, sh.synced)
-	sh.verseOf = make([]int, len(l.Lines))
-	for v, ids := range sh.verseList {
+	m.lyr = l
+	m.spans = lyricsync.LineSpans(l.Lines)
+	m.voices = lyricsync.LineVoices(l.Lines)
+	m.synced = lyricsync.IsSynced(l)
+	m.wordTimed = lyricsync.HasWordTiming(l)
+	m.verseList = lyricsync.Verses(l.Lines, m.spans, m.synced)
+	m.verseOf = make([]int, len(l.Lines))
+	for v, ids := range m.verseList {
 		for _, i := range ids {
-			sh.verseOf[i] = v
+			m.verseOf[i] = v
 		}
+	}
+	return true
+}
+
+// bind derives the sheet's own state from the lyrics, once per lyrics.
+func (sh *lyricsSheet) bind(l *services.Lyrics) {
+	if !sh.lyricsModel.bind(l) {
+		return
 	}
 	sh.lines = make([]ui.Handle, len(l.Lines))
 	sh.verses = make([]ui.Handle, len(sh.verseList))
@@ -166,13 +163,17 @@ func (sh *lyricsSheet) bind(l *services.Lyrics) {
 }
 
 // partLang is the language of one part of a line: the lyrics' own for the
-// lead and background vocals, the romanisation's for the pronunciation. ""
-// leaves it to the app's.
-func (sh *lyricsSheet) partLang(part uint8) string {
-	if part == 2 {
-		return sh.lyr.TransliterationLanguage
+// lead and background vocals, the romanisation's for the pronunciation and
+// the translation's for the translation (part 3, which only full-screen
+// lyrics shape as a part). "" leaves it to the app's.
+func (m *lyricsModel) partLang(part uint8) string {
+	switch part {
+	case 2:
+		return m.lyr.TransliterationLanguage
+	case 3:
+		return m.lyr.TranslationLanguage
 	}
-	return sh.lyr.Language
+	return m.lyr.Language
 }
 
 // sweep is the shaped text of one part of line i for width, shaped again
@@ -209,17 +210,14 @@ func lineText(c *ui.Context, s string, size, lineH float32, weight int, col ui.C
 // sheetIn is what one build of a sheet needs from its caller.
 type sheetIn struct {
 	look lyricLook
-	// clickable makes synced lines buttons that seek (Now Playing's; the
-	// room's lines are paragraphs).
+	// clickable makes synced lines buttons that seek (Now Playing's).
 	clickable bool
-	// focusable makes a synced sheet itself a tab stop (the room: arrow keys scroll it).
-	focusable bool
 	// wash is the colour of what the sheet sits on at a point of the window
 	// (the cover's wash), which its fades go to; nil: the ground.
 	wash func(x, y float32) ui.Color
 }
 
-// washOf is the cover's wash behind Now Playing and the room.
+// washOf is the cover's wash behind Now Playing and Full-Screen Lyrics.
 func washOf(cur *services.QueueItem) kit.BackdropOpts {
 	return kit.BackdropOpts{Src: cur.Backdrop, Tone: kit.ToneGround}
 }
@@ -293,7 +291,7 @@ func (p *player) lyricsScroller(c *ui.Context, sh *lyricsSheet, l *services.Lyri
 		c.After(lyricsync.Dur(max(sung.Next-clock, 0) + 1))
 	}
 	if playing && reduced && sh.wordTimed {
-		p.wakeAtWordChange(c, sh, lyricsync.WordClock(posMs, off))
+		p.wakeAtWordChange(c, &sh.lyricsModel, lyricsync.WordClock(posMs, off))
 	}
 
 	// The user moved the sheet (wheel, touchpad, scroll bar): leave it alone a while.
@@ -306,29 +304,18 @@ func (p *player) lyricsScroller(c *ui.Context, sh *lyricsSheet, l *services.Lyri
 	sheet := ui.Scroll(c.Key("lyrics:" + sh.songID)).TrackScroll(&sh.scroll).Grow(1).Basis(0).MinHeight(0).Scrollbars(false).
 		Role(ui.RoleGroup).Label(i18n.T("Lyrics"))
 	sheet.Bind(&sh.box)
-	if !sh.synced || in.focusable {
+	if !sh.synced {
 		// Plain lyrics hold no buttons: the sheet itself takes focus to scroll.
 		sheet.Focusable()
 	}
 	view := sheet.Bounds()
 	sh.width = view.W
-	text := view.W - 2*look.padX - 2*look.sidePad
-	if look.columnMax > 0 {
-		text = min(text, look.columnMax)
-	}
+	text := view.W - 2*look.padX
 	sheet.Children(func() {
-		col := ui.Column(c.Key("sheet")).FillWidth().Padding(view.H*look.topPad, look.sidePad, view.H*look.botPad)
-		if look.columnMax > 0 {
-			col.AlignItems(ui.Center)
-		}
-		col.Children(func() {
-			inner := ui.Column(c.Key("column")).FillWidth()
-			if look.columnMax > 0 {
-				inner.MaxWidth(look.columnMax)
-			}
-			inner.Children(func() {
+		ui.Column(c.Key("sheet")).FillWidth().Padding(view.H*look.topPad, 0, view.H*look.botPad).Children(func() {
+			ui.Column(c.Key("column")).FillWidth().Children(func() {
 				p.lyricVerses(c, sh, in, prefs, sung, text, reduced)
-				p.lyricsFooter(c, sh, look)
+				p.lyricsFooter(c, sh)
 			})
 		})
 	})
@@ -356,15 +343,15 @@ func (p *player) lyricsScroller(c *ui.Context, sh *lyricsSheet, l *services.Lyri
 
 // wakeAtWordChange asks for a frame when the next word begins or ends: under
 // reduced motion words light whole, and nothing animates in between.
-func (p *player) wakeAtWordChange(c *ui.Context, sh *lyricsSheet, t int64) {
-	singing := lyricsync.SingingLines(sh.spans, t)
+func (p *player) wakeAtWordChange(c *ui.Context, m *lyricsModel, t int64) {
+	singing := lyricsync.SingingLines(m.spans, t)
 	var words []lyricsync.Span
 	for _, i := range singing {
-		for _, w := range sh.lyr.Lines[i].Words {
+		for _, w := range m.lyr.Lines[i].Words {
 			words = append(words, lyricsync.Span{BeginMs: w.BeginMs, EndMs: w.EndMs})
 		}
 	}
-	if next := lyricsync.NextChange(sh.spans, singing, words, t); next != lyricsync.Never {
+	if next := lyricsync.NextChange(m.spans, singing, words, t); next != lyricsync.Never {
 		c.After(lyricsync.Dur(next - t + 1))
 	}
 }
@@ -479,9 +466,6 @@ func (p *player) lyricLine(c *ui.Context, sh *lyricsSheet, ln *services.LyricLin
 	shown := lyricsync.Shown(ln, in.prefs)
 	tone := lineTone(in.state, len(ln.Words) > 0)
 	sub := theme.C("ink-muted")
-	if look.room && in.state == stPast {
-		sub = theme.C("ink-faint")
-	}
 	clickable := in.clickable && sh.synced
 
 	row := ui.Column(c.Key("line:"+strconv.Itoa(i))).FillWidth().Padding(look.padY, look.padX).Bind(&sh.lines[i])
@@ -586,10 +570,19 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 	}
 	key := sweepKey{line: i, part: part, italic: italic, whole: reduced}
 	sw := sh.sweep(key, t.Words, look, bg, w)
+	ui.Box(c).FillWidth().Height(sw.Height()).Margin(margin, 0, 0, 0).Role(ui.RoleText).Label(t.Text).Lang(sh.partLang(part)).
+		Draw(p.sweepDraw(sw, sh.songID, sh.spans, i, t, base, theme.C("amber-ink"), reduced))
+}
+
+// sweepDraw paints a word-timed text of line i from the clock: each word
+// that is sung in fill over base. The sweep paints without building the view,
+// and asks for frames only while a word is filling. Between words, after the
+// last one and before the first it sleeps until the next change: a word
+// beginning or ending, the line ending or the voice resting. Under reduced
+// motion, or while nothing plays, it asks for nothing.
+func (p *player) sweepDraw(sw *kit.SweepText, songID string, spans []lyricsync.Span, i int, t lyricsync.Text, base, fill ui.Color, reduced bool) func(*ui.Painter, ui.Rect) {
 	right := rtl(t.Text)
-	fill := theme.C("amber-ink")
-	songID, spans, words := sh.songID, sh.spans, t.Words
-	ui.Box(c).FillWidth().Height(sw.Height()).Margin(margin, 0, 0, 0).Role(ui.RoleText).Label(t.Text).Lang(sh.partLang(part)).Draw(func(pt *ui.Painter, r ui.Rect) {
+	return func(pt *ui.Painter, r ui.Rect) {
 		ms := lyricsync.WordClock(p.env.Play.Position().Milliseconds(), lyricsync.Session().Get(songID))
 		var f float32
 		if lyricsync.IsSinging(spans, ms, i) {
@@ -603,24 +596,17 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 		if reduced || p.env.Play.State().State != "playing" {
 			return
 		}
-		// The sweep paints from the clock without building the view, and asks
-		// for frames only while a word is filling. Between words, after the
-		// last one and before the first it sleeps until the next change: a
-		// word beginning or ending, the line ending or the voice resting.
 		if moving {
 			sweepFrames(pt)
-		} else if next := nextSweepEdge(spans, i, words, ms); next != lyricsync.Never {
+		} else if next := nextSweepEdge(spans, i, t.Words, ms); next != lyricsync.Never {
 			pt.After(lyricsync.Dur(next - ms + 1))
 		}
-	})
+	}
 }
 
 // lyricsFooter is the credits under the lines: "Written by" and
 // "Lyrics from", in the sheet.
-func (p *player) lyricsFooter(c *ui.Context, sh *lyricsSheet, look lyricLook) {
-	if look.room {
-		return
-	}
+func (p *player) lyricsFooter(c *ui.Context, sh *lyricsSheet) {
 	l := sh.lyr
 	writers := ""
 	for i, w := range l.Songwriters {

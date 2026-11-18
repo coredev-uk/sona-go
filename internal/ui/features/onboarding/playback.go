@@ -72,7 +72,7 @@ func (o *onboarding) soundControls(c *ui.Context, s config.Settings, pb services
 	}
 	if pb.Spatial {
 		rows = append(rows, func() {
-			switchRow(c, "spatial-audio", i18n.T("Spatial Audio"), i18n.T("Plays Apple's headphone mix of a song where there is one."),
+			switchRow(c, "spatial-audio", i18n.T("Spatial Audio for Headphones"), i18n.T("Plays Apple's own headphone mix of songs made in Dolby Atmos. It works for many of them but not all; the Spatial tag beside the title shows when it's playing."),
 				s.Audio.SpatialAudio, false, func(on bool) {
 					o.save(func(s *config.Settings) { s.Audio.SpatialAudio = on })
 				}, nil)

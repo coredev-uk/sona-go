@@ -1,5 +1,3 @@
-//go:build dev
-
 package discover
 
 import (
@@ -10,7 +8,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/features/inspect"
 )
 
-// A development build lists Inspect in a hero card's menu: the card's item
+// A build with Inspect on lists Inspect in a hero card's menu: the card's item
 // menu is the registry's, so the inspector's action appears with no code here.
 func TestFrontCardMenuOffersInspectInADevelopmentBuild(t *testing.T) {
 	api := &fakeAPI{}
@@ -19,7 +17,8 @@ func TestFrontCardMenuOffersInspectInADevelopmentBuild(t *testing.T) {
 		cards[i] = playlistItem(fmt.Sprint(i+1), fmt.Sprintf("List %d", i+1))
 	}
 	r := newRig(t, "/new", withAPI(api), wideWindow())
-	r.env.Actions.Register(inspect.New(r.env).Actions...)
+	r.env.Dev = true
+	inspect.New(r.env).Init()
 	newPageWith(api, r.h.Clock.Now(), heroSection(cards))
 	r.tt.Until("the front page", r.tt.Shows("Featured"))
 	r.d.front.paused = true

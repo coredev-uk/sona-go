@@ -633,12 +633,23 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 ### Developer actions (`features/inspect`)
 
-A development build (`-tags dev`) adds one module, `inspect` (`app/modules_dev.go`), and nothing else: a release build holds neither the module nor the service behind it.
+The `inspect` module is in every build (`app/modules.go`). It offers **Inspect** in a development build always, and in a release build only while Settings → Diagnostics → Developer tools is on (`config.Settings.DeveloperTools`, off by default). MyGo's own element inspector (F12, `mygo_noinspector`) is a different tool and stays out of release builds.
 
-- **One action per kind** (`inspect.song`, `inspect.album`…), registered through `Module.Actions` in the `kit.GroupDeveloper` group, the last section of every menu. Every surface with an item menu (tile, row, header, card; right-click, the "more" button) lists "Inspect" with no code of its own, so right-click coverage follows the item menus (#337).
-- **The panel** is a plain `kit.Dialog` built in the module's `Layer` slot: the item's kind, ID and artwork URL, then the mapped DTO, Apple's resource as Go's catalogue cache holds it, and the SQLite row of a library item. The text is a text field whose edits are undone, so it selects, copies and scrolls. Copy as JSON, Copy ID and Copy artwork URL (the item's largest size) follow. It is not translated or designed for end users.
-- **The data** comes from `InspectService.Inspect` (`services/inspect_dev.go`, dev tag): the mapped item the UI passes, `catalog.Catalog.Raw` (`catalog/raw_dev.go`, the cache's body, never a request to Apple) and the library row. Every text passes through `logging.Redact`; no request header is ever held, and the UI still never calls Apple. An item whose page Sona has not fetched shows "not in Go's catalog cache".
-- **The release check:** `inspect`'s release test asserts `cmd/sona`'s dependencies leave the package out, and `app`'s module-list test (`devModules`) lists no extra module without the tag.
+- **One action per kind** (`inspect.song`, `inspect.album`…) in the `kit.GroupDeveloper` group, the last section of every menu. Every surface with an item menu (tile, row, header, card; right-click, the "more" button) lists "Inspect" with no code of its own, so right-click coverage follows the item menus (#337).
+- **The setting applies at once.** The module registers nothing itself. Its `Init` reads the setting (`Env.Dev || DeveloperTools`) and follows `settings:changed`, and `ActionRegistry.ReplacePrefix("inspect.", …)` puts the actions in or takes them out in one step, so a menu opened meanwhile sees the old set or the new one. The registry is chosen over an action that is always registered and hides itself (`Available`) because `ActionRegistry.Has` decides which kinds get a ⋯ button: with the action unregistered a kind whose only action it is gets no button while the setting is off. Turning the setting off closes an open panel.
+- **The panel** is a bare `kit.Dialog` (960 wide) built in the module's `Layer` slot, in `features/inspect` (`panel.go`, `views.go`, `jtree.go`, `ledger.go`, `model.go`):
+  - **Header:** the item's artwork at 56 DIPs (`kit.Artwork`), the name at the dialog-title size, "Kind · subtitle", the IDs as chips (catalogue, library, global; a click copies the ID and toasts "Copied {ID}") and "Open in Apple Music" (the item's own `url`, else the cached resource's `attributes.url`; only `https://music.apple.com/`, and only on a click).
+  - **Tabs** (`kit.Tabs`, `TabsOpts.Reasons`): Overview, Apple, Library, Add-on. A tab with nothing to show is disabled with a tooltip saying why ("Not in Go's catalogue cache", "Not in your library", "Add-ons aren't offered this kind of item"). Overview is a ledger of the mapped item (identity, text, flags and numbers, dates, durations, artwork, links; a duration beside its raw milliseconds, a date beside its stamp, a colour as a swatch, an artwork template beside its Apple CDN URL at each size) or, by a switch, its JSON. Library is the SQLite row as a ledger (database nulls read as null).
+  - **JSON views** (Apple, Add-on, Overview as JSON) are one `ui.Outline`: virtualised, `RoleTree`, arrows and Left/Right folds, the first two levels open, a folded container says "12 keys" or "3 items", indentation guides instead of monospace (the house has one family: tabular figures), values selectable, long strings wrap, URLs are links that open on a click. The filter field above keeps rows whose key or value holds every word, with their ancestors (400 matches, then "Show more"); "No matches" when none. Ctrl+F focuses it.
+  - **Token colours** are `tokenColour` in `views.go`: key `ink-muted`, string `ink`, number `positive`, boolean `danger`, null `ink-faint`, all among `theme.TextTokens`, which `theme.Validate` holds to 4.5:1 on every tone in every theme. Quotes and the word "null" carry the type too, so colour is never the only sign. The ledger keeps ink for numbers and booleans.
+  - **Row actions:** Enter copies the chosen row's value (a container as JSON), Ctrl+Shift+C its path (`attributes.artwork.url`). The pointer finds Copy value, Copy path and Open beside a hovered or chosen row; they are pointer-only (a button inside a row is unreachable by assistive technology), and the foot has the same as buttons acting on the chosen row.
+  - **Foot:** Copy (this tab as JSON) and Copy as JSON (everything). **States:** loading is the layout with flat bars, an error sits inside the tab with Retry, and an empty tab says what is missing.
+- **What an add-on gets** is built in Go (`InspectReport.Addon`) with the code the protocol uses, not a copy of it:
+  - the `invoke` `target` is `services.AddonTargetOf`, which the item menus' add-on actions call to build the target they invoke with, then `invokeTarget`, the encoding `AddonsService.Invoke` sends;
+  - for a song, the `now-playing` event's `track` is the command line's `track` mapper over a queue item (`itemOf`, the artwork template found again through `artwork.Cache.Template`), encoded by `cli.AddonEventData`, which `Session.pump` also uses;
+  - a station and a music video have no target (no add-on action is offered on them) and no track.
+- **The data** comes from `InspectService.Inspect` (`services/inspect.go`): the mapped item the UI passes, `catalog.Catalog.Raw` (`catalog/raw.go`, the cache's body, never a request to Apple), the library row and the add-on section. Every text passes through `logging.Redact`; no request header is ever held, and the UI still never calls Apple. An item whose page Sona has not fetched shows "not in Go's catalog cache".
+- **The release check** is behavioural: `inspect`'s tests run a release-style Env (`Env.Dev` false) and assert Inspect is offered on a song row, an album tile, a station and a playlist only while the setting is on, and leaves again when it goes off; a development Env offers it whatever the setting says.
 
 **Toaster** (`ShowToast`, `ToastSuccessf`, `ToastErrorf`, `CloseToast`, `Unavailable`) is sonner's look on MyGo's toast manager.
 
@@ -999,7 +1010,7 @@ The bar is a `Bottom` slot: 72 DIP, `surface`, over a wash of the cover, the tra
 - The cover (`kit.Artwork`, 48 DIP), the title and the line under it.
 - The line under the title is artist · album. Each is a link to its page when that page is ported, and they are independent of each other. The album links to `/album/{id}` without the song marked, since the title's link marks it. In Tab order: artist, then album.
 - The line also carries a live station's marker and what is on air, the sign-in, Widevine and error notices, and the "Preview" mark of a 30-second preview.
-- Beside the title the bar shows the quiet "Spatial" tag (`kit.SpatialMark`: `Tag`, no colour of its own, the tooltip is its description) while `PlaybackState.Spatial` says the item plays as its Spatial Audio rendition. It sits in a clipped wrapper that shrinks a hundred times faster than the title, so it gives way first in a narrow bar and never moves the transport; Now Playing shows it with the other marks.
+- Beside the title the bar shows the quiet "Spatial" tag (`kit.SpatialMark`: `Tag`, no colour of its own, the tooltip is its description) while `PlaybackState.Spatial` says the item plays as its Spatial Audio rendition. It sits in a clipped wrapper that shrinks a hundred times faster than the title, so it gives way first in a narrow bar and never moves the transport; Now Playing shows it with the other marks. While `PlaybackState.SpatialMiss` holds a reason (Spatial Audio is on, Apple lists the song with a mix, and it plays stereo) Now Playing shows `kit.SpatialMissNote` for the code ("Stereo · Apple keeps this song's Spatial Audio mix for its own apps") under the marks row, where the tag would be, as 12/16 muted text; the bar says nothing, so it has no clutter to give way. The Spatial Audio row (Settings → Playback → Sound, and onboarding's) is titled "Spatial Audio for Headphones" and says what it plays and that it works for many songs, not all.
 - The transport at the centre: the elapsed time, shuffle, previous, the 44 DIP play disc, next, repeat, the length. Then the volume.
 - The seek bar is built after the transport, and the right group (`volumeControls`, out of the flow at the bar's right edge over a spacer of its width) after it. The Tab order follows the build order (out-of-flow elements come after the flow ones): Repeat, Seek, the right group.
 
@@ -1069,7 +1080,7 @@ The bar is a `Bottom` slot: 72 DIP, `surface`, over a wash of the cover, the tra
 
 Now Playing is the player's `Overlay` slot. It is open while `view.overlay` is `overlayNowPlaying`. The panels' shared state is `view.go`: the overlay, the pane, the queue beside the page, `fromRoom`.
 
-Full-screen lyrics are its `Layer`, open (`LayerOpen`) as `overlayRoom` with a song that has lyrics. The window behind is inert and the layer's wrapper takes no input while closed.
+Full-Screen Lyrics are its `Layer`, open (`LayerOpen`) as `overlayRoom` with a song that has lyrics. The window behind is inert and the layer's wrapper takes no input while closed.
 
 Both are built only while open, so scroll and focus start again on each opening. The view closes itself when the queue is cleared.
 
@@ -1079,7 +1090,7 @@ Both are built only while open, so scroll and focus start again on each opening.
 | `N` | Now Playing |
 | `V` | The music video view (`Env.Video`) |
 | Escape | Scope `now-playing`: room to Now Playing to the page |
-| `Shift+L` | Full screen |
+| `Shift+L` | Full-Screen Lyrics |
 | `[`, `]`, `\` | Timing |
 
 #### Layout
@@ -1112,7 +1123,7 @@ The layout follows the view's own box as last drawn (`measureLayout`, `nowPlayin
 
 #### The sheet
 
-`lyrics_sheet.go`, shared by Now Playing and the room, is a `ui.Scroll` of verses of lines.
+`lyrics_sheet.go`, Now Playing's lyrics column, is a `ui.Scroll` of verses of lines.
 
 - A synced line is a button that seeks to its begin plus the offset (one Tab stop; Up, Down, Home and End move between lines). A plain one is a paragraph.
 - The view is built again only when the sung line changes (a `c.After` for the next line or rest).
@@ -1124,23 +1135,29 @@ The layout follows the view's own box as last drawn (`measureLayout`, `nowPlayin
 
 *The reading band.* The band (14%–72% of the sheet's height) holds the words still. When the anchor line leaves it, the sheet turns to put the anchor's verse (or the line, when the verse is too long) at the band's top. It jumps the first time and under reduced motion, else `ScrollTo(…, Smooth)`. A scroll the user made (the offset moved with no glide of ours) or an arrow key keeps it still for 4 s.
 
-#### Full-screen lyrics
+#### Full-Screen Lyrics
 
-- The same sheet at room size (`roomLook`: `clamp(36, 4.4vw, 84)` bold in a 24 ch column, 7vw of side padding, 12% fades), lines as paragraphs.
-- A footer strip sits under a 1 DIP rule with the cover (48 DIP), the song, the timing nudge and Exit full screen.
-- It puts the window in full screen through `Env.Video.SetFullscreen` (the video view's own window binding, so no second hook) and leaves it only if it entered it.
+The view the Layer slot builds (`nowplaying_room.go`, with the cascade in `lyrics_stage.go`). Its identifiers keep the old name (`overlayRoom`, `roomLayer`, the shortcut ID `player.lyrics-room`, which a saved binding may use); the product name is Full-Screen Lyrics. `docs/design.md`, "Full-Screen Lyrics", has what it looks like; this is how it is built.
+
+- **The stage** (`stage`) is one song's state: the lyrics' derived data (`lyricsModel`, which the sheet shares: spans, voices, verses), the size step of each line (`heldSteps`), the shaped lines (`stageBlock`: a `kit.SweepText` per part, cached per line, size and width, dropped when the window, the translation choices or the motion setting change) and the idle clock. A new song gets a new one, which takes over the chrome's clock and the drift.
+- **The column is laid out lazily.** Line tops are cumulative heights from the first line shaped (`reach`), so a song opened in the middle shapes only the lines around the sung one. A seek of more than a few lines restarts it (a cut).
+- **The cascade** builds the sung line and three lines each side as absolute children of one container keyed by the song. The container's pose (`AnimatePose`, the `climb` token) puts the sung line's middle at 45% of the height; each line's pose (scale and fade by its rank) animates with it. The view builds when the sung line changes (a `c.After` for the next line or rest, as the sheet does), never per frame. Under reduced motion, or on a cut, `c.DisableAnimations` makes the poses jump. The container's `Transition` is the song change: the old column's copy fades out and the new one rises in.
+- **Words** are painted by `sweepDraw`, which the sheet's lines use too: the same `kit.SweepText`, the same clock, the same frame requests.
+- **The wash** is `kit.Backdrop` as an absolute element under the column, with the dark theme's scrim, posed to drift (`drift`) while `MotionPolicy.Ambient` holds. Everything is built inside `theme.Scope` over the dark tokens.
+- **The strip** is built only while shown (the idle clock: the pointer or a key within 3 s, or the song not playing) and enters and leaves with a fade. Its keys are shortcuts in the `lyrics-room` context (`stageShortcuts`): ↑↓ line, ←→ 5 s, Home; Space, Escape and Shift+L are the player's.
+- **Window.** It puts the window in full screen through `Env.Window.SetFullScreen` and leaves it only if it entered it. `Env.Window.KeepScreenOn` holds the display awake (MyGo's `Power.KeepAwake` with `display` true; the shell binds it in `followWindow`) while the view is open and the song plays: the player's suspend inhibitor, held while playing, does not cover the display.
 
 #### Focus on close
 
 - The bar's cover, Lyrics and Show video buttons are the openers of what they open (`view.opening`, `ui.Handle`s bound in `bar.go`). Closing Now Playing (Escape, Close, a toggle) puts the keyboard focus back on the opener when it was inside the view.
 - `returnFocus`, called by the bar every frame, takes its request back a frame later, so a control that is gone never takes the focus when it returns.
 - A view a key opened has no opener and leaves the focus with the page.
-- Full-screen lyrics close into Now Playing, on its Full screen button. The queue beside the page returns to the bar's Queue button.
+- Full-Screen Lyrics close into Now Playing, on its Full screen button. The queue beside the page returns to the bar's Queue button.
 - The video view's opener is `store.VideoView`'s. A Play control that opens it is bound to a handle (`kit.CoverPlay.RunFrom` gets the tile's own, `kit.PlayButtonsOpts.Bind` takes the page's, `kit.ItemPlayers.PlayItemFrom`/`PlayVideoFrom` and the video player `RegisterVideo` pass it on). The view calls `OpenFrom` with it, so closing the view returns the focus to that Play button.
 
 #### Tests
 
-`lyricsync` has its own timing tests. The player's `nowplaying_test.go` runs the views over `uitest` with a fake lyrics source. It covers the layout and cover policy, panes, loading, not found and failure with retry, the sheet following the line, the user-scroll hold, click to seek under an offset, the timing nudge and reset, translation and pronunciation, keyboard between lines, the room, Escape levels and golden images (light and dark). `NP_EVIDENCE_DIR=<dir> go test ./internal/ui/features/player -run Evidence` writes the PR's pictures.
+`lyricsync` has its own timing tests. The player's `nowplaying_test.go` runs the views over `uitest` with a fake lyrics source. It covers the layout and cover policy, panes, loading, not found and failure with retry, the sheet following the line, the user-scroll hold, click to seek under an offset, the timing nudge and reset, translation and pronunciation, keyboard between lines, Escape levels and golden images (light and dark). `lyrics_stage_test.go` covers Full-Screen Lyrics: sizes from held time, the climb, the still form, the strip's idle clock, the keys, duets and background vocals, the states, the accessibility walk, and that the view is not built per frame; `lyrics_stage_golden_test.go` has its pictures. `NP_EVIDENCE_DIR=<dir> go test ./internal/ui/features/player -run Evidence` writes the PR's pictures.
 
 ### The mini player (`features/miniplayer`)
 
@@ -1411,7 +1428,9 @@ A master and detail page.
 | Storage | Usage, the artwork cache limit, Clear caches, Compact now, the settings file (export, import) |
 | Diagnostics | The checks (`SystemService.Diagnostics`, on every open), Motion artwork diagnostics, Copy diagnostics (the redacted bundle on the clipboard), Open log folder, Developer tools |
 
-**Developer tools** is MyGo's inspector. `Open the inspector` calls `DesktopService.OpenDeveloperTools` when `Capabilities.DeveloperTools` says the run has it (a development build started with `SONA_INSPECTOR=1`), and is an unavailable row otherwise.
+**Developer Tools** is the section's last group, of two rows. The first is the **Developer tools** switch (`config.Settings.DeveloperTools`, `developerTools` in `settings.json`, off by default, carried by a settings export): "Adds Inspect to every item's menu: its IDs, artwork, what Apple sent, and what an add-on receives for it." Find a setting finds it under developer, inspect, add-on developers and artwork. The `inspect` feature follows it at once ("Developer actions", above). The second is MyGo's inspector.
+
+**Open the inspector** is MyGo's inspector. `Open the inspector` calls `DesktopService.OpenDeveloperTools` when `Capabilities.DeveloperTools` says the run has it (a development build started with `SONA_INSPECTOR=1`), and is an unavailable row otherwise.
 
 #### Previous version
 

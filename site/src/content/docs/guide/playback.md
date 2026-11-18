@@ -28,6 +28,16 @@ Press L to open the lyrics in Now Playing. Sona asks every lyrics source you tur
 - Press [ and ] to shift the lyrics earlier or later, and \ to reset.
 - Choose the sources and a translation language in Settings → Playback → Lyrics.
 
+## Full-Screen Lyrics
+
+Press Shift+L, or choose Full screen under the lyrics in Now Playing, to give the whole screen to the words. The window goes full screen. Each line is set as large as the singer holds it, so a held line in the chorus is huge and a quick verse line is small. The sung line sits in the middle, with the lines before it fading above and the next two below, and the words light in amber as they are sung. It suits a TV or a second screen across a room.
+
+- The song, its progress, the lyrics timing and Exit full screen are hidden until you move the pointer or press a key, and hide again after three seconds. Music that is paused keeps them in view.
+- Press Space to play or pause, ↑ and ↓ to go to the previous or next line, ← and → to go back or ahead 5 seconds, and Home for the start of the song. Escape or Shift+L leaves.
+- The screen stays on while the music plays, so a TV left on doesn't go dark. The view is dark in a light theme too.
+- A song with no lyrics shows its cover large, with the title and the artist.
+- With reduce motion on, lines jump to their place instead of climbing and the background holds still. The background also holds still on battery.
+
 ## Open Now Playing
 
 Press N, or select the cover in the player bar, for a full view with the lyrics and Up next. Press Escape to close it. V opens the music video when a song has one.
@@ -40,7 +50,7 @@ Press Ctrl+Shift+M, or use the mini player button, for a small window that stays
 
 - **Equaliser**: press Ctrl+Shift+E for ten bands, presets and a preamp. You hear changes as you move them.
 - **Crossfade** and **Sound Check** (every song at about the same loudness): Settings → Playback → Sound.
-- **Spatial Audio**: Settings → Playback → Sound. Songs with a Dolby Atmos mix play Apple's headphone rendition of it where Apple allows it for Sona, from the next song on; every other song plays in stereo. A quiet **Spatial** badge beside the title in the player bar (and under the title in Now Playing) shows when the song playing is the Spatial Audio one.
+- **Spatial Audio**: Settings → Playback → Sound. It is for headphones: it plays Apple's own headphone mix of songs made in Dolby Atmos. It works for many of them but not all, because Apple offers some only to its own apps; those play in stereo. It applies at once, so you can turn it on and off while a song plays and hear the two mixes at the same place in the song. A quiet **Spatial** badge beside the title in the player bar (and under the title in Now Playing) shows when the song playing is the Spatial Audio one. When it is on and a song that has a Spatial Audio mix plays in stereo, Now Playing says why under the album, such as "Stereo · Apple keeps this song's Spatial Audio mix for its own apps".
 - **Output device**: choose it in Settings → Playback. Switching moves the music without a pause. If the device is unplugged, Sona plays to the system default until it returns.
 
 ## Set volume

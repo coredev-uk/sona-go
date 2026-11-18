@@ -51,7 +51,7 @@ On a platform with no playback engine this section says so, and only Lyrics rema
 | Audio quality | Chooses High (256 kbps AAC) or Data saver (64 kbps). Applies from the next song. | |
 | Output | Chooses where Sona plays. Switching moves the music without a pause. | Where the engine can pick a device |
 | Sound Check | Plays every song at about the same loudness. | Where the engine supports it |
-| Spatial Audio | Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona; other songs stay in stereo. Off by default, applies from the next song. | Where the engine supports it |
+| Spatial Audio for Headphones | Plays Apple's own headphone mix of songs made in Dolby Atmos. It works for many of them but not all, because Apple keeps some for its own apps; the Spatial tag beside the title shows when it's playing. Off by default, and it applies at once, to the song playing too. | Where the engine supports it |
 | Equaliser | Opens the ten-band equaliser. | Where the engine supports it |
 | Crossfade and Crossfade length | Fades each song into the next. Songs that follow each other on an album always play without a gap. | Where the engine supports it |
 
@@ -127,4 +127,4 @@ To copy one value, such as a version or a path, select it (triple-click takes a 
 | Library database | The file, its size, schema, contents, last full sync and the artwork cache. |
 | Sona | The version, platform, start-up time and the paths of the log, settings, data and cache. |
 | Updates | Previous version, with Restore… to go back to the version from your last update. Shown only when one is kept. |
-| Developer tools | Open the inspector. Available only in development builds started with `SONA_INSPECTOR=1`. |
+| Developer tools | A switch, off by default: adds **Inspect** to every item's menu, with its IDs, artwork, what Apple sent, and what an add-on receives for it. It is for people who write add-ons; it only reads your own data from Sona's cache and sends nothing anywhere. Below it, Open the inspector (MyGo's element inspector), available only in development builds started with `SONA_INSPECTOR=1`. |

@@ -27,6 +27,8 @@
 //	playspike -probe-lossless SONG_ID          Widevine licences for every enhancedHls variant
 //	playspike -spatial SONG_ID [-variant audio-stereo-256-binaural] [-listen 2m]
 //	                                           an enhancedHls AAC rendition (Spatial Audio's binaural render) through the CDM host
+//	playspike -spatial-toggle SONG_ID[,SONG_ID…] [-toggle-at 40s]
+//	                                           turn Spatial Audio on and off while each song plays: the mix and position after each switch, and why a song stays stereo
 //	playspike -probe-video VIDEO_ID            Widevine licences for every rendition of a music video
 //	playspike -video VIDEO_ID [-seek 90]       a music video through the engine: pictures, A/V sync, seek, the end
 //	playspike -station ra.ID [-listen 2m]      a stream station (live radio, or a local broadcaster's clear stream) and what is on air
@@ -75,6 +77,8 @@ func main() {
 	spatial := flag.String("spatial", "", "catalog song ID: play an AAC rendition of its enhancedHls master (-variant) through the CDM host for -listen")
 	spatialVariant := flag.String("variant", "audio-stereo-256-binaural", "with -spatial: the AUDIO rendition group to play")
 	spatialFlow := flag.String("spatial-flow", "", "comma-separated catalog song IDs: play them through the engine with Spatial Audio on (the setting): the first across its key change and a seek, then into each following song armed as the next item, gapless or, with -crossfade, crossfaded; prints which songs play spatial and how the changes line up")
+	spatialToggle := flag.String("spatial-toggle", "", "comma-separated catalog song IDs: play each in stereo from -toggle-at, turn Spatial Audio on while it plays and then off, and print the mix and position after each change and why a song stays in stereo (SpatialMiss)")
+	toggleAt := flag.Duration("toggle-at", 40*time.Second, "with -spatial-toggle: where in each song the toggles happen")
 	crossfade := flag.Duration("crossfade", 0, "with -spatial-flow: crossfade into each next song over this long (0 joins them gaplessly)")
 	spatialSetting := flag.Bool("spatial-setting", true, "with -spatial-flow: the Spatial Audio setting; -spatial-setting=false plays the stereo streams, to compare")
 	renewWait := flag.Duration("renew-wait", 0, "with -spatial-flow: keep playing the first song (looping it) this long after the checks, for the licence renewals (the CDM asks at 13 minutes)")
@@ -100,7 +104,7 @@ func main() {
 		os.Exit(2)
 	}
 	// The default, -preview and -activity modes end with the licence verdict.
-	verdict := *probeLossless == "" && *spatial == "" && *spatialFlow == "" && *probeVideo == "" && *videoID == "" && *soak <= 0 && *station == ""
+	verdict := *probeLossless == "" && *spatial == "" && *spatialFlow == "" && *spatialToggle == "" && *probeVideo == "" && *videoID == "" && *soak <= 0 && *station == ""
 	if *preview {
 		// No CDM: a computer that never downloaded one plays previews.
 		err = runPreview(log, *storefront, *songID, *term, *nextID, *nextTerm, *listen)
@@ -133,6 +137,8 @@ func main() {
 		err = runVideo(log, *envFile, *videoID, *seekTo, *listen, lib)
 	case *spatial != "":
 		err = runSpatial(log, *envFile, *spatial, *spatialVariant, *listen, lib)
+	case *spatialToggle != "":
+		err = runSpatialToggle(log, *envFile, strings.Split(*spatialToggle, ","), *toggleAt, lib, q)
 	case *spatialFlow != "":
 		err = runSpatialFlow(log, *envFile, strings.Split(*spatialFlow, ","), *spatialSetting, *crossfade, *renewWait, lib, q)
 	case *probeLossless != "":

@@ -180,6 +180,8 @@ type Engine struct {
 	device     string             // output device for every host (SetOutputDevice); "" = default
 	soundCheck bool               // apply items' Sound Check gain
 	spatial    bool               // play songs' Spatial Audio rendition where Apple licenses it
+	mixGen     int                // counts SetSpatial changes, for switchMix
+	mixMu      sync.Mutex         // one switchMix at a time (spatial.go)
 	h          host
 	hostGen    int
 	track      uint64        // last track generation handed to the host
@@ -363,7 +365,7 @@ func (e *Engine) Play(ctx context.Context, id string, start time.Duration) error
 	e.stopIdle()
 	e.st = playback.Status{State: playback.StateLoading, ItemID: id, Position: max(start, 0), Volume: e.st.Volume, UpdatedAt: time.Now(), Preview: e.preview}
 	if m := e.cache[id]; m != nil && m.done() && m.err == nil {
-		e.st.Duration, e.st.Spatial = m.duration, m.spatial != nil && !e.outdated(m)
+		e.st.Duration, e.st.Spatial, e.st.SpatialMiss = m.duration, m.spatial != nil && !e.outdated(m), e.missOf(m)
 	}
 	e.emit(playback.EventItem)
 	e.mu.Unlock()
@@ -435,7 +437,7 @@ func (e *Engine) start(ctx context.Context, it *item, pos time.Duration) (err er
 	tok := it.tok
 	e.dropPendingLocked(it, false) // a (re)load drops what the host had queued
 	it.fed = false
-	e.st.Duration, e.st.Spatial = m.duration, m.spatial != nil
+	e.st.Duration, e.st.Spatial, e.st.SpatialMiss = m.duration, m.spatial != nil, e.missOf(m)
 	if m.duration > 0 && pos > m.duration {
 		pos = m.duration
 	}

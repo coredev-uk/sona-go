@@ -202,6 +202,44 @@ func TestMotionPolicyAllowsMotionOnlyWhenNothingArguesAgainstIt(t *testing.T) {
 	}
 }
 
+// Ambient motion (the wash's drift behind full-screen lyrics) wants no
+// decoder and no setting, but is as quiet as the other motion: not under
+// reduced motion, Reduce effects, on battery or while the window is hidden.
+func TestMotionPolicyAmbientMotionStopsWhereMotionStops(t *testing.T) {
+	e := newMediaMotionEnv(t)
+	if !e.p.Ambient() {
+		t.Fatal("no ambient motion with nothing against it")
+	}
+	e.setting.Store(false) // the motion artwork setting is not its switch
+	e.p.setCodec("")
+	if !e.p.Ambient() {
+		t.Error("ambient motion followed the motion artwork's setting or decoder")
+	}
+	theme.SetReduceEffects(true)
+	if e.p.Ambient() {
+		t.Error("ambient motion under reduce effects")
+	}
+	theme.SetReduceEffects(false)
+	theme.SetReducedMotion(true)
+	if e.p.Ambient() {
+		t.Error("ambient motion under reduced motion")
+	}
+	theme.SetReducedMotion(false)
+	e.bus.Emit(services.EventPower, services.PowerState{Followed: true, OnBattery: true, Source: "battery"})
+	if e.p.Ambient() {
+		t.Error("ambient motion on battery")
+	}
+	e.bus.Emit(services.EventPower, services.PowerState{Followed: true, Source: "ac"})
+	e.p.SetVisible(false)
+	if e.p.Ambient() {
+		t.Error("ambient motion with the window hidden")
+	}
+	var none *MotionPolicy
+	if none.Ambient() {
+		t.Error("a nil policy allows ambient motion")
+	}
+}
+
 func TestMotionPolicyStartsFromThePowerSnapshotAndNeedsFiles(t *testing.T) {
 	theme.SetMode(theme.ModeLight)
 	defer theme.SetMode(theme.ModeSystem)

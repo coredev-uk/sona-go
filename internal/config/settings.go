@@ -114,6 +114,13 @@ type Settings struct {
 	// Addons is what the user decided about each add-on: whether it runs
 	// and the permissions granted to it (addons.go).
 	Addons Addons `json:"addons"`
+	// DeveloperTools adds Inspect to every item's menu (Settings →
+	// Diagnostics → Developer tools): the item's IDs, artwork, what Apple
+	// sent and what an add-on receives for it. It reads the user's own item
+	// data from Go's caches and sends nothing anywhere. Off by default; a
+	// development build offers Inspect whatever it says. Every value is
+	// valid, so there is nothing to normalise.
+	DeveloperTools bool `json:"developerTools"`
 }
 
 // Scrobbling holds the non-secret part of the scrobbler connections.

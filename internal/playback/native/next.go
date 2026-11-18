@@ -161,14 +161,15 @@ func (e *Engine) advanceLocked(it *item, ev cdmhost.Event) {
 	e.cur = p // p.cancel stops its feed, which may still be running
 	e.next = playback.Next{}
 	e.st = playback.Status{
-		State:     playback.StatePlaying,
-		ItemID:    p.id,
-		Position:  ev.Position,
-		Duration:  p.m.duration,
-		Volume:    e.st.Volume,
-		UpdatedAt: ev.At,
-		Preview:   e.preview,
-		Spatial:   p.m.spatial != nil,
+		State:       playback.StatePlaying,
+		ItemID:      p.id,
+		Position:    ev.Position,
+		Duration:    p.m.duration,
+		Volume:      e.st.Volume,
+		UpdatedAt:   ev.At,
+		Preview:     e.preview,
+		Spatial:     p.m.spatial != nil,
+		SpatialMiss: e.missOf(p.m),
 	}
 	e.emit(playback.EventAdvance)
 	e.armLocked() // when the coordinator arms the one after

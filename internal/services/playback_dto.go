@@ -159,6 +159,13 @@ type PlaybackState struct {
 	// Spatial: the current song plays as its Spatial Audio rendition
 	// (Apple's binaural headphone mix); the player says so.
 	Spatial bool `json:"spatial"`
+	// SpatialMiss: why the current song plays in stereo although Spatial
+	// Audio is on and Apple lists the song with a Spatial Audio or Atmos
+	// mix: "no_mix" (Apple publishes none Sona can play), "apple_only"
+	// (Apple keeps the mix for its own apps: FairPlay-only, or a licence
+	// it refused) or "unavailable" (any other failure); "" otherwise,
+	// including while the setting is off and for a song with no such mix.
+	SpatialMiss string `json:"spatialMiss"`
 	// OnAir is what the current local broadcaster's stream says is on
 	// air (the song or advert it names), as heard; nil when it says
 	// nothing.

@@ -23,7 +23,10 @@ Ctrl+K opens the palette. Type to search every command, page and shortcut, then 
 | Q | Show or hide the queue |
 | N / L / V | Now Playing / lyrics / music video |
 | [ / ] / \ | Lyrics earlier / later / reset |
-| Shift+L | Lyrics in full |
+| Shift+L | Full-Screen Lyrics |
+| ↑ / ↓ | In Full-Screen Lyrics, the previous or next line |
+| ← / → | In Full-Screen Lyrics, back or ahead 5 seconds |
+| Home | In Full-Screen Lyrics, the start of the song |
 | Escape | Close Now Playing |
 | Ctrl+Shift+M | Mini player |
 | Ctrl+Shift+E | Equaliser |

@@ -424,7 +424,7 @@ msgid "Show what's playing"
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "Shows Spatial Audio (status, the default), or turns it on, off or over (toggle). While it is on, songs with Spatial Audio play as their Spatial Audio rendition where Apple allows it, and in stereo otherwise. It applies from the next song."
+msgid "Shows Spatial Audio (status, the default), or turns it on, off or over (toggle). While it is on, songs with Spatial Audio play as their Spatial Audio rendition where Apple allows it, and in stereo otherwise. It applies at once: the playing song switches between its mixes where it has two, at the same position."
 msgstr ""
 
 #: internal/cli/messages.go
@@ -669,6 +669,19 @@ msgstr ""
 #: internal/cli/messages.go
 #, go-format
 msgid "no results for %q"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "no, stereo: Apple keeps this song's Spatial Audio mix for its own apps"
+msgstr ""
+
+#. Why a song plays in stereo although Spatial Audio is on (the value of the "spatial audio" field).
+#: internal/cli/messages.go
+msgid "no, stereo: no Spatial Audio mix of this song"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "no, stereo: this song's Spatial Audio mix could not be loaded"
 msgstr ""
 
 #: internal/cli/messages.go

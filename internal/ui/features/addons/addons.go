@@ -171,7 +171,7 @@ func (f *feature) actionDefs(addon, name string, a services.AddonAction) []kit.A
 			ID: a.ID + "/" + k, Target: kind, Icon: iconOf(a.Icon), Group: kit.GroupAddon, Order: i,
 			Label: func(*kit.ActionContext) string { return label },
 			Run: func(ac *kit.ActionContext) {
-				if t, ok := targetOf(ac.Item()); ok {
+				if t, ok := services.AddonTargetOf(ac.Item().Target); ok {
 					f.invoke(addon, name, a.ID, &t)
 				}
 			},
@@ -218,33 +218,6 @@ func iconOf(name string) string {
 		return canon
 	}
 	return defaultIcon
-}
-
-// targetOf is what an action was chosen on, as the add-on is told: the
-// catalogue ID when the item has one, else the library's.
-func targetOf(it kit.Item) (services.AddonTarget, bool) {
-	var id string
-	switch t := it.Target.(type) {
-	case services.Song:
-		id = firstOf(t.CatalogID, t.ID)
-	case services.Album:
-		id = firstOf(t.CatalogID, t.ID)
-	case services.Artist:
-		id = firstOf(t.CatalogID, t.ID)
-	case services.Playlist:
-		id = firstOf(t.CatalogID, t.ID)
-	}
-	if id == "" || kinds[string(it.Kind)] == "" {
-		return services.AddonTarget{}, false
-	}
-	return services.AddonTarget{Kind: string(it.Kind), ID: id, Name: it.Name()}, true
-}
-
-func firstOf(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
 
 // invoke asks the add-on to run an action or command. The call runs off the
