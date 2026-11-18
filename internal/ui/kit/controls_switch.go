@@ -2,6 +2,7 @@ package kit
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -217,6 +218,10 @@ type TabsOpts struct {
 	Vertical bool
 	// A11yLabel names the tab list.
 	A11yLabel string
+	// Reasons say why a tab has nothing to show, by index ("" for a tab that
+	// has): it is drawn at half strength, assistive technology sees it
+	// disabled, a click and the arrows pass it by, and a tooltip says why.
+	Reasons []string
 }
 
 // Tabs is a row (or column) of tabs showing labels, *selected the index of
@@ -243,40 +248,63 @@ func Tabs(c *ui.Context, selected *int, labels []string, o TabsOpts) ui.Element 
 	}
 	list.Children(func() {
 		for i, label := range labels {
-			on := i == *selected
-			tab := tabs.Tab(i).Padding(4, 8).Radius(controlsRadius("md")).Border(1, ui.Transparent)
-			if o.Vertical {
-				tab.Justify(ui.Start)
-			} else {
-				tab.Height(29)
+			reason := ""
+			if i < len(o.Reasons) {
+				reason = o.Reasons[i]
 			}
-			fg := theme.C("foreground").Alpha(0.6)
-			switch {
-			case on:
-				fg = theme.C("foreground")
-				if !o.Line {
-					tab.Border(1, theme.C("tab-active-border"))
-					tab.Background(theme.C("tab-active-bg"))
-					sh := theme.Current().Shadow["sm"]
-					tab.Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color)
-				}
-			case tab.Hovered():
-				fg = theme.C("foreground")
+			build := func() { tabsTab(c, tabs, selected, i, label, reason, o) }
+			if reason == "" {
+				build()
+				continue
 			}
-			tab.TextColor(fg)
-			tab.Children(func() { theme.Text(c, label, "label").SingleLine() })
-			if on && o.Line {
-				tab.DrawOver(func(p *ui.Painter, r ui.Rect) {
-					if o.Vertical {
-						p.Fill(ui.Rect{X: r.X + r.W + 2, Y: r.Y, W: 2, H: r.H}, theme.C("foreground"), 0)
-						return
-					}
-					p.Fill(ui.Rect{X: r.X, Y: r.Y + r.H + 3, W: r.W, H: 2}, theme.C("foreground"), 0)
-				})
-			}
+			// A disabled tab takes no pointer: its tip is on a box around it.
+			box := ui.Row(c.Key("tab-off:" + strconv.Itoa(i))).Shrink(0).AlignItems(ui.Center)
+			box.Children(build)
+			Tooltip(c, box, reason)
 		}
 	})
 	return list
+}
+
+// tabsTab builds tab i of Tabs.
+func tabsTab(c *ui.Context, tabs ui.TabsParts, selected *int, i int, label, reason string, o TabsOpts) {
+	on := i == *selected && reason == ""
+	tab := tabs.Tab(i).Padding(4, 8).Radius(controlsRadius("md")).Border(1, ui.Transparent)
+	if reason != "" {
+		tab.Disabled(true)
+	}
+	if o.Vertical {
+		tab.Justify(ui.Start)
+	} else {
+		tab.Height(29)
+	}
+	fg := theme.C("foreground").Alpha(0.6)
+	switch {
+	case on:
+		fg = theme.C("foreground")
+		if !o.Line {
+			tab.Border(1, theme.C("tab-active-border"))
+			tab.Background(theme.C("tab-active-bg"))
+			sh := theme.Current().Shadow["sm"]
+			tab.Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color)
+		}
+	case tab.Hovered():
+		fg = theme.C("foreground")
+	}
+	if reason != "" {
+		fg = theme.C("foreground").Alpha(0.4)
+	}
+	tab.TextColor(fg)
+	tab.Children(func() { theme.Text(c, label, "label").SingleLine() })
+	if on && o.Line {
+		tab.DrawOver(func(p *ui.Painter, r ui.Rect) {
+			if o.Vertical {
+				p.Fill(ui.Rect{X: r.X + r.W + 2, Y: r.Y, W: 2, H: r.H}, theme.C("foreground"), 0)
+				return
+			}
+			p.Fill(ui.Rect{X: r.X, Y: r.Y + r.H + 3, W: r.W, H: 2}, theme.C("foreground"), 0)
+		})
+	}
 }
 
 // TabPanel is the page of a tab: a tab panel named by label (the tab's)

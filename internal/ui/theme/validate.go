@@ -144,6 +144,11 @@ var rowTones = [...]string{"ground", "surface", "raised", "hover", "active"}
 // tiers, the spot colour as text, and the two status colours.
 var textTokens = [...]string{"ink", "ink-muted", "ink-faint", "amber-ink", "positive", "danger"}
 
+// TextTokens are the colour tokens that carry text on the board's tones, which
+// Validate holds to the text contrast floor in every theme: a view that sets
+// text in a colour of its own picks among them.
+func TextTokens() []string { return textTokens[:] }
+
 // spotRoles are the roles that must not resolve to the spot colour: the
 // spot colour means playing and nothing else (docs/design.md, principle 3).
 // ring is the focus ring too; active and hover are the navigation's

@@ -12,7 +12,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
-	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // ActionID is the registered action's ID prefix; each kind has its own
@@ -21,6 +20,15 @@ const ActionID = "inspect."
 
 // loadTimeout bounds the cache and database reads behind one Inspect.
 const loadTimeout = 10 * time.Second
+
+// The panel's tabs.
+const (
+	tabOverview = iota
+	tabApple
+	tabLibrary
+	tabAddon
+	tabCount
+)
 
 // inspector is the feature's state: the one open panel.
 type inspector struct {
@@ -32,15 +40,27 @@ type inspector struct {
 	item    kit.Item
 	query   services.InspectQuery
 	loading bool
-	err     string
-	report  services.InspectReport
-	text    string // the panel's text, shown selectable
-	shown   string // text as the field was last given it: edits are undone
-	// addonText and addonShown are the same for "What an add-on gets".
-	addonText, addonShown string
-	scroll                ui.ScrollState
+	// err is why the report could not be read; the panel words it with a
+	// Retry.
+	err    error
+	report services.InspectReport
+	// data is the report as the tabs show it, built off the main thread.
+	data *panelData
+	// tab is the chosen tab; view says whether Overview is the ledger (0)
+	// or the JSON of what Sona mapped (1).
+	tab, view int
+	// lists are the ledgers' places and choices (Overview, Library).
+	lists [2]ledgerState
+	// wantFilter asks the filter of the tab shown for the focus (Ctrl+F).
+	wantFilter bool
 	// gen tells a late answer from one for an item opened since.
 	gen int
+}
+
+// ledgerState is a ledger's list state and the row chosen.
+type ledgerState struct {
+	list   ui.ListState
+	chosen int
 }
 
 // New is the inspector module.
@@ -110,12 +130,18 @@ func (in *inspector) action(kind kit.ItemKind) kit.ActionDef {
 
 // show opens the panel on item and asks Go for its report.
 func (in *inspector) show(item kit.Item) {
+	in.open, in.item, in.query = true, item, queryOf(item)
+	in.tab, in.view, in.wantFilter = tabOverview, 0, false
+	in.lists = [2]ledgerState{{chosen: -1}, {chosen: -1}}
+	in.load()
+}
+
+// load reads the report for the item shown: the panel shows its skeleton
+// until it lands, or says why it could not and offers Retry.
+func (in *inspector) load() {
 	in.gen++
 	gen := in.gen
-	in.open, in.item, in.loading, in.err, in.report = true, item, true, "", services.InspectReport{}
-	in.query = queryOf(item)
-	in.text, in.addonText = in.render(), in.renderAddon()
-	in.scroll = ui.ScrollState{}
+	in.loading, in.err, in.report, in.data = true, nil, services.InspectReport{}, nil
 	if in.inspect == nil {
 		in.loading = false
 		return
@@ -125,15 +151,15 @@ func (in *inspector) show(item kit.Item) {
 		ctx, cancel := context.WithTimeout(context.Background(), loadTimeout)
 		defer cancel()
 		rep, err := in.inspect(ctx, q)
+		var data *panelData
+		if err == nil {
+			data = buildData(rep)
+		}
 		in.env.Post(func() {
 			if gen != in.gen {
 				return
 			}
-			in.loading, in.report = false, rep
-			if err != nil {
-				in.err = err.Error()
-			}
-			in.text, in.addonText = in.render(), in.renderAddon()
+			in.loading, in.report, in.err, in.data = false, rep, err, data
 		})
 	}()
 }
@@ -158,84 +184,24 @@ func queryOf(item kit.Item) services.InspectQuery {
 	return q
 }
 
-// artURL is the item's artwork at its largest size ("" for none).
-func artURL(item kit.Item) string {
-	switch t := item.Target.(type) {
-	case services.Song:
-		return t.Art.Large
-	case services.Album:
-		return t.Art.Large
-	case services.Playlist:
-		return t.Art.Large
-	case services.Artist:
-		return t.Art.Large
-	case services.Station:
-		return t.Art.Large
-	case services.MusicVideo:
-		return t.Art.Large
-	}
-	return ""
-}
-
-// id is the item's ID in its own source (Copy ID).
+// id is the item's ID in its own source.
 func (in *inspector) id() string { return in.item.ID() }
 
-// render is the panel's text: every section Go has for the item.
-func (in *inspector) render() string {
-	var s string
-	add := func(title, body string) {
-		if body != "" {
-			s += "── " + title + " ──\n" + body + "\n\n"
-		}
+// raw is s as JSON to embed, nil when it is not.
+func raw(s string) json.RawMessage {
+	if s == "" || !json.Valid([]byte(s)) {
+		return nil
 	}
-	s += "kind: " + string(in.item.Kind) + "\nid: " + in.id() + "\nartwork: " + artURL(in.item) + "\n\n"
-	switch {
-	case in.loading:
-		s += "Loading…\n"
-	case in.err != "":
-		s += "error: " + in.err + "\n\n"
-	}
-	add("Mapped item (what Sona shows)", in.report.Mapped)
-	if in.report.Raw != "" {
-		add("Apple's resource (catalog cache "+in.report.RawKey+")", in.report.Raw)
-	} else if !in.loading {
-		add("Apple's resource", "not in Go's catalog cache")
-	}
-	add("Library row (SQLite)", in.report.Row)
-	return s
+	return json.RawMessage(s)
 }
 
-// addonNote says why the section shows what it does: an add-on is never sent
-// a private listen, but this is the user's own inspection.
-const addonNote = "Exactly what an add-on is sent for this item. Add-ons never see private listens or previews; this is your own inspection, so it shows the item regardless."
+// addonJSON is the add-on's view of the item as one JSON document: the
+// invoke target and, for a song, the now-playing track.
+func (in *inspector) addonJSON() string { return addonDoc(in.report.Addon) }
 
-// renderAddon is the "What an add-on gets" text: the protocol's JSON for this
-// item, as Go builds it.
-func (in *inspector) renderAddon() string {
-	if in.loading {
-		return "Loading…\n"
-	}
-	var s string
-	if t := in.report.Addon.Target; t != "" {
-		s += "invoke · params.target\n" + t + "\n\n"
-	} else {
-		s += "invoke · no add-on action is offered on a " + string(in.item.Kind) + "\n\n"
-	}
-	if t := in.report.Addon.Track; t != "" {
-		s += "now-playing · data.track\n" + t + "\n"
-	}
-	return s
-}
-
-// addonJSON is the add-on's view of the item as one JSON object, for the
-// section's own Copy as JSON.
-func (in *inspector) addonJSON() string {
-	raw := func(s string) json.RawMessage {
-		if s == "" || !json.Valid([]byte(s)) {
-			return nil
-		}
-		return json.RawMessage(s)
-	}
+// addonDoc is what an add-on is sent for an item as one JSON document, "" when
+// it is sent nothing.
+func addonDoc(a services.InspectAddon) string {
 	type invoke struct {
 		Target json.RawMessage `json:"target"`
 	}
@@ -246,87 +212,56 @@ func (in *inspector) addonJSON() string {
 		Invoke     *invoke     `json:"invoke,omitempty"`
 		NowPlaying *nowPlaying `json:"now-playing,omitempty"`
 	}{}
-	if t := raw(in.report.Addon.Target); t != nil {
+	if t := raw(a.Target); t != nil {
 		doc.Invoke = &invoke{t}
 	}
-	if t := raw(in.report.Addon.Track); t != nil {
+	if t := raw(a.Track); t != nil {
 		doc.NowPlaying = &nowPlaying{t}
+	}
+	if doc.Invoke == nil && doc.NowPlaying == nil {
+		return ""
 	}
 	b, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
-		return in.addonText
+		return ""
 	}
 	return string(b)
 }
 
 // asJSON is the whole report as one JSON object, for Copy as JSON.
 func (in *inspector) asJSON() string {
-	raw := func(s string) json.RawMessage {
-		if s == "" || !json.Valid([]byte(s)) {
-			return nil
-		}
-		return json.RawMessage(s)
+	var addon json.RawMessage
+	if d := in.addonJSON(); d != "" {
+		addon = json.RawMessage(d)
 	}
 	b, err := json.MarshalIndent(struct {
-		Kind    string          `json:"kind"`
-		ID      string          `json:"id"`
-		Artwork string          `json:"artwork,omitempty"`
-		RawKey  string          `json:"rawKey,omitempty"`
-		Mapped  json.RawMessage `json:"mapped,omitempty"`
-		Raw     json.RawMessage `json:"raw,omitempty"`
-		Row     json.RawMessage `json:"row,omitempty"`
-	}{string(in.item.Kind), in.id(), artURL(in.item), in.report.RawKey, raw(in.report.Mapped), raw(in.report.Raw), raw(in.report.Row)}, "", "  ")
+		Kind   string          `json:"kind"`
+		ID     string          `json:"id"`
+		URL    string          `json:"url,omitempty"`
+		Art    json.RawMessage `json:"artwork,omitempty"`
+		RawKey string          `json:"rawKey,omitempty"`
+		Mapped json.RawMessage `json:"mapped,omitempty"`
+		Raw    json.RawMessage `json:"raw,omitempty"`
+		Row    json.RawMessage `json:"row,omitempty"`
+		Addon  json.RawMessage `json:"addon,omitempty"`
+	}{
+		string(in.item.Kind), in.id(), in.report.URL, artJSON(in.report.Art), in.report.RawKey,
+		raw(in.report.Mapped), raw(in.report.Raw), raw(in.report.Row), addon,
+	}, "", "  ")
 	if err != nil {
-		return in.text
+		return ""
 	}
 	return string(b)
 }
 
-// panel is the dialog: plain text in a scroll, three copy buttons, then what
-// an add-on gets with its own. Not designed for end users.
-func (in *inspector) panel(c *ui.Context) {
-	if in.text != in.shown {
-		in.shown = in.text // the field edits its own copy; a new report replaces it
+// artJSON is the artwork as JSON, nil without a template.
+func artJSON(a services.InspectArt) json.RawMessage {
+	if a.Template == "" {
+		return nil
 	}
-	if in.addonText != in.addonShown {
-		in.addonShown = in.addonText
+	b, err := json.Marshal(a)
+	if err != nil {
+		return nil
 	}
-	_, wh := c.Size()
-	kit.Dialog(c.Key("inspect"), &in.open, kit.DialogOpts{
-		Title: "Inspect " + in.item.Name(), Description: "Developer tools: what Sona mapped, what Apple sent and what an add-on gets",
-		MaxWidth: 880, Top: wh * 0.04,
-	}, func() {
-		t := theme.Current().Type["secondary"]
-		field := func(key string, shown *string, text string, label string, maxHeight float32) {
-			area := ui.TextAreaBase(c.Key(key), shown)
-			area.FillWidth().MinHeight(100).MaxHeight(maxHeight).Padding(8, 12).FontSize(t.Size).
-				TextColor(theme.C("ink")).Background(theme.C("raised")).Radius(theme.Current().Radius["md"]).Label(label)
-			if *shown != text {
-				*shown = text // read-only: any edit is undone
-			}
-		}
-		field("text", &in.shown, in.text, "Item properties", max(wh*0.28, 140))
-		ui.Row(c.Key("actions")).Gap(8).Children(func() {
-			btn := func(key, label string, text func() string, enabled bool) {
-				if kit.Button(c.Key(key), label, kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Disabled: !enabled}).Clicked() {
-					in.env.Copy(text())
-				}
-			}
-			btn("copy-json", "Copy as JSON", in.asJSON, !in.loading)
-			btn("copy-id", "Copy ID", in.id, in.id() != "")
-			btn("copy-art", "Copy artwork URL", func() string { return artURL(in.item) }, artURL(in.item) != "")
-		})
-		ui.Column(c.Key("addon")).FillWidth().Gap(8).Margin(8, 0, 0, 0).Children(func() {
-			theme.Text(c, "What an add-on gets", "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
-			theme.Text(c, addonNote, "secondary").TextColor(theme.C("ink-muted"))
-			field("addon-text", &in.addonShown, in.addonText, "What an add-on gets", max(wh*0.22, 110))
-			ui.Row(c.Key("addon-actions")).Children(func() {
-				if kit.Button(c.Key("copy-addon"), "Copy as JSON", kit.ButtonOpts{
-					Variant: kit.Outline, Size: kit.SizeSM, Disabled: in.loading, A11yLabel: "Copy what an add-on gets as JSON",
-				}).Clicked() {
-					in.env.Copy(in.addonJSON())
-				}
-			})
-		})
-	})
+	return b
 }

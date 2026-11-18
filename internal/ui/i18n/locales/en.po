@@ -176,10 +176,18 @@ msgstr "Add to “{name}”"
 msgid "Add {songName} to {playlistName}"
 msgstr "Add {songName} to {playlistName}"
 
+#: internal/ui/features/inspect/model.go
+msgid "Add-on"
+msgstr "Add-on"
+
 #: internal/ui/features/settings/find.go
 #: internal/ui/module/shortcut_groups.go
 msgid "Add-ons"
 msgstr "Add-ons"
+
+#: internal/ui/features/inspect/model.go
+msgid "Add-ons aren't offered this kind of item"
+msgstr "Add-ons aren't offered this kind of item"
 
 #: internal/ui/features/settings/addons.go
 #: internal/ui/features/settings/find.go
@@ -279,6 +287,7 @@ msgstr "After {m, plural, one {# minute} other {# minutes}}"
 #: internal/ui/features/artist/timeline.go
 #: internal/ui/features/commands/palette.go
 #: internal/ui/features/home/catalogue.go
+#: internal/ui/features/inspect/model.go
 #: internal/ui/features/library/query.go
 #: internal/ui/features/newreleases/row.go
 #: internal/ui/features/playlist/editor.go
@@ -406,6 +415,10 @@ msgstr "Any date"
 #: internal/ui/features/settings/find.go
 msgid "Appearance"
 msgstr "Appearance"
+
+#: internal/ui/features/inspect/model.go
+msgid "Apple"
+msgstr "Apple"
 
 #: internal/ui/account/credentials.go
 msgid "Apple Account"
@@ -603,6 +616,10 @@ msgstr "Apple stopped accepting Sona's sign-in"
 msgid "Apple wants you to review your account (new terms or a security update) before it can sign in. Do that at account.apple.com, then try again here."
 msgstr "Apple wants you to review your account (new terms or a security update) before it can sign in. Do that at account.apple.com, then try again here."
 
+#: internal/ui/features/inspect/panel.go
+msgid "Apple's resource"
+msgstr "Apple's resource"
+
 #: internal/ui/account/browser.go
 msgid "Apple's sign-in page is open in your browser. Sona continues by itself when you're done."
 msgstr "Apple's sign-in page is open in your browser. Sona continues by itself when you're done."
@@ -621,6 +638,7 @@ msgstr "Arcs"
 #: internal/ui/features/artist/viewpage.go
 #: internal/ui/features/commands/palette.go
 #: internal/ui/features/home/catalogue.go
+#: internal/ui/features/inspect/model.go
 #: internal/ui/features/library/artists.go
 #: internal/ui/features/library/query.go
 #: internal/ui/features/playlist/page.go
@@ -906,6 +924,10 @@ msgstr "Can't run"
 #: internal/ui/kit/overlays_dialog.go
 msgid "Cancel"
 msgstr "Cancel"
+
+#: internal/ui/features/inspect/model.go
+msgid "Catalogue"
+msgstr "Catalogue"
 
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/storage.go
@@ -1279,7 +1301,22 @@ msgstr "Controls"
 msgid "Cool grey, sky blue"
 msgstr "Cool grey, sky blue"
 
+#: internal/ui/features/inspect/panel.go
+#: internal/ui/features/inspect/views.go
+msgid "Copied"
+msgstr "Copied"
+
+#: internal/ui/features/inspect/panel.go
+#: internal/ui/features/inspect/views.go
+msgid "Copied path"
+msgstr "Copied path"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Copied {id}"
+msgstr "Copied {id}"
+
 #: internal/ui/app/menubar.go
+#: internal/ui/features/inspect/panel.go
 msgid "Copy"
 msgstr "Copy"
 
@@ -1291,10 +1328,18 @@ msgstr "Copy ISRC"
 msgid "Copy an Apple Music link first."
 msgstr "Copy an Apple Music link first."
 
+#: internal/ui/features/inspect/panel.go
+msgid "Copy as JSON"
+msgstr "Copy as JSON"
+
 #: internal/ui/features/settings/diagnostics.go
 #: internal/ui/features/settings/find.go
 msgid "Copy diagnostics"
 msgstr "Copy diagnostics"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Copy everything as JSON"
+msgstr "Copy everything as JSON"
 
 #: internal/ui/kit/listenbrainz_hint.go
 msgid "Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with ListenBrainz and keeps it in your keyring."
@@ -1304,6 +1349,24 @@ msgstr "Copy it from <0>your ListenBrainz settings<1/></0>. Sona checks it with 
 #: internal/ui/features/library/actions.go
 msgid "Copy link"
 msgstr "Copy link"
+
+#: internal/ui/features/inspect/panel.go
+#: internal/ui/features/inspect/views.go
+msgid "Copy path"
+msgstr "Copy path"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Copy this tab as JSON"
+msgstr "Copy this tab as JSON"
+
+#: internal/ui/features/inspect/panel.go
+#: internal/ui/features/inspect/views.go
+msgid "Copy value"
+msgstr "Copy value"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Copy {label} {id}"
+msgstr "Copy {label} {id}"
 
 #: internal/ui/kit/playerqueue_commands.go
 msgid "Couldn't add to the queue"
@@ -1692,6 +1755,7 @@ msgid "Couldn't open the inspector"
 msgstr "Couldn't open the inspector"
 
 #: internal/ui/features/addons/addons.go
+#: internal/ui/features/inspect/panel.go
 msgid "Couldn't open the link"
 msgstr "Couldn't open the link"
 
@@ -1798,6 +1862,10 @@ msgstr "Couldn't read this artist's albums from this computer"
 #: internal/ui/features/library/artists.go
 msgid "Couldn't read this artist's songs from this computer"
 msgstr "Couldn't read this artist's songs from this computer"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Couldn't read this item"
+msgstr "Couldn't read this item"
 
 #: internal/ui/features/home/local.go
 msgid "Couldn't read your albums"
@@ -2519,6 +2587,10 @@ msgstr "Everything Sona needs is working"
 msgid "Everything in your library is a single or an EP."
 msgstr "Everything in your library is a single or an EP."
 
+#: internal/ui/features/inspect/panel.go
+msgid "Exactly what an add-on is sent for this item. Add-ons never see private listens or previews; this is your own inspection, so it shows the item regardless."
+msgstr "Exactly what an add-on is sent for this item. Add-ons never see private listens or previews; this is your own inspection, so it shows the item regardless."
+
 #: internal/ui/app/menubar.go
 msgid "Exit Full Screen"
 msgstr "Exit Full Screen"
@@ -2619,6 +2691,10 @@ msgstr "File"
 msgid "File (unencrypted)"
 msgstr "File (unencrypted)"
 
+#: internal/ui/features/inspect/panel.go
+msgid "Filter"
+msgstr "Filter"
+
 #: internal/ui/features/library/albums.go
 msgid "Filter albums"
 msgstr "Filter albums"
@@ -2635,10 +2711,18 @@ msgstr "Filter by action or key"
 msgid "Filter concerts"
 msgstr "Filter concerts"
 
+#: internal/ui/features/inspect/views.go
+msgid "Filter keys and values"
+msgstr "Filter keys and values"
+
 #: internal/ui/features/commands/help.go
 #: internal/ui/features/settings/shortcuts.go
 msgid "Filter shortcuts"
 msgstr "Filter shortcuts"
+
+#: internal/ui/features/inspect/views.go
+msgid "Filter {what}"
+msgstr "Filter {what}"
 
 #: internal/ui/kit/overlays_palette.go
 msgid "Find a page, action or music in your library"
@@ -2793,6 +2877,10 @@ msgstr "Get tickets for {lineup}"
 msgid "Get tickets for {lineup} from {seller}, opens in your browser"
 msgstr "Get tickets for {lineup} from {seller}, opens in your browser"
 
+#: internal/ui/features/inspect/model.go
+msgid "Global"
+msgstr "Global"
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Go"
 msgstr "Go"
@@ -2818,6 +2906,10 @@ msgstr "Go back 10 seconds"
 #: internal/ui/features/settings/previous.go
 msgid "Go back to {version}?"
 msgstr "Go back to {version}?"
+
+#: internal/ui/features/inspect/views.go
+msgid "Go has no fields for this item."
+msgstr "Go has no fields for this item."
 
 #: internal/ui/features/album/page.go
 msgid "Go to Albums"
@@ -2855,6 +2947,10 @@ msgstr "Go to album"
 #: internal/ui/features/artist/artist_module.go
 msgid "Go to artist"
 msgstr "Go to artist"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Go's catalogue cache"
+msgstr "Go's catalogue cache"
 
 #: internal/ui/features/settings/accents.go
 msgid "Gold"
@@ -2991,6 +3087,10 @@ msgstr "How to get the code"
 msgid "Hz"
 msgstr "Hz"
 
+#: internal/ui/features/inspect/panel.go
+msgid "IDs"
+msgstr "IDs"
+
 #: internal/ui/features/song/page.go
 msgid "ISRC"
 msgstr "ISRC"
@@ -3056,6 +3156,14 @@ msgstr "In the background, music keeps playing and Sona stays in the system tray
 msgctxt "keyboard key"
 msgid "Insert"
 msgstr "Insert"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Inspect {name}"
+msgstr "Inspect {name}"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Inspector sections"
+msgstr "Inspector sections"
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Install GStreamer 1.x with the base and good plugins."
@@ -3308,6 +3416,10 @@ msgstr "Its version isn't a semantic version such as 1.2.0."
 msgid "JPEG or PNG, up to {maxMiB} MB and {maxMpx} megapixels, at least {minEdge} px wide and tall. Sona crops it to a square from the centre."
 msgstr "JPEG or PNG, up to {maxMiB} MB and {maxMpx} megapixels, at least {minEdge} px wide and tall. Sona crops it to a square from the centre."
 
+#: internal/ui/features/inspect/panel.go
+msgid "JSON"
+msgstr "JSON"
+
 #. Equaliser preset
 #: internal/ui/features/equalizer/curve.go
 msgid "Jazz"
@@ -3408,6 +3520,10 @@ msgstr "Latest release"
 msgid "Latte and Mocha, peach"
 msgstr "Latte and Mocha, peach"
 
+#: internal/ui/features/inspect/panel.go
+msgid "Ledger"
+msgstr "Ledger"
+
 #: internal/ui/kit/overlays_palette.go
 msgctxt "keyboard key"
 msgid "Left Arrow"
@@ -3419,6 +3535,7 @@ msgstr "Length"
 
 #: internal/ui/app/menubar.go
 #: internal/ui/app/view.go
+#: internal/ui/features/inspect/model.go
 #: internal/ui/features/search/scope.go
 msgid "Library"
 msgstr "Library"
@@ -3435,6 +3552,10 @@ msgstr "Library database"
 #: internal/ui/features/library/sync.go
 msgid "Library not synced yet"
 msgstr "Library not synced yet"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Library row"
+msgstr "Library row"
 
 #: internal/ui/features/search/page.go
 msgid "Library songs matching {q}"
@@ -3549,6 +3670,7 @@ msgstr "Live radio"
 #: internal/ui/features/home/lead.go
 #: internal/ui/features/home/local.go
 #: internal/ui/features/home/shelfpage.go
+#: internal/ui/features/inspect/panel.go
 #: internal/ui/features/newreleases/page.go
 #: internal/ui/features/onboarding/parts.go
 #: internal/ui/features/player/bar.go
@@ -3598,6 +3720,7 @@ msgid "Loading · {when}"
 msgstr "Loading · {when}"
 
 #: internal/ui/features/concerts/page.go
+#: internal/ui/features/inspect/model.go
 #: internal/ui/features/library/history.go
 msgid "Loading…"
 msgstr "Loading…"
@@ -3706,6 +3829,10 @@ msgstr "Make Sona the default"
 #: internal/ui/features/settings/addons.go
 msgid "Manage {name} in Connections"
 msgstr "Manage {name} in Connections"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Mapped item"
+msgstr "Mapped item"
 
 #: internal/ui/features/newreleases/page.go
 msgid "Mark all as read"
@@ -3870,6 +3997,7 @@ msgid "Music Videos"
 msgstr "Music Videos"
 
 #: internal/ui/features/home/catalogue.go
+#: internal/ui/features/inspect/model.go
 #: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/queue_row.go
 #: internal/ui/features/search/groups.go
@@ -4116,6 +4244,10 @@ msgstr "No curators for “{q}”"
 msgid "No favourite songs yet"
 msgstr "No favourite songs yet"
 
+#: internal/ui/features/inspect/views.go
+msgid "No key or value holds “{query}”."
+msgstr "No key or value holds “{query}”."
+
 #: internal/ui/features/search/groups.go
 msgid "No labels for “{q}”"
 msgstr "No labels for “{q}”"
@@ -4131,6 +4263,10 @@ msgstr "No lyrics for this song"
 #: internal/ui/features/player/nowplaying_room.go
 msgid "No lyrics for this song."
 msgstr "No lyrics for this song."
+
+#: internal/ui/features/inspect/views.go
+msgid "No matches"
+msgstr "No matches"
 
 #: internal/ui/features/search/groups.go
 msgid "No music videos for “{q}”"
@@ -4356,9 +4492,17 @@ msgstr "Not found"
 msgid "Not fully sandboxed"
 msgstr "Not fully sandboxed"
 
+#: internal/ui/features/inspect/model.go
+msgid "Not in Go's catalogue cache"
+msgstr "Not in Go's catalogue cache"
+
 #: internal/ui/features/settings/addons.go
 msgid "Not in use"
 msgstr "Not in use"
+
+#: internal/ui/features/inspect/model.go
+msgid "Not in your library"
+msgstr "Not in your library"
 
 #: internal/ui/features/settings/addons.go
 msgid "Not isolated"
@@ -4489,6 +4633,10 @@ msgstr "Nothing queued after this song"
 #: internal/ui/features/settings/settingsfile.go
 msgid "Nothing to change"
 msgstr "Nothing to change"
+
+#: internal/ui/features/inspect/views.go
+msgid "Nothing to show"
+msgstr "Nothing to show"
 
 #: internal/ui/kit/overlays_toast.go
 msgid "Notifications"
@@ -4660,6 +4808,8 @@ msgstr "Only when Sona runs from Sona.app, not from a source build."
 msgid "Only when Sona runs from Sona.app: {needsList}."
 msgstr "Only when Sona runs from Sona.app: {needsList}."
 
+#: internal/ui/features/inspect/panel.go
+#: internal/ui/features/inspect/views.go
 #: internal/ui/features/playlist/commands.go
 #: internal/ui/features/playlist/dialogs.go
 #: internal/ui/features/playlist/sidebar.go
@@ -4696,6 +4846,10 @@ msgstr "Open add-ons folder"
 #: internal/ui/features/settings/audio.go
 msgid "Open equaliser"
 msgstr "Open equaliser"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Open in Apple Music"
+msgstr "Open in Apple Music"
 
 #: internal/ui/features/settings/diagnostics.go
 #: internal/ui/features/settings/find.go
@@ -4798,6 +4952,14 @@ msgstr "Out {releaseDate}"
 #: internal/ui/features/settings/find.go
 msgid "Output"
 msgstr "Output"
+
+#: internal/ui/features/inspect/model.go
+msgid "Overview"
+msgstr "Overview"
+
+#: internal/ui/features/inspect/panel.go
+msgid "Overview as"
+msgstr "Overview as"
 
 #: internal/ui/features/playlist/collaborators.go
 msgid "Owner"
@@ -5103,6 +5265,7 @@ msgstr "Playing {station}"
 
 #: internal/ui/features/commands/palette.go
 #: internal/ui/features/home/catalogue.go
+#: internal/ui/features/inspect/model.go
 #: internal/ui/features/library/recent.go
 #: internal/ui/features/playlist/header.go
 #: internal/ui/features/playlist/playlist.go
@@ -5812,6 +5975,10 @@ msgstr "Results for “{q}”"
 msgid "Retro groove, yellow"
 msgstr "Retro groove, yellow"
 
+#: internal/ui/features/inspect/panel.go
+msgid "Retry"
+msgstr "Retry"
+
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/kit/controls_states.go
 msgid "Retrying…"
@@ -6216,6 +6383,10 @@ msgstr "Show lyrics {step} s earlier"
 msgid "Show lyrics {step} s later"
 msgstr "Show lyrics {step} s later"
 
+#: internal/ui/features/inspect/views.go
+msgid "Show more"
+msgstr "Show more"
+
 #: internal/ui/features/concerts/page.go
 msgid "Show more concerts"
 msgstr "Show more concerts"
@@ -6257,6 +6428,10 @@ msgstr "Show the mini player"
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Show video"
 msgstr "Show video"
+
+#: internal/ui/features/inspect/views.go
+msgid "Showing the first {shown} of {matches} matches"
+msgstr "Showing the first {shown} of {matches} matches"
 
 #: internal/ui/features/settings/lyrics.go
 msgid "Shown under each line where a source has a translation into this language."
@@ -6917,6 +7092,7 @@ msgstr "Sona's, without window buttons"
 
 #: internal/ui/features/commands/palette.go
 #: internal/ui/features/home/catalogue.go
+#: internal/ui/features/inspect/model.go
 #: internal/ui/features/search/groups.go
 #: internal/ui/features/song/song.go
 msgid "Song"
@@ -7122,6 +7298,7 @@ msgid "Starting…"
 msgstr "Starting…"
 
 #: internal/ui/features/home/catalogue.go
+#: internal/ui/features/inspect/model.go
 #: internal/ui/features/radio/radio.go
 #: internal/ui/features/radio/schedule.go
 #: internal/ui/features/search/groups.go
@@ -7519,6 +7696,10 @@ msgstr "The queue"
 #: internal/ui/features/player/queue_list.go
 msgid "The queue is empty"
 msgstr "The queue is empty"
+
+#: internal/ui/features/inspect/model.go
+msgid "The report could not be read"
+msgstr "The report could not be read"
 
 #: internal/ui/features/settings/settingsfile.go
 msgid "The settings in {file} already match yours."
@@ -8224,9 +8405,17 @@ msgstr "Welcome"
 msgid "Welcome to Sona"
 msgstr "Welcome to Sona"
 
+#: internal/ui/features/inspect/panel.go
+msgid "What Sona mapped for this item, what Apple sent, and what an add-on receives"
+msgstr "What Sona mapped for this item, what Apple sent, and what an add-on receives"
+
 #: internal/ui/features/onboarding/welcome.go
 msgid "What Whole Songs Need"
 msgstr "What Whole Songs Need"
+
+#: internal/ui/features/inspect/panel.go
+msgid "What an add-on gets"
+msgstr "What an add-on gets"
 
 #: internal/ui/features/settings/addons.go
 msgid "What it adds to Sona's menus, palette or settings isn't valid."
@@ -8846,6 +9035,7 @@ msgstr "never"
 msgid "none"
 msgstr "none"
 
+#: internal/ui/features/inspect/ledger.go
 #: internal/ui/features/settings/shortcuts.go
 msgid "not set"
 msgstr "not set"
@@ -9089,6 +9279,10 @@ msgstr "{conflicts, plural, one {# conflict} other {# conflicts}}"
 #: internal/ui/features/concerts/page.go
 msgid "{count, plural, one {# concert} other {# concerts}}"
 msgstr "{count, plural, one {# concert} other {# concerts}}"
+
+#: internal/ui/features/inspect/views.go
+msgid "{count, plural, one {# match} other {# matches}}"
+msgstr "{count, plural, one {# match} other {# matches}}"
 
 #: internal/ui/features/settings/findui.go
 msgid "{count, plural, one {# setting found} other {# settings found}}"
@@ -9426,6 +9620,10 @@ msgstr "{songs, plural, one {# song} other {# songs}}, {plays, plural, one {# pl
 #: internal/ui/features/album/model.go
 msgid "{songsOut, plural, one {Play the # song out now} other {Play the # songs out now}}"
 msgstr "{songsOut, plural, one {Play the # song out now} other {Play the # songs out now}}"
+
+#: internal/ui/features/inspect/panel.go
+msgid "{source} · {key}"
+msgstr "{source} · {key}"
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "{startupMs} ms"
