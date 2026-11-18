@@ -361,7 +361,11 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    # The job takes about 2 minutes, but it installs GStreamer and PipeWire
+    # with apt first. On 18 Nov the runners' EC2 mirror stalled that install
+    # past 10 minutes twice (a release's checks and a pull request's), with
+    # every test still to run; 20 leaves room for the install's own retries.
+    timeout-minutes: 20
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5

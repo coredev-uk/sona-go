@@ -270,8 +270,26 @@ func TestAddonsRestartWithBackoffThenSwitchOff(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.svc.start()
-	i := a.waitState(t, "crashy", AddonCrashed)
-	if i.Restarts != 3 || i.Enabled {
+	a.waitState(t, "crashy", AddonCrashed)
+	// giveUp marks the add-on crashed first, then saves the switch and sends
+	// the notice: wait for the notice, the last of the three, before reading
+	// any of them (the test read them at once and failed on a slow runner).
+	var notice *AddonNotice
+	waitUntil(t, "the switch-off notice", func() bool {
+		a.rec.mu.Lock()
+		defer a.rec.mu.Unlock()
+		for k, name := range a.rec.events {
+			if name == EventAddonsNotice {
+				n := a.rec.data[k].(AddonNotice)
+				notice = &n
+			}
+		}
+		return notice != nil
+	})
+	if notice.ID != "crashy" || notice.Kind != "crashed" || notice.Name != "Add-on crashy" {
+		t.Errorf("notice = %+v", notice)
+	}
+	if i := a.info(t, "crashy"); i.Restarts != 3 || i.Enabled {
 		t.Errorf("info = %+v", i)
 	}
 	b, _ := os.ReadFile(filepath.Join(dir, "runs.out"))
@@ -280,18 +298,6 @@ func TestAddonsRestartWithBackoffThenSwitchOff(t *testing.T) {
 	}
 	if st := a.settings.Get().Addons["crashy"]; st.Enabled {
 		t.Errorf("settings still enabled: %+v", st)
-	}
-	var notice *AddonNotice
-	a.rec.mu.Lock()
-	for k, name := range a.rec.events {
-		if name == EventAddonsNotice {
-			n := a.rec.data[k].(AddonNotice)
-			notice = &n
-		}
-	}
-	a.rec.mu.Unlock()
-	if notice == nil || notice.ID != "crashy" || notice.Kind != "crashed" || notice.Name != "Add-on crashy" {
-		t.Errorf("notice = %+v", notice)
 	}
 	lines, _ := a.svc.Log("crashy")
 	text := strings.Join(lines, "\n")

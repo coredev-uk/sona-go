@@ -27,7 +27,7 @@ func TestBarAndQueueGolden(t *testing.T) {
 			f.tt.Until("the queue's rows", f.tt.Shows("Up next: "+f.queueRow(1), f.queueRow(2)))
 			// A playing bar ticks and the equaliser moves: pause it for the picture.
 			f.tt.MustClick("Pause")
-			f.tt.Until("paused", f.tt.Shows("Play"))
+			f.tt.Until("paused", f.tt.ShowsExactly("Play"))
 			f.tt.Until("the covers", func() bool { return f.h.Covers.Hits() > 0 })
 			f.tt.Settle()
 			uitest.Golden(t, f.tt.Image(), tc.name)
