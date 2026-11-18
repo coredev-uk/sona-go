@@ -166,6 +166,9 @@ type ProgressOpts struct {
 	Height float32
 	// Width fixes the width; 0 fills the parent.
 	Width float32
+	// Fill is the fill's colour: --ink-muted when zero (amber, on the bar
+	// full-screen lyrics show where the music is).
+	Fill ui.Color
 }
 
 // ProgressBar shows value from 0 to 1 as a track at 40% of --ink-faint with
@@ -202,6 +205,9 @@ func ProgressBar(c *ui.Context, value float64, o ProgressOpts) ui.Element {
 	}
 	e.Value(text)
 	fill := theme.C("ink-muted")
+	if o.Fill != (ui.Color{}) {
+		fill = o.Fill
+	}
 	return e.Draw(func(p *ui.Painter, r ui.Rect) {
 		if w := r.W * shown; w > 0 {
 			p.Fill(ui.Rect{X: r.X, Y: r.Y, W: w, H: r.H}, fill, r.H/2)

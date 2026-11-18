@@ -14,6 +14,32 @@ type Window struct {
 	unfocused bool
 	isFull    func() bool
 	setFull   func(bool)
+	hold      func() (release func())
+	release   func() // the hold taken by KeepScreenOn; nil while none
+}
+
+// BindScreen connects what keeps the screen on: hold takes the hold (with
+// the reason the system lists) and returns the call that gives it back. The
+// shell calls it once; the store cannot name the reason itself, as the
+// translations live above it.
+func (w *Window) BindScreen(hold func() (release func())) { w.hold = hold }
+
+// KeepScreenOn keeps the display from turning off or a screen saver from
+// starting while on, e.g. for lyrics shown on a TV; false gives it back.
+// Asking for the state it is in does nothing. Without a window bound it
+// does nothing at all.
+func (w *Window) KeepScreenOn(on bool) {
+	if on == (w.release != nil) || w.hold == nil {
+		return
+	}
+	if !on {
+		w.release()
+		w.release = nil
+		return
+	}
+	if w.release = w.hold(); w.release == nil {
+		w.release = func() {}
+	}
 }
 
 // NewWindow is a Window with no window bound: focused, not full screen.

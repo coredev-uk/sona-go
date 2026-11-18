@@ -650,7 +650,7 @@ func (p *player) lyricsTools(c *ui.Context, songID string) {
 				p.lyricsTiming(c, songID)
 				if kit.Button(c.Key("room"), i18n.T("Full screen"), kit.ButtonOpts{
 					Variant: kit.Ghost, Size: kit.SizeSM, Icon: "maximize-2",
-					Tip:  i18n.T("Lyrics across the whole screen, large enough to read across a room"),
+					Tip:  i18n.T("Full-Screen Lyrics: the words across the whole screen, each as large as it is held long"),
 					Keys: p.env.KeysOf("player.lyrics-room"),
 				}).Bind(&p.np.roomToggle).Clicked() {
 					p.ui.openRoom()

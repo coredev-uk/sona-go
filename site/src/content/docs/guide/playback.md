@@ -28,6 +28,16 @@ Press L to open the lyrics in Now Playing. Sona asks every lyrics source you tur
 - Press [ and ] to shift the lyrics earlier or later, and \ to reset.
 - Choose the sources and a translation language in Settings → Playback → Lyrics.
 
+## Full-Screen Lyrics
+
+Press Shift+L, or choose Full screen under the lyrics in Now Playing, to give the whole screen to the words. The window goes full screen. Each line is set as large as the singer holds it, so a held line in the chorus is huge and a quick verse line is small. The sung line sits in the middle, with the lines before it fading above and the next two below, and the words light in amber as they are sung. It suits a TV or a second screen across a room.
+
+- The song, its progress, the lyrics timing and Exit full screen are hidden until you move the pointer or press a key, and hide again after three seconds. Music that is paused keeps them in view.
+- Press Space to play or pause, ↑ and ↓ to go to the previous or next line, ← and → to go back or ahead 5 seconds, and Home for the start of the song. Escape or Shift+L leaves.
+- The screen stays on while the music plays, so a TV left on doesn't go dark. The view is dark in a light theme too.
+- A song with no lyrics shows its cover large, with the title and the artist.
+- With reduce motion on, lines jump to their place instead of climbing and the background holds still. The background also holds still on battery.
+
 ## Open Now Playing
 
 Press N, or select the cover in the player bar, for a full view with the lyrics and Up next. Press Escape to close it. V opens the music video when a song has one.

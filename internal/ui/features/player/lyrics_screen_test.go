@@ -120,56 +120,46 @@ func TestLyricsShowOverTheCoversBackdrop(t *testing.T) {
 	}
 }
 
-// A sheet fades out into the wash, not into a flat colour: where the fade
-// is solid (the sheet's edge) it is the colour of the wash beside it, all
-// along the edge, though the wash changes across.
+// Now Playing's sheet fades out into the wash, not into a flat colour: where
+// the fade is solid (the sheet's edge) it is the colour of the wash beside
+// it, all along the edge, though the wash changes across.
 func TestLyricsFadesMeetTheWash(t *testing.T) {
 	for _, mode := range []struct {
 		name string
 		opts []uitest.Option
 	}{{"light", nil}, {"dark", []uitest.Option{uitest.Dark()}}} {
-		for _, screen := range []string{"pane", "room"} {
-			t.Run(mode.name+"/"+screen, func(t *testing.T) {
-				r := newNPRigWith(t, mode.opts)
-				loader := kit.NewArtLoaderFrom(backdropArt{}, r.h.Main.Post)
-				t.Cleanup(loader.Close)
-				r.h.Env.Art = loader
-				var sheet ui.Rect
-				r.inspect = func(c *ui.Context) {
-					if screen == "room" {
-						if sh := r.p.np.room; sh != nil {
-							sheet = sh.box.Bounds(c)
-						}
-					} else if sh := r.p.np.sheet; sh != nil {
-						sheet = sh.box.Bounds(c)
-					}
+		t.Run(mode.name, func(t *testing.T) {
+			r := newNPRigWith(t, mode.opts)
+			loader := kit.NewArtLoaderFrom(backdropArt{}, r.h.Main.Post)
+			t.Cleanup(loader.Close)
+			r.h.Env.Art = loader
+			var sheet ui.Rect
+			r.inspect = func(c *ui.Context) {
+				if sh := r.p.np.sheet; sh != nil {
+					sheet = sh.box.Bounds(c)
 				}
-				r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(30, false)}, nil)
-				r.play(5000, func(s *services.PlaybackState) { s.Current.Backdrop = "/art/k1/backdrop.jpg" })
-				if screen == "room" {
-					r.p.ui.openRoom()
-				} else {
-					r.open("")
-				}
-				r.tt.Until("the lyrics", r.tt.Shows("Line 1 sung words"))
-				r.tt.Until("the backdrop to load", func() bool { return loader.Pending() == 0 })
-				r.settle()
-				r.advance(300 * time.Millisecond)
-				r.advance(300 * time.Millisecond)
+			}
+			r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(30, false)}, nil)
+			r.play(5000, func(s *services.PlaybackState) { s.Current.Backdrop = "/art/k1/backdrop.jpg" })
+			r.open("")
+			r.tt.Until("the lyrics", r.tt.Shows("Line 1 sung words"))
+			r.tt.Until("the backdrop to load", func() bool { return loader.Pending() == 0 })
+			r.settle()
+			r.advance(300 * time.Millisecond)
+			r.advance(300 * time.Millisecond)
 
-				if sheet.W == 0 {
-					t.Fatal("the sheet has no bounds")
+			if sheet.W == 0 {
+				t.Fatal("the sheet has no bounds")
+			}
+			img := r.tt.Image()
+			bottom := int(sheet.Y + sheet.H)
+			for _, f := range []float32{0.1, 0.5, 0.9} {
+				x := int(sheet.X + f*sheet.W)
+				in, out := img.RGBAAt(x, bottom-2), img.RGBAAt(x, bottom+3)
+				if !within(in, out, 6) {
+					t.Errorf("at %d%% across, the fade's edge is %v and the wash beside it %v", int(f*100), in, out)
 				}
-				img := r.tt.Image()
-				bottom := int(sheet.Y + sheet.H)
-				for _, f := range []float32{0.1, 0.5, 0.9} {
-					x := int(sheet.X + f*sheet.W)
-					in, out := img.RGBAAt(x, bottom-2), img.RGBAAt(x, bottom+3)
-					if !within(in, out, 6) {
-						t.Errorf("at %d%% across, the fade's edge is %v and the wash beside it %v", int(f*100), in, out)
-					}
-				}
-			})
-		}
+			}
+		})
 	}
 }

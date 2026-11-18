@@ -1,6 +1,8 @@
 package player
 
 import (
+	"time"
+
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
@@ -16,7 +18,7 @@ func (p *player) nowPlayingShortcuts() []module.Shortcut {
 			}
 		}
 	}
-	return []module.Shortcut{
+	list := []module.Shortcut{
 		{
 			ID: "player.lyrics", Group: "view", Keys: []string{"L"}, Icon: "mic-vocal",
 			Label:    func() string { return i18n.T("Show or hide lyrics") },
@@ -70,10 +72,56 @@ func (p *player) nowPlayingShortcuts() []module.Shortcut {
 		},
 		{
 			ID: "player.lyrics-room", Group: "view", Keys: []string{"Shift+L"}, Icon: "maximize-2",
-			Label:    func() string { return i18n.T("Full-screen lyrics") },
+			Label:    func() string { return i18n.T("Full-Screen Lyrics") },
 			Keywords: func() string { return i18n.T("lyrics room karaoke big large tv") },
 			When:     func() bool { return lyricsync.SongID(p.env.Play.State().Current) != "" },
 			Run:      p.toggleRoom,
+		},
+	}
+	return append(list, p.stageShortcuts()...)
+}
+
+// stageShortcuts are the keys of Full-Screen Lyrics, in a context of their
+// own (they go to the view only while it is open; Space, Escape and Shift+L
+// are the player's). Up and Down go to the previous or next line, which for
+// lyrics with no timing moves the line being read.
+func (p *player) stageShortcuts() []module.Shortcut {
+	seek := func(d time.Duration) func() {
+		return func() { p.seekBy(d) }
+	}
+	return []module.Shortcut{
+		{
+			ID: "player.lyrics-line-previous", Group: "playback", Keys: []string{"ArrowUp"}, Icon: "chevron-up", Scope: stageScope, NoPalette: true, Repeat: true,
+			Label: func() string { return i18n.T("Full-Screen Lyrics: previous line") },
+			When:  p.roomOpen,
+			Run:   func() { p.stageStep(-1) },
+		},
+		{
+			ID: "player.lyrics-line-next", Group: "playback", Keys: []string{"ArrowDown"}, Icon: "chevron-down", Scope: stageScope, NoPalette: true, Repeat: true,
+			Label: func() string { return i18n.T("Full-Screen Lyrics: next line") },
+			When:  p.roomOpen,
+			Run:   func() { p.stageStep(1) },
+		},
+		{
+			ID: "player.lyrics-seek-back", Group: "playback", Keys: []string{"ArrowLeft"}, Icon: "rewind", Scope: stageScope, NoPalette: true, Repeat: true,
+			Label:       func() string { return i18n.T("Full-Screen Lyrics: back 5 seconds") },
+			When:        p.roomOpen,
+			Unavailable: func() string { return unavailable(p.env.Play.State(), ctlSeek) },
+			Run:         seek(-stageSeek),
+		},
+		{
+			ID: "player.lyrics-seek-forward", Group: "playback", Keys: []string{"ArrowRight"}, Icon: "fast-forward", Scope: stageScope, NoPalette: true, Repeat: true,
+			Label:       func() string { return i18n.T("Full-Screen Lyrics: ahead 5 seconds") },
+			When:        p.roomOpen,
+			Unavailable: func() string { return unavailable(p.env.Play.State(), ctlSeek) },
+			Run:         seek(stageSeek),
+		},
+		{
+			ID: "player.lyrics-start", Group: "playback", Keys: []string{"Home"}, Icon: "skip-back", Scope: stageScope, NoPalette: true,
+			Label:       func() string { return i18n.T("Full-Screen Lyrics: start of the song") },
+			When:        p.roomOpen,
+			Unavailable: func() string { return unavailable(p.env.Play.State(), ctlSeek) },
+			Run:         func() { p.tr.SeekTo(0, p.now()) },
 		},
 	}
 }

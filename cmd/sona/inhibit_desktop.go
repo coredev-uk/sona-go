@@ -20,7 +20,9 @@ const backendPowerAssertion = "power-assertion"
 
 // desktopInhibitor keeps the computer from sleeping on its own while held.
 // The display may still sleep and the screen lock, as on Linux (the
-// inhibitor there blocks suspend only). It is a services.SleepInhibitor.
+// inhibitor there blocks suspend only); Full-Screen Lyrics hold the display
+// on themselves while they are open (store.Window.KeepScreenOn). It is a
+// services.SleepInhibitor.
 type desktopInhibitor struct{ holder }
 
 // newDesktopInhibitor is services.Platform.Inhibitor on macOS and Windows;

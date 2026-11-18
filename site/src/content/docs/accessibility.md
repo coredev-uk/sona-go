@@ -10,7 +10,7 @@ Sona aims for WCAG 2.2 AA in every built-in theme. This page says what works, wh
 - **Keyboard**: every control is reachable. Lists are one Tab stop with the arrow keys inside. Menus open with Shift+F10 or the Menu key, or with a right-click. Every drag has a keyboard alternative, such as Alt+↑ and Alt+↓ in the queue. See [Keyboard Shortcuts](/guide/keyboard-shortcuts/).
 - **Screen readers**: Sona talks to Orca on Linux, VoiceOver on macOS, and Narrator and NVDA on Windows. Controls have names, the state of a control is said (pressed, current page, busy, unavailable), and track changes and errors are announced once.
 - **Contrast**: text meets 4.5:1 in every theme. The High contrast [theme](/guide/themes/) reaches 7:1.
-- **Reduced motion**: Sona follows your system's reduce-motion setting. Transitions stop, lyrics light each word whole, and motion artwork shows its still.
+- **Reduced motion**: Sona follows your system's reduce-motion setting. Transitions stop, lyrics light each word whole, and motion artwork shows its still. In Full-Screen Lyrics the lines jump to their place and the background doesn't drift.
 
 ## What has been tested
 

@@ -69,7 +69,7 @@ func TestTabInTheNowPlayingRoomNeverReachesThePageBehind(t *testing.T) {
 	}
 
 	tt.Key(ui.Shift, ui.KeyL) // Shift+L: full-screen lyrics
-	tt.Until("the room", tt.Shows("Exit full screen"))
+	tt.Until("the room", tt.Shows("Full-Screen Lyrics"))
 	seenRoom := false
 	for range 60 {
 		tt.Key(0, ui.KeyTab)
