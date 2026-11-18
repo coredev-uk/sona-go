@@ -1,5 +1,65 @@
 # Changelog
 
+## [0.7.0](https://github.com/coredev-uk/sona-go/compare/v0.6.0...v0.7.0) (2026-11-18)
+
+
+### Features
+
+* **addons:** a WebAssembly host for add-ons ([#547](https://github.com/coredev-uk/sona-go/issues/547)) ([522b7e5](https://github.com/coredev-uk/sona-go/commit/522b7e50b029b772c37c755f30ad22ce7cc3dd69))
+* **addons:** Discord presence runs as the bundled discord add-on ([#559](https://github.com/coredev-uk/sona-go/issues/559)) ([ee2f71e](https://github.com/coredev-uk/sona-go/commit/ee2f71eae36598d9ba13e0bdfe6cc0b1a1513987))
+* **addons:** Last.fm runs on the add-on API, with its browser approval ([#558](https://github.com/coredev-uk/sona-go/issues/558)) ([f24365f](https://github.com/coredev-uk/sona-go/commit/f24365f10e052d396c1f3532d026ec9f1b6a1586))
+* **addons:** ListenBrainz runs on the add-on API, behind Sona's queue ([#555](https://github.com/coredev-uk/sona-go/issues/555)) ([6b2d4e6](https://github.com/coredev-uk/sona-go/commit/6b2d4e629b82b8538d0675414216b04c9bef1172))
+* **addons:** OS sandbox for out-of-process add-ons ([#552](https://github.com/coredev-uk/sona-go/issues/552)) ([384260a](https://github.com/coredev-uk/sona-go/commit/384260a84a1fdec1ffed3f6ff0d22b2d5c6fad80))
+* **addons:** sign-ins move to the add-ons' keyring items, and build credentials come in hello ([#551](https://github.com/coredev-uk/sona-go/issues/551)) ([fd2f536](https://github.com/coredev-uk/sona-go/commit/fd2f5360043809fd47b36920fc36133665d9a20e))
+* **addons:** Sona's own add-ons are registered in code and run as sona --addon &lt;id&gt; ([#545](https://github.com/coredev-uk/sona-go/issues/545)) ([7b1a7ac](https://github.com/coredev-uk/sona-go/commit/7b1a7acf83cd2222332b092779b7e89f476eaf59))
+* **addons:** the network permission ([#542](https://github.com/coredev-uk/sona-go/issues/542)) ([c205abd](https://github.com/coredev-uk/sona-go/commit/c205abd56011ef4a2b83817f7c8a75e213eee060))
+* **addons:** UI contributions, Settings → Add-ons and sona addons dev ([#502](https://github.com/coredev-uk/sona-go/issues/502)) ([4a25ae8](https://github.com/coredev-uk/sona-go/commit/4a25ae8005376aebbe37f1862d77aa0044158852))
+* **cli:** sona connect: the add-on protocol on stdio for your own programs ([#553](https://github.com/coredev-uk/sona-go/issues/553)) ([30fed2e](https://github.com/coredev-uk/sona-go/commit/30fed2e0c28a5bd0f3b8f57159240102462f6a01))
+* **cli:** stream deck controls: seek, shuffle, repeat, crossfade, queue, dislike, library, play links ([#544](https://github.com/coredev-uk/sona-go/issues/544)) ([c1b5078](https://github.com/coredev-uk/sona-go/commit/c1b5078571a69f08e8b7e0cc141b977a7fa4d346))
+* **library:** sync music videos into SQLite so the page works offline ([#516](https://github.com/coredev-uk/sona-go/issues/516)) ([952368a](https://github.com/coredev-uk/sona-go/commit/952368ad95c960a28dead7d7ee77b38fc93d54c7))
+* **lyrics:** Full-Screen Lyrics: a phrasing cascade for TVs and second screens ([#569](https://github.com/coredev-uk/sona-go/issues/569)) ([3f323dc](https://github.com/coredev-uk/sona-go/commit/3f323dc28656a7d21da91640a5b915e79e0298e5))
+* **playback:** play Spatial Audio's binaural rendition in playspike; fmp4 reads each fragment's sample entry ([#549](https://github.com/coredev-uk/sona-go/issues/549)) ([8f4a4df](https://github.com/coredev-uk/sona-go/commit/8f4a4dfa9c871a2a00fb3c370c703ece71110fd5))
+* **playback:** play Spatial Audio's binaural rendition in the engine ([#557](https://github.com/coredev-uk/sona-go/issues/557)) ([eb1fb6b](https://github.com/coredev-uk/sona-go/commit/eb1fb6b48b8d9e101d3c596a69ec2cefa1089a2b))
+* **playback:** Spatial Audio applies at once, and says why a song isn't spatial ([#566](https://github.com/coredev-uk/sona-go/issues/566)) ([6d30e6d](https://github.com/coredev-uk/sona-go/commit/6d30e6d9635f523787d5e42414523527a34a110c))
+* **settings:** Add-ons is a roster that holds many add-ons ([#565](https://github.com/coredev-uk/sona-go/issues/565)) ([c8e0a9a](https://github.com/coredev-uk/sona-go/commit/c8e0a9afe8ffc4a991ceb4f21dca818bf1c87162))
+* **settings:** Developer tools: Inspect in release builds for add-on developers ([#567](https://github.com/coredev-uk/sona-go/issues/567)) ([c2a61f0](https://github.com/coredev-uk/sona-go/commit/c2a61f0ccadc868a9a5d986a0e4c57265702c6a6))
+* **settings:** Inspect panel: ledger, tabs and a JSON tree ([#568](https://github.com/coredev-uk/sona-go/issues/568)) ([6e8df68](https://github.com/coredev-uk/sona-go/commit/6e8df68535a2cb16a5d69daae11dc12762d40cad))
+* **ui:** a modified click selects where the list selects and opens where it cannot ([#510](https://github.com/coredev-uk/sona-go/issues/510)) ([994d109](https://github.com/coredev-uk/sona-go/commit/994d109bc7d59970d98e248ca8fd8dbe38c03411))
+* **ui:** draw a shuffle glyph where a sidebar row shuffles and a cue on Play/Shuffle pins ([#497](https://github.com/coredev-uk/sona-go/issues/497)) ([f64da92](https://github.com/coredev-uk/sona-go/commit/f64da92cbd17e7540e60dfc4dc57ffd84af750af))
+* **ui:** Play disc on local shelves, library grids and artist release rows ([#511](https://github.com/coredev-uk/sona-go/issues/511)) ([5e84c47](https://github.com/coredev-uk/sona-go/commit/5e84c4742bda0445a115e4158dcca8419d903d11))
+* **ui:** right-click opens the menu on more surfaces ([#520](https://github.com/coredev-uk/sona-go/issues/520)) ([1813734](https://github.com/coredev-uk/sona-go/commit/18137343a925b3da83a9605ac12525044980a0b7))
+* **ui:** Shift+Enter on a suggestion is Enter ([#500](https://github.com/coredev-uk/sona-go/issues/500)) ([6a03874](https://github.com/coredev-uk/sona-go/commit/6a03874394c2f5752916a832f34630e13744ddb8))
+
+
+### Bug Fixes
+
+* **addons:** Sona's own add-ons run without the sandbox where it can't start ([#561](https://github.com/coredev-uk/sona-go/issues/561)) ([2087936](https://github.com/coredev-uk/sona-go/commit/2087936fb7311a9453554fa4f347045400f6555c))
+* **addons:** Sona's own add-ons start on NixOS and are never switched off by the crash rule ([#564](https://github.com/coredev-uk/sona-go/issues/564)) ([0bda240](https://github.com/coredev-uk/sona-go/commit/0bda240016b4dd258b17735ab4632e427be2b041))
+* **album:** fit the Play disc to the sleeve and the equaliser to the ground at 3:1 ([#530](https://github.com/coredev-uk/sona-go/issues/530)) ([fac2ae9](https://github.com/coredev-uk/sona-go/commit/fac2ae922ed8bd9c85adae89a8391e8f0b862fb5))
+* **artwork:** playlist photos chosen in Apple's apps show ([#562](https://github.com/coredev-uk/sona-go/issues/562)) ([e333c5f](https://github.com/coredev-uk/sona-go/commit/e333c5fe5be04517377c8a569c826ac143b76ede))
+* **db:** renumber the recent-searches migration to 00017 ([#533](https://github.com/coredev-uk/sona-go/issues/533)) ([82f9ac8](https://github.com/coredev-uk/sona-go/commit/82f9ac896e836ab4a28612b5dcbc2b750362d044))
+* **home:** the lone hero is a colour band with the station's square art ([#537](https://github.com/coredev-uk/sona-go/issues/537)) ([45da4c4](https://github.com/coredev-uk/sona-go/commit/45da4c49bad8ef4e66e65d5bc8c19b433e18e052))
+* **home:** the lone hero's banner fills the row beside its text ([#536](https://github.com/coredev-uk/sona-go/issues/536)) ([da277ff](https://github.com/coredev-uk/sona-go/commit/da277ff5fba88c70786dae48428734e83f12c714))
+* **lyrics:** nothing of the lyrics shows behind Full-Screen Lyrics' strip ([#570](https://github.com/coredev-uk/sona-go/issues/570)) ([5844fde](https://github.com/coredev-uk/sona-go/commit/5844fde8ccb5e625dd26219e59904dd44174642f))
+* **player:** a pause is not undone by an older engine event, and the flaky player tests wait for what they use ([#574](https://github.com/coredev-uk/sona-go/issues/574)) ([8443b46](https://github.com/coredev-uk/sona-go/commit/8443b461f3b5fa2aaaa2cc4e783dd3d9c4c579bc))
+* **playlist:** name Play and Shuffle for the songs found while Find is active ([#529](https://github.com/coredev-uk/sona-go/issues/529)) ([4c368ca](https://github.com/coredev-uk/sona-go/commit/4c368cace3563c063ba2342fc4941e061d7ce81c))
+* **radio:** start a station song's several artists under its name ([#528](https://github.com/coredev-uk/sona-go/issues/528)) ([ed311cb](https://github.com/coredev-uk/sona-go/commit/ed311cbd19f332518233da54d4c651e9adcc1b30))
+* **services:** mark library-only songs Apple withholds as unavailable ([#532](https://github.com/coredev-uk/sona-go/issues/532)) ([a1e263f](https://github.com/coredev-uk/sona-go/commit/a1e263ffce36b94dac9a6196af475ed26ed146bd))
+* **settings:** the page lays out in its own width, not the window's ([#548](https://github.com/coredev-uk/sona-go/issues/548)) ([605b187](https://github.com/coredev-uk/sona-go/commit/605b1879338ba0161c056f2df947de8b7373a786))
+* **ui:** artists and curators open only; Home's lead pick draws no dead Play ([#512](https://github.com/coredev-uk/sona-go/issues/512)) ([4334797](https://github.com/coredev-uk/sona-go/commit/433479792cfd0fd6b831bf486916bdeac753573c))
+* **ui:** items whose page is not routed are plain on cards, link tiles and the artist slip ([#509](https://github.com/coredev-uk/sona-go/issues/509)) ([d1279c1](https://github.com/coredev-uk/sona-go/commit/d1279c1209bac1c08b6c1bdba3b10fb73792d5fe))
+* **ui:** posts made before the main window wait for it ([#535](https://github.com/coredev-uk/sona-go/issues/535)) ([15f8614](https://github.com/coredev-uk/sona-go/commit/15f8614e6fc1b5b335edfca6a710d7d33bb295af))
+* **ui:** recent searches play a page-less station and list the same entries in the field and the shelf ([#514](https://github.com/coredev-uk/sona-go/issues/514)) ([ec928e9](https://github.com/coredev-uk/sona-go/commit/ec928e9e11ad02448a7dace93487db01674a7ecd))
+* **ui:** the mini player is a remote: its menu covers every line of text ([#498](https://github.com/coredev-uk/sona-go/issues/498)) ([662d5a1](https://github.com/coredev-uk/sona-go/commit/662d5a19b2a322defd8f86084eb070c7f5aa819c))
+* **updates:** the updated version starts after the old one quits ([#534](https://github.com/coredev-uk/sona-go/issues/534)) ([5803897](https://github.com/coredev-uk/sona-go/commit/5803897a5c43386fb14c83d0cc17dc845b52d6db))
+* **windows:** --remove-sandbox also removes the add-ons' AppContainer profiles ([#554](https://github.com/coredev-uk/sona-go/issues/554)) ([f98bc74](https://github.com/coredev-uk/sona-go/commit/f98bc74de3071a4f299a144d2e00cbfb055c1af9))
+
+
+### Performance
+
+* **artwork:** return the heap's idle pages once a burst of artwork work ends ([#507](https://github.com/coredev-uk/sona-go/issues/507)) ([8c12da0](https://github.com/coredev-uk/sona-go/commit/8c12da0ffb54f5851d97b57b52a43f0b08160a3a))
+* **discover:** the progress repaints when its fill moves a pixel ([#538](https://github.com/coredev-uk/sona-go/issues/538)) ([3d36d9c](https://github.com/coredev-uk/sona-go/commit/3d36d9ce1eecc23d786d0c1897ba5dc297f3d748))
+
 ## [0.6.0](https://github.com/coredev-uk/sona-go/compare/v0.5.0...v0.6.0) (2026-11-16)
 
 
