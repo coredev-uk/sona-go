@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -12,11 +13,12 @@ import (
 
 // addonHost is what an add-on's session (cli.Session) sees of the running
 // Sona: the v1 commands and three topics, as the command server answers
-// them, with one rule on top. The single private filter: an add-on never
-// learns of a listen that is private (Mode.Since with the start of the
-// listen, so private mode switched on and off again during it still keeps
-// it hidden) or a preview. For it there is nothing playing: no event, and
-// status, queue, lyrics and like answer as if the song weren't there.
+// them, with one rule on top: an add-on never learns of a listen the one
+// private filter hides (Mode.Hidden: a preview, or private at any point
+// since the listen started, so private mode switched on and off again
+// during it still keeps it hidden). For it there is nothing playing: no
+// event, and status, queue, lyrics and like answer as if the song weren't
+// there.
 type addonHost struct {
 	s    *commandServer
 	hub  *cli.Hub
@@ -83,7 +85,7 @@ func (h *addonHost) listenLocked(snap coordinator.Snapshot) (start time.Time, hi
 		h.uid, h.start, h.preview = snap.Current.UID, h.now(), false
 	}
 	h.preview = h.preview || snap.Preview
-	hidden = h.preview || h.s.e.Private.Since(h.start)
+	hidden = h.s.e.Private.Hidden(h.start, h.preview)
 	if hidden {
 		h.hiddenUIDs[h.uid] = true
 	}
@@ -163,6 +165,7 @@ func (h *addonHost) idle(snap coordinator.Snapshot) cli.Status {
 	st := h.s.status(snap)
 	st.State, st.Track, st.Position, st.Error = cli.StateIdle, nil, 0, ""
 	st.Private, st.Preview = false, false
+	st.Liked, st.Disliked, st.InLibrary = false, false, false
 	return st
 }
 
@@ -189,12 +192,27 @@ func (h *addonHost) statusNow() cli.Status {
 	return h.visible(snap)
 }
 
-// Call implements cli.AddonHost.
+// Call implements cli.AddonHost. The commands about the playing song
+// (lyrics, like, dislike, library but its lists) fail with nothing_playing
+// for a hidden listen; `queue jump`'s place is one in the queue the add-on
+// sees.
 func (h *addonHost) Call(ctx context.Context, req cli.Request) (any, error) {
 	uid, hidden := h.verdict()
-	judged := slices.Contains([]string{"lyrics", "like"}, req.Command)
+	judged := slices.Contains([]string{"lyrics", "like", "dislike"}, req.Command) ||
+		(req.Command == "library" && (len(req.Args) == 0 || !slices.Contains([]string{"playlists", "albums"}, req.Args[0])))
 	if hidden && judged {
 		return nil, &cli.Error{Code: cli.CodeNothingPlaying}
+	}
+	if req.Command == "queue" && len(req.Args) == 2 && req.Args[0] == "jump" {
+		i, err := cli.ParseQueuePlace(req.Args[1])
+		if err != nil {
+			return nil, err
+		}
+		slot, ok := h.queueSlot(i)
+		if !ok {
+			return nil, &cli.Error{Code: cli.CodeUsage}
+		}
+		req.Args = []string{"jump", strconv.Itoa(slot + 1)}
 	}
 	res, err := h.s.Call(ctx, req)
 	if err != nil {
@@ -215,6 +233,30 @@ func (h *addonHost) Call(ctx context.Context, req cli.Request) (any, error) {
 		return h.queueNow(), nil
 	}
 	return res, nil
+}
+
+// queueSlot is the index in the queue of place i (from 0) of the queue an
+// add-on sees: without the hidden slots, windowed around the playing song.
+func (h *addonHost) queueSlot(i int) (int, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	snap := h.s.e.Coord.Snapshot()
+	var visible []int
+	playing := -1
+	for j, e := range snap.Queue {
+		if h.hiddenUIDs[e.UID] {
+			continue
+		}
+		if j == snap.Index && snap.Current != nil {
+			playing = len(visible)
+		}
+		visible = append(visible, j)
+	}
+	lo, hi := cli.AddonQueueWindow(len(visible), playing)
+	if lo+i >= hi {
+		return 0, false
+	}
+	return visible[lo+i], true
 }
 
 // queueNow is the queue an add-on's call gets.

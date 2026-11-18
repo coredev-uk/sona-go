@@ -36,6 +36,14 @@ const (
 	AddonCrashed AddonState = "crashed"
 	// AddonInvalid: its folder or manifest is refused (Problem says why).
 	AddonInvalid AddonState = "invalid"
+	// AddonIdle: one of Sona's own add-ons that is on and has nothing to do
+	// yet (no account connected, the status off): it starts when it has, so an
+	// integration nobody uses costs no process.
+	AddonIdle AddonState = "idle"
+	// AddonNoSandbox: the OS sandbox can't be set up on this computer, so the
+	// add-on does not run, however it is switched (Sandbox says why). Only
+	// Sona's own add-ons run without the sandbox (Unsandboxed); no other.
+	AddonNoSandbox AddonState = "no_sandbox"
 )
 
 // AddonInfo is one add-on of the user's add-ons folder.
@@ -46,9 +54,12 @@ type AddonInfo struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"`
 	Description string `json:"description"`
+	// Runtime is how it runs: "native", a process of its own, or "wasm", a
+	// WebAssembly module inside Sona with no files or network of its own.
+	Runtime string `json:"runtime"`
 	// Permissions are what the manifest asks for; Granted what the user
-	// approved. Until the OS sandbox (#304) they are advisory: an add-on runs
-	// with the user's rights.
+	// approved. The OS sandbox enforces `network`; the protocol checks the
+	// rest at every call.
 	Permissions []string   `json:"permissions"`
 	Granted     []string   `json:"granted"`
 	Enabled     bool       `json:"enabled"`
@@ -56,8 +67,21 @@ type AddonInfo struct {
 	// Problem is why an invalid add-on is refused: one of the
 	// addons.Problem* codes ("bad_id", "unsafe_owner", …); "" otherwise.
 	Problem string `json:"problem"`
+	// Sandbox is why the sandbox can't be set up when State is
+	// AddonNoSandbox: one of the addons.Sandbox* codes ("userns_restricted",
+	// …); "" otherwise.
+	Sandbox string `json:"sandbox"`
+	// Unsandboxed is why one of Sona's own add-ons runs as a plain process
+	// with Sona's rights while State is starting, running or restarting: the
+	// sandbox couldn't be set up, and it is one of the addons.Sandbox* codes;
+	// "" when it runs inside the sandbox.
+	Unsandboxed string `json:"unsandboxed"`
 	// Restarts counts the times it stopped on its own since it was enabled.
 	Restarts int `json:"restarts"`
+	// Bundled is one of Sona's own add-ons (Last.fm, ListenBrainz, Discord):
+	// part of Sona, on unless turned off, with nothing to approve and no
+	// permission to revoke.
+	Bundled bool `json:"bundled"`
 }
 
 // AddonNotice is the payload of EventAddonsNotice.

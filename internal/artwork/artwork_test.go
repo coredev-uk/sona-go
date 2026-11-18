@@ -95,6 +95,15 @@ func (s *imageServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	var bw, bh int
 	base := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+	if i := strings.Index(r.URL.Path, "/upload-"); i >= 0 && base == "image" {
+		// A playlist photo in Apple's blob storage, ".../upload-<w>x<h>/image",
+		// served only with its presigned query.
+		if r.URL.Query().Get("X-Amz-Signature") == "" {
+			http.Error(w, "", http.StatusForbidden)
+			return
+		}
+		base = r.URL.Path[i+len("/upload-"):]
+	}
 	if _, err := fmt.Sscanf(base, "%dx%d", &bw, &bh); err != nil || bw <= 0 || bh <= 0 {
 		http.NotFound(w, r)
 		return
@@ -1042,4 +1051,52 @@ func TestScavengeArmsOnlyWhenWorkStops(t *testing.T) {
 		t.Fatalf("busyKeys = %d, scavenger armed = %v after the last release", c.busyKeys, c.scavenger != nil)
 	}
 	c.scavenger.Stop()
+}
+
+// A playlist photo chosen in Apple's apps is served from Apple's blob
+// storage by a presigned URL whose signature changes with every sync: it is
+// fetched with that signature, cached under its path (a new signature finds
+// the cached copy), and the signature stays out of errors. Any other host
+// that looks like it is refused.
+func TestUploadedPlaylistPhoto(t *testing.T) {
+	s := newImageServer(t)
+	c := newCache(t, s, "", 0)
+	const (
+		host = "store-033.blobstore.apple.com"
+		path = "/sq-mq-us-033-000002/c9/upload-1320x1317/image"
+	)
+	first := "https://" + host + path + "?X-Amz-Expires=86400&X-Amz-Signature=aaa"
+	second := "https://" + host + path + "?X-Amz-Expires=86400&X-Amz-Signature=bbb"
+	u1, u2 := c.URL(first, 128, 128), c.URL(second, 128, 128)
+	if !strings.HasPrefix(u1, "/art/") || u1 != u2 {
+		t.Fatalf("one photo under two signatures: %q and %q", u1, u2)
+	}
+	if _, err := c.Get(t.Context(), first, 128, 128); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Get(t.Context(), second, 256, 256); err != nil {
+		t.Fatal(err)
+	}
+	if n := s.count(host, path); n != 1 {
+		t.Errorf("the photo was fetched %d times, want once", n)
+	}
+
+	_, err := c.Get(t.Context(), "https://"+host+"/gone/image?X-Amz-Signature=secret", 64, 64)
+	if err == nil || strings.Contains(err.Error(), "secret") {
+		t.Errorf("a failed fetch: %v", err)
+	}
+
+	for _, bad := range []string{
+		"https://store-033.blobstore.apple.com.evil.example/x/image?X-Amz-Signature=a",
+		"https://storex-033.blobstore.apple.com/x/image",
+		"https://store-.blobstore.apple.com/x/image",
+		"https://store-03a.blobstore.apple.com/x/image",
+		"https://blobstore.apple.com/x/image",
+		"http://store-033.blobstore.apple.com/x/image",
+		"https://store-033.blobstore.apple.com/x/{w}x{h}bb.jpg",
+	} {
+		if u := c.URL(bad, 128, 128); u != "" {
+			t.Errorf("URL(%q) = %q, want empty", bad, u)
+		}
+	}
 }

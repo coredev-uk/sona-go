@@ -136,6 +136,12 @@ func PreviewMark(c *ui.Context) ui.Element {
 	return Tag(c, i18n.TC("a song playing as its 30-second preview", "Preview"), i18n.T("Apple Music's 30-second preview, not the full song"))
 }
 
+// SpatialMark reads "Spatial" beside a song that plays as its Spatial Audio
+// rendition (Apple's binaural mix), not the stereo stream.
+func SpatialMark(c *ui.Context) ui.Element {
+	return Tag(c, i18n.TC("a song playing as its Spatial Audio rendition, as a short badge", "Spatial"), i18n.T("Playing in Spatial Audio, Apple's headphone mix of this song"))
+}
+
 // SDMark reads "SD" beside a music video playing in standard definition, the
 // only quality Apple licenses a software-protected player.
 func SDMark(c *ui.Context) ui.Element {

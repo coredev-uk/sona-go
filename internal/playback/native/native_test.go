@@ -5,7 +5,6 @@ package native
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -38,6 +37,7 @@ type fakeHost struct {
 
 	certs    int
 	sessions map[string][]byte // session → licence
+	inits    map[string][]byte // session → the init data CreateSession was given
 	loads    []loadCall
 	nexts    []nextCall
 	next     uint64 // queued with Next
@@ -78,10 +78,11 @@ func (f *fakeHost) Next(_ context.Context, track uint64, m cdmhost.Media, fade t
 type feedCall struct {
 	track uint64
 	data  []byte
+	kid   []byte // FeedStream's key ID
 }
 
 func newFake(pid int) *fakeHost {
-	return &fakeHost{pid: pid, events: make(chan cdmhost.Event, 256), done: make(chan struct{}), sessions: map[string][]byte{}}
+	return &fakeHost{pid: pid, events: make(chan cdmhost.Event, 256), done: make(chan struct{}), sessions: map[string][]byte{}, inits: map[string][]byte{}}
 }
 
 func (f *fakeHost) Info() cdmhost.Info           { return cdmhost.Info{PID: f.pid} }
@@ -126,6 +127,7 @@ func (f *fakeHost) CreateSession(_ context.Context, kid []byte) (string, []byte,
 	defer f.mu.Unlock()
 	sid := fmt.Sprintf("s%d", len(f.sessions)+1)
 	f.sessions[sid] = nil
+	f.inits[sid] = kid
 	return sid, append([]byte("challenge:"), kid...), f.alive()
 }
 
@@ -157,6 +159,14 @@ func (f *fakeHost) Load(_ context.Context, track uint64, m cdmhost.Media, start 
 }
 
 func (f *fakeHost) Feed(_ context.Context, track uint64, data []byte) error {
+	return f.feed(track, data, nil)
+}
+
+func (f *fakeHost) FeedStream(_ context.Context, track uint64, s cdmhost.StreamFragment) error {
+	return f.feed(track, s.Data, s.KID)
+}
+
+func (f *fakeHost) feed(track uint64, data, kid []byte) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.alive(); err != nil {
@@ -165,14 +175,10 @@ func (f *fakeHost) Feed(_ context.Context, track uint64, data []byte) error {
 	if track != f.track && (track != f.next || track == 0) {
 		return cdmhost.ErrStale
 	}
-	f.feeds = append(f.feeds, feedCall{track, data})
+	f.feeds = append(f.feeds, feedCall{track: track, data: data, kid: kid})
 	f.fed = !f.starve
 	f.maybeStart()
 	return nil
-}
-
-func (f *fakeHost) FeedStream(ctx context.Context, track uint64, s cdmhost.StreamFragment) error {
-	return f.Feed(ctx, track, s.Data)
 }
 
 // maybeStart emits EventStarted once loaded data is playing; with mu held.
@@ -277,6 +283,7 @@ type fixture struct {
 	srv   *httptest.Server
 	mu    sync.Mutex
 	count map[string]int // "path range" → requests
+	lics  []licenceReq   // every licence request, in order (spatial_test.go)
 }
 
 // initSeg is a minimal AAC-LC 44.1 kHz stereo init segment.
@@ -318,12 +325,19 @@ func newFixture(t *testing.T) *fixture {
 		fx.mu.Lock()
 		fx.count[r.URL.Path+" "+r.Header.Get("Range")]++
 		fx.mu.Unlock()
+		if fx.spatialRoute(w, r) {
+			return
+		}
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/webPlayback"):
 			var body struct {
-				SalableAdamID string `json:"salableAdamId"`
+				SalableAdamID      string `json:"salableAdamId"`
+				UniversalLibraryID string `json:"universalLibraryId"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body.SalableAdamID == "" { // a library song: its catalogue ID follows "i."
+				body.SalableAdamID = strings.TrimPrefix(body.UniversalLibraryID, "i.")
+			}
 			switch body.SalableAdamID {
 			case "403":
 				w.WriteHeader(http.StatusForbidden)
@@ -339,7 +353,7 @@ func newFixture(t *testing.T) *fixture {
 		case r.URL.Path == "/cert":
 			w.Write([]byte("cert"))
 		case r.URL.Path == "/lic":
-			fmt.Fprintf(w, `{"status":0,"license":"%s"}`, base64.StdEncoding.EncodeToString([]byte("licence")))
+			fx.licence(w, r)
 		case strings.HasSuffix(r.URL.Path, "/list.m3u8"):
 			fmt.Fprintf(w, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-KEY:METHOD=ISO-23001-7,URI=\"data:;base64,%s\"\n"+
 				"#EXT-X-MAP:URI=\"media.mp4\",BYTERANGE=\"%d@0\"\n"+
@@ -438,7 +452,7 @@ func newHarness(t *testing.T, idle time.Duration, autoEnd bool) *harness {
 	hc := &http.Client{Transport: rewrite{fx.srv}}
 	api := applemusic.New(hc, dev{}, func() string { return "mut" })
 	h := &harness{fx: fx, autoEnd: autoEnd, cdm: &fakeCDM{lib: testCDM}}
-	h.e = New(Options{Client: api, HTTP: hc, IdleTimeout: idle, CDM: h.cdm})
+	h.e = New(Options{Client: api, HTTP: hc, IdleTimeout: idle, CDM: h.cdm, Storefront: func() string { return "gb" }})
 	h.e.spawn = func(_ context.Context, lib string) (host, error) {
 		h.mu.Lock()
 		defer h.mu.Unlock()

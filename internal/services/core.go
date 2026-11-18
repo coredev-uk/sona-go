@@ -138,7 +138,10 @@ func New(d Deps) *Core {
 		return d.DB.WipeUserData(ctx)
 	})
 	c.commands = newCommandServer(env, c.open, c.services)
-	instance[AddonsService](c.services).attach(c.commands.addon)
+	sup := instance[AddonsService](c.services)
+	sup.attach(c.commands.addon)
+	sup.discordConnected = instance[IntegrationsService](c.services).setDiscordConnected
+	instance[ScrobbleService](c.services).attach(sup)
 	return c
 }
 

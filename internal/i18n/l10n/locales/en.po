@@ -118,6 +118,10 @@ msgid "0 to 100, or +N or -N to change it by N"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "Add the playing song to your library, or list your library"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "Albums"
 msgstr ""
 
@@ -153,6 +157,10 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "Commands control the Sona that is running; run `sona help <command>` for one command's options."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Connect a program of yours to Sona, such as a Stream Deck plugin"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -214,11 +222,23 @@ msgid "JSON output"
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "List the queue"
+msgid "Keeps running and speaks the add-on protocol (one JSON object a line) on its standard input and output, for a program of yours that controls Sona, such as a Stream Deck plugin. It has the command line's rights: every command, and the status, now-playing and queue topics. It ends with status 0 when the program closes its input, and with status 3 (after a shutdown event) when Sona quits."
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "Lists the queue in play order, marking the playing song."
+msgid "List, jump in or clear the queue"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Lists the queue in play order, marking the playing song. `queue jump N` plays the song at place N, as the list numbers it; `queue clear` removes every song but the playing one, as the queue's Clear does."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Move to a point in the song"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Moves playback to a number of seconds into the playing song, or by +N or -N seconds from where it is. Prints the position."
 msgstr ""
 
 #: internal/cli/messages.go
@@ -329,15 +349,15 @@ msgid "Prints the lyrics of the playing song, one line to a line, with a blank l
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "Restarts the playing song, or plays the previous one within its first seconds, like the previous key. Prints the status line."
+msgid "Rates the playing song Suggest Less (on, the default), takes the rating back (off), switches it (toggle) or shows it (status). Suggest Less replaces a favourite. Needs an Apple Music account signed in to Sona."
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "Resume playback"
+msgid "Restarts the playing song, or plays the previous one within its first seconds, like the previous key; with --force it always plays the previous one. Prints the status line."
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "Resumes playback, or starts the queue Sona saved when it last quit. Prints the status line."
+msgid "Resume playback, or play a link"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -376,7 +396,19 @@ msgid "Show new releases"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "Show or set repeat"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "Show or set the volume"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Show or switch Spatial Audio"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Show or switch crossfade"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -384,7 +416,19 @@ msgid "Show or switch private listening"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "Show or switch shuffle"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "Show what's playing"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Shows Spatial Audio (status, the default), or turns it on, off or over (toggle). While it is on, songs with Spatial Audio play as their Spatial Audio rendition where Apple allows it, and in stereo otherwise. It applies from the next song."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Shows crossfade (status, the default), or turns it on, off or over (toggle). Its length stays as set in Settings → Playback."
 msgstr ""
 
 #: internal/cli/messages.go
@@ -392,11 +436,23 @@ msgid "Shows private listening (status, the default), or turns it on, off or ove
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "Shows repeat (status, the default), or sets it: off, all (the queue) or one (the playing song). cycle moves on as the player bar's repeat button does: off, all, one, off."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Shows shuffle (status, the default), or turns it on, off or over (toggle), as the player bar's shuffle button does."
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "Shows the commands, or one command's arguments and options. With --man it prints the manual page in roff instead."
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "Shows the playback state, the song, its position, the volume, shuffle, repeat and private listening. With --follow it keeps running and prints one line each time any of them changes (the position alone doesn't count), for status bars such as Waybar and Polybar; it ends when Sona quits. When Sona isn't running, it says so and exits with status 3."
+msgid "Shows the playback state, the song, its position, the volume, shuffle, repeat, crossfade and private listening. With --follow it keeps running and prints one line each time any of them changes (the position alone doesn't count), for status bars such as Waybar and Polybar; it ends when Sona quits. When Sona isn't running, it says so and exits with status 3."
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "Shows whether the playing song is in your library (status, the default), adds it (add), removes it (remove) or switches it (toggle). `library playlists` and `library albums` list your library's playlists and albums, most recently added first, with the links `sona play` takes. Needs an Apple Music account signed in to Sona."
 msgstr ""
 
 #. Sona's own message follows, in English
@@ -466,6 +522,10 @@ msgstr ""
 msgid "Stopped %s."
 msgstr ""
 
+#: internal/cli/messages.go
+msgid "Suggest less like the playing song"
+msgstr ""
+
 #. a manual page's section, shown in capitals
 #: internal/cli/messages.go
 msgid "Synopsis"
@@ -476,11 +536,15 @@ msgid "With --json, a command prints one JSON object on standard output; `status
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "Without a link, resumes playback, or starts the queue Sona saved when it last quit. With an Apple Music link to a song, album, playlist or station (your library's included, as `sona library playlists` lists them), plays it in place of the queue; --shuffle starts the album or playlist shuffled. Prints the status line."
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "Without a value, shows the volume. A number from 0 to 100 sets it; +N or -N changes it by N."
 msgstr ""
 
 #: internal/cli/messages.go
-msgid "`sona addons dev <folder>` runs the add-on in a folder without installing it and prints its log until you press Ctrl+C. Sona asks you to confirm in its window, naming the folder and the permissions its manifest asks for; nothing is saved and the permissions end with the run. The add-on's ID can't be one you have installed, it gets none of your saved secrets, and the folder must be yours and not writable by others. It needs Linux for now."
+msgid "`sona addons dev <folder>` runs the add-on in a folder without installing it and prints its log until you press Ctrl+C. Sona asks you to confirm in its window, naming the folder and the permissions its manifest asks for; nothing is saved and the permissions end with the run. The add-on's ID can't be one you have installed, it gets none of your saved secrets, and the folder must be yours and not writable by others. A native add-on needs Linux for now; a WebAssembly add-on (\"runtime\": \"wasm\") runs on every system."
 msgstr ""
 
 #: internal/cli/messages.go
@@ -496,6 +560,10 @@ msgid "a command"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "add, remove, toggle, status, playlists or albums"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "album"
 msgstr ""
 
@@ -505,7 +573,15 @@ msgid "all"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "always play the previous song, never restart this one"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "an Apple Music link"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "an Apple Music link to a song, album, playlist or station"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -527,6 +603,10 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "control the running Sona from the command line"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "crossfade"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -552,7 +632,21 @@ msgid "favourite: on (%s)"
 msgstr ""
 
 #: internal/cli/messages.go
+#, go-format
+msgid "in your library: no (%s)"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "in your library: yes (%s)"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "it couldn't be found; it may have been removed"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "jump and a place in the queue, or clear"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -588,6 +682,10 @@ msgstr ""
 #. a switch (shuffle, repeat, private listening) is off
 #: internal/cli/messages.go
 msgid "off"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "off, all, one, cycle or status"
 msgstr ""
 
 #. a switch (shuffle, private listening) is on
@@ -656,7 +754,21 @@ msgid "private listening: %s"
 msgstr ""
 
 #: internal/cli/messages.go
+#, go-format
+msgid "queue: %q isn't a place in the queue (1, 2, …)"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "repeat"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "seconds into the song, or +N or -N to move by N seconds"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "seek: %q isn't a number of seconds, +N or -N"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -676,6 +788,19 @@ msgid "shuffle"
 msgstr ""
 
 #: internal/cli/messages.go
+msgid "spatial audio"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "spatial audio: %s"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "start the album or playlist shuffled"
+msgstr ""
+
+#: internal/cli/messages.go
 msgid "state"
 msgstr ""
 
@@ -685,6 +810,16 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "success"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "suggest less: off (%s)"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "suggest less: on (%s)"
 msgstr ""
 
 #: internal/cli/messages.go
@@ -788,4 +923,17 @@ msgstr ""
 
 #: internal/cli/messages.go
 msgid "your keyring didn't answer or refused; unlock it, then try again"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "your library has no albums"
+msgstr ""
+
+#: internal/cli/messages.go
+msgid "your library has no playlists"
+msgstr ""
+
+#: internal/cli/messages.go
+#, go-format
+msgid "…and %d more, added earlier"
 msgstr ""

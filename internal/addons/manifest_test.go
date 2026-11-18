@@ -22,7 +22,7 @@ func TestParseManifestRefuses(t *testing.T) {
 		return strings.Replace(goodManifest, field, value, 1)
 	}
 	for name, tc := range map[string]struct{ text, code string }{
-		"unknown field":      {strings.Replace(goodManifest, "}", `,"runtime":"wasm"}`, 1), ProblemManifest},
+		"unknown field":      {strings.Replace(goodManifest, "}", `,"sandbox":"wasm"}`, 1), ProblemManifest},
 		"not json":           {`id: demo`, ProblemManifest},
 		"two documents":      {goodManifest + goodManifest, ProblemManifest},
 		"wrong type":         {with(`"permissions":["playback.read"]`, `"permissions":"all"`), ProblemManifest},
@@ -67,5 +67,36 @@ func TestReservedIDs(t *testing.T) {
 		if Reserved(id) {
 			t.Errorf("%q is reserved", id)
 		}
+	}
+}
+
+const wasmManifest = `{"id":"demo","name":"Demo","version":"1.2.3","command":"bin/run.wasm","runtime":"wasm","permissions":["playback.read"]}`
+
+func TestManifestRuntime(t *testing.T) {
+	m, err := ParseManifest([]byte(wasmManifest))
+	if err != nil || !m.Wasm() {
+		t.Fatalf("wasm manifest = %+v, %v", m, err)
+	}
+	if m, err := ParseManifest([]byte(strings.Replace(goodManifest, "}", `,"runtime":"native"}`, 1))); err != nil || m.Wasm() {
+		t.Errorf("native manifest = %+v, %v", m, err)
+	}
+	if m, err := ParseManifest([]byte(goodManifest)); err != nil || m.Wasm() || m.Runtime != "" {
+		t.Errorf("a manifest with no runtime = %+v, %v: want the native default", m, err)
+	}
+	for name, tc := range map[string]struct{ text, code string }{
+		"unknown runtime":      {strings.Replace(wasmManifest, `"wasm","`, `"docker","`, 1), ProblemRuntime},
+		"upper-case runtime":   {strings.Replace(wasmManifest, `"wasm","`, `"WASM","`, 1), ProblemRuntime},
+		"module not .wasm":     {strings.Replace(wasmManifest, `bin/run.wasm`, `bin/run`, 1), ProblemCommand},
+		"module in upper case": {strings.Replace(wasmManifest, `bin/run.wasm`, `bin/run.WASM`, 1), ProblemCommand},
+		"module that escapes":  {strings.Replace(wasmManifest, `bin/run.wasm`, `../run.wasm`, 1), ProblemCommand},
+		// WASI has no sockets: the permission would promise what a module can't use.
+		"network for a module": {strings.Replace(wasmManifest, `["playback.read"]`, `["playback.read","network"]`, 1), ProblemPermission},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := ParseManifest([]byte(tc.text))
+			if got := ProblemOf(err); err == nil || got != tc.code {
+				t.Errorf("err = %v (%q), want problem %q", err, got, tc.code)
+			}
+		})
 	}
 }

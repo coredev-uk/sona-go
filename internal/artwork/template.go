@@ -72,12 +72,47 @@ func clampDims(w, h int) dims {
 // ErrHost reports a template outside Apple's artwork CDN.
 var ErrHost = errors.New("artwork: host not allowed")
 
-// allowedHost reports whether host serves Apple artwork. Only Apple's
-// artwork CDN (*.mzstatic.com, e.g. is1-ssl.mzstatic.com) is accepted, so
-// keys and redirects can never make Sona fetch an arbitrary host.
+// allowedHost reports whether host serves Apple artwork: Apple's artwork
+// CDN (*.mzstatic.com, e.g. is1-ssl.mzstatic.com), or the storage a
+// playlist photo chosen in Apple's apps is served from (uploadHost). No
+// other host is accepted, so keys and redirects can never make Sona fetch
+// an arbitrary host.
 func allowedHost(host string) bool {
 	host = strings.ToLower(host)
-	return strings.HasSuffix(host, ".mzstatic.com") && len(host) > len(".mzstatic.com")
+	return strings.HasSuffix(host, ".mzstatic.com") && len(host) > len(".mzstatic.com") || uploadHost(host)
+}
+
+// uploadHost reports Apple's blob storage, store-<n>.blobstore.apple.com.
+// A library playlist whose cover was set to a photo in Apple's apps has
+// it there as one fixed image behind a presigned URL (X-Amz-* query) that
+// expires a day after the response that carried it, with a new signature in
+// every response (checked 2026-11-17).
+func uploadHost(host string) bool {
+	n, ok := strings.CutPrefix(strings.ToLower(host), "store-")
+	if !ok {
+		return false
+	}
+	n, ok = strings.CutSuffix(n, ".blobstore.apple.com")
+	if !ok || n == "" || len(n) > 4 {
+		return false
+	}
+	for _, r := range n {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// shown is u as an error or the log shows it: an upload's signature is
+// left out, since it lets anyone fetch the user's photo until it expires.
+func shown(u *url.URL) string {
+	if uploadHost(u.Hostname()) {
+		v := *u
+		v.RawQuery = ""
+		return v.Redacted()
+	}
+	return u.Redacted()
 }
 
 // checkURL validates a template or filled artwork URL.
@@ -116,7 +151,17 @@ func parseTemplate(tmpl string) (string, string, error) {
 	if err := checkURL(u); err != nil {
 		return "", "", err
 	}
-	return tmpl, keyOf(tmpl), nil
+	if !uploadHost(u.Hostname()) {
+		return tmpl, keyOf(tmpl), nil
+	}
+	// An uploaded photo is one fixed image. Its signature changes with
+	// every sync, while its path names the image: the path is its key, so
+	// a new signature finds the copy already cached, and the newest
+	// registered URL is the one fetched.
+	if !fixed(tmpl) {
+		return "", "", fmt.Errorf("%w: %s", ErrHost, u.Hostname())
+	}
+	return tmpl, keyOf("https://" + strings.ToLower(u.Host) + u.Path), nil
 }
 
 // keyOf is the content-addressed cache key of a normalised template.

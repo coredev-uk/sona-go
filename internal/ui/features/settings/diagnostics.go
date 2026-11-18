@@ -258,7 +258,7 @@ func (s *settings) diagGroup(c *ui.Context, g diagGroup) {
 	c = c.Key("g:" + g.id)
 	// grid-cols-[200px_…] max-[960px]:grid-cols-[160px_…]
 	labelWidth := float32(200)
-	if w, _ := c.Size(); w <= narrowWidth {
+	if s.width(c) <= narrowWidth {
 		labelWidth = 160
 	}
 	ui.Column(c).FillWidth().Role(ui.RoleGroup).Label(g.title).Children(func() {

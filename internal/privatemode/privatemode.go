@@ -6,11 +6,12 @@
 // local listening history.
 //
 // Mode is the one source of truth. Every consumer asks it when it acts on a
-// play, through Since with the start of that listen, so a toggle applies
-// from the next event: turning private mode on keeps the rest of the listen
-// in progress private (what was already sent, such as its start, is not
-// recalled), and turning it off leaves that listen private until it ends,
-// so a listen never goes public halfway.
+// play, through Since with the start of that listen (and, for what leaves
+// Sona's own window, through Hidden, which adds the preview rule), so a
+// toggle applies from the next event: turning private mode on keeps the
+// rest of the listen in progress private (what was already sent, such as
+// its start, is not recalled), and turning it off leaves that listen
+// private until it ends, so a listen never goes public halfway.
 //
 // The effective state comes from one of three sources:
 //
@@ -154,6 +155,17 @@ func (m *Mode) Since(start time.Time) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.on || m.lastOff.After(start)
+}
+
+// Hidden is the one filter between a listen and everything outside Sona's
+// own window that would learn of it: scrobblers, the Discord presence and
+// add-ons. It reports whether a listen that started at start may not be
+// seen: it is a preview (preview says it has been one at any point; a
+// listen that was a preview stays one), or it is private (Since). Every
+// such consumer asks it, so no two of them can disagree. A nil Mode hides
+// only previews.
+func (m *Mode) Hidden(start time.Time, preview bool) bool {
+	return preview || m.Since(start)
 }
 
 // Set turns private mode on or off. With SourceSetting it saves the

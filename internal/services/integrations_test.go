@@ -109,16 +109,16 @@ func TestIntegrationsPlanPresence(t *testing.T) {
 	plan := func(snap coordinator.Snapshot, set config.Integrations) integrationsPlan {
 		return st.plan(snap, set, nil, time.Time{})
 	}
-	if p := plan(snapAt(playback.StatePlaying, 1, "A"), set); p.presence == nil || p.presence.act == nil || p.presence.act.Title != "A" {
+	if p := plan(snapAt(playback.StatePlaying, 1, "A"), set); p.presence == nil || p.presence.Activity == nil || p.presence.Activity.Title != "A" {
 		t.Fatalf("playing: presence = %+v", p.presence)
 	}
 	if p := plan(snapAt(playback.StateLoading, 2, "B"), set); p.presence != nil {
 		t.Fatalf("loading changed the presence: %+v", p.presence)
 	}
-	if p := plan(snapAt(playback.StatePaused, 2, "B"), set); p.presence == nil || p.presence.act != nil || !p.presence.enabled {
+	if p := plan(snapAt(playback.StatePaused, 2, "B"), set); p.presence == nil || p.presence.Activity != nil || !p.presence.Enabled {
 		t.Fatalf("paused: presence = %+v, want cleared", p.presence)
 	}
-	if p := plan(snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}); p.presence == nil || p.presence.act != nil || p.presence.enabled {
+	if p := plan(snapAt(playback.StatePlaying, 2, "B"), config.Integrations{}); p.presence == nil || p.presence.Activity != nil || p.presence.Enabled {
 		t.Fatalf("disabled: presence = %+v, want cleared and disabled", p.presence)
 	}
 }
@@ -132,11 +132,11 @@ func TestIntegrationsPlanPresencePrivate(t *testing.T) {
 	set := config.Integrations{DiscordPresence: true}
 	shown := func(uid uint64, title string) bool {
 		t.Helper()
-		p := st.plan(snapAt(playback.StatePlaying, uid, title), set, m.Since, now)
-		if p.presence == nil || !p.presence.enabled {
+		p := st.plan(snapAt(playback.StatePlaying, uid, title), set, m.Hidden, now)
+		if p.presence == nil || !p.presence.Enabled {
 			t.Fatalf("%s: presence = %+v", title, p.presence)
 		}
-		return p.presence.act != nil
+		return p.presence.Activity != nil
 	}
 	if !shown(1, "A") {
 		t.Fatal("public listen: no presence")
@@ -276,5 +276,34 @@ func TestAnnounceReportsDeniedNotificationsAndRecovery(t *testing.T) {
 	s.announce(item)
 	if got := next(); got != IntegrationReady {
 		t.Fatalf("after an allowed notification: %q, want %q", got, IntegrationReady)
+	}
+}
+
+// A preview shows no Discord status, and a listen that has been a preview
+// stays one: the same filter (privatemode.Mode.Hidden) as for private
+// listens.
+func TestIntegrationsPlanPresencePreview(t *testing.T) {
+	now := time.Unix(1000, 0)
+	m := privatemode.New(privatemode.Options{Now: func() time.Time { return now }})
+	var st integrationsState
+	set := config.Integrations{DiscordPresence: true}
+	shown := func(uid uint64, title string, preview bool) bool {
+		t.Helper()
+		snap := snapAt(playback.StatePlaying, uid, title)
+		snap.Preview = preview
+		p := st.plan(snap, set, m.Hidden, now)
+		if p.presence == nil || !p.presence.Enabled {
+			t.Fatalf("%s: presence = %+v", title, p.presence)
+		}
+		return p.presence.Activity != nil
+	}
+	if shown(1, "A", true) {
+		t.Fatal("a preview showed a presence")
+	}
+	if shown(1, "A", false) {
+		t.Fatal("a preview that later reads public showed a presence")
+	}
+	if !shown(2, "B", false) {
+		t.Fatal("the next, public listen showed no presence")
 	}
 }

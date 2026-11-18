@@ -29,6 +29,11 @@ type Request struct {
 	// Kind and Limit narrow `search` (--type, --limit).
 	Kind  string `json:"kind,omitempty"`
 	Limit int    `json:"limit,omitempty"`
+	// Shuffle starts `play <link>` shuffled (--shuffle).
+	Shuffle bool `json:"shuffle,omitempty"`
+	// Force makes `prev` play the previous song even past the playing
+	// song's first seconds (--force).
+	Force bool `json:"force,omitempty"`
 }
 
 // Reply is the running Sona's answer to a Request: Result (the command's

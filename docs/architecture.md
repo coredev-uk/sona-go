@@ -10,6 +10,7 @@ How Sona is built and why: scope, process model, playback and DRM, authenticatio
   - [Apple client and start-up](#apple-client-and-start-up)
   - [Desktop shell](#desktop-shell)
   - [Integrations](#integrations)
+  - [Add-ons](#add-ons)
   - [Artwork](#artwork)
   - [Private mode](#private-mode)
   - [Concerts](#concerts)
@@ -153,8 +154,19 @@ Integrations (`services/integrations.go`) start after first paint:
 
 - One track-change notification, replaced per track: over `org.freedesktop.Notifications` on Linux, MyGo's notifications on macOS and Windows (§9).
 - A sleep inhibitor held only while playing: logind's `sleep` lock (portal `Inhibit` fallback) on Linux, MyGo's `Power.KeepAwake` on macOS and Windows (§9).
-- Opt-in Discord presence over the local IPC socket (a named pipe on Windows), only when the current user owns it, with Apple's public artwork URL, never `/art/` or tokens.
+- Opt-in Discord presence over the local IPC socket (a named pipe on Windows), only when the current user owns it, with Apple's public artwork URL, never `/art/` or tokens. On Linux and macOS it is the bundled `discord` add-on (`internal/addons/own/discord.go`), which hears `status` and `now-playing` like any add-on and is given Discord's IPC sockets as the one sandbox exception; on Windows it stays in Sona's process (`Platform.DiscordInProcess`), whose AppContainer can't be given Discord's pipe alone. Both use `internal/discord` (the IPC client and the presence worker).
 - Last.fm and ListenBrainz scrobbling (`internal/scrobble`).
+
+### Add-ons
+
+Add-ons (`internal/addons`, `services/addons.go`, the protocol in `internal/cli`; reference in `docs/addons.md`) extend Sona from outside its code. `AddonsService` lists the folders of the user's add-ons directory, keeps the user's grant of each add-on's permissions and, after first paint, supervises the enabled ones: start, restart with a growing wait, switch off after five stops in a row, stop at quit. Every call into one is off the UI thread, and a hung add-on costs the caller its deadline and nothing else.
+
+An add-on runs in one of two runtimes behind one interface (`addons.Running`), and `cli.Session` serves both the same way over the add-on's standard input and output:
+
+- **Native** (the default): a process of its own, in a process group or job object that ends with Sona's, and in an OS sandbox it can't start without: it reaches its own folder, a private data folder and, with the `network` permission, the network. Where the system can't set the sandbox up the add-on is refused with the reason (`AddonNoSandbox`); only Sona's own bundled add-ons then run anyway, as plain child processes with Sona's rights (`AddonInfo.Unsandboxed`), as the same code did in Sona's process before #302. It is the CDM host's design (§4.4) on Linux (user, mount and PID namespaces, Landlock, seccomp; Sona's own executable is the add-on's init), a Seatbelt profile on macOS and an AppContainer on Windows (`internal/addons/sandbox`; `docs/security-review.md`, "Native add-ons").
+- **WebAssembly** (`runtime: "wasm"`, #303): a module run **inside the Go core** on [wazero](https://wazero.io) (pure Go, no cgo). Its standard streams are in-memory pipes. A module has no ambient authority by construction: no file but its data folder (`confinedFS`, which refuses links), no network, no process. Its memory (64 MiB) and CPU (a quarter of a core, with a burst) are capped, but it shares Sona's address space, so a flaw in the runtime is a flaw in Sona (`docs/security-review.md`, "WebAssembly add-ons"). One `WasmHost` serves every module, made on first use; each run gets a runtime of its own, so ending it frees everything. Compiled code is cached by the module's hash in `<cache>/addons-wasm`, a private folder that is dropped if it is not safe to load code from. The module and its compile run on a goroutine of their own, never the UI thread or the frame loop, and the time to say hello begins when the module runs, not while it compiles.
+
+`sona addons dev` runs a module on every OS that Sona runs on, because it reads the file once and runs those bytes; a native add-on needs `/proc/self/fd` (Linux) to run the file that was checked.
 
 ### Artwork
 
@@ -163,6 +175,8 @@ Integrations (`services/integrations.go`) start after first paint:
 #### Templates, sizes and downloads
 
 - A template (Apple's `{w}x{h}` URL) is addressed by the hash of its text.
+- Only two hosts are fetched: Apple's artwork CDN (`*.mzstatic.com`) and, for a playlist photo chosen in Apple's apps, Apple's blob storage (`store-<n>.blobstore.apple.com`, a fixed image only). Redirects elsewhere are refused.
+- Such a photo comes as a presigned URL that expires a day after the response that carried it and is signed anew in every response. Its key is the hash of its host and path, so each sync's new signature finds the cached copy, and the newest URL is the one fetched. The signature never reaches an error or the log. Sign-out removes the photo with the library's other playlist artwork (`db.UserArtwork`).
 - An artwork key at a size is derived from the nearest cached source at the exact box, and `backdrop.jpg` from the 64 px source.
 - Sources are fetched at 64, 256, 512, 1200 or 2048 px (`artwork.Sizes`), the smallest that covers the box; a request between two is scaled down from the larger source. The CDN already holds the first four for most artwork. Any other size is drawn by an origin on its first request (250 ms to 2 s against 10 to 25 ms), which is why 128 and 1024 are not in the list ([Measure artwork fetch times](performance.md#measure-artwork-fetch-times)).
 - Downloads send `Accept: image/jpeg,image/png;q=0.9,*/*;q=0.8`. Apple's generated covers (`gen/`) are drawn on a CDN miss by an origin that answers 406 to an `Accept` without `*/*`.
@@ -195,6 +209,8 @@ A user's choice for a library playlist beats both a mosaic and Apple's cover. Th
 ### Private mode
 
 `internal/privatemode`: while on, plays reported to Apple carry `private-enabled`, and nothing is scrobbled, shown on Discord or written to local history. It is on for `SONA_PRIVATE=1`, in development builds, or from the saved setting.
+
+What leaves Sona's own window (the scrobbler, the Discord presence and add-ons) goes through one function, `Mode.Hidden(start, preview)`: a listen that is a preview, or was private at any point since it started, is hidden from all of them alike. A queue of retried scrobbles holds only listens that passed it.
 
 ### Concerts
 
@@ -281,7 +297,7 @@ So once the archive is downloaded and verified (`update.Source.Ready`, just befo
 
 #### The sandbox after an update (Windows)
 
-The CDM host's AppContainer reads the install because Sona grants its SID read and execute on the program's folder at run time, before every child starts (`grantAccess`; the installer grants nothing).
+The CDM host's AppContainer reads the install because Sona grants its SID read and execute on the program's folder at run time, before every child starts (`appcontainer.Grant`; the installer grants nothing).
 
 - Files MyGo renames in from the folder it unpacked them in keep the access list they were made with, so they lack the folder's entry (observed on windows-2025). Setting the folder's list again, also after taking the entry off and adding it afresh, does not hand it down.
 - The start therefore also checks the program itself and, where it lacks the entry, has the tree inherit the folder's list again. `cdmhost.grantNeeded` says which grant a folder needs. `resetInherited` is `TreeSetNamedSecurityInfo` with `TREE_SEC_INFO_RESET_KEEP_EXPLICIT`, which keeps explicit entries and the folder's own protection and leaves the entry inherited, so `--remove-sandbox` still takes it away by revoking the folder's.
@@ -421,6 +437,17 @@ Precedent: [vibez](https://github.com/simonepelosi/vibez) (MIT, Go TUI) hosts th
 
 It sends the certificate, licences and raw encrypted segment bytes to the child.
 
+#### Spatial Audio
+
+With Settings → Playback → Sound → Spatial Audio on (`config.Audio.SpatialAudio`, off by default, read for each item prepared, as the quality is), `native.prepare` still asks webPlayback (it gives the catalogue ID of a library song, and it is the fallback) while it asks the catalogue for the song's audio traits and `extendedAssetUrls.enhancedHls` (`applemusic.Client.SongAssets`; the answer and the parsed master are cached for 15 minutes, a failed lookup is not). A song with the `spatial` or `atmos` trait then plays like this (`internal/playback/native/spatial.go`):
+
+- **Rendition.** `audio-stereo-256-binaural`, or `audio-HE-stereo-64-binaural` at the 64 kbit/s quality. Every segment of its playlist must have a Widevine key and share one init segment.
+- **Licences.** One CDM session per distinct key, licensed together while the item is prepared (which starts the host if needed), each with its own slot token and its own renewals (`media.keySessions`, shared with radio streams). Apple's first key (`s1/e1`) lasts 24 hours and the song's (`c24`) 15 minutes, so in practice only the second session asks for a renewal, at 13 minutes. A restarted host loses the sessions, and `license` takes them again.
+- **Feeding.** The init segment is loaded once and every segment goes with `FeedStream` and its playlist key's KID, because the init's default KID is zero. A seek feeds from the segment that holds the position, so it works across the key change. Sound Check takes the init's loudness as for stereo.
+- **Fallback.** Anything missing before the first sample (no trait, no master or rendition, FairPlay-only keys, a playlist or init error, a refused licence) closes the sessions already made and plays the stereo stream, with a log line saying why (`spatial audio unavailable; playing the stereo stream why=…`; a song with no Spatial Audio mix is only a debug line). A cancelled play and a rejected account (401/403) are not fallbacks.
+- **Status.** `playback.Status.Spatial` (coordinator snapshot, `PlaybackState.Spatial`, `sona status`) says the item being heard plays its binaural rendition, and follows the item at a gapless or crossfaded change. The item ID is the one asked for, so play activity, history and scrobbles report the song as for the stereo stream (they take it from the queue item, not from webPlayback).
+- **Track changes.** The host resamples every lane to 44.1 kHz, so the 48 kHz rendition joins 44.1 kHz stereo songs gaplessly or crossfaded like any other.
+
 #### Child
 
 `internal/playback/cdmhost` loads the CDM through a C++ shim (`internal/playback/widevine`, Chromium CDM API header vendored from chromium/cdm, BSD-3).
@@ -545,7 +572,8 @@ The child runs in an AppContainer (the profile `sona.cdmhost`, no capabilities, 
 
 - **Widevine stream (`28:ctrp256`)**: HLS v7 with `#EXT-X-KEY:METHOD=ISO-23001-7,URI="data:;base64,…"` (the KID; Sona wraps it in a Widevine PSSH), CENC AES-CTR, the init segment by `EXT-X-MAP` byte range, fragmented MP4 AAC. The CDM decrypts and GStreamer decodes.
 - **FairPlay streams (`cbcp` flavours)**: `METHOD=SAMPLE-AES` with `skd://` key URIs. Not usable by Sona.
-- **Lossless, Hi-Res and Atmos**: shown as badges. Apple's licence server refuses the ALAC key to the desktop CDM (`go run ./cmd/playspike -probe-lossless <song>` re-checks it), so these do not play on this path.
+- **Lossless and Hi-Res**: shown as badges. Apple's licence server refuses the ALAC key to the desktop CDM (`go run ./cmd/playspike -probe-lossless <song>` re-checks it), so these do not play on this path.
+- **Spatial Audio (`enhancedHls`)**: for most Atmos songs Apple issues the Widevine keys of the binaural AAC rendition (Apple's headphone render of the Atmos mix, `audio-stereo-256-binaural`: `cbcs`, 48 kHz stereo), and it plays through the same CDM host and AAC lanes (`go run ./cmd/playspike -spatial <song>` plays one rendition alone, `-spatial-flow <songs>` plays songs through the engine). The first segment uses its own key (`s1/e1`), the rest the song's (`c24`), and each key its own sample entry with its own constant IV, which a fragment selects with its sample description index (`fmp4`). The engine plays it when the Spatial Audio setting is on (§4.2, "Spatial Audio"). The Atmos E-AC-3 renditions are licensed with the same key but not decoded. Details: `docs/apple-music-reference.md` §5.9.
 - **Music videos**: Widevine HLS (`cbcs`, separate video and audio renditions). A software CDM gets usable keys for SD video only (≤864×486), at level `SW_SECURE_DECODE`, which only the CDM's own video decoder may use. HD needs HDCP (`output-restricted`), and 4K is refused. Sona plays the SD H.264 variant through that decoder (§4.2, `docs/apple-music-reference.md` §4.5).
 - **Local broadcasters' streams**: clear. Details: `docs/apple-music-reference.md` §5.1.
 
@@ -968,7 +996,7 @@ These are MyGo's (`cmd/sona/integrations_windows.go`). Where a type is the same 
 
 #### Uninstalling
 
-Uninstalling keeps the user's data (settings, library, sign-in, the downloaded CDM) but not the sandbox the CDM host ran in (§4.4). The uninstaller runs `sona.exe --remove-sandbox` before it deletes the files. That deletes the AppContainer profile and takes its SID's entries off the program, GStreamer and Widevine folders. The portable `.zip` has no uninstaller, so its user runs `sona.exe --remove-sandbox` before deleting the folder (`site/src/content/docs/reference/cli.md`).
+Uninstalling keeps the user's data (settings, library, sign-in, the downloaded CDM) but not the sandboxes the CDM host and the add-ons ran in (§4.4). The uninstaller runs `sona.exe --remove-sandbox` before it deletes the files. That deletes the CDM host's AppContainer profile and takes its SID's entries off the program, GStreamer and Widevine folders, and does the same for each add-on's profile (`sona.addon.<id>`; the add-ons are Sona's own, the installed ones and any that left a data folder, found on disk: `sandbox.ProfileIDs`), which the add-on's data does not stop. The portable `.zip` has no uninstaller, so its user runs `sona.exe --remove-sandbox` before deleting the folder (`site/src/content/docs/reference/cli.md`).
 
 ## 10. Testing approach
 

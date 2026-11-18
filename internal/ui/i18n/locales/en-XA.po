@@ -75,7 +75,7 @@ msgid "AAC at 256 kbps"
 msgstr ""
 
 #: internal/ui/features/settings/quality.go
-msgid "AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless and Dolby Atmos albums play as AAC too."
+msgid "AAC at 256 kbps, or 64 kbps with Data saver for slow or metered connections. Applies from the next song. Lossless albums play as AAC too, and Dolby Atmos ones as stereo unless Spatial Audio is on."
 msgstr ""
 
 #: internal/ui/features/onboarding/playback.go
@@ -380,7 +380,7 @@ msgid "Amber"
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "An add-on is a program that runs with your rights. Permissions limit what Sona gives it, not what the program can do: it can read your files and use the network. Turn on only add-ons you trust."
+msgid "An add-on is a program that runs beside Sona in a sandbox: it reads only its own folder, writes only its own data folder and has no network unless you allow it to reach the internet. What you approve is what Sona gives it. Turn on only add-ons you trust."
 msgstr ""
 
 #: internal/ui/features/settings/linkhandler.go
@@ -841,15 +841,27 @@ msgid "Call me"
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
+msgid "Can add the song that plays to your library or remove it, and list your library's playlists and albums."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
 msgid "Can ask Sona to open an Apple Music page."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "Can love or unlove the song that plays."
+msgid "Can connect to any address on the network: web sites, your home network and this computer's own services."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "Can play, pause, skip and go back."
+msgid "Can jump to a song in the queue and clear the queue."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Can love or unlove the song that plays, or rate it Suggest Less."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Can play, pause, skip, go back and seek, play an Apple Music link, and change shuffle, repeat and crossfade."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
@@ -2234,6 +2246,10 @@ msgstr ""
 msgid "Dolby Atmos"
 msgstr ""
 
+#: internal/ui/features/settings/find.go
+msgid "Dolby Atmos, surround, headphones, binaural"
+msgstr ""
+
 #: internal/ui/features/addons/addons.go
 msgid "Don't run"
 msgstr ""
@@ -3100,6 +3116,34 @@ msgstr ""
 msgid "It didn't answer in time."
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: Sona couldn't set up its sandbox, and never runs an add-on without it. The add-on's log has the details."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: Windows couldn't create the AppContainer that sandboxes it. Sona never runs an add-on without the sandbox."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: macOS's sandbox tool is missing or refused Sona's rules. Sona never runs an add-on without the sandbox."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: the sandbox's system-call filter can't be set up on this computer. Sona never runs an add-on without the sandbox."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. Sona never runs an add-on without the sandbox."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. Sona never runs an add-on without the sandbox."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "It doesn't run: this system has no sandbox for add-ons, and Sona never runs an add-on without it."
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "It has no network or mount namespace of its own, because unprivileged user namespaces are blocked."
 msgstr ""
@@ -3120,12 +3164,16 @@ msgstr ""
 msgid "It needs a light variant, a dark variant or both"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "It runs in a sandbox: it reads only its own folder, writes only its own data folder and reaches the internet only if you approve that."
+msgstr ""
+
 #: internal/ui/features/addons/addons.go
-msgid "It runs from the folder {dir} and asks for these permissions: {permissions}. It runs with your rights until you stop it in the terminal or quit Sona, and nothing is saved."
+msgid "It runs in the sandbox from the folder {dir} and asks for these permissions: {permissions}. It runs until you stop it in the terminal or quit Sona, and nothing is saved."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "It runs with your rights: permissions limit what Sona gives it, not what it can do."
+msgid "It runs inside Sona as a WebAssembly module. It can use only its own data folder and can't reach the network: permissions limit what Sona gives it."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
@@ -3171,11 +3219,11 @@ msgid "Its addon.json isn't valid: it isn't JSON, has a field Sona doesn't know 
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "Its command isn't a plain path inside the folder."
+msgid "Its command isn't a plain path inside the folder (a .wasm file, for a WebAssembly add-on)."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "Its command isn't a program Sona can run: it is missing, not a regular file or not executable."
+msgid "Its command isn't a program Sona can run: it is missing, not a regular file or not executable (for a WebAssembly add-on, not a WebAssembly module)."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
@@ -3188,6 +3236,10 @@ msgstr ""
 
 #: internal/ui/features/settings/addons.go
 msgid "Its name isn't plain text of 1 to 60 characters."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Its runtime isn't \"native\" or \"wasm\"."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
@@ -4522,6 +4574,10 @@ msgstr ""
 msgid "On this page"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "On. It starts when Sona has something for it to do."
+msgstr ""
+
 #: internal/ui/features/settings/releases.go
 msgid "Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
 msgstr ""
@@ -4980,6 +5036,10 @@ msgstr ""
 msgid "Playing from <0>{playingFrom}</0>"
 msgstr ""
 
+#: internal/ui/kit/controls_badge.go
+msgid "Playing in Spatial Audio, Apple's headphone mix of this song"
+msgstr ""
+
 #: internal/ui/features/radio/commands.go
 msgid "Playing {station}"
 msgstr ""
@@ -5028,6 +5088,10 @@ msgstr ""
 msgid "Playlists you make or add in Apple Music appear here after the next sync."
 msgstr ""
 
+#: internal/ui/features/onboarding/playback.go
+msgid "Plays Apple's headphone mix of a song where there is one."
+msgstr ""
+
 #: internal/ui/features/radio/station.go
 msgid "Plays First"
 msgstr ""
@@ -5055,6 +5119,10 @@ msgstr ""
 #. Under the account menu's Private listening switch
 #: internal/ui/features/auth/menu.go
 msgid "Plays stay out of your listening history, scrobbles and Discord."
+msgstr ""
+
+#: internal/ui/features/settings/audio.go
+msgid "Plays the headphone mix Apple makes of a song's Dolby Atmos mix, where Apple allows it for Sona. Other songs keep playing in stereo. Applies from the next song."
 msgstr ""
 
 #: internal/ui/features/settings/motionartwork.go
@@ -5286,6 +5354,10 @@ msgstr ""
 msgid "Queue"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Queue controls"
+msgstr ""
+
 #: internal/ui/kit/playerqueue_commands.go
 msgid "Queue replaced"
 msgstr ""
@@ -5323,6 +5395,10 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "Raised · nice {priority} ({via})"
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Reach the internet"
 msgstr ""
 
 #: internal/ui/features/artist/head.go
@@ -5719,6 +5795,34 @@ msgstr ""
 msgid "Run {name}?"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: Sona couldn't set up its sandbox. This add-on is part of Sona and has the same access Sona has. The add-on's log has the details."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: Windows couldn't create the AppContainer that sandboxes it. This add-on is part of Sona and has the same access Sona has."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: macOS's sandbox tool is missing or refused Sona's rules. This add-on is part of Sona and has the same access Sona has."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: the sandbox's system-call filter can't be set up on this computer. This add-on is part of Sona and has the same access Sona has."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. This add-on is part of Sona and has the same access Sona has."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. This add-on is part of Sona and has the same access Sona has."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Running without isolation: this system has no sandbox for add-ons. This add-on is part of Sona and has the same access Sona has."
+msgstr ""
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "Running · pid {hostPid}"
 msgstr ""
@@ -5867,7 +5971,7 @@ msgid "Seek"
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "Sees which song plays, its progress and whether it is paused."
+msgid "Sees which song plays, its progress, whether it is paused, and whether it is a favourite or in your library."
 msgstr ""
 
 #: internal/ui/app/menubar.go
@@ -6873,6 +6977,16 @@ msgstr ""
 msgid "Space or K plays and pauses, Left and Right go back or ahead 5 seconds, F switches full screen, M mutes, Escape closes the video."
 msgstr ""
 
+#: internal/ui/kit/controls_badge.go
+msgctxt "a song playing as its Spatial Audio rendition, as a short badge"
+msgid "Spatial"
+msgstr ""
+
+#: internal/ui/features/onboarding/playback.go
+#: internal/ui/features/settings/audio.go
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/settingsfile.go
+#: internal/ui/features/settings/summaries.go
 #: internal/ui/kit/controls_badge.go
 msgid "Spatial Audio"
 msgstr ""
@@ -8004,6 +8118,10 @@ msgstr ""
 msgid "Watch in Apple Music"
 msgstr ""
 
+#: internal/ui/features/settings/addons.go
+msgid "WebAssembly"
+msgstr ""
+
 #: internal/ui/features/onboarding/steps.go
 msgid "Welcome"
 msgstr ""
@@ -8013,7 +8131,11 @@ msgid "Welcome to Sona"
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
-msgid "What Sona lets it do. It runs with your rights either way."
+msgid "What Sona lets it do. It can use only its own data folder and can't reach the network either way."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "What Sona lets it do. The sandbox holds it either way."
 msgstr ""
 
 #: internal/ui/features/onboarding/welcome.go
@@ -8347,6 +8469,10 @@ msgstr ""
 
 #: internal/ui/features/settings/themes.go
 msgid "Your last edit was refused. This earlier version stays."
+msgstr ""
+
+#: internal/ui/features/settings/addons.go
+msgid "Your library"
 msgstr ""
 
 #: internal/ui/features/library/gate.go

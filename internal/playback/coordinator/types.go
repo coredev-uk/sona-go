@@ -138,6 +138,9 @@ type Snapshot struct {
 	// Preview: the current item plays as its 30-second preview
 	// (playback.Status.Preview); nothing reports it as a play.
 	Preview bool `json:"preview"`
+	// Spatial: the current item plays as its Spatial Audio rendition
+	// (playback.Status.Spatial).
+	Spatial bool `json:"spatial"`
 	// OnAir is what the current live broadcaster's stream says is on air,
 	// as heard (playback.Status.OnAir); zero when it says nothing.
 	OnAir playback.OnAir `json:"onAir"`

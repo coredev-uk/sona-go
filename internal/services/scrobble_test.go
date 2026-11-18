@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -12,43 +13,47 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/addons/own"
 	"github.com/coredev-uk/sona-go/internal/auth/store"
+	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
+	"github.com/coredev-uk/sona-go/internal/privatemode"
 	"github.com/coredev-uk/sona-go/internal/scrobble"
 )
 
-// memSecret is an in-memory store.Secret.
-type memSecret struct {
-	mu sync.Mutex
-	v  string
-}
-
-func (m *memSecret) Get() (string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.v == "" {
-		return "", store.ErrNotFound
-	}
-	return m.v, nil
-}
-func (m *memSecret) Set(v string) error { m.mu.Lock(); m.v = v; m.mu.Unlock(); return nil }
-func (m *memSecret) Delete() error      { m.mu.Lock(); m.v = ""; m.mu.Unlock(); return nil }
-func (m *memSecret) Backend() store.Backend {
-	return store.BackendSecretService
-}
-
 type scrobbleEnv struct {
 	s       *ScrobbleService
-	secrets map[string]*memSecret
+	srv     *httptest.Server
+	kr      store.Keyring
 	opened  chan string
+	link    *pipeAddons
+	private *privatemode.Mode
+
+	mu       sync.Mutex
+	lbBodies []string // what ListenBrainz's submit-listens got
+	lbCode   int      // its answer's status, 0 for 200
+}
+
+// lbStatus makes ListenBrainz answer submit-listens with status.
+func (se *scrobbleEnv) lbStatus(status int) {
+	se.mu.Lock()
+	se.lbCode = status
+	se.mu.Unlock()
 }
 
 // newScrobbleEnv serves Last.fm (approving the token on the second poll)
 // and ListenBrainz (accepting the token "good").
 func newScrobbleEnv(t *testing.T) *scrobbleEnv {
 	t.Helper()
+	return newScrobbleEnvWith(t, &memKeyring{})
+}
+
+// newScrobbleEnvWith is newScrobbleEnv over the given keyring.
+func newScrobbleEnvWith(t *testing.T, kr store.Keyring) *scrobbleEnv {
+	t.Helper()
 	var polls int
 	var mu sync.Mutex
+	se := &scrobbleEnv{private: privatemode.New(privatemode.Options{Save: func(bool) error { return nil }})}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		switch {
@@ -58,6 +63,18 @@ func newScrobbleEnv(t *testing.T) *scrobbleEnv {
 			} else {
 				_, _ = io.WriteString(w, `{"valid":false}`)
 			}
+		case r.URL.Path == "/1/submit-listens":
+			b, _ := io.ReadAll(r.Body)
+			se.mu.Lock()
+			se.lbBodies = append(se.lbBodies, string(b))
+			status := se.lbCode
+			se.mu.Unlock()
+			if status != 0 {
+				w.WriteHeader(status)
+				_, _ = io.WriteString(w, `{"error":"refused"}`)
+				return
+			}
+			_, _ = io.WriteString(w, `{"status":"ok"}`)
 		case r.Form.Get("api_sig") != scrobble.Sign(r.Form, "secret"):
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = io.WriteString(w, `{"error":13,"message":"Invalid method signature supplied"}`)
@@ -79,29 +96,46 @@ func newScrobbleEnv(t *testing.T) *scrobbleEnv {
 		}
 	}))
 	t.Cleanup(srv.Close)
+	se.srv = srv
 	settings, err := config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	se := &scrobbleEnv{secrets: map[string]*memSecret{}, opened: make(chan string, 1)}
+	se.kr, se.opened = kr, make(chan string, 1)
 	e := &Env{Deps: Deps{
-		Paths:    config.Paths{State: t.TempDir()},
+		Paths:    config.Paths{State: t.TempDir(), Config: t.TempDir()},
+		Keyring:  se.kr,
 		Settings: settings,
 		Logger:   discard(),
 		Emit:     &recorder{},
 		OpenURL:  func(u string) error { se.opened <- u; return nil },
 	}}
-	lastfm := &scrobble.LastFM{Key: "key", Secret: "secret", API: srv.URL + "/2.0/", HTTP: srv.Client()}
-	lb := &scrobble.ListenBrainz{API: srv.URL, HTTP: srv.Client()}
-	se.s = newScrobble(e, lastfm, lb, func(key string) (store.Secret, error) {
-		if se.secrets[key] == nil {
-			se.secrets[key] = &memSecret{}
-		}
-		return se.secrets[key], nil
-	})
+	se.link = newPipeAddons(t, own.Options{Version: "test", HTTP: srv.Client(), Endpoints: own.Endpoints{
+		ListenBrainz: srv.URL, LastFM: srv.URL + "/2.0/", LastFMAuth: "https://www.last.fm/api/auth/",
+	}})
+	// The build's Last.fm account, as the supervisor sends it in hello.
+	se.link.credentials["lastfm"] = map[string]string{cli.CredAPIKey: "key", cli.CredAPISecret: "secret"}
+	e.Private = se.private
+	se.s = newScrobble(e, true)
+	se.s.attach(se.link)
 	se.s.poll = time.Millisecond
 	t.Cleanup(se.s.close)
 	return se
+}
+
+// signIn is the sign-in stored for provider's add-on under key ("" when
+// there is none): the keyring item `addon.<provider>` holds a JSON object.
+func (se *scrobbleEnv) signIn(t *testing.T, provider, key string) string {
+	t.Helper()
+	raw, err := se.kr.Get("sona", "addon."+provider)
+	if err != nil {
+		return ""
+	}
+	m := map[string]string{}
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		t.Fatalf("addon.%s is not JSON: %v", provider, err)
+	}
+	return m[key]
 }
 
 func TestScrobbleConnectLastFMAndDisconnect(t *testing.T) {
@@ -117,7 +151,7 @@ func TestScrobbleConnectLastFMAndDisconnect(t *testing.T) {
 	if !st.LastFM.Connected || st.LastFM.Connecting || st.ListenBrainz.Connected {
 		t.Fatalf("status = %+v", st)
 	}
-	if se.secrets["lastfm"].v != "sk-1" {
+	if se.signIn(t, "lastfm", "session") != "sk-1" {
 		t.Fatal("session key not in the secret store")
 	}
 	if a := se.s.e.Settings.Get().Scrobbling.LastFM; a != (config.ScrobbleAccount{Enabled: true, Username: "fm-user"}) {
@@ -128,7 +162,7 @@ func TestScrobbleConnectLastFMAndDisconnect(t *testing.T) {
 	if err != nil || st.LastFM.Connected {
 		t.Fatalf("Disconnect = %+v, %v", st, err)
 	}
-	if se.secrets["lastfm"].v != "" {
+	if se.signIn(t, "lastfm", "session") != "" {
 		t.Fatal("session key survived disconnect")
 	}
 	if a := se.s.e.Settings.Get().Scrobbling.LastFM; a != (config.ScrobbleAccount{}) {
@@ -142,15 +176,15 @@ func TestScrobbleConnectListenBrainz(t *testing.T) {
 		t.Fatalf("empty token: %v", err)
 	}
 	_, err := se.s.ConnectListenBrainz(t.Context(), "wrong")
-	if CodeOf(err) != CodeInvalidCredentials || se.secrets["listenbrainz"] != nil && se.secrets["listenbrainz"].v != "" {
+	if CodeOf(err) != CodeInvalidCredentials || se.signIn(t, "listenbrainz", "token") != "" {
 		t.Fatalf("bad token: %v (code %s)", err, CodeOf(err))
 	}
 	st, err := se.s.ConnectListenBrainz(t.Context(), " good\n")
 	if err != nil || !st.ListenBrainz.Connected {
 		t.Fatalf("ConnectListenBrainz = %+v, %v", st, err)
 	}
-	if se.secrets["listenbrainz"].v != "good" {
-		t.Fatalf("stored token = %q", se.secrets["listenbrainz"].v)
+	if se.signIn(t, "listenbrainz", "token") != "good" {
+		t.Fatalf("stored token = %q", se.signIn(t, "listenbrainz", "token"))
 	}
 	if a := se.s.e.Settings.Get().Scrobbling.ListenBrainz; a.Username != "lb-user" || !a.Enabled {
 		t.Fatalf("settings = %+v", a)

@@ -51,6 +51,14 @@ func TestParse(t *testing.T) {
 		{[]string{"search", "--", "--weird"}, Request{Command: "search", Args: []string{"--weird"}, Limit: 5}},
 		{[]string{"open", "https://music.apple.com/us/album/x/1"}, Request{Command: "open", Args: []string{"https://music.apple.com/us/album/x/1"}}},
 		{[]string{"status", "--follow", "--format", "{{.state}}"}, Request{Command: "status"}},
+		{[]string{"play", "--shuffle", "https://music.apple.com/library/playlist/p.1"}, Request{Command: "play", Args: []string{"https://music.apple.com/library/playlist/p.1"}, Shuffle: true}},
+		{[]string{"prev", "--force"}, Request{Command: "prev", Force: true}},
+		{[]string{"seek", "-10.5"}, Request{Command: "seek", Args: []string{"-10.5"}}},
+		{[]string{"seek", "90"}, Request{Command: "seek", Args: []string{"90"}}},
+		{[]string{"repeat", "cycle"}, Request{Command: "repeat", Args: []string{"cycle"}}},
+		{[]string{"queue", "jump", "3"}, Request{Command: "queue", Args: []string{"jump", "3"}}},
+		{[]string{"queue", "clear"}, Request{Command: "queue", Args: []string{"clear"}}},
+		{[]string{"library", "playlists"}, Request{Command: "library", Args: []string{"playlists"}}},
 	} {
 		in, err := parse(tc.argv)
 		if err != nil {
@@ -77,7 +85,17 @@ func TestParse(t *testing.T) {
 		want string
 	}{
 		{[]string{"dance"}, `unknown command "dance"`},
-		{[]string{"play", "now"}, "play: too many arguments"},
+		{[]string{"play", "a", "b"}, "play: too many arguments"},
+		{[]string{"play", "--shuffle"}, "play: --shuffle needs <link>"},
+		{[]string{"prev", "--shuffle"}, "prev: unknown option --shuffle"},
+		{[]string{"seek"}, "seek: missing position"},
+		{[]string{"seek", "soon"}, `seek: "soon" isn't a number of seconds, +N or -N`},
+		{[]string{"repeat", "twice"}, `repeat: "twice" isn't one of off, all, one, cycle, status`},
+		{[]string{"queue", "shuffle"}, `queue: "shuffle" isn't one of jump, clear`},
+		{[]string{"queue", "jump"}, "queue: missing n"},
+		{[]string{"queue", "jump", "0"}, `queue: "0" isn't a place in the queue`},
+		{[]string{"queue", "clear", "now"}, "queue: too many arguments"},
+		{[]string{"library", "everything"}, `library: "everything" isn't one of add, remove`},
 		{[]string{"play", "--loud"}, "play: unknown option --loud"},
 		{[]string{"play", "-x"}, "play: unknown option -x"},
 		{[]string{"play", "--json=yes"}, "play: --json takes no value"},
@@ -156,15 +174,18 @@ func TestJSONSchemas(t *testing.T) {
 		v    any
 		want string
 	}{
-		{Status{}, "error position preview private repeat running shuffle state track volume"},
+		{Status{}, "crossfade disliked error inLibrary liked position preview private repeat running shuffle spatial state track volume"},
 		{Track{}, "album artist artwork duration explicit id title"},
 		{Queue{}, "index tracks"},
 		{QueueTrack{}, "album artist artwork autoPlay duration explicit id title"},
 		{SearchResults{}, "results term"},
 		{SearchResult{}, "explicit id kind name subtitle url"},
 		{Volume{}, "volume"},
-		{Like{}, "liked track"},
+		{Like{}, "disliked inLibrary liked track"},
+		{LibraryItems{}, "items kind total"},
+		{LibraryItem{}, "artwork id name subtitle url"},
 		{Private{}, "on saved source"},
+		{Spatial{}, "on"},
 		{Opened{}, "id kind storefront"},
 	} {
 		if got := strings.Join(keys(t, tc.v), " "); got != tc.want {
@@ -172,7 +193,7 @@ func TestJSONSchemas(t *testing.T) {
 		}
 	}
 	b, _ := json.Marshal(NotRunning())
-	if string(b) != `{"running":false,"state":"idle","track":null,"position":0,"volume":0,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":""}` {
+	if string(b) != `{"running":false,"state":"idle","track":null,"position":0,"volume":0,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}` {
 		t.Errorf("not running = %s", b)
 	}
 }
@@ -240,7 +261,7 @@ func TestRunNotRunning(t *testing.T) {
 		out  string
 	}{
 		{[]string{"status"}, "Sona isn't running\n"},
-		{[]string{"status", "--json"}, `{"running":false,"state":"idle","track":null,"position":0,"volume":0,"shuffle":false,"repeat":"off","private":false,"preview":false,"error":""}` + "\n"},
+		{[]string{"status", "--json"}, `{"running":false,"state":"idle","track":null,"position":0,"volume":0,"shuffle":false,"repeat":"off","private":false,"preview":false,"spatial":false,"error":"","liked":false,"disliked":false,"inLibrary":false,"crossfade":false}` + "\n"},
 		{[]string{"status", "--follow"}, "not running\n"},
 		{[]string{"status", "--follow", "--format", "{{if .running}}on{{else}}off{{end}}"}, "off\n"},
 	} {
@@ -258,7 +279,7 @@ func TestRunNotRunning(t *testing.T) {
 }
 
 func TestRunOutput(t *testing.T) {
-	playing := Status{Running: true, State: StatePlaying, Track: song, Position: 83.4, Volume: 40, Repeat: "all", Private: true}
+	playing := Status{Running: true, State: StatePlaying, Track: song, Position: 83.4, Volume: 40, Repeat: "all", Private: true, Spatial: true}
 	tr := &fakeTransport{results: map[string]any{
 		"status": playing,
 		"pause":  Status{Running: true, State: StatePaused, Track: song, Preview: true},
@@ -273,16 +294,26 @@ func TestRunOutput(t *testing.T) {
 			{Kind: "album", Name: "Abbey Road (Remastered)", Subtitle: "The Beatles"},
 			{Kind: "song", Name: "Abbey Road Medley", Subtitle: "Someone"},
 		}},
-		"volume":  Volume{Volume: 55},
-		"like":    Like{Track: *song, Liked: true},
-		"private": Private{On: true, Source: SourceEnvironment},
-		"open":    Opened{Kind: "album", ID: "1441164426", Storefront: "gb"},
+		"volume":    Volume{Volume: 55},
+		"like":      Like{Track: *song, Liked: true},
+		"dislike":   Like{Track: *song},
+		"private":   Private{On: true, Source: SourceEnvironment},
+		"spatial":   Spatial{On: true},
+		"open":      Opened{Kind: "album", ID: "1441164426", Storefront: "gb"},
+		"seek":      playing,
+		"shuffle":   playing,
+		"repeat":    playing,
+		"crossfade": Status{Running: true, State: StatePlaying, Crossfade: true},
+		"library": LibraryItems{Kind: "album", Total: 3, Items: []LibraryItem{
+			{Name: "Abbey Road", Subtitle: "The Beatles", URL: "https://music.apple.com/library/albums/l.1"},
+			{Name: "Help!", Subtitle: "The Beatles"},
+		}},
 	}}
 	for _, tc := range []struct {
 		argv []string
 		want string
 	}{
-		{[]string{"status"}, "state: playing\ntitle: Come Together\nartist: The Beatles\nalbum: Abbey Road\nposition: 1:23 / 4:19\nvolume: 40%\nshuffle: off\nrepeat: all\nprivate listening: on\n"},
+		{[]string{"status"}, "state: playing\ntitle: Come Together\nartist: The Beatles\nalbum: Abbey Road\nposition: 1:23 / 4:19\nvolume: 40%\nshuffle: off\nrepeat: all\ncrossfade: off\nprivate listening: on\nspatial audio: yes\n"},
 		{[]string{"status", "--format", "{{.state}} {{with .track}}{{.artist}} – {{.title}} {{clock .duration}}{{end}} {{json .volume}}"}, "playing The Beatles – Come Together 4:19 40\n"},
 		{[]string{"pause"}, "paused: Come Together — The Beatles (preview)\n"},
 		{[]string{"next"}, "stopped\n"},
@@ -290,7 +321,15 @@ func TestRunOutput(t *testing.T) {
 		{[]string{"search", "abbey"}, "Albums\n  Abbey Road — The Beatles  https://music.apple.com/gb/album/abbey-road/1441164426\n  Abbey Road (Remastered) — The Beatles\nSongs\n  Abbey Road Medley — Someone\n"},
 		{[]string{"volume", "+15"}, "volume: 55%\n"},
 		{[]string{"like"}, "favourite: on (Come Together — The Beatles)\n"},
+		{[]string{"dislike", "status"}, "suggest less: off (Come Together — The Beatles)\n"},
+		{[]string{"seek", "+10"}, "position: 1:23 / 4:19\n"},
+		{[]string{"shuffle"}, "shuffle: off\n"},
+		{[]string{"repeat", "cycle"}, "repeat: all\n"},
+		{[]string{"crossfade", "on"}, "crossfade: on\n"},
+		{[]string{"library", "albums"}, "Abbey Road — The Beatles  https://music.apple.com/library/albums/l.1\nHelp! — The Beatles\n…and 1 more, added earlier\n"},
 		{[]string{"private"}, "private listening: on (forced by SONA_PRIVATE=1)\n"},
+		{[]string{"spatial"}, "spatial audio: on\n"},
+		{[]string{"spatial"}, "spatial audio: on\n"},
 		{[]string{"open", "https://music.apple.com/gb/album/abbey-road/1441164426"}, "opening album 1441164426\n"},
 		{[]string{"volume", "--json"}, `{"volume":55}` + "\n"},
 	} {

@@ -259,7 +259,7 @@ func TestAddonsCommandLineAndRequestChecks(t *testing.T) {
 			t.Errorf("%+v: %v", tc.req, err)
 		}
 	}
-	if _, ok := CommandPermission("addons"); ok {
+	if _, ok := RequestPermission(Request{Command: "addons"}); ok {
 		t.Error("an add-on may send `addons`")
 	}
 	var ce *Error

@@ -90,9 +90,11 @@ func trackOf(a coordinator.Activity) *Track {
 type Tracker struct {
 	cur *listening
 	now func() time.Time // for activity without a timestamp; nil means time.Now
-	// private reports whether a listen that started at start is private
-	// (privatemode.Mode.Since); nil means never.
-	private func(start time.Time) bool
+	// hidden is privatemode.Mode.Hidden, the one filter: whether a listen
+	// that started at start may not be seen; nil means never. The
+	// coordinator reports no activity for a preview, so the tracker only
+	// ever asks about private listens.
+	hidden func(start time.Time, preview bool) bool
 }
 
 // listening is the open (playing or paused) listen.
@@ -156,7 +158,7 @@ func (t *Tracker) Observe(a coordinator.Activity) (now *Track, done *Listen) {
 			done = &Listen{Track: *c.track, ListenedAt: c.start}
 		}
 	}
-	if (now != nil || done != nil) && t.private != nil && t.private(c.start) {
+	if (now != nil || done != nil) && t.hidden != nil && t.hidden(c.start, false) {
 		return nil, nil
 	}
 	return now, done

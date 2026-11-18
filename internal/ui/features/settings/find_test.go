@@ -16,7 +16,7 @@ func linuxCaps() services.Capabilities {
 	return services.Capabilities{
 		OS: "linux",
 		Playback: services.PlaybackCapabilities{
-			Available: true, Engine: "cdm", Volume: true, Equalizer: true, SoundCheck: true,
+			Available: true, Engine: "cdm", Volume: true, Equalizer: true, SoundCheck: true, Spatial: true,
 			Crossfade: true, OutputDevice: true, PrivateListening: true, Video: true,
 		},
 		MediaControls: true, Notifications: true, Tray: true, Autostart: true, SleepInhibit: true,
@@ -68,6 +68,15 @@ func TestFindMatchesOtherWordsGroupAndSection(t *testing.T) {
 	}
 	if got := findIDs("scrobbling", ctx); !slices.Equal(got, []string{"scrobble-lastfm", "scrobble-listenbrainz"}) {
 		t.Errorf("scrobbling: %v", got)
+	}
+}
+
+func TestFindFindsSpatialAudio(t *testing.T) {
+	ctx := testContext()
+	for _, q := range []string{"spatial", "atmos", "headphones"} {
+		if got := findIDs(q, ctx); !slices.Contains(got, "spatial-audio") {
+			t.Errorf("%s: %v", q, got)
+		}
 	}
 }
 

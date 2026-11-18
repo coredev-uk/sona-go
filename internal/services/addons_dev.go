@@ -25,7 +25,7 @@ import (
 //     others, not a link), and the add-on's ID may not be an installed one;
 //   - the person confirms in Sona's own window, which names the folder and the
 //     permissions; nothing answers for them, and a command from an add-on's
-//     channel never reaches this code (cli.CommandPermission refuses it);
+//     channel never reaches this code (cli.RequestPermission refuses it);
 //   - the permissions are the manifest's, held in memory for the run: nothing
 //     is written to the settings;
 //   - the add-on gets the defaults of its settings rows, none of the user's
@@ -187,8 +187,8 @@ func (s *AddonsService) installedID(id string) bool {
 // Sona's window and, once they confirm, runs the add-on. It waits for the
 // person, so it is not called on the UI's thread.
 func (s *AddonsService) DevStart(ctx context.Context, dir string) (cli.AddonDev, error) {
-	if !addons.Supported() || !addons.CanRunVerified {
-		return cli.AddonDev{}, fmt.Errorf("add-ons dev needs Linux for now: %w", errors.ErrUnsupported)
+	if !addons.Supported() {
+		return cli.AddonDev{}, fmt.Errorf("add-ons are not supported on this system: %w", errors.ErrUnsupported)
 	}
 	s.mu.Lock()
 	ready := s.host != nil && !s.closed
@@ -205,6 +205,12 @@ func (s *AddonsService) DevStart(ctx context.Context, dir string) (cli.AddonDev,
 		return cli.AddonDev{}, err
 	}
 	m := en.Manifest
+	// A native program is run from the file that was checked, which only
+	// Linux can do (/proc/self/fd). A module needs no such thing: its bytes
+	// are read once and those bytes run, on every system wazero runs on.
+	if !m.Wasm() && !s.opts.verified {
+		return cli.AddonDev{}, fmt.Errorf("add-ons dev runs a native add-on on Linux only; a wasm add-on runs anywhere: %w", errors.ErrUnsupported)
+	}
 	ok, err := s.askDev(ctx, AddonDevAsk{
 		Token: newToken(), ID: m.ID, Name: m.Name, Version: m.Version, Dir: dir, Permissions: slices.Clone(m.Permissions),
 	})
@@ -223,13 +229,13 @@ func (s *AddonsService) DevStart(ctx context.Context, dir string) (cli.AddonDev,
 	if again.Exe != en.Exe || again.ID != en.ID || !slices.Equal(again.Manifest.Permissions, m.Permissions) || again.Manifest.Version != m.Version {
 		return cli.AddonDev{}, fmt.Errorf("%w: the folder changed while you were asked", ErrInvalidArgument)
 	}
-	exe, err := addons.OpenVerified(dir, en.Exe)
+	prog, err := openDevProgram(again, dir)
 	if err != nil {
 		return cli.AddonDev{}, fmt.Errorf("%w: %v", ErrInvalidArgument, err)
 	}
-	run, err := s.beginDev(again, dir, exe)
+	run, err := s.beginDev(again, dir, prog)
 	if err != nil {
-		_ = exe.Close()
+		prog.close()
 		return cli.AddonDev{}, err
 	}
 	return cli.AddonDev{ID: m.ID, Name: m.Name, Version: m.Version, Permissions: slices.Clone(m.Permissions), Token: run.token}, nil
@@ -252,10 +258,34 @@ func (s *AddonsService) devEntry(dir string) (addons.Entry, error) {
 	return en, nil
 }
 
+// devProgram is what a development run executes, opened once and checked:
+// a native add-on's open file, which runs through /proc/self/fd, or a
+// module's bytes. What was checked is what runs, whatever happens to the
+// path meanwhile.
+type devProgram struct {
+	file   *os.File
+	module []byte
+}
+
+func openDevProgram(en addons.Entry, dir string) (devProgram, error) {
+	if en.Manifest.Wasm() {
+		b, err := addons.ReadModule(en.Exe)
+		return devProgram{module: b}, err
+	}
+	f, err := addons.OpenVerified(dir, en.Exe)
+	return devProgram{file: f}, err
+}
+
+func (p devProgram) close() {
+	if p.file != nil {
+		_ = p.file.Close()
+	}
+}
+
 // beginDev starts the run: a runner of its own (not the installed kind: it
 // never restarts), registered under the add-on's ID so its actions work, and a
 // lease the client keeps alive by asking for the log.
-func (s *AddonsService) beginDev(en addons.Entry, dir string, exe *os.File) (*devRun, error) {
+func (s *AddonsService) beginDev(en addons.Entry, dir string, prog devProgram) (*devRun, error) {
 	s.mu.Lock()
 	if s.closed || s.host == nil {
 		s.mu.Unlock()
@@ -274,7 +304,7 @@ func (s *AddonsService) beginDev(en addons.Entry, dir string, exe *os.File) (*de
 	s.devMu.Lock()
 	s.devs[run.token] = run
 	s.devMu.Unlock()
-	s.e.Go("addon dev "+en.ID, func() { r.runDev(ctx, en, exe, run) })
+	s.e.Go("addon dev "+en.ID, func() { r.runDev(ctx, en, prog, run) })
 	s.e.Go("addon dev lease "+en.ID, func() { s.lease(ctx, run) })
 	return run, nil
 }
@@ -299,12 +329,12 @@ func (s *AddonsService) lease(ctx context.Context, run *devRun) {
 }
 
 // runDev is the run's supervisor: one start, no restart.
-func (r *addonRunner) runDev(ctx context.Context, en addons.Entry, exe *os.File, run *devRun) {
+func (r *addonRunner) runDev(ctx context.Context, en addons.Entry, prog devProgram, run *devRun) {
 	runtime.LockOSThread()
 	s, o := r.s, r.s.opts
 	defer close(r.done)
 	defer func() {
-		_ = exe.Close()
+		prog.close()
 		s.mu.Lock()
 		if s.runners[r.id] == r {
 			delete(s.runners, r.id)
@@ -330,10 +360,26 @@ func (r *addonRunner) runDev(ctx context.Context, en addons.Entry, exe *os.File,
 	log.Tap(run.buf.add)
 	log.Notef("development run from %s: its permissions are held for this run only", run.dir)
 	declared := en.Manifest.Permissions
-	spec := addons.Spec{
-		Exe: en.Exe, ExeFile: exe, Dir: run.dir, Env: addons.Environment(o.environ(), r.id), Stderr: log,
+	var start startFunc
+	if en.Manifest.Wasm() {
+		// A development run of a module gets no data folder: it gets none of your data.
+		start = func() (addons.Running, error) { return s.startWasm(en.ID, prog.module, "", log) }
+	} else {
+		data := s.e.Paths.AddonDataDir(r.id)
+		if err := addons.EnsureData(data); err != nil {
+			s.e.Logger.Warn("addons: dev data folder", "addon", r.id, "err", err)
+			log.Notef("could not make its data folder")
+			return
+		}
+		// The same sandbox as an installed add-on's, with the permissions the
+		// person confirmed for this run.
+		spec := addons.Spec{
+			ID: r.id, Exe: en.Exe, ExeFile: prog.file, Dir: run.dir, Data: data, Network: slices.Contains(declared, cli.PermNetwork),
+			Env: addons.Environment(o.environ(), r.id, data), Stderr: log,
+		}
+		start = func() (addons.Running, error) { return r.startProc(spec, false, log) }
 	}
-	r.serve(ctx, en, log, spec, newAddonOwn(s, en.Manifest, true), func(p string) bool { return slices.Contains(declared, p) })
+	_ = r.serve(ctx, en, log, start, newAddonOwn(s, en.Manifest, true), func(p string) bool { return slices.Contains(declared, p) })
 }
 
 // DevLog is a run's lines since line next (the client's poll). Asking keeps

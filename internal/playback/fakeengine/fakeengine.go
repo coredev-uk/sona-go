@@ -31,13 +31,18 @@ type Engine struct {
 	// record the curves it is given (Curves). Set it before the services
 	// are built.
 	Equalizer bool
+	// Spatial makes the engine report Spatial Audio (Capabilities) and
+	// record the setting it is given (SpatialSettings). Set it before the
+	// services are built.
+	Spatial bool
 
-	mu     sync.Mutex
-	st     playback.Status
-	events chan playback.Event
-	calls  []string
-	plays  []string
-	curves []equalizer.Curve
+	mu      sync.Mutex
+	st      playback.Status
+	events  chan playback.Event
+	calls   []string
+	plays   []string
+	curves  []equalizer.Curve
+	spatial []bool
 }
 
 var _ playback.Engine = (*Engine)(nil)
@@ -157,7 +162,7 @@ func (e *Engine) Events() <-chan playback.Event { return e.events }
 
 // Capabilities are those of an engine with a volume.
 func (e *Engine) Capabilities() playback.Capabilities {
-	return playback.Capabilities{Kind: playback.KindCDM, Volume: true, Equalizer: e.Equalizer}
+	return playback.Capabilities{Kind: playback.KindCDM, Volume: true, Equalizer: e.Equalizer, Spatial: e.Spatial}
 }
 
 // SetEqualizer records the curve (the engine's output processing the
@@ -167,6 +172,20 @@ func (e *Engine) SetEqualizer(_ context.Context, c equalizer.Curve) error {
 	e.curves = append(e.curves, c)
 	e.mu.Unlock()
 	return nil
+}
+
+// SetSpatial records the Spatial Audio setting.
+func (e *Engine) SetSpatial(on bool) {
+	e.mu.Lock()
+	e.spatial = append(e.spatial, on)
+	e.mu.Unlock()
+}
+
+// SpatialSettings are the Spatial Audio settings set so far, in order.
+func (e *Engine) SpatialSettings() []bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.spatial)
 }
 
 // Curves are the equaliser curves set so far, in order.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -24,9 +24,11 @@ const (
 
 // ScrobbleService connects Last.fm and ListenBrainz accounts and scrobbles
 // what the coordinator plays (internal/scrobble). The Last.fm session key
-// and the ListenBrainz user token live in the keyring (store.OpenSecretWith);
-// settings hold only the account name and the on/off switch. Undelivered
-// listens wait in <state>/scrobble-queue.json.
+// and the ListenBrainz user token live in the keyring item of the add-on
+// that sends them (`addon.lastfm`, `addon.listenbrainz`; addon_secrets.go),
+// where a version before add-ons' own items (`lastfm`, `listenbrainz`) are
+// moved once at start; settings hold only the account name and the on/off
+// switch. Undelivered listens wait in <state>/scrobble-queue.json.
 //
 // Apple sign-out leaves the scrobbler connections alone: they are separate
 // accounts the user connected on this desktop, like Sona's settings, and
@@ -35,10 +37,9 @@ const (
 type ScrobbleService struct {
 	e      *Env
 	sc     *scrobble.Scrobbler
-	lastfm *scrobble.LastFM // nil: no Last.fm API account in this build
-	lb     *scrobble.ListenBrainz
-	open   func(key string) (store.Secret, error)
-	poll   time.Duration // Last.fm approval polling interval
+	lastfm *addonScrobbler // Last.fm, in its add-on; nil: no Last.fm API account in this build
+	lb     *addonScrobbler // ListenBrainz, in its add-on
+	poll   time.Duration   // Last.fm approval polling interval
 
 	loadOnce sync.Once
 
@@ -50,16 +51,12 @@ type ScrobbleService struct {
 	unencrypted bool
 	attempt     uint64
 	cancel      context.CancelFunc // a Last.fm approval in progress
+	addons      addonLink          // the supervisor of the add-ons (attach)
 }
 
 func newScrobbleService(e *Env) *ScrobbleService {
-	httpc := &http.Client{Transport: e.gated(), Timeout: 30 * time.Second}
-	ua := "Sona/" + e.Version
-	var lastfm *scrobble.LastFM
-	if key, secret, ok := scrobble.LastFMAccount(); ok {
-		lastfm = &scrobble.LastFM{Key: key, Secret: secret, HTTP: httpc, UserAgent: ua}
-	}
-	s := newScrobble(e, lastfm, &scrobble.ListenBrainz{HTTP: httpc, UserAgent: ua, Version: e.Version}, e.openSecret)
+	_, _, lastfm := scrobble.LastFMAccount()
+	s := newScrobble(e, lastfm)
 	e.Coord.ObserveActivity(s.sc.Observe)
 	e.OnNetwork(func() {
 		e.Go("scrobble start", func() {
@@ -72,23 +69,26 @@ func newScrobbleService(e *Env) *ScrobbleService {
 	return s
 }
 
-// newScrobble builds the service over the given clients (lastfm nil when
-// the build has no Last.fm account) and follows the settings' switches.
-func newScrobble(e *Env, lastfm *scrobble.LastFM, lb *scrobble.ListenBrainz, open func(string) (store.Secret, error)) *ScrobbleService {
+// newScrobble builds the service over the proxies of the add-ons that do its
+// HTTP, ListenBrainz's and, where the build has a Last.fm API account
+// (lastfm), Last.fm's, and follows the settings' switches.
+func newScrobble(e *Env, lastfm bool) *ScrobbleService {
 	s := &ScrobbleService{
-		e: e, lastfm: lastfm, lb: lb, open: open, poll: lastfmPoll,
+		e: e, poll: lastfmPoll,
 		secrets: map[string]store.Secret{}, connected: map[string]bool{},
 	}
-	providers := []scrobble.Provider{lb}
-	if lastfm != nil {
-		providers = append(providers, lastfm)
+	s.lb = s.scrobbleProxy(ScrobblerListenBrainz, scrobble.ListenBrainzBatch)
+	providers := []scrobble.Provider{s.lb}
+	if lastfm {
+		s.lastfm = s.scrobbleProxy(ScrobblerLastFM, scrobble.LastFMBatch)
+		providers = append(providers, s.lastfm)
 	}
 	s.sc = scrobble.New(scrobble.Options{
 		Providers: providers,
 		QueuePath: filepath.Join(e.Paths.State, "scrobble-queue.json"),
 		Logger:    e.Logger.With("component", "scrobble"),
 		OnChange:  s.emit,
-		Private:   e.Private.Since,
+		Hidden:    e.Private.Hidden,
 	})
 	s.apply(e.Settings.Get().Scrobbling)
 	e.Settings.OnChange(func(prev, next config.Settings) {
@@ -113,6 +113,9 @@ func (s *ScrobbleService) ConnectLastFM(ctx context.Context) (ScrobbleStatus, er
 		return ScrobbleStatus{}, scrobble.ErrNotConfigured
 	}
 	s.load()
+	// The add-on runs only while an account is connected: hold it up for the
+	// whole approval, and until the account is saved.
+	defer s.lease(ScrobblerLastFM)()
 	ctx, cancel := context.WithTimeout(ctx, lastfmApproval)
 	defer cancel()
 	s.mu.Lock()
@@ -125,14 +128,14 @@ func (s *ScrobbleService) ConnectLastFM(ctx context.Context) (ScrobbleStatus, er
 	s.mu.Unlock()
 	s.emit()
 
-	sess, err := s.approveLastFM(ctx)
+	account, credential, err := s.approveLastFM(ctx)
 	s.mu.Lock()
 	if s.attempt == id {
 		s.cancel = nil
 	}
 	s.mu.Unlock()
 	if err == nil {
-		err = s.connect(ScrobblerLastFM, sess.Key, sess.Name)
+		err = s.connect(ScrobblerLastFM, credential, account)
 	} else {
 		s.emit()
 	}
@@ -142,17 +145,30 @@ func (s *ScrobbleService) ConnectLastFM(ctx context.Context) (ScrobbleStatus, er
 	return s.status(), nil
 }
 
-// approveLastFM gets a token, opens its approval page and waits for the
-// session.
-func (s *ScrobbleService) approveLastFM(ctx context.Context) (scrobble.Session, error) {
-	token, err := s.lastfm.Token(ctx)
+// approveLastFM asks the add-on for a token and the page to approve it on,
+// opens the page in the browser, and asks the add-on every poll until the user
+// has approved it: the account and the session key.
+func (s *ScrobbleService) approveLastFM(ctx context.Context) (account, credential string, err error) {
+	token, page, err := s.lastfm.Begin(ctx)
 	if err != nil {
-		return scrobble.Session{}, err
+		return "", "", err
 	}
-	if err := s.e.OpenURL(s.lastfm.AuthURL(token)); err != nil {
-		return scrobble.Session{}, fmt.Errorf("%w: the Last.fm approval page: %w", ErrOpenBrowser, err)
+	if err := s.e.OpenURL(page); err != nil {
+		return "", "", fmt.Errorf("%w: the Last.fm approval page: %w", ErrOpenBrowser, err)
 	}
-	return s.lastfm.AwaitSession(ctx, token, s.poll)
+	t := time.NewTicker(s.poll)
+	defer t.Stop()
+	for {
+		account, credential, err = s.lastfm.Complete(ctx, token)
+		if !errors.Is(err, scrobble.ErrPending) {
+			return account, credential, err
+		}
+		select {
+		case <-ctx.Done():
+			return "", "", ctx.Err()
+		case <-t.C:
+		}
+	}
 }
 
 // CancelConnect abandons a pending Last.fm approval.
@@ -171,7 +187,10 @@ func (s *ScrobbleService) ConnectListenBrainz(ctx context.Context, token string)
 		return ScrobbleStatus{}, ErrTokenRequired
 	}
 	s.load()
-	user, err := s.lb.Validate(ctx, token)
+	// The add-on that checks the token runs only while an account is
+	// connected: hold it up for the check, and until the account is saved.
+	defer s.lease(ScrobblerListenBrainz)()
+	user, err := s.lb.Account(ctx, token)
 	if err != nil {
 		return ScrobbleStatus{}, err
 	}
@@ -194,6 +213,13 @@ func (s *ScrobbleService) Disconnect(provider string) (ScrobbleStatus, error) {
 	}
 	if err := sec.Delete(); err != nil {
 		return ScrobbleStatus{}, err
+	}
+	// A sign-in that could not be moved still sits in the old item: it goes
+	// too, or it would come back at the next start.
+	if old, err := s.e.openSecret(provider); err == nil {
+		if err := old.Delete(); err != nil {
+			s.e.Logger.Warn("scrobble: delete the old credentials", "provider", provider, "err", err)
+		}
 	}
 	s.sc.Forget(provider)
 	s.setConnected(provider, false)
@@ -246,12 +272,22 @@ func (s *ScrobbleService) apply(c config.Scrobbling) {
 func (s *ScrobbleService) load() {
 	s.loadOnce.Do(func() {
 		for _, name := range []string{ScrobblerLastFM, ScrobblerListenBrainz} {
+			// The sign-in a version before add-ons kept in the item `name`
+			// moves to the add-on's own, once. A move that failed leaves the
+			// old item to be read below and tried again at the next start.
+			moveErr := s.e.migrateSecret(s.log(), name, name, scrobbleKeys[name])
+			if moveErr != nil {
+				s.e.Logger.Warn("scrobble: move the sign-in to the add-on's secrets", "provider", name, "err", moveErr)
+			}
 			sec, err := s.secret(name)
 			if err != nil {
 				s.e.Logger.Warn("scrobble: open credentials", "provider", name, "err", err)
 				continue
 			}
 			v, err := sec.Get()
+			if errors.Is(err, store.ErrNotFound) && moveErr != nil {
+				v, err = s.legacy(name)
+			}
 			switch {
 			case err == nil:
 				s.sc.SetCredential(name, v)
@@ -263,16 +299,26 @@ func (s *ScrobbleService) load() {
 	})
 }
 
+func (s *ScrobbleService) log() *slog.Logger { return s.e.Logger.With("component", "scrobble") }
+
+// legacy reads the item a version before add-ons kept the sign-in in.
+func (s *ScrobbleService) legacy(name string) (string, error) {
+	old, err := s.e.openSecret(name)
+	if err != nil {
+		return "", err
+	}
+	return old.Get()
+}
+
+// secret is the sign-in of provider in its add-on's keyring item
+// (`addon.<id>`, key scrobbleKeys[provider]; addon_secrets.go).
 func (s *ScrobbleService) secret(name string) (store.Secret, error) {
 	s.secMu.Lock()
 	defer s.secMu.Unlock()
 	if sec, ok := s.secrets[name]; ok {
 		return sec, nil
 	}
-	sec, err := s.open(name)
-	if err != nil {
-		return nil, err
-	}
+	sec := s.e.addonSecrets().slot(name, scrobbleKeys[name])
 	s.secrets[name] = sec
 	if sec.Backend() == store.BackendFile {
 		s.mu.Lock()
@@ -281,6 +327,9 @@ func (s *ScrobbleService) secret(name string) (store.Secret, error) {
 	}
 	return sec, nil
 }
+
+// scrobbleKeys are the keys of the sign-ins in the add-ons' secrets.
+var scrobbleKeys = map[string]string{ScrobblerLastFM: lastfmSecretKey, ScrobblerListenBrainz: listenbrainzSecretKey}
 
 func (s *ScrobbleService) setConnected(name string, on bool) {
 	s.mu.Lock()

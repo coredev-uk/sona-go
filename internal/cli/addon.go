@@ -35,40 +35,60 @@ const (
 	AddonMethodInvoke      = "invoke"
 )
 
+// AddonMethodConnection is the one more method of Sona's own bundled
+// add-ons: they tell Sona whether the service they work with (the Discord
+// app) is connected, for Settings → Connections. A session without
+// AddonConfig.OnConnection (every add-on of the user's) answers it
+// "unknown_method".
+const AddonMethodConnection = "connection"
+
+// ConnectionParams is the params of connection.
+type ConnectionParams struct {
+	Connected bool `json:"connected"`
+}
+
 // EventShutdown is the one event every session gets without subscribing:
 // Sona is stopping the add-on.
 const EventShutdown = "shutdown"
 
-// Permissions an add-on may ask for and the user may grant. Until the OS
-// sandbox (#304) they are advisory: an add-on runs with its user's rights.
+// Permissions an add-on may ask for and the user may grant. The protocol
+// checks each at every call (Allowed); `network` is the OS sandbox's.
 const (
 	PermPlaybackRead    = "playback.read"
 	PermPlaybackControl = "playback.control"
 	PermQueueRead       = "queue.read"
+	PermQueueControl    = "queue.control"
 	PermLyricsRead      = "lyrics.read"
 	PermSearch          = "search"
 	PermOpen            = "open"
 	PermVolume          = "volume"
 	PermLike            = "like"
+	PermLibrary         = "library"
 	PermPrivateRead     = "private.read"
+	// PermNetwork is the one permission no call needs: the OS sandbox
+	// gives a program that holds it the network and
+	// takes it from every other (#304).
+	PermNetwork = "network"
 )
 
 // Permissions lists every permission, in the order the settings page and
 // the documentation show them.
 var Permissions = []string{
-	PermPlaybackRead, PermPlaybackControl, PermQueueRead, PermLyricsRead,
-	PermSearch, PermOpen, PermVolume, PermLike, PermPrivateRead,
+	PermPlaybackRead, PermPlaybackControl, PermQueueRead, PermQueueControl, PermLyricsRead,
+	PermSearch, PermOpen, PermVolume, PermLike, PermLibrary, PermPrivateRead, PermNetwork,
 }
 
 // KnownPermission reports whether p is a permission of this protocol.
 func KnownPermission(p string) bool { return slices.Contains(Permissions, p) }
 
-// commandPermission is the one permission each v1 command needs when an
+// commandPermission is the permission each v1 command needs when an
 // add-on sends it. Every command that runs in the running Sona has an
-// entry (a test walks the command table).
+// entry (a test walks the command table); RequestPermission adds the
+// verbs that need another.
 var commandPermission = map[string]string{
 	"play": PermPlaybackControl, "pause": PermPlaybackControl, "toggle": PermPlaybackControl,
-	"next": PermPlaybackControl, "prev": PermPlaybackControl,
+	"next": PermPlaybackControl, "prev": PermPlaybackControl, "seek": PermPlaybackControl,
+	"shuffle": PermPlaybackControl, "repeat": PermPlaybackControl, "crossfade": PermPlaybackControl,
 	"status":  PermPlaybackRead,
 	"queue":   PermQueueRead,
 	"lyrics":  PermLyricsRead,
@@ -76,13 +96,27 @@ var commandPermission = map[string]string{
 	"open":    PermOpen,
 	"volume":  PermVolume,
 	"like":    PermLike,
+	"dislike": PermLike,
+	"library": PermLibrary,
 	"private": PermPrivateRead,
+	// spatial switches a setting: playback.control, except its read
+	// (RequestPermission).
+	"spatial": PermPlaybackControl,
 }
 
-// CommandPermission is the permission the v1 command needs; false when an
-// add-on may not send it at all.
-func CommandPermission(command string) (string, bool) {
-	p, ok := commandPermission[command]
+// RequestPermission is the one permission a v1 request needs when an
+// add-on sends it: its command's, but queue.control for `queue jump` and
+// `queue clear`, and playback.read for `spatial` with no argument or
+// `status`, which only read. False when an add-on may not send the command
+// at all.
+func RequestPermission(req Request) (string, bool) {
+	p, ok := commandPermission[req.Command]
+	switch {
+	case ok && req.Command == "queue" && len(req.Args) > 0:
+		return PermQueueControl, true
+	case ok && req.Command == "spatial" && (len(req.Args) == 0 || (len(req.Args) == 1 && req.Args[0] == "status")):
+		return PermPlaybackRead, true
+	}
 	return p, ok
 }
 
@@ -197,7 +231,20 @@ type HelloResult struct {
 	Permissions []string `json:"permissions"`
 	// Limits are the session's limits.
 	Limits AddonLimits `json:"limits"`
+	// Credentials are the build credentials of one of Sona's own add-ons
+	// (CredAPIKey and the other Cred* keys), sent in this one answer and
+	// nowhere else: not in the environment, a request, an event or a log.
+	// An add-on of the user's never gets the field.
+	Credentials map[string]string `json:"credentials,omitempty"`
 }
+
+// Keys of HelloResult.Credentials: the Last.fm API account of the build, and
+// the Discord application ID.
+const (
+	CredAPIKey        = "apiKey"
+	CredAPISecret     = "apiSecret"
+	CredApplicationID = "applicationId"
+)
 
 // TopicsParams is the params of subscribe and unsubscribe, and their
 // result: the topics subscribed to after the call.
@@ -288,12 +335,14 @@ type Rate struct {
 }
 
 // defaultRates are the rates by permission; "" is every other one. Search,
-// like and open reach Apple or move Sona's window, so each has its own.
+// like, library and open reach Apple or move Sona's window, so each has its
+// own.
 var defaultRates = map[string]Rate{
-	PermSearch: {PerSecond: 2, Burst: 5},
-	PermLike:   {PerSecond: 1, Burst: 3},
-	PermOpen:   {PerSecond: 1, Burst: 3},
-	"":         {PerSecond: 20, Burst: 40},
+	PermSearch:  {PerSecond: 2, Burst: 5},
+	PermLike:    {PerSecond: 1, Burst: 3},
+	PermLibrary: {PerSecond: 1, Burst: 3},
+	PermOpen:    {PerSecond: 1, Burst: 3},
+	"":          {PerSecond: 20, Burst: 40},
 }
 
 // bucket is a token bucket.
@@ -364,6 +413,13 @@ var addonMessages = map[string]string{
 	AddonErrTimeout:        "the call took too long",
 	AddonErrNotRunning:     "the add-on is not running",
 	AddonErrFailed:         "Sona couldn't do that",
+
+	// The answers of Sona's own scrobbling add-ons (addon_scrobble.go).
+	AddonErrCredentialsRejected:  "the service refused the credentials",
+	AddonErrSubmissionRejected:   "the service refused the submission",
+	AddonErrAuthorisationPending: "the user hasn't approved the authorisation yet",
+	AddonErrAuthorisationExpired: "the authorisation expired before it was approved",
+	AddonErrNotConfigured:        "the service isn't set up in this build",
 
 	CodeUnknownCommand: "no such command",
 	CodeNothingPlaying: "nothing is playing",
@@ -572,6 +628,14 @@ func forAddon(v any) any {
 			out.Results[i] = r
 		}
 		return out
+	case LibraryItems:
+		out := t
+		out.Items = make([]LibraryItem, len(t.Items))
+		for i, it := range t.Items {
+			it.Artwork, it.URL = PublicArtwork(it.Artwork), PublicShareURL(it.URL)
+			out.Items[i] = it
+		}
+		return out
 	}
 	return v
 }
@@ -584,18 +648,26 @@ func publicTrack(t Track) Track {
 // windowQueue keeps at most addonMaxQueueTracks songs around the playing
 // one; Index is its place in what is kept.
 func windowQueue(q Queue) Queue {
-	out := Queue{Index: q.Index, Tracks: make([]QueueTrack, 0, min(len(q.Tracks), addonMaxQueueTracks))}
-	lo, hi := 0, len(q.Tracks)
-	if hi > addonMaxQueueTracks {
-		lo = min(max(q.Index-addonMaxQueueTracks/4, 0), hi-addonMaxQueueTracks)
-		hi = lo + addonMaxQueueTracks
-		if q.Index >= 0 {
-			out.Index = q.Index - lo
-		}
+	lo, hi := AddonQueueWindow(len(q.Tracks), q.Index)
+	out := Queue{Index: q.Index, Tracks: make([]QueueTrack, 0, hi-lo)}
+	if q.Index >= 0 {
+		out.Index = q.Index - lo
 	}
 	for _, t := range q.Tracks[lo:hi] {
 		t.Track = publicTrack(t.Track)
 		out.Tracks = append(out.Tracks, t)
 	}
 	return out
+}
+
+// AddonQueueWindow is the part [lo, hi) of a queue of n songs, the one at
+// index playing (-1: none), that an add-on sees: all of it, or
+// addonMaxQueueTracks songs around the playing one. A place in what the
+// add-on sees is lo after the same place in the queue.
+func AddonQueueWindow(n, index int) (lo, hi int) {
+	if n <= addonMaxQueueTracks {
+		return 0, n
+	}
+	lo = min(max(index-addonMaxQueueTracks/4, 0), n-addonMaxQueueTracks)
+	return lo, lo + addonMaxQueueTracks
 }

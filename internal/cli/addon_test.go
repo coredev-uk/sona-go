@@ -346,7 +346,7 @@ func TestAddonHelloOnce(t *testing.T) {
 // can hold; the local ones (help, completion) to none.
 func TestEveryCommandMapsToAPermission(t *testing.T) {
 	for _, c := range commands {
-		perm, ok := CommandPermission(c.name)
+		perm, ok := RequestPermission(Request{Command: c.name})
 		if c.local || c.ownerOnly {
 			if ok {
 				t.Errorf("local or owner-only command %s has permission %q", c.name, perm)
@@ -368,15 +368,27 @@ func TestEveryCommandMapsToAPermission(t *testing.T) {
 			t.Errorf("topic %s: permission %q", topic, perm)
 		}
 	}
+	// Listing the queue reads it; its verbs change it.
+	if p, _ := RequestPermission(Request{Command: "queue"}); p != PermQueueRead {
+		t.Errorf("queue: %q", p)
+	}
+	for _, verb := range [][]string{{"clear"}, {"jump", "2"}} {
+		if p, _ := RequestPermission(Request{Command: "queue", Args: verb}); p != PermQueueControl {
+			t.Errorf("queue %v: %q", verb, p)
+		}
+	}
+	guarded := []string{PermQueueControl}
+	for _, q := range commandPermission {
+		guarded = append(guarded, q)
+	}
+	for _, q := range topicPermission {
+		guarded = append(guarded, q)
+	}
 	for _, p := range Permissions {
-		used := false
-		for _, q := range commandPermission {
-			used = used || p == q
+		if p == PermNetwork {
+			continue // the OS sandbox's, not the protocol's
 		}
-		for _, q := range topicPermission {
-			used = used || p == q
-		}
-		if !used {
+		if !slices.Contains(guarded, p) {
 			t.Errorf("permission %s guards nothing", p)
 		}
 	}
@@ -436,6 +448,32 @@ func TestAddonCannotSwitchPrivateModeOff(t *testing.T) {
 	if got := a.host.called(); len(got) != 2 {
 		t.Errorf("host ran %+v, want only the two reads", got)
 	}
+}
+
+func TestAddonSpatialPermissions(t *testing.T) {
+	// playback.read alone reads Spatial Audio; switching it needs playback.control.
+	a := startAddon(t, AddonConfig{}, PermPlaybackRead)
+	a.hello(PermPlaybackRead)
+	a.host.call = func(_ context.Context, r Request) (any, error) { return Spatial{On: true}, nil }
+	for i, args := range []string{`["on"]`, `["off"]`, `["toggle"]`, `["bogus"]`, `["status","on"]`} {
+		wantCode(t, a.request(int64(10+i), "call", `{"command":"spatial","args":`+args+`}`), AddonErrPermission)
+	}
+	for i, params := range []string{`{"command":"spatial"}`, `{"command":"spatial","args":["status"]}`} {
+		if f := a.request(int64(20+i), "call", params); f.Error != nil {
+			t.Errorf("%s: %+v", params, f.Error)
+		}
+	}
+	if got := a.host.called(); len(got) != 2 {
+		t.Errorf("host ran %+v, want only the two reads", got)
+	}
+
+	c := startAddon(t, AddonConfig{}, PermPlaybackControl)
+	c.hello(PermPlaybackControl)
+	c.host.call = func(_ context.Context, r Request) (any, error) { return Spatial{On: true}, nil }
+	if f := c.request(30, "call", `{"command":"spatial","args":["toggle"]}`); f.Error != nil {
+		t.Errorf("toggle with playback.control: %+v", f.Error)
+	}
+	wantCode(t, c.request(31, "call", `{"command":"spatial"}`), AddonErrPermission)
 }
 
 func TestAddonUnknownCommands(t *testing.T) {

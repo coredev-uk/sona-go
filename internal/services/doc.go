@@ -110,19 +110,36 @@
 // refused (site/src/content/docs/reference/theme-format.md).
 //
 // Add-ons (addons.go, addonhost.go; docs/addons.md) are programs Sona runs
-// beside itself. AddonsService lists the folders of the user's add-ons
+// beside itself, or WebAssembly modules it runs inside itself. AddonsService
+// lists the folders of the user's add-ons
 // directory (internal/addons validates each manifest and its executable),
 // grants the permissions the user approves when they enable one, and after
 // the first paint runs the enabled ones: one supervising goroutine each,
-// locked to its OS thread so the add-on dies with Sona, restarting with a
+// locked to its OS thread so a native add-on dies with Sona, restarting with a
 // growing wait and switching an add-on off after repeated crashes
 // ("addons:notice"). "addons:changed" carries the list. An add-on talks
 // protocol v2 (cli.Session) over its standard streams; addonHost is what it
 // is served from: the v1 commands and topics with private listens and
 // previews hidden. The grant is read from the settings at every call.
+// A manifest's runtime picks how it starts: "native" is a process
+// (addons.Start), "wasm" a module on the shared addons.WasmHost, made on first
+// use and closed at quit, on a goroutine of its own with a memory and CPU
+// cap and no file but its data folder or network. Both are an
+// addons.Running to the supervisor, and the time to say hello runs from
+// Running.Ready, so a first compile is not a module's delay.
 // Nothing here waits on an add-on but Invoke, which waits at most its
-// deadline: the UI calls it off its thread. Permissions are advisory until
-// the OS sandbox (#304).
+// deadline: the UI calls it off its thread. Each native add-on runs in the OS
+// sandbox (internal/addons/sandbox) with its folder, a private data folder
+// and, with the `network` permission, the network; where the sandbox can't be
+// set up the add-on is refused (AddonNoSandbox); only Sona's own add-ons, below,
+// then run as plain child processes (AddonInfo.Unsandboxed). A
+// WebAssembly one has no ambient authority.
+// Sona's own Last.fm, ListenBrainz and Discord integrations are add-ons too
+// (#302): internal/addons registers them in code with embedded manifests, scan
+// lists them before the user's folders (a folder claiming their IDs is left
+// out), they are on unless the user turned one off and hold their manifest's
+// permissions with nothing to approve, and their program is this executable
+// run as `sona --addon <id>` (internal/addons/own).
 //
 // Platform (platform.go) is what the OS offers beyond the windows, one
 // small seam per concern, built by cmd/sona's platform_<os>.go: media controls
@@ -174,12 +191,15 @@
 // Private (private.go) is private listening (internal/privatemode) for the
 // UI: State, Set and "private:changed". Deps.Private is the one Mode
 // every play reporter asks with the start of the listen (Mode.Since): the
-// play-activity reporter, History, the scrobbler and the Discord presence;
-// a toggle applies from the next event and a listen private at any point
-// stays private. A development build's toggle never writes the setting.
-// A song playing as its 30-second preview (SONA_PREVIEW=1, PlaybackState
-// preview) never reaches a reporter: the coordinator reports no activity
-// and no OnPlayed for it.
+// play-activity reporter and History; a toggle applies from the next event
+// and a listen private at any point stays private. What leaves Sona's own
+// window (the scrobbler, the Discord presence and add-ons) asks one
+// function instead, Mode.Hidden(start, preview): a preview, or a listen
+// private at any point since it started, is hidden from all three alike.
+// A development build's toggle never writes the setting. A song playing as
+// its 30-second preview (SONA_PREVIEW=1, PlaybackState preview) never
+// reaches a reporter: the coordinator reports no activity and no OnPlayed
+// for it.
 //
 // First-run setup (onboarding.go): StartRoute picks the main window's
 // first route before it is created, from the settings and SQLite only

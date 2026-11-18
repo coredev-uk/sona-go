@@ -70,6 +70,14 @@ func (o *onboarding) soundControls(c *ui.Context, s config.Settings, pb services
 				}, nil)
 		})
 	}
+	if pb.Spatial {
+		rows = append(rows, func() {
+			switchRow(c, "spatial-audio", i18n.T("Spatial Audio"), i18n.T("Plays Apple's headphone mix of a song where there is one."),
+				s.Audio.SpatialAudio, false, func(on bool) {
+					o.save(func(s *config.Settings) { s.Audio.SpatialAudio = on })
+				}, nil)
+		})
+	}
 	if pb.Crossfade {
 		rows = append(rows, func() {
 			switchRow(c, "crossfade", i18n.T("Crossfade"), i18n.T("Fades each song into the next. Songs of one album still play without a gap."),

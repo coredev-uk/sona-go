@@ -310,3 +310,56 @@ func TestPaddedIV(t *testing.T) {
 		t.Fatalf("%x", got)
 	}
 }
+
+// Apple's enhancedHls renditions (Spatial Audio's binaural AAC) list two
+// 'cbcs' sample entries with their own constant IVs, and the fragments after
+// the first select the second (tfhd sample_description_index 2) where the key
+// changes: each fragment's samples take the IV of its own entry.
+func TestParseFragmentTakesItsSampleEntrysConstantIV(t *testing.T) {
+	iv1, iv2 := bytes.Repeat([]byte{1}, 16), bytes.Repeat([]byte{2}, 16)
+	entryHdr := cat(make([]byte, 6), be16(1), make([]byte, 8), be16(2), be16(16), be16(0), be16(0), be32(48000<<16))
+	enca := func(iv []byte) []byte {
+		// tenc v1: pattern 1:9, protected, IV size 0, zero KID, constant IV.
+		tenc := mkfull("tenc", 1, 0, []byte{0, 0x19, 1, 0}, make([]byte, 16), []byte{16}, iv)
+		sinf := mkbox("sinf", mkbox("frma", []byte("mp4a")), mkfull("schm", 0, 0, []byte("cbcs"), be32(0x10000)), mkbox("schi", tenc))
+		return mkbox("enca", entryHdr, mkesds([]byte{0x11, 0x90}), sinf)
+	}
+	stsd := mkfull("stsd", 0, 0, be32(2), enca(iv1), enca(iv2))
+	mdhd := mkfull("mdhd", 0, 0, be32(0), be32(0), be32(48000), be32(0), be16(0x55c4), be16(0))
+	tkhd := mkfull("tkhd", 0, 7, be32(0), be32(0), be32(1), make([]byte, 68))
+	trak := mkbox("trak", tkhd, mkbox("mdia", mdhd, mkfull("hdlr", 0, 0, be32(0), []byte("soun"), make([]byte, 13)),
+		mkbox("minf", mkbox("stbl", stsd, mkfull("stts", 0, 0, be32(0))))))
+	trex := mkfull("trex", 0, 0, be32(1), be32(1), be32(1024), be32(0), be32(0))
+	in, err := ParseInit(cat(mkbox("ftyp", []byte("iso8"), be32(0)), mkbox("moov", mkfull("mvhd", 0, 0, make([]byte, 96)), trak, mkbox("mvex", trex))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if in.Scheme != "cbcs" || !bytes.Equal(in.ConstantIV, iv1) || in.CryptByte != 1 || in.SkipByte != 9 {
+		t.Fatalf("init = scheme %q iv %x pattern %d:%d", in.Scheme, in.ConstantIV, in.CryptByte, in.SkipByte)
+	}
+	data := []byte("0123456789abcdef!")
+	frag := func(desc uint32) []byte {
+		flags, hdr := uint32(0x020000), be32(1)
+		if desc != 0 {
+			flags, hdr = flags|tfhdSampleDescIndex, cat(hdr, be32(desc))
+		}
+		build := func(dataOffset uint32) []byte {
+			senc := mkfull("senc", 0, 2, be32(1), be16(1), be16(1), be32(16))
+			trun := mkfull("trun", 0, trunDataOffset|trunSize, be32(1), be32(dataOffset), be32(uint32(len(data))))
+			return mkbox("moof", mkfull("mfhd", 0, 0, be32(1)), mkbox("traf", mkfull("tfhd", 0, flags, hdr), mkfull("tfdt", 1, 0, be64(0)), senc, trun))
+		}
+		return cat(build(uint32(len(build(0)))+8), mkbox("mdat", data))
+	}
+	for _, tc := range []struct {
+		desc uint32
+		iv   []byte
+	}{{0, iv1}, {1, iv1}, {2, iv2}, {3, iv1}} {
+		got, err := ParseFragment(frag(tc.desc), in)
+		if err != nil {
+			t.Fatalf("description %d: %v", tc.desc, err)
+		}
+		if !bytes.Equal(got[0].IV, tc.iv) || len(got[0].Subsamples) != 1 || got[0].Subsamples[0] != (Subsample{Clear: 1, Cipher: 16}) {
+			t.Errorf("description %d: IV %x subsamples %+v, want IV %x", tc.desc, got[0].IV, got[0].Subsamples, tc.iv)
+		}
+	}
+}

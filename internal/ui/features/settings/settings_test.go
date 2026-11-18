@@ -36,6 +36,13 @@ func newRig(t *testing.T, w, h int, shortcuts []module.BoundShortcut, opts ...ui
 // seeded before the first frame, so the real service never answers).
 func newRigCaps(t *testing.T, w, h int, shortcuts []module.BoundShortcut, caps *services.Capabilities, opts ...uitest.Option) *rig {
 	t.Helper()
+	return newRigBeside(t, w, h, 0, shortcuts, caps, opts...)
+}
+
+// newRigBeside is newRigCaps with a sidebar sidebar DIP wide left of the
+// page, as the shell's: the page has the window less that.
+func newRigBeside(t *testing.T, w, h int, sidebar float32, shortcuts []module.BoundShortcut, caps *services.Capabilities, opts ...uitest.Option) *rig {
+	t.Helper()
 	hn := uitest.New(t, opts...)
 	hn.Env.HasRoute = func(p string) bool { return p == "/library/albums" }
 	if caps != nil {
@@ -52,12 +59,20 @@ func newRigCaps(t *testing.T, w, h int, shortcuts []module.BoundShortcut, caps *
 	followShell(hn)
 	r.tt = hn.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // a frozen test clock would redraw 20 frames per input
-		ui.Column(c).Fill().Children(func() {
+		view := func() {
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(settingsPath) {
 					r.s.page(c, rt)
 				}
 			})
+		}
+		if sidebar == 0 {
+			ui.Column(c).Fill().Children(view)
+			return
+		}
+		ui.Row(c).Fill().Children(func() {
+			ui.Box(c.Key("sidebar")).Width(sidebar).Shrink(0)
+			ui.Column(c.Key("page")).Grow(1).Basis(0).MinWidth(0).FillHeight().Children(view)
 		})
 	}, w, h)
 	r.s.clock = r.tt.Now // the wash and the wait for a row run on the tester's clock

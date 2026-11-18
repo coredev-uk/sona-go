@@ -71,8 +71,14 @@ type emptyStore struct{ recordStore }
 
 func (*emptyStore) Get() (store.Record, error) { return store.Record{}, store.ErrNotFound }
 
-// pausingEngine is playEngine with a pause that pauses.
+// pausingEngine is playEngine with a pause that pauses, and a crossfade.
 type pausingEngine struct{ *playEngine }
+
+func (e *pausingEngine) Capabilities() playback.Capabilities {
+	c := e.playEngine.Capabilities()
+	c.Crossfade = true
+	return c
+}
 
 func (e *pausingEngine) Pause(context.Context) error  { e.set(playback.StatePaused); return nil }
 func (e *pausingEngine) Resume(context.Context) error { e.set(playback.StatePlaying); return nil }
@@ -178,13 +184,15 @@ func newCommandEnv(t *testing.T, private privatemode.Options) *commandEnv {
 		Storefront: sf, Emit: ce.rec, Logger: discard(), Now: time.Now, Gate: NewGate(time.Hour, discard()),
 	}, members: newMembership(d)}
 	ce.play = newPlaybackService(ce.e)
-	lib := &LibraryService{o: ce.e, m: ce.e.m}
+	// No library sync runs here: the one an add schedules is refused.
+	lib := &LibraryService{o: ce.e, m: ce.e.m, signedIn: func() bool { return false }}
 	search := newSearchService(ce.e)
 	open := &opener{emit: ce.rec, focus: func() { ce.focused++ }, log: discard()}
 	open.markReady()
 	ce.lyrics = &fakeLyrics{}
 	ce.srv = newCommandServer(ce.e, open, []any{
-		ce.play, lib, search, &LyricsService{e: ce.e},
+		ce.play, lib, search, &LyricsService{e: ce.e}, newCatalogService(ce.e),
+		&PlaylistsService{e: ce.e, m: ce.e.m, locks: map[string]*sync.Mutex{}}, &RadioService{e: ce.e},
 	})
 	ce.srv.lyrics = ce.lyrics
 	t.Cleanup(ce.e.close)
@@ -722,5 +730,36 @@ func TestCommandsWatchSeek(t *testing.T) {
 		if s.State == cli.StatePaused && s.Position >= 4.9 && s.Position < 5.1 {
 			break
 		}
+	}
+}
+
+// spatialEngine is an engine that reports Spatial Audio.
+type spatialEngine struct{ *pausingEngine }
+
+func (spatialEngine) Capabilities() playback.Capabilities {
+	return playback.Capabilities{Kind: playback.KindCDM, Volume: true, Spatial: true}
+}
+
+func TestSpatialCommand(t *testing.T) {
+	ce := newCommandEnv(t, privatemode.Options{Save: func(bool) error { return nil }})
+	// An engine without Spatial Audio refuses, and saves nothing.
+	if _, err := ce.call(t, "spatial", "on"); err == nil || ce.settings.Get().Audio.SpatialAudio {
+		t.Fatalf("unsupported engine: err %v, saved %v", err, ce.settings.Get().Audio.SpatialAudio)
+	}
+	ce.e.Engine = spatialEngine{ce.eng}
+	for _, tc := range []struct {
+		args []string
+		want bool
+	}{{nil, false}, {[]string{"on"}, true}, {[]string{"status"}, true}, {[]string{"toggle"}, false}, {[]string{"toggle"}, true}, {[]string{"off"}, false}} {
+		res, err := ce.call(t, "spatial", tc.args...)
+		if err != nil {
+			t.Fatalf("spatial %v: %v", tc.args, err)
+		}
+		if got := res.(cli.Spatial).On; got != tc.want || ce.settings.Get().Audio.SpatialAudio != tc.want {
+			t.Errorf("spatial %v: answered %v, saved %v, want %v", tc.args, got, ce.settings.Get().Audio.SpatialAudio, tc.want)
+		}
+	}
+	if _, err := ce.call(t, "spatial", "bogus"); err == nil {
+		t.Error("spatial bogus: no error")
 	}
 }

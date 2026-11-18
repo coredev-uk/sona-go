@@ -15,7 +15,7 @@ For an introduction, see [Command line](/guide/cli/).
 
 _Windows_
 
-Removes what the playback host's sandbox left on the computer: its AppContainer profile and the access entries granted to it on Sona's, GStreamer's and the Widevine folders. Your settings, library and the downloaded Widevine component stay.
+Removes what the sandboxes left on the computer: the playback host's AppContainer profile and the access entries granted to it on Sona's, GStreamer's and the Widevine folders, and the AppContainer profile of each add-on (Sona's own, the installed ones and any you removed earlier) with its entries on the add-on's folder and data folder. Your settings, library, the downloaded Widevine component and the add-ons' data stay.
 
 - The installer's uninstaller runs it for you.
 - The portable `.zip` has no uninstaller: quit Sona and run it from the folder before you delete the folder.
@@ -23,17 +23,34 @@ Removes what the playback host's sandbox left on the computer: its AppContainer 
 
 ## Commands
 
-Options may come anywhere after the command. `--` ends them, and a number such as `-10` is an argument (`sona volume -10`). Every command takes `-h` and `--help`.
+Options may come anywhere after the command. `--` ends them, and a number such as `-10` is an argument (`sona volume -10`, `sona seek -15`). Every command takes `-h` and `--help`.
 
 ### `sona play`, `pause`, `toggle`, `next`, `prev`
 
 Resume, pause, play or pause, skip to the next song, go to the previous song (or restart the song in its first seconds, like the previous key).
 
+- `sona play <link>` - plays an Apple Music link to a song, album, playlist or station in place of the queue, as its page's Play does. Your library's playlists and albums play from the links `sona library playlists` and `sona library albums` print. Other links (artists, curators, music videos) are a usage error: give them to `sona open`.
+- `--shuffle` - with a link, starts the album or playlist shuffled.
+- `--force` - `prev` always plays the previous song, however far into this one.
 - `--json` - prints the status after the command.
+
+### `sona seek`
+
+Moves to a number of seconds into the playing song, or by `+N` or `-N` seconds from where it is, within the song: `sona seek <seconds>|+N|-N`. Seconds may have decimals.
+
+- `--json` - prints the status.
+
+### `sona shuffle`, `repeat`, `crossfade`
+
+Show or switch them, as the player bar's buttons and Settings → Playback do.
+
+- `sona shuffle [on|off|toggle|status]` and `sona crossfade [on|off|toggle|status]`. The default is `status`. Crossfade keeps the length set in Settings → Playback.
+- `sona repeat [off|all|one|cycle|status]`. The default is `status`; `cycle` moves on as the player bar's button does: off, all, one, off.
+- `--json` - prints the status.
 
 ### `sona status`
 
-Prints the playback state, song, position, volume, shuffle, repeat and private listening.
+Prints the playback state, song, position, volume, shuffle, repeat, crossfade and private listening. The text shows `spatial audio: yes` only while the song plays in Spatial Audio.
 
 - `--follow` - keeps printing on every change.
 - `--format` string (optional) - a template for each line ([Status bars](#status-bars)).
@@ -53,7 +70,9 @@ Prints the playing song's lyrics as plain text.
 
 Prints the queue in play order and marks the playing song.
 
-- `--json` - prints `{"index", "tracks"}`.
+- `sona queue jump N` - plays the song at place `N`, as the list numbers it (from 1; `index + 1` in the JSON). Prints the status.
+- `sona queue clear` - removes every song but the playing one, as the queue's Clear does. Prints the queue.
+- `--json` - prints `{"index", "tracks"}`, or the status after `jump`.
 
 ### `sona search`
 
@@ -75,11 +94,21 @@ Shows the volume, or sets it as the player bar's slider does and keeps it: `sona
 
 - `--json` - prints `{"volume"}`.
 
-### `sona like`
+### `sona like`, `dislike`
 
-Favourites the playing song, which adds it to your library. Needs an Apple Music account signed in to Sona: `sona like [on|off|toggle|status]`. The default is `on`.
+Rate the playing song. Need an Apple Music account signed in to Sona.
 
-- `--json` - prints `{"track", "liked"}`.
+- `sona like [on|off|toggle|status]` - favourites it, which adds it to your library. The default is `on`.
+- `sona dislike [on|off|toggle|status]` - rates it Suggest Less, which replaces a favourite. The default is `on`.
+- `--json` - prints `{"track", "liked", "disliked", "inLibrary"}`.
+
+### `sona library`
+
+The playing song's place in your library, and your library's lists. Needs an Apple Music account signed in to Sona.
+
+- `sona library [add|remove|toggle|status]` - adds the playing song to your library, removes it, switches it, or shows whether it is there. The default is `status`.
+- `sona library playlists`, `sona library albums` - your library's playlists or albums, most recently added first, at most 500, each with the link `sona play` takes.
+- `--json` - prints `{"track", "liked", "disliked", "inLibrary"}`, or for the lists `{"kind", "total", "items"}`.
 
 ### `sona private`
 
@@ -87,18 +116,32 @@ Shows or sets private listening: `sona private [on|off|toggle|status]`. The defa
 
 - `--json` - prints `{"on", "source", "saved"}`.
 
+### `sona spatial`
+
+Shows or sets Spatial Audio: `sona spatial [on|off|toggle|status]`. The default is `status`. While it is on, songs with Spatial Audio play as Apple's binaural rendition where Apple allows it, and in stereo otherwise. The setting applies from the next song. It fails on a system where Sona can't play Spatial Audio.
+
+- `--json` - prints `{"on"}`.
+
+### `sona connect`
+
+Keeps running and speaks Sona's add-on protocol, one JSON object a line, on its standard input and output: `sona connect`. It is for a program of yours that controls Sona, such as a Stream Deck plugin, which starts it once and keeps it ([the add-on reference](https://github.com/coredev-uk/sona-go/blob/main/docs/addons.md), "`sona connect`").
+
+- It has the command line's rights: every command (with `call`), and the `status`, `now-playing` and `queue` topics.
+- It exits with status 0 when the program closes its input, and with status 3 when Sona quits (after a `shutdown` event) or isn't running.
+
 ### `sona addons dev`
 
-_Linux_
+_Linux_ for a native add-on; a WebAssembly add-on runs on _Linux_, _macOS_ and _Windows_.
 
-Runs an add-on from a folder without installing it, and prints its log until you press Ctrl+C: `sona addons dev <folder>`. It is for people who write add-ons ([the add-on reference](https://github.com/coredev-uk/sona-go/blob/main/docs/addons.md)).
+Runs an add-on from a folder without installing it, and prints its log until you press Ctrl+C: `sona addons dev <folder>`. It is for people who write add-ons ([the add-on reference](https://github.com/coredev-uk/sona-go/blob/main/docs/addons.md)). [Sample add-ons](https://github.com/coredev-uk/sona-addons) to run with it are in their own repository.
 
 - Sona asks you to confirm in its window. The question names the add-on, the folder and the permissions its manifest asks for. Without a "Run" there, nothing runs.
 - Nothing is saved. The permissions hold for the run. The add-on gets none of your saved values or secrets.
 - The folder must be yours and not writable by others. Its ID can't be one of your installed add-ons or one reserved for Sona's own.
+- The add-on runs in the same sandbox as an installed one: it reads its folder, writes only its data folder, has no terminal (its log reaches you through Sona, never a terminal of yours) and has the network only if its manifest asks for `network` and you confirmed it. Where the sandbox can't be set up, it doesn't run and the log says why.
 - The add-on's log goes to standard output. On a terminal, escape sequences and control characters are stripped from it. Sona's own lines go to standard error.
 - It exits with status 0 when you press Ctrl+C or the add-on ends. A refusal is status 1, and no Sona is status 3.
-- macOS and Windows can't run it yet: the command fails and says so.
+- On _macOS_ and _Windows_ a native add-on fails with "unsupported" before Sona asks anything: they can't yet run the file that was checked. A WebAssembly add-on (`"runtime": "wasm"`) runs there, because Sona reads its `.wasm` once and runs those bytes.
 
 ### `sona help`
 
@@ -149,7 +192,12 @@ The status:
   "repeat": "off",
   "private": true,
   "preview": false,
-  "error": ""
+  "spatial": false,
+  "error": "",
+  "liked": true,
+  "disliked": false,
+  "inLibrary": true,
+  "crossfade": false
 }
 ```
 
@@ -160,7 +208,13 @@ The status:
   600×600 image on Apple's artwork CDN, `""` when there is none.
 - `position`: as of the moment the status was taken.
 - `repeat`: `off`, `all` or `one`. `preview`: the song plays as its
-  30-second preview.
+  30-second preview. `spatial`: the song plays as its Spatial Audio
+  rendition (not the stereo one).
+- `liked`, `disliked`, `inLibrary`: the playing song is a favourite, rated
+  Suggest Less, in your library, as the player bar shows it. Sona looks it
+  up when the song starts, so they are `false` for a moment; they stay
+  `false` for live radio and music videos. `crossfade`: Settings →
+  Playback's crossfade is on.
 - When Sona isn't running, `status --json` prints `"running": false`,
   `"state": "idle"` and every other field empty.
 
@@ -169,8 +223,13 @@ The status:
 playing song's place, `-1` when none. `search`: `{"term": "…", "results":
 [{"kind", "id", "name", "subtitle", "explicit", "url"}…]}`, grouped by kind
 in Apple's order; `url` is the music.apple.com link, `""` when unknown.
-`like`: `{"track": track, "liked": true}`. `private`: `{"on": true,
-"source": "setting"|"development"|"environment", "saved": false}`. `open`:
+`like`, `dislike` and `library`: `{"track": track, "liked": true,
+"disliked": false, "inLibrary": true}`. `library playlists` and `library
+albums`: `{"kind": "playlist"|"album", "total": 120, "items": [{"id":
+"p.…", "name", "subtitle", "artwork", "url"}…]}`; `total` counts the whole
+library, `items` the 500 most recently added, `subtitle` an album's artist,
+`url` the link `sona play` takes. `private`: `{"on": true,
+"source": "setting"|"development"|"environment", "saved": false}`. `spatial`: `{"on": true}`. `open`:
 `{"kind": "album", "id": "1441164426", "storefront": "gb"}`.
 
 `lyrics`: `{"track": track, "state": "playing", "position": 83.4,

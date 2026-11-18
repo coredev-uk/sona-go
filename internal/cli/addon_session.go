@@ -57,6 +57,21 @@ type AddonConfig struct {
 	Log   *slog.Logger
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
+	// Credentials are sent in the hello answer: the build credentials of one
+	// of Sona's own add-ons, never of another. The session logs none of it.
+	Credentials map[string]string
+	// OnConnection is called with what a bundled add-on says of its
+	// connection (AddonMethodConnection). Nil: the method doesn't exist for
+	// this session.
+	OnConnection func(connected bool)
+	// Owner serves the person's own program (`sona connect`), not an
+	// add-on: hello may name any ID (ID is unset), and private listening
+	// may be switched, as the person may from the command line.
+	Owner bool
+	// Bundled marks one of Sona's own add-ons, the only kind Request may
+	// send a request to (HostMethods). The supervisor sets it from the
+	// registry in code, never from anything an add-on or its folder says.
+	Bundled bool
 }
 
 const (
@@ -401,7 +416,7 @@ func (s *Session) handle(line []byte) bool {
 // hello accepts or refuses the add-on's hello; false ends the session.
 func (s *Session) hello(f Frame) bool {
 	var p HelloParams
-	if err := json.Unmarshal(f.Params, &p); err != nil || p.ID == "" || p.ID != s.cfg.ID || len(p.Permissions) > len(Permissions) {
+	if err := json.Unmarshal(f.Params, &p); err != nil || p.ID == "" || (!s.cfg.Owner && p.ID != s.cfg.ID) || len(p.Permissions) > len(Permissions) {
 		s.failAndClose(f.ID, AddonErrBadHello)
 		return false
 	}
@@ -422,7 +437,7 @@ func (s *Session) hello(f Frame) bool {
 			granted = append(granted, perm)
 		}
 	}
-	res, _ := json.Marshal(HelloResult{ID: p.ID, Protocol: ver, Permissions: granted, Limits: s.limits})
+	res, _ := json.Marshal(HelloResult{ID: p.ID, Protocol: ver, Permissions: granted, Limits: s.limits, Credentials: s.cfg.Credentials})
 	s.mu.Lock()
 	s.helloed = true
 	close(s.helloCh) // hello is accepted once: a second one never gets here
@@ -443,6 +458,8 @@ func (s *Session) request(f Frame) {
 		s.call(f)
 	case AddonMethodSecret:
 		s.secret(f)
+	case AddonMethodConnection:
+		s.connection(f)
 	default:
 		s.fail(f.ID, AddonErrUnknownMethod)
 	}
@@ -631,6 +648,26 @@ func (s *Session) secret(f Frame) {
 	}()
 }
 
+// connection takes a bundled add-on's word on whether its service is
+// connected.
+func (s *Session) connection(f Frame) {
+	if s.cfg.OnConnection == nil {
+		s.fail(f.ID, AddonErrUnknownMethod)
+		return
+	}
+	var p ConnectionParams
+	if err := json.Unmarshal(f.Params, &p); err != nil {
+		s.fail(f.ID, AddonErrBadArguments)
+		return
+	}
+	if !s.allowRate("") {
+		s.fail(f.ID, AddonErrRateLimited)
+		return
+	}
+	s.cfg.OnConnection(p.Connected)
+	s.reply(Frame{ID: f.ID, Result: json.RawMessage(`{}`)})
+}
+
 // call runs a v1 command for the add-on.
 func (s *Session) call(f Frame) {
 	var req Request
@@ -638,13 +675,13 @@ func (s *Session) call(f Frame) {
 		s.fail(f.ID, AddonErrBadArguments)
 		return
 	}
-	perm, ok := CommandPermission(req.Command)
+	perm, ok := RequestPermission(req)
 	if !ok {
 		s.fail(f.ID, CodeUnknownCommand)
 		return
 	}
 	// Private listening is the user's alone to switch: an add-on may read it.
-	if !s.cfg.Allowed(perm) || (req.Command == "private" && (len(req.Args) > 1 || (len(req.Args) == 1 && req.Args[0] != "status"))) {
+	if !s.cfg.Allowed(perm) || (!s.cfg.Owner && req.Command == "private" && (len(req.Args) > 1 || (len(req.Args) == 1 && req.Args[0] != "status"))) {
 		s.fail(f.ID, AddonErrPermission)
 		return
 	}
@@ -750,17 +787,23 @@ func (s *Session) answer(f Frame) {
 	ch <- ans // buffered
 }
 
+// deadlineOf is the time a request of Sona may wait for its answer: what ctx
+// leaves, at most MaxInvokeDeadline, DefaultInvokeDeadline without one.
+func deadlineOf(ctx context.Context) time.Duration {
+	deadline := DefaultInvokeDeadline
+	if d, ok := ctx.Deadline(); ok {
+		deadline = time.Until(d)
+	}
+	return min(deadline, MaxInvokeDeadline)
+}
+
 // Invoke asks the add-on to run one of its contributions and waits for its
 // answer, at most until ctx ends or MaxInvokeDeadline passes (the add-on is
 // told the time it has left). It never waits on anything but the add-on: a
 // hung add-on costs the caller the deadline and nothing else. Only so many
 // invokes may await an answer at once; more fail with busy.
 func (s *Session) Invoke(ctx context.Context, action string, target json.RawMessage) (InvokeResult, error) {
-	deadline := DefaultInvokeDeadline
-	if d, ok := ctx.Deadline(); ok {
-		deadline = time.Until(d)
-	}
-	deadline = min(deadline, MaxInvokeDeadline)
+	deadline := deadlineOf(ctx)
 	if deadline <= 0 {
 		return InvokeResult{}, addonError(AddonErrTimeout)
 	}
@@ -771,21 +814,59 @@ func (s *Session) Invoke(ctx context.Context, action string, target json.RawMess
 	if err != nil {
 		return InvokeResult{}, addonError(AddonErrBadArguments)
 	}
+	res, err := s.ask(ctx, AddonMethodInvoke, params, deadline)
+	if err != nil {
+		return InvokeResult{}, err
+	}
+	r, ok := ParseInvokeResult(res)
+	if !ok {
+		return InvokeResult{}, addonError(AddonErrFailed)
+	}
+	return r, nil
+}
+
+// Request sends one of Sona's own requests (HostMethods) to the add-on and
+// returns the answer's result, waiting at most until ctx ends or
+// MaxInvokeDeadline passes. Only a bundled add-on (AddonConfig.Bundled) is
+// ever sent one: for any other it fails with permission_denied and writes
+// nothing. It shares invoke's limit of requests awaiting an answer, and an
+// error answer is its code alone.
+func (s *Session) Request(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	if !s.cfg.Bundled {
+		return nil, addonError(AddonErrPermission)
+	}
+	if !IsHostMethod(method) {
+		return nil, addonError(AddonErrUnknownMethod)
+	}
+	raw, err := json.Marshal(params)
+	if err != nil {
+		return nil, addonError(AddonErrBadArguments)
+	}
+	deadline := deadlineOf(ctx)
+	if deadline <= 0 {
+		return nil, addonError(AddonErrTimeout)
+	}
+	return s.ask(ctx, method, raw, deadline)
+}
+
+// ask sends a request of Sona and waits for its answer: the result, or the
+// add-on's error code, or timeout once deadline or ctx ends.
+func (s *Session) ask(ctx context.Context, method string, params json.RawMessage, deadline time.Duration) (json.RawMessage, error) {
 	s.mu.Lock()
 	if !s.helloed || s.closing {
 		s.mu.Unlock()
-		return InvokeResult{}, addonError(AddonErrNotRunning)
+		return nil, addonError(AddonErrNotRunning)
 	}
 	if len(s.invokes) >= s.limits.Invokes {
 		s.mu.Unlock()
-		return InvokeResult{}, addonError(AddonErrBusy)
+		return nil, addonError(AddonErrBusy)
 	}
 	s.nextID++
 	id := s.nextID
 	ch := make(chan invokeAnswer, 1)
 	s.invokes[id] = ch
 	s.mu.Unlock()
-	s.reply(Frame{ID: id, Method: AddonMethodInvoke, Params: params})
+	s.reply(Frame{ID: id, Method: method, Params: params})
 	timer := time.NewTimer(deadline)
 	defer timer.Stop()
 	forget := func() {
@@ -796,18 +877,14 @@ func (s *Session) Invoke(ctx context.Context, action string, target json.RawMess
 	select {
 	case ans := <-ch:
 		if ans.err != nil {
-			return InvokeResult{}, ans.err
+			return nil, ans.err
 		}
-		r, ok := ParseInvokeResult(ans.result)
-		if !ok {
-			return InvokeResult{}, addonError(AddonErrFailed)
-		}
-		return r, nil
+		return ans.result, nil
 	case <-timer.C:
 		forget()
-		return InvokeResult{}, addonError(AddonErrTimeout)
+		return nil, addonError(AddonErrTimeout)
 	case <-ctx.Done():
 		forget()
-		return InvokeResult{}, addonError(AddonErrTimeout)
+		return nil, addonError(AddonErrTimeout)
 	}
 }

@@ -16,6 +16,7 @@ type Capabilities struct {
 	Volume       bool   // SetVolume changes the level
 	Equalizer    bool   // the engine applies an equalizer.Curve
 	SoundCheck   bool   // the engine applies tracks' Sound Check gain
+	Spatial      bool   // the engine can play a song's Spatial Audio rendition
 	Crossfade    bool   // the engine crossfades into an armed Next
 	OutputDevice bool   // the engine plays to a chosen OutputDevice
 	// PrivateListening: Sona itself sends every play report for this

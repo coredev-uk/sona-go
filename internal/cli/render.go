@@ -93,9 +93,13 @@ func writeStatus(w io.Writer, p *l10n.Printer, s Status) error {
 	field(msgFieldVolume, p.Sprintf(msgPercent, s.Volume))
 	field(msgFieldShuffle, onOff(p, s.Shuffle))
 	field(msgFieldRepeat, repeatText(p, s.Repeat))
+	field(msgFieldCrossfade, onOff(p, s.Crossfade))
 	field(msgFieldPrivate, onOff(p, s.Private))
 	if s.Preview {
 		field(msgFieldPreview, p.T(msgYes))
+	}
+	if s.Spatial {
+		field(msgFieldSpatial, p.T(msgYes))
 	}
 	if s.Error != "" {
 		field(msgFieldError, s.Error)
@@ -175,12 +179,71 @@ func privateLine(p *l10n.Printer, pv Private) string {
 	return line
 }
 
-func likeLine(p *l10n.Printer, l Like) string {
+// songStateLine is what like, dislike and library print: the state the
+// command is about, and the song.
+// spatialLine is `sona spatial`'s line: on or off.
+func spatialLine(p *l10n.Printer, sp Spatial) string {
+	return p.Sprintf(msgSpatialLine, onOff(p, sp.On))
+}
+
+func songStateLine(p *l10n.Printer, command string, l Like) string {
 	song := byArtist(p, l.Track.Title, l.Track.Artist)
-	if l.Liked {
-		return p.Sprintf(msgLiked, song)
+	on, off := msgLiked, msgNotLiked
+	is := l.Liked
+	switch command {
+	case "dislike":
+		on, off, is = msgDisliked, msgNotDisliked, l.Disliked
+	case "library":
+		on, off, is = msgInLibrary, msgNotLibrary, l.InLibrary
 	}
-	return p.Sprintf(msgNotLiked, song)
+	if is {
+		return p.Sprintf(on, song)
+	}
+	return p.Sprintf(off, song)
+}
+
+// settingLine is what seek, shuffle, repeat and crossfade print: the
+// one field of the status they set.
+func settingLine(p *l10n.Printer, command string, s Status) string {
+	switch command {
+	case "seek":
+		pos := clock(s.Position)
+		if s.Track != nil && s.Track.Duration > 0 {
+			pos = p.Sprintf(msgPositionOf, pos, clock(s.Track.Duration))
+		}
+		return p.Sprintf(msgFieldLine, p.T(msgFieldPosition), pos)
+	case "shuffle":
+		return p.Sprintf(msgFieldLine, p.T(msgFieldShuffle), onOff(p, s.Shuffle))
+	case "repeat":
+		return p.Sprintf(msgFieldLine, p.T(msgFieldRepeat), repeatText(p, s.Repeat))
+	}
+	return p.Sprintf(msgFieldLine, p.T(msgFieldCrossfade), onOff(p, s.Crossfade))
+}
+
+// writeLibraryItems prints `library playlists` and `library albums`: one
+// item a line with its link, and how many more the list left out.
+func writeLibraryItems(w io.Writer, p *l10n.Printer, l LibraryItems) error {
+	if len(l.Items) == 0 {
+		empty := msgNoAlbums
+		if l.Kind == "playlist" {
+			empty = msgNoPlaylists
+		}
+		_, err := fmt.Fprintln(w, p.T(empty))
+		return err
+	}
+	var b strings.Builder
+	for _, it := range l.Items {
+		line := byArtist(p, it.Name, it.Subtitle)
+		if it.URL != "" {
+			line += "  " + it.URL
+		}
+		b.WriteString(line + "\n")
+	}
+	if more := l.Total - len(l.Items); more > 0 {
+		b.WriteString(p.Sprintf(msgLibraryMore, more) + "\n")
+	}
+	_, err := io.WriteString(w, b.String())
+	return err
 }
 
 // statusTemplate parses a --format template. Its data is the status's

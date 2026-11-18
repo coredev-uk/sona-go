@@ -233,16 +233,19 @@ func TestAddonDocExamplesValidate(t *testing.T) {
 func TestAddonDocSchemaRefusesWhatItForbids(t *testing.T) {
 	schema, _, _ := docBlocks(t)
 	for name, tc := range map[string]struct{ def, frame string }{
-		"artwork on an Apple API host":    {"NowPlayingEvent", `{"event":"now-playing","data":{"track":{"id":"1","title":"t","artist":"a","album":"b","duration":1,"explicit":false,"artwork":"https://amp-api.music.apple.com/x.jpg"},"startedAt":1}}`},
-		"private flag set":                {"StatusEvent", `{"event":"status","data":{"running":true,"state":"idle","track":null,"position":0,"volume":1,"shuffle":false,"repeat":"off","private":true,"preview":false,"error":""}}`},
-		"unknown permission":              {"HelloRequest", `{"id":1,"method":"hello","params":{"id":"demo","protocol":{"min":"2.0","max":"2.0"},"permissions":["root"]}}`},
-		"toast of a script URL":           {"InvokeResponse", `{"id":1,"result":{"url":"file:///etc/passwd"}}`},
-		"a share link on another host":    {"SearchResponse", `{"id":1,"result":{"term":"x","results":[{"kind":"song","id":"1","name":"n","subtitle":"","explicit":false,"url":"https://evil.example/music.apple.com"}]}}`},
-		"extra field":                     {"ShutdownEvent", `{"event":"shutdown","x":1}`},
-		"a frame of no kind":              {"Frame", `{"hello":1}`},
-		"a manifest with a field":         {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run","permissions":[],"runtime":"wasm"}`},
-		"a manifest command up":           {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"/bin/sh","permissions":[]}`},
-		"a manifest command with a drive": {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"C:run","permissions":[]}`},
+		"artwork on an Apple API host":          {"NowPlayingEvent", `{"event":"now-playing","data":{"track":{"id":"1","title":"t","artist":"a","album":"b","duration":1,"explicit":false,"artwork":"https://amp-api.music.apple.com/x.jpg"},"startedAt":1}}`},
+		"private flag set":                      {"StatusEvent", `{"event":"status","data":{"running":true,"state":"idle","track":null,"position":0,"volume":1,"shuffle":false,"repeat":"off","private":true,"preview":false,"spatial":false,"error":""}}`},
+		"unknown permission":                    {"HelloRequest", `{"id":1,"method":"hello","params":{"id":"demo","protocol":{"min":"2.0","max":"2.0"},"permissions":["root"]}}`},
+		"toast of a script URL":                 {"InvokeResponse", `{"id":1,"result":{"url":"file:///etc/passwd"}}`},
+		"a share link on another host":          {"SearchResponse", `{"id":1,"result":{"term":"x","results":[{"kind":"song","id":"1","name":"n","subtitle":"","explicit":false,"url":"https://evil.example/music.apple.com"}]}}`},
+		"extra field":                           {"ShutdownEvent", `{"event":"shutdown","x":1}`},
+		"a frame of no kind":                    {"Frame", `{"hello":1}`},
+		"a manifest with a field":               {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run","permissions":[],"sandbox":"wasm"}`},
+		"a manifest command up":                 {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"/bin/sh","permissions":[]}`},
+		"a manifest command with a drive":       {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"C:run","permissions":[]}`},
+		"a wasm manifest with a native command": {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run","runtime":"wasm","permissions":[]}`},
+		"a manifest with another runtime":       {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run","runtime":"docker","permissions":[]}`},
+		"a wasm manifest asking for network":    {"Manifest", `{"id":"demo","name":"d","version":"1.0.0","command":"run.wasm","runtime":"wasm","permissions":["network"]}`},
 	} {
 		if errs := validateDef(t, schema, tc.def, []byte(tc.frame)); len(errs) == 0 {
 			t.Errorf("%s: the schema accepted %s", name, tc.frame)
@@ -262,7 +265,7 @@ func TestAddonDocCoversTheCode(t *testing.T) {
 	codes := AddonErrorCodes()
 	for _, r := range rows {
 		if !slices.Contains(codes, r[1]) && !slices.Contains(Permissions, r[1]) && !slices.Contains(Topics, r[1]) && r[1] != EventShutdown &&
-			!slices.Contains([]string{"id", "name", "version", "description", "command", "permissions", "contributions", "strings", "toast", "url"}, r[1]) { // the manifest's fields and an invoke result's
+			!slices.Contains([]string{"id", "name", "version", "description", "command", "runtime", "permissions", "contributions", "strings", "toast", "url"}, r[1]) { // the manifest's fields and an invoke result's
 			t.Errorf("the page's table has %q, which is not a code", r[1])
 		}
 	}
@@ -314,20 +317,20 @@ func TestAddonDocCoversTheCode(t *testing.T) {
 		fmt.Sprintf("| Unread frames queued for the add-on | %d |", l.Queue),
 		fmt.Sprintf("| Call rate | %.0f per second, burst %d |", defaultRates[""].PerSecond, defaultRates[""].Burst),
 		fmt.Sprintf("| `search` | %.0f per second, burst %d |", defaultRates[PermSearch].PerSecond, defaultRates[PermSearch].Burst),
-		fmt.Sprintf("| `like`, `open` | %.0f per second, burst %d |", defaultRates[PermLike].PerSecond, defaultRates[PermLike].Burst),
+		fmt.Sprintf("| `like`, `library`, `open` | %.0f per second, burst %d |", defaultRates[PermLike].PerSecond, defaultRates[PermLike].Burst),
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the page's limits lack %q", want)
 		}
 	}
-	if defaultRates[PermLike] != defaultRates[PermOpen] {
-		t.Error("like and open no longer share a rate; the page's row says they do")
+	if defaultRates[PermLike] != defaultRates[PermOpen] || defaultRates[PermLike] != defaultRates[PermLibrary] {
+		t.Error("like, library and open no longer share a rate; the page's row says they do")
 	}
 	if !strings.Contains(text, "never more than 30") || MaxInvokeDeadline != 30*time.Second || DefaultInvokeDeadline != 10*time.Second {
 		t.Error("the invoke deadlines moved; update the page")
 	}
-	if !strings.Contains(text, "Permissions are advisory until the OS sandbox (#304) lands") {
-		t.Error("the page must say permissions are advisory")
+	if !strings.Contains(text, "Every native add-on runs in an OS sandbox.") || strings.Contains(text, "advisory until") {
+		t.Error("the page must say every native add-on runs in the OS sandbox")
 	}
 }
 
@@ -353,9 +356,14 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 		"queue":   Queue{Index: 0, Tracks: []QueueTrack{{Track: track}}},
 		"search":  SearchResults{Term: "x", Results: []SearchResult{{Kind: "album", ID: "1", Name: "n", URL: "https://music.apple.com/gb/album/n/1"}}},
 		"lyrics":  Lyrics{Track: track, State: StatePlaying, Timing: "line", Synced: true, Lines: []LyricLine{{Start: 1, End: 2, Text: "la"}}},
-		"like":    Like{Track: track, Liked: true},
+		"like":    Like{Track: track, Liked: true, InLibrary: true},
+		"dislike": Like{Track: track, Disliked: true},
+		"library": LibraryItems{Kind: "playlist", Total: 2, Items: []LibraryItem{{
+			ID: "p.1", Name: "Mix", Artwork: "https://is1-ssl.mzstatic.com/a/600x600bb.jpg", URL: "https://music.apple.com/library/playlist/p.1",
+		}}},
 		"volume":  Volume{Volume: 30},
 		"private": Private{On: true, Source: SourceSetting, Saved: true},
+		"spatial": Spatial{On: true},
 		"open":    Opened{Kind: "album", ID: "1", Storefront: "gb"},
 	}
 	a.host.call = func(_ context.Context, req Request) (any, error) {
@@ -366,7 +374,7 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 	}
 	defs := map[string]string{
 		"status": "Status", "play": "Status", "queue": "Queue", "search": "SearchResults", "lyrics": "Lyrics",
-		"like": "Like", "volume": "Volume", "private": "Private", "open": "Opened",
+		"like": "Like", "dislike": "Like", "library": "LibraryItems", "volume": "Volume", "private": "Private", "spatial": "Spatial", "open": "Opened",
 	}
 	var raws [][]byte
 	next := func() []byte { raw := a.recvRaw(); raws = append(raws, raw); return raw }
@@ -378,9 +386,9 @@ func TestAddonSessionFramesMatchTheSchema(t *testing.T) {
 	a.host.hub.Publish(TopicNowPlaying, NowPlaying{Track: &track, StartedAt: 9})
 	a.host.hub.Publish(TopicQueue, results["queue"])
 	id := int64(2)
-	for _, cmd := range []string{"status", "play", "queue", "search", "lyrics", "like", "volume", "private", "open"} {
+	for _, cmd := range []string{"status", "play", "queue", "search", "lyrics", "like", "dislike", "library", "volume", "private", "spatial", "open"} {
 		id++
-		args := map[string]string{"search": `["abbey"]`, "open": `["https://music.apple.com/gb/album/n/1"]`}[cmd]
+		args := map[string]string{"search": `["abbey"]`, "open": `["https://music.apple.com/gb/album/n/1"]`, "library": `["playlists"]`}[cmd]
 		if args == "" {
 			args = "[]"
 		}

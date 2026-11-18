@@ -11,11 +11,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/addons"
+	"github.com/coredev-uk/sona-go/internal/addons/sandbox"
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/privatemode"
 )
@@ -40,9 +42,15 @@ func newAddonEnv(t *testing.T) *addonEnv {
 	if err := ce.e.Paths.Ensure(); err != nil {
 		t.Fatal(err)
 	}
+	// These tests are about the supervisor, on any system: their fake add-ons
+	// run without the sandbox, which internal/addons/sandbox's tests cover.
+	t.Setenv(sandbox.EnvUnsandboxed, "1")
 	s := newAddonsService(ce.e)
 	s.attach(ce.srv.addon)
 	ce.srv.addons = s
+	// The test binary is not Sona: its bundled add-ons stay refused unless a
+	// test points exe at a script of its own.
+	s.opts.exe = ""
 	s.opts.backoff = []time.Duration{5 * time.Millisecond}
 	s.opts.grace = 100 * time.Millisecond
 	s.opts.helloTimeout = 5 * time.Second
@@ -126,7 +134,7 @@ func TestAddonsListsAndRefuses(t *testing.T) {
 	a := newAddonEnv(t)
 	a.install(t, "good", manifestJSON("good", "playback.read"), "exit 0\n")
 	a.install(t, "broken", `{"id":"broken","name":"x","version":"1.0.0","command":"run","permissions":[],"extra":1}`, "exit 0\n")
-	a.install(t, "lastfm", manifestJSON("lastfm"), "exit 0\n")
+	a.install(t, "sona-tools", manifestJSON("sona-tools"), "exit 0\n")
 	a.install(t, "named-wrong", manifestJSON("other"), "exit 0\n")
 	got := map[string]AddonInfo{}
 	for _, i := range a.svc.List() {
@@ -135,7 +143,7 @@ func TestAddonsListsAndRefuses(t *testing.T) {
 	if i := got["good"]; i.State != AddonOff || i.Enabled || i.Name != "Add-on good" || len(i.Permissions) != 1 || len(i.Granted) != 0 || i.Problem != "" {
 		t.Errorf("good = %+v", i)
 	}
-	for id, problem := range map[string]string{"broken": addons.ProblemManifest, "lastfm": addons.ProblemReservedID, "other": addons.ProblemIDMismatch} {
+	for id, problem := range map[string]string{"broken": addons.ProblemManifest, "sona-tools": addons.ProblemReservedID, "other": addons.ProblemIDMismatch} {
 		i, ok := got[id]
 		if !ok && id == "other" {
 			i = got["named-wrong"]
@@ -145,8 +153,8 @@ func TestAddonsListsAndRefuses(t *testing.T) {
 		}
 	}
 	// A refused add-on can't be enabled; one that doesn't exist is not found.
-	if err := a.svc.Enable("lastfm", nil); !errors.Is(err, ErrInvalidArgument) {
-		t.Errorf("enable lastfm: %v", err)
+	if err := a.svc.Enable("sona-tools", nil); !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("enable sona-tools: %v", err)
 	}
 	if err := a.svc.Enable("nothing", nil); CodeOf(err) != CodeNotFound {
 		t.Errorf("enable unknown: %v (%s)", err, CodeOf(err))
@@ -540,5 +548,125 @@ func TestAddonsOpenFolderCreatesItPrivateAndOpensIt(t *testing.T) {
 	a.svc.e.OpenURL = nil
 	if err := a.svc.OpenFolder(); !errors.Is(err, errors.ErrUnsupported) {
 		t.Errorf("without a way to open: %v", err)
+	}
+}
+
+// Where the sandbox can't be set up the add-on is refused, with the reason,
+// and never run: no restart, no run without it.
+func TestAddonsRefusedWhenTheSandboxCannotStart(t *testing.T) {
+	a := newAddonEnv(t)
+	dir := a.install(t, "demo", manifestJSON("demo", "playback.read"), "touch ran\n"+hello("demo", "playback.read")+"sleep 30\n")
+	var starts int
+	a.svc.opts.start = func(addons.Spec) (*addons.Proc, error) {
+		starts++
+		return nil, &sandbox.Error{Reason: sandbox.ReasonUserNamespaceRestricted, Detail: "no capabilities"}
+	}
+	if err := a.svc.Enable("demo", []string{"playback.read"}); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.start()
+	i := a.waitState(t, "demo", AddonNoSandbox)
+	if i.Sandbox != addons.SandboxUserNamespaceRestricted || !i.Enabled || i.Problem != "" {
+		t.Errorf("info = %+v", i)
+	}
+	time.Sleep(100 * time.Millisecond) // a restart would show by now
+	if starts != 1 || a.info(t, "demo").Restarts != 0 {
+		t.Errorf("started %d times, info %+v: a sandbox failure is not a crash to restart", starts, a.info(t, "demo"))
+	}
+	if _, err := os.Stat(filepath.Join(dir, "ran")); err == nil {
+		t.Error("the add-on ran without its sandbox")
+	}
+	lines, _ := a.svc.Log("demo")
+	if !strings.Contains(strings.Join(lines, "\n"), "not started: the sandbox can't be set up") {
+		t.Errorf("log = %q", lines)
+	}
+	// Switching it off clears the reason; turning it on tries again.
+	if err := a.svc.Disable("demo"); err != nil {
+		t.Fatal(err)
+	}
+	if i := a.info(t, "demo"); i.State != AddonOff || i.Sandbox != "" {
+		t.Errorf("after disable: %+v", i)
+	}
+	if err := a.svc.Enable("demo", []string{"playback.read"}); err != nil {
+		t.Fatal(err)
+	}
+	a.waitState(t, "demo", AddonNoSandbox)
+	if starts != 2 {
+		t.Errorf("turning it on again started %d times, want 2", starts)
+	}
+}
+
+// An add-on gets its private data folder, 0700, and the network only when its
+// manifest asks and the user approved; uninstalling it leaves the folder.
+func TestAddonsDataFolderAndNetwork(t *testing.T) {
+	a := newAddonEnv(t)
+	a.install(t, "net", manifestJSON("net", "network"), "exit 0\n")
+	a.install(t, "quiet", manifestJSON("quiet", "playback.read"), "exit 0\n")
+	specs := map[string]addons.Spec{}
+	var mu sync.Mutex
+	a.svc.opts.start = func(spec addons.Spec) (*addons.Proc, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		specs[filepath.Base(spec.Dir)] = spec
+		return nil, &sandbox.Error{Reason: sandbox.ReasonSetup}
+	}
+	if err := a.svc.Enable("net", []string{"network"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.svc.Enable("quiet", []string{"playback.read"}); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.start()
+	a.waitState(t, "net", AddonNoSandbox)
+	a.waitState(t, "quiet", AddonNoSandbox)
+	mu.Lock()
+	defer mu.Unlock()
+	if !specs["net"].Network || specs["quiet"].Network {
+		t.Errorf("network: net %v, quiet %v", specs["net"].Network, specs["quiet"].Network)
+	}
+	data := a.e.Paths.AddonDataDir("net")
+	if specs["net"].Data != data {
+		t.Errorf("data folder %q, want %q", specs["net"].Data, data)
+	}
+	if fi, err := os.Stat(data); err != nil || fi.Mode().Perm() != 0o700 {
+		t.Errorf("data folder: %v, %v", fi, err)
+	}
+	env := strings.Join(specs["net"].Env, "\n")
+	for _, want := range []string{"SONA_ADDON_DATA=" + data, "HOME=" + data, "TMPDIR=" + filepath.Join(data, "tmp")} {
+		if !strings.Contains(env, want) {
+			t.Errorf("environment lacks %q:\n%s", want, env)
+		}
+	}
+	// Uninstalling leaves the folder: it is the user's to remove.
+	if err := os.WriteFile(filepath.Join(data, "state.db"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(a.root, "net")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(data, "state.db")); err != nil {
+		t.Errorf("uninstalling removed the data folder's content: %v", err)
+	}
+}
+
+// The network is the sandbox's, fixed when the process starts, so taking the
+// permission back ends the add-on instead of leaving it online.
+func TestAddonsRevokingNetworkStopsTheAddon(t *testing.T) {
+	a := newAddonEnv(t)
+	a.install(t, "net", manifestJSON("net", "network"), hello("net", "network")+"sleep 30\n")
+	if err := a.svc.Enable("net", []string{"network"}); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.start()
+	a.waitState(t, "net", AddonRunning)
+	if err := a.svc.Revoke("net", "network"); err != nil {
+		t.Fatal(err)
+	}
+	a.waitState(t, "net", AddonNeedsApproval)
+	a.svc.mu.Lock()
+	r := a.svc.runners["net"]
+	a.svc.mu.Unlock()
+	if r != nil {
+		t.Error("the runner of an add-on that lost the network is still registered")
 	}
 }

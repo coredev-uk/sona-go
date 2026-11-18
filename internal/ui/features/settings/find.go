@@ -181,6 +181,10 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 			ID: "sound-check", Section: secPlayback, Group: sound, Title: i18n.T("Sound Check"),
 			Keywords: i18n.T("loudness, volume"), When: playable,
 		},
+		{
+			ID: "spatial-audio", Section: secPlayback, Group: sound, Title: i18n.T("Spatial Audio"),
+			Keywords: i18n.T("Dolby Atmos, surround, headphones, binaural"), When: playable,
+		},
 		{ID: "equalizer", Section: secPlayback, Group: sound, Title: i18n.T("Equaliser"), When: playable},
 		{ID: "crossfade", Section: secPlayback, Group: sound, Title: i18n.T("Crossfade"), When: playable},
 		{

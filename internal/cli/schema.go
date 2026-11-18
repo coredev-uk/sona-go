@@ -5,8 +5,8 @@ package cli
 // renamed, removed or changed in meaning (site/src/content/docs/reference/cli.md lists them).
 // Durations and positions are seconds; the volume is a percentage.
 
-// Status is `sona status` and the answer to play, pause, toggle, next
-// and prev.
+// Status is `sona status` and the answer to play, pause, toggle, next,
+// prev, seek, shuffle, repeat, crossfade and `queue jump`.
 type Status struct {
 	// Running is false only when no Sona runs (printed by the client).
 	Running bool `json:"running"`
@@ -26,8 +26,19 @@ type Status struct {
 	Private bool `json:"private"`
 	// Preview: Track plays as its 30-second preview.
 	Preview bool `json:"preview"`
+	// Spatial: Track plays as its Spatial Audio rendition.
+	Spatial bool `json:"spatial"`
 	// Error describes the latest playback failure; "" when none.
 	Error string `json:"error"`
+	// Liked, Disliked and InLibrary are the playing song's state: a
+	// favourite, rated Suggest Less, in your library. All false while
+	// nothing plays and until Sona knows (it asks Apple when the song
+	// starts; a song only in your library is always InLibrary).
+	Liked     bool `json:"liked"`
+	Disliked  bool `json:"disliked"`
+	InLibrary bool `json:"inLibrary"`
+	// Crossfade: songs crossfade into each other (Settings → Playback).
+	Crossfade bool `json:"crossfade"`
 }
 
 // Track is a song in the status or the queue.
@@ -83,11 +94,42 @@ type Volume struct {
 	Volume int `json:"volume"`
 }
 
-// Like is `sona like`: the playing song and whether it is a favourite.
+// Like is `sona like`, `sona dislike` and `sona library` (but its lists):
+// the playing song and its state after the command.
 type Like struct {
 	Track Track `json:"track"`
 	Liked bool  `json:"liked"`
+	// Disliked: rated Suggest Less. InLibrary: in your library.
+	Disliked  bool `json:"disliked"`
+	InLibrary bool `json:"inLibrary"`
 }
+
+// LibraryItems is `sona library playlists` and `sona library albums`:
+// your library's playlists or albums, most recently added first, at most
+// LibraryItemsMax of them.
+type LibraryItems struct {
+	// Kind is "playlist" or "album".
+	Kind string `json:"kind"`
+	// Total is how many the library holds; Items stops at LibraryItemsMax.
+	Total int           `json:"total"`
+	Items []LibraryItem `json:"items"`
+}
+
+// LibraryItem is one playlist or album of the library.
+type LibraryItem struct {
+	// ID is the library ID ("p.…" for a playlist, "l.…" for an album).
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Subtitle is an album's artist; "" for a playlist.
+	Subtitle string `json:"subtitle"`
+	// Artwork is a 600×600 image URL on Apple's artwork CDN; "" when none.
+	Artwork string `json:"artwork"`
+	// URL is its music.apple.com link, for `sona play` and `sona open`.
+	URL string `json:"url"`
+}
+
+// LibraryItemsMax bounds a LibraryItems list.
+const LibraryItemsMax = 500
 
 // Private is `sona private`.
 type Private struct {
@@ -98,6 +140,12 @@ type Private struct {
 	Source string `json:"source"`
 	// Saved is the saved setting.
 	Saved bool `json:"saved"`
+}
+
+// Spatial is `sona spatial`: the Spatial Audio setting, which applies from
+// the next song.
+type Spatial struct {
+	On bool `json:"on"`
 }
 
 // Opened is `sona open`: what the link opened.

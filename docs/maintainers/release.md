@@ -273,8 +273,8 @@ Before merging a release PR, install the release candidate's files:
   makes a Start-menu entry; SmartScreen's "More info" → "Run anyway" works;
   `music:` and `itms:` links open Sona; the portable zip runs from a folder
   the user can write; the uninstaller removes the app and the URL handlers and
-  the playback sandbox's AppContainer profile (`%LOCALAPPDATA%\Packages\sona.cdmhost`
-  is gone; `sona.exe --remove-sandbox` is the same step for the portable zip),
+  the sandboxes' AppContainer profiles (`%LOCALAPPDATA%\Packages\sona.cdmhost`
+  and the add-ons' `sona.addon.<id>` folders are gone; `sona.exe --remove-sandbox` is the same step for the portable zip),
   and keeps the user's data.
 - **Updates (macOS and Windows):** install rc.N, publish rc.N+1 (dispatch on
   `main` with `nightly=true`), turn Test versions on, see the notice, "Install and

@@ -120,11 +120,13 @@ func (u *addonsUI) draft(key, value string) *string {
 func permissionText(p string) (name, allows string) {
 	switch p {
 	case cli.PermPlaybackRead:
-		return i18n.T("Playback state"), i18n.T("Sees which song plays, its progress and whether it is paused.")
+		return i18n.T("Playback state"), i18n.T("Sees which song plays, its progress, whether it is paused, and whether it is a favourite or in your library.")
 	case cli.PermPlaybackControl:
-		return i18n.T("Playback controls"), i18n.T("Can play, pause, skip and go back.")
+		return i18n.T("Playback controls"), i18n.T("Can play, pause, skip, go back and seek, play an Apple Music link, and change shuffle, repeat and crossfade.")
 	case cli.PermQueueRead:
 		return i18n.T("The queue"), i18n.T("Can read the songs that are queued.")
+	case cli.PermQueueControl:
+		return i18n.T("Queue controls"), i18n.T("Can jump to a song in the queue and clear the queue.")
 	case cli.PermLyricsRead:
 		return i18n.T("Lyrics"), i18n.T("Can read the lyrics of the song that plays.")
 	case cli.PermSearch:
@@ -134,9 +136,13 @@ func permissionText(p string) (name, allows string) {
 	case cli.PermVolume:
 		return i18n.T("Volume"), i18n.T("Can read and change the volume.")
 	case cli.PermLike:
-		return i18n.T("Likes"), i18n.T("Can love or unlove the song that plays.")
+		return i18n.T("Likes"), i18n.T("Can love or unlove the song that plays, or rate it Suggest Less.")
+	case cli.PermLibrary:
+		return i18n.T("Your library"), i18n.T("Can add the song that plays to your library or remove it, and list your library's playlists and albums.")
 	case cli.PermPrivateRead:
 		return i18n.T("Private listening, read only"), i18n.T("Can see whether private listening is on. It never hears a private listen and can't change the setting.")
+	case cli.PermNetwork:
+		return i18n.T("Reach the internet"), i18n.T("Can connect to any address on the network: web sites, your home network and this computer's own services.")
 	}
 	return addons.Sanitize(p, 40), ""
 }
@@ -159,7 +165,9 @@ func addonProblemText(code string) string {
 	case addons.ProblemVersion:
 		return i18n.T("Its version isn't a semantic version such as 1.2.0.")
 	case addons.ProblemCommand:
-		return i18n.T("Its command isn't a plain path inside the folder.")
+		return i18n.T("Its command isn't a plain path inside the folder (a .wasm file, for a WebAssembly add-on).")
+	case addons.ProblemRuntime:
+		return i18n.T("Its runtime isn't \"native\" or \"wasm\".")
 	case addons.ProblemPermission:
 		return i18n.T("It asks for a permission Sona doesn't have.")
 	case addons.ProblemContribution:
@@ -167,7 +175,7 @@ func addonProblemText(code string) string {
 	case addons.ProblemStrings:
 		return i18n.T("Its translated labels don't match what it adds.")
 	case addons.ProblemNoExecutable:
-		return i18n.T("Its command isn't a program Sona can run: it is missing, not a regular file or not executable.")
+		return i18n.T("Its command isn't a program Sona can run: it is missing, not a regular file or not executable (for a WebAssembly add-on, not a WebAssembly module).")
 	case addons.ProblemEscapes:
 		return i18n.T("Its command leads out of its folder.")
 	case addons.ProblemUnsafe:
@@ -178,8 +186,51 @@ func addonProblemText(code string) string {
 	return i18n.T("Sona won't run it.")
 }
 
+// sandboxText says why the OS sandbox can't be set up, so that the add-on does
+// not run. Sona never runs one without it.
+func sandboxText(code string) string {
+	switch code {
+	case addons.SandboxUserNamespaceRestricted:
+		return i18n.T("It doesn't run: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxNoUserNamespace:
+		return i18n.T("It doesn't run: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxNoSeccomp:
+		return i18n.T("It doesn't run: the sandbox's system-call filter can't be set up on this computer. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxNoSeatbelt:
+		return i18n.T("It doesn't run: macOS's sandbox tool is missing or refused Sona's rules. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxNoAppContainer:
+		return i18n.T("It doesn't run: Windows couldn't create the AppContainer that sandboxes it. Sona never runs an add-on without the sandbox.")
+	case addons.SandboxUnsupported:
+		return i18n.T("It doesn't run: this system has no sandbox for add-ons, and Sona never runs an add-on without it.")
+	}
+	return i18n.T("It doesn't run: Sona couldn't set up its sandbox, and never runs an add-on without it. The add-on's log has the details.")
+}
+
+// unisolatedText is the muted line under one of Sona's own add-ons that runs
+// without the sandbox, with the reason in plain words.
+func unisolatedText(code string) string {
+	switch code {
+	case addons.SandboxUserNamespaceRestricted:
+		return i18n.T("Running without isolation: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxNoUserNamespace:
+		return i18n.T("Running without isolation: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxNoSeccomp:
+		return i18n.T("Running without isolation: the sandbox's system-call filter can't be set up on this computer. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxNoSeatbelt:
+		return i18n.T("Running without isolation: macOS's sandbox tool is missing or refused Sona's rules. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxNoAppContainer:
+		return i18n.T("Running without isolation: Windows couldn't create the AppContainer that sandboxes it. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxUnsupported:
+		return i18n.T("Running without isolation: this system has no sandbox for add-ons. This add-on is part of Sona and has the same access Sona has.")
+	}
+	return i18n.T("Running without isolation: Sona couldn't set up its sandbox. This add-on is part of Sona and has the same access Sona has. The add-on's log has the details.")
+}
+
 // addonStatus is one sentence on where an add-on is.
 func addonStatus(a services.AddonInfo) string {
+	if a.Unsandboxed != "" && a.State == services.AddonRunning {
+		return unisolatedText(a.Unsandboxed)
+	}
 	switch a.State {
 	case services.AddonRunning:
 		return i18n.T("Running.")
@@ -189,10 +240,14 @@ func addonStatus(a services.AddonInfo) string {
 		return i18n.T("It stopped on its own. Sona starts it again in a moment.")
 	case services.AddonCrashed:
 		return i18n.T("Switched off: it stopped on its own too many times in a row. Turn it on to try again.")
+	case services.AddonIdle:
+		return i18n.T("On. It starts when Sona has something for it to do.")
 	case services.AddonNeedsApproval:
 		return i18n.T("Waiting for you: it asks for a permission you haven't approved. It doesn't run until you do.")
 	case services.AddonInvalid:
 		return addonProblemText(a.Problem)
+	case services.AddonNoSandbox:
+		return sandboxText(a.Sandbox)
 	}
 	return i18n.T("Off. It isn't running.")
 }
@@ -251,10 +306,10 @@ func rowsOf(list []services.AddonContribution, id string) []services.AddonRow {
 }
 
 // addonsTrustNote says, before anything else, what an add-on is: a program
-// run with your rights. Permissions are advisory until the OS sandbox (#304).
+// Sona runs in a sandbox, which still deserves trust.
 func (s *settings) addonsTrustNote(c *ui.Context) {
 	c = c.Key("trust")
-	msg := i18n.T("An add-on is a program that runs with your rights. Permissions limit what Sona gives it, not what the program can do: it can read your files and use the network. Turn on only add-ons you trust.")
+	msg := i18n.T("An add-on is a program that runs beside Sona in a sandbox: it reads only its own folder, writes only its own data folder and has no network unless you allow it to reach the internet. What you approve is what Sona gives it. Turn on only add-ons you trust.")
 	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Start).Padding(12, 16).Margin(rowPadY, 0, 0, 0).Radius(theme.Current().Radius["lg"]).
 		Background(theme.C("raised")).Border(1, theme.C("control-line")).Role(ui.RoleGroup).Label(msg).Children(func() {
 		ui.Icon(c.Key("i"), theme.Icon("shield-alert")).FontSize(16).TextColor(theme.C("danger")).Margin(2, 0, 0, 0).Shrink(0)
@@ -296,8 +351,11 @@ func (s *settings) addonGroup(c *ui.Context, u *addonsUI, a services.AddonInfo, 
 		name = clean(a.ID, 60)
 	}
 	desc := clean(a.Description, 300)
-	if a.Version != "" {
+	if a.Version != "" && !a.Bundled {
 		desc = i18n.Meta(i18n.T("Version {version}", "version", clean(a.Version, 40)), desc)
+	}
+	if a.Runtime == addons.RuntimeWasm {
+		desc = i18n.Meta(i18n.T("WebAssembly"), desc)
 	}
 	s.group(c, "addon:"+a.ID, name, desc, func() {
 		if a.State == services.AddonInvalid {
@@ -356,6 +414,10 @@ func (s *settings) addonSwitch(c *ui.Context, u *addonsUI, a services.AddonInfo,
 		sw := kit.Switch(c, &on, kit.SwitchOpts{A11yLabel: i18n.T("Turn on {name}", "name", name), Disabled: busy})
 		if sw.Changed() {
 			switch {
+			case on && a.Bundled:
+				// Sona's own add-on: part of the app Sona is, nothing to approve.
+				approve := slices.Clone(a.Permissions)
+				s.addonCall(u, a.ID, func() error { return s.addons.Enable(a.ID, approve) })
 			case on:
 				// Never on without the person seeing what it asks for.
 				u.approving, u.focus = a.ID, 0
@@ -387,7 +449,11 @@ func (s *settings) addonApproval(c *ui.Context, u *addonsUI, a services.AddonInf
 			theme.Text(c, i18n.T("It asks for these permissions:"), "secondary").TextColor(theme.C("ink-muted"))
 			s.permissionList(c, name, a.Permissions, nil)
 		}
-		theme.Text(c, i18n.T("It runs with your rights: permissions limit what Sona gives it, not what it can do."), "secondary").
+		note := i18n.T("It runs in a sandbox: it reads only its own folder, writes only its own data folder and reaches the internet only if you approve that.")
+		if a.Runtime == addons.RuntimeWasm {
+			note = i18n.T("It runs inside Sona as a WebAssembly module. It can use only its own data folder and can't reach the network: permissions limit what Sona gives it.")
+		}
+		theme.Text(c, note, "secondary").
 			TextColor(theme.C("ink-muted")).MaxWidth(rowTextWidth)
 		ui.Row(c.Key("buttons")).Gap(8).Children(func() {
 			ok := kit.Button(c.Key("ok"), i18n.T("Turn on"), kit.ButtonOpts{Size: kit.SizeSM, Disabled: u.busy[a.ID], A11yLabel: i18n.T("Turn on {name}", "name", name)})
@@ -444,7 +510,10 @@ func (s *settings) permissionList(c *ui.Context, addon string, asked []string, g
 // very next call).
 func (s *settings) addonPermissions(c *ui.Context, u *addonsUI, a services.AddonInfo, name string) {
 	id := "addon:" + a.ID + ":permissions"
-	desc := i18n.T("What Sona lets it do. It runs with your rights either way.")
+	desc := i18n.T("What Sona lets it do. The sandbox holds it either way.")
+	if a.Runtime == addons.RuntimeWasm {
+		desc = i18n.T("What Sona lets it do. It can use only its own data folder and can't reach the network either way.")
+	}
 	s.row(c, rowOpts{ID: id, Title: i18n.T("Permissions"), Desc: desc, Stacked: true}, func() ui.Element {
 		if len(a.Permissions) == 0 {
 			theme.Text(c, i18n.T("It asks for no permissions."), "secondary").TextColor(theme.C("ink-muted"))
@@ -453,6 +522,9 @@ func (s *settings) addonPermissions(c *ui.Context, u *addonsUI, a services.Addon
 		s.permissionList(c, name, a.Permissions, func(p string) (bool, func()) {
 			if !slices.Contains(a.Granted, p) {
 				return false, nil
+			}
+			if a.Bundled {
+				return true, nil // Sona's own: part of it, nothing to revoke
 			}
 			return true, func() { s.addonCall(u, a.ID, func() error { return s.addons.Revoke(a.ID, p) }) }
 		})

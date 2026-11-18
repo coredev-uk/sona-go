@@ -22,6 +22,7 @@ type audioEng struct {
 	eqs     []equalizer.Curve
 	devices []string
 	checks  []bool
+	spatial []bool
 }
 
 func (e *audioEng) SetVolume(_ context.Context, v float64) error {
@@ -54,6 +55,12 @@ func (e *audioEng) SetSoundCheck(_ context.Context, on bool) error {
 	defer e.mu.Unlock()
 	e.checks = append(e.checks, on)
 	return nil
+}
+
+func (e *audioEng) SetSpatial(on bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.spatial = append(e.spatial, on)
 }
 
 // MPRIS Volume is the slider value both ways; the engine alone applies
@@ -89,7 +96,7 @@ func TestAudioSettingsApplyAtStartAndOnChange(t *testing.T) {
 	}
 	if _, err := first.Update(func(s *config.Settings) {
 		s.Audio.Equalizer.Enabled, s.Audio.Equalizer.Preset, s.Audio.Equalizer.Preamp = true, "bass-boost", -2
-		s.Audio.OutputDevice, s.Audio.SoundCheck = "alsa_output.usb", true
+		s.Audio.OutputDevice, s.Audio.SoundCheck, s.Audio.SpatialAudio = "alsa_output.usb", true, true
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -102,8 +109,8 @@ func TestAudioSettingsApplyAtStartAndOnChange(t *testing.T) {
 	newAudioService(&Env{Deps: Deps{Settings: settings, Engine: eng, Logger: discard()}})
 	want := equalizer.Curve{Pregain: -8, Gains: [10]float64{6, 5, 4, 2.5, 1}}
 	if len(eng.eqs) != 1 || eng.eqs[0] != want || len(eng.devices) != 1 || eng.devices[0] != "alsa_output.usb" ||
-		len(eng.checks) != 1 || !eng.checks[0] {
-		t.Fatalf("at start: eqs %v devices %q sound check %v", eng.eqs, eng.devices, eng.checks)
+		len(eng.checks) != 1 || !eng.checks[0] || len(eng.spatial) != 1 || !eng.spatial[0] {
+		t.Fatalf("at start: eqs %v devices %q sound check %v spatial %v", eng.eqs, eng.devices, eng.checks, eng.spatial)
 	}
 
 	if _, err := settings.Update(func(s *config.Settings) { s.Audio.Equalizer.Enabled = false }); err != nil {
@@ -112,7 +119,13 @@ func TestAudioSettingsApplyAtStartAndOnChange(t *testing.T) {
 	if _, err := settings.Update(func(s *config.Settings) { s.Theme = config.ThemeDark }); err != nil {
 		t.Fatal(err)
 	}
-	if len(eng.eqs) != 2 || eng.eqs[1] != (equalizer.Curve{}) || len(eng.devices) != 1 || len(eng.checks) != 1 {
-		t.Errorf("after turning the equaliser off and an unrelated change: eqs %v devices %q checks %v", eng.eqs, eng.devices, eng.checks)
+	if len(eng.eqs) != 2 || eng.eqs[1] != (equalizer.Curve{}) || len(eng.devices) != 1 || len(eng.checks) != 1 || len(eng.spatial) != 1 {
+		t.Errorf("after turning the equaliser off and an unrelated change: eqs %v devices %q checks %v spatial %v", eng.eqs, eng.devices, eng.checks, eng.spatial)
+	}
+	if _, err := settings.Update(func(s *config.Settings) { s.Audio.SpatialAudio = false }); err != nil {
+		t.Fatal(err)
+	}
+	if len(eng.spatial) != 2 || eng.spatial[1] {
+		t.Errorf("after turning Spatial Audio off: %v", eng.spatial)
 	}
 }

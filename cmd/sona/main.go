@@ -23,6 +23,9 @@ import (
 	"github.com/egoist/mygo/transfer"
 
 	"github.com/coredev-uk/sona-go/build"
+	"github.com/coredev-uk/sona-go/internal/addons"
+	"github.com/coredev-uk/sona-go/internal/addons/own"
+	"github.com/coredev-uk/sona-go/internal/addons/sandbox"
 	"github.com/coredev-uk/sona-go/internal/app"
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
@@ -68,6 +71,16 @@ func main() {
 	// The CDM host re-executes this binary as its child process; in the
 	// child this never returns. It must run before anything else.
 	childMain()
+	// So does the add-ons' sandbox on Linux: the init of an add-on's
+	// namespaces is this binary (internal/addons/sandbox).
+	sandbox.Main()
+
+	// `sona --addon <id>` is one of Sona's own add-ons (internal/addons/own),
+	// which the supervisor runs as a child over its standard input and
+	// output. It starts nothing else of Sona.
+	if len(os.Args) == 3 && os.Args[1] == addons.BundledFlag {
+		os.Exit(own.Main(os.Args[2], version, os.Stdin, os.Stdout, os.Stderr))
+	}
 
 	for _, arg := range os.Args[1:] {
 		if arg == "--version" {
@@ -82,17 +95,18 @@ func main() {
 			fmt.Fprintln(os.Stderr, "sona: --remove-sandbox:", err)
 			os.Exit(1)
 		}
-		fmt.Println("sona: the playback sandbox is removed")
+		fmt.Println("sona: the playback and add-on sandboxes are removed")
 		return
 	}
 	// `sona play`, `sona status` and the other commands (internal/cli) act
 	// on the running instance and exit; they never start Sona.
 	if cli.IsCommand(os.Args[1:]) {
 		// `sona addons dev` runs until Ctrl+C and ends its run on the way out;
-		// no other command waits.
+		// `sona connect` until its program closes its input. No other
+		// command waits.
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		status := cli.Run(ctx, os.Args[1:], cli.Env{
-			Stdout: os.Stdout, Stderr: os.Stderr, Dial: dialInstance, Version: version, Printer: cliPrinter(),
+			Stdout: os.Stdout, Stderr: os.Stderr, Stdin: os.Stdin, Dial: dialInstance, Version: version, Printer: cliPrinter(),
 			Terminal: isTerminal(os.Stdout),
 		})
 		stop()

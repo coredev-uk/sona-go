@@ -13,6 +13,10 @@ import (
 // ListenBrainzAPI is the public ListenBrainz server.
 const ListenBrainzAPI = "https://api.listenbrainz.org"
 
+// ListenBrainzBatch is how many listens one import request carries: it keeps
+// requests well under the server's size limits.
+const ListenBrainzBatch = 100
+
 // ListenBrainz submits listens with a user token
 // (https://listenbrainz.readthedocs.io/en/latest/users/api/core.html).
 type ListenBrainz struct {
@@ -25,8 +29,8 @@ type ListenBrainz struct {
 // Name is the provider name.
 func (c *ListenBrainz) Name() string { return "listenbrainz" }
 
-// MaxBatch keeps import requests well under the server's size limits.
-func (c *ListenBrainz) MaxBatch() int { return 100 }
+// MaxBatch is ListenBrainzBatch.
+func (c *ListenBrainz) MaxBatch() int { return ListenBrainzBatch }
 
 // Validate checks token and returns its user name; an invalid token is
 // ErrAuth.
