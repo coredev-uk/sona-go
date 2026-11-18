@@ -459,7 +459,10 @@ func presenceFor(snap coordinator.Snapshot) *discord.Activity {
 // outside Sona (Discord fetches it itself). Only https URLs on Apple's
 // public artwork CDN qualify: never Sona's local /art/ URLs or anything
 // that could carry credentials.
-func publicArtURL(tmpl string, size int) string {
+func publicArtURL(tmpl string, size int) string { return publicArtSized(tmpl, size, size) }
+
+// publicArtSized is publicArtURL for a w×h picture (a banner is not square).
+func publicArtSized(tmpl string, w, h int) string {
 	tmpl = strings.TrimSpace(tmpl)
 	u, err := url.Parse(tmpl)
 	if err != nil || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
@@ -469,6 +472,5 @@ func publicArtURL(tmpl string, size int) string {
 	if !strings.HasSuffix(host, ".mzstatic.com") || host == ".mzstatic.com" || (u.Port() != "" && u.Port() != "443") {
 		return ""
 	}
-	n := strconv.Itoa(size)
-	return strings.NewReplacer("{w}", n, "{h}", n, "{c}", "bb", "{f}", "jpg").Replace(tmpl)
+	return strings.NewReplacer("{w}", strconv.Itoa(w), "{h}", strconv.Itoa(h), "{c}", "bb", "{f}", "jpg").Replace(tmpl)
 }

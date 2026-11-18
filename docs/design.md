@@ -1305,6 +1305,15 @@ Settings (h1)                  Playback (h2 at 24/650)
 - **Diagnostics** leads with its verdict at 16/600 beside its icon ("Everything Sona needs is working", or the count of problems), the warnings counted under it, as the first margin note; its three actions are the first row beside it. The checks follow as groups in the margin frame, ledger rows of a 200px name column and the value. Variable names break after an underscore. The last group, Developer Tools, holds two ordinary setting rows: the **Developer tools** switch (off by default; it adds Inspect to every item's menu) and Open the inspector.
 - No amber anywhere on the page: it has nothing playing to show.
 
+## Item inspector
+
+An Operate surface (Settings → Diagnostics → Developer tools, then Inspect in an item's menu): dense, precise, in the house style, with no amber. A bare dialog 960 wide on the ground: a header (56 artwork, name 18/600, "Kind · subtitle", the IDs as 24px bordered chips), a line-variant tab strip, one fixed-height body, a foot, each divided by a 1px `--line`.
+
+- **No monospace.** The grotesque stays; numbers use tabular figures, and structure is shown by indentation guides (1px `--line` columns, 16 DIPs a level) and arrows.
+- **JSON colours** reuse existing text tokens and add none: key `--ink-muted`, string `--ink`, number `--positive`, boolean `--danger`, null `--ink-faint`. They are plain hues here, not statuses; the quotes and the word "null" carry the type as well.
+- The ledger is label (13, `--ink-muted`, 200px) and value (`--ink`, selectable) rows; a change of group is a wider gap, not a rule or a card.
+- A tab with no data is dimmed with a tooltip that says why. Loading is the same layout in flat `--hover` bars; an error sits in the tab with Retry.
+
 ## Command palette and shortcut sheet
 
 Both are launcher surfaces: raised panels over the scrim, one field at the top, one list, a foot that names the keys. Nothing in them is amber.
