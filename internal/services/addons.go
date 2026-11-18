@@ -186,6 +186,9 @@ func (s *AddonsService) attach(h cli.AddonHost) {
 
 // start runs the enabled add-ons, after the first paint.
 func (s *AddonsService) start() {
+	// Before recMu is taken: saving the settings runs reconcile, which takes
+	// it and does nothing until the service has started.
+	s.healBundled()
 	// Held until every add-on is begun: reconcile, woken by a settings change
 	// meanwhile, must not begin one of them a second time.
 	s.recMu.Lock()
@@ -302,19 +305,49 @@ func (s *AddonsService) entryOf(id, dir string) addons.Entry {
 	return addons.ScanOne(filepath.Join(s.root, dir), addons.ScanOptions{})
 }
 
-// setting is the saved decision about en. Sona's own add-ons are on unless
-// the user turned one off, and always hold the permissions their manifest
-// asks for: they are the signed release itself, there is nothing to approve.
+// setting is the saved decision about en. Sona's own add-ons are always on:
+// whether one runs is its integration's to say (bundledWanted), and the saved
+// flag of one is never read, so no old or stray value of it can keep one off
+// (healBundled). They hold the permissions their manifest asks for: they are
+// the signed release itself, there is nothing to approve.
 func (s *AddonsService) setting(en addons.Entry) config.AddonSetting {
-	st, saved := s.e.Settings.Get().Addons[en.ID]
+	st := s.e.Settings.Get().Addons[en.ID]
 	if !en.Bundled {
 		return st
 	}
-	if !saved {
-		st.Enabled = true
-	}
+	st.Enabled = true
 	st.Granted = slices.Clone(en.Manifest.Permissions)
 	return st
+}
+
+// healBundled puts right what Sona's crash rule saved for its own add-ons
+// before it stopped doing that (0.7.0-rc.3 saved `enabled: false` after five
+// quick stops, and a Sona that couldn't start them ended up with all three
+// off in settings.json): a saved entry of one of them that says off is saved
+// as on. Nothing reads it any more (setting); this keeps the file, and what
+// anything that reads it says, true.
+func (s *AddonsService) healBundled() {
+	stuck := func(st config.Settings) bool {
+		for id, a := range st.Addons {
+			if addons.IsBundled(id) && !a.Enabled {
+				return true
+			}
+		}
+		return false
+	}
+	if !stuck(s.e.Settings.Get()) {
+		return
+	}
+	if _, err := s.e.updateSettings(func(st *config.Settings) {
+		for id, a := range st.Addons {
+			if addons.IsBundled(id) && !a.Enabled {
+				a.Enabled = true
+				st.Addons[id] = a
+			}
+		}
+	}); err != nil {
+		s.e.Logger.Warn("addons: heal the saved switches of Sona's own add-ons", "err", err)
+	}
 }
 
 // covers reports whether granted holds every permission of asked.
@@ -355,6 +388,7 @@ func (s *AddonsService) List() []AddonInfo {
 		switch r := runners[en.ID]; {
 		case r != nil && !st.Enabled && r.crashed():
 			info.State, info.Restarts = r.snapshot()
+			info.Reason = r.failure()
 		case !st.Enabled:
 			info.State = AddonOff
 		case en.Bundled && r == nil && !s.inUse(en.ID, cur):
@@ -363,6 +397,7 @@ func (s *AddonsService) List() []AddonInfo {
 			info.State = AddonNeedsApproval
 		case r != nil:
 			info.State, info.Restarts = r.snapshot()
+			info.Reason = r.failure()
 			info.Sandbox = r.sandboxReason()
 			info.Unsandboxed = r.unsandboxedReason()
 		default:
@@ -401,7 +436,10 @@ var ErrNotFoundAddon = errors.New("no such add-on")
 // the permissions the manifest asks for now, as the user was shown them: a
 // manifest that changed since is refused, so the user never approves what
 // they didn't see. The add-on starts at once when the network is open (the
-// first paint has happened), otherwise with the rest.
+// first paint has happened), otherwise with the rest. For one of Sona's own
+// add-ons there is nothing to switch on or approve (it is always on and runs
+// while its integration is in use): it saves nothing, and starts the add-on
+// again at once when it is waiting to be restarted, or stopped.
 func (s *AddonsService) Enable(id string, approve []string) error {
 	if !addons.Supported() {
 		return errors.ErrUnsupported
@@ -417,13 +455,15 @@ func (s *AddonsService) Enable(id string, approve []string) error {
 	if !slices.Equal(asked, got) {
 		return fmt.Errorf("%w: the approved permissions are not the ones the manifest asks for", ErrInvalidArgument)
 	}
-	if _, err := s.e.updateSettings(func(st *config.Settings) {
-		if st.Addons == nil {
-			st.Addons = config.Addons{}
+	if !en.Bundled {
+		if _, err := s.e.updateSettings(func(st *config.Settings) {
+			if st.Addons == nil {
+				st.Addons = config.Addons{}
+			}
+			st.Addons[en.ID] = config.AddonSetting{Enabled: true, Granted: asked}
+		}); err != nil {
+			return err
 		}
-		st.Addons[en.ID] = config.AddonSetting{Enabled: true, Granted: asked}
-	}); err != nil {
-		return err
 	}
 	s.mu.Lock()
 	started := s.started
@@ -431,14 +471,16 @@ func (s *AddonsService) Enable(id string, approve []string) error {
 	switch {
 	case !started:
 	case en.Bundled:
-		// Turned on again after crashing: forget the crashed runner, then run
-		// it if it has something to do.
+		// Try again now: the restart that waits its backoff, or the add-on
+		// that stopped, is begun afresh, if it has something to do.
 		s.mu.Lock()
-		if r := s.runners[en.ID]; r != nil && r.crashed() {
-			delete(s.runners, en.ID)
-		}
+		r := s.runners[en.ID]
 		s.mu.Unlock()
-		s.reconcile()
+		if r != nil && !r.up() && s.wanted(en) {
+			s.begin(en)
+		} else {
+			s.reconcile()
+		}
 	default:
 		s.begin(en)
 	}
@@ -448,8 +490,12 @@ func (s *AddonsService) Enable(id string, approve []string) error {
 
 // Disable switches the add-on off and stops it without waiting for it: it
 // is given its shutdown event and a short grace, then killed, in the
-// background. Its permissions stay granted.
+// background. Its permissions stay granted. One of Sona's own add-ons has no
+// switch to turn off (ErrInvalidArgument): its running is its integration's.
 func (s *AddonsService) Disable(id string) error {
+	if addons.IsBundled(id) {
+		return fmt.Errorf("%w: %q is Sona's own add-on: it runs while its integration is on, which Settings → Connections switches", ErrInvalidArgument, id)
+	}
 	if _, err := s.find(id); err != nil && !errors.Is(err, ErrInvalidArgument) {
 		return err
 	}
@@ -590,10 +636,12 @@ func (s *AddonsService) bundle() any {
 		Version string     `json:"version"`
 		Enabled bool       `json:"enabled"`
 		State   AddonState `json:"state"`
+		// Reason is a code (AddonReason*), never the add-on's own words.
+		Reason AddonReason `json:"reason,omitempty"`
 	}
 	rows := []row{}
 	for _, a := range s.List() {
-		rows = append(rows, row{a.ID, a.Version, a.Enabled, a.State})
+		rows = append(rows, row{a.ID, a.Version, a.Enabled, a.State, a.Reason})
 	}
 	return rows
 }
@@ -674,6 +722,9 @@ type addonRunner struct {
 	// sockets is what the `discord` add-on was shown of Discord's IPC when it
 	// started (socketsID); it changes when Discord restarts.
 	sockets string
+	// reason is why the last run of the add-on ended, or never began
+	// (AddonReason*), until it says hello again; "" before any run ends.
+	reason AddonReason
 }
 
 func (r *addonRunner) snapshot() (AddonState, int) {
@@ -709,6 +760,34 @@ func (r *addonRunner) crashed() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.state == AddonCrashed
+}
+
+// up reports that the add-on is starting or running: not waiting to be
+// started again, and not stopped.
+func (r *addonRunner) up() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.state == AddonStarting || r.state == AddonRunning
+}
+
+// failure is why the add-on isn't up when it should be: how its last run
+// ended or failed to begin (AddonReason*) while it is starting again, waits
+// to, or was given up; "" once it runs.
+func (r *addonRunner) failure() AddonReason {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	switch r.state {
+	case AddonStarting, AddonRestarting, AddonCrashed:
+		return r.reason
+	}
+	return ""
+}
+
+// fail records why a run ended or didn't begin, for AddonInfo.Reason.
+func (r *addonRunner) fail(reason AddonReason) {
+	r.mu.Lock()
+	r.reason = reason
+	r.mu.Unlock()
 }
 
 // current is the running add-on's session and manifest; nil when it isn't up.
@@ -793,13 +872,20 @@ func (r *addonRunner) run(ctx context.Context, prev *addonRunner) {
 		r.mu.Lock()
 		r.restarts++
 		r.mu.Unlock()
-		if crashes >= o.maxCrashes {
+		if crashes >= o.maxCrashes && !en.Bundled {
 			log.Notef("stopped on its own %d times in a row: switched off", crashes)
 			r.giveUp(en.Manifest.Name)
 			return
 		}
 		wait := o.backoff[min(crashes-1, len(o.backoff)-1)]
-		log.Notef("stopped on its own; starting again in %s", wait)
+		if crashes >= o.maxCrashes {
+			// Sona's own add-ons are never switched off: not for this run,
+			// and nothing is saved. They go on at the longest wait, which
+			// AddonInfo.Reason explains to the person meanwhile.
+			log.Notef("stopped on its own %d times in a row; Sona's own add-ons are never switched off, starting again in %s", crashes, wait)
+		} else {
+			log.Notef("stopped on its own; starting again in %s", wait)
+		}
 		r.set(AddonRestarting, nil)
 		select {
 		case <-time.After(wait):
@@ -809,7 +895,9 @@ func (r *addonRunner) run(ctx context.Context, prev *addonRunner) {
 	r.set(AddonOff, nil)
 }
 
-// giveUp switches the add-on off after too many crashes and says so.
+// giveUp switches an add-on of the user's off after too many crashes and says
+// so. Never one of Sona's own: those are not switched off by this rule
+// (run), and a stuck saved switch is what healBundled mends.
 func (r *addonRunner) giveUp(name string) {
 	s := r.s
 	// A runner that was replaced or removed meanwhile (turned off, begun
@@ -840,16 +928,12 @@ func (r *addonRunner) workDir(en addons.Entry) string {
 	return filepath.Join(r.s.root, r.dir)
 }
 
-// setEnabled saves whether add-on id is on. An add-on with no saved entry
-// has none to change, unless it is one of Sona's own, which is on by
-// default and so needs the entry that says it isn't.
+// setEnabled saves whether add-on id of the user's is on. An add-on with no
+// saved entry has none to change; one of Sona's own has no switch (setting).
 func setEnabled(st *config.Settings, id string, on bool) {
 	a, ok := st.Addons[id]
-	if !ok && !addons.IsBundled(id) {
+	if !ok || addons.IsBundled(id) {
 		return
-	}
-	if st.Addons == nil {
-		st.Addons = config.Addons{}
 	}
 	a.Enabled = on
 	st.Addons[id] = a
@@ -868,6 +952,7 @@ func (r *addonRunner) runOnce(ctx context.Context, en addons.Entry, log *addons.
 	if err := addons.EnsureData(data); err != nil {
 		s.e.Logger.Warn("addons: data folder", "addon", r.id, "err", err)
 		log.Notef("could not make its data folder")
+		r.fail(AddonReasonStartFailed)
 		return nil
 	}
 	var start startFunc
@@ -977,6 +1062,7 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 			return err
 		}
 		log.Notef("could not start")
+		r.fail(AddonReasonStartFailed)
 		return nil
 	}
 	log.Notef("started (%s, version %s)", proc.Where(), en.Manifest.Version)
@@ -990,6 +1076,7 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 	})
 	r.set(AddonStarting, sess)
 	served := make(chan struct{})
+	noHello := false
 	s.e.Go("addon "+r.id+" watch", func() {
 		defer close(served)
 		// The time to say hello runs from when the add-on is running: a
@@ -1007,11 +1094,13 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 			r.mu.Lock()
 			if r.session == sess {
 				r.state = AddonRunning
+				r.reason = ""
 			}
 			r.mu.Unlock()
 			r.s.changed()
 		case <-timer.C:
 			log.Notef("no hello in %s: killed", o.helloTimeout)
+			noHello = true
 			proc.Kill()
 		case <-sess.Done():
 		case <-ctx.Done():
@@ -1030,10 +1119,32 @@ func (r *addonRunner) serve(ctx context.Context, en addons.Entry, log *addons.Lo
 	err = proc.Err()
 	log.Notef("exited: %v", err)
 	r.exit = err
+	if ctx.Err() == nil {
+		reason := endReason(sess, noHello)
+		r.fail(reason)
+		if en.Bundled {
+			s.e.Logger.Warn("addons: a run of one of Sona's own add-ons ended on its own", "addon", r.id, "reason", reason, "exit", err)
+		}
+	}
 	if en.Bundled && en.ID == "discord" && s.discordConnected != nil {
 		s.discordConnected(false)
 	}
 	return nil
+}
+
+// endReason is why a run that nobody asked to stop ended (AddonReason*): the
+// program said nothing in time, it ended before it said hello (it couldn't
+// load, or crashed at once), or it ran and then stopped.
+func endReason(sess *cli.Session, noHello bool) AddonReason {
+	if noHello {
+		return AddonReasonNoHello
+	}
+	select {
+	case <-sess.Helloed():
+		return AddonReasonStopped
+	default:
+		return AddonReasonEndedAtStart
+	}
 }
 
 // bundled lists Sona's own add-ons as they run on this system: without
