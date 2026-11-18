@@ -51,7 +51,8 @@ func newFlow(t *testing.T, opts ...uitest.Option) *flow {
 	if err := f.pb.PlayItems(context.Background(), refs, 0, services.PlayFrom{Kind: "album", ID: fixture.AlbumLibraryID(1)}); err != nil {
 		t.Fatal(err)
 	}
-	f.tt.Until("the first song playing", f.tt.Shows("Pause", f.album.Song(0)))
+	pause, song := f.tt.ShowsExactly("Pause"), f.tt.Shows(f.album.Song(0))
+	f.tt.Until("the first song playing", func() bool { return pause() && song() })
 	return f
 }
 
@@ -74,15 +75,15 @@ func (f *flow) shortcut(id string) {
 func TestTheBarPlaysPausesAndSkipsThroughTheCoordinator(t *testing.T) {
 	f := newFlow(t)
 	f.tt.MustClick("Pause")
-	f.tt.Until("the engine paused and the bar offering Play", func() bool { return f.hasCall("pause") && f.tt.HasText("Play") })
+	paused, playing := f.tt.ShowsExactly("Play"), f.tt.ShowsExactly("Pause")
+	f.tt.Until("the engine paused and the bar offering Play", func() bool { return f.hasCall("pause") && paused() })
 	f.tt.MustClick("Play")
-	f.tt.Until("the engine resumed", func() bool { return f.hasCall("resume") && f.tt.HasText("Pause") })
+	f.tt.Until("the engine resumed and the bar offering Pause", func() bool { return f.hasCall("resume") && playing() })
 
 	f.tt.MustClick("Next")
-	f.tt.Until("the second song in the bar", f.tt.Shows(f.album.Song(1)))
-	if played := f.h.Engine.Played(); len(played) < 2 {
-		t.Errorf("the engine played %v", played)
-	}
+	f.tt.Until("the engine playing the second song, shown in the bar", func() bool {
+		return len(f.h.Engine.Played()) >= 2 && f.tt.HasText(f.album.Song(1))
+	})
 	f.tt.MustClick("Previous")
 	f.tt.Until("the first song again", f.tt.Shows(f.album.Song(0)))
 }
@@ -116,7 +117,7 @@ func TestTheBarFollowsTheCoordinatorWhenItIsDrivenElsewhere(t *testing.T) {
 	if err := f.pb.Pause(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	f.tt.Until("the bar showing Play", f.tt.Shows("Play"))
+	f.tt.Until("the bar showing Play", f.tt.ShowsExactly("Play"))
 	if err := f.pb.Next(context.Background()); err != nil {
 		t.Fatal(err)
 	}

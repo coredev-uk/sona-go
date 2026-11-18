@@ -35,14 +35,20 @@ func heldLines(durs ...int64) []services.LyricLine {
 }
 
 // stageRig is Full-Screen Lyrics open over a song with lines, at 1920×1080
-// unless a mutate says otherwise.
+// unless a mutate says otherwise. It returns once the lyrics have answered
+// and the stage has built its first column: the view shows its own label
+// (with flat bars for the lines) before that, and the tests read the stage's
+// lyrics, steps and column.
 func stageRig(t *testing.T, lines []services.LyricLine, posMs int64, opts []uitest.Option, mutate ...func(*npRig)) *npRig {
 	t.Helper()
 	r := newNPRigWith(t, opts, append([]func(*npRig){func(r *npRig) { r.width, r.height = 1920, 1080 }}, mutate...)...)
 	r.lyr.set(services.Lyrics{Timing: "Line", Lines: lines}, nil)
 	r.play(posMs)
 	r.p.ui.openRoom()
-	r.tt.Until("the room", r.tt.Shows("Full-Screen Lyrics"))
+	r.tt.Until("the first column", func() bool {
+		st := r.p.np.stage
+		return r.tt.HasText("Full-Screen Lyrics") && st != nil && st.lyr != nil && st.anchor >= 0
+	})
 	r.settle()
 	return r
 }
@@ -612,7 +618,7 @@ func TestTheClimbAndTheSweepDoNotBuildTheViewPerFrame(t *testing.T) {
 	r.lyr.set(services.Lyrics{Timing: "Word", Lines: lines}, nil)
 	r.play(lines[1].BeginMs + 300)
 	r.p.ui.openRoom()
-	r.tt.Until("the room", r.tt.Shows("Full-Screen Lyrics"))
+	r.tt.Until("the room and its lines", r.tt.Shows("Full-Screen Lyrics", "Out past the breakwater"))
 	r.settle()
 	r.advance(time.Second)
 	before := builds

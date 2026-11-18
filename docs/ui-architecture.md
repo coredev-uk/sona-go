@@ -739,7 +739,7 @@ Options: `Albums(...)` for a library of your own, `Empty()`, `Bare()` (no servic
 `h.Tester(t, view, w, h)` (or `uitest.Tester(t, env, view, w, h)`) is a `ui.Tester` plus:
 
 - `Until(what, cond)`: drains and draws frames until the goroutines delivered, `uitest.HangGuard` (30 s) at most.
-- `Shows(texts...)`, `Drain()`, and `Settle()` (frames until the picture stops changing).
+- `Shows(texts...)` (parts of a text, as `HasText`), `ShowsExactly(texts...)` (a whole text or label, what `MustClick` needs), `Drain()`, and `Settle()` (frames until the picture stops changing).
 
 Other helpers: `uitest.Transport` (a recording fake of the playback commands, over `uitest.Recorder`), `uitest.Nav`, `Harness.Play` (a playing song seeded into the mirror), and the `Session` helpers `MustClick`, `Want`, `Lacks`, `Emit`, `Hover` and `Pump`. The Tester's own `Click` tries every control of the name.
 

@@ -1097,6 +1097,9 @@ func (c *Coordinator) loop() {
 func (c *Coordinator) handle(ev playback.Event) {
 	c.cmd.Lock()
 	defer c.cmd.Unlock()
+	// The engine as it is now: no older than the event, which a command that
+	// took cmd first has overtaken.
+	now := c.eng.Status()
 	c.mu.Lock()
 	if ev.Kind == playback.EventAdvance && c.index >= 0 && c.loaded {
 		c.advanceLocked(ev.Status)
@@ -1149,7 +1152,16 @@ func (c *Coordinator) handle(ev playback.Event) {
 			c.notify()
 		}
 	default:
-		c.applyLocked(ev.Status)
+		// A change of state, position or volume. The event is the engine as it
+		// was when it emitted it; a command that ran before the loop got cmd (a
+		// Pause just after a "playing") has adopted a newer status since, which
+		// the older one would take back. An item that has ended or failed since
+		// is left to its own event, handled by the cases above.
+		st := ev.Status
+		if now.ItemID == st.ItemID && now.State != playback.StateEnded && now.State != playback.StateError {
+			st = now
+		}
+		c.applyLocked(st)
 		c.mu.Unlock()
 		c.notify()
 	}
