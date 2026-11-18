@@ -618,9 +618,10 @@ func TestTheMiniPlayerPlaysPausesAndSkipsThroughTheCoordinator(t *testing.T) {
 		return false
 	}
 	tt.MustClick("Pause")
-	tt.Until("the engine paused and the mini player offering Play", func() bool { return hasCall("pause") && tt.HasText("Play") })
+	paused, playing := tt.ShowsExactly("Play"), tt.ShowsExactly("Pause")
+	tt.Until("the engine paused and the mini player offering Play", func() bool { return hasCall("pause") && paused() })
 	tt.MustClick("Play")
-	tt.Until("the engine resumed", func() bool { return hasCall("resume") && tt.HasText("Pause") })
+	tt.Until("the engine resumed and the mini player offering Pause", func() bool { return hasCall("resume") && playing() })
 	before := len(h.Engine.Played())
 	tt.MustClick("Next")
 	tt.Until("the second song played", func() bool { return len(h.Engine.Played()) > before })

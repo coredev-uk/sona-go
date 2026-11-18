@@ -93,6 +93,21 @@ func (tt *Session) Shows(texts ...string) func() bool {
 	}
 }
 
+// ShowsExactly is the condition "an element shows each text, as its whole
+// text or label", for Until: what MustClick needs to find. Shows (like
+// HasText) matches parts of a text, so Shows("Play") holds on the bar's
+// "Player" before the Play button is there.
+func (tt *Session) ShowsExactly(texts ...string) func() bool {
+	return func() bool {
+		for _, w := range texts {
+			if _, ok := tt.Find(w); !ok {
+				return false
+			}
+		}
+		return true
+	}
+}
+
 // Drain runs what was posted and draws a frame.
 func (tt *Session) Drain() {
 	tt.H.Main.Drain()
