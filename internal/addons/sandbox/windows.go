@@ -8,6 +8,8 @@ import (
 	"io"
 	"sync"
 
+	"golang.org/x/sys/windows"
+
 	"github.com/coredev-uk/sona-go/internal/appcontainer"
 )
 
@@ -38,19 +40,25 @@ func Start(spec Spec) (*Child, error) {
 	if spec.ID == "" {
 		return nil, fail(ReasonSetup, "the add-on has no ID to name its AppContainer")
 	}
-	prof, err := profile(spec.ID)
-	if err != nil {
-		return nil, fail(ReasonNoAppContainer, "%v", err)
-	}
-	if err := grant(prof, spec); err != nil {
-		return nil, fail(ReasonNoAppContainer, "%v", err)
-	}
+	// An unsandboxed add-on has no AppContainer (a nil SID): a plain process
+	// in a job object.
+	var sid *windows.SID
 	var caps []string
-	if spec.Network {
-		caps = append(caps, appcontainer.CapabilityInternetClient)
+	if !spec.Unsandboxed {
+		prof, err := profile(spec.ID)
+		if err != nil {
+			return nil, fail(ReasonNoAppContainer, "%v", err)
+		}
+		if err := grant(prof, spec); err != nil {
+			return nil, fail(ReasonNoAppContainer, "%v", err)
+		}
+		sid = prof.SID
+		if spec.Network {
+			caps = append(caps, appcontainer.CapabilityInternetClient)
+		}
 	}
 	c, err := appcontainer.Start(appcontainer.Options{
-		SID: prof.SID, Capabilities: caps,
+		SID: sid, Capabilities: caps,
 		Exe: spec.Exe, Args: spec.Args, Env: spec.Env, Dir: spec.Dir,
 		MaxProcesses: maxProcesses, ChildProcesses: true,
 	})

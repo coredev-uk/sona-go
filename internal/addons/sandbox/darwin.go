@@ -35,7 +35,7 @@ func Start(spec Spec) (*Child, error) {
 	if spec.ExeFile != nil {
 		return nil, fail(ReasonUnsupported, "macOS can't run the file that was checked")
 	}
-	if unsandboxedForTests() {
+	if spec.Unsandboxed || unsandboxedForTests() {
 		return startUnix(spec, preparePlain(spec))
 	}
 	profile := seatbeltProfile(seatbeltPaths(spec.Policy))

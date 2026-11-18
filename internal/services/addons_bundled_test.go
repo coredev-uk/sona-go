@@ -7,9 +7,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/addons"
+	"github.com/coredev-uk/sona-go/internal/addons/sandbox"
 	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/config"
 )
@@ -308,5 +311,56 @@ func TestAddonsBundledGetBuildCredentialsInHelloOnly(t *testing.T) {
 		if env := read(filepath.Join(dir, "env-"+id+".txt")); strings.Contains(env, "the-key") || strings.Contains(env, "the-secret") || strings.Contains(env, "12345") {
 			t.Errorf("%s: credentials in the environment", id)
 		}
+	}
+}
+
+// Where the sandbox can't be set up, one of Sona's own add-ons runs anyway as
+// a plain child process (the same code ran in Sona's process before #302):
+// it says hello, the state shows why it is not isolated, and the log notes it.
+// An add-on of the user's, in the same simulated failure, is still refused and
+// never offered the unsandboxed start.
+func TestBundledAddonRunsWithoutTheSandboxWhereItCannotStart(t *testing.T) {
+	a := newAddonEnv(t)
+	a.bundledProgram(t)
+	a.install(t, "demo", manifestJSON("demo", "playback.read"), "touch ran\n"+hello("demo", "playback.read")+"sleep 30\n")
+	var mu sync.Mutex
+	plain := map[string]bool{}
+	a.svc.opts.start = func(sp addons.Spec) (*addons.Proc, error) {
+		if !sp.Unsandboxed {
+			return nil, &sandbox.Error{Reason: sandbox.ReasonUserNamespaceRestricted, Detail: "simulated"}
+		}
+		mu.Lock()
+		plain[sp.ID] = true
+		mu.Unlock()
+		return addons.Start(sp)
+	}
+	a.useAll(t)
+	if err := a.svc.Enable("demo", []string{"playback.read"}); err != nil {
+		t.Fatal(err)
+	}
+	a.svc.start()
+
+	i := a.waitState(t, "lastfm", AddonRunning)
+	if i.Unsandboxed != addons.SandboxUserNamespaceRestricted || i.Sandbox != "" || !i.Bundled {
+		t.Errorf("lastfm = %+v", i)
+	}
+	lines, _ := a.svc.Log("lastfm")
+	log := strings.Join(lines, "\n")
+	if !strings.Contains(log, "running without the sandbox: "+addons.SandboxUserNamespaceRestricted) {
+		t.Errorf("log = %q", log)
+	}
+
+	d := a.waitState(t, "demo", AddonNoSandbox)
+	if d.Unsandboxed != "" || d.Sandbox != addons.SandboxUserNamespaceRestricted {
+		t.Errorf("demo = %+v", d)
+	}
+	time.Sleep(100 * time.Millisecond)
+	if _, err := os.Stat(filepath.Join(a.root, "demo", "ran")); err == nil {
+		t.Error("an add-on of the user's ran without its sandbox")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if plain["demo"] || !plain["lastfm"] {
+		t.Errorf("unsandboxed starts = %v", plain)
 	}
 }

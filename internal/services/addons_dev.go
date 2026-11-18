@@ -377,7 +377,7 @@ func (r *addonRunner) runDev(ctx context.Context, en addons.Entry, prog devProgr
 			ID: r.id, Exe: en.Exe, ExeFile: prog.file, Dir: run.dir, Data: data, Network: slices.Contains(declared, cli.PermNetwork),
 			Env: addons.Environment(o.environ(), r.id, data), Stderr: log,
 		}
-		start = func() (addons.Running, error) { return s.startProc(spec, log) }
+		start = func() (addons.Running, error) { return r.startProc(spec, false, log) }
 	}
 	_ = r.serve(ctx, en, log, start, newAddonOwn(s, en.Manifest, true), func(p string) bool { return slices.Contains(declared, p) })
 }

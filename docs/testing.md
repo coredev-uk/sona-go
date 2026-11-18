@@ -127,7 +127,7 @@ The CDM host sandbox tests (`TestChildCannotOpenInetSockets`, `TestSandboxConfin
 - To run them on Ubuntu, lift the restriction for the session: `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
 - CI does that, and sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
 
-The add-on sandbox's tests (`internal/addons/sandbox`, in the same CI job) need the same user namespaces and follow the same rules: they skip where the system refuses, and `SONA_ADDON_REQUIRE_SANDBOX=1` (CI) fails them instead. The test binary is the add-on too: `TestMain` calls `sandbox.Main`, the sandbox starts the binary again as an add-on's init, and the add-on (the binary with `SONA_SANDBOX_TEST_PROBE` set) reports what it could reach. The supervisor's own tests (`internal/services`, `internal/addons`) run their fake add-ons without the sandbox through `SONA_ADDON_UNSANDBOXED=1`, which only a test binary honours; a simulated sandbox failure tests the refusal.
+The add-on sandbox's tests (`internal/addons/sandbox`, in the same CI job) need the same user namespaces and follow the same rules: they skip where the system refuses, and `SONA_ADDON_REQUIRE_SANDBOX=1` (CI) fails them instead. The test binary is the add-on too: `TestMain` calls `sandbox.Main`, the sandbox starts the binary again as an add-on's init, and the add-on (the binary with `SONA_SANDBOX_TEST_PROBE` set) reports what it could reach. The supervisor's own tests (`internal/services`, `internal/addons`) run their fake add-ons without the sandbox through `SONA_ADDON_UNSANDBOXED=1`, which only a test binary honours; a simulated sandbox failure tests the refusal, and the unsandboxed start of Sona's own add-ons.
 
 ### Windows
 

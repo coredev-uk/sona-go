@@ -440,6 +440,7 @@ func newJob(maxProcesses uint32) (windows.Handle, error) {
 type Options struct {
 	// SID is the AppContainer's (Profile.SID); Capabilities are the
 	// capabilities it holds besides, as SID strings (CapabilityInternetClient).
+	// A nil SID starts a plain process in the job, with no AppContainer.
 	SID          *windows.SID
 	Capabilities []string
 	// Exe is the program, Args follow it in the command line, Env is the
@@ -540,7 +541,10 @@ func Start(o Options) (p *Child, err error) {
 		return nil, err
 	}
 
-	nAttrs := uint32(3)
+	nAttrs := uint32(2)
+	if o.SID != nil {
+		nAttrs++
+	}
 	if !o.ChildProcesses {
 		nAttrs++
 	}
@@ -562,7 +566,9 @@ func Start(o Options) (p *Child, err error) {
 		caps.Capabilities, caps.CapabilityCount = &held[0], uint32(len(held))
 	}
 	var pin runtime.Pinner
-	pin.Pin(o.SID)
+	if o.SID != nil {
+		pin.Pin(o.SID)
+	}
 	for i := range held {
 		pin.Pin(held[i].Sid)
 	}
@@ -579,11 +585,14 @@ func Start(o Options) (p *Child, err error) {
 		val  unsafe.Pointer
 		size uintptr
 	}
-	attrs := []attribute{
-		{"the AppContainer", procThreadAttributeSecurityCapabilities, unsafe.Pointer(&caps), unsafe.Sizeof(caps)},
+	var attrs []attribute
+	if o.SID != nil {
+		attrs = append(attrs, attribute{"the AppContainer", procThreadAttributeSecurityCapabilities, unsafe.Pointer(&caps), unsafe.Sizeof(caps)})
+	}
+	attrs = append(attrs, []attribute{
 		{"the handle list", windows.PROC_THREAD_ATTRIBUTE_HANDLE_LIST, unsafe.Pointer(&inherited[0]), uintptr(len(inherited)) * unsafe.Sizeof(inherited[0])},
 		{"the mitigation policy", windows.PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, unsafe.Pointer(&policy), unsafe.Sizeof(policy)},
-	}
+	}...)
 	if !o.ChildProcesses {
 		attrs = append(attrs, attribute{"the child process policy", procThreadAttributeChildProcessPolicy, unsafe.Pointer(&childPolicy), unsafe.Sizeof(childPolicy)})
 	}

@@ -206,8 +206,31 @@ func sandboxText(code string) string {
 	return i18n.T("It doesn't run: Sona couldn't set up its sandbox, and never runs an add-on without it. The add-on's log has the details.")
 }
 
+// unisolatedText is the muted line under one of Sona's own add-ons that runs
+// without the sandbox, with the reason in plain words.
+func unisolatedText(code string) string {
+	switch code {
+	case addons.SandboxUserNamespaceRestricted:
+		return i18n.T("Running without isolation: this computer's security settings (AppArmor) stop Sona from creating the isolated space its sandbox needs. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxNoUserNamespace:
+		return i18n.T("Running without isolation: this system doesn't let Sona create the isolated space (a user namespace) its sandbox needs. A Flatpak, a container or a kernel setting can cause that. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxNoSeccomp:
+		return i18n.T("Running without isolation: the sandbox's system-call filter can't be set up on this computer. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxNoSeatbelt:
+		return i18n.T("Running without isolation: macOS's sandbox tool is missing or refused Sona's rules. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxNoAppContainer:
+		return i18n.T("Running without isolation: Windows couldn't create the AppContainer that sandboxes it. This add-on is part of Sona and has the same access Sona has.")
+	case addons.SandboxUnsupported:
+		return i18n.T("Running without isolation: this system has no sandbox for add-ons. This add-on is part of Sona and has the same access Sona has.")
+	}
+	return i18n.T("Running without isolation: Sona couldn't set up its sandbox. This add-on is part of Sona and has the same access Sona has. The add-on's log has the details.")
+}
+
 // addonStatus is one sentence on where an add-on is.
 func addonStatus(a services.AddonInfo) string {
+	if a.Unsandboxed != "" && a.State == services.AddonRunning {
+		return unisolatedText(a.Unsandboxed)
+	}
 	switch a.State {
 	case services.AddonRunning:
 		return i18n.T("Running.")

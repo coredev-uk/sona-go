@@ -41,8 +41,8 @@ const (
 	// integration nobody uses costs no process.
 	AddonIdle AddonState = "idle"
 	// AddonNoSandbox: the OS sandbox can't be set up on this computer, so the
-	// add-on does not run, however it is switched (Sandbox says why). It is
-	// never run without the sandbox.
+	// add-on does not run, however it is switched (Sandbox says why). Only
+	// Sona's own add-ons run without the sandbox (Unsandboxed); no other.
 	AddonNoSandbox AddonState = "no_sandbox"
 )
 
@@ -71,6 +71,11 @@ type AddonInfo struct {
 	// AddonNoSandbox: one of the addons.Sandbox* codes ("userns_restricted",
 	// …); "" otherwise.
 	Sandbox string `json:"sandbox"`
+	// Unsandboxed is why one of Sona's own add-ons runs as a plain process
+	// with Sona's rights while State is starting, running or restarting: the
+	// sandbox couldn't be set up, and it is one of the addons.Sandbox* codes;
+	// "" when it runs inside the sandbox.
+	Unsandboxed string `json:"unsandboxed"`
 	// Restarts counts the times it stopped on its own since it was enabled.
 	Restarts int `json:"restarts"`
 	// Bundled is one of Sona's own add-ons (Last.fm, ListenBrainz, Discord):
