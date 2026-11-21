@@ -283,6 +283,11 @@ A song or album with several artists keeps the one thing Apple writes, its artis
   - No arrow is drawn on the text: a trailing chevron would either move the line when it appears or leave a gap in "Artist · Album".
 - The same control is the artist in the player bar, Now Playing, the video view's caption, a track list's artist column and a track shelf's rows, the album, song and video headers and a station's songs. In a list it is not a Tab stop (the list is one), and Shift or Ctrl click on it selects the row like any other cell.
 - The song menu's "Go to artist" is a sub-menu of the artists when there are several (a plain row for one).
+- **"Add to playlist" is a sub-menu in every item menu** (a song's, an album's, a playlist's and a selection's), not a dialog that opens from it. Pointer hover or Right opens it beside the row; Left or Escape closes it.
+  - It lists *New playlist…* first (with a plus; it opens the new playlist form, and the playlist is made with the items in it), then a rule, then the playlists the user can edit: the ones Apple lists as recently used lead (at most five, as the picker's Recent), then the sidebar's order, folders before playlists. A recent playlist is not listed twice at the top level.
+  - A folder is a row with a folder glyph and a chevron that opens a sub-menu of its own; a folder with nothing the user can edit is left out. Folders open two levels deep; a deeper one, and a level of more than fifteen rows, end with *More playlists…*, which opens the picker (search, groups by folder path) for the rest.
+  - Choosing a playlist adds at once and says so with the toast and its *Open*; the rows are plain labels, with no cover or count, so the sub-menu stays as light as the menu it hangs from.
+  - Until the playlists are read, and when there is none to list, the row is the plain one and opens the picker.
 
 ## Choosing and playing: the interaction table
 

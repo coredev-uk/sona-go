@@ -2,6 +2,7 @@ package kit
 
 import (
 	"context"
+	"slices"
 
 	"github.com/egoist/mygo/ui"
 
@@ -263,18 +264,37 @@ func (a *ActionMenus) menuItems() []MenuItem {
 			if d.Choices != nil {
 				if choices := d.Choices(ctx); len(choices) > 1 {
 					it.Kind, it.Run = MenuSub, nil
-					for _, ch := range choices {
-						it.Sub = append(it.Sub, MenuItem{Key: ch.Key, Label: ch.Label, Run: func() {
-							if a.Before != nil {
-								a.Before(d)
-							}
-							ch.Run(ctx)
-						}})
-					}
+					it.Sub = a.choiceItems(d, ctx, choices)
 				}
 			}
 			out = append(out, it)
 		}
+	}
+	return out
+}
+
+// choiceItems are the rows of an action's submenu: a choice with Sub is a
+// submenu of its own, a Rule a separator before its row. Choosing a row
+// runs it with ctx, after Before.
+func (a *ActionMenus) choiceItems(d *ActionDef, ctx *ActionContext, choices []ActionChoice) []MenuItem {
+	icons := slices.ContainsFunc(choices, func(ch ActionChoice) bool { return ch.Icon != "" })
+	var out []MenuItem
+	for i, ch := range choices {
+		if ch.Rule && i > 0 {
+			out = append(out, MenuItem{Key: "rule:" + ch.Key, Kind: MenuSeparator})
+		}
+		it := MenuItem{Key: ch.Key, Label: ch.Label, Icon: ch.Icon, Inset: icons && ch.Icon == ""}
+		if len(ch.Sub) > 0 {
+			it.Kind, it.Sub = MenuSub, a.choiceItems(d, ctx, ch.Sub)
+		} else {
+			it.Run = func() {
+				if a.Before != nil {
+					a.Before(d)
+				}
+				ch.Run(ctx)
+			}
+		}
+		out = append(out, it)
 	}
 	return out
 }

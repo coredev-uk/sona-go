@@ -116,3 +116,86 @@ func TestActionChoicesOfOneArtistKeepThePlainRow(t *testing.T) {
 		}
 	}
 }
+
+// A choice with Sub is a submenu of its own (a folder of playlists), opened
+// by Right and closed by Left; Icon and Rule shape the rows, and a choice
+// that is not an entry of a submenu runs with the menu's items.
+func TestActionChoicesNest(t *testing.T) {
+	theme.SetMode(theme.ModeLight)
+	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
+	var went []string
+	run := func(name string) func(*ActionContext) {
+		return func(a *ActionContext) { went = append(went, name+":"+a.Item().Name()) }
+	}
+	reg := NewActionRegistry(ActionDef{
+		ID: "playlists.add-to.song", Target: KindSong, Group: GroupItem, Order: 40, Icon: "list-plus",
+		Label: func(*ActionContext) string { return "Add to playlist" },
+		Choices: func(*ActionContext) []ActionChoice {
+			return []ActionChoice{
+				{Key: "new", Label: "New playlist…", Icon: "plus", Run: run("new")},
+				{Key: "mixes", Label: "Mixes", Icon: "folder-closed", Rule: true, Sub: []ActionChoice{
+					{Key: "gym", Label: "Gym", Run: run("gym")},
+					{Key: "old", Label: "Old", Icon: "folder-closed", Sub: []ActionChoice{{Key: "dusty", Label: "Dusty", Run: run("dusty")}}},
+				}},
+				{Key: "road", Label: "Roadie", Rule: true, Run: run("road")},
+			}
+		},
+		Run: run("plain"),
+	})
+	am := NewActionMenus(reg, nil)
+	item := song("Stay")
+	view := func(c *ui.Context) {
+		theme.Apply(c)
+		tgt := ActionTarget{Item: item, Name: item.Name(), Key: item.ID()}
+		ui.Column(c).Padding(20).Children(func() {
+			row := ui.Row(c.Key("row")).Height(40).Width(480).AlignItems(ui.Center)
+			row.Children(func() {
+				ui.Text(c, item.Name()).Grow(1)
+				am.Trigger(c, row, tgt, TriggerOpts{Visible: true})
+			})
+		})
+		am.Popup(c)
+	}
+	tt := ui.NewTester(view, 560, 400)
+	if err := tt.Click("More for Stay"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Key(0, ui.KeyDown)
+	tt.Key(0, ui.KeyRight)
+	tr := access.Read(t, tt)
+	for _, name := range []string{"New playlist…", "Mixes", "Roadie"} {
+		if _, ok := tr.Find(ui.RoleMenuItem, name); !ok {
+			t.Fatalf("no entry %q:\n%s", name, tr.Dump())
+		}
+	}
+	if n, ok := tr.Find(ui.RoleMenuItem, "Mixes"); !ok || n.Has(access.Expanded) {
+		t.Fatalf("Mixes should be a collapsed submenu:\n%s", tr.Dump())
+	}
+	// New playlist…, then Mixes: Right opens it, and Old inside it.
+	tt.Key(0, ui.KeyDown)
+	tt.Key(0, ui.KeyRight)
+	tr = access.Read(t, tt)
+	if _, ok := tr.Find(ui.RoleMenuItem, "Gym"); !ok {
+		t.Fatalf("Right did not open the folder:\n%s", tr.Dump())
+	}
+	tt.Key(0, ui.KeyDown)
+	tt.Key(0, ui.KeyRight)
+	if !tt.HasText("Dusty") {
+		t.Fatalf("Right did not open the folder in the folder: %q", tt.Texts())
+	}
+	tt.Key(0, ui.KeyLeft)
+	if tt.HasText("Dusty") || !tt.HasText("Gym") {
+		t.Fatalf("Left should close one level: %q", tt.Texts())
+	}
+	tt.Key(0, ui.KeyRight)
+	tt.Key(0, ui.KeyEnter)
+	tt.Advance(50e6)
+	tt.Frame()
+	tt.Frame()
+	if !slices.Equal(went, []string{"dusty:Stay"}) {
+		t.Errorf("went %v", went)
+	}
+	if am.IsOpen() {
+		t.Error("the menu stayed open")
+	}
+}

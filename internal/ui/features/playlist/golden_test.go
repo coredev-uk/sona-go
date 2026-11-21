@@ -266,3 +266,47 @@ func TestPlaylistJoinedCollaborativeGolden(t *testing.T) {
 		})
 	}
 }
+
+// "Add to playlist" in a song's menu is a submenu of New playlist… and the
+// playlists, a folder opening another beside it.
+func TestPlaylistAddMenuGolden(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode theme.Mode
+	}{{"playlist-add-menu-light", theme.ModeLight}, {"playlist-add-menu-dark", theme.ModeDark}} {
+		t.Run(tc.name, func(t *testing.T) {
+			goldenFont(t)
+			r := newPageRigWith(t, "p.1", func(api *fakeAPI) {
+				api.tree = services.PlaylistTree{
+					Folders: []services.PlaylistFolder{folder("pf.1", "Running", "", 0), folder("pf.2", "Summer", "pf.1", 0)},
+					Playlists: []services.TreePlaylist{
+						treePlaylist("p.1", "Sunday morning", "", 0, true),
+						treePlaylist("p.2", "Late night", "", 1, true),
+						treePlaylist("p.3", "Focus", "", 2, true),
+						treePlaylist("p.4", "Tempo", "pf.1", 0, true),
+						treePlaylist("p.5", "Long run", "pf.1", 1, true),
+						treePlaylist("p.6", "Hot lap", "pf.2", 0, true),
+					},
+				}
+				api.recents = []string{"p.2", "p.4"}
+			}, goldenDetail())
+			r.p.now = func() time.Time { return goldenNow }
+			theme.SetMode(tc.mode)
+			r.shows("Road Trip", "Glass Harbour", "Apple Orchard")
+			if err := r.tt.RightClick("Paper Planes"); err != nil {
+				t.Fatal(err)
+			}
+			r.shows("Add to playlist")
+			r.did("Tree")
+			r.did("RecentTargets")
+			r.tt.Settle()
+			r.hover("Add to playlist")
+			r.shows("New playlist…", "Late night", "Running")
+			r.hover("Running")
+			r.shows("Summer", "Long run")
+			r.tt.Advance(400 * time.Millisecond)
+			r.tt.Settle()
+			uitest.Golden(t, r.tt.Image(), tc.name)
+		})
+	}
+}
