@@ -91,8 +91,14 @@ nixpkgs), run `devenv update` and `nix flake update`, then `check`, `tests`,
 
 ## Dependency updates
 
-Renovate opens pull requests for Go modules and GitHub
-Actions (MyGo's are always left for review), and a review bot checks and merges them; the pinned devenv inputs
-are bumped by hand (see "Pinned inputs" above). You
+Renovate opens pull requests for Go modules, GitHub
+Actions and the digests of the container base images (the `FROM` lines of
+`build/ci/Containerfile` and `build/linux/release/Containerfile`, the Flatpak
+workflow's `container:` image; a tag is never moved by Renovate). MyGo's are
+always left for review, and so is the release image's digest. A review bot
+checks and merges them; the pinned devenv inputs
+are bumped by hand (see "Pinned inputs" above), and so are the downloaded
+tools' hashes (`build/linux/appimage-tools.sha256`, `build/windows/*.sha256`,
+the Go archive hashes): Renovate cannot compute a hash. You
 don't need to update dependencies yourself; a change that needs a newer
 dependency bumps it in the same PR.
