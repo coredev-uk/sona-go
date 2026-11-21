@@ -531,7 +531,7 @@ func (p *player) stageLine(c *ui.Context, st *stage, in stageIn, i int) {
 				if right {
 					x = r.X + r.W - sw.Width()
 				}
-				sw.Paint(pt, x, r.Y, base, base, 0, 0, right)
+				sw.Paint(pt, x, r.Y, base, base, kit.SweepClock{Still: true}, right)
 			})
 		}
 		part("lead", b.lead, b.shown.Lead, 0, tone, 0)

@@ -1416,6 +1416,25 @@ func TestNextSweepEdgeIsTheNextWordLineEndOrRest(t *testing.T) {
 	}
 }
 
+// A line that ends before the next begins stays sung (and its words stay
+// lifted) until the next does: that is where its words settle, so it is an
+// edge, and a line wholly settled has none left.
+func TestNextSweepEdgeIncludesWhereTheWordsSettle(t *testing.T) {
+	spans := []lyricsync.Span{{BeginMs: 1000, EndMs: 2000}, {BeginMs: 2400, EndMs: 5000}}
+	words := []services.LyricWord{{BeginMs: 1000, EndMs: 1500}, {BeginMs: 1500, EndMs: 2000}}
+	if got := nextSweepEdge(spans, 0, words, 2100); got != 2400 {
+		t.Errorf("after the line's end, before the next begins: %d, want 2400, where it stops being sung", got)
+	}
+	if got := nextSweepEdge(spans, 0, words, 2400); got != lyricsync.Never {
+		t.Errorf("once it stopped: %d, want Never", got)
+	}
+	// Running on under the next line: until its own end.
+	spans = []lyricsync.Span{{BeginMs: 1000, EndMs: 9000}, {BeginMs: 2000, EndMs: 3000}}
+	if got := nextSweepEdge(spans, 0, nil, 3500); got != 9000 {
+		t.Errorf("a line running on under the next: %d, want 9000", got)
+	}
+}
+
 // Handle.Focus scrolls the line into view as the focus moves (MyGo v0.9.0),
 // so arrowing down the synced lines follows the focus, and neither the
 // sheet's following of the sung line nor its hold after the user moved it
