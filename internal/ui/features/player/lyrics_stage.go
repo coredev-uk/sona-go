@@ -53,11 +53,9 @@ const (
 	stageLineH = 1.05
 	// stageWeight is the weight of every line (Schibsted Grotesk).
 	stageWeight = 700
-	// An instrumental gap's dots: each stageDot ems across, stageDotSpace
-	// dots apart, stageDotGap ems above the line they lead to.
-	stageDot      = 0.3
-	stageDotSpace = 0.8
-	stageDotGap   = 0.45
+	// An instrumental gap's dots are sized from the line's font (dotsFor);
+	// stageDotGap is the room under them, in ems.
+	stageDotGap = 0.45
 )
 
 // stageLadder is the sizes, at stageRefH of window height, a line steps down
@@ -285,9 +283,8 @@ func (s *stage) shape(i, step int) *stageBlock {
 		b.headH, b.headGap = round32(hs*1.3), 6
 	}
 	if s.synced && lyricsync.HasGap(s.gaps[i]) {
-		d := max(round32(size*stageDot), 8)
-		b.dots = gapDots{d: d, space: round32(d * stageDotSpace)}
-		b.dotsH, b.dotsGap = d, round32(size*stageDotGap)
+		b.dots = dotsFor(size)
+		b.dotsH, b.dotsGap = b.dots.d, round32(size*stageDotGap)
 	}
 	return b
 }
@@ -534,6 +531,6 @@ func (p *player) stageGap(c *ui.Context, st *stage, in stageIn, i int, b *stageB
 	e.AnimatePose(pose, climb())
 	if state != gapPast {
 		e.Role(ui.RoleImage).Label(gapLabel()).
-			Draw(p.gapDraw(st.songID, st.gaps[i], b.dots, 0, rtl(st.lyr.Lines[i].Text), in.reduced, gapTone(state), theme.C("amber-ink")))
+			Draw(p.gapDraw(st.songID, st.gaps[i], b.dots, 0, rtl(st.lyr.Lines[i].Text), in.reduced, gapTone(), theme.C("amber-ink")))
 	}
 }

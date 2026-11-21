@@ -63,7 +63,6 @@ type lyricLook struct {
 	subSize, subLineH float32 // background vocals, pronunciation, translation
 	padX, padY        float32
 	subGap, verseGap  float32
-	dot, dotSpace     float32 // an instrumental gap's dots: across, and between
 	indent            float32 // extra start padding of a duet's other voice
 	togetherSize      float32
 	topPad, botPad    float32 // the sheet's padding, as fractions of its height
@@ -74,7 +73,7 @@ type lyricLook struct {
 func sheetLook() lyricLook {
 	return lyricLook{
 		size: 24, lineH: 30, weight: 650, subSize: 16, subLineH: 22, padX: 12, padY: 6,
-		subGap: 2, verseGap: 32, dot: 12, dotSpace: 8, indent: 36, togetherSize: 12, topPad: bandTop, botPad: 0.70, fadeDIP: 48,
+		subGap: 2, verseGap: 32, indent: 36, togetherSize: 12, topPad: bandTop, botPad: 0.70, fadeDIP: 48,
 	}
 }
 
@@ -465,9 +464,8 @@ func (p *player) lyricGap(c *ui.Context, sh *lyricsSheet, i int, in sheetIn, sta
 	if state == gapPast {
 		return
 	}
-	g := gapDots{d: look.dot, space: look.dotSpace}
 	row.Role(ui.RoleImage).Label(gapLabel()).
-		Draw(p.gapDraw(sh.songID, sh.gaps[i], g, look.padX, rtl(sh.lyr.Lines[i].Text), reduced, gapTone(state), theme.C("amber-ink")))
+		Draw(p.gapDraw(sh.songID, sh.gaps[i], dotsFor(look.size), look.padX, rtl(sh.lyr.Lines[i].Text), reduced, gapTone(), theme.C("amber-ink")))
 }
 
 // lyricsPrefsView is the Translation and Pronunciation choices.
