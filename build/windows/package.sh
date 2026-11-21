@@ -179,17 +179,34 @@ bytes() { find "$@" -type f -printf '%s\n' | awk '{s += $1} END {printf "%.1f", 
 echo "package: $(find "$dir" -type f | wc -l) files, $(bytes "$dir") MB; GStreamer plugins: $(cd "$dir/lib/gstreamer-1.0" && echo libgst*.dll | sed 's/libgst//g; s/\.dll//g')"
 echo "package: DLLs beside sona.exe: $(cd "$dir" && echo *.dll | sed 's/ /, /g')"
 
-# 4. The artefacts. The portable zip's folder is Sona\, the updater's
-# tar.gz has no wrapper folder and no "./" entry (update-archive.sh says why;
+# 4. The artefacts. makensis is a third-party tool (a pinned Chocolatey
+# package, install-tool.sh), so it runs first, before any file the updater
+# trusts exists: it reads the package folder, writes the installer into a
+# scratch folder of its own, and the folder must hash the same afterwards.
+# Then the portable zip and the update archive (the one the manifests sign)
+# are written from that folder by 7z and tar alone, and the installer is moved
+# into OUTDIR last. The portable zip's folder is Sona\, the updater's tar.gz
+# has no wrapper folder and no "./" entry (update-archive.sh says why;
 # releasesign -check applies MyGo's extraction rules to it), and the installer
 # takes the folder as it is.
+# From stdin: Git Bash's sha256sum puts a backslash before the hash of a path with one.
+tree_hash() {
+  (cd "$1" && LC_ALL=C find . -type f -print0 | LC_ALL=C sort -z | while IFS= read -r -d '' f; do
+    printf '%s  %s\n' "$(sha256sum <"$f" | awk '{print $1}')" "$f"
+  done | sha256sum | awk '{print $1}')
+}
+before=$(tree_hash "$dir")
+mkdir -p "$work/installer"
+installer="Sona-$version-windows-x64-setup.exe"
+makensis -V2 -DVERSION="$version" -DVERSION_NUMERIC="$numeric" -DSRCDIR="$(cygpath -w "$dir")" \
+  -DOUTFILE="$(cygpath -w "$work/installer/$installer")" \
+  "$(cygpath -w "$here/installer.nsi")"
+[[ $(tree_hash "$dir") == "$before" ]] || die "makensis changed the package folder"
 rm -f "$out/Sona-$version-windows-x64.zip"
 (cd "$work" && 7z a -tzip -bso0 -bsp0 "$(cygpath -w "$out/Sona-$version-windows-x64.zip")" Sona)
 "$here/update-archive.sh" "$dir" "$out/sona-$version-windows-amd64.tar.gz"
 (cd "$repo" && go run ./cmd/releasesign -check -target windows-amd64 -archive "$(cygpath -w "$out/sona-$version-windows-amd64.tar.gz")") ||
   die "the update archive is not one the updater can install"
 if tar -tzf "$out/sona-$version-windows-amd64.tar.gz" | grep -qi widevinecdm; then die "the update archive contains the Widevine CDM"; fi
-makensis -V2 -DVERSION="$version" -DVERSION_NUMERIC="$numeric" -DSRCDIR="$(cygpath -w "$dir")" \
-  -DOUTFILE="$(cygpath -w "$out/Sona-$version-windows-x64-setup.exe")" \
-  "$(cygpath -w "$here/installer.nsi")"
+mv "$work/installer/$installer" "$out/$installer"
 ls -l "$out"

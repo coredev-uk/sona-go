@@ -18,7 +18,8 @@
 #
 # The Go module and build caches live in the podman/docker
 # volume sona-release-cache, or in the directory SONA_RELEASE_CACHE names
-# (CI keeps that one with actions/cache).
+# (CI keeps that one only for a dry run: a release run starts empty,
+# .github/workflows/release.yml).
 #
 # The version is VERSION's. SONA_LASTFM_KEY / SONA_LASTFM_SECRET and
 # SONA_DISCORD_CLIENT_ID, when set, are passed to the build

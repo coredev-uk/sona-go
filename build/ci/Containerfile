@@ -45,8 +45,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # (and so go's VCS stamping and cmd/pathcase) refuses the checkout.
 RUN git config --system --add safe.directory '*'
 
+# The Go archive is checked against go.sha256 before it is unpacked (a go.mod
+# on a Go version that file lacks does not build); gotestsum is built from
+# source and the go command checks its module against the Go checksum database.
+COPY go.sha256 /tmp/go.sha256
 RUN arch=$(dpkg --print-architecture) \
- && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz" | tar -C /usr/local -xz \
+ && file=go${GO_VERSION}.linux-${arch}.tar.gz \
+ && want=$(awk -v f="$file" '$2 == f { print $1 }' /tmp/go.sha256) \
+ && [ -n "$want" ] || { echo "build/ci/go.sha256 has no line for ${GO_VERSION} on ${arch}" >&2; exit 1; } \
+ && curl -fsSL -o "/tmp/$file" "https://go.dev/dl/$file" \
+ && echo "$want  /tmp/$file" | sha256sum --check --strict \
+ && tar -C /usr/local -xzf "/tmp/$file" && rm "/tmp/$file" /tmp/go.sha256 \
  && GOBIN=/usr/local/bin GOTOOLCHAIN=local /usr/local/go/bin/go install "gotest.tools/gotestsum@${GOTESTSUM_VERSION}" \
  && rm -rf /root/go /root/.cache
 
