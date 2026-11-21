@@ -10,9 +10,9 @@
 # release-please acts as the bot-cecil GitHub App (the identity Renovate uses),
 # not as GITHUB_TOKEN: events caused by GITHUB_TOKEN start no workflow, so the
 # release PR would never get its required checks. The App's token is minted in
-# the job from the secrets RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY
-# of the bot-cecil environment (the release job's build and publish jobs read
-# them from the release environment) and lives for that job only. The tag it creates
+# the job by octo-sts (octo-sts.hera.ac, which holds the App's key), which
+# exchanges the job's OIDC token under .github/chainguard/release-please.sts.yaml
+# (the release job's build and publish jobs use release.sts.yaml) and lives for that job only. The tag it creates
 # still triggers no release by itself: the build is a reusable-workflow call
 # below, not a tag push.
 name: Release Please
@@ -34,25 +34,24 @@ jobs:
     concurrency:
       group: release-please
       cancel-in-progress: false
-    # Everything goes through the App token below, minted from the bot-cecil
-    # environment's secrets (main and v* tags only).
+    # Everything goes through the App token below, minted by octo-sts; the
+    # environment still limits the run to main and v* tags.
     environment: bot-cecil
-    permissions: {}
+    permissions:
+      id-token: write # the OIDC token octo-sts exchanges for bot-cecil's
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      # bot-cecil's installation permissions must include at least these three
-      # (docs/maintainers/ci-and-secrets.md, "bot-cecil App permissions").
+      # The trust policy .github/chainguard/release-please.sts.yaml grants these
+      # three (docs/maintainers/ci-and-secrets.md, "bot-cecil App permissions").
       - name: Generate bot-cecil token
         id: app-token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         with:
-          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          permission-contents: write # release branch, tag and draft release
-          permission-pull-requests: write # the release PR
-          permission-issues: write # its autorelease labels
+          domain: octo-sts.hera.ac
+          scope: ${{ github.repository }}
+          identity: release-please
 
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
@@ -87,6 +86,6 @@ jobs:
     # Proton Pass), which a called workflow sees only when the caller
     # inherits its secrets. With the two App secrets passed by name, v0.3.0
     # was built without the credentials and published without update
-    # manifests (run 42482812544). The App's secrets are in the release
-    # environment too, which the publish job reads.
+    # manifests (run 42482812544). The publish job's bot-cecil token needs
+    # no secret: octo-sts mints it from the job's OIDC token.
     secrets: inherit
