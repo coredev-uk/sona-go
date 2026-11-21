@@ -2,6 +2,7 @@ package song
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -10,6 +11,19 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
+
+// tripleClick triple-clicks the middle of text.
+func (r *rig) tripleClick(text string) {
+	r.t.Helper()
+	at, ok := r.tt.Find(text)
+	if !ok {
+		r.t.Fatalf("no %q on screen: %q", text, r.tt.Texts())
+	}
+	x, y := at.X+at.W/2, at.Y+at.H/2
+	r.tt.ClickAt(x, y)
+	r.tt.ClickAt(x, y)
+	r.tt.ClickAt(x, y)
+}
 
 // doubleClick double-clicks the first word of text (its first 6 DIPs).
 func (r *rig) doubleClick(text string) {
@@ -86,10 +100,10 @@ func TestNoISRCNoCopyButton(t *testing.T) {
 	}
 }
 
-// The credited names are one selection across the people; the roles under
-// them, the group titles and the initials of a person with no picture are
+// The credited names and the roles under them are one selection across the
+// people; the group titles and the initials of a person with no picture are
 // not part of it.
-func TestCreditNamesSelectAndRolesDoNot(t *testing.T) {
+func TestCreditNamesAndRolesSelect(t *testing.T) {
 	r := newRig(t, 1132, 1200, airbag())
 	r.open()
 	r.tt.Until("the credits", r.tt.Shows("Radiohead", "Performer, Vocals", "Nigel Godrich", "Chris Blair"))
@@ -100,18 +114,25 @@ func TestCreditNamesSelectAndRolesDoNot(t *testing.T) {
 	if got := r.tt.Clipboard(); got != "Nigel" {
 		t.Errorf("a double click on a name copied %q", got)
 	}
-	// Select all in the credits: names only, in order, no roles or titles.
+	// Select all in the credits: names and roles, in order, no titles.
 	r.tt.Key(ui.Cmd, ui.KeyA)
 	r.tt.Key(ui.Cmd, ui.KeyC)
-	if got, want := r.tt.Clipboard(), "Radiohead\nNigel Godrich\nThird Person\nChris Blair"; got != want {
-		t.Errorf("select all in the credits copied %q, want %q", got, want)
+	got := r.tt.Clipboard()
+	for _, want := range []string{"Radiohead", "Performer, Vocals", "Nigel Godrich", "Chris Blair"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("select all in the credits copied %q, missing %q", got, want)
+		}
+	}
+	if strings.Contains(got, "Producer\n") && strings.HasPrefix(got, "Producer") {
+		t.Errorf("select all copied a group title first: %q", got)
 	}
 
+	// A triple click takes a person's roles line.
 	r.tt.SetClipboard("kept")
-	r.doubleClick("Producer")
+	r.tripleClick("Performer, Vocals")
 	r.tt.Key(ui.Cmd, ui.KeyC)
-	if got := r.tt.Clipboard(); got != "kept" {
-		t.Errorf("a role copied %q", got)
+	if got := r.tt.Clipboard(); got != "Performer, Vocals" {
+		t.Errorf("a triple click on a role line copied %q", got)
 	}
 }
 

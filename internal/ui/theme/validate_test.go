@@ -74,13 +74,22 @@ func TestValidateRefusesEachKindOfFailure(t *testing.T) {
 	}
 }
 
-// The selection (the spot colour at 32%) has to keep the text readable: a
-// spot colour as loud as ink does not.
+// The selection (the spot colour at 15%) has to keep the text readable, ink
+// and the muted tier both: a spot colour as loud as ink does not.
 func TestValidateChecksTheTextOnTheSelection(t *testing.T) {
 	tk := sona(t, false)
 	tk.Color["selection"] = tk.Color["ink"].Alpha(0.9)
 	if ps := Validate(tk); !has(ps, ProblemContrast, "ink") {
 		t.Errorf("ink on a dark selection passed: %v", ps)
+	}
+	// Ink is fine on a selection that is just too loud for the muted tier.
+	for _, dark := range []bool{false, true} {
+		tk := sona(t, dark)
+		tk.Color["selection"] = tk.Color["amber"].Alpha(0.32)
+		ps := Validate(tk)
+		if !has(ps, ProblemContrast, "ink-muted") {
+			t.Errorf("dark=%v: ink-muted on the old 32%% selection passed: %v", dark, ps)
+		}
 	}
 }
 

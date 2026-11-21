@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -469,9 +470,32 @@ func TestMotionGroupRowsFromTheNativeReport(t *testing.T) {
 		"H.264 decoding", "HEVC decoding", "System reduced motion", "Not requested"))
 }
 
+// The note under a warning is selectable: a triple click takes it and
+// Ctrl/Cmd+C copies it (it is --ink-muted, which the selection carries at
+// 4.5:1 in every theme).
+func TestDiagnosticsNotesUnderAWarningAreSelectable(t *testing.T) {
+	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
+	g.native(services.MotionReport{Setting: true, ReduceEffects: true, Visible: false, Last: "media-error: decode failed"})
+	g.tt.SetSize(1132, 2600)
+	g.tt.Until("the note", g.tt.Shows("decode failed"))
+	at, ok := g.tt.Find("decode failed")
+	if !ok {
+		t.Fatalf("no note among %q", g.tt.Texts())
+	}
+	x, y := at.X+at.W/2, at.Y+at.H/2
+	g.tt.SetClipboard("kept")
+	g.tt.ClickAt(x, y)
+	g.tt.ClickAt(x, y)
+	g.tt.ClickAt(x, y)
+	g.tt.Key(ui.Cmd, ui.KeyC)
+	if got := g.tt.Clipboard(); got == "kept" || !strings.Contains(got, "decode failed") {
+		t.Errorf("a triple click on the note copied %q", got)
+	}
+}
+
 // The values of a group (the version, a path) are selectable: a triple click
-// takes the line and Ctrl/Cmd+C copies it. The labels and the notes under a
-// warning are muted type and are not part of the selection.
+// takes the line and Ctrl/Cmd+C copies it, and so does a note under a
+// warning. The labels are not part of the selection.
 func TestDiagnosticsValuesAreSelectableAndLabelsAreNot(t *testing.T) {
 	g := newDiagRig(t, linuxCaps(), engineReport(), nil)
 	g.tt.SetSize(1132, 2600)
