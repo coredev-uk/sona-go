@@ -1043,3 +1043,26 @@ func TestHubDropsRepeatsAndKeepsTheLatest(t *testing.T) {
 		t.Error("a watch after Close is open")
 	}
 }
+
+// A request of Sona's, made the moment the session is open to them, is
+// written after the answer to the hello: the add-on's first frame is always
+// that answer.
+func TestAddonHelloAnswerPrecedesAnInvokeMadeAtOnce(t *testing.T) {
+	for range 200 {
+		a := startAddon(t, AddonConfig{}, PermPlaybackRead)
+		ctx, cancel := context.WithCancel(t.Context())
+		go func() {
+			for ctx.Err() == nil {
+				if _, err := a.s.Invoke(ctx, "addon.demo.x", nil); AsError(err).Code != AddonErrNotRunning {
+					return
+				}
+			}
+		}()
+		a.send(`{"id":1,"method":"hello","params":{"id":"demo","protocol":{"min":"2.0.0","max":"2.0.0"},"permissions":[]}}`)
+		first := a.recv()
+		cancel()
+		if first.ID != 1 || first.Method != "" || first.Error != nil {
+			t.Fatalf("the first frame was %+v, want the hello's answer", first)
+		}
+	}
+}
