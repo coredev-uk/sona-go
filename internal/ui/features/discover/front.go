@@ -368,7 +368,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 		if hasMenu {
 			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), card, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(pager).Top(captionTop + 12)
 		}
-		if card.Clicked() && open != nil {
+		if kit.ClickOnce(card) && open != nil {
 			open()
 		}
 	})
@@ -607,7 +607,7 @@ func (d *discover) queueTile(c *ui.Context, it services.Item, index int, current
 		if hasMenu {
 			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), card, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(0).Top(artH + 6)
 		}
-		if card.Clicked() && open != nil {
+		if kit.ClickOnce(card) && open != nil {
 			open()
 		}
 	})
