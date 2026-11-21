@@ -1,6 +1,6 @@
 # Security review
 
-This document is Sona's security design and its audit record. It gives the threat model and the controls for each component that handles untrusted input, then lists the weaknesses found in Sona's own code (F1–F27), the control that closed each one and the tests that keep it closed.
+This document is Sona's security design and its audit record. It gives the threat model and the controls for each component that handles untrusted input, then lists the weaknesses found in Sona's own code (F1–F28), the control that closed each one and the tests that keep it closed.
 
 To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat model (workflows, secrets, the release bot) is maintainer documentation: [docs/maintainers/ci-and-secrets.md](maintainers/ci-and-secrets.md). For how the pieces fit together, see [architecture.md](architecture.md) and [auth.md](auth.md).
 
@@ -51,6 +51,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [F25. The Last.fm approval token was in the browser's command line](#f25-the-lastfm-approval-token-was-in-the-browsers-command-line)
   - [F26. The update manifest's version and platform were not signed](#f26-the-update-manifests-version-and-platform-were-not-signed)
   - [F27. The loopback sign-in could be completed with another account's token](#f27-the-loopback-sign-in-could-be-completed-with-another-accounts-token)
+  - [F28. On macOS any program could read Sona's keychain items without a prompt](#f28-on-macos-any-program-could-read-sonas-keychain-items-without-a-prompt)
 - [Areas reviewed without findings](#areas-reviewed-without-findings)
 - [Run the tests](#run-the-tests)
 
@@ -263,7 +264,7 @@ Each component lists what it does, the threats, the controls, the tests and the 
 | Area | Linux | macOS (Seatbelt) |
 | --- | --- | --- |
 | Network | Own network namespace; seccomp refuses `AF_INET`/`AF_INET6`/`AF_NETLINK` sockets; Landlock: no TCP/UDP | `(deny network*)`: no TCP, UDP or Unix-socket connect, bind or listen. Core Audio talks Mach IPC, not sockets |
-| Session services | Session and system bus sockets gone (fresh `/run`, `$XDG_RUNTIME_DIR`); Landlock allows only the audio socket | No bus to hide; the keychain's Mach services are denied (`com.apple.SecurityServer`, `com.apple.securityd`, `com.apple.securityd.xpc`, `com.apple.security.agent`, `com.apple.security.authhost`): the child is Sona's own executable, which Sona's keychain item trusts. Other Mach services stay reachable (Core Audio needs `coreaudiod`) |
+| Session services | Session and system bus sockets gone (fresh `/run`, `$XDG_RUNTIME_DIR`); Landlock allows only the audio socket | No bus to hide; the keychain's Mach services are denied (`com.apple.SecurityServer`, `com.apple.securityd`, `com.apple.securityd.xpc`, `com.apple.security.agent`, `com.apple.security.authhost`): the child is Sona's own executable, which Sona's keychain items trust ([F28](#f28-on-macos-any-program-could-read-sonas-keychain-items-without-a-prompt)). Other Mach services stay reachable (Core Audio needs `coreaudiod`) |
 | File writes | Only `/dev/null`, `/dev/shm`, `/dev/snd` and the private `/tmp` (Landlock); home read-only | Only `/dev` (except the terminals: `tty`, `ttys*`, `pty*`, `console`, no write or ioctl), `/private/tmp`, `/private/var/tmp`, `/private/var/folders` (`$TMPDIR`) and GStreamer's registry cache (`$XDG_CACHE_HOME`/`~/.cache/gstreamer-1.0`, or `$GST_REGISTRY_1_0`'s folder) |
 | Hidden files | Sona's config and state, `~/.ssh`, `~/.gnupg`, `~/.password-store`, the keyrings; the downloaded CDM's folder is bound back read-only | Sona's folder (`~/Library/Application Support/Sona`: settings, `credentials.json`, the database, the log), `~/Library/Keychains`, `~/.ssh`, `~/.gnupg`, `~/.password-store`: neither read nor written. The one exception is the downloaded CDM's folder (`<data>/widevine/<version>/mac_arm64`, from `SONA_CDMHOST_CDM_DIR`: the dylib and its `.sig`), readable but not writable, plus the metadata of the folders above it so the path resolves |
 | Terminals | New session (no controlling terminal); `/dev/pts` covered by an empty tmpfs; Landlock refuses writes and device ioctls outside `/dev/null`, `/dev/shm`, `/dev/snd` | New session (`Setsid`); the profile denies write and ioctl on `/dev/tty`, `/dev/ttys*`, `/dev/pty*`, `/dev/console` [INFERENCE: not run on a Mac] |
@@ -819,6 +820,7 @@ Each finding has an issue, its impact, the fix and the test that keeps it fixed.
 | F25 | The Last.fm approval token was in the browser's command line | Low | Fixed (residual risks listed) | `internal/services/scrobble_link.go`, `scrobble.go`, `internal/auth/mut/peer.go` |
 | F26 | The update manifest's version and platform were not signed (downgrade, cross-platform archive) | Low | Fixed (residual risks listed) | `cmd/releasesign/main.go`, `internal/update/statement.go`, `manifest.go`, `source.go`, `internal/services/updates.go` |
 | F27 | The loopback sign-in could be completed with another account's token (login CSRF) | Low | Fixed | `internal/auth/mut/loopback.go` |
+| F28 | On macOS any program of the user's could read Sona's keychain items (the MUT, the scrobbler and lyrics tokens) without a prompt | Medium | Fixed (residual risks listed) | `internal/auth/store/keyring_darwin.go` |
 
 ### F1. Settings import could set the CDM path
 
@@ -1476,6 +1478,33 @@ Severity: Low. Status: fixed.
 - `internal/auth`: `TestLoopbackSignIn` (the manager's browser takes the state from the authorize URL's referrer, as Apple's redirect returns to it).
 
 **Live check.** That Apple's authorize page redirects back to the full `referrer` path, not only its origin, was read from its script (`sessionStorage.ac` takes the whole `referrer` href) and then run with a real account on 2026-11-21 (Linux, private window): `go run ./cmd/authspike -open=false` received the token through `…/callback/<state>` and printed `signed in: storefront=…`. Safari is still to run ([auth.md](auth.md#live-check-of-the-callback-path)). If Apple ever dropped the path, the sign-in would fail closed (404 page, timeout), never open.
+
+### F28. On macOS any program could read Sona's keychain items without a prompt
+
+Severity: Medium (GHSA-49cj-524r-6gp3). Status: fixed (residual risks listed).
+
+**Issue.** `internal/auth/store` kept its secrets with go-keyring v0.2.8, whose macOS backend runs `/usr/bin/security add-generic-password` and `find-generic-password`. The keychain trusts an item to the program that creates it, so these items let `/usr/bin/security` (requirement `identifier "com.apple.security" and anchor apple`) read the secret without asking, and no other program, Sona included. Any program can run `/usr/bin/security`. The comment on `seatbeltKeychainServices` and the [macOS sandbox](#macos-sandbox) table said the item trusted Sona's executable.
+
+**Impact.** Any unsandboxed program of the same user could run `security find-generic-password -s sona -a mut -w` and get the Music User Token, and likewise the Last.fm session key and the ListenBrainz and Musixmatch tokens, with no prompt: the Apple Music library, history and playlists, not the Apple Account. Elsewhere macOS asks the user before one program reads another's keychain item, and Linux's Secret Service and Windows' Credential Manager have no such check, so only macOS lost a protection. CVSS 4.4 AV:L/AC:L/PR:L/UI:N/C:L/I:L.
+
+**Fix** (`internal/auth/store/keyring_darwin.go`):
+
+- On macOS `store.SystemKeyring` calls Security.framework itself (`SecItemAdd`, `SecItemCopyMatching`, `SecItemUpdate`, `SecItemDelete`, through purego). Sona creates its items, so only Sona's executable may read them without a prompt. go-keyring stays on Linux and Windows (`keyring_gokeyring.go`).
+- Sona's items carry the creator code `Sona`. A keychain holds one generic password per service and account, so an item for `sona`/`<key>` without the code is go-keyring's. `Get` reads it through `/usr/bin/security`, its owner, deletes it the same way and stores the secret in an item Sona creates. `Set` and `Delete` remove it too. None of this asks the user.
+- `Set` updates Sona's item in place, which keeps its access list. An earlier build's item that this build may read but not delete (the user chose Allow, not Always Allow, after an update) is overwritten with a tombstone by `Delete`, which any program may do, and a tombstone reads as no item, so signing out still removes the token.
+- The comment on `seatbeltKeychainServices` and the sandbox table are now true: Sona's items trust Sona's executable, which is also the CDM host child's, so the child's profile still denies the keychain's Mach services.
+
+**Test** (`internal/auth/store/keyring_darwin_test.go`, macOS only, each on a throwaway keychain with user interaction off, so a prompt fails the test instead of waiting):
+
+- `TestKeychainItemTrustsOnlySona` (the advisory's check: after `Set` the only application the item lets read its secret is the test binary, not `/usr/bin/security`, per `security dump-keychain -a`).
+- `TestKeychainMovesGoKeyringItems` (an item made as go-keyring made it, base64 and hex: `Get` returns the plain secret without a prompt and leaves an item only the test binary may read).
+- `TestKeychainSetAndDeleteReplaceGoKeyringItems`, `TestKeychainDeleteTombstonesAnItemItMayNotDelete`, `TestKeychainRoundTrip`.
+
+**Residual risks.**
+
+- Sona is signed ad hoc, so the keychain trusts one build's code hash, and the first read after an update makes macOS ask "Sona wants to use your confidential information". Always Allow adds the new build. Deny leaves the items unreadable to it: Sona falls back to the 0600 file as when the keyring is unavailable, and the user signs in again. A stable signing identity would end the prompts.
+- An item is still writable by any program (its `encrypt` authorisation is open to all, as for every item), so another program can replace a secret, though not read it.
+- A secret is readable by any program until Sona first starts after the update, which moves it.
 
 ## Areas reviewed without findings
 

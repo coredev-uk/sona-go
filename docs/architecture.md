@@ -66,7 +66,7 @@ The Apple Music web app is a reference for functionality only (`docs/apple-music
 | --- | --- |
 | Language and UI | Go 1.27.3 and MyGo v0.9.0 (`github.com/egoist/mygo/ui`) |
 | Database | SQLite through `github.com/mattn/go-sqlite3` (FTS5 via the `sqlite_fts5` build tag), a libSQL-compatible schema, goose migrations and sqlc queries |
-| Platform libraries | `github.com/zalando/go-keyring` (Secret Service, Keychain, Credential Manager), `github.com/godbus/dbus/v5`, `golang.org/x/sync` |
+| Platform libraries | `github.com/zalando/go-keyring` (Secret Service, Credential Manager; the macOS Keychain is Security.framework through purego, `internal/auth/store`), `github.com/godbus/dbus/v5`, `golang.org/x/sync` |
 | Artwork decoding | The standard library's `image/jpeg` and `image/png` only, with resizing in `internal/artwork`, so no TIFF, BMP or WebP decoder is linked |
 | cgo | GStreamer 1.x (`gstreamer-1.0`, `gstreamer-app-1.0`; on Linux also `gstreamer-video`, for the motion artwork decoder) and `dlopen` for the CDM through a C++ shim |
 | Development environment | devenv (Nix), described in `docs/development.md` |

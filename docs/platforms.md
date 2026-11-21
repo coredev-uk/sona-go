@@ -84,7 +84,7 @@ Inside the tagged packages, what differs is in `_linux`, `_darwin` and `_windows
 | What | Linux | macOS | Windows |
 | --- | --- | --- | --- |
 | Config paths (`internal/config`) | XDG | `~/Library/...` | `%APPDATA%`, `%LOCALAPPDATA%` |
-| Keyring backend (go-keyring) | Secret Service | Keychain | Credential Manager |
+| Keyring backend (`store.SystemKeyring`) | Secret Service (go-keyring) | Keychain (Security.framework; items only Sona may read without a prompt) | Credential Manager (go-keyring) |
 | Discord IPC | Unix socket owned by the user | Unix socket owned by the user | Named pipe `\\.\pipe\discord-ipc-N` whose server runs as the user |
 | Track notifications | `org.freedesktop.Notifications` (`internal/desktop/notify`) | MyGo: UNUserNotificationCenter, from Sona.app only | MyGo: notification-area balloons, shown as toasts |
 | Start at login | XDG autostart entry (`app.XDGAutostart`, passes `--hidden`) | MyGo: SMAppService login item, from Sona.app only | MyGo: the user's `Run` key, which Task Manager can turn off |
