@@ -42,26 +42,21 @@ jobs:
     name: Renovate
     runs-on: ubuntu-latest
     # Renovate acts through the bot-cecil App token, not GITHUB_TOKEN. The
-    # App's key is a secret of the bot-cecil environment, which only main
-    # and v* tags deploy to.
+    # token comes from octo-sts, and the bot-cecil environment still limits
+    # the run to main and v* tags.
     environment: bot-cecil
-    permissions: {}
+    permissions:
+      id-token: write # the OIDC token octo-sts exchanges for bot-cecil's
     steps:
-      # bot-cecil's App credentials are secrets of the bot-cecil environment
-      # (RENOVATE_APP_CLIENT_ID, RENOVATE_APP_PRIVATE_KEY).
+      # octo-sts (octo-sts.hera.ac) holds bot-cecil's key and grants the
+      # permissions of .github/chainguard/renovate.sts.yaml.
       - name: Generate Token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         id: app-token
         with:
-          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          permission-checks: write
-          permission-contents: write
-          permission-issues: write
-          permission-pull-requests: write
-          permission-statuses: write
-          permission-vulnerability-alerts: read
-          permission-workflows: write
+          domain: octo-sts.hera.ac
+          scope: ${{ github.repository }}
+          identity: renovate
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -60,14 +60,18 @@ needs:
   extraction rules and Sona's layout; `package.sh` runs it on what it made
   and `releasesign` runs it before it signs. `go run ./cmd/releasesign
   -target T -archive FILE -version V -url URL [-notes FILE] -out
-  update-T.json` signs it (key from `$SONA_UPDATE_KEY`); the publish job signs
+  update-T.json` signs it (key from `$SONA_UPDATE_KEY`): the digest, as MyGo
+  checks it, and a statement of target, version, channel and digest that
+  Sona checks (`docs/architecture.md`, "Updates"); the publish job signs
   last, after the archives are uploaded.
 - A prerelease's notes (and its manifests' notes) are `go run ./cmd/rcnotes
   -exclude <tag>`: the changes since the previous `v*` tag, by Conventional
   Commit type (`docs/maintainers/release.md`, "Releasing": the Prerelease notes item).
 - Tests run against an `httptest` fake release server (`internal/update`,
   `internal/services/updates_self_test.go`): the check, a bad signature
-  refused, no key (off), a development build never checking, the rollback
+  refused, a replayed older manifest, another platform's, a tampered
+  version or digest and a manifest without a statement refused, no key
+  (off), a development build never checking, the rollback
   decision, a failed install leaving the kept version as it was, and the
   archive rules (`archive_test.go`, pinned to what MyGo's extractor does with
   the same entries; the Windows archive script is run on a folder and its

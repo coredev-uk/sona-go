@@ -1,7 +1,10 @@
 // Command releasesign writes update-<target>.json, the manifest Sona's
 // self-updater reads (internal/update.Manifest, MyGo's format): the
-// version, release notes, date, archive URL and size, and the Ed25519
-// signature of the archive's SHA-256 digest.
+// version, release notes, date, archive URL and size, the Ed25519 signature
+// of the archive's SHA-256 digest (the one MyGo checks), and, for Sona, the
+// digest in hex with a second signature over the statement
+// `sona-update-v1 NUL target NUL version NUL channel NUL hex(sha256)`, which
+// binds the version and platform to the archive (update.Statement).
 //
 //	SONA_UPDATE_KEY=… go run ./cmd/releasesign -target darwin-arm64 \
 //	    -archive sona-0.3.0-darwin-arm64.tar.gz -version 0.3.0 \
@@ -28,6 +31,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -104,7 +108,10 @@ func run(args []string, getenv func(string) string, now func() time.Time) error 
 	if m.Size, err = io.Copy(sum, f); err != nil {
 		return err
 	}
-	m.Signature = update.Sign(ed25519.PrivateKey(raw), sum.Sum(nil))
+	digest := sum.Sum(nil)
+	m.Signature = update.Sign(ed25519.PrivateKey(raw), digest)
+	m.SHA256 = hex.EncodeToString(digest)
+	m.StatementSignature = update.SignStatement(ed25519.PrivateKey(raw), *target, m.Version, digest)
 	body, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err

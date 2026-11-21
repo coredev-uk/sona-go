@@ -25,7 +25,7 @@ Settings → Diagnostics → Open log folder opens the folder. The log is `sona.
 
 ## Report a bug
 
-1. Choose Copy diagnostics in Settings → Diagnostics. Sona copies a report and removes tokens and your email address. It also saves a copy in the log folder.
+1. Choose Copy diagnostics in Settings → Diagnostics. Sona copies a report and removes tokens and your email address. It also leaves out where you are and which hardware you have: the Concerts city, the sidebar's open folders, the audio output device and the text you typed into add-on settings. The report's settings end with a `_withheld` list of what was left out. It also saves a copy in the log folder.
 2. Open the [bug report form](https://github.com/coredev-uk/sona-go/issues/new?template=bug_report.yml).
 3. Choose your platform and how you installed Sona. Describe what happened and the steps to reproduce it.
 4. Paste the diagnostics, and check them for anything personal.
