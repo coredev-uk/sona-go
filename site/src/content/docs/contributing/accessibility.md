@@ -249,7 +249,7 @@ How Sona uses each state:
   - errors are alerts;
   - the verdicts, the video's loading and buffering, the shortcut filter's and the playlist picker's empty notes and the sign-in notice are statuses that MyGo reads when their text changes (the first appearance through `kit.AnnounceMounted`);
   - the rest go through `c.Announce`.
-- Lyrics: each synced line is one button named by its text, and the sung line is the current item.
+- Lyrics: each synced line is one button named by its text, and the sung line is the current item. An instrumental gap's dots are an image named "Instrumental break" while the gap is to come or running, and nothing once it has passed.
 
 **Checked by** the per-feature `a11y_test.go` files, which turn the screen reader on (`tt.UseScreenReader()`) and count what it reads, and by the Orca walk (a track change and a queue move are read once).
 
@@ -281,7 +281,7 @@ How Sona uses each state:
 **In Sona**
 
 - `theme.ReducedMotion` is the single switch.
-- Word-timed lyrics light each word whole as it begins.
+- Word-timed lyrics light each word whole as it begins; an instrumental gap's three dots light whole, one as each third of the gap begins, in place of a fill in steps.
 - Motion artwork does not play: Settings → Diagnostics → Motion artwork says which input stops it. Covers show their still.
 
 **Checked by** `TestReducedMotionAndEffects` in `internal/ui/theme`.

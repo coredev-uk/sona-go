@@ -276,7 +276,6 @@ func (p *player) subline(c *ui.Context, s services.PlaybackState) {
 // a live station has no times.
 func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 	idle := s.Current == nil
-	loading := s.State == store.StateLoading
 	live := s.Current != nil && s.Current.Live
 	pos, dur := p.position(s, idle)
 	ui.Row(c).Shrink(0).Gap(8).AlignItems(ui.Center).Children(func() {
@@ -296,27 +295,9 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 		if p.iconButton(c, "shuffle", "shuffle", name, idle, shuffle, &on) {
 			p.toggleShuffle()
 		}
-		if p.iconButton(c, "prev", "skip-back", i18n.T("Previous"), idle || (!s.Controls.Previous && unavailable(s, ctlPrevious) == ""), unavailable(s, ctlPrevious), nil) {
-			p.tr.Prev()
-		}
-
-		icon, name := kit.PlayPauseIcon(s.State)
-		play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
-			Variant: kit.Play, Size: kit.SizeLG, Icon: icon, Filled: !loading, Spin: loading, Disabled: idle, A11yLabel: name, Keys: p.env.KeysOf("player.toggle"),
-		})
-		play.Size(playDisc, playDisc).Shrink(0)
-		if play.Clicked() {
-			p.tr.Toggle()
-		}
-		if loading {
-			// The spinner is only seen: this is what a screen reader finds of
-			// it, beside the button (no size, so the row does not move).
-			ui.Box(c.Key("loading")).Absolute().Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Loading"))
-		}
-
-		if p.iconButton(c, "next", "skip-forward", i18n.T("Next"), idle || (!s.Controls.Next && unavailable(s, ctlNext) == ""), unavailable(s, ctlNext), nil) {
-			p.tr.Next()
-		}
+		p.prevButton(c, s)
+		p.playButton(c, s)
+		p.nextButton(c, s)
 		repeat := unavailable(s, ctlRepeat)
 		on = s.Repeat != "off" && repeat == ""
 		rname, ricon := i18n.T("Repeat off"), "repeat"
@@ -340,6 +321,44 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 	})
 	if !live {
 		p.seek.Tick(c, s.State == store.StatePlaying)
+	}
+}
+
+// prevButton, playButton and nextButton are the transport's three controls,
+// built as the bar sets them and as Full-Screen Lyrics' strip does: the same
+// commands (kit.Transport), the same guards (a live station has no previous
+// or next), the same keys in their tooltips.
+func (p *player) prevButton(c *ui.Context, s services.PlaybackState) {
+	idle := s.Current == nil
+	if p.iconButton(c, "prev", "skip-back", i18n.T("Previous"), idle || (!s.Controls.Previous && unavailable(s, ctlPrevious) == ""), unavailable(s, ctlPrevious), nil) {
+		p.tr.Prev()
+	}
+}
+
+// playButton is the amber play disc: play, pause, or the spinner while the
+// song loads.
+func (p *player) playButton(c *ui.Context, s services.PlaybackState) {
+	idle := s.Current == nil
+	loading := s.State == store.StateLoading
+	icon, name := kit.PlayPauseIcon(s.State)
+	play := kit.Button(c.Key("play"), "", kit.ButtonOpts{
+		Variant: kit.Play, Size: kit.SizeLG, Icon: icon, Filled: !loading, Spin: loading, Disabled: idle, A11yLabel: name, Keys: p.env.KeysOf("player.toggle"),
+	})
+	play.Size(playDisc, playDisc).Shrink(0)
+	if play.Clicked() {
+		p.tr.Toggle()
+	}
+	if loading {
+		// The spinner is only seen: this is what a screen reader finds of
+		// it, beside the button (no size, so the row does not move).
+		ui.Box(c.Key("loading")).Absolute().Size(0, 0).Role(ui.RoleStatus).Label(i18n.T("Loading"))
+	}
+}
+
+func (p *player) nextButton(c *ui.Context, s services.PlaybackState) {
+	idle := s.Current == nil
+	if p.iconButton(c, "next", "skip-forward", i18n.T("Next"), idle || (!s.Controls.Next && unavailable(s, ctlNext) == ""), unavailable(s, ctlNext), nil) {
+		p.tr.Next()
 	}
 }
 

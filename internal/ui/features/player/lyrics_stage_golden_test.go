@@ -64,9 +64,25 @@ func goldenRig(t *testing.T, opts []uitest.Option, l services.Lyrics, lyrErr err
 	return r
 }
 
+// sketchGapLines are the sketch with 9 s of instrumental before its fifth
+// line: a gap from 15.6 s to 24.8 s.
+func sketchGapLines() []services.LyricLine {
+	out := sketchLines()
+	const shift = 9000
+	for i := 4; i < len(out); i++ {
+		out[i].BeginMs += shift
+		out[i].EndMs += shift
+		for k := range out[i].Words {
+			out[i].Words[k].BeginMs += shift
+			out[i].Words[k].EndMs += shift
+		}
+	}
+	return out
+}
+
 // The view is dark whatever the theme, so the light and the dark window
-// each show the same picture. Four states: a word-timed line mid-sweep, a
-// duet, no lyrics, and the strip shown.
+// each show the same picture. Five states: a word-timed line mid-sweep, a
+// duet, no lyrics, the strip shown, and an instrumental gap.
 func TestFullScreenLyricsGoldens(t *testing.T) {
 	for _, mode := range []struct {
 		name string
@@ -84,6 +100,12 @@ func TestFullScreenLyricsGoldens(t *testing.T) {
 		t.Run(mode.name+"/none", func(t *testing.T) {
 			r := goldenRig(t, mode.opts, services.Lyrics{}, lyrics.ErrNotFound, 2_000)
 			uitest.Golden(t, r.tt.Image(), "full-screen-lyrics-none-"+mode.name)
+		})
+		t.Run(mode.name+"/gap", func(t *testing.T) {
+			// The gap runs 15.6 s to 24.8 s: at 20 s (the view is drawn 0.6 s
+			// after it opens) the first dot is full and the second half way.
+			r := goldenRig(t, mode.opts, services.Lyrics{Timing: "Word", Lines: sketchGapLines()}, nil, 19_400)
+			uitest.Golden(t, r.tt.Image(), "full-screen-lyrics-gap-"+mode.name)
 		})
 		t.Run(mode.name+"/strip", func(t *testing.T) {
 			r := goldenRig(t, mode.opts, services.Lyrics{Timing: "Word", Lines: sketchLines()}, nil, 12_900)

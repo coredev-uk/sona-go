@@ -3258,6 +3258,10 @@ msgstr ""
 msgid "Installed"
 msgstr ""
 
+#: internal/ui/features/player/lyrics_gap.go
+msgid "Instrumental break"
+msgstr ""
+
 #: internal/ui/features/settings/addons.go
 msgid "Internet"
 msgstr ""
@@ -5284,6 +5288,7 @@ msgstr ""
 msgid "Playback"
 msgstr ""
 
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/settings/addons.go
 msgid "Playback controls"
 msgstr ""

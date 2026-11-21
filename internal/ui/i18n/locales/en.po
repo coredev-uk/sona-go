@@ -3258,6 +3258,10 @@ msgstr "Install the Media Feature Pack for Windows (Settings → System → Opti
 msgid "Installed"
 msgstr "Installed"
 
+#: internal/ui/features/player/lyrics_gap.go
+msgid "Instrumental break"
+msgstr "Instrumental break"
+
 #: internal/ui/features/settings/addons.go
 msgid "Internet"
 msgstr "Internet"
@@ -5284,6 +5288,7 @@ msgstr "Play {songName}"
 msgid "Playback"
 msgstr "Playback"
 
+#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/settings/addons.go
 msgid "Playback controls"
 msgstr "Playback controls"
