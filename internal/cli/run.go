@@ -114,13 +114,13 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 		return env.writeStatus(in, s)
 	case "seek", "shuffle", "repeat", "crossfade":
 		var s Status
-		if err := decode(raw, &s); err != nil {
+		if err := decodeText(raw, &s); err != nil {
 			return err
 		}
 		return writeLine(w, settingLine(p, in.cmd.name, s))
 	case "lyrics":
 		var l Lyrics
-		if err := decode(raw, &l); err != nil {
+		if err := decodeText(raw, &l); err != nil {
 			return err
 		}
 		return writeLyrics(w, in, l)
@@ -133,50 +133,50 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 			return env.writeStatus(in, s)
 		}
 		var q Queue
-		if err := decode(raw, &q); err != nil {
+		if err := decodeText(raw, &q); err != nil {
 			return err
 		}
 		return writeQueue(w, p, q)
 	case "search":
 		var r SearchResults
-		if err := decode(raw, &r); err != nil {
+		if err := decodeText(raw, &r); err != nil {
 			return err
 		}
 		return writeSearch(w, p, r)
 	case "open":
 		var o Opened
-		if err := decode(raw, &o); err != nil {
+		if err := decodeText(raw, &o); err != nil {
 			return err
 		}
 		return writeLine(w, p.Sprintf(msgOpened, o.Kind, o.ID))
 	case "volume":
 		var v Volume
-		if err := decode(raw, &v); err != nil {
+		if err := decodeText(raw, &v); err != nil {
 			return err
 		}
 		return writeLine(w, p.Sprintf(msgFieldLine, p.T(msgFieldVolume), p.Sprintf(msgPercent, v.Volume)))
 	case "like", "dislike", "library":
 		if len(in.args) > 0 && (in.args[0] == "playlists" || in.args[0] == "albums") {
 			var l LibraryItems
-			if err := decode(raw, &l); err != nil {
+			if err := decodeText(raw, &l); err != nil {
 				return err
 			}
 			return writeLibraryItems(w, p, l)
 		}
 		var l Like
-		if err := decode(raw, &l); err != nil {
+		if err := decodeText(raw, &l); err != nil {
 			return err
 		}
 		return writeLine(w, songStateLine(p, in.cmd.name, l))
 	case "private":
 		var pv Private
-		if err := decode(raw, &pv); err != nil {
+		if err := decodeText(raw, &pv); err != nil {
 			return err
 		}
 		return writeLine(w, privateLine(p, pv))
 	case "spatial":
 		var sp Spatial
-		if err := decode(raw, &sp); err != nil {
+		if err := decodeText(raw, &sp); err != nil {
 			return err
 		}
 		return writeLine(w, spatialLine(p, sp))
@@ -187,6 +187,9 @@ func (env Env) print(in *invocation, raw json.RawMessage) error {
 // writeStatus prints a status the way the invocation asks: JSON, through
 // its template, all fields (`status`) or one line (the others, --follow).
 func (env Env) writeStatus(in *invocation, s Status) error {
+	if !in.json {
+		s = plain(s) // the track's text comes from Apple, a station or a library upload
+	}
 	switch {
 	case in.json:
 		b, err := json.Marshal(s)
@@ -356,8 +359,10 @@ func (env Env) errorf(format l10n.Message, args ...any) {
 	env.write(env.Printer.Sprintf(format, args...))
 }
 
+// write prints one error line. msg can carry text a service, a station or a
+// file name supplied, so it is made safe for a terminal first.
 func (env Env) write(msg string) {
-	_, _ = fmt.Fprintln(env.Stderr, errorPrefix+msg)
+	_, _ = fmt.Fprintln(env.Stderr, errorPrefix+TerminalSafe(msg))
 }
 
 // done is the exit status after printing locally.
@@ -372,6 +377,17 @@ func decode(raw json.RawMessage, v any) error {
 	if err := json.Unmarshal(raw, v); err != nil {
 		return &Error{Code: CodeIncompatible, Message: err.Error()}
 	}
+	return nil
+}
+
+// decodeText is decode for a result that is printed as text: the strings of
+// the result are made safe for a terminal (plain). JSON output is left as
+// received, since JSON escapes control characters itself.
+func decodeText[T any](raw json.RawMessage, v *T) error {
+	if err := decode(raw, v); err != nil {
+		return err
+	}
+	*v = plain(*v)
 	return nil
 }
 
