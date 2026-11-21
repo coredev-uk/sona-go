@@ -267,7 +267,8 @@ func TestTheSheetSetsTheDotsWhereALineWouldBeAndTurnsToThem(t *testing.T) {
 		t.Fatalf("the sheet's gaps: %+v", sh.gaps)
 	}
 	// The voice rests after line 8 (it ended at 36 s, rests from 36.5 s): the
-	// sheet turns to the dots, which are the sung line now, in the band.
+	// sheet follows to the dots, which are the sung line now, at the reading
+	// position.
 	r.play(37_500)
 	for range 40 {
 		r.advance(50 * time.Millisecond)
@@ -279,8 +280,8 @@ func TestTheSheetSetsTheDotsWhereALineWouldBeAndTurnsToThem(t *testing.T) {
 	if !ok {
 		t.Fatalf("no dots on the sheet: %q", r.tt.Texts())
 	}
-	if box.Y < view.Y+view.H*bandTop-2 || box.Y+box.H > view.Y+view.H*bandBottom {
-		t.Errorf("the dots at %v..%v are outside the reading band %v..%v", box.Y, box.Y+box.H, view.Y+view.H*bandTop, view.Y+view.H*bandBottom)
+	if want := view.Y + view.H*readAt; math.Abs(float64(box.Y-want)) > 2 {
+		t.Errorf("the dots are at %v, want the reading position %v", box.Y, want)
 	}
 	line, ok := r.tt.Find("Line 9 sung words")
 	if !ok || line.Y < box.Y+box.H-2 {
