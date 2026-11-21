@@ -11,11 +11,13 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/features/newreleases"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // hangGuard is how long a test waits for what it knows will happen (a
@@ -507,6 +509,58 @@ func TestSettingsChangedKeepsTheSharedSettingsCurrent(t *testing.T) {
 	}
 	if got.Scrobbling.LastFM.Username != "listener" || !got.Scrobbling.LastFM.Enabled {
 		t.Fatalf("the save put the old scrobbler back: %+v", got.Scrobbling)
+	}
+}
+
+// The New releases link is in the sidebar only while the artist tracker is
+// on, and follows settings:changed without a restart; its route stays, so a
+// link to the page (the notification centre's) still opens it.
+func TestNewReleasesLinkFollowsTheTrackerSetting(t *testing.T) {
+	h := uitest.New(t)
+	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Now: h.Clock.Now}, []module.Factory{newreleases.New})
+	t.Cleanup(a.env.Art.Close)
+	a.connect()
+	tt := h.Tester(t, a.view, 1132, 800)
+	link := func() bool {
+		tt.Frame()
+		_, ok := access.Read(t, tt.Tester).Find(ui.RoleLink, "New releases")
+		return ok
+	}
+	set := func(on bool) {
+		if _, err := h.Settings.Update(func(s *config.Settings) { s.ArtistTracker.Enabled = on }); err != nil {
+			t.Fatal(err)
+		}
+		h.Bus.Emit(services.EventSettingsChanged, h.Settings.Get())
+		h.Main.Drain()
+	}
+	if link() {
+		t.Fatal("the link is in the sidebar with the tracker off (the default)")
+	}
+	if a.hasRoute("/new-releases") != true {
+		t.Error("the route is not registered with the tracker off")
+	}
+	inMenu := func() bool {
+		in := a.menuInput()
+		in.commands = a.keys.bindings()
+		_, ok := findEntry(buildMenuBar(in), "nav.new-releases")
+		return ok
+	}
+	if inMenu() {
+		t.Error("the Go menu lists the page with the tracker off")
+	}
+	a.router.Push("/new-releases")
+	tt.Until("the off state", tt.Shows("Release tracking is off"))
+	a.router.Back()
+	set(true)
+	if !link() {
+		t.Fatal("the link did not appear when the tracker was turned on")
+	}
+	if !inMenu() {
+		t.Error("the Go menu lacks the page with the tracker on")
+	}
+	set(false)
+	if link() {
+		t.Fatal("the link stayed after the tracker was turned off")
 	}
 }
 

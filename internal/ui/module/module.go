@@ -196,11 +196,19 @@ type NavItem struct {
 	Order   int           // ascending within the section
 	Exact   bool          // active only on this exact path
 	Keys    []string      // default chords of its go-to shortcut; nil: Ctrl+1…9 / Alt+1…9 by position
+	// Visible, when set, says whether the link is shown now (a page that
+	// is off until a setting turns it on). Hidden, it is not in the sidebar
+	// or the Go menu, and its go-to shortcut does nothing; the route stays
+	// registered. Called every frame the sidebar is built: cheap, main thread.
+	Visible func() bool
 	// Count, when set, is a number the link carries at its end (unread new
 	// releases): drawn while it is above 0, and part of the link's name for
 	// assistive technology. Called every frame it is built: cheap, main thread.
 	Count func() int
 }
+
+// Shown reports whether the link is in the sidebar and the menu now.
+func (n NavItem) Shown() bool { return n.Visible == nil || n.Visible() }
 
 // Route is a page.
 type Route struct {
