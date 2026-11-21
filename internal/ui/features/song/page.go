@@ -433,10 +433,10 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong, first bool)
 func (s *song) creditsShelf(c *ui.Context, groups []services.CreditGroup, cols int, first bool) {
 	tk := theme.Current().Type
 	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Credits"), First: first}, func() {
-		// The names are one selection: drag across people, double-click a
-		// name. The group titles, the roles and the pictures' initials are
-		// muted type or decoration, which the selection colour would not
-		// carry at 4.5:1 (docs/design.md, "Selectable text"): Unselectable.
+		// The names and roles are one selection: drag across people,
+		// double-click a name. The group titles and the pictures' initials
+		// are headings or decoration (docs/design.md, "Selectable text"):
+		// Unselectable.
 		ui.Column(c.Key("groups")).FillWidth().Gap(20).Selectable().Children(func() {
 			for gi, g := range groups {
 				title := creditTitle(g)
@@ -471,7 +471,7 @@ func (s *song) person(c *ui.Context, p services.Credit) {
 		ui.Column(c).Grow(1).MinWidth(0).MinHeight(avatar).Justify(ui.Center).Children(func() {
 			ui.Text(c, p.Name).FontSize(tk["body"].Size).FixedLineHeight(tk["body"].LineHeight).TextColor(theme.C("ink")).SingleLine()
 			ui.Text(c, strings.Join(p.Roles, ", ")).FontSize(tk["secondary"].Size).FixedLineHeight(tk["secondary"].LineHeight).
-				TextColor(theme.C("ink-muted")).Unselectable()
+				TextColor(theme.C("ink-muted"))
 		})
 	})
 }

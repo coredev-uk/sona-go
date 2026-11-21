@@ -104,7 +104,7 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 - Sona's own board is neutral grey (OKLCH chroma 0), so no tint competes with a cover. No cream, no navy, no violet: that is Sona's own themes' rule, not the community palettes' (Themes, below).
 - The primary button is ink-filled (near-black on light, near-white on dark), not amber.
-- Focus ring: 2px `--ink` at 60% (the `ring` token, MyGo's keyboard-focus ring) outside the control, everywhere (≥ 3:1 on every background tone). Selection is amber at 32% (the `selection` token); the caret is `--amber-ink`.
+- Focus ring: 2px `--ink` at 60% (the `ring` token, MyGo's keyboard-focus ring) outside the control, everywhere (≥ 3:1 on every background tone). Selection is amber at 15% (the `selection` token); the caret is `--amber-ink`.
 - Contrast floors (WCAG AA, `site/src/content/docs/contributing/accessibility.md`): text tokens ≥ 4.5:1 on every background up to `--active` (selected rows), `--control-line` and the focus ring ≥ 3:1. Slider thumbs are always shown: the thumb, not the fill colour, marks the value.
 - The kit's role names (`background`, `primary`, `muted`, `ring`, …) are tokens in `tokens.json` too, mapped onto these, so MyGo's widgets and Sona's components read one palette without per-component overrides.
 
@@ -134,7 +134,7 @@ The table above is Sona's own theme (`sona`): `tokens.json` is its whole documen
   - Text tiers, the spot colour as text and the status colours keep 4.5:1 on every tone up to `--active` and on a selected row (ink at 12%).
   - `--control-line` and the ring keep 3:1. Avatar tones keep 4.5:1. The backdrop scrim stays at 0.8 or more.
   - The spot fill keeps 3:1 against the ground, surface and hover in a light and a dark theme (WCAG 1.4.11, non-text contrast: the play disc is a graphical object; Sona's own light amber has 3.6, 3.3 and 3.1). `--on-amber` keeps 4.5:1 on it.
-  - Ink keeps 4.5:1 on the selection (the spot colour at 32%).
+  - Ink and `--ink-muted` keep 4.5:1 on the selection (the spot colour at 15%) over the ground, surface and raised. 15% is the most that holds in every built-in theme and every accent: at the old 32% Sona dark's `--ink-muted` was 3.5 to 4.0:1 and 16 of the 22 built-in variants fell short. The selection stays distinct from hover and active, which are neutral greys.
 - **A theme with one variant pins the appearance** to it: `oled` and `dracula` are dark, so Settings → Appearance disables the mode row and says so.
   - Settings → Appearance lists the themes as cards: a miniature window drawn from each theme's own tokens, its name, a line, and "Dark only" where it applies.
   - The cards are in two groups, "Sona's own" and "Community palettes", then the user's files.
@@ -468,7 +468,7 @@ Argued departures that stay (not issues):
 
 Nothing is selectable by default: a page of rows, tiles and links would fight its own clicks, drags and double-click to play. Text is selectable (MyGo's `Element.Selectable()`) only where people copy it, case by case. One rule decides how:
 
-- **Values, not names.** The value text (`--ink`) is selectable; the muted name beside it, a note, a role, a heading and a picture's initials are `Unselectable()`. MyGo paints the selection (`--selection`, the spot colour at 32%) under the text and leaves the text's colour alone. `theme.Validate` keeps `--ink` at 4.5:1 on it in every theme, but the muted tier falls below that on it in most (Sona dark: `--ink-muted` is 3.5 to 4.0:1; 16 of the 22 built-in variants fall below 4.5:1 somewhere), so muted text stays out of the selection until the selection can carry it (issue #411).
+- **Values, not names.** The value text (`--ink`) is selectable, and so is the muted text that belongs to it: the ℗ and © line, a song's credit roles, the note under a Diagnostics warning and an error's reason. The muted name beside a value, a heading and a picture's initials are `Unselectable()`. MyGo paints the selection (`--selection`, the spot colour at 15%) under the text and leaves the text's colour alone; `theme.Validate` keeps both `--ink` and `--ink-muted` at 4.5:1 on it in every theme, and refuses a user theme that fails.
 - **A container for a block of values**, so a drag runs across rows and Ctrl/Cmd+A copies the block, joined by newlines. A control inside keeps its own behaviour (MyGo does not select text inside a button or a link), so a selectable block holds no link or row that opens something.
 - **An identifier also gets a Copy button** (`kit.CopyButton`: a 24px ghost icon button, named "Copy ISRC", with a toast "ISRC copied"): it is one Tab stop beside its value, for someone at the keyboard.
 - **Roles and names are unchanged**: `Selectable()` adds no role, so a screen reader reads the same tree. Selecting never clicks the parent: a selectable block is not in a clickable parent.
@@ -478,14 +478,17 @@ Nothing is selectable by default: a page of rows, tiles and links would fight it
 | Song page, Details: ISRC | Selectable, with a Copy button | The identifier people paste into a form or a report; the button serves the keyboard |
 | Song page, Details: released, duration, genre, track, disc, written by | Selectable (values; the names are not) | Plain facts people quote; no clickable parent. The song has no label or ℗ line in Apple's data |
 | Song page, Credits: people's names | Selectable (one selection across all groups) | Credits get pasted into notes and forms; names are `--ink` |
-| Song page, Credits: roles, group titles, initials | No | Muted type and decoration |
+| Song page, Credits: roles | Selectable (in the same selection as the names) | Muted type, which the selection carries at 4.5:1 (issue #411) |
+| Song page, Credits: group titles, initials | No | Headings and decoration |
 | Album page, fine print: the label, release dates, genres, writers | Selectable (values; the names are not) | Plain facts people quote, in a column no row or link surrounds |
-| Album page, fine print: the ℗ and © line | No | It is `--ink-muted`, which the selection does not carry at 4.5:1 (issue #411) |
+| Album page, fine print: the ℗ and © line | Selectable | A plain fact people quote; `--ink-muted` keeps 4.5:1 on the selection (issue #411) |
 | Album page, fine print: UPC | Not shown | Sona does not fetch the UPC; there is nothing to select |
 | Lyrics (song page, Now Playing, the full-screen sheet) | No | Apple's Developer Program License Agreement (3.3.6 D) allows MusicKit content only as the MusicKit APIs render it and says music-related text may not be used apart from playback; two of Sona's three lyrics sources (Musixmatch, LRCLIB) are licensed by others; and the Now Playing sheet's lines seek on a click. Unclear, so left unselectable |
 | Settings, Diagnostics: values (versions, paths, ids, sizes, pid) | Selectable, one selection per group | Single values are what someone pastes into a bug report; "Copy diagnostics" still copies the redacted whole |
-| Settings, Diagnostics: labels and the notes under a warning | No | Muted type |
-| Error and notice text | No | Go's own text and its codes never reach the screen: an error shows a sentence in muted type, and a toast leaves by itself. "Copy diagnostics" carries the codes |
+| Settings, Diagnostics: the notes under a warning | Selectable (same selection as the values) | What to do about it, worth pasting into a report |
+| Settings, Diagnostics: labels | No | Names, not values |
+| Error block: the reason (second line) | Selectable | The sentence people paste into a report; the title is not. Go's codes never reach the screen, "Copy diagnostics" carries them |
+| Notice text (toasts) | No | A toast leaves by itself |
 | About: the version and build | Selectable | Settings, Diagnostics, "Sona" group (the version, Go, platform); Sona has no About page of its own and the OS's About panel is the OS's |
 | Concerts: venue address | No | Sona's data has the venue's name and city, not an address; its rows are links and ticket buttons |
 | Track-list rows, tiles, sidebar, the player bar's title, buttons, links | No | They click, drag, double-click to play or open a menu |

@@ -857,6 +857,37 @@ func TestErrorBlockMessageIsAnAlertWithoutItsButton(t *testing.T) {
 	}
 }
 
+// An error block's second line (the reason) is selectable muted text: a
+// triple click takes it and Ctrl/Cmd+C copies it; the title is not part of it.
+func TestErrorBlockReasonIsSelectable(t *testing.T) {
+	tt := controlsTester(t, 600, 200, func(c *ui.Context) {
+		ErrorBlock(c, "Couldn't load this album", errors.New("boom"), ErrorBlockOpts{OnRetry: func() {}})
+	})
+	tt.Frame()
+	at, ok := tt.Find("Something went wrong.")
+	if !ok {
+		t.Fatalf("no reason among %q", tt.Texts())
+	}
+	x, y := at.X+at.W/2, at.Y+at.H/2
+	tt.SetClipboard("kept")
+	tt.ClickAt(x, y)
+	tt.ClickAt(x, y)
+	tt.ClickAt(x, y)
+	tt.Key(ui.Cmd, ui.KeyC)
+	if got := tt.Clipboard(); got != "Something went wrong." {
+		t.Errorf("a triple click on the reason copied %q", got)
+	}
+	title, _ := tt.Find("Couldn't load this album")
+	tt.SetClipboard("kept")
+	tt.ClickAt(title.X+title.W/2, title.Y+title.H/2)
+	tt.ClickAt(title.X+title.W/2, title.Y+title.H/2)
+	tt.ClickAt(title.X+title.W/2, title.Y+title.H/2)
+	tt.Key(ui.Cmd, ui.KeyC)
+	if got := tt.Clipboard(); got != "kept" {
+		t.Errorf("the title copied %q", got)
+	}
+}
+
 // TabPanel is a tab panel named by its tab, and the controls built inside
 // it are on the tree under it.
 func TestA11yTabPanelIsATabPanelNamedByItsTab(t *testing.T) {

@@ -127,7 +127,7 @@ Sona checks a theme when it loads the file. A theme that breaks any rule is refu
 | Avatars | Each `avatar-N-fg` reaches 4.5:1 on its `avatar-N-bg` |
 | Backdrop | `backdrop-scrim` is 0.8 or more |
 | Spot colour fill | `amber` reaches 3:1 on `ground`, `surface` and `hover`, in each variant |
-| Spot colour text | `on-amber` reaches 4.5:1 on `amber`, and `ink` reaches 4.5:1 on `selection` |
+| Spot colour text | `on-amber` reaches 4.5:1 on `amber`, and `ink` and `ink-muted` reach 4.5:1 on `selection` over `ground`, `surface` and `raised` (Sona's selection is the spot colour at 15%) |
 | Play roles | `play`, `play-ink` and `on-play` stay the same colours as `amber`, `amber-ink` and `on-amber` |
 | Spot colour only for what plays | `primary`, `primary-foreground`, `ring`, `active`, `hover`, `accent`, `secondary` and `muted` must not resolve to `amber` or `amber-ink`. The focus ring, the selected navigation row and the buttons are not what plays |
 | Valid values | Colours resolve, token names exist, and shadows are in range |

@@ -190,7 +190,7 @@ How Sona uses each state:
 - The spot colour's fill (the play disc, WCAG 1.4.11 non-text contrast) is ≥ 3:1 on ground, surface and hover in light and dark.
 - Slider thumbs are always shown: the thumb, not the fill colour, marks the value.
 - Text over a cover backdrop gets its contrast from the scrim ([`docs/design.md`](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md), Backdrops). `--danger` falls below 4.5:1 there in dark, so no danger text sits on a backdrop: icons only (≥ 3:1), with the message in ink.
-- Selected text keeps `--ink` at ≥ 4.5:1 on the selection (checked in every theme). `--ink-muted` does not, so only `--ink` text is selectable ([`docs/design.md`](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md#selectable-text), "Selectable text"; issue #411).
+- Selected text keeps `--ink` and `--ink-muted` at ≥ 4.5:1 on the selection (the spot colour at 15%), over ground, surface and raised, in every theme and accent; `theme.Validate` refuses a user theme that fails. So muted text is selectable too, where people copy it ([`docs/design.md`](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md#selectable-text), "Selectable text"; issue #411).
 - `Selectable()` adds no role, so a screen reader reads the same tree. An identifier that is selectable also has a Copy button (`kit.CopyButton`) for the keyboard.
 
 **In Sona.** The values live in the theme tokens ([`internal/ui/theme`](https://github.com/coredev-uk/sona-go/tree/main/internal/ui/theme)); [`docs/design.md`](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md) lists them.

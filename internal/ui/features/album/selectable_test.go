@@ -6,9 +6,9 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// The fine print's entries (the label, the day, the genres) are selectable:
-// a triple click takes the line and Ctrl/Cmd+C copies it. The muted names
-// over them and the ℗ line are not part of the selection.
+// The fine print's entries (the label, the day, the genres) and the ℗ line
+// are selectable: a triple click takes the line and Ctrl/Cmd+C copies it.
+// The muted names over the entries are not part of the selection.
 func TestFinePrintEntriesAreSelectableAndTheRestIsNot(t *testing.T) {
 	r := newRig(t, "/album/100", 1500, 1000)
 	r.addCatalog(saltFlats())
@@ -25,14 +25,14 @@ func TestFinePrintEntriesAreSelectableAndTheRestIsNot(t *testing.T) {
 		r.tt.ClickAt(x, y)
 		r.tt.Key(ui.Cmd, ui.KeyC)
 	}
-	for _, v := range []string{"Quiet Records", "March 8, 2019", "Indie Pop, Pop"} {
+	for _, v := range []string{"Quiet Records", "March 8, 2019", "Indie Pop, Pop", "℗ 2019 Mia Vale"} {
 		r.tt.SetClipboard("kept")
 		triple(v)
 		if got := r.tt.Clipboard(); got != v {
 			t.Errorf("a triple click on %q copied %q", v, got)
 		}
 	}
-	for _, muted := range []string{"Label", "℗ 2019 Mia Vale"} {
+	for _, muted := range []string{"Label"} {
 		r.tt.SetClipboard("kept")
 		triple(muted)
 		if got := r.tt.Clipboard(); got != "kept" {
