@@ -13,11 +13,11 @@
 #          expected shape into the vendorHash line.
 # A fork's pull request only gets the failing check, with the hash to use in its error.
 #
-# Maintainer setup: the `nix-vendor-hash` environment, with required reviewers, holding the
-# secrets RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY (bot-cecil's, as release-please.yml
-# uses), with Contents write on this repository. A pull request's ref can't satisfy a branch
-# policy, so the fix job waits for a reviewer's approval instead; no repository-level copy of the
-# key exists for a branch's workflow to read.
+# Maintainer setup: the `nix-vendor-hash` environment, with required reviewers. bot-cecil's token
+# comes from octo-sts (octo-sts.hera.ac, which holds the App's key) under
+# .github/chainguard/nix-vendor-hash.sts.yaml, with Contents write on this repository. A pull
+# request's ref can't satisfy a branch policy, so the fix job waits for a reviewer's approval
+# instead; no copy of the key exists in this repository for a branch's workflow to read.
 name: Nix vendorHash
 
 on:
@@ -100,15 +100,16 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     environment: nix-vendor-hash # required reviewers: the App's key is not for a branch's run alone
-    permissions: {}
+    permissions:
+      id-token: write # the OIDC token octo-sts exchanges for bot-cecil's
     steps:
       - name: Generate bot-cecil token
         id: app-token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         with:
-          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          permission-contents: write # the push
+          domain: octo-sts.hera.ac
+          scope: ${{ github.repository }}
+          identity: nix-vendor-hash
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

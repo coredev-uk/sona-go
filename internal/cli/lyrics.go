@@ -502,6 +502,9 @@ func (f *lyricsFollower) write(ev LyricsNow, force bool) error {
 // writeLyricsNow prints one line of `lyrics --follow`: its JSON, its
 // template, or the text of the line sung.
 func writeLyricsNow(w io.Writer, in *invocation, ev LyricsNow) error {
+	if !in.json {
+		ev = plain(ev) // lyrics and titles are other people's text
+	}
 	switch {
 	case in.json:
 		b, err := json.Marshal(ev)
