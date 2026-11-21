@@ -267,14 +267,18 @@ jobs:
           echo "CACHE_DIR=$RUNNER_TEMP/release-cache" >>"$GITHUB_ENV"
 
       # release.sh builds in a container whose Go module and build caches sit in
-      # CACHE_DIR; a run restores the last run's and a new go.sum refills it.
-      # Only runs on main save a cache every run can restore.
-      - name: Cache Go modules and Go build
+      # CACHE_DIR. A run that publishes (a release, the nightly, a prerelease)
+      # starts from an empty one and saves nothing: Go trusts what its build
+      # cache holds, so a cache an earlier run wrote could carry code into a
+      # build that is signed and attested. A dry run publishes nothing and
+      # keeps its own cache, under a key no publishing run reads.
+      - name: Cache Go modules and Go build (dry run only)
+        if: ${{ needs.plan.outputs.publish != 'true' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CACHE_DIR }}
-          key: release-${{ runner.os }}-${{ hashFiles('go.sum') }}
-          restore-keys: release-${{ runner.os }}-
+          key: release-dry-${{ runner.os }}-${{ hashFiles('go.sum') }}
+          restore-keys: release-dry-${{ runner.os }}-
 
       - name: Load the release secrets from Proton Pass
         if: env.HAVE_PROTON_PASS == 'true'

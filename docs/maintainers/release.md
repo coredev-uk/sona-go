@@ -188,6 +188,10 @@ and Windows development builds in ci.yml never hold a release up), then the
   `SONA_CDM_SHIM` are set (as the CI action does); `SONA_SMOKE_TOOLS=1
   build/windows/package.sh OUTDIR && build/windows/smoke.sh OUTDIR` is what
   the release job runs.
+  `package.sh` runs `makensis` before the zip and the update archive are
+  written (the archive is what the update key signs), on the package folder
+  with its hash checked afterwards, and writes the installer into a scratch
+  folder that is moved into `OUTDIR` last.
 - **Update archives:** `sona-<v>-darwin-arm64.tar.gz` holds `Sona.app/` alone;
   `sona-<v>-windows-amd64.tar.gz` holds the install folder's files at the top
   level, every entry named from there: MyGo's updater refuses the whole
