@@ -145,8 +145,8 @@ func iaWant(t *testing.T, what string, got, want iaGest) {
 
 // A library playlist row is a link: choosing it opens its page; Shift+Enter
 // shuffles it, which the row's cue (the play glyph over its artwork on hover,
-// named "Shuffle <name>") hints at; right-click opens no menu (the "More"
-// button is the menu's way in).
+// named "Shuffle <name>") hints at; right-click opens the same menu as the
+// "More" button.
 func TestInteractionSidebarPlaylistRows(t *testing.T) {
 	e := sbSetup(t, sbLibrary(), nil)
 	e.api.pinTracks["p.own"] = []services.Song{song("s1", "One", "A"), song("s2", "Two", "A")}

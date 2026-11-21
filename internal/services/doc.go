@@ -225,12 +225,12 @@
 // no artist while Apple's stand-in is "unknown"). A song that is out can
 // still be Song.Playable false: a library-only one with no playParams and a
 // date of its own, which Apple refuses ("no longer available", mappers.go
-// withheld). Reminders (reminders.go, table release_reminders)
-// give one desktop notification when such an album comes out, or after
-// the first paint of the next start when Sona wasn't running then; the
-// notification's words come from the UI, and without
-// Platform.Notifications Set fails with "unsupported". Pre-add is
-// LibraryService.Add: Apple's web player pre-adds with the same call.
+// withheld). Reminders (reminders.go, table release_reminders) post one
+// entry to the notification centre when such an album comes out, or after
+// the first paint of the next start when Sona wasn't running then, and a
+// desktop notification too when config.ArtistTracker.Desktop asks for one
+// (its words come from the UI). Pre-add is LibraryService.Add: Apple's web
+// player pre-adds with the same call.
 //
 // The artist tracker (artisttracker.go, tables tracked_artists,
 // artist_releases and artist_tracker_state) is opt-in
@@ -239,10 +239,19 @@
 // favourited in Sona are rated 1, reads their latest releases in batches
 // (applemusic.AMPResources) and lists what is new as NewReleases
 // ("artisttracker:changed"). An artist's first check records what is out as
-// seen and announces nothing. The optional desktop notification is shown by
-// the notifier the reminders use (notices.go); a release still to come
-// carries the album's Remind me. Nothing is asked while it is off or signed
-// out; its state is user data, cleared on sign-out.
+// seen and announces nothing. What a check finds is posted to the
+// notification centre, and shown as a desktop notification by the notifier
+// the reminders use (notices.go) when the setting asks; a release still to
+// come carries the album's Remind me. Nothing is asked while it is off or
+// signed out; its state is user data, cleared on sign-out.
+//
+// The notification centre (notifications.go, table notifications) keeps
+// what happened without the person asking: services post with
+// Env.postNotice (a kind, a key and names, never a sentence; the UI words
+// it), a notice with a key already there replaces it and is unread again,
+// entries go after 30 days or past the newest 100, and the ones about the
+// account go at sign-out. NotificationsService lists, marks read, dismisses
+// and clears them ("notifications:changed").
 //
 // Lyrics (lyrics.go): LyricsService.Lyrics(songID) asks the lyrics
 // sources switched on in config.Settings.Lyrics (internal/lyrics: Apple

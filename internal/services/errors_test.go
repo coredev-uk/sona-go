@@ -176,6 +176,7 @@ func TestNoGoTextReachesTheUI(t *testing.T) {
 		"audio": newAudioService, "storage": newStorageService, "private": newPrivateService,
 		"platform": newPlatformService, "reminders": newRemindersService, "artisttracker": newArtistTrackerService, "translations": newTranslationsService,
 		"lyrics": newLyricsService, "concerts": newConcertsService, "themes": newThemesService, "addons": newAddonsService, "inspect": newInspectService,
+		"notifications": newNotificationsService,
 	}
 	var roots []reflect.Type
 	for _, f := range features {
@@ -255,7 +256,7 @@ func eventPayloads(t *testing.T) []reflect.Type {
 		"EventArtistReleasesChanged": reflect.TypeFor[NewReleases](),
 		"EventThemesChanged":         reflect.TypeFor[[]ThemeFile](),
 		"EventAddonsChanged":         reflect.TypeFor[[]AddonInfo](),
-		"EventAddonsNotice":          reflect.TypeFor[AddonNotice](),
+		"EventNotificationsChanged":  reflect.TypeFor[Notifications](),
 		"EventAddonsDevAsk":          reflect.TypeFor[AddonDevAsk](),
 		"EventAddonsDevAskEnd":       reflect.TypeFor[string](),
 		"EventScrobbleChanged":       reflect.TypeFor[ScrobbleStatus](),

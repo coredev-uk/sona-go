@@ -111,7 +111,7 @@ func ErrorBlock(c *ui.Context, title string, err error, o ErrorBlockOpts) ui.Ele
 		ui.Column(c).Grow(1).MinWidth(0).Role(ui.RoleAlert).Label(title).Children(func() {
 			theme.Text(c, title, "label").TextColor(theme.C("ink"))
 			if detail != "" {
-				theme.Text(c, detail, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0)
+				theme.Text(c, detail, "secondary").TextColor(theme.C("ink-muted")).Margin(2, 0, 0, 0).Selectable()
 			}
 		})
 		if o.OnRetry != nil {

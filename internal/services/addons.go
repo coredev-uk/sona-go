@@ -933,8 +933,9 @@ func (r *addonRunner) run(ctx context.Context, prev *addonRunner) {
 }
 
 // giveUp switches an add-on of the user's off after too many crashes and says
-// so. Never one of Sona's own: those are not switched off by this rule
-// (run), and a stuck saved switch is what healBundled mends.
+// so in the notification centre (NoticeAddonOff). Never one of Sona's own:
+// those are not switched off by this rule (run), and a stuck saved switch is
+// what healBundled mends.
 func (r *addonRunner) giveUp(name string) {
 	s := r.s
 	// A runner that was replaced or removed meanwhile (turned off, begun
@@ -951,8 +952,14 @@ func (r *addonRunner) giveUp(name string) {
 	if _, err := s.e.updateSettings(func(st *config.Settings) { setEnabled(st, r.id, false) }); err != nil {
 		s.e.Logger.Warn("addons: switch off", "addon", r.id, "err", err)
 	}
-	if s.e.Emit != nil {
-		s.e.Emit.Emit(EventAddonsNotice, AddonNotice{ID: r.id, Name: name, Kind: "crashed"})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := s.e.postNotice(ctx, notice{
+		kind: NoticeAddonOff, key: NoticeAddonOff + ":" + r.id, subject: addons.Sanitize(name, 60),
+		target: OpenTarget{Kind: OpenSettings, ID: "addons"},
+	})
+	if err != nil {
+		s.e.Logger.Warn("addons: notice not saved", "addon", r.id, "err", err)
 	}
 }
 

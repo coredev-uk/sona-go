@@ -10,9 +10,10 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
-// goldenSlip draws the slip on the sidebar's surface in its main state: a
-// self-updating install with a release to install.
-func goldenSlip(t *testing.T, dark bool) *uitest.Session {
+// goldenRow draws the notification centre's update row on the panel's
+// raised surface in its main state: a self-updating install with a release
+// to install.
+func goldenRow(t *testing.T, dark bool) *uitest.Session {
 	t.Helper()
 	if err := theme.RegisterFonts(); err != nil {
 		t.Fatal(err)
@@ -21,22 +22,26 @@ func goldenSlip(t *testing.T, dark bool) *uitest.Session {
 	m := newUpdates(h.Env, nil, nil).module()
 	m.Init()
 	tt := h.Tester(t, func(c *ui.Context) {
-		ui.Column(c).Fill().Justify(ui.End).Background(theme.C("surface")).Children(func() { m.Slots.SidebarFooter(c) })
-	}, 232, 120)
+		ui.Column(c).Fill().Padding(8).Background(theme.C("raised")).Children(func() {
+			if a := m.Slots.Activity; a.Status(c).Shown {
+				a.Build(c)
+			}
+		})
+	}, 360, 120)
 	if dark {
 		theme.SetMode(theme.ModeDark)
 		t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
 	}
 	h.Bus.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, SelfUpdate: true})
-	tt.Until("the slip", tt.Shows("Install and restart"))
+	tt.Until("the row", tt.Shows("Install and restart"))
 	tt.Settle()
 	return tt
 }
 
-func TestGoldenSlipLight(t *testing.T) {
-	uitest.Golden(t, goldenSlip(t, false).Image(), "slip-light")
+func TestGoldenRowLight(t *testing.T) {
+	uitest.Golden(t, goldenRow(t, false).Image(), "row-light")
 }
 
-func TestGoldenSlipDark(t *testing.T) {
-	uitest.Golden(t, goldenSlip(t, true).Image(), "slip-dark")
+func TestGoldenRowDark(t *testing.T) {
+	uitest.Golden(t, goldenRow(t, true).Image(), "row-dark")
 }

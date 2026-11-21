@@ -19,13 +19,13 @@ Select an item to open it. Right-click it, or press Shift+F10 or the Menu key on
 
 ## Sync the library
 
-Sona syncs after you sign in, music videos included. To sync again, choose Sync now in the library sync indicator. It shows what Sona is syncing, and tells you if the sync failed.
+Sona syncs after you sign in, music videos included. While it syncs, a short bar under the bell in the top bar moves, and [Notifications](/guide/notifications/) shows what Sona is syncing and how far it is. If a sync fails, the bell gets a red dot and Notifications says why, with Try again. To sync again, open Notifications and choose Sync now at its foot.
 
 ## Manage playlists
 
 1. Press Ctrl+N, or use New playlist or folder in the sidebar.
 2. Name the playlist and choose a cover.
-3. Add songs from any item's menu with Add to playlist, or drag songs, albums and playlists onto a playlist in the sidebar.
+3. Add songs from any item's menu: point at Add to playlist, or press Right on it, to open a list of your playlists. Choose New playlist… to make one with the item in it, a folder to look inside it, or a playlist to add to it at once. Playlists you used lately come first. When a list is long, or folders go deep, More playlists… at its end opens a window with a search field. You can also drag songs, albums and playlists onto a playlist in the sidebar.
 
 In a playlist you can reorder songs by dragging them, or with Alt+↑ and Alt+↓ on a focused row.
 

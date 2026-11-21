@@ -30,7 +30,63 @@ type cdm struct {
 func New(env *module.Env) module.Module {
 	c := &cdm{env: env}
 	env.PlayerNotice.Add(0, c.notice)
-	return module.Module{ID: "cdm", Init: c.init}
+	return module.Module{ID: "cdm", Init: c.init, Slots: module.Slots{Activity: &module.Activity{Status: c.status, Build: c.row}}}
+}
+
+// status is the notification centre's view of the CDM: busy while the first
+// download runs (an update in the background is not news), an alert when
+// there is no CDM because it failed, and a row without a dot on a computer
+// Google has no CDM for.
+func (c *cdm) status(*ui.Context) module.ActivityStatus {
+	r := store.UseCDM(c.env.Queries, c.env.Core)
+	st := r.Data
+	switch {
+	case !r.HasData:
+	case st.State == "downloading" && !st.Updating:
+		p, ok := store.CDMProgress(st)
+		if !ok {
+			p = -1
+		}
+		return module.ActivityStatus{Shown: true, Busy: true, Progress: p, Label: i18n.T("Downloading Widevine")}
+	case st.State == "failed" && st.Code == "unsupported_platform":
+		return module.ActivityStatus{Shown: true}
+	case st.State == "failed":
+		return module.ActivityStatus{Shown: true, Alert: true}
+	}
+	return module.ActivityStatus{}
+}
+
+// row is the centre's row: the first download with its percent and bar, or
+// why there is no CDM, with Try again where trying again can help.
+func (c *cdm) row(ctx *ui.Context) {
+	r := store.UseCDM(c.env.Queries, c.env.Core)
+	st := r.Data
+	if !r.HasData {
+		return
+	}
+	switch {
+	case st.State == "downloading" && !st.Updating:
+		p, ok := store.CDMProgress(st)
+		if !ok {
+			p = -1
+		}
+		kit.ActivityRow(ctx, "cdm:row", kit.ActivitySpec{
+			Icon: "arrow-down", Title: i18n.T("Downloading Widevine"), Count: i18n.CDMPercent(st),
+			Detail:   i18n.T("Google's Widevine plays protected songs. Sona downloads it once and keeps it up to date."),
+			Progress: &p, ProgressLabel: i18n.T("Widevine download"),
+		})
+	case st.State == "failed" && st.Code == "unsupported_platform":
+		kit.ActivityRow(ctx, "cdm:row", kit.ActivitySpec{
+			Icon: "circle-slash", Title: i18n.T("Songs can't play on this computer"), Detail: i18n.CDMProblem(st.Code),
+		})
+	case st.State == "failed":
+		spec := kit.ActivitySpec{Icon: "circle-alert", Alert: true, Title: i18n.T("Couldn't get Widevine"), Detail: i18n.CDMProblem(st.Code)}
+		if store.CDMCanRetry(&st) && c.env.Core != nil {
+			spec.Action = i18n.T("Try again")
+			spec.OnAction = func() { kit.RetryCDMWith(services.Service[services.CDMService](c.env.Core).Retry, nil) }
+		}
+		kit.ActivityRow(ctx, "cdm:row", spec)
+	}
 }
 
 // init mirrors Go's status. Go sends "cdm:status" for every change once the

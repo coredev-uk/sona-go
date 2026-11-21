@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -594,10 +595,11 @@ func releaseKind(name string, single bool) string {
 	return ReleaseAlbum
 }
 
-// announce emits the list and, where the setting and the platform allow,
-// shows a desktop notification for the new releases of a check: one for a
-// release, one summary for several. Releases still to come get none: their
-// reminder is the album's "Remind me".
+// announce emits the list, posts the new releases of a check to the
+// notification centre (NoticeNewReleases: the release, or how many) and,
+// where the setting and the platform allow, shows the same as a desktop
+// notification. Releases still to come get none: their reminder is the
+// album's "Remind me".
 func (s *ArtistTrackerService) announce(ctx context.Context, found []trackerFind, cfg config.ArtistTracker) {
 	if len(found) == 0 {
 		return
@@ -609,18 +611,31 @@ func (s *ArtistTrackerService) announce(ctx context.Context, found []trackerFind
 			out = append(out, r)
 		}
 	}
-	if !cfg.Desktop || s.e.Platform.Notifications == nil || len(out) == 0 {
+	if len(out) == 0 {
+		return
+	}
+	n := notice{kind: NoticeNewReleases, count: len(out), art: out[0].art, target: OpenTarget{Kind: OpenNewReleases}, account: true}
+	if len(out) == 1 {
+		r := out[0]
+		n.key = NoticeNewReleases + ":" + r.Album.CatalogID
+		n.subject, n.artist, n.variant = r.Album.Name, r.Album.Artist, r.Kind
+		n.target = OpenTarget{Kind: string(app.KindAlbum), ID: r.Album.CatalogID}
+	} else {
+		n.key = NoticeNewReleases + ":" + strconv.FormatInt(s.e.Now().UnixMilli(), 10)
+	}
+	if err := s.e.postNotice(ctx, n); err != nil {
+		s.e.Logger.Warn("artist tracker: notice not saved", "err", err)
+	}
+	if !cfg.Desktop || s.e.Platform.Notifications == nil {
 		return
 	}
 	p := s.e.Language.Printer()
 	var err error
 	if len(out) == 1 {
 		r := out[0]
-		err = s.notices.show(ctx, r.Album.Name, p.Sprintf(trackKindMsg[r.Kind], r.Album.Artist), r.art, r.Album.Name,
-			OpenTarget{Kind: string(app.KindAlbum), ID: r.Album.CatalogID})
+		err = s.notices.show(ctx, r.Album.Name, p.Sprintf(trackKindMsg[r.Kind], r.Album.Artist), r.art, r.Album.Name, n.target)
 	} else {
-		err = s.notices.show(ctx, p.T(msgTrackSeveral), p.Sprintf(msgTrackCount, len(out)), out[0].art, p.T(msgTrackOpen),
-			OpenTarget{Kind: OpenNewReleases})
+		err = s.notices.show(ctx, p.T(msgTrackSeveral), p.Sprintf(msgTrackCount, len(out)), out[0].art, p.T(msgTrackOpen), n.target)
 	}
 	if err != nil {
 		s.e.Logger.Info("artist tracker: notification not shown", "err", err)

@@ -29,6 +29,7 @@ Sona's interface is Go all the way down: [MyGo](https://github.com/egoist/mygo)'
 - [Conventions](#conventions)
 - [The app shell](#the-app-shell-internaluiapp)
   - [Start-up and windows](#start-up-and-windows)
+  - [Window materials](#window-materials)
   - [Routes, links and history](#routes-links-and-history)
   - [Shortcuts and the macOS menu bar](#shortcuts-and-the-macos-menu-bar)
 - [Features](#features)
@@ -172,8 +173,10 @@ The concerts module sets `ConcertsShelf` and `ArtistConcerts` in its factory. Th
 | `Overlay` | Covers the page column. Its optional `Close` is called when the page changes while it is open: back, forward, a swipe or a link show the new page, not a page hidden behind it |
 | `Bottom` | The player bar |
 | `Layer` | Over the whole window. While `LayerOpen`, the shell builds it as a modal overlay: the window behind takes no input and assistive technology reads the layer alone. The page is still built and drawn, so first paint is reported as always |
-| `SidebarFooter`, `SidebarSection` | In the sidebar |
+| `SidebarSection` | In the sidebar's scrolling middle |
 | `TopBarSearch` | The top bar's search field |
+| `TopBarNotices` | The notification centre's bell, before the account menu (the first module's wins). The shell hands it every module's `Activity` |
+| `Activity` | The module's live part of the notification centre (`module.Activity`): `Status` for the bell's marks, `Build` for its rows at the top of the panel, `Foot` for a line at the panel's foot |
 | `TopBarAccount` | The top bar's trailing end: the account menu |
 | `Mini` | The mini player window's whole content (the first module's wins) |
 
@@ -593,6 +596,8 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 **The item menu's "Go to artist"** is an `ActionDef` with `Choices`. With more than one choice the row is a sub-menu (`MenuSub`) with one entry per artist; with one it is the plain row. A library song's artists arrive while the menu is open, from the same resolver, so its row turns into the sub-menu then.
 
+**Nested choices.** `ActionChoice` has `Icon`, `Rule` (a separator before it) and `Sub` (a choice that is itself a sub-menu of choices, with no `Run`); `ActionMenus.choiceItems` turns them into `MenuItem`s, so the menu's nesting, hover, Right and Left are `Menu`'s own. "Add to playlist" uses them (`features/playlist/addmenu.go`): its `MenuData` (`playlists.add-targets`) reads the tree from SQLite and Apple's recent targets (the network, waited for at most `addRecentGrace`, 300 ms, after the tree) off the main thread, and `buildAddMenu` works out the rows there, so a frame only wraps them. Folders nest to `addMenuDepth` (2), a level lists at most `addMenuLevel` (15) rows, and the remainder is "More playlists…", which opens the picker. With no rows to list, or none read yet (or the read failed), `Choices` returns nothing and the action is the plain row that opens the picker.
+
 ### Overlays and menus
 
 **Dialog**, **DialogFooter**, **ConfirmDialog** (`Confirm` + `ConfirmHost`)
@@ -855,9 +860,9 @@ Then, on the main thread, it follows the settings (theme mode, reduce effects, t
 
 **Layout**
 
-- The sidebar (232 DIP, `surface`): the mark and "Sona" in its 48 DIP header, the primary links, then a scrolling middle with the "Library" heading, the library links and the modules' `SidebarSection`s, then the `SidebarFooter`s and the footer links.
+- The sidebar (232 DIP, `surface`, translucent over the window's material on macOS: Window materials, below): the mark and "Sona" in its 48 DIP header, the primary links, then a scrolling middle with the "Library" heading, the library links and the modules' `SidebarSection`s, then the footer links.
 - A 1 DIP `line`.
-- The main column: the top bar (48 DIP, `surface`: MyGo's back and forward buttons on the router, the `TopBarSearch` slot, room to grab) over a 1 DIP `line` over the page row. The page row holds the routed page on `ground`, the `Aside`s, and each open `Overlay` covering the page. The page stays built, hidden, so it keeps its scroll.
+- The main column: the top bar (48 DIP, `surface`: MyGo's back and forward buttons on the router, the `TopBarSearch` slot, room to grab, then the `TopBarNotices` bell and the `TopBarAccount` avatar 8 DIP apart) over a 1 DIP `line` over the page row. The page row holds the routed page on `ground`, the `Aside`s, and each open `Overlay` covering the page. The page stays built, hidden, so it keeps its scroll.
 - The `Bottom` slots run across the window under both. A `Layer` is drawn over everything and, while its `LayerOpen` holds, the window under it takes no input.
 - A page owns its scroll container.
 
@@ -885,7 +890,7 @@ Then, on the main thread, it follows the settings (theme mode, reduce effects, t
 - Closing the main window or the mini player (`OnClose`) hides it and keeps playing when there is a tray and Settings → General says "background"; otherwise, and always without a tray, it quits.
 - `Windows.Quit` (the tray, MPRIS Quit) and any app quit (Cmd+Q, the app menu, SIGTERM; `OnBeforeQuit`) let every window close.
 - `ShowMain` (the tray, MPRIS Raise, a second launch, the Dock icon through `OnActivate`) hides the mini player and shows, restores and focuses the main window.
-- The mini player (`Slots.Mini`, the first module's) is a 420×132 DIP frameless, fixed-size, always-on-top window that never maximises. It is made on first use and then hidden, never destroyed. `ToggleMini` shows it in the main window's place, and `post` redraws it beside the main window while it shows.
+- The mini player (`Slots.Mini`, the first module's) is a 420×132 DIP frameless, fixed-size, always-on-top window that never maximises, with 20 DIP rounded corners on macOS (`miniCornerRadius`). It is made on first use and then hidden, never destroyed. `ToggleMini` shows it in the main window's place, and `post` redraws it beside the main window while it shows.
 - `Env.Window` follows the main window's `OnFocus`/`OnBlur` and full screen, with a redraw on each.
 - `Options.Hidden` (`--hidden`) creates the window hidden when there is a tray. The network opens at once (no first frame comes); motion and `Env.Window.Focused` start off.
 
@@ -913,6 +918,17 @@ The tray (`mygo.NewTray`, made before the window; libayatana-appindicator3 on Li
 **Status banner** (`banner.go`): one `RoleStatus` line under the top bar for the keyring waiting or unavailable (with `account.KeyringRetry`), a token Apple stopped accepting (Sign in), Apple refusing Sona (Diagnostics) and offline.
 
 **System now playing.** MyGo's now playing stays unlinked on Linux, where MPRIS is Go's only player. On macOS and Windows Go's `internal/nowplaying` drives `mygo.NowPlaying` (media keys, Control Center, the volume flyout), wired in `cmd/sona/nowplaying_desktop.go`.
+
+### Window materials
+
+Only macOS has one, behind the sidebar alone ([design.md](design.md), "Window material (macOS)"). `material_darwin.go` and `material_other.go` are the seam; `material.go` is the rest, on every OS.
+
+- **The window.** `windowMaterial` is the main window's `WindowOptions.Vibrancy`: `VibrancyGlass` (Liquid Glass) from macOS 26 (`kern.osproductversion`), `VibrancySidebar` before it, `VibrancyNone` off macOS. The OS composites it; Sona draws no blur.
+- **The view.** Where the window shows it (`c.Vibrancy()`), the root is transparent, the main column draws `ground` itself, and the sidebar draws `surface` at the tint's opacity. Everywhere else the root draws `ground` and the sidebar is solid, as on Linux and Windows.
+- **The tint.** `sidebarTint` is the least opacity, in 5% steps, at which `ink`, `ink-muted` and `ink-faint` keep `theme.TextFloor` over every sample in `materialSamples` (what the material showed with no tint over black, white, grey and eight saturated desktops, light and dark, active and inactive, measured for #317; only the samples no other is worse than in every channel). `App.tintFor` works it out again only when `theme.Current()`'s tokens change. A tint of 1 means a solid sidebar.
+- **Off.** `followMaterial` sets the window's material to none (`Window.SetVibrancy`) while Reduce effects is on, the desktop asks for Reduce Transparency, or the theme needs a tint of 1, and back when none holds: a hidden material is still composited.
+- **Appearance.** `followAppearance` sets `mygo.Theme.SetSource` to the polarity `theme.Fixed` reports (the mode setting, or a one-variant theme), else the system's, so the material and the window buttons are drawn light or dark as Sona is. It runs only in the app (`Options.windowed`) where the window has a material.
+- **Tests.** `material_test.go` drives the Tester's `SetVibrancy` and `SetPreferences`: the sidebar lets the material through while the page stays opaque, and is opaque again with Reduce Transparency and with Reduce effects. The golden images are Linux's, with no material.
 
 ### Routes, links and history
 
@@ -1119,7 +1135,7 @@ The layout follows the view's own box as last drawn (`measureLayout`, `nowPlayin
 
 #### `lyricsync`
 
-`internal/ui/lyricsync` is the pure timing logic with its tests: the sung line, rests and verses, the voices of a duet, word progress, `NextChange`, and `Shown` (a line under the translation and pronunciation choices). It has no UI, so the mini player's line can use it.
+`internal/ui/lyricsync` is the pure timing logic with its tests: the sung line, rests and verses, instrumental gaps and how far their dots have filled (`Gaps`, `GapFill`), the voices of a duet, word progress, `NextChange`, and `Shown` (a line under the translation and pronunciation choices). It has no UI, so the mini player's line can use it.
 
 #### The sheet
 
@@ -1130,6 +1146,7 @@ The layout follows the view's own box as last drawn (`measureLayout`, `nowPlayin
 - Word-timed texts are `kit.SweepText`s: one per part and line, shaped once per line and width (again when the width changes) and painted from the clock in a `Draw` callback.
 - That callback asks for the next frame only while a word is filling. Between words, after the last and before the first, it sleeps with `Painter.After` until the next change (a word beginning or ending, the line ending, the voice resting).
 - Under reduced motion the words are zero-length, so each lights whole as it begins, and the next change wakes the view instead of frames.
+- An instrumental gap (`lyricsync.Gaps`: 5 s or more with no line sung, between lines or before the first) is a row of three dots (`lyricGap`) first in the verse of the line after it, in the height of a line. Its `Draw` callback (`gapDraw`, shared with Full-Screen Lyrics) paints the dots from the lyrics clock and asks for nothing but a `Painter.After` timer for the next step (`lyricsync.GapFill`: about 12 steps a second, whole dots as each third begins under reduced motion): no frame loop and no build. The view is built again at the voice's rest and at the next line, as for any line; the dots' state (to come, sung, past) is read then. A passed gap keeps its row, undrawn and unnamed, so the sheet doesn't move. `turnPage` takes the dots' top as the anchor's when the anchor line has them, so the sheet turns to them.
 
 *Why the fill is rate-limited.* The Go side of a frame is 0.2 ms (no build, no layout, "painted again"). What a frame costs is the window's presentation, which on a CPU rasteriser (llvmpipe in a VM or a headless session, `MYGO_GPU=0`) is proportional to frames a second: 60 took 50% of a core, 30 took 29%. So the fill is painted at the display's rate (`Painter.AnimationFrame`) where `Painter.Accelerated()` says a GPU draws, and at 30 a second (`AnimationFrameRate(30)`) where the CPU does. The native sweep fills every word, not only held notes.
 
@@ -1139,12 +1156,12 @@ The layout follows the view's own box as last drawn (`measureLayout`, `nowPlayin
 
 The view the Layer slot builds (`nowplaying_room.go`, with the cascade in `lyrics_stage.go`). Its identifiers keep the old name (`overlayRoom`, `roomLayer`, the shortcut ID `player.lyrics-room`, which a saved binding may use); the product name is Full-Screen Lyrics. `docs/design.md`, "Full-Screen Lyrics", has what it looks like; this is how it is built.
 
-- **The stage** (`stage`) is one song's state: the lyrics' derived data (`lyricsModel`, which the sheet shares: spans, voices, verses), the size step of each line (`heldSteps`), the shaped lines (`stageBlock`: a `kit.SweepText` per part, cached per line, size and width, dropped when the window, the translation choices or the motion setting change) and the idle clock. A new song gets a new one, which takes over the chrome's clock and the drift.
-- **The column is laid out lazily.** Line tops are cumulative heights from the first line shaped (`reach`), so a song opened in the middle shapes only the lines around the sung one. A seek of more than a few lines restarts it (a cut).
-- **The cascade** builds the sung line and three lines each side as absolute children of one container keyed by the song. The container's pose (`AnimatePose`, the `climb` token) puts the sung line's middle at 45% of the height; each line's pose (scale and fade by its rank) animates with it. The view builds when the sung line changes (a `c.After` for the next line or rest, as the sheet does), never per frame. Under reduced motion, or on a cut, `c.DisableAnimations` makes the poses jump. The container's `Transition` is the song change: the old column's copy fades out and the new one rises in.
+- **The stage** (`stage`) is one song's state: the lyrics' derived data (`lyricsModel`, which the sheet shares: spans, voices, verses, instrumental gaps), the shaped lines (`stageBlock`: a `kit.SweepText` per part, cached per line, size and width, dropped when the window, the translation choices or the motion setting change; every timed line is `stageLineDIP` and steps down `stageLadder` only while it would wrap to more than two lines) and the idle clock. A new song gets a new one, which takes over the chrome's clock and the drift.
+- **The column is laid out lazily.** Line tops are cumulative heights from the first line shaped (`reach`), so a song opened in the middle shapes only the lines around the sung one. A line with an instrumental gap before it keeps room above its body for the dots (`stageBlock.above`, with the "Together" heading). A seek of more than a few lines restarts it (a cut).
+- **The cascade** builds the sung line and three lines each side as absolute children of one container keyed by the song. The container's pose (`AnimatePose`, the `climb` token) puts the sung line's middle at 45% of the height, or the dots' middle while a gap runs; each line's pose (scale and fade by its rank, `stage.ranks`) animates with it. The dots (`stageGap`) are an absolute element of their own with a pose: the sung place while their gap runs, a place of their own while it is to come, small and faded once it has passed; their fill is painted by `gapDraw` on timers. The view builds when the sung line changes (a `c.After` for the next line or rest, as the sheet does), never per frame. Under reduced motion, or on a cut, `c.DisableAnimations` makes the poses jump. The container's `Transition` is the song change: the old column's copy fades out and the new one rises in.
 - **Words** are painted by `sweepDraw`, which the sheet's lines use too: the same `kit.SweepText`, the same clock, the same frame requests.
 - **The wash** is `kit.Backdrop` as an absolute element under the column, with the dark theme's scrim, posed to drift (`drift`) while `MotionPolicy.Ambient` holds. Everything is built inside `theme.Scope` over the dark tokens.
-- **The strip** is built only while shown (the idle clock: the pointer or a key within 3 s, or the song not playing) and enters and leaves with a fade. Its keys are shortcuts in the `lyrics-room` context (`stageShortcuts`): ↑↓ line, ←→ 5 s, Home; Space, Escape and Shift+L are the player's.
+- **The strip** is built only while shown (the idle clock: the pointer or a key within 3 s, or the song not playing) and enters and leaves with a fade. Its transport is the bar's own (`prevButton`, `playButton` and `nextButton` in `bar.go`, over `kit.Transport` and the same `unavailable` guards), between the song and the timing nudge in Tab order. Its keys are shortcuts in the `lyrics-room` context (`stageShortcuts`): ↑↓ line, ←→ 5 s, Home; Space, Escape and Shift+L are the player's.
 - **Window.** It puts the window in full screen through `Env.Window.SetFullScreen` and leaves it only if it entered it. `Env.Window.KeepScreenOn` holds the display awake (MyGo's `Power.KeepAwake` with `display` true; the shell binds it in `followWindow`) while the view is open and the song plays: the player's suspend inhibitor, held while playing, does not cover the display.
 
 #### Focus on close
@@ -1181,6 +1198,15 @@ The view the Layer slot builds (`nowplaying_room.go`, with the cascade in `lyric
 
 **The module** also adds the player bar's Mini player button (`Env.PlayerControls`, order 30; `DesktopService.ToggleMiniPlayer`) and the shortcut `miniplayer.toggle` (Ctrl+Shift+M, "Show the mini player", View). The shell's window calls have no error to return, so a call that panics is the failure.
 
+### The notification centre (`features/notifications`)
+
+The bell in the top bar and its panel (`docs/design.md`, "Notification centre"). It owns `TopBarNotices`; what it shows comes from two places:
+
+- **Entries** Go keeps (`NotificationsService`, table `notifications`): a release reminder that came due, new releases the artist tracker found, an add-on switched off after crashing. The module mirrors `notifications:changed` into its own query (`["notifications"]`, never stale) and words each kind itself (`words`): Go keeps names, not sentences. Opening the panel calls `MarkRead` off the main thread and keeps the IDs that were unread (`fresh`) so they keep their mark until it closes. Choosing an entry emits `app:open` with its `OpenTarget` on the bus, so the shell opens it as it opens a link (`routeForOpen`, including `OpenSettings` for Settings → Add-ons), and closes the panel. Remove calls `Dismiss`, Clear all `Clear`; a failure toasts.
+- **Activities**, the live part: the shell hands the bell every module's `Slots.Activity` in module order (library sync, add-ons, updates, Widevine). The bell calls each `Status(c)` on every build (store reads only; a module may announce its phase there) for its dot (`News` ink, `Alert` danger) and its bar (the first `Busy` one's `Progress`, its `Label` in the bell's name). The panel builds each `Build` while its status is `Shown`, then each `Foot`. Rows use `kit.ActivityRow`, so every module's row has one shape.
+- The panel is `kit.Popover` with `End` (end-aligned to the bell), 360 DIP wide, 8 DIP padding. The entries scroll past 392 DIP. It closes when the page changes under it (an entry, a row's Review), as well as on Escape, a press outside or the bell.
+- Tests: `notifications_test.go` (marks, reading, opening, removing, clearing, live rows), goldens `panel-light`, `panel-dark`.
+
 ### Account side: private listening, Widevine, updates, reminders and motion
 
 Five modules whose state other features read. The shared parts sit where features may import them:
@@ -1206,21 +1232,21 @@ The account menu, Settings, the setup, the player bar and an album page use thos
   - Failed: a 6 DIP `danger` dot and "Couldn't get Widevine · Retry in Settings" (the failure's words as its tooltip), or "Songs can't play on this computer".
   - Ready: a check and "Widevine is ready. Press play to start."
 - A link to Settings → Playback appears only once that route exists (`Env.HasRoute`), plain text before.
+- Its `Activity` in the notification centre: the first download (not an update in the background) as a busy row with the percent and a bar, a failure as an alert row with the reason and Try again where `store.CDMCanRetry`, and "Songs can't play on this computer" without a dot where Google has no CDM.
 
 **Updates** (`features/updates`)
 
-- The `SidebarFooter` notice is a slip: a `raised` block (radius 6, padding 10, inset 10 from the sidebar's edges) with "New version" in meta, "Sona {latest}" at 14/500 (the status; assistive technology still reads "Sona {latest} is available") and a full-width ink button. It shows only while `UpdateStatus.Available`.
-- The button is "Install and restart" where `UpdateStatus.SelfUpdate` (macOS on Apple silicon and Windows on x64 installs; `UpdatesService.Install`; a failure toasts and the notice says "Couldn't install Sona {latest}"). Elsewhere it is "View" (`UpdatesService.OpenRelease`; a failed open toasts).
-- After a failed install (`UpdateStatus.InstallError`) the button reads "Try again" and an outline "View release" sits under it, so the notice is a way out and not a loop of retries. The cause is in the Diagnostics bundle's Updates section.
-- `updates:available` and `updates:install` write the query. Download progress shows as a bar inside the slip in place of the button, and "Restarting into Sona {latest}…" is the slip's line once installed.
+- Its `Activity` in the notification centre shows only while `UpdateStatus.Notify()`: a row titled "Sona {latest} is available" (the bell's ink dot) with "Install and restart" and a ghost "View release" where `UpdateStatus.SelfUpdate` (macOS on Apple silicon and Windows on x64 installs; `UpdatesService.Install`; a failure toasts and the row says "Couldn't install Sona {latest}"). Elsewhere it is "View" (`UpdatesService.OpenRelease`; a failed open toasts) under "Update it the way you installed Sona."
+- After a failed install (`UpdateStatus.InstallError`) the row is an alert, the button reads "Try again" and "View release" sits beside it, so the row is a way out and not a loop of retries. The cause is in the Diagnostics bundle's Updates section.
+- `updates:available` and `updates:install` write the query. While it downloads the row has a bar in place of the buttons and the bell its own; "Restarting into Sona {latest}…" is the row's title once installed.
 - Settings → General → Updates words why an install can't update itself (`UpdateStatus.Disabled`: no signing key, not writable) and has the Test versions switch (`updates.prereleases`). Linux packages and AppImages keep updating through their own tools (`docs/architecture.md`, "Updates").
 
 **Reminders** (`features/reminders`)
 
 - `reminders:changed` writes the list.
 - The album action `reminders.toggle` (item group, order 25, bell icon) reads "Remind me on {date}" / "Turn off reminder for {date}", the day from `i18n.ShortReleaseDate` of `Album.ReleaseAt`; it is plain "Remind me" / "Turn off reminder" without a date.
-- It is listed for upcoming albums with a full release date, a catalogue ID and notifications, and greyed out until the list has loaded with the menu.
-- The album page's button is `kit.RemindButton`, which sets and removes through the same `kit.SetReminder` ("Out now · {artist}" is the notification's body).
+- It is listed for upcoming albums with a full release date and a catalogue ID, and greyed out until the list has loaded with the menu. A reminder that comes due is an entry of the notification centre; "Out now · {artist}" is kept as the body of the desktop notification shown as well when Settings → General asks for one.
+- The album page's button is `kit.RemindButton`, which sets and removes through the same `kit.SetReminder`.
 
 **Add-ons** (`features/addons`)
 
@@ -1231,7 +1257,7 @@ The account menu, Settings, the setup, the player bar and an album page use thos
 - **Text.** Every label is cleaned again here (control and bidirectional characters out, at most 60 bytes), whatever the service did.
 - **Invocation.** Never on the main thread. The same action chosen again while it runs does nothing. The answer is a toast titled with the add-on's name, at most one a second per add-on, with a fixed ID so it never stacks.
 - **Links.** `cli.SafeLink` is checked when the answer arrives and again when the button is clicked. The button reads "Open {host}". Nothing opens before the click.
-- **Notices.** `addons:notice` shows a warning toast when Sona switches an add-on off.
+- **In the notification centre.** Its `Activity` lists each add-on that waits for an approval (the bell's ink dot) or can't run (`no_sandbox`, `invalid`: its danger dot), each with Review, which opens Settings → Add-ons; it reads `AddonsService.List` at start and every `addons:changed`. An add-on Sona switches off after crashing is an entry Go posts (`NoticeAddonOff`), not a row here.
 - **`sona addons dev`.** `addons:dev-ask` opens a `kit.Confirm` with the add-on's name, the folder and the permissions; `AnswerDev` carries the answer. A question of the person's own is never replaced: the answer is no. `addons:dev-ask-end` closes the dialog if it is still the one on screen.
 
 **Settings → Add-ons** (`features/settings/addons.go`, section `addons`)
@@ -1365,7 +1391,7 @@ A master and detail page.
 - `EventSyncProgress` and `EventSyncDone` feed `syncStore`. A `SyncStatus` answer older than an event is dropped.
 - A finished domain refreshes its lists and the counts; `sync:done` refreshes everything under `["library"]`.
 - `playlists:changed` with `Tree` (a playlist created or deleted here) refreshes Recently added (`keyRecentlyAdded`, `["library","recently-added"]`). The playlist feature refreshes its own lists, and features don't import each other.
-- The sidebar footer (`Slots.SidebarFooter`) shows, with an account, "Syncing <domain>" with the count and a bar, or "Synced <when>" / "Library sync failed" / "Library not synced yet" with Sync now or Try again.
+- Its `Activity` in the notification centre (`syncActivity`): with an account, a running sync is the bell's bar ("Syncing <domain>, <done> of <total>" in its name) and a row with the domain, the count and a bar; a failed one is the bell's danger dot and a row with the reason and Try again; the panel's foot is "Synced <when>" / "Library not synced yet" with Sync now. `announceSync` reads out a start, an end or a failure from the Activity's `Status`, as the bell is always built.
 - `EventItemState` (a rating or library change made by `sona like`, `dislike` or `library`) is `ItemStates.Remember`: it writes the item's state and refreshes Favourite songs.
 
 #### Item actions
@@ -1614,7 +1640,7 @@ Registered after video and before radio and the player. It owns:
 - the `/playlist/{id}` page;
 - the sidebar's playlist sections (`Slots.SidebarSection`);
 - the dialogs (`Slots.Aside`: `dialogHost` builds the open `kit.Dialog` and nothing else, so it takes no room);
-- the playlist item actions (`Module.Actions`): add to playlist for songs, albums, playlists and selections, remove from playlist inside an editable container, pin and unpin per kind, edit details, move to folder, delete from library.
+- the playlist item actions (`Module.Actions`): add to playlist (a sub-menu of New playlist… and the user's playlists and folders, with the picker for the rest) for songs, albums, playlists and selections, remove from playlist inside an editable container, pin and unpin per kind, edit details, move to folder, delete from library.
 
 #### State and data
 
@@ -1644,7 +1670,7 @@ Registered after video and before radio and the player. It owns:
 
 #### Dialogs
 
-- One at a time (`dialogs.show` replaces): the add picker (search, recents, groups by folder path, arrow keys), new playlist and edit details (one form), folder new and rename, move to folder.
+- One at a time (`dialogs.show` replaces): the add picker (search, recents, groups by folder path, arrow keys; opened by the menu's "More playlists…" or when its sub-menu has nothing to list), new playlist and edit details (one form), folder new and rename, move to folder.
 - A dialog takes the focus on its second built frame, after MyGo noted what to return it to (an `AutoFocus` in the first frame is remembered as the opener).
 - Deleting a playlist or folder asks through `kit.Confirm`.
 

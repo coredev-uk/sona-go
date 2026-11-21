@@ -132,17 +132,34 @@ func Dark() bool {
 	return darkLocked()
 }
 
-func darkLocked() bool {
+// Fixed reports the polarity frames draw in whatever the desktop's
+// appearance: the one a one-variant theme pins, else the chosen light or
+// dark mode. Under ModeSystem with a theme of both, fixed is false: frames
+// follow the desktop.
+func Fixed() (dark, fixed bool) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return fixedLocked()
+}
+
+func fixedLocked() (dark, fixed bool) {
 	if state.active != nil {
 		if dark, pinned := state.active.pinned(); pinned {
-			return dark
+			return dark, true
 		}
 	}
 	switch state.mode {
 	case ModeLight:
-		return false
+		return false, true
 	case ModeDark:
-		return true
+		return true, true
+	}
+	return false, false
+}
+
+func darkLocked() bool {
+	if dark, fixed := fixedLocked(); fixed {
+		return dark
 	}
 	return state.systemDark
 }

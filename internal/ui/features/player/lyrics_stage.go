@@ -2,7 +2,6 @@ package player
 
 import (
 	"math"
-	"slices"
 	"strconv"
 	"time"
 
@@ -17,17 +16,14 @@ import (
 )
 
 // Full-Screen Lyrics sets the song's phrasing as its layout: lines climb a
-// left column, and each line's size comes from how long it is held. The
+// left column, the sung line and the ones around it all in one size. The
 // numbers below are the contract's (.impeccable/surfaces/…nowplaying-room-go.md).
 const (
-	// stageSteps is how many sizes a line may have; the held time is
-	// quantised to them so the column has rhythm, not noise.
-	stageSteps = 5
-	// stageMinDIP and stageMaxDIP are the smallest and largest line, at
-	// stageRefH of window height; they scale with the window's height.
-	stageMinDIP = 40
-	stageMaxDIP = 128
-	stageRefH   = 1080
+	// stageLineDIP is the size of a line of timed lyrics, at stageRefH of
+	// window height; it scales with the window's height. stageLadder is how
+	// far it steps down when a line does not fit.
+	stageLineDIP = 72
+	stageRefH    = 1080
 	// stagePlainDIP is the one size of lyrics that have no timing.
 	stagePlainDIP = 64
 	// stageFloorDIP is the smallest a line gets in a small window.
@@ -41,8 +37,6 @@ const (
 	stageWidth = 0.70
 	// stageFocus is where the sung line sits: its middle at 45% of the height.
 	stageFocus = 0.45
-	// stageSpreadMs is the least spread of held times that makes sizes differ.
-	stageSpreadMs = 800
 	// stageReach is how many lines before and after the sung one are built:
 	// the two shown each way and one more, which is at rest and gone, so that
 	// a line fades in and out as the column climbs.
@@ -57,7 +51,17 @@ const (
 	stageIndent = 1.5
 	// stageLineH is the line height, in ems.
 	stageLineH = 1.05
+	// stageWeight is the weight of every line (Schibsted Grotesk).
+	stageWeight = 700
+	// An instrumental gap's dots are sized from the line's font (dotsFor);
+	// stageDotGap is the room under them, in ems.
+	stageDotGap = 0.45
 )
+
+// stageLadder is the sizes, at stageRefH of window height, a line steps down
+// through while it would wrap to more than stageMaxWrap lines: the first is the
+// size of the sung line and of the lines around it.
+var stageLadder = [...]float32{stageLineDIP, 58, 46, 40}
 
 // stageGeom is the stage's size: what the lines are shaped for.
 type stageGeom struct {
@@ -73,58 +77,10 @@ func newStageGeom(w, h float32) stageGeom {
 	}
 }
 
-// heldSteps is the size step (0 to stageSteps-1) of each line, from how long
-// it is held: its span (a word-timed line's from its first word to its last).
-// The longest held lines of the song get the top step and the quickest the
-// bottom one, found between the 10th and the 90th percentile so one long
-// intro doesn't flatten the rest; where those are alike (a song of even
-// lines with one held one) the top is the longest line. A song whose lines
-// are all held alike sets every line at the middle step.
-func heldSteps(spans []lyricsync.Span) []int {
-	steps := make([]int, len(spans))
-	mid := stageSteps / 2
-	var held []int64
-	for _, s := range spans {
-		if d := s.EndMs - s.BeginMs; d > 0 {
-			held = append(held, d)
-		}
-	}
-	slices.Sort(held)
-	var lo, hi, median int64
-	if len(held) > 0 {
-		lo, hi, median = held[(len(held)-1)/10], held[(len(held)-1)*9/10], held[len(held)/2]
-		if hi-lo < stageSpreadMs {
-			hi = held[len(held)-1]
-		}
-	}
-	for i, s := range spans {
-		d := s.EndMs - s.BeginMs
-		if d <= 0 {
-			d = median
-		}
-		if hi-lo < stageSpreadMs {
-			steps[i] = mid
-			continue
-		}
-		t := float64(min(max(d, lo), hi)-lo) / float64(hi-lo)
-		steps[i] = int(math.Round(t * (stageSteps - 1)))
-	}
-	return steps
-}
-
-// stageSize is the type size of a step at a window's scale (its height over
-// stageRefH).
+// stageSize is the type size of a step of stageLadder at a window's scale (its
+// height over stageRefH).
 func stageSize(step int, scale float32) float32 {
-	dip := float32(stageMinDIP) + float32(step)*(stageMaxDIP-stageMinDIP)/(stageSteps-1)
-	return max(round32(dip*scale), stageFloorDIP)
-}
-
-// stageWeight: the large steps are set heavier.
-func stageWeight(step int) int {
-	if step >= stageSteps-2 {
-		return 800
-	}
-	return 700
+	return max(round32(stageLadder[step]*scale), stageFloorDIP)
 }
 
 // stageKey names one shaped text of a line.
@@ -138,7 +94,7 @@ type stageKey struct {
 // stageBlock is one line shaped for the stage: its texts, its size and its
 // height.
 type stageBlock struct {
-	step           int // -1 for plain lyrics
+	step           int // the size's place in stageLadder; -1 for plain lyrics
 	size, lineH    float32
 	indent         float32
 	lead           *kit.SweepText
@@ -149,6 +105,8 @@ type stageBlock struct {
 	subGap         float32 // between the lead and each text under it
 	h              float32 // the texts, without the heading
 	headH, headGap float32 // the "Together" heading's height and its gap to the line
+	dots           gapDots // an instrumental gap's dots before the line (dotsH 0: none)
+	dotsH, dotsGap float32 // their height, and the room between them and what follows
 }
 
 // lines is how many lines the lead wrapped to.
@@ -160,8 +118,7 @@ func (b *stageBlock) lines() int { return int(math.Round(float64(b.lead.Height()
 type stage struct {
 	songID string
 	lyricsModel
-	steps []int
-	duet  bool
+	duet bool
 
 	// fitted says what the shaped lines are for: they are shaped again
 	// when it changes.
@@ -205,10 +162,6 @@ func newStage(songID string) *stage {
 func (s *stage) load(l *services.Lyrics) {
 	if !s.bind(l) {
 		return
-	}
-	s.steps = nil
-	if s.synced {
-		s.steps = heldSteps(s.spans)
 	}
 	s.duet = false
 	for _, v := range s.voices {
@@ -262,31 +215,35 @@ func (s *stage) words(t lyricsync.Text) ([]lyrics.Word, bool) {
 	return []lyrics.Word{{Text: t.Text}}, false
 }
 
-// block is line i shaped: at its size step, or the next one down while it
+// block is line i shaped: at the full size, or the next one down while it
 // would wrap to more than stageMaxWrap lines.
 func (s *stage) block(i int) *stageBlock {
 	if b := s.blocks[i]; b != nil {
 		return b
 	}
-	step := -1
-	if s.steps != nil {
-		step = s.steps[i]
+	step := 0
+	if !s.synced {
+		step = -1
 	}
 	b := s.shape(i, step)
-	for step > 0 && b.lines() > stageMaxWrap {
-		step--
+	for step >= 0 && step < len(stageLadder)-1 && b.lines() > stageMaxWrap {
+		step++
 		b = s.shape(i, step)
 	}
 	s.blocks[i] = b
 	return b
 }
 
+// above is the room a line's body leaves above it for what leads it: the
+// dots of an instrumental gap, and the "Together" heading.
+func (b *stageBlock) above() float32 { return b.dotsH + b.dotsGap + b.headH + b.headGap }
+
 func (s *stage) shape(i, step int) *stageBlock {
 	ln := &s.lyr.Lines[i]
 	g := s.g
-	size, weight := stageSize(max(step, 0), g.scale), stageWeight(step)
-	if step < 0 {
-		size, weight = max(round32(stagePlainDIP*g.scale), stageFloorDIP), 700
+	size := max(round32(stagePlainDIP*g.scale), stageFloorDIP)
+	if step >= 0 {
+		size = stageSize(step, g.scale)
 	}
 	b := &stageBlock{step: step, size: size, lineH: round32(size * stageLineH)}
 	b.shown = lyricsync.Shown(ln, s.prefs)
@@ -300,7 +257,7 @@ func (s *stage) shape(i, step int) *stageBlock {
 
 	var ws []lyrics.Word
 	ws, b.leadTimed = s.words(b.shown.Lead)
-	b.lead = s.sweep(stageKey{i, 0, b.other, s.reduced, size, width}, ws, weight, b.lineH)
+	b.lead = s.sweep(stageKey{i, 0, b.other, s.reduced, size, width}, ws, stageWeight, b.lineH)
 	b.h = b.lead.Height()
 
 	sub := max(round32(size*stageSub), 15)
@@ -324,6 +281,10 @@ func (s *stage) shape(i, step int) *stageBlock {
 	if b.headed {
 		hs := max(round32(18*g.scale), 14)
 		b.headH, b.headGap = round32(hs*1.3), 6
+	}
+	if s.synced && lyricsync.HasGap(s.gaps[i]) {
+		b.dots = dotsFor(size)
+		b.dotsH, b.dotsGap = b.dots.d, round32(size*stageDotGap)
 	}
 	return b
 }
@@ -351,9 +312,9 @@ func (s *stage) reach(lo, hi int) (restarted bool) {
 		top := float32(0)
 		if len(s.tops) > 0 {
 			prev := s.block(i - 1)
-			top = s.tops[len(s.tops)-1] + prev.h + s.gap(i) + s.block(i).headH + s.block(i).headGap
+			top = s.tops[len(s.tops)-1] + prev.h + s.gap(i) + s.block(i).above()
 		} else {
-			top = s.block(i).headH + s.block(i).headGap
+			top = s.block(i).above()
 		}
 		s.tops = append(s.tops, top)
 	}
@@ -402,13 +363,45 @@ type stageIn struct {
 	anchor  int // the line in the middle
 	active  int // the line sung (-1: none, as in a break)
 	reduced bool
+
+	// lo is the first line built; lineRank and dotsRank are the rank (the
+	// places from the sung one) of each line built and of the dots before it.
+	lo                 int
+	lineRank, dotsRank []int
+}
+
+// ranks are how many places from the sung one each line from lo to hi
+// stands, and each instrumental gap's dots. While a gap runs its dots are the
+// sung place and the line after them is next; the dots of a gap still to come
+// take a place of their own, so the two lines shown below the sung one are
+// two places, and the dots of a gap that has passed take none.
+func (st *stage) ranks(anchor int, dotsSung bool, lo, hi int) (lines, dots []int) {
+	lines, dots = make([]int, hi-lo+1), make([]int, hi-lo+1)
+	r := 0
+	if dotsSung {
+		r = 1
+	}
+	lines[anchor-lo] = r
+	for j := anchor + 1; j <= hi; j++ {
+		if st.block(j).dotsH > 0 {
+			r++
+			dots[j-lo] = r
+		}
+		r++
+		lines[j-lo] = r
+	}
+	for j := anchor - 1; j >= lo; j-- {
+		lines[j-lo] = j - anchor
+	}
+	return lines, dots
 }
 
 // cascade builds the column: the sung line in the middle and the lines
-// around it, each at its own size. The lines stand where they stand in the
-// column; the column as a whole is posed so the sung line is in the middle,
-// and a new pose climbs there over 600 ms in frames that only paint. The
-// view is built once per line, not once per frame.
+// around it, all in one size. The lines stand where they stand in the
+// column; the column as a whole is posed so the sung line (or, in an
+// instrumental gap, its dots) is in the middle, and a new pose climbs there
+// over 600 ms in frames that only paint. The view is built once per line, not
+// once per frame.
 func (p *player) cascade(c *ui.Context, st *stage, in stageIn) {
 	n := len(st.lyr.Lines)
 	lo, hi := max(in.anchor-stageReach, 0), min(in.anchor+stageReach, n-1)
@@ -422,8 +415,16 @@ func (p *player) cascade(c *ui.Context, st *stage, in stageIn) {
 	}
 
 	// The middle of the sung line itself: what stands under it (background
-	// vocals, the translation) does not move it.
-	mid := st.top(in.anchor) + st.block(in.anchor).lead.Height()/2
+	// vocals, the translation) does not move it. In a gap it is the dots'.
+	b := st.block(in.anchor)
+	mid := st.top(in.anchor) + b.lead.Height()/2
+	dotsSung := b.dotsH > 0 && gapStateOf(in.anchor, in.active, in.anchor) == gapSung
+	if dotsSung {
+		mid = st.top(in.anchor) - b.above() + b.dotsH/2
+	}
+	in.lo = lo
+	in.lineRank, in.dotsRank = st.ranks(in.anchor, dotsSung, lo, hi)
+
 	box := ui.Box(c.Key("cascade:" + st.songID)).Absolute().Top(0).Left(0).Right(0).Bottom(0).IgnoreInput(true).
 		Role(ui.RoleGroup).Label(i18n.T("Lyrics"))
 	if !in.reduced {
@@ -458,7 +459,8 @@ func (st *stage) lineState(i int, in stageIn) lineState {
 // the sheet (the sung line in ink and its words in amber as the voice
 // reaches them; earlier lines faint, later ones muted). A duet's second voice
 // is indented 1.5em and italic, and the first line sung together has its
-// "Together" heading above it.
+// "Together" heading above it. A line with an instrumental gap before it
+// builds the dots (stageGap) first.
 func (p *player) stageLine(c *ui.Context, st *stage, in stageIn, i int) {
 	b := st.block(i)
 	state := st.lineState(i, in)
@@ -470,10 +472,13 @@ func (p *player) stageLine(c *ui.Context, st *stage, in stageIn, i int) {
 	fill := theme.C("amber-ink")
 	g := in.g
 
+	if b.dotsH > 0 {
+		p.stageGap(c, st, in, i, b)
+	}
 	col := ui.Column(c.Key("line:" + strconv.Itoa(i))).Absolute().Left(g.left + b.indent).Top(st.top(i) - b.headH - b.headGap).
 		Width(g.colW - b.indent).Height(b.headH + b.headGap + b.h).IgnoreInput(true)
 	col.TransformOrigin(0, 0.5)
-	col.AnimatePose(stagePose(i-in.anchor), climb())
+	col.AnimatePose(stagePose(in.lineRank[i-in.lo]), climb())
 	col.Children(func() {
 		if b.headed {
 			lineText(c.Key("together"), i18n.T("Together"), b.headH/1.3, b.headH, 500, theme.C("ink-muted")).Margin(0, 0, b.headGap, 0)
@@ -504,4 +509,28 @@ func (p *player) stageLine(c *ui.Context, st *stage, in stageIn, i int) {
 			part("tr", b.tr, lyricsync.Text{Text: b.shown.Translation}, 3, sub, b.subGap)
 		}
 	})
+}
+
+// stageGap is the dots of the instrumental gap before line i, above the line
+// and its heading. They take the pose of the place they hold: the sung one
+// while the gap runs, a place of their own before it, and gone (small and
+// faded, over the climb) once the line has begun. Their fill is painted from
+// the clock in steps, by timers (gapDraw).
+func (p *player) stageGap(c *ui.Context, st *stage, in stageIn, i int, b *stageBlock) {
+	g := in.g
+	state := gapStateOf(i, in.active, in.anchor)
+	pose := ui.Pose{Scale: 0.6, Fade: 1}
+	switch state {
+	case gapSung:
+		pose = stagePose(0)
+	case gapComing:
+		pose = stagePose(in.dotsRank[i-in.lo])
+	}
+	e := ui.Box(c.Key("gap:" + strconv.Itoa(i))).Absolute().Left(g.left).Top(st.top(i) - b.above()).Width(g.colW).Height(b.dotsH).IgnoreInput(true)
+	e.TransformOrigin(0, 0.5)
+	e.AnimatePose(pose, climb())
+	if state != gapPast {
+		e.Role(ui.RoleImage).Label(gapLabel()).
+			Draw(p.gapDraw(st.songID, st.gaps[i], b.dots, 0, rtl(st.lyr.Lines[i].Text), in.reduced, gapTone(), theme.C("amber-ink")))
+	}
 }

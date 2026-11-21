@@ -353,13 +353,13 @@ func TestHelpFilterNarrowsShortcutsAsYouType(t *testing.T) {
 	// Keys match too, as spelt on the caps and in words, and so do keywords
 	// and the group's title.
 	for _, c := range []struct{ query, want string }{{"ctrl", "Next track"}, {"space", "Play or pause"}, {"resume", "Play or pause"}, {"pages", "Library · Albums"}, {"ARROW right", "Next track"}} {
-		r.tt.Key(ui.Ctrl, ui.KeyA)
+		r.tt.Key(ui.Cmd, ui.KeyA)
 		r.tt.Type(c.query)
 		if !r.tt.HasText(c.want) {
 			t.Errorf("%q does not find %q; texts %q", c.query, c.want, r.tt.Texts())
 		}
 	}
-	r.tt.Key(ui.Ctrl, ui.KeyA)
+	r.tt.Key(ui.Cmd, ui.KeyA)
 	r.tt.Type("zzz")
 	if !r.tt.HasText("No shortcuts match “zzz”") || r.tt.HasText("Next track") {
 		t.Errorf("zzz: %q", r.tt.Texts())
@@ -393,7 +393,7 @@ func TestHelpFilterThatFindsNothingIsSaidOnce(t *testing.T) {
 			t.Errorf("%q: announced %q, want %q", term, got, want)
 		}
 	}
-	r.tt.Key(ui.Ctrl, ui.KeyA)
+	r.tt.Key(ui.Cmd, ui.KeyA)
 	r.tt.Type("next")
 	r.settle()
 	if got := r.tt.Announcements(); !slices.Equal(got, []string{"1 shortcut"}) {

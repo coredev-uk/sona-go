@@ -104,22 +104,3 @@ func TestSetReminderSendsTheNotificationWordsAndToasts(t *testing.T) {
 	toasted(t, func() { setReminder(f, album, true) }, "Couldn't set the reminder")
 	toasted(t, func() { setReminder(f, album, false) }, "Couldn't remove the reminder")
 }
-
-func TestRemindableNeedsNotificationsACatalogIDAndADate(t *testing.T) {
-	ok := services.Album{CatalogID: "1", ReleaseAt: 1}
-	for _, c := range []struct {
-		name string
-		n    bool
-		a    services.Album
-		want bool
-	}{
-		{"all there", true, ok, true},
-		{"no notifications", false, ok, false},
-		{"no catalogue ID", true, services.Album{ReleaseAt: 1}, false},
-		{"no full release date", true, services.Album{CatalogID: "1"}, false},
-	} {
-		if got := remindable(c.n, c.a); got != c.want {
-			t.Errorf("%s: %v, want %v", c.name, got, c.want)
-		}
-	}
-}

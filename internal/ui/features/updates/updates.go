@@ -1,12 +1,13 @@
-// Package updates is the update notice: the quiet line at the foot of the
-// sidebar, shown only while a release newer than this build exists, with its
-// version. Go checks for it after the first paint (unless turned off in
-// Settings → General) and sends "updates:available"; Settings → General
-// shows the same status and checks on request (store.UseUpdates). Where Sona
-// updates itself (macOS and Windows installs, UpdateStatus.SelfUpdate) the
-// notice offers "Install and restart", with the download's progress from
-// "updates:install"; elsewhere it links the release page, since updating is
-// the platform's: a package manager or an AppImage's own updater.
+// Package updates is a new version in the notification centre: a live row,
+// shown only while a release newer than this build exists, with its version,
+// and the bell's ink dot while it waits. Go checks for it after the first
+// paint (unless turned off in Settings → General) and sends
+// "updates:available"; Settings → General shows the same status and checks
+// on request (store.UseUpdates). Where Sona updates itself (macOS and Windows
+// installs, UpdateStatus.SelfUpdate) the row offers "Install and restart",
+// with the download's progress from "updates:install" on the row and the
+// bell; elsewhere it links the release page, since updating is the
+// platform's: a package manager or an AppImage's own updater.
 package updates
 
 import (
@@ -19,7 +20,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
-	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // updates is the feature's state.
@@ -30,6 +30,8 @@ type updates struct {
 	// tests replace them.
 	openRelease func() error
 	install     func() error
+	// said is the row's title last read out ("" while there is no update).
+	said string
 }
 
 // New is the update notice's module.
@@ -50,99 +52,103 @@ func newUpdates(env *module.Env, open, install func() error) *updates {
 func (u *updates) module() module.Module {
 	return module.Module{
 		ID:    "updates",
-		Slots: module.Slots{SidebarFooter: u.notice},
+		Slots: module.Slots{Activity: &module.Activity{Status: u.status, Build: u.row}},
 		Init: func() {
 			store.Mirror[services.UpdateStatus](u.env.Bus, u.env.Queries, u.env.Post, store.KeyUpdates, nil, services.EventUpdateAvailable, services.EventUpdateInstall)
 		},
 	}
 }
 
-// notice builds nothing unless a newer release exists that the user hasn't
+// current is the update to show, if any: a newer release the user hasn't
 // just gone back from (UpdateStatus.Notify).
-func (u *updates) notice(c *ui.Context) {
+func (u *updates) current() (services.UpdateStatus, bool) {
 	r := store.UseUpdates(u.env.Queries, u.env.Core)
 	if !r.HasData || !r.Data.Notify() {
-		return
+		return services.UpdateStatus{}, false
 	}
-	st := r.Data
-	// msg is the sentence a screen reader gets; the slip shows it in two
-	// lines, "New version" over "Sona {latest}", and the other states in words
-	// of their own.
-	msg := i18n.T("Sona {latest} is available", "latest", st.Latest)
-	shown := i18n.T("Sona {latest}", "latest", st.Latest)
+	return r.Data, true
+}
+
+// status is the Activity's Status: news while the update waits, busy while
+// it downloads, an alert when installing it failed. The row's title is read
+// out as the update turns up and as it changes, once each, whether or not
+// the panel is open: the bell is always built.
+func (u *updates) status(c *ui.Context) module.ActivityStatus {
+	st, ok := u.current()
+	if !ok {
+		u.said = ""
+		return module.ActivityStatus{}
+	}
+	if h := headline(st); h != u.said {
+		u.said = h
+		c.Announce(h)
+	}
+	s := module.ActivityStatus{Shown: true}
+	switch {
+	case st.Installing:
+		s.Busy, s.Progress, s.Label = true, downloaded(st), headline(st)
+	case st.Installed:
+	case st.InstallError != "":
+		s.Alert = true
+	default:
+		s.News = true
+	}
+	return s
+}
+
+// downloaded is the download's fraction, below 0 until the first bytes.
+func downloaded(st services.UpdateStatus) float64 {
+	if st.Total > 0 {
+		return float64(st.Downloaded) / float64(st.Total)
+	}
+	return -1
+}
+
+// headline is the row's title in each state.
+func headline(st services.UpdateStatus) string {
 	switch {
 	case st.Installed:
-		msg = i18n.T("Restarting into Sona {latest}…", "latest", st.Latest)
-		shown = msg
+		return i18n.T("Restarting into Sona {latest}…", "latest", st.Latest)
 	case st.Installing:
-		msg = i18n.T("Downloading Sona {latest}…", "latest", st.Latest)
-		shown = msg
+		return i18n.T("Downloading Sona {latest}…", "latest", st.Latest)
 	case st.InstallError != "":
-		msg = i18n.T("Couldn't install Sona {latest}", "latest", st.Latest)
-		shown = msg
+		return i18n.T("Couldn't install Sona {latest}", "latest", st.Latest)
 	}
-	// The release slip: a quiet raised block, radius 6, whose action runs the
-	// full width under the version.
-	ui.Column(c.Key("update-notice")).FillWidth().PaddingX(10).Margin(0, 0, 8, 0).Children(func() {
-		ui.Column(c.Key("slip")).FillWidth().Gap(8).Padding(10).Radius(theme.Current().Radius["md"]).
-			Background(theme.C("raised")).Children(func() { u.slip(c, st, msg, shown) })
-	})
+	return i18n.T("Sona {latest} is available", "latest", st.Latest)
 }
 
-// slip is the block's content: the version, the download's bar and the action.
-func (u *updates) slip(c *ui.Context, st services.UpdateStatus, msg, shown string) {
-	meta := theme.Current().Type["meta"]
-	body := theme.Current().Type["body"]
-	ui.Column(c.Key("slip-head")).FillWidth().Children(func() {
-		ui.Text(c.Key("slip-meta"), i18n.T("New version")).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).
-			TextColor(theme.C("ink-muted")).SingleLine().MinWidth(0).Role(ui.RoleNone)
-		// The status is the words, not the slip: its button's label is
-		// not news. A status is read when its text changes and not when
-		// it first appears, so the slip turning up is announced here and
-		// what changes it afterwards is its own to read.
-		said := ui.Text(c.Key("said"), shown).FontSize(body.Size).FixedLineHeight(body.LineHeight).FontWeight(500).
-			TextColor(theme.C("ink")).MinWidth(0).Role(ui.RoleStatus).Label(msg)
-		kit.AnnounceMounted(c, said, msg)
-	})
-	if st.Installing {
-		value := -1.0 // unknown until the first bytes arrive
-		if st.Total > 0 {
-			value = float64(st.Downloaded) / float64(st.Total)
-		}
-		kit.ProgressBar(c.Key("update-progress"), value, kit.ProgressOpts{A11yLabel: i18n.T("Update download")})
-	}
-	if st.Installing || st.Installed {
+// row is the Activity's row: the version, the download's bar and the action.
+// After a failed install the same button tries again, and the release page,
+// where the installer is, is one click off: a failure that comes from this
+// install (a folder it can't write, an update file it can't unpack) comes
+// again, and the row must not be a loop of retries.
+func (u *updates) row(c *ui.Context) {
+	st, ok := u.current()
+	if !ok {
 		return
 	}
-	// After a failed install the same button tries again, and the release
-	// page, where the installer is, is one click off: a failure that comes
-	// from this install (a folder it can't write, an update file it can't
-	// unpack) comes again, and the notice must not be a loop of retries.
-	failed := st.SelfUpdate && st.InstallError != ""
-	label := i18n.T("View")
+	spec := kit.ActivitySpec{Icon: "circle-arrow-up", Title: headline(st)}
 	switch {
-	case failed:
-		label = i18n.T("Try again")
+	case st.Installing:
+		p := downloaded(st)
+		spec.Progress, spec.ProgressLabel = &p, i18n.T("Update download")
+	case st.Installed:
+	case st.SelfUpdate && st.InstallError != "":
+		spec.Alert = true
+		spec.Action, spec.OnAction = i18n.T("Try again"), u.installAndRestart
+		spec.Secondary, spec.OnSecondary = i18n.T("View release"), u.view
 	case st.SelfUpdate:
-		label = i18n.T("Install and restart")
+		spec.Action, spec.OnAction = i18n.T("Install and restart"), u.installAndRestart
+		spec.Secondary, spec.OnSecondary = i18n.T("View release"), u.view
+	default:
+		spec.Detail = i18n.T("Update it the way you installed Sona.")
+		spec.Action, spec.OnAction = i18n.T("View"), u.view
 	}
-	act := kit.Button(c.Key("update-act"), label, kit.ButtonOpts{Size: kit.SizeSM}).FillWidth()
-	if act.Clicked() {
-		if st.SelfUpdate {
-			u.installAndRestart()
-		} else {
-			u.view()
-		}
-	}
-	if failed {
-		if kit.Button(c.Key("update-view"), i18n.T("View release"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM}).FillWidth().Clicked() {
-			u.view()
-		}
-	}
+	kit.ActivityRow(c, "updates:row", spec)
 }
 
-// installAndRestart installs the update; a failure toasts and the notice
-// says so (the status carries it).
+// installAndRestart installs the update; a failure toasts and the row says
+// so (the status carries it).
 func (u *updates) installAndRestart() {
 	install := u.install
 	if install == nil {

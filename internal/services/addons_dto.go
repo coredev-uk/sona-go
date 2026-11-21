@@ -5,9 +5,6 @@ const (
 	// EventAddonsChanged carries the []AddonInfo (as List returns it) each
 	// time the list of add-ons, or the state of one, changes.
 	EventAddonsChanged = "addons:changed"
-	// EventAddonsNotice carries an AddonNotice: an add-on Sona stopped
-	// without being asked.
-	EventAddonsNotice = "addons:notice"
 	// EventAddonsDevAsk carries an AddonDevAsk: `sona addons dev` waits for the
 	// person to confirm in the main window (AddonsService.AnswerDev).
 	EventAddonsDevAsk = "addons:dev-ask"
@@ -110,15 +107,6 @@ type AddonInfo struct {
 	// is in use, which Settings → Connections switches), never switched off by
 	// the crash rule, with nothing to approve and no permission to revoke.
 	Bundled bool `json:"bundled"`
-}
-
-// AddonNotice is the payload of EventAddonsNotice.
-type AddonNotice struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	// Kind is "crashed": the add-on stopped on its own too many times and was
-	// switched off.
-	Kind string `json:"kind"`
 }
 
 // AddonResult is an add-on's answer to an invoked contribution. Both fields

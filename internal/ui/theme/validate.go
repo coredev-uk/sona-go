@@ -170,8 +170,8 @@ var spotRoles = [...]string{
 //   - the backdrop scrim stays at 0.8 or more;
 //   - the spot colour (amber) keeps its distance from ground, surface and
 //     hover (3:1, in light and dark), its glyph colour
-//     (on-amber) 4.5:1 on it, and ink keeps 4.5:1 on the selection (the spot
-//     colour at 32%);
+//     (on-amber) 4.5:1 on it, and ink and ink-muted keep 4.5:1 on the
+//     selection (the spot colour at 15%) over the ground, surface and raised;
 //   - the play roles follow the spot colour, and no role listed in spotRoles
 //     resolves to it.
 func Validate(tk *Tokens) []Problem {
@@ -257,8 +257,10 @@ func Validate(tk *Tokens) []Problem {
 	for _, name := range [...]string{"ground", "surface", "raised"} {
 		bg := opaque(col(name), ground)
 		sel := opaque(col("selection"), bg)
-		if c := Contrast(opaque(col("ink"), sel), sel); c < TextFloor {
-			add(Problem{Kind: ProblemContrast, Token: "ink", Other: "selection on " + name, Got: c, Want: TextFloor})
+		for _, fg := range [...]string{"ink", "ink-muted"} {
+			if c := Contrast(opaque(col(fg), sel), sel); c < TextFloor {
+				add(Problem{Kind: ProblemContrast, Token: fg, Other: "selection on " + name, Got: c, Want: TextFloor})
+			}
 		}
 	}
 	for _, r := range [...]struct{ role, spot string }{{"play", "amber"}, {"play-ink", "amber-ink"}, {"on-play", "on-amber"}} {

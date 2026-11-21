@@ -99,9 +99,14 @@ func TestPlaylistsEvidence(t *testing.T) {
 				click("More for Road trip")
 				tt.Until("the playlist's menu", tt.Shows("Add to playlist"))
 				shot("page-menu")
+				tt.Advance(300 * time.Millisecond) // the menu reads the playlists
+				tt.Drain()
 				click("Add to playlist")
-				tt.Until("the picker", tt.Shows("Find a playlist"))
-				shot("dialog-add")
+				tt.Until("the playlists", tt.Shows("New playlist…"))
+				shot("page-menu-add")
+				click("New playlist…")
+				tt.Until("the form", tt.Shows("Create playlist"))
+				shot("dialog-new-with-item")
 			})
 		}
 	}

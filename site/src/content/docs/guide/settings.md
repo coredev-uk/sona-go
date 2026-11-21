@@ -28,7 +28,7 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Setting | What it does | Platform |
 | --- | --- | --- |
 | Track new releases from favourite artists | Once a day, looks at the artists you've favourited and lists their new albums, EPs and singles in [New releases](/guide/new-releases/). Off until you turn it on. Releases that are out when you turn it on aren't listed, only the ones that come out afterwards. | |
-| Also show a desktop notification | Shows a notification for a new release, or one summary when several arrive together. Click it to open the release. Needs the first setting. | Needs a notification service on _Linux_ and Sona.app on _macOS_. Not on _Windows_ yet. |
+| Also show releases as desktop notifications | Releases are always in [Notifications](/guide/notifications/): an album you asked to be reminded of when it comes out, and new releases from your artists. This shows them on your desktop too, one for each release or one summary when several arrive together. Click it to open the release. | Needs a notification service on _Linux_ and Sona.app on _macOS_. Not on _Windows_ yet. |
 
 ### Updates
 
@@ -82,11 +82,11 @@ See [Playback](/guide/playback/) for the equaliser and the output in use.
 
 | Setting | What it does |
 | --- | --- |
-| Mode | Chooses System, Light or Dark. A theme with one variant keeps its look and disables this. |
+| Mode | Chooses System, Light or Dark. A theme with one variant keeps its look and disables this. On a Mac the window buttons and the see-through sidebar follow it too. |
 | Theme | Chooses the colours of the whole window from Sona's own, community palettes and your themes. See [Themes](/guide/themes/). |
 | Accent | Chooses the colour that marks what plays. Each theme keeps its own by default. |
 | Your own themes | Opens the folder where your theme files go. |
-| Reduce effects | Uses solid surfaces instead of artwork colour washes and turns animation off. Smoother on software rendering. |
+| Reduce effects | Uses solid surfaces instead of artwork colour washes (and, on a Mac, instead of the see-through sidebar) and turns animation off. Smoother on software rendering. |
 | Motion artwork | Plays the looping covers some albums and playlists have. Off while Reduce effects is on. Pauses on battery power where Sona can read the power state. |
 
 ## Connections

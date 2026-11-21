@@ -70,7 +70,7 @@ func TestEmbeddedTokensHoldEveryCSSColourInBothModes(t *testing.T) {
 		if got := tk.Color["edge"]; got.R != ink.R || got.A != ui.RGBA(0, 0, 0, 0.06).A {
 			t.Errorf("%s edge = %v", modeName(dark), got)
 		}
-		if got := tk.Color["selection"]; got.A != ui.RGBA(0, 0, 0, 0.32).A || got.R != tk.Color["amber"].R {
+		if got := tk.Color["selection"]; got.A != ui.RGBA(0, 0, 0, 0.15).A || got.R != tk.Color["amber"].R {
 			t.Errorf("%s selection = %v", modeName(dark), got)
 		}
 	}

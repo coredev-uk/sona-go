@@ -53,108 +53,48 @@ func stageRig(t *testing.T, lines []services.LyricLine, posMs int64, opts []uite
 	return r
 }
 
-func TestHeldTimeSetsTheSizeStepOfALine(t *testing.T) {
-	span := func(ds ...int64) []lyricsync.Span {
-		var out []lyricsync.Span
-		at := int64(0)
-		for _, d := range ds {
-			out = append(out, lyricsync.Span{BeginMs: at, EndMs: at + d})
-			at += d + 100
-		}
-		return out
-	}
-	// Longer held, bigger: five steps from the quickest to the longest.
-	got := heldSteps(span(1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000))
-	for i := 1; i < len(got); i++ {
-		if got[i] < got[i-1] {
-			t.Errorf("a longer line has a smaller step: %v", got)
-		}
-	}
-	if got[0] != 0 || got[len(got)-1] != stageSteps-1 {
-		t.Errorf("the quickest and the longest lines are not at the ends of the steps: %v", got)
-	}
-	seen := map[int]bool{}
-	for _, s := range got {
-		seen[s] = true
-	}
-	if len(seen) != stageSteps {
-		t.Errorf("%d steps used of %d: %v", len(seen), stageSteps, got)
-	}
-	// Lines held alike are all at the middle step, not stretched to the ends.
-	for _, s := range heldSteps(span(3000, 3100, 3000, 3200, 3000)) {
-		if s != stageSteps/2 {
-			t.Errorf("even lines got step %d", s)
-		}
-	}
-	// One held line among even ones is the largest, the rest the smallest.
-	got = heldSteps(span(2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 30000))
-	if got[len(got)-1] != stageSteps-1 || got[0] != 0 {
-		t.Errorf("a held line among even ones: %v", got)
-	}
-	// A line with no length takes the song's middle line's step.
-	got = heldSteps(span(1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 0))
-	if got[len(got)-1] != got[5] {
-		t.Errorf("a line with no length is at step %d, the middle line's is %d", got[len(got)-1], got[5])
-	}
-}
-
-func TestStageSizesFollowHeldTimeInStepsAndAreCapped(t *testing.T) {
+func TestEveryTimedLineIsSetInOneSizeThatScalesWithTheWindow(t *testing.T) {
 	for _, c := range []struct {
-		w, h        int
-		lo, hi, tol float32
+		w, h int
+		want float32
 	}{
-		{1920, 1080, 40, 128, 0},
-		{3840, 2160, 80, 256, 0}, // scales with the window's height
-		{1280, 540, 22, 64, 0},   // and has a floor in a small window
+		{1920, 1080, 72},
+		{3840, 2160, 144}, // scales with the window's height
+		{1280, 540, 36},
+		{640, 270, stageFloorDIP}, // and has a floor in a small window
 	} {
 		t.Run(fmt.Sprintf("%dx%d", c.w, c.h), func(t *testing.T) {
-			// Quick lines, then held ones, then one held long.
+			// Lines held for very different times: how long a line is held
+			// does not set its size.
 			lines := heldLines(1200, 1800, 2400, 3000, 4200, 5600, 7000, 9000, 12000, 14000)
 			r := stageRig(t, lines, 1000+1200+600+1800+600+2400+600+500, nil, func(r *npRig) { r.width, r.height = c.w, c.h })
 			st := r.p.np.stage
-			sizes := map[float32]bool{}
-			prev := float32(0)
 			for i := st.anchor - stageReach; i <= st.anchor+stageReach; i++ {
 				if i < 0 || i >= len(lines) {
 					continue
 				}
-				b := st.block(i)
-				if b.size < prev {
-					t.Errorf("line %d (held longer) is set smaller (%v) than the line before (%v)", i, b.size, prev)
-				}
-				prev = b.size
-				sizes[b.size] = true
-				if b.size > c.hi || b.size < c.lo {
-					t.Errorf("line %d is %v, outside %v to %v", i, b.size, c.lo, c.hi)
-				}
-			}
-			if len(sizes) < 3 || len(sizes) > stageSteps {
-				t.Errorf("%d sizes in the column: %v", len(sizes), sizes)
-			}
-			// Every line of the song stays in the steps and under the cap.
-			for i := range lines {
-				if s := st.steps[i]; s < 0 || s >= stageSteps {
-					t.Errorf("line %d has step %d", i, s)
+				if b := st.block(i); b.size != c.want || b.step != 0 {
+					t.Errorf("line %d (held %d ms) is %v at step %d, want %v at step 0", i, lines[i].EndMs-lines[i].BeginMs, b.size, b.step, c.want)
 				}
 			}
 		})
 	}
 }
 
-func TestAHugeHeldLineWrapsToTwoLinesAtMostBeforeItsSizeStepsDown(t *testing.T) {
+func TestALongLineWrapsToTwoLinesAtMostBeforeItsSizeStepsDown(t *testing.T) {
 	lines := heldLines(1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 20000, 1500)
 	lines[9].Text = strings.Repeat("the tide came back slower than we thought ", 3)
 	r := stageRig(t, lines, lines[9].BeginMs+500, nil)
 	st := r.p.np.stage
 	b := st.block(9)
-	if st.steps[9] != stageSteps-1 {
-		t.Fatalf("the long line is at step %d, want the top", st.steps[9])
+	if b.step == 0 {
+		t.Errorf("a line that wraps to %d lines at the full size kept it", b.lines())
 	}
-	if b.step >= st.steps[9] {
-		t.Errorf("a line that would wrap to %d lines kept its step %d", b.lines(), b.step)
+	if b.lines() > stageMaxWrap && b.step < len(stageLadder)-1 {
+		t.Errorf("wrapped to %d lines at step %d with sizes left to step down to", b.lines(), b.step)
 	}
-	if b.lines() > stageMaxWrap && b.step > 0 {
-		t.Errorf("wrapped to %d lines at step %d", b.lines(), b.step)
+	if short := st.block(8); short.size <= b.size || short.step != 0 {
+		t.Errorf("a short line is %v at step %d beside the long one's %v", short.size, short.step, b.size)
 	}
 }
 
@@ -568,7 +508,7 @@ func TestFullScreenLyricsAccessibility(t *testing.T) {
 	r.tt.Key(0, ui.KeyTab)
 	r.tt.Until("the strip", r.tt.Shows("Exit full screen"))
 	stops := access.TabWalk(t, r.tt.Tester, 12)
-	access.InOrder(t, access.StopLabels(stops), "Show lyrics 0.5 s earlier", "Show lyrics 0.5 s later", "Exit full screen")
+	access.InOrder(t, access.StopLabels(stops), "Previous", "Pause", "Next", "Show lyrics 0.5 s earlier", "Show lyrics 0.5 s later", "Exit full screen")
 	tr = access.Read(t, r.tt.Tester)
 	if n, ok := tr.Find(ui.RoleProgress, "Song progress"); !ok || n.Value == "" {
 		t.Errorf("the progress is not a labelled progress bar with a value: %+v", n)

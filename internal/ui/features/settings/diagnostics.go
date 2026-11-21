@@ -265,8 +265,8 @@ func (s *settings) diagGroup(c *ui.Context, g diagGroup) {
 		s.marginal(c, 10, func() {
 			theme.Text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(3)
 		}, func() {
-			// The values (versions, paths, ids) are one selection per group;
-			// the labels and the notes are muted type and stay out of it
+			// The values (versions, paths, ids) and the notes under a warning
+			// are one selection per group; the labels stay out of it
 			// (docs/design.md, "Selectable text"). Copy diagnostics still
 			// copies the lot.
 			ui.Column(c.Key("values")).FillWidth().Selectable().Children(func() { s.diagRows(c, g, labelWidth) })
@@ -290,7 +290,7 @@ func (s *settings) diagRows(c *ui.Context, g diagGroup, labelWidth float32) {
 					}
 				})
 				if r.detail != "" {
-					theme.Text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576).Unselectable()
+					theme.Text(k, r.detail, "secondary").TextColor(theme.C("ink-muted")).Margin(4, 0, 0, 24).MaxWidth(576)
 				}
 			})
 		})

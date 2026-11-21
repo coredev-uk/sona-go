@@ -3,6 +3,8 @@ package app
 import (
 	"testing"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -45,9 +47,10 @@ func TestShellAlbumsGolden(t *testing.T) {
 	}
 }
 
-// The account side's pieces in the shell: the update notice in the sidebar's
-// foot, the player bar's Private pill (on, with its word) and the line under
-// the title while a song waits for Widevine. They were full-window goldens;
+// The account side's pieces in the shell: the bell's name with the Widevine
+// download under way and, in its panel, the update and the download, the
+// player bar's Private pill (on, with its word) and the line under the title
+// while a song waits for Widevine. They were full-window goldens;
 // what those pictures said that no page golden does is that each piece is
 // there at a wide and at a narrow window, and where the pill's word goes: it
 // shows at 1132 DIP and is dropped at 940 (the pill stays).
@@ -77,7 +80,12 @@ func TestAccountStatesInTheShell(t *testing.T) {
 			s.Current = &services.QueueItem{ID: "i.1", Name: "Glass Harbour", Artist: "Dara Finch", Album: "Low Tide"}
 			s.NoCDM = true
 			a.env.Play.Seed(s, services.QueueState{Index: -1})
-			tt.Until("the account pieces", tt.Shows("Sona 0.3.0 is available", "Waiting for Widevine to download", "42%"))
+			tt.Until("the player bar's line", tt.Shows("Waiting for Widevine to download", "42%"))
+			// The bell names the download under way; its panel has the update
+			// and the download's row.
+			tt.MustClick("Notifications; Downloading Widevine")
+			tt.Until("the centre's rows", tt.Shows("Sona 0.3.0 is available", "Downloading Widevine"))
+			tt.Key(0, ui.KeyEscape)
 			tt.Settle()
 			pill, ok := tt.Find("Private listening")
 			if !ok {

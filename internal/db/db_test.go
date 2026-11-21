@@ -128,6 +128,8 @@ func TestWipeUserData(t *testing.T) {
 	must(q.PutTrackedArtist(ctx, dbq.PutTrackedArtistParams{ArtistID: "5", Name: "Them", SeededAt: 1}))
 	must(q.PutArtistRelease(ctx, dbq.PutArtistReleaseParams{AlbumID: "8", ArtistID: "5", Name: "New", Kind: "album", Listed: 1, FoundAt: 1}))
 	must(q.PutArtistTrackerChecked(ctx, 1))
+	must(q.PutNotification(ctx, dbq.PutNotificationParams{Kind: "release-out", Key: "release-out:7", Subject: "Soon", Account: 1, CreatedAt: 1}))
+	must(q.PutNotification(ctx, dbq.PutNotificationParams{Kind: "addon-off", Key: "addon-off:x", Subject: "X", CreatedAt: 1}))
 
 	must(d.WipeUserData(ctx))
 
@@ -135,6 +137,7 @@ func TestWipeUserData(t *testing.T) {
 		"tracks": 1, "catalog_cache": 1, "playlists": 0, "playlist_tracks": 0, "library_items": 0,
 		"accounts": 0, "favorites": 0, "pins": 0, "playback_history": 0, "sync_state": 0, "release_reminders": 0,
 		"tracked_artists": 0, "artist_releases": 0, "artist_tracker_state": 0, "library_music_videos": 0,
+		"notifications": 1, // the add-on's entry is not the account's
 	} {
 		var n int
 		must(d.R.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&n))

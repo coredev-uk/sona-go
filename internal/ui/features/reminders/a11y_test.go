@@ -58,7 +58,9 @@ func TestA11yReminderActionNamesItsStateAndOutcomesAreAnnounced(t *testing.T) {
 
 	h := uitest.New(t)
 	tt := h.Tester(t, func(c *ui.Context) { kit.Toaster(c) }, 600, 300)
-	kit.SetReminder(h.Env.Core, album, true)
+	noID := album // Go refuses a reminder for an album with no catalogue ID
+	noID.CatalogID = ""
+	kit.SetReminder(h.Env.Core, noID, true)
 	tt.Until("the failure toast", tt.Shows("Couldn't set the reminder"))
 	if ann := tt.Announcements(); !announced(ann, "Couldn't set the reminder") {
 		t.Errorf("announcements %q", ann)

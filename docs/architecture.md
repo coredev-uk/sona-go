@@ -223,7 +223,7 @@ What leaves Sona's own window (the scrobbler, the Discord presence and add-ons) 
 
 ### Artist tracker
 
-`ArtistTrackerService` (`internal/services/artisttracker.go`) is the opt-in tracker of new releases from the artists the user has favourited. It is off until Settings → General turns it on (`artistTracker.enabled`; `artistTracker.desktop` adds a desktop notification where the platform has notifications). Nothing is asked of Apple while it is off or nobody is signed in, and nothing before the first paint: the loop starts from `Env.OnNetwork`, waits 30 seconds, and only then looks. A check never reports a play: it reads the catalogue, so private listening changes nothing in it.
+`ArtistTrackerService` (`internal/services/artisttracker.go`) is the opt-in tracker of new releases from the artists the user has favourited. It is off until Settings → General turns it on (`artistTracker.enabled`; `artistTracker.desktop` adds desktop notifications for releases, the tracker's and the release reminders', where the platform has notifications). Nothing is asked of Apple while it is off or nobody is signed in, and nothing before the first paint: the loop starts from `Env.OnNetwork`, waits 30 seconds, and only then looks. A check never reports a play: it reads the catalogue, so private listening changes nothing in it.
 
 - **Schedule**: one check about every 24 hours (when the last complete one finished is kept in `artist_tracker_state`, so a restart does not repeat it), and one when the setting is turned on. A failed check is tried again after 15 minutes, doubling up to 6 hours; the client's own 429 and 5xx backoff runs inside each request. Sign-out and shutdown stop it, a check in progress included.
 - **Favourite artists**: Apple has no call that lists them (`GET /v1/me/ratings/artists` answers only for the IDs it is given). The candidates are the synced library's artists that have a catalogue ID and the artists favourited in Sona (`favorites`, kind `artists`); `applemusic.Client.Ratings` keeps those rated 1. A favourite that is neither in the library nor favourited in Sona is not found.
@@ -231,7 +231,17 @@ What leaves Sona's own window (the scrobbler, the Discord presence and add-ons) 
 - **Seeding**: an artist not yet in `tracked_artists` is being seeded. What is out is recorded as seen and never shown; a release still to come is listed, already read, so its Remind me is there. Turning the setting on empties `tracked_artists`, so the releases that came out while it was off are not announced either. A release found for the first time that came out more than 90 days ago is recorded silently too (the catalogue growing, not news). An artist that stops being a favourite leaves, with its records.
 - **State** (`artist_releases`, `tracked_artists`, `artist_tracker_state`; user data, wiped on sign-out and by `db.WipeUserData`): every release seen, when it was found, read and dismissed. A dismissed or seeded release stays, which is what keeps it from being found again, across checks and restarts. Records older than 180 days go.
 - **Surfaces**: `artisttracker:changed` carries the list (`NewReleases`: items, unread count, when it was last checked) to the New releases page and the sidebar's count (`docs/ui-architecture.md`). A release still to come carries the album's Remind me (`RemindersService`); the tracker has no notification of its own for it.
-- **Desktop notification**: one per new release, or one summary when several arrive in one check, shown by the notifier `RemindersService` uses (`clickNotices`): a click raises the window and emits `app:open` for the album (a summary opens the list, `OpenNewReleases`). The text is Go's own (`l10n`).
+- **Notification centre**: what a check finds is an entry of the notification centre (`NoticeNewReleases`): the release, or how many when several arrive in one check ([Notification centre](#notification-centre)).
+- **Desktop notification**, with `artistTracker.desktop`: the same, one per new release or one summary, shown by the notifier `RemindersService` uses (`clickNotices`): a click raises the window and emits `app:open` for the album (a summary opens the list, `OpenNewReleases`). The text is Go's own (`l10n`).
+
+### Notification centre
+
+`NotificationsService` (`internal/services/notifications.go`, table `notifications`) keeps what happened without the person asking, for the bell in the top bar (`docs/design.md`, "Notification centre"): a release reminder that came due (`RemindersService`), new releases from favourite artists (`ArtistTrackerService`), an add-on switched off after crashing (`AddonsService`). Desktop notifications are the exception, not the rule: releases show there only with `artistTracker.desktop`, and track notifications are Playback's own.
+
+- **Posting**: a service calls `Env.postNotice` with a kind, a key and names (`Subject`, `Artist`, `Variant`, `Count`), an artwork template and an `OpenTarget`; never a sentence, so the UI words it in the language of the day. A notice whose key is already there replaces that entry and is unread again (an add-on switched off twice is one entry).
+- **Keeping**: 30 days, and at most the newest 100, pruned on every post. Entries about the account (`account = 1`) go at sign-out; an add-on's stay.
+- **The UI's calls**: `List`, `MarkRead` (the panel opened), `Dismiss`, `Clear`; every change is `notifications:changed`.
+- **Not stored**: what is under way or wrong now (a sync, an update, the Widevine download, an add-on waiting for approval) is read from those services' own state by each UI module (`module.Activity`).
 
 ### Updates
 
@@ -279,9 +289,9 @@ Before swapping, Sona stages a copy of the running version and writes `update-pe
 
 A failed install leaves Sona as it was. MyGo unpacks beside the install, validates every entry while it does, and swaps entries in with an undo, so nothing of the install is touched before the unpack is whole.
 
-- The status carries `installError` (`update_failed`, `update_signature`). The sidebar slip then offers "Try again" and "View release".
+- The status carries `installError` (`update_failed`, `update_signature`). The update's row in the notification centre then offers "Try again" and "View release".
 - The Diagnostics bundle's Updates section holds the code and the error's text (`installError.detail`), with the log line `update install failed`.
-- Installs start only from a click (the slip, Settings → General). Nothing retries by itself.
+- Installs start only from a click (the notification centre's row, Settings → General). Nothing retries by itself.
 
 #### Playback while the files are swapped (Windows)
 
@@ -324,7 +334,7 @@ Settings → Diagnostics → Updates → Previous version shows the version the 
 - **The version's number**: `CFBundleShortVersionString` in the kept bundle's `Info.plist` on macOS and, on Windows, `update-previous` in the state folder, which `Guard.Commit` writes. A snapshot made by a Sona that wrote none is offered without a number.
 - **The restore**: Sona asks first, then runs the guard's `restore` on the running install (both systems allow renaming a running app). It records the restore in `update-rollback.json` with `manual: true`, so the Diagnostics bundle tells "you restored" from "the failed update was rolled back". It drops `update-pending` and has MyGo's `Relaunch` quit Sona through its normal quit (settings and the queue are saved, the single-instance lock is released) and start what is now installed.
 - **A failure** leaves Sona running and the row says why (`restore_failed`).
-- **After the restart**: the version just left is not offered again by the sidebar notice (`UpdateStatus.Declined`, read from the manual record when it names this run's version), because the notice would otherwise invite the user straight back. Settings → General still says it is available, "Check now" (or installing it) ends the hold, and a newer release is offered as usual.
+- **After the restart**: the version just left is not offered again in the notification centre (`UpdateStatus.Declined`, read from the manual record when it names this run's version), because the row would otherwise invite the user straight back. Settings → General still says it is available, "Check now" (or installing it) ends the hold, and a newer release is offered as usual.
 - **One way**: the version left isn't kept, so going forward again is an ordinary update.
 
 ### Themes
@@ -746,7 +756,8 @@ SQLite, libSQL-compatible, with migrations in `internal/db/migrations` numbered 
 - `sync_state`: domain, offset or cursor, total, last success, last full run, last error.
 - `search_fts`: FTS5 over titles, artists and albums.
 - `recent_searches`: searched terms and opened results (user data, wiped on sign-out).
-- `release_reminders`: pre-release albums to notify about on release day, or at the next start after it (user data, wiped on sign-out).
+- `release_reminders`: pre-release albums to tell the user about on release day, or at the next start after it (user data, wiped on sign-out).
+- `notifications`: the notification centre's entries: kind, key, names, artwork template, target, whether read, whether about the account ([Notification centre](#notification-centre)).
 - `tracked_artists`, `artist_releases`, `artist_tracker_state`: the artist tracker's seeded artists, the releases it has seen (found, read and dismissed times) and when its last check finished (user data, wiped on sign-out; [Artist tracker](#artist-tracker)).
 - `accounts`: storefront, its default and supported content languages, restricted flag, when the MUT was obtained and last validated. Never tokens.
 - A catalogue response cache (key, fetched at, expiry).

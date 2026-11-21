@@ -267,6 +267,9 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 	f := &d.front
 	name := it.Name
 	open, link := d.opener(it, ctx)
+	// A station with no page plays when the card is pressed and pauses while
+	// it plays: the card is that one button and there is no second disc.
+	direct := kit.PlaysWhenOpened(it, ctx.Players)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "lead"}
 	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
@@ -282,6 +285,8 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			card = ui.ButtonBase(c.Key("card")).Column().AlignItems(ui.Start).Radius(tk.Radius["sm"]).Label(name)
 			if link {
 				card.Role(ui.RoleLink)
+			} else if direct {
+				card.Role(ui.RoleButton).Label(kit.StationLabel(it, ctx))
 			}
 			// Inside the opener, Apple's line and the byline are its description.
 			if desc := leadDescription(it); desc != "" {
@@ -324,9 +329,19 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 			}
 			ui.Row(c.Key("caption")).Width(lay.lead).Margin(gap, 0, 0, 0).Children(func() {
 				ui.Column(c.Key("text")).Grow(1).Basis(0).MinWidth(0).Children(func() {
-					t := theme.Text(c, name, "title").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
-					if wrap.Hovered() && open != nil {
-						t.Underline()
+					title := func() {
+						t := theme.Text(c, name, "title").TextColor(theme.C("ink")).SingleLine().TextAlign(ui.Start)
+						if wrap.Hovered() && open != nil {
+							t.Underline()
+						}
+						if direct {
+							kit.StationCue(c, kit.StationPlaying(it, ctx), hot)
+						}
+					}
+					if direct {
+						ui.Row(c.Key("name")).AlignItems(ui.Center).Gap(8).MinWidth(0).Children(title)
+					} else {
+						title()
 					}
 					line := theme.Text(c, it.Description, "body").TextColor(theme.C("ink")).SingleLine().Height(leadLine).Margin(2, 0, 0, 0).TextAlign(ui.Start)
 					if it.Description != "" {
@@ -341,7 +356,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 				ui.Box(c.Key("pager-room")).Size(room, 1).Shrink(0).IgnoreInput(true) // where the more button and the pager sit
 			})
 		})
-		if ctx.Players.CanPlay(it) {
+		if ctx.Players.CanPlay(it) && !direct {
 			play := f.seeKeyboard(kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 48)).Absolute().Left(16).Top(artH - 16 - 48)
 			kit.Fade(play, hot || play.Focused())
 			opener := f.openers.For("lead:" + leadKey(it, 0))
@@ -353,7 +368,7 @@ func (d *discover) leadCard(c *ui.Context, it services.Item, lay frontLayout, ct
 		if hasMenu {
 			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), card, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(pager).Top(captionTop + 12)
 		}
-		if card.Clicked() && open != nil {
+		if kit.ClickOnce(card) && open != nil {
 			open()
 		}
 	})
@@ -499,6 +514,9 @@ func (d *discover) queueTile(c *ui.Context, it services.Item, index int, current
 	f := &d.front
 	name := it.Name
 	open, link := d.opener(it, ctx)
+	// A station with no page plays when the tile is pressed and pauses while
+	// it plays: the tile is that one button and there is no second disc.
+	direct := kit.PlaysWhenOpened(it, ctx.Players)
 	target, hasTarget := kit.ActionItemOf(it, ctx.Players)
 	menu := kit.ActionTarget{Item: target, Name: name, Key: "tile:" + strconv.Itoa(index)}
 	hasMenu := hasTarget && ctx.Menus.HasMenu(target)
@@ -524,6 +542,8 @@ func (d *discover) queueTile(c *ui.Context, it services.Item, index int, current
 			card = ui.ButtonBase(c.Key("card")).Column().AlignItems(ui.Start).Radius(tk.Radius["sm"]).Label(name)
 			if link {
 				card.Role(ui.RoleLink)
+			} else if direct {
+				card.Role(ui.RoleButton).Label(kit.StationLabel(it, ctx))
 			}
 			if sub := kit.ItemSubtitle(it); sub != "" {
 				card.Description(sub)
@@ -551,13 +571,16 @@ func (d *discover) queueTile(c *ui.Context, it services.Item, index int, current
 				if hovered && open != nil {
 					t.Underline()
 				}
+				if direct {
+					kit.StationCue(c, kit.StationPlaying(it, ctx), hot)
+				}
 				if hasMenu {
 					ui.Box(c.Key("more-room")).Size(24, 1).Shrink(0).IgnoreInput(true) // where the more button sits
 				}
 			})
 			theme.Text(c, kit.ItemSubtitle(it), "secondary").TextColor(theme.C("ink-muted")).SingleLine().Width(w).Height(18).TextAlign(ui.Start)
 		})
-		if ctx.Players.CanPlay(it) {
+		if ctx.Players.CanPlay(it) && !direct {
 			play := f.seeKeyboard(kit.PlayButton(c.Key("play"), i18n.T("Play {name}", "name", name), 32)).Absolute().Left(8).Top(artH - 8 - 32)
 			kit.Fade(play, hot || play.Focused())
 			opener := f.openers.For("tile:" + leadKey(it, index))
@@ -584,7 +607,7 @@ func (d *discover) queueTile(c *ui.Context, it services.Item, index int, current
 		if hasMenu {
 			f.seeKeyboard(ctx.Menus.Trigger(c.Key("more"), card, menu, kit.TriggerOpts{Visible: hot})).Absolute().Right(0).Top(artH + 6)
 		}
-		if card.Clicked() && open != nil {
+		if kit.ClickOnce(card) && open != nil {
 			open()
 		}
 	})

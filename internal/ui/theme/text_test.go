@@ -48,7 +48,10 @@ func TestHairlineIsOnePixelOfLine(t *testing.T) {
 	}
 }
 
+// On macOS the transport draws SF Symbols, which are solid already: the
+// test is about Lucide's outlines, so it draws Lucide everywhere.
 func TestSolidOnlyFilledLeavesIconsWithoutASolidFormOutlined(t *testing.T) {
+	withSymbols(t, false)
 	if HasSolid("skip-back") || !HasSolid("play") || !HasSolid("star") || !HasSolid("moon") {
 		t.Fatal("HasSolid: skip-back has no solid form; play, star and moon do")
 	}

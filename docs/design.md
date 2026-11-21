@@ -14,6 +14,7 @@ This is the visual direction for Sona's interface: type, colour, shape, motion a
   - [Icons](#icons)
   - [Artwork](#artwork)
   - [Backdrops (pre-blurred in Go)](#backdrops-pre-blurred-in-go)
+  - [Window material (macOS)](#window-material-macos)
   - [Motion](#motion)
   - [Reduce effects](#reduce-effects)
   - [Lists](#lists)
@@ -104,7 +105,7 @@ Strategy: restrained chrome, colour from artwork, one spot colour with one job. 
 
 - Sona's own board is neutral grey (OKLCH chroma 0), so no tint competes with a cover. No cream, no navy, no violet: that is Sona's own themes' rule, not the community palettes' (Themes, below).
 - The primary button is ink-filled (near-black on light, near-white on dark), not amber.
-- Focus ring: 2px `--ink` at 60% (the `ring` token, MyGo's keyboard-focus ring) outside the control, everywhere (≥ 3:1 on every background tone). Selection is amber at 32% (the `selection` token); the caret is `--amber-ink`.
+- Focus ring: 2px `--ink` at 60% (the `ring` token, MyGo's keyboard-focus ring) outside the control, everywhere (≥ 3:1 on every background tone). Selection is amber at 15% (the `selection` token); the caret is `--amber-ink`.
 - Contrast floors (WCAG AA, `site/src/content/docs/contributing/accessibility.md`): text tokens ≥ 4.5:1 on every background up to `--active` (selected rows), `--control-line` and the focus ring ≥ 3:1. Slider thumbs are always shown: the thumb, not the fill colour, marks the value.
 - The kit's role names (`background`, `primary`, `muted`, `ring`, …) are tokens in `tokens.json` too, mapped onto these, so MyGo's widgets and Sona's components read one palette without per-component overrides.
 
@@ -134,7 +135,7 @@ The table above is Sona's own theme (`sona`): `tokens.json` is its whole documen
   - Text tiers, the spot colour as text and the status colours keep 4.5:1 on every tone up to `--active` and on a selected row (ink at 12%).
   - `--control-line` and the ring keep 3:1. Avatar tones keep 4.5:1. The backdrop scrim stays at 0.8 or more.
   - The spot fill keeps 3:1 against the ground, surface and hover in a light and a dark theme (WCAG 1.4.11, non-text contrast: the play disc is a graphical object; Sona's own light amber has 3.6, 3.3 and 3.1). `--on-amber` keeps 4.5:1 on it.
-  - Ink keeps 4.5:1 on the selection (the spot colour at 32%).
+  - Ink and `--ink-muted` keep 4.5:1 on the selection (the spot colour at 15%) over the ground, surface and raised. 15% is the most that holds in every built-in theme and every accent: at the old 32% Sona dark's `--ink-muted` was 3.5 to 4.0:1 and 16 of the 22 built-in variants fell short. The selection stays distinct from hover and active, which are neutral greys.
 - **A theme with one variant pins the appearance** to it: `oled` and `dracula` are dark, so Settings → Appearance disables the mode row and says so.
   - Settings → Appearance lists the themes as cards: a miniature window drawn from each theme's own tokens, its name, a line, and "Dark only" where it applies.
   - The cards are in two groups, "Sona's own" and "Community palettes", then the user's files.
@@ -171,7 +172,7 @@ The table above is Sona's own theme (`sona`): `tokens.json` is its whole documen
 
 - Surfaces separate by a tone step, or by one 1px `--line`, never both.
 - Shadows only on what floats (menus, dialogs, toasts): the `float` shadow, 8px down with a 24px blur, black at 12% in light and 40% in dark.
-- No gradients, no glows, no glass. The one exception is the album page's band, which ends in a dissolve and a far-end gradient (Album page).
+- No gradients, no glows, no glass. Two exceptions: the album page's band, which ends in a dissolve and a far-end gradient (Album page), and on macOS the OS's window material behind the sidebar, never drawn by Sona (Window material, below).
 
 ## Icons
 
@@ -212,8 +213,18 @@ The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32,
   - Text sits on the scrim, so contrast is the scrim's, not the image's. The scrim is the floor at which `--ink-muted` and `--ink-faint` stay ≥ 4.5:1 over any backdrop: a black one in light (the binding case: 91% on surface) and a white one in dark (85%).
   - It is one value per theme, never lowered per surface. A stronger cover colour would need a darker text token, not a thinner scrim.
 - **Change**: when the track changes the new backdrop fades in over 300ms (the one authored motion moment). Images are decoded before the swap so the fade never shows an empty frame.
-- **Banned**: any live blur (a blur effect at paint time) on anything larger than an icon, and any blur on scrolling content.
+- **Banned**: any live blur (a blur effect at paint time) on anything larger than an icon, and any blur on scrolling content. The macOS window material (below) is the system's, composited by the OS, not a blur Sona paints.
 - **Reduce effects**: backdrops are not rendered at all; the surfaces are solid tokens. Full-Screen Lyrics then has no wash to drift.
+
+## Window material (macOS)
+
+On macOS the sidebar lets the OS's window material through: Liquid Glass from macOS 26, the sidebar material on 14 and 15. The system draws it from the desktop and the windows behind Sona; Sona draws nothing of it and nothing else of the window is translucent.
+
+- **The sidebar only.** The top bar, the page, the player bar, menus, dialogs and Now Playing stay solid tokens. The 1px `--line` still separates the sidebar from the page.
+- **A tint keeps the text readable.** The sidebar lays its `--surface` over the material at the least opacity, in steps of 5%, at which `--ink`, `--ink-muted` and `--ink-faint` keep 4.5:1 over every measured sample of the material: Liquid Glass and the sidebar material, active and inactive, over black, white, grey and saturated desktops (`materialSamples` in `internal/ui/app/material.go`, measured on Apple silicon for #317). Sona's own theme gets 80% in light and 70% in dark. A theme whose text needs more than 95% gets a solid sidebar and no material.
+- **Light and dark as Sona is.** The app's appearance follows Sona's mode (or a one-variant theme), so the material, the window buttons and the system's menus are drawn light or dark as Sona's tokens are, whatever the desktop's mode.
+- **Solid where asked.** Reduce effects and the desktop's Reduce Transparency turn the material off and the sidebar is solid `--surface` again.
+- **The mini player** has no material; on macOS its frameless window has rounded corners (20px), as a floating panel does.
 
 ## Motion
 
@@ -228,14 +239,14 @@ The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32,
 - The durations live in `tokens.json`. The backdrop crossfade is 300ms (see Backdrops).
 - Full-Screen Lyrics has two of its own: `climb` (600ms, the `out` curve) moves the column to the next sung line, and `drift` (40s, `in-out`) moves the wash a few percent and back. Both are poses (`AnimatePose`): transforms and fades that only paint, never layout.
 - Easing is `cubic-bezier(0.16, 1, 0.3, 1)` (exponential out, the `out` curve). No bounce, no layout animation, no scroll-linked effects.
-- A loop costs frames for as long as it runs: MyGo redraws the window on every frame something animates, however small the part that moves. So work that can run for long shows a still icon and progress that moves when the work does (the sidebar's sync line: its bar and count). A spinner (`kit.ButtonOpts.Spin`) is for waits of a second or two.
+- A loop costs frames for as long as it runs: MyGo redraws the window on every frame something animates, however small the part that moves. So work that can run for long shows a still icon and progress that moves when the work does (the library sync: the bell's bar, and the row's bar and count in the notification centre). A spinner (`kit.ButtonOpts.Spin`) is for waits of a second or two.
 - The desktop's reduced-motion preference, the Reduced motion setting and the reduce-effects mode all make the kit skip its transitions and animations (`theme.ReducedMotion()`).
 
 ## Reduce effects
 
 A user setting (`Settings → Appearance`, persisted by Go as `reduceEffects`; the UI reads it as `theme.ReduceEffects()`). With it on:
 
-- no backdrops, solid surfaces only (the album page's band is one flat colour that ends square, with no dissolve);
+- no backdrops, solid surfaces only (the album page's band is one flat colour that ends square, with no dissolve; on macOS the sidebar is solid and the window has no material);
 - transitions and animations off;
 - the same layout and colours otherwise, so the mode is never a degraded look.
 
@@ -272,6 +283,11 @@ A song or album with several artists keeps the one thing Apple writes, its artis
   - No arrow is drawn on the text: a trailing chevron would either move the line when it appears or leave a gap in "Artist · Album".
 - The same control is the artist in the player bar, Now Playing, the video view's caption, a track list's artist column and a track shelf's rows, the album, song and video headers and a station's songs. In a list it is not a Tab stop (the list is one), and Shift or Ctrl click on it selects the row like any other cell.
 - The song menu's "Go to artist" is a sub-menu of the artists when there are several (a plain row for one).
+- **"Add to playlist" is a sub-menu in every item menu** (a song's, an album's, a playlist's and a selection's), not a dialog that opens from it. Pointer hover or Right opens it beside the row; Left or Escape closes it.
+  - It lists *New playlist…* first (with a plus; it opens the new playlist form, and the playlist is made with the items in it), then a rule, then the playlists the user can edit: the ones Apple lists as recently used lead (at most five, as the picker's Recent), then the sidebar's order, folders before playlists. A recent playlist is not listed twice at the top level.
+  - A folder is a row with a folder glyph and a chevron that opens a sub-menu of its own; a folder with nothing the user can edit is left out. Folders open two levels deep; a deeper one, and a level of more than fifteen rows, end with *More playlists…*, which opens the picker (search, groups by folder path) for the rest.
+  - Choosing a playlist adds at once and says so with the toast and its *Open*; the rows are plain labels, with no cover or count, so the sub-menu stays as light as the menu it hangs from.
+  - Until the playlists are read, and when there is none to list, the row is the plain one and opens the picker.
 
 ## Choosing and playing: the interaction table
 
@@ -293,6 +309,7 @@ One rule governs every list, shelf, row and tile that shows an item (a song, an 
 - **Artists and curators open only.** No player is registered for them, so no tile, card, row, best match or lead pick draws a Play control for them, and no surface draws a disabled one. Chosen over an artist player because "play an artist" has no single meaning (top songs? shuffle?) and the artist page already offers Play top songs, Shuffle and Play library songs. A Play control exists exactly where `ItemPlayers.CanPlay` is true; a withheld explicit item shows it disabled.
 - **A page that is not routed is plain.** A tile keeps no underline; a wide card, link tile and the artist's latest-release slip are not built as a button at all (no tab stop, pointer, hover or navigation).
 - **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
+- **A More button and the menu agree.** Every surface that draws a "More for …" button opens the same menu on a right-click (on the row, or on a link in it, which passes the press through) and on Shift+F10 or the Menu key while its opener has the focus (the button is not a Tab stop). `TestInteraction…` pins it for every kit surface that has the button. Curators, rooms, groupings and link-list tiles have no registered action (nothing to add, play or pin), so they have no button and no menu: the two agree by both being absent, and a stub menu would only pretend.
 
 The table is what the code does on `main`.
 
@@ -310,18 +327,18 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Cover tile: shelf, grid, library, search tiles (`kit` `CoverShelf`, `ItemGrid`) | song, album, playlist, video, station with a page | opens | opens (twice) | opens | none | none | disc, on hover and focus | yes | link, title underlines on hover |
 |  | artist, curator, room, grouping | opens | opens | opens | none | none | none | artist yes, curator no | link |
 |  | upcoming album | opens | opens | opens | none | none | none, release badge in its place | yes | link, "Out 19 Nov" |
-|  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play" ("X Pause" while it plays and a press pauses), play (pause) mark on hover |
+|  | station with no page | plays | plays | plays | plays | plays | none: the tile is the control | yes | button "X Play" ("X Pause" while it plays and a press pauses), play (pause) mark on hover |
 |  | web link | opens the browser | twice | same | none | none | none | no | link, arrow out, named "X Opens in your browser" |
 |  | unrouted page | none, no underline | none | none | none | none | disc | yes | group |
 |  | any with an Item, Shift/Ctrl+click | selects | | | | | | | |
 | Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored (cannot select) | opens | opens | opens | none | disc, except artist and curator | More button and right-click, Shift+F10, Menu key | link |
-|  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button, no right-click ([#447]) | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
+|  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button and right-click, Shift+F10, Menu key | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | none | none | none | none | link, arrow out, named "X Opens in your browser" |
 | Link list tile (`LinkList`: "More to Explore") | page link | opens, remembered (`OnOpen`) | opens | opens | opens | none | none: a link tile is a plain link, even for a station with a page (its cover tile, card and row have the Play control) | none | link |
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none | none | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | same | none | none | none | link with the arrow out, named "X Opens in your browser" |
-| Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing and is the pause and resume button, "Pause X" | More button, no right-click ([#447]) | link |
-|  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
+| Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing and is the pause and resume button, "Pause X" | More button and right-click, Shift+F10, Menu key (a station that cannot be played too: right-click on the row) | link |
+|  | station with no page | plays, or toggles while playing | twice | same | same | same | none | More button and right-click, Shift+F10, Menu key (a station that cannot be played too: right-click on the row) | button "X Play" / "X Pause" |
 | Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | selects | plays from the row, the shelf is the queue | plays | none | selects | cover button | More button and right-click, Shift+F10, Menu key | list item, hover fill |
 |  | artist link in the row | opens the artist | twice | n/a | n/a | n/a | n/a | n/a | underline on hover |
 | Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects | number-column button | yes, also on the artist and album links | row; link cells underline |
@@ -344,13 +361,13 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Home "See all" | | opens the shelf's page | | | | link |
 | Discover lead card, queue tiles | album, playlist, station, video | opens | opens | none | disc | link |
 |  | artist, curator | opens | opens | none | none | link |
-|  | station with no page | plays | plays | plays | the name, and a second disc (Discover's lead is left, [#435]) | button |
+|  | station with no page | plays, pauses while it plays | same | same | the name, no disc | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 | Discover "Show in lead" (on a queue tile) | any | makes it the lead, the keyboard's focus going with it | same | same | | button |
 | Discover bands and room tiles | as the cover tile | | | | | |
 | Discover Top songs, Charts | song | selects | plays from the row | none | number-column button | row; "Play Top songs" queues from the first, "See all" opens `/charts/songs` |
 | Radio board lane | station with a page | opens | opens | none | disc | link |
 |  | station with no page | plays | plays | plays | the name, play mark on hover | button "X Play" |
-|  | tuned station with no page | toggles ([#440]) | toggles | toggles | equaliser | button "X Pause" |
+|  | tuned station with no page | toggles | toggles | toggles | equaliser | button "X Pause" |
 |  | unplayable | none | not focusable | | none | disabled, reason in text |
 | Radio programme box | | opens the station page | not a Tab stop | | | link |
 
@@ -401,11 +418,11 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |---|---|---|---|---|---|---|---|---|---|
 | Sidebar nav links | page | opens | opens once | opens | none | none | none | none | link, active fill |
 | Sidebar playlist rows | playlist | opens | opens | opens | shuffles | none | the shuffle glyph over the art shuffles | More button and right-click, Shift+F10, Menu key | link; shuffle glyph on hover |
-| Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist, album: shuffles; song: none | none | playlist, album: the shuffle glyph over the art | More button | link; shuffle glyph on hover (playlist, album) |
-|  | playlist, album, song, set to Play or Shuffle | plays or shuffles | twice | same | same | same | same | More button | button; the play or shuffle glyph at the row's end |
-|  | artist, any action | opens | | opens | none | none | none | More button; no Play or Shuffle choice | link |
+| Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist, album: shuffles; song: none | none | playlist, album: the shuffle glyph over the art | More button and right-click, Shift+F10, Menu key | link; shuffle glyph on hover (playlist, album) |
+|  | playlist, album, song, set to Play or Shuffle | plays or shuffles | twice | same | same | same | same | More button and right-click, Shift+F10, Menu key | button; the play or shuffle glyph at the row's end |
+|  | artist, any action | opens | | opens | none | none | none | More button and right-click, Shift+F10, Menu key; no Play or Shuffle choice | link |
 |  | any, set to Open with no page | nothing | | nothing | | | | same as its kind; Open checked and off | plain row, disabled to assistive technology |
-| Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button | disclosure |
+| Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button and right-click, Shift+F10, Menu key | disclosure |
 | Queue rows | song, AutoPlay, music video | focuses the row | plays from the row | plays | none | none | none | yes | hover fill and grip |
 |  | the playing song | none | restarts it | restarts it | none | none | none | the song's menu, as the bar's | amber title |
 |  | song title, music video title | opens its album with the song marked, its page | | | none | none | none | the row's menu | link (a pointer shortcut, not a Tab stop) |
@@ -445,17 +462,11 @@ Argued departures that stay (not issues):
 
 | Issue | What |
 |---|---|
-| [#435] | a page-less station has two controls, no cue, or replays instead of pausing: Discover's lead and strip cards still have a second disc ([#442]) |
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
-| [#440] | a double-click acts twice |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
-| [#447] | curators, rooms and link tiles have no menu at all (no action is registered for them) |
 
-[#435]: https://github.com/coredev-uk/sona-go/issues/435
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
-[#440]: https://github.com/coredev-uk/sona-go/issues/440
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
-[#447]: https://github.com/coredev-uk/sona-go/issues/447
 
 ## Dates
 
@@ -473,7 +484,7 @@ Argued departures that stay (not issues):
 
 Nothing is selectable by default: a page of rows, tiles and links would fight its own clicks, drags and double-click to play. Text is selectable (MyGo's `Element.Selectable()`) only where people copy it, case by case. One rule decides how:
 
-- **Values, not names.** The value text (`--ink`) is selectable; the muted name beside it, a note, a role, a heading and a picture's initials are `Unselectable()`. MyGo paints the selection (`--selection`, the spot colour at 32%) under the text and leaves the text's colour alone. `theme.Validate` keeps `--ink` at 4.5:1 on it in every theme, but the muted tier falls below that on it in most (Sona dark: `--ink-muted` is 3.5 to 4.0:1; 16 of the 22 built-in variants fall below 4.5:1 somewhere), so muted text stays out of the selection until the selection can carry it (issue #411).
+- **Values, not names.** The value text (`--ink`) is selectable, and so is the muted text that belongs to it: the ℗ and © line, a song's credit roles, the note under a Diagnostics warning and an error's reason. The muted name beside a value, a heading and a picture's initials are `Unselectable()`. MyGo paints the selection (`--selection`, the spot colour at 15%) under the text and leaves the text's colour alone; `theme.Validate` keeps both `--ink` and `--ink-muted` at 4.5:1 on it in every theme, and refuses a user theme that fails.
 - **A container for a block of values**, so a drag runs across rows and Ctrl/Cmd+A copies the block, joined by newlines. A control inside keeps its own behaviour (MyGo does not select text inside a button or a link), so a selectable block holds no link or row that opens something.
 - **An identifier also gets a Copy button** (`kit.CopyButton`: a 24px ghost icon button, named "Copy ISRC", with a toast "ISRC copied"): it is one Tab stop beside its value, for someone at the keyboard.
 - **Roles and names are unchanged**: `Selectable()` adds no role, so a screen reader reads the same tree. Selecting never clicks the parent: a selectable block is not in a clickable parent.
@@ -483,14 +494,17 @@ Nothing is selectable by default: a page of rows, tiles and links would fight it
 | Song page, Details: ISRC | Selectable, with a Copy button | The identifier people paste into a form or a report; the button serves the keyboard |
 | Song page, Details: released, duration, genre, track, disc, written by | Selectable (values; the names are not) | Plain facts people quote; no clickable parent. The song has no label or ℗ line in Apple's data |
 | Song page, Credits: people's names | Selectable (one selection across all groups) | Credits get pasted into notes and forms; names are `--ink` |
-| Song page, Credits: roles, group titles, initials | No | Muted type and decoration |
+| Song page, Credits: roles | Selectable (in the same selection as the names) | Muted type, which the selection carries at 4.5:1 (issue #411) |
+| Song page, Credits: group titles, initials | No | Headings and decoration |
 | Album page, fine print: the label, release dates, genres, writers | Selectable (values; the names are not) | Plain facts people quote, in a column no row or link surrounds |
-| Album page, fine print: the ℗ and © line | No | It is `--ink-muted`, which the selection does not carry at 4.5:1 (issue #411) |
+| Album page, fine print: the ℗ and © line | Selectable | A plain fact people quote; `--ink-muted` keeps 4.5:1 on the selection (issue #411) |
 | Album page, fine print: UPC | Not shown | Sona does not fetch the UPC; there is nothing to select |
 | Lyrics (song page, Now Playing, the full-screen sheet) | No | Apple's Developer Program License Agreement (3.3.6 D) allows MusicKit content only as the MusicKit APIs render it and says music-related text may not be used apart from playback; two of Sona's three lyrics sources (Musixmatch, LRCLIB) are licensed by others; and the Now Playing sheet's lines seek on a click. Unclear, so left unselectable |
 | Settings, Diagnostics: values (versions, paths, ids, sizes, pid) | Selectable, one selection per group | Single values are what someone pastes into a bug report; "Copy diagnostics" still copies the redacted whole |
-| Settings, Diagnostics: labels and the notes under a warning | No | Muted type |
-| Error and notice text | No | Go's own text and its codes never reach the screen: an error shows a sentence in muted type, and a toast leaves by itself. "Copy diagnostics" carries the codes |
+| Settings, Diagnostics: the notes under a warning | Selectable (same selection as the values) | What to do about it, worth pasting into a report |
+| Settings, Diagnostics: labels | No | Names, not values |
+| Error block: the reason (second line) | Selectable | The sentence people paste into a report; the title is not. Go's codes never reach the screen, "Copy diagnostics" carries them |
+| Notice text (toasts) | No | A toast leaves by itself |
 | About: the version and build | Selectable | Settings, Diagnostics, "Sona" group (the version, Go, platform); Sona has no About page of its own and the OS's About panel is the OS's |
 | Concerts: venue address | No | Sona's data has the venue's name and city, not an address; its rows are links and ticket buttons |
 | Track-list rows, tiles, sidebar, the player bar's title, buttons, links | No | They click, drag, double-click to play or open a menu |
@@ -620,7 +634,7 @@ Home ("For You") answers one question first: what shall I play now. It is set li
 
 ### Top bar and account
 
-- Top bar: back and forward, then the search field (max 520px, `/` or Ctrl+F focuses it, never narrower than 240px), an empty stretch of at least 64px, and the account avatar.
+- Top bar: back and forward, then the search field (max 520px, `/` or Ctrl+F focuses it, never narrower than 240px), an empty stretch of at least 64px, the notification bell and, 8px after it, the account avatar.
 - **The avatar** is the account menu's button.
   - A `--hover` circle signed out; `--active` with the glyph in ink signed in, and while its menu is open (it reads as held). A small `--danger` dot appears when the account needs the user (Apple stopped taking the sign-in, the keyring didn't hand it over, Apple refuses Sona's requests).
   - **The menu** (`--raised`, 288px, end-aligned) opens with "Apple Music" and then each fact about the account on a meta line of its own behind a 14px glyph: where it stands (a check, a clock while it is being checked, an alert in `--danger` when it needs the user), offline, restricted content, an unencrypted token in `--danger`.
@@ -631,6 +645,39 @@ Home ("For You") answers one question first: what shall I play now. It is set li
   - A 1px `--line` divides it from the account's panel, which holds the sign-in flow or the signed-in view in a 36px inset. Signed in, the panel titles the view "Account". The first lines of both panels sit on one centre line.
   - Below 640px of panel width the panels stack, the lead above the account with a hairline between. The whole panel scrolls as one in a short window, so the lead's tone runs as long as the form.
   - Close, Escape and a click on the scrim close it as every dialog, and focus returns to the opener.
+
+### Notification centre
+
+What happened without the person asking, and what is going on that they may need to act on, lives behind one bell in the top bar. It replaces desktop notifications for releases (they stay an opt-in), the toast that said an add-on was switched off, and the sidebar's sync line and update slip. Toasts stay what they were: quick feedback on something the person just did ("Link copied"). Track notifications are Playback's and stay desktop notifications.
+
+```text
+                                   ( 🔔• )  ( ◯ )      the bell, 8px before the avatar
+        ┌──────────────────────────────────────┐
+        │ Notifications              Clear all │     16/600, Title Case
+        │ ┌──────────────────────────────────┐ │
+        │ │ ⟳ Syncing songs     812 of 2,040 │ │     live rows: --hover, radius 6
+        │ │   ━━━━━━━━━━──────────────────── │ │
+        │ └──────────────────────────────────┘ │
+        │ [▣] In Rainbows is out       2h ago •│     entries, newest first
+        │     Radiohead                        │
+        │ (⧉) Webhook was switched off  Monday │
+        │     It stopped several times in a …  │
+        │ ──────────────────────────────────── │
+        │ • Synced 2 minutes ago      Sync now │     the foot: meta, --ink-muted
+        └──────────────────────────────────────┘
+```
+
+- **The bell** is a 32px ghost button (radius 6) with the Lucide `bell` at 16 in `--ink-muted`; hover is `--hover` with the glyph in ink, and while the panel is open it is `--active` (held, as the avatar is). It is never amber: nothing here is playing.
+  - **A dot** at its top end (8px, a 2px `--surface` ring, as the avatar's) says there is something to see: `--ink` for news (unread entries, an update waiting, an add-on waiting for approval), `--danger` when something failed (a sync, the Widevine download, an add-on that can't run, an update that didn't install). Colour is never the only sign: the bell's name says how many are new, and the panel says what failed.
+  - **Work under way** (a sync, the first Widevine download, an update downloading) draws a 2px bar, 14px wide, at the bell's foot: an `--ink-faint` track with the fill in the glyph's colour. It moves only when the work reports progress (no loop, "Motion"); a size not known yet is the empty track. The bell's name adds what runs ("Notifications; Syncing songs, 812 of 2,040").
+- **The panel** hangs from the bell, end-aligned: 360px, `--raised`, the float shadow, radius 8, 8px padding, Escape or a press outside closes it and the focus returns to the bell.
+  - **Head**: "Notifications" at 16/600 and, when there are entries, a ghost "Clear all" at the end.
+  - **Live rows** come first: what is going on now, read from each module's own state, never stored (`module.Activity`). Each is a `--hover` block at radius 6 (`kit.ActivityRow`): a 16px glyph in `--ink-muted` (`--danger` when it failed), the title at 14/500, a tabular count at its end in `--ink-muted`, a detail line at 13 in `--ink-muted`, a 3px bar while work runs, and its action as a small ink button (a quieter ghost one after it). In module order: the library sync (running, or failed with Try again), add-ons waiting for approval or unable to run (Review opens Settings → Add-ons), a new version (Install and restart where Sona updates itself, View elsewhere), and the first Widevine download (or why there is none, with Try again where it can help).
+  - **Entries** follow, newest first, in a list that scrolls past 392px: a release you asked to be reminded of came out ("In Rainbows is out", the artist under it, the cover), new releases from your artists (the release and "New single from …", or "3 new releases from your artists"), an add-on switched off after crashing. Each is a row with a 32px picture (the cover, with its 1px edge, or the kind's glyph on a 32px `--hover` tile), the title at 14 and the detail at 13 muted, each up to two lines, and when it happened at 12 in `--ink-faint` at the trailing end. Choosing the row opens what it is about and closes the panel. Under the pointer or the focus the row takes `--hover` and the time gives way to a Remove button (a ghost `x`), faded in over `press`.
+  - **New** entries have their title at 600 (500 once read) and a 6px `--ink` dot after the time. Opening the panel marks them read; the ones that were new keep their mark until it closes.
+  - **Nothing** live and no entries: "Nothing new" at 14/500 over one muted line, centred, instead of an empty list.
+  - **The foot** is the library's line while no sync runs or failed: a hairline, then a 6px `--positive` dot, "Synced 2 minutes ago" in meta `--ink-muted`, and a ghost "Sync now".
+- **Entries are kept** in SQLite for 30 days (the newest 100). They hold names, never sentences, so they read in the interface's language of the day. The ones about the account go at sign-out.
 
 ### Library pages
 
@@ -1016,7 +1063,8 @@ The record held open: the sleeve on one side (the cover and its label copy), the
 A lyric sheet, the insert in a record's sleeve: the words set in verses down one column in the house type, with amber marking only where the voice is. The now-playing view's lyrics column is the sheet (`internal/ui/features/player/lyrics_sheet.go`, with the timing logic in `internal/ui/lyricsync`); Full-Screen Lyrics keeps its rules and lays the same lines out differently; the mini player shows the line being sung (`internal/ui/features/miniplayer/sungline.go`).
 
 - **One sung line.** The sung line is the only line in `--ink` (timed by line only, it is `--amber-ink` itself); earlier lines are `--ink-faint`, later ones `--ink-muted`, plain lyrics `--ink`. Word-timed lyrics light each word `--amber-ink` as the voice reaches it. Short words light whole as they begin; held notes (600 ms or longer) fill in the reading direction, stepped about 12 times a second behind a soft 0.5em edge. Lines change colour without a transition.
-- **Verses.** A pause of 3 s or more between one line's end and the next, or a change of the song part the lyrics name (Apple's "Verse", "Chorus"), starts a verse: a 32px gap in the column, 0.9em in Full-Screen Lyrics. While the voice rests in a break (from 0.5 s after the line's end) nothing is lit.
+- **Verses.** A pause of 3 s or more between one line's end and the next, or a change of the song part the lyrics name (Apple's "Verse", "Chorus"), starts a verse: a 32px gap in the column, 0.9em in Full-Screen Lyrics. While the voice rests in a break (from 0.5 s after the line's end) nothing is lit; in a break of 5 s or more the dots below stand in for the sung line.
+- **Instrumental gaps.** Where no line is sung for 5 s or more (from one line's end to the next one's begin, or from the start of the song to a first line that begins 5 s or more in), three dots stand where a line would, in a line's height at the reading edge. They are sized from the font of the line they lead to, as a line of the lyrics is: 0.6em across and 0.25em apart (14px and 6px in the sheet, 43px and 18px at 1080px in Full-Screen Lyrics). Only line- and word-timed lyrics have them; plain lyrics have no timing. The dots are the sung line while the gap runs, from the end of the line before to the begin of the next on the lyrics clock. An unlit dot is the ink of a line still to come in that view (`--ink-muted`, the sheet's and Full-Screen Lyrics' alike), never brighter than the lines around it, and each fills with `--amber-ink` from the reading side over its own third of the gap (the first over the first third, the second over the second, the third over the last) as a word lights, stepped about 12 times a second like a held note, with no soft edge. Under reduced motion each dot lights whole as its third begins. When the next line begins the dots clear: they are not drawn, but keep their place in the column so nothing moves. The sheet turns to them as it does to a verse, and in Full-Screen Lyrics they take the sung place. Nothing loops frames for them: the fill steps on timers (`Painter.After`).
 - **The sheet turns; it doesn't crawl.** While the sung line sits in the reading band (14–72% of the sheet's height) nothing moves. When it leaves, the sheet scrolls once so its verse starts at the band's top (the line itself when the verse is taller than the band); in a break it turns to the verse coming. Smooth, or a jump under reduced motion; a wheel, touch or key scroll by the user is left alone for 4 s.
 - **Edges.** The sheet fades out over its top and bottom edges (3rem), so a line leaving the view never shows clipped glyphs. It draws nothing while the sheet holds still.
 - **Under each line**, smaller and in `--ink-muted`, each on its own line: the background vocals (600: they are sung, and they light on their own timing, so they can still be filling under the next line), then, when switched on in the view's bar, the romanisation (400, lit like the line when it is word-timed) and the translation (400) in the language chosen in Settings → Playback → Lyrics.
@@ -1031,10 +1079,10 @@ A lyric sheet, the insert in a record's sleeve: the words set in verses down one
 The song's phrasing is the layout. It replaces the old full-screen sheet and keeps its entry points: Shift+L, and Full screen in Now Playing's lyrics tools. It is called Full-Screen Lyrics in menus, the palette and tooltips (`internal/ui/features/player/lyrics_stage.go`, `nowplaying_room.go`).
 
 - **A column on the cover's wash.** A left column starts at 8% of the window's width and is 70% of it wide at most; the right third holds only the wash. The wash is `kit.Backdrop` and nothing over it: no box, card or glass. The view is dark in a light theme too (`theme.Scope` over the dark tokens, and the dark theme's scrim): it is read across a room and left on a TV, and a lit white screen is wrong there. Light and dark windows draw the same picture.
-- **Size is held time.** Each line is set at a size from how long it is held: its span from `lyricsync` (a word-timed line from its first word to its last), mapped from the song's own quickest lines (10th percentile) to its longest (90th) onto five steps: 40, 62, 84, 106 and 128 at 1080px of window height, scaling with the height (22 at the least). A held chorus line is large and a quick verse line small. Songs whose lines are all held alike take the middle step. Weight is 700, 800 on the two largest steps (Schibsted Grotesk), lines 1.05 tall. A line wraps to two lines at most before its size steps down; plain lyrics, which have no timing, are all 64.
-- **Where lines stand.** The sung line's middle is at 45% of the height. One or two earlier lines stand above it at their own sizes in `--ink-faint`, the next two below in `--ink-muted`, a little smaller and fainter by their distance; beyond those nothing shows. In a break nothing is lit, and the coming line waits in the middle in coming ink. Verse breaks and line gaps follow the sheet's rules (0.9em at a break); the second voice of a duet is indented 1.5em and italic, "Together" heads the first line sung by every voice; background vocals sit under their line at 0.42em, 600, muted, and the romanisation and translation, when switched on, under those. Words light `--amber-ink` as the voice reaches them and held notes fill, as in the sheet (the same `kit.SweepText`, painted from the clock).
-- **Motion.** When the sung line advances the whole column climbs to it, and the lines scale into their ranks, over 600 ms, exponential out (`climb`): poses, so frames that move them only paint. Text is shaped once per line and size step, and nothing is laid out per frame. The view is built when the sung line changes, not once a frame. A seek of more than a few lines cuts instead of climbing. The wash drifts, a pose of a few percent of scale and slide over 40 s (`drift`) and back, which costs frames for as long as the view is open and the window shows. The drift stops under reduced motion and Reduce effects (which draw no wash), on battery and while the window is hidden (`MotionPolicy.Ambient`). Under reduced motion or Reduce effects lines jump into place. At a song change the column fades out, the wash crossfades (the backdrop's 300 ms) and the new song's lines rise in.
-- **The strip.** Hidden when the view opens. The pointer moving, or any key, brings it; it goes after 3 s without either while the song plays (and the pointer goes with it), and stays while paused, loading or failed. It is the verse block's foot: a 1px `--line` rule across the column's margins, the 56px cover, the title (20/600) and artists (17, `--ink-muted`), the elapsed time, an amber progress bar, the time left (tabular figures), the timing nudge and Exit full screen. It fades in and out. Focus is on the view itself, so its keys work; Tab goes into the strip once it shows, and a strip that hides with the focus on it hands the focus back to the view.
+- **One size.** The sung line and the lines around it are all set at one size, 72 at 1080px of window height, scaling with the height (22 at the least): what tells the lines apart is the ink and the distance below, not their size. Weight is 700 (Schibsted Grotesk), lines 1.05 tall. A line wraps to two lines at most before its size steps down, through 58, 46 and 40 at 1080px; plain lyrics, which have no timing, are all 64.
+- **Where lines stand.** The sung line's middle is at 45% of the height. One or two earlier lines stand above it in `--ink-faint`, the next two below in `--ink-muted`, a little smaller and fainter by their distance; beyond those nothing shows. In a short break nothing is lit, and the coming line waits in the middle in coming ink. In an instrumental gap the dots are in the middle: the line coming is the next place under them, the dots of a gap still to come take a place of their own, and the dots of a gap that has passed shrink and fade away as the column climbs and take none. Verse breaks and line gaps follow the sheet's rules (0.9em at a break); the second voice of a duet is indented 1.5em and italic, "Together" heads the first line sung by every voice; background vocals sit under their line at 0.42em, 600, muted, and the romanisation and translation, when switched on, under those. Words light `--amber-ink` as the voice reaches them and held notes fill, as in the sheet (the same `kit.SweepText`, painted from the clock).
+- **Motion.** When the sung line advances the whole column climbs to it, and the lines scale into their ranks, over 600 ms, exponential out (`climb`): poses, so frames that move them only paint. Text is shaped once per line and size, and nothing is laid out per frame. The view is built when the sung line changes, not once a frame. A seek of more than a few lines cuts instead of climbing. The wash drifts, a pose of a few percent of scale and slide over 40 s (`drift`) and back, which costs frames for as long as the view is open and the window shows. The drift stops under reduced motion and Reduce effects (which draw no wash), on battery and while the window is hidden (`MotionPolicy.Ambient`). Under reduced motion or Reduce effects lines jump into place. At a song change the column fades out, the wash crossfades (the backdrop's 300 ms) and the new song's lines rise in.
+- **The strip.** Hidden when the view opens. The pointer moving, or any key, brings it; it goes after 3 s without either while the song plays (and the pointer goes with it), and stays while paused, loading or failed. It is the verse block's foot: a 1px `--line` rule across the column's margins, the 56px cover, the title (20/600) and artists (17, `--ink-muted`), the transport (previous, the amber play or pause disc and next: the player bar's own buttons, with its commands and its rules, so what a live station or a station of songs can't skip is as unavailable here as there), the timing nudge, the elapsed time, an amber progress bar, the time left (tabular figures) and Exit full screen. It fades in and out. Focus is on the view itself, so its keys work; Tab goes into the strip once it shows, in that order, and a strip that hides with the focus on it hands the focus back to the view.
 - **States.** No lyrics (or an instrumental): the wash, the cover at 42% of the window's height in the column's place with the title and artist beside it, and "No lyrics for this song" in `--ink-muted`. Loading: the layout with flat bars where the lines go. A failed load is the usual error block with Retry.
 - **Keys.** Escape and Shift+L leave; Space plays and pauses (the player's); ↑ and ↓ seek to the previous or next line (plain lyrics move the reading line instead); ← and → seek 5 s; Home goes to the start of the song; `[`, `]` and `\` nudge the timing. They are shortcuts in their own context (`lyrics-room`), so they show in the shortcut list and can be rebound. Media keys are the system's and work as they do everywhere.
 - **A TV left on.** While the view is open and the music plays the screen is kept on (`Env.Window.KeepScreenOn`: MyGo's `Power.KeepAwake` with the display), beside the suspend inhibitor the player already holds. Nothing static and bright stays long: the strip hides and the wash drifts.
@@ -1293,7 +1341,7 @@ Settings (h1)                  Playback (h2 at 24/650)
   - Wider than 960px each group's h3 (16/600) and its one muted line (13, in the 176px column) sit in a left margin, level with the first row's title. The rows run in the column to its right, 32px on. A block with no heading of its own (Language, Widevine, Appearance) keeps to that same column with its margin empty, so every row of a section shares one left edge. At 960px and below the h3 stacks above its rows.
   - Every row sits under one 1px `--line` (no box, no tone step): the title at 14/500, what it does at 13 muted (60ch), the control at the right, 40px clear of the text. A row's state that needs attention keeps its own line under the description.
   - The content column is up to 960px.
-- **New releases** (General) holds the artist tracker's two switches under their own group heading: *Track new releases from favourite artists* and *Also show a desktop notification*. The second waits for the first (greyed while it is off) and, like every row the platform can't back, keeps its place with the reason where the platform has no notifications.
+- **New releases** (General) holds two switches under their own group heading: *Track new releases from favourite artists* and *Also show releases as desktop notifications*. Releases (a reminder that came due, what the tracker found) are in the notification centre either way; the second adds desktop notifications for them, with or without the tracker, and, like every row the platform can't back, keeps its place with the reason where the platform has no notifications.
 - **What the platform can't do** keeps its row: the title in `--ink-muted` and, where the control would be described, a `CircleSlash` and why ("Not available on macOS yet.", or the specific reason: no tray to keep playing from, a player that reports plays itself). Nothing disappears quietly. Without any playback, Playback is that one row and the lyrics.
 - **Theme** is three segments (System, Light, Dark) in one 32px outlined control, radio buttons underneath: every choice in view, ←/→ to move.
 - **Add-ons** sits after Connections. It is a roster rather than a document: one ledger row per add-on, in two groups, so ten add-ons read as ten rows.

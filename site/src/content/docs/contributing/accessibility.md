@@ -163,13 +163,14 @@ How Sona uses each state:
   - A queue row says its place among its list: the queue, or the station's or AutoPlay's part under its heading, which is a list of its own.
   - The sidebar's pins, playlists and folders say theirs among their own list: a folder's playlists are a list inside its item, and the dashed drop row shown while dragging is not counted.
 - **`aria-live`, `role="status"`**:
-  - a status that comes with news calls `kit.AnnounceMounted` once as it is first built (a note under a filter that finds nothing, in Settings and the shortcut sheet, the update notice, a sign-in step's notice, the shortcut recorder's conflict);
+  - a status that comes with news calls `kit.AnnounceMounted` once as it is first built (a note under a filter that finds nothing, in Settings and the shortcut sheet, a sign-in step's notice, the shortcut recorder's conflict);
   - what changes it afterwards is its own to read: never `c.Announce` as well, or it is said twice;
   - a status that stays as its words change is left to MyGo then (the sign-in keyring notice going from waiting to refused or unencrypted, which keeps its retry in place);
   - one shown for something new is keyed by it, so it appears anew and is announced once (the player bar's failure line, keyed by the item);
-  - the status is the words, not the row they sit in (the updates row, the update notice: a button's label inside a status is read with it);
+  - the status is the words, not the row they sit in (the updates row in Settings: a button's label inside a status is read with it);
   - a status with siblings before it is keyed, as its ID is how MyGo tells it from the last frame's;
-  - what is not read as it changes is not a status: the library sync line is a group named "Library sync" and `announceSync` says only that a sync starts, ends or fails, not the count moving;
+  - what is not read as it changes is not a status: the notification centre's rows (`kit.ActivityRow`) are groups named by their title, so a count moving is not read out. What matters is said once from the module's `Activity.Status`, which runs whether or not the panel is open: `announceSync` says that a sync starts, ends or fails, and the update row's title is read as the update turns up and as it changes;
+  - the notification bell is a button that opens a dialog (`HasPopup(ui.PopupDialog)`, `Expanded` while open) whose name carries what its dot and bar show: how many entries are new and the work under way ("Notifications, 2 new; Syncing songs, 812 of 2,040"). Escape or a press outside closes the panel and gives the focus back to the bell; each entry is a button named by its title and described by its detail, with its own Remove button;
   - anything else that should be said once is `c.Announce(text)` (read once, politely), and so are toasts, which announce their title and description.
 - **`role="tabpanel"`**: `kit.TabPanel` is a `RoleTabPanel` named by its tab. Nothing builds one yet: Now Playing's panes are tabs with no panel, because the pane order does not build the panel before its tab.
 - **`aria-controls`**:
@@ -189,7 +190,7 @@ How Sona uses each state:
 - The spot colour's fill (the play disc, WCAG 1.4.11 non-text contrast) is ≥ 3:1 on ground, surface and hover in light and dark.
 - Slider thumbs are always shown: the thumb, not the fill colour, marks the value.
 - Text over a cover backdrop gets its contrast from the scrim ([`docs/design.md`](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md), Backdrops). `--danger` falls below 4.5:1 there in dark, so no danger text sits on a backdrop: icons only (≥ 3:1), with the message in ink.
-- Selected text keeps `--ink` at ≥ 4.5:1 on the selection (checked in every theme). `--ink-muted` does not, so only `--ink` text is selectable ([`docs/design.md`](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md#selectable-text), "Selectable text"; issue #411).
+- Selected text keeps `--ink` and `--ink-muted` at ≥ 4.5:1 on the selection (the spot colour at 15%), over ground, surface and raised, in every theme and accent; `theme.Validate` refuses a user theme that fails. So muted text is selectable too, where people copy it ([`docs/design.md`](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md#selectable-text), "Selectable text"; issue #411).
 - `Selectable()` adds no role, so a screen reader reads the same tree. An identifier that is selectable also has a Copy button (`kit.CopyButton`) for the keyboard.
 
 **In Sona.** The values live in the theme tokens ([`internal/ui/theme`](https://github.com/coredev-uk/sona-go/tree/main/internal/ui/theme)); [`docs/design.md`](https://github.com/coredev-uk/sona-go/blob/main/docs/design.md) lists them.
@@ -248,7 +249,7 @@ How Sona uses each state:
   - errors are alerts;
   - the verdicts, the video's loading and buffering, the shortcut filter's and the playlist picker's empty notes and the sign-in notice are statuses that MyGo reads when their text changes (the first appearance through `kit.AnnounceMounted`);
   - the rest go through `c.Announce`.
-- Lyrics: each synced line is one button named by its text, and the sung line is the current item.
+- Lyrics: each synced line is one button named by its text, and the sung line is the current item. An instrumental gap's dots are an image named "Instrumental break" while the gap is to come or running, and nothing once it has passed.
 
 **Checked by** the per-feature `a11y_test.go` files, which turn the screen reader on (`tt.UseScreenReader()`) and count what it reads, and by the Orca walk (a track change and a queue move are read once).
 
@@ -260,7 +261,7 @@ How Sona uses each state:
 
 | Drag | Keyboard |
 | --- | --- |
-| Songs, albums, playlists onto a sidebar playlist | "Add to playlist" in every item's action and context menu |
+| Songs, albums, playlists onto a sidebar playlist | "Add to playlist" in every item's action and context menu: a sub-menu (Right opens it, Left closes it) of New playlist… and your playlists |
 | Onto the queue | "Play next" / "Play last" in the same menus |
 | Reorder the queue | Alt+↑ / Alt+↓ on a focused queue row, or "Play next" and "Move to end" in its menu |
 | Reorder a playlist in the editor | Alt+↑ / Alt+↓ on a focused row, announced |
@@ -280,7 +281,7 @@ How Sona uses each state:
 **In Sona**
 
 - `theme.ReducedMotion` is the single switch.
-- Word-timed lyrics light each word whole as it begins.
+- Word-timed lyrics light each word whole as it begins; an instrumental gap's three dots light whole, one as each third of the gap begins, in place of a fill in steps.
 - Motion artwork does not play: Settings → Diagnostics → Motion artwork says which input stops it. Covers show their still.
 
 **Checked by** `TestReducedMotionAndEffects` in `internal/ui/theme`.
