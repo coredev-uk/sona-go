@@ -154,8 +154,9 @@ func (a *App) hidden() bool {
 }
 
 // newMiniWindow creates the mini player window, hidden: the module's content
-// (module.Slots.Mini) in a fixed-size frameless window above the others. Its
-// close button does what closing the main window does.
+// (module.Slots.Mini) in a fixed-size frameless window above the others,
+// with rounded corners on macOS (miniCornerRadius). Its close button does
+// what closing the main window does.
 func (a *App) newMiniWindow() native {
 	m := mygo.NewWindow(mygo.WindowOptions{
 		// translators: Title of the small always-on-top player window, read by window lists and screen readers.
@@ -169,6 +170,7 @@ func (a *App) newMiniWindow() native {
 		DisableResize:   true,
 		DisableMaximize: true,
 		Frameless:       true,
+		CornerRadius:    miniCornerRadius,
 		AlwaysOnTop:     true,
 		Hidden:          true,
 		Content:         ui.View(a.miniView),
