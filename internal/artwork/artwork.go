@@ -769,6 +769,10 @@ func (c *Cache) fetch(ctx context.Context, u string) ([]byte, image.Config, erro
 	if err != nil {
 		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %w", shown(req.URL), err)
 	}
+	// Before the caller stores the file: a bomb is never cached.
+	if err := checkPixels(cfg); err != nil {
+		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %w", shown(req.URL), err)
+	}
 	c.log.Debug("artwork: fetched", "url", shown(req.URL), "bytes", len(data))
 	return data, cfg, nil
 }

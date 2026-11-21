@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
 	"io"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 )
@@ -246,5 +249,58 @@ func TestAdjust(t *testing.T) {
 		if got := img.RGBAAt(0, 0); got != tc.want {
 			t.Errorf("%s: %v → %v, want %v", tc.name, tc.in, got, tc.want)
 		}
+	}
+}
+
+// pngBomb is the header of a w×h 8-bit grey PNG and nothing else (a few dozen
+// bytes; with a deflate stream of zeros it stays near 1.5 MB at 40000×40000).
+// Only the header is read before the size check, so the file need not hold
+// the pixels.
+func pngBomb(w, h uint32) []byte {
+	ihdr := binary.BigEndian.AppendUint32(nil, w)
+	ihdr = binary.BigEndian.AppendUint32(ihdr, h)
+	ihdr = append(ihdr, 8, 0, 0, 0, 0) // 8-bit grey, deflate, no filter, no interlace
+	b := append([]byte(nil), pngMagic...)
+	b = binary.BigEndian.AppendUint32(b, uint32(len(ihdr)))
+	chunk := append([]byte("IHDR"), ihdr...)
+	b = append(b, chunk...)
+	return binary.BigEndian.AppendUint32(b, crc32.ChecksumIEEE(chunk))
+}
+
+// A picture past MaxSourcePixels is refused on its header, from the CDN
+// (nothing is cached) and from a file an older build cached.
+func TestSourcePixelLimit(t *testing.T) {
+	bomb := pngBomb(40000, 40000)
+	if cfg, err := decodeConfig(bomb); err != nil || cfg.Width != 40000 {
+		t.Fatalf("test bomb header: %+v, %v", cfg, err)
+	}
+	if _, err := decodeImage(bomb); !errors.Is(err, ErrTooManyPixels) {
+		t.Errorf("decodeImage err = %v, want ErrTooManyPixels", err)
+	}
+	for _, d := range [][2]uint32{{1, MaxSourcePixels + 1}, {MaxSourcePixels, 2}} {
+		if _, err := decodeImage(pngBomb(d[0], d[1])); !errors.Is(err, ErrTooManyPixels) {
+			t.Errorf("%d×%d: err = %v, want ErrTooManyPixels", d[0], d[1], err)
+		}
+	}
+
+	s := newImageServer(t)
+	c := newCache(t, s, "", 0)
+	tmpl := "https://" + host + "/image/thumb/Music/bomb/{w}x{h}bb.png"
+	if _, err := c.Get(t.Context(), tmpl, 100, 100); !errors.Is(err, ErrTooManyPixels) {
+		t.Fatalf("Get err = %v, want ErrTooManyPixels", err)
+	}
+	if _, err := c.Backdrop(t.Context(), tmpl); !errors.Is(err, ErrTooManyPixels) {
+		t.Fatalf("Backdrop err = %v, want ErrTooManyPixels", err)
+	}
+	if c.Size() != 0 {
+		t.Fatalf("cached %d bytes of a rejected source", c.Size())
+	}
+
+	cached := filepath.Join(t.TempDir(), "src-100x100.png")
+	if err := os.WriteFile(cached, bomb, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.decode(cached); !errors.Is(err, ErrTooManyPixels) {
+		t.Fatalf("decode of a cached bomb: %v, want ErrTooManyPixels", err)
 	}
 }

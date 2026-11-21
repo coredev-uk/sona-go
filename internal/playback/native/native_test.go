@@ -903,3 +903,53 @@ func TestFetchRetriesTransientFailures(t *testing.T) {
 }
 
 func hlsRange(off, n int64) hls.ByteRange { return hls.ByteRange{Offset: off, Length: n} }
+
+// Lengths the server picks (an #EXT-X-BYTERANGE, Content-Length) must not
+// decide the parent's allocation: 3e14 made make([]byte, n) panic.
+func TestFetchRefusesHugeDeclaredLengths(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.URL.Path == "/declared" {
+			w.Header().Set("Content-Length", "300000000000000")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		http.ServeContent(w, r, "x", time.Time{}, bytes.NewReader(mediaBytes))
+	}))
+	t.Cleanup(srv.Close)
+	e := New(Options{HTTP: srv.Client(), IdleTimeout: -1})
+	e.retry = []time.Duration{time.Millisecond, time.Millisecond}
+	t.Cleanup(func() { _ = e.Close() })
+
+	if _, err := e.fetch(ctx(t), srv.URL+"/range", hlsRange(0, 300_000_000_000_000)); !errors.Is(err, errTooLarge) {
+		t.Errorf("BYTERANGE of 3e14: %v, want errTooLarge", err)
+	}
+	if n := calls.Load(); n != 0 {
+		t.Errorf("an oversized byte range reached the network (%d calls)", n)
+	}
+	if _, err := e.fetch(ctx(t), srv.URL+"/declared", hls.ByteRange{}); !errors.Is(err, errTooLarge) {
+		t.Errorf("Content-Length of 3e14: %v, want errTooLarge", err)
+	}
+	if n := calls.Load(); n != 1 {
+		t.Errorf("an oversized response was retried (%d calls)", n)
+	}
+}
+
+func TestDownloadRefusesHugeContentLength(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "300000000000000")
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	e := New(Options{HTTP: srv.Client(), IdleTimeout: -1})
+	e.retry = []time.Duration{time.Millisecond}
+	t.Cleanup(func() { _ = e.Close() })
+	u := &upload{url: srv.URL, wake: make(chan struct{}), size: -1}
+	e.download(ctx(t), u)
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if !errors.Is(u.err, errTooLarge) || u.data != nil {
+		t.Errorf("download err %v, %d bytes allocated; want errTooLarge and none", u.err, len(u.data))
+	}
+}

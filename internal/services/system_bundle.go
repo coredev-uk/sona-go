@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/diag"
 )
 
@@ -15,7 +16,8 @@ import (
 // type), the Diagnostics report (versions, CDM probe, playback host,
 // paths), the Memory section (the app's and the playback host's memory as
 // the OS counts it, the Go runtime's), the features' sections (Env.OnDiagnostics: motion artwork), the
-// settings, crash output and the last log lines, with tokens, e-mail
+// settings (without the city, the open sidebar folders, the audio output
+// device and the add-ons' own text settings: see [config.ForDiagnostics]), crash output and the last log lines, with tokens, e-mail
 // addresses and the home directory scrubbed. It is also saved to a 0600
 // file in the state directory.
 func (s *SystemService) DiagnosticsBundle(ctx context.Context) (DiagBundle, error) {
@@ -31,7 +33,7 @@ func (s *SystemService) DiagnosticsBundle(ctx context.Context) (DiagBundle, erro
 	sections = append(sections, s.o.diagnosticSections()...)
 	sections = append(sections,
 		diag.Section{Title: "Account", Value: map[string]string{"state": string(s.o.Auth.Status().State)}},
-		diag.Section{Title: "Settings", Value: s.o.Settings.Get()},
+		s.settingsSection(),
 	)
 	home, _ := os.UserHomeDir()
 	now := s.o.Now()
@@ -49,4 +51,11 @@ func (s *SystemService) DiagnosticsBundle(ctx context.Context) (DiagBundle, erro
 	}
 	s.o.Logger.Info("diagnostics bundle saved", "path", out.Path)
 	return out, nil
+}
+
+// settingsSection is the bundle's Settings section. The bundle is pasted
+// into public issues, so it leaves out what says where the person is or
+// which hardware the computer has, and lists what it left out.
+func (s *SystemService) settingsSection() diag.Section {
+	return diag.Section{Title: "Settings", Value: config.ForDiagnostics(s.o.Settings.Get())}
 }

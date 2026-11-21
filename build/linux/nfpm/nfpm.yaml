@@ -67,6 +67,17 @@ contents:
     dst: "/usr/share/fish/vendor_completions.d/sona.fish"
   - src: "./bin/cli/sona.1.gz"
     dst: "/usr/share/man/man1/sona.1.gz"
+  # AppArmor profile that lets Sona's playback sandbox create its user
+  # namespaces under Ubuntu's restriction (build/linux/apparmor/sona). Not
+  # in the Arch package: no Arch kernel carries that restriction.
+  - src: "./build/linux/apparmor/sona"
+    dst: "/etc/apparmor.d/sona"
+    type: config|noreplace
+    packager: deb
+  - src: "./build/linux/apparmor/sona"
+    dst: "/etc/apparmor.d/sona"
+    type: config|noreplace
+    packager: rpm
 
 # Runtime: MyGo loads GTK3, libepoxy (GL), EGL (libglvnd), the tray's
 # appindicator, AT-SPI (accessibility), libsecret and X11's XTest by soname
@@ -141,4 +152,5 @@ overrides:
 
 scripts:
   postinstall: "./build/linux/nfpm/scripts/postinstall.sh"
-  postremove: "./build/linux/nfpm/scripts/postinstall.sh"
+  postremove: "./build/linux/nfpm/scripts/postremove.sh"
+  preremove: "./build/linux/nfpm/scripts/preremove.sh"

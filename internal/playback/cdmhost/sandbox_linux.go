@@ -42,8 +42,12 @@ import (
 // Without unprivileged user namespaces (Flatpak) the child runs with
 // Landlock and seccomp only; under Ubuntu's AppArmor restriction its
 // namespaces have no capabilities, so it keeps the network namespace but
-// not the filesystem view. The CDM is loaded only under the seccomp filter
-// (opInit, F3 in docs/security-review.md).
+// not the filesystem view. Neither case removes the path Unix sockets
+// (the session bus) before Landlock ABI 9, which ReachesSockets and
+// Diagnostics report; the .deb and .rpm ship an AppArmor profile that
+// lifts the restriction for Sona's binary (build/linux/apparmor/sona).
+// The CDM is loaded only under the seccomp filter (opInit, F3 in
+// docs/security-review.md).
 type Sandbox struct {
 	NetNS      bool   // runs in its own network namespace
 	MountNS    bool   // runs in its own mount namespace with the filesystem view above
@@ -53,6 +57,16 @@ type Sandbox struct {
 	Reason     string // why a layer is missing, for the log; "" when Active
 }
 
+// ReachesSockets reports whether the child can connect() to a Unix socket
+// by path (the session bus, systemd, an agent): it has neither a private
+// filesystem view, which removes the sockets, nor Landlock from the ABI
+// that handles connect() (landlockUnixABI). Ubuntu 23.10+ with its
+// AppArmor user namespace restriction and a kernel below that ABI (every
+// Ubuntu 24.04 kernel) is this case unless the package's AppArmor profile
+// is installed; so is an AppImage there. Seccomp cannot close it: the
+// filter reads the address's pointer, not the path behind it.
+func (s Sandbox) ReachesSockets() bool { return !s.MountNS && s.Landlock < landlockUnixABI }
+
 // Gaps are the missing layers (Diagnostics).
 func (s Sandbox) Gaps() []playback.SandboxGap {
 	var gaps []playback.SandboxGap
@@ -61,6 +75,9 @@ func (s Sandbox) Gaps() []playback.SandboxGap {
 		gaps = append(gaps, playback.SandboxGapNamespaces)
 	case !s.MountNS:
 		gaps = append(gaps, playback.SandboxGapFilesystem)
+	}
+	if s.ReachesSockets() {
+		gaps = append(gaps, playback.SandboxGapSockets)
 	}
 	if s.Landlock == 0 {
 		gaps = append(gaps, playback.SandboxGapLandlock)
