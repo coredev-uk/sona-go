@@ -494,6 +494,8 @@ These are Capital, KISS and TuneIn's stations. The engine looks the station up f
 
 **The stream.** The parent plays the stream (`internal/playback/broadcast`): HLS of MPEG-TS or packed AAC segments, a PLS or M3U playlist, or a Shoutcast/Icecast stream, with reconnects and stall detection. It feeds the elementary audio (ADTS AAC or MP3 frames) to the child as a live file: `LoadFile` with size `gst.Live`, no length, no seeking, bytes dropped once decoded, at most 8 MiB held. Pause lets the stream go; Resume joins it live again.
 
+**Where it may connect.** The stream, every playlist it names and every redirect go through one client (`broadcast.NewClient`) whose dialer refuses loopback, private, link-local, carrier-grade NAT, unspecified, multicast and reserved addresses, checked on the address dialled. At most 5 redirects, none from https to http. A playlist's first 16 entries are tried, with a growing pause between them. The environment's proxy is not used. See `docs/security-review.md`, "Local broadcaster streams".
+
 **What is on air.** What the stream names as on air (ICY `StreamTitle`, ID3 tags, `EXTINF` titles) is stamped with the stream time it applies from, counted from the audio frames. It becomes `Status.OnAir` once playback reaches it, and the player bar's live line and the MPRIS title show it.
 
 - An ICY `StreamTitle` "Artist - Title" is split at its first " - " (`OnAir.Artist`, `OnAir.Title`; any other line stays the title).

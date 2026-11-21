@@ -13,11 +13,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/broadcast"
 	"github.com/coredev-uk/sona-go/internal/playback/gst"
 )
 
@@ -177,6 +179,9 @@ func newBroadcastHarness(t *testing.T, bs *broadcastServer) *harness {
 	h := &harness{cdm: &fakeCDM{lib: testCDM}}
 	h.e = New(Options{Client: api, HTTP: hc, IdleTimeout: time.Minute, CDM: h.cdm, Storefront: func() string { return "gb" }})
 	h.e.retry = []time.Duration{time.Millisecond}
+	// The stream is served from httptest on loopback, which the
+	// production client refuses (TestEngineStreamClientRefusesLoopback).
+	h.e.streamHTTP = &http.Client{Transport: hc.Transport, CheckRedirect: hc.CheckRedirect}
 	h.e.spawn = func(_ context.Context, lib string) (host, error) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
@@ -450,4 +455,21 @@ func heard(st playback.Status) time.Duration {
 		return st.Position
 	}
 	return st.Position + time.Since(st.UpdatedAt)
+}
+
+// The engine's own stream client refuses loopback: a broadcaster's URL on
+// 127.0.0.1 never gets a request.
+func TestEngineStreamClientRefusesLoopback(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { hits.Add(1) }))
+	t.Cleanup(srv.Close)
+	e := New(Options{IdleTimeout: -1})
+	t.Cleanup(func() { _ = e.Close() })
+	err := broadcast.Play(ctx(t), broadcast.Options{HTTP: e.streamHTTP, UserAgent: "sona-test"}, srv.URL+"/stream", nil)
+	if !errors.Is(err, broadcast.ErrPrivateAddress) {
+		t.Errorf("Play = %v, want ErrPrivateAddress", err)
+	}
+	if n := hits.Load(); n != 0 {
+		t.Errorf("the loopback server got %d requests", n)
+	}
 }
