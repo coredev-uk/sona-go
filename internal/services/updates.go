@@ -62,6 +62,7 @@ func newUpdatesService(e *Env) *UpdatesService {
 	client := &http.Client{Transport: e.transport(), Timeout: 15 * time.Second}
 	s.checker.HTTP = client
 	s.feed.HTTP = client
+	s.feed.Key = s.key
 	if exe, err := os.Executable(); err == nil && e.Paths.State != "" {
 		if g, ok := update.NewGuard(e.Paths.State, exe, runtime.GOOS); ok {
 			s.guard = &g
@@ -249,6 +250,7 @@ func (s *UpdatesService) Install(ctx context.Context) (UpdateStatus, error) {
 	src := *s.manifest
 	src.HTTP = &http.Client{Transport: s.o.transport()}
 	src.Key = s.key
+	src.Target, src.Current = s.target, st.Current
 	src.Progress = s.progress
 	st.Installing, st.InstallError, st.Downloaded, st.Total = true, "", 0, src.Update.Size
 	s.installErr = ""

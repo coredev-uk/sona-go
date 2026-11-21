@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -80,6 +81,7 @@ type selfOpts struct {
 	version, latest string
 	key             bool
 	badSig          bool
+	claims          string // the version the manifest claims, when it is not the one signed
 }
 
 func newSelfRig(t *testing.T, o selfOpts) *selfRig {
@@ -99,10 +101,15 @@ func newSelfRig(t *testing.T, o selfOpts) *selfRig {
 				_, other, _ := ed25519.GenerateKey(nil)
 				sig = update.Sign(other, digest[:])
 			}
-			_ = json.NewEncoder(w).Encode(update.Manifest{
+			m := update.Manifest{
 				Version: o.latest, Notes: "What's new.", Date: "2026-01-02T03:04:05Z",
 				URL: srv.URL + "/a.tar.gz", Size: int64(len(r.archive)), Signature: sig,
-			})
+				SHA256: hex.EncodeToString(digest[:]), StatementSignature: update.SignStatement(priv, "darwin-arm64", o.latest, digest[:]),
+			}
+			if o.claims != "" {
+				m.Version = o.claims
+			}
+			_ = json.NewEncoder(w).Encode(m)
 		case "/a.tar.gz":
 			_, _ = w.Write(r.archive)
 		default:
@@ -142,7 +149,7 @@ func newSelfRig(t *testing.T, o selfOpts) *selfRig {
 	if o.key {
 		r.s.key = base64.StdEncoding.EncodeToString(pub)
 	}
-	r.s.feed = update.Feed{Web: srv.URL, API: srv.URL}
+	r.s.feed = update.Feed{Web: srv.URL, API: srv.URL, Key: r.s.key}
 	r.s.checker = update.Checker{API: srv.URL}
 	r.s.status.SelfUpdate, r.s.status.Disabled = r.s.selfState()
 	t.Cleanup(r.e.close)
@@ -224,6 +231,26 @@ func TestSelfUpdateRefusesABadSignature(t *testing.T) {
 	}
 	if r.g.Pending() != nil {
 		t.Fatal("a refused update stays on trial")
+	}
+	if b, _ := os.ReadFile(r.up.exe); string(b) != "0.2.0" {
+		t.Fatalf("the app changed: %q", b)
+	}
+}
+
+// The statement binds the manifest's version to the signed archive: the same
+// archive offered under a higher version is refused at the check, before
+// anything is offered.
+func TestSelfUpdateRefusesAVersionTheKeyDidNotSign(t *testing.T) {
+	r := newSelfRig(t, selfOpts{version: "0.2.0", latest: "0.3.0", claims: "99.0.0", key: true})
+	st, err := r.s.Check(context.Background())
+	if !errors.Is(err, update.ErrSignature) || CodeOf(err) != CodeUpdateSignature {
+		t.Fatalf("err = %v", err)
+	}
+	if st.Available || st.Latest != "" || st.Error != CodeUpdateSignature {
+		t.Fatalf("status = %+v", st)
+	}
+	if _, err := r.s.Install(context.Background()); err == nil {
+		t.Fatal("installed after a refused check")
 	}
 	if b, _ := os.ReadFile(r.up.exe); string(b) != "0.2.0" {
 		t.Fatalf("the app changed: %q", b)
