@@ -132,6 +132,7 @@ func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play fun
 		play()
 	}
 
+	var links []ui.Element
 	row.Children(func() {
 		ui.Box(c.Key("art")).Size(trackArt, trackArt).Shrink(0).Children(func() {
 			itemsArtwork(c, ctx.Art, song.Art.Small, trackArt, ArtOpts{Edge: true})
@@ -186,6 +187,8 @@ func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play fun
 			}
 			ArtistLinks(c, artists, song.Artist, theme.C("ink-muted"), ArtistLinksOpts{
 				Open: open, Static: true, Hover: theme.C("ink"),
+				// A link takes the pointer, so the row's menu is wired to it too.
+				Wire: func(e ui.Element) { links = append(links, e) },
 				// The shelf selects, so a modified click on the artist selects the row.
 				Click: func(m ClickMods) bool {
 					if m.Range || m.Toggle {
@@ -201,7 +204,7 @@ func trackRow(c *ui.Context, sel *Selection, song services.Song, i int, play fun
 		})
 
 		if ctx.Menus != nil {
-			ctx.Menus.Trigger(c.Key("more"), row, ActionTarget{Item: SongItem(song), Name: song.Name}, TriggerOpts{Visible: hot})
+			ctx.Menus.Trigger(c.Key("more"), row, ActionTarget{Item: SongItem(song), Name: song.Name}, TriggerOpts{Visible: hot}, links...)
 		}
 	})
 }

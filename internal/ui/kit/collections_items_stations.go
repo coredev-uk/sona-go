@@ -98,7 +98,7 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 			hit.Role(ui.RoleButton).Label(s.Name + " " + action)
 			if !s.Playable {
 				// A disabled element takes no pointer, so the row says why.
-				hit.Disabled(true)
+				hit.Disabled(true).IgnoreInput(true)
 				row.Tooltip(unavailable)
 			}
 		}
@@ -168,9 +168,11 @@ func stationRow(c *ui.Context, s services.Station, ctx ItemsCtx, o StationListOp
 				mark.Children(func() { PlayGlyph(c, 16, theme.GlyphOpts{Color: theme.C("ink-muted"), Inherit: true}) })
 			}
 		}
-		// Every row has the station's menu, beside its play control.
+		// Every row has the station's menu, beside its play control. The row
+		// opens it too, for a station that cannot be played: its disabled hit
+		// area takes no pointer, so a right-click lands on the row.
 		if ctx.Menus != nil {
-			ctx.Menus.Trigger(c.Key("more"), hit, ActionTarget{Item: StationItem(s), Name: s.Name}, TriggerOpts{Visible: hot})
+			ctx.Menus.Trigger(c.Key("more"), row, ActionTarget{Item: StationItem(s), Name: s.Name}, TriggerOpts{Visible: hot}, hit)
 		}
 
 		if ClickOnce(hit) {

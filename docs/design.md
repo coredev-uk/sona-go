@@ -293,6 +293,7 @@ One rule governs every list, shelf, row and tile that shows an item (a song, an 
 - **Artists and curators open only.** No player is registered for them, so no tile, card, row, best match or lead pick draws a Play control for them, and no surface draws a disabled one. Chosen over an artist player because "play an artist" has no single meaning (top songs? shuffle?) and the artist page already offers Play top songs, Shuffle and Play library songs. A Play control exists exactly where `ItemPlayers.CanPlay` is true; a withheld explicit item shows it disabled.
 - **A page that is not routed is plain.** A tile keeps no underline; a wide card, link tile and the artist's latest-release slip are not built as a button at all (no tab stop, pointer, hover or navigation).
 - **The cue says what the choice does.** A link (underline on hover, a chevron on the active row) opens; a play triangle or disc plays; an arrow out leaves Sona.
+- **A More button and the menu agree.** Every surface that draws a "More for …" button opens the same menu on a right-click (on the row, or on a link in it, which passes the press through) and on Shift+F10 or the Menu key while its opener has the focus (the button is not a Tab stop). `TestInteraction…` pins it for every kit surface that has the button. Curators, rooms, groupings and link-list tiles have no registered action (nothing to add, play or pin), so they have no button and no menu: the two agree by both being absent, and a stub menu would only pretend.
 
 The table is what the code does on `main`.
 
@@ -315,13 +316,13 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | unrouted page | none, no underline | none | none | none | none | disc | yes | group |
 |  | any with an Item, Shift/Ctrl+click | selects | | | | | | | |
 | Wide editorial card (`WideRow`: Home heroes, Discover and editorial bricks) | any page kind | opens, modifier ignored (cannot select) | opens | opens | opens | none | disc, except artist and curator | More button and right-click, Shift+F10, Menu key | link |
-|  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button, no right-click ([#447]) | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
+|  | station with no page | plays, pauses while it plays | twice | same | same | same | none: the card is the control | More button and right-click, Shift+F10, Menu key | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | none | none | none | none | link, arrow out, named "X Opens in your browser" |
 | Link list tile (`LinkList`: "More to Explore") | page link | opens, remembered (`OnOpen`) | opens | opens | opens | none | none: a link tile is a plain link, even for a station with a page (its cover tile, card and row have the Play control) | none | link |
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none | none | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | same | none | none | none | link with the arrow out, named "X Opens in your browser" |
-| Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing and is the pause and resume button, "Pause X" | More button, no right-click ([#447]) | link |
-|  | station with no page | plays, or toggles while playing | twice | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
+| Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing and is the pause and resume button, "Pause X" | More button and right-click, Shift+F10, Menu key (a station that cannot be played too: right-click on the row) | link |
+|  | station with no page | plays, or toggles while playing | twice | same | same | same | none | More button and right-click, Shift+F10, Menu key (a station that cannot be played too: right-click on the row) | button "X Play" / "X Pause" |
 | Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | selects | plays from the row, the shelf is the queue | plays | none | selects | cover button | More button and right-click, Shift+F10, Menu key | list item, hover fill |
 |  | artist link in the row | opens the artist | twice | n/a | n/a | n/a | n/a | n/a | underline on hover |
 | Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects | number-column button | yes, also on the artist and album links | row; link cells underline |
@@ -401,11 +402,11 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |---|---|---|---|---|---|---|---|---|---|
 | Sidebar nav links | page | opens | opens once | opens | none | none | none | none | link, active fill |
 | Sidebar playlist rows | playlist | opens | opens | opens | shuffles | none | the shuffle glyph over the art shuffles | More button and right-click, Shift+F10, Menu key | link; shuffle glyph on hover |
-| Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist, album: shuffles; song: none | none | playlist, album: the shuffle glyph over the art | More button | link; shuffle glyph on hover (playlist, album) |
-|  | playlist, album, song, set to Play or Shuffle | plays or shuffles | twice | same | same | same | same | More button | button; the play or shuffle glyph at the row's end |
-|  | artist, any action | opens | | opens | none | none | none | More button; no Play or Shuffle choice | link |
+| Sidebar pins | playlist, album, song, set to Open | opens (a song opens its album) | once | opens | playlist, album: shuffles; song: none | none | playlist, album: the shuffle glyph over the art | More button and right-click, Shift+F10, Menu key | link; shuffle glyph on hover (playlist, album) |
+|  | playlist, album, song, set to Play or Shuffle | plays or shuffles | twice | same | same | same | same | More button and right-click, Shift+F10, Menu key | button; the play or shuffle glyph at the row's end |
+|  | artist, any action | opens | | opens | none | none | none | More button and right-click, Shift+F10, Menu key; no Play or Shuffle choice | link |
 |  | any, set to Open with no page | nothing | | nothing | | | | same as its kind; Open checked and off | plain row, disabled to assistive technology |
-| Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button | disclosure |
+| Sidebar folders | folder | folds or unfolds | net nothing | same | none | same | none | More button and right-click, Shift+F10, Menu key | disclosure |
 | Queue rows | song, AutoPlay, music video | focuses the row | plays from the row | plays | none | none | none | yes | hover fill and grip |
 |  | the playing song | none | restarts it | restarts it | none | none | none | the song's menu, as the bar's | amber title |
 |  | song title, music video title | opens its album with the song marked, its page | | | none | none | none | the row's menu | link (a pointer shortcut, not a Tab stop) |
@@ -447,11 +448,9 @@ Argued departures that stay (not issues):
 |---|---|
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
-| [#447] | curators, rooms and link tiles have no menu at all (no action is registered for them) |
 
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
-[#447]: https://github.com/coredev-uk/sona-go/issues/447
 
 ## Dates
 

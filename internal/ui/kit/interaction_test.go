@@ -216,6 +216,29 @@ func iaDrive(t *testing.T, s iaSurface) iaRow {
 			got.menu = "opens"
 		}
 	}
+	// A More button and the menus agree: wherever the surface has the button,
+	// a right-click opens the menu, and so do Shift+F10 and the Menu key on
+	// the opener when it is a stop of Tab (the buttons are not stops).
+	if got.more == "button" {
+		if got.menu != "opens" {
+			t.Errorf("%s has a More button but a right-click opens no menu", s.name)
+		}
+		for _, k := range []struct {
+			what string
+			mods ui.Modifiers
+			key  ui.Key
+		}{{"Shift+F10", ui.Shift, ui.KeyF10}, {"the Menu key", 0, ui.KeyContextMenu}} {
+			_, tt, _ := fresh()
+			if !iaTab(tt, s.opener) {
+				continue
+			}
+			tt.Key(k.mods, k.key)
+			tt.Frame()
+			if !tt.HasText("Do something") {
+				t.Errorf("%s has a More button but %s on its opener opens no menu", s.name, k.what)
+			}
+		}
+	}
 	got.click = click(0, 1)
 	got.double = click(0, 2)
 	got.enter = key(0, ui.KeyEnter)
@@ -713,6 +736,17 @@ func TestInteractionTrackShelfArtistLinkOpensTheArtistAndTheRowStaysQuiet(t *tes
 		if got := iaFx(a.rec); got != c.want {
 			t.Errorf("%s: got %q, want %q", c.what, got, c.want)
 		}
+	}
+	// A right-click on the link is the row's: it opens the row's menu, and
+	// goes nowhere.
+	iaReset(a.rec)
+	tt.RightClickAt(x, y)
+	tt.Frame()
+	if !tt.HasText("Do something") {
+		t.Errorf("a right-click on the artist link opened no menu; texts %q", tt.Texts())
+	}
+	if got := iaFx(a.rec); got != "nothing" {
+		t.Errorf("a right-click on the artist link did %q", got)
 	}
 }
 
@@ -1387,7 +1421,7 @@ var iaStationWant = map[string]iaRow{
 		role:       "button",
 		play:       "none",
 		more:       "button",
-		menu:       "none",
+		menu:       "opens",
 		click:      "nothing",
 		double:     "nothing",
 		enter:      "not focusable",
