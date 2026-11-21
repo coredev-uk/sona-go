@@ -279,19 +279,26 @@ func (s *Session) write(w io.Writer) {
 func (s *Session) reply(f Frame) {
 	b := mustFrame(f)
 	s.mu.Lock()
+	ok := s.queueLocked(b)
+	s.mu.Unlock()
+	if !ok {
+		s.abort()
+	}
+}
+
+// queueLocked queues a frame for the writer, s.mu held. false means the
+// add-on is not reading and the session must be aborted (after unlocking).
+func (s *Session) queueLocked(b []byte) bool {
 	if s.closing {
-		s.mu.Unlock()
-		return
+		return true
 	}
 	if len(s.replies) >= s.limits.Queue {
-		s.mu.Unlock()
 		s.log.Warn("addon: not reading its frames; ending the session", "addon", s.cfg.ID)
-		s.abort()
-		return
+		return false
 	}
 	s.replies = append(s.replies, b)
 	s.wake.Signal()
-	s.mu.Unlock()
+	return true
 }
 
 func (s *Session) fail(id int64, code string) {
@@ -438,11 +445,17 @@ func (s *Session) hello(f Frame) bool {
 		}
 	}
 	res, _ := json.Marshal(HelloResult{ID: p.ID, Protocol: ver, Permissions: granted, Limits: s.limits, Credentials: s.cfg.Credentials})
+	// The answer is queued in the same critical section that opens the
+	// session to Sona's own requests, so no request can be written ahead of it.
+	b := mustFrame(Frame{ID: f.ID, Result: res})
 	s.mu.Lock()
 	s.helloed = true
 	close(s.helloCh) // hello is accepted once: a second one never gets here
+	queued := s.queueLocked(b)
 	s.mu.Unlock()
-	s.reply(Frame{ID: f.ID, Result: res})
+	if !queued {
+		s.abort()
+	}
 	return true
 }
 
