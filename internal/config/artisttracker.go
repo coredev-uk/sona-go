@@ -8,8 +8,10 @@ type ArtistTracker struct {
 	// Enabled makes Sona check the favourite artists' releases about once a
 	// day. Turning it on records what is out already as seen.
 	Enabled bool `json:"enabled"`
-	// Desktop also shows a desktop notification for a new release (one
-	// summary when several arrive in one check), where the platform has
-	// notifications. It does nothing while Enabled is off.
+	// Desktop also shows releases as desktop notifications, where the
+	// platform has them: a release reminder that came due
+	// (services/reminders.go) and what the tracker found (one summary when
+	// several arrive in one check). Both are in the notification centre
+	// whatever it says. It is independent of Enabled, as reminders are.
 	Desktop bool `json:"desktop"`
 }

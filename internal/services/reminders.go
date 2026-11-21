@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -14,7 +13,7 @@ import (
 
 // Release reminder timing. The wait for the next release is capped at
 // remindersCheck so a suspend or a clock change delays a reminder by at
-// most that; a notification that can't be shown is tried again after
+// most that; a reminder whose notice can't be saved is tried again after
 // remindersRetry.
 const (
 	remindersCheck   = time.Minute
@@ -26,21 +25,23 @@ const (
 )
 
 // RemindersService keeps release reminders (table release_reminders): a
-// pre-release album the user asked about gets one desktop notification
-// when it comes out, at its release (Album.ReleaseAt) or, when Sona wasn't
-// running then, after the first paint of the next start. Clicking it
-// opens the album ("app:open"). Before notifying it asks the catalog
-// whether Apple moved the release later and, if so, waits for the new
-// date. Reminders need the platform's notifications
-// (Platform.Notifications, Capabilities.Notifications): without them Set
-// fails with code "unsupported". They are user data, cleared on sign-out.
+// pre-release album the user asked about gets one entry in the
+// notification centre (NoticeReleaseOut) when it comes out, at its release
+// (Album.ReleaseAt) or, when Sona wasn't running then, after the first
+// paint of the next start. Before posting it asks the catalog whether Apple
+// moved the release later and, if so, waits for the new date. With
+// Settings.ArtistTracker.Desktop on, and where the platform has
+// notifications, a desktop notification is shown as well, whose click
+// opens the album ("app:open"); a desktop notification that fails is
+// logged and not retried, as the centre has the entry. Reminders are user
+// data, cleared on sign-out.
 type RemindersService struct {
 	e    *Env
 	wake chan struct{}
 	quit chan struct{}
 	done chan struct{}
 
-	notices clickNotices // fired reminders, kept to deliver their clicks
+	notices clickNotices // desktop notifications shown, kept to deliver their clicks
 
 	mu      sync.Mutex
 	started bool
@@ -48,19 +49,17 @@ type RemindersService struct {
 
 func newRemindersService(e *Env) *RemindersService {
 	s := &RemindersService{e: e, wake: make(chan struct{}, 1), quit: make(chan struct{}), done: make(chan struct{}), notices: clickNotices{e: e}}
-	if e.Platform.Notifications != nil {
-		e.OnNetwork(func() {
-			s.mu.Lock()
-			defer s.mu.Unlock()
-			select {
-			case <-s.quit:
-				return
-			default:
-			}
-			s.started = true
-			e.Go("release reminders", s.run)
-		})
-	}
+	e.OnNetwork(func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		select {
+		case <-s.quit:
+			return
+		default:
+		}
+		s.started = true
+		e.Go("release reminders", s.run)
+	})
 	e.OnSignOut("reminders", func(ctx context.Context) error {
 		if err := e.DB.Q.ClearReminders(ctx); err != nil {
 			return err
@@ -86,14 +85,11 @@ func (s *RemindersService) List(ctx context.Context) ([]Reminder, error) {
 }
 
 // Set reminds the user when catalog album id comes out. message is the
-// notification's body, in the interface's language (Go has no English of
-// its own here). The album must be a pre-release with a full release date
-// (invalid_argument otherwise); where the platform has no notifications
-// it fails with unsupported.
+// desktop notification's body, in the interface's language (Go has no
+// English of its own here), shown when Settings.ArtistTracker.Desktop is on.
+// The album must be a pre-release with a full release date
+// (invalid_argument otherwise).
 func (s *RemindersService) Set(ctx context.Context, id, message string) (Reminder, error) {
-	if s.e.Platform.Notifications == nil {
-		return Reminder{}, fmt.Errorf("release reminders need notifications: %w", errors.ErrUnsupported)
-	}
 	if id == "" || !utf8.ValidString(message) || utf8.RuneCountInString(message) > maxReminderMessage {
 		return Reminder{}, fmt.Errorf("%w: reminder for %q", ErrInvalidArgument, id)
 	}
@@ -174,12 +170,12 @@ func (s *RemindersService) run() {
 	}
 }
 
-// fireDue notifies every reminder whose release has come and returns how
-// long to wait before looking again. It reads the clock before the table,
-// so a pass that finds a release come lists the table after every Remove
-// that finished before that release. Read after the table, the clock could
-// pass the release while the pass still held a list from before the
-// Remove, and the pass would show a reminder that was removed in time.
+// fireDue posts every reminder whose release has come and returns how long
+// to wait before looking again. It reads the clock before the table, so a
+// pass that finds a release come lists the table after every Remove that
+// finished before that release. Read after the table, the clock could pass
+// the release while the pass still held a list from before the Remove, and
+// the pass would post a reminder that was removed in time.
 func (s *RemindersService) fireDue() time.Duration {
 	ctx, cancel := context.WithTimeout(context.Background(), remindersTimeout)
 	defer cancel()
@@ -207,8 +203,8 @@ func (s *RemindersService) fireDue() time.Duration {
 			changed = true
 			continue
 		}
-		if err := s.show(ctx, r); err != nil {
-			s.e.Logger.Info("reminders: notification not shown; trying again later", "album", r.AlbumID, "err", err)
+		if err := s.notify(ctx, r); err != nil {
+			s.e.Logger.Info("reminders: notice not saved; trying again later", "album", r.AlbumID, "err", err)
 			wait = min(wait, remindersRetry)
 			continue
 		}
@@ -241,10 +237,25 @@ func (s *RemindersService) movedTo(ctx context.Context, id string) int64 {
 	return 0
 }
 
-// show shows r's notification, whose click opens the album. Its action's
-// label is the album's name, not words of Sona's.
-func (s *RemindersService) show(ctx context.Context, r dbq.ReleaseReminder) error {
-	return s.notices.show(ctx, r.Name, r.Message, r.ArtworkTemplate, r.Name, OpenTarget{Kind: string(app.KindAlbum), ID: r.AlbumID})
+// notify posts r's entry in the notification centre and, when the person
+// asked for them, a desktop notification whose click opens the album (its
+// action's label is the album's name, not words of Sona's). Only the entry
+// failing is an error: the desktop notification is extra.
+func (s *RemindersService) notify(ctx context.Context, r dbq.ReleaseReminder) error {
+	target := OpenTarget{Kind: string(app.KindAlbum), ID: r.AlbumID}
+	err := s.e.postNotice(ctx, notice{
+		kind: NoticeReleaseOut, key: NoticeReleaseOut + ":" + r.AlbumID, subject: r.Name, artist: r.ArtistName,
+		art: r.ArtworkTemplate, target: target, account: true,
+	})
+	if err != nil {
+		return err
+	}
+	if s.e.Platform.Notifications != nil && s.e.Settings.Get().ArtistTracker.Desktop {
+		if err := s.notices.show(ctx, r.Name, r.Message, r.ArtworkTemplate, r.Name, target); err != nil {
+			s.e.Logger.Info("reminders: desktop notification not shown", "album", r.AlbumID, "err", err)
+		}
+	}
+	return nil
 }
 
 // close stops the loop. Shown notifications stay on screen.

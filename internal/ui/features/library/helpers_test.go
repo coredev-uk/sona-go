@@ -79,9 +79,13 @@ func newPageRig(t *testing.T, start string, w, h int, before func(l *library), o
 					}
 				}
 			})
-			// What the shell mounts around the pages.
+			// What the shell mounts around the pages, and the library's part
+			// of the notification centre as an open panel builds it.
 			kit.OverlayLayer(c)
-			mod.Slots.SidebarFooter(c)
+			if a := mod.Slots.Activity; a.Status(c).Shown {
+				a.Build(c)
+			}
+			mod.Slots.Activity.Foot(c)
 		})
 	}, w, h)
 	return r

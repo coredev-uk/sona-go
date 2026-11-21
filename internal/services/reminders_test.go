@@ -15,6 +15,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/auth/store"
 	"github.com/coredev-uk/sona-go/internal/catalog"
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/desktop/notify"
 )
@@ -112,13 +113,22 @@ type remindersHarness struct {
 	emit  *recorder
 }
 
-func newRemindersHarness(t *testing.T, notifications bool) *remindersHarness {
+// newRemindersHarness has a platform with notifications; desktop is the
+// setting that asks for them as well as the notification centre's entry.
+func newRemindersHarness(t *testing.T, desktop bool) *remindersHarness {
 	t.Helper()
 	d, err := db.Open(t.Context(), filepath.Join(t.TempDir(), "sona.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = d.Close() })
+	cfg, err := config.OpenStore(filepath.Join(t.TempDir(), "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cfg.Update(func(s *config.Settings) { s.ArtistTracker.Desktop = desktop }); err != nil {
+		t.Fatal(err)
+	}
 	apple := &releaseDates{dates: map[string]string{}}
 	srv := httptest.NewServer(apple)
 	t.Cleanup(srv.Close)
@@ -136,17 +146,32 @@ func newRemindersHarness(t *testing.T, notifications bool) *remindersHarness {
 		notes: &fakeNotifications{shown: make(chan notify.Notification, 4)},
 		emit:  &recorder{},
 	}
-	var plat Platform
-	if notifications {
-		plat.Notifications = h.notes.connect
-	}
 	h.e = &Env{Deps: Deps{
 		DB: d, API: api, Catalog: catalog.New(d, api, sf, nil), Storefront: sf, Gate: NewGate(time.Hour, nil),
-		Auth: authm, Emit: h.emit, Logger: discard(), Now: h.clock.Now, Platform: plat,
-	}}
+		Auth: authm, Emit: h.emit, Logger: discard(), Now: h.clock.Now, Settings: cfg,
+		Platform: Platform{Notifications: h.notes.connect},
+	}, m: mapper{now: h.clock.Now}}
 	h.s = newRemindersService(h.e)
+	newNotificationsService(h.e)
 	t.Cleanup(h.e.close)
 	return h
+}
+
+// entries is the notification centre's list, once it holds want entries.
+func (h *remindersHarness) entries(t *testing.T, want int) []Notification {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		list, err := h.e.listNotices(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(list.Items) == want {
+			return list.Items
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("entries = %+v, want %d", list.Items, want)
+		}
+	}
 }
 
 func (h *remindersHarness) note(t *testing.T) notify.Notification {
@@ -169,15 +194,11 @@ func (h *remindersHarness) noNote(t *testing.T) {
 	}
 }
 
-func TestRemindersNeedNotificationsAndAPrerelease(t *testing.T) {
+// A reminder is for an album still to come with a full release date, and
+// needs nothing of the platform: it is an entry of the notification centre.
+func TestRemindersNeedAPrereleaseWithADay(t *testing.T) {
 	ctx := t.Context()
 	h := newRemindersHarness(t, false)
-	h.apple.set("7", "2026-11-19")
-	if _, err := h.s.Set(ctx, "7", "Out now"); CodeOf(err) != CodeUnsupported {
-		t.Fatalf("without notifications: %v, want unsupported", err)
-	}
-
-	h = newRemindersHarness(t, true)
 	h.apple.set("8", "2026-10-30")
 	h.apple.set("9", "2027")
 	for _, id := range []string{"8", "9"} {
@@ -232,8 +253,13 @@ func TestReminderFiresOnceAfterFirstPaint(t *testing.T) {
 			t.Fatal("fired reminder kept")
 		}
 	}
+	if e := h.entries(t, 1)[0]; e.Kind != NoticeReleaseOut || e.Subject != "Album 7" || e.Artist != "Band" || e.Read ||
+		e.Target != (OpenTarget{Kind: "album", ID: "7"}) {
+		t.Fatalf("entry = %+v", e)
+	}
 	h.s.poke()
 	h.noNote(t)
+	h.entries(t, 1)
 
 	h.notes.mu.Lock()
 	click := h.notes.actions[0]
@@ -245,6 +271,27 @@ func TestReminderFiresOnceAfterFirstPaint(t *testing.T) {
 	if last != (OpenTarget{Kind: "album", ID: "7"}) {
 		t.Fatalf("click emitted %+v", last)
 	}
+}
+
+// Without the desktop setting a reminder that comes due is an entry of the
+// notification centre and nothing else; sign-out takes the entry with it.
+func TestReminderIsAnEntryAndNoDesktopNotificationUnlessAskedFor(t *testing.T) {
+	ctx := t.Context()
+	h := newRemindersHarness(t, false)
+	h.apple.set("7", "2026-11-19")
+	if _, err := h.s.Set(ctx, "7", "Out now · Band"); err != nil {
+		t.Fatal(err)
+	}
+	h.clock.set(localDay(t, "2026-11-19"))
+	h.e.Gate.Open()
+	if e := h.entries(t, 1)[0]; e.Kind != NoticeReleaseOut || e.Subject != "Album 7" {
+		t.Fatalf("entry = %+v", e)
+	}
+	h.noNote(t)
+	if err := h.e.Auth.SignOut(ctx); err != nil {
+		t.Fatal(err)
+	}
+	h.entries(t, 0)
 }
 
 // When Apple moves the release later, the reminder waits for the new date;

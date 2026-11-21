@@ -151,7 +151,7 @@ func (l *library) module() module.Module {
 			nav(playlists, "list-music", playlistsPath, 70),
 		},
 		Actions: l.actions(),
-		Slots:   module.Slots{SidebarFooter: l.syncIndicator},
+		Slots:   module.Slots{Activity: l.syncActivity()},
 		Init:    l.init,
 	}
 }

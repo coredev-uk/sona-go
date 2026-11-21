@@ -9,7 +9,7 @@ Sona can watch the artists you've favourited and list their new releases under N
 
 1. Open Settings → General → New releases.
 2. Turn on Track new releases from favourite artists.
-3. To get a desktop notification as well, turn on Also show a desktop notification. It is shown only where your system has notifications.
+3. New releases also show in [Notifications](/guide/notifications/), under the bell in the top bar. To get a desktop notification as well, turn on Also show releases as desktop notifications. It is shown only where your system has notifications.
 
 Turning it on lists nothing that is already out: Sona notes what each artist has released so far, and lists only what comes out afterwards. It does the same for an artist you favourite later.
 

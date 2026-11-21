@@ -8,10 +8,12 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 )
 
-// releaseRows are the artist tracker's two switches (config.ArtistTracker):
-// whether Sona watches the favourite artists' releases, and whether a new one
-// also shows a desktop notification. The notification row stays where the
-// platform has none and says why; with the tracker off it is greyed out.
+// releaseRows are the New Releases group's two switches
+// (config.ArtistTracker): whether Sona watches the favourite artists'
+// releases, and whether a release (a reminder that came due, or what the
+// tracker found) also shows a desktop notification. Either way it is in the
+// notification centre. The desktop row stays where the platform has no
+// notifications and says why. Track notifications are Playback's own setting.
 func (s *settings) releaseRows(c *ui.Context, cfg config.Settings, caps services.Capabilities) {
 	t := cfg.ArtistTracker
 	s.switchRow(c, rowOpts{
@@ -22,7 +24,7 @@ func (s *settings) releaseRows(c *ui.Context, cfg config.Settings, caps services
 		s.save(func(st *config.Settings) { st.ArtistTracker.Enabled = v })
 	})
 
-	title := i18n.T("Also show a desktop notification")
+	title := i18n.T("Also show releases as desktop notifications")
 	if !caps.Notifications {
 		reason := ""
 		if caps.NeedsAppBundle {
@@ -34,8 +36,8 @@ func (s *settings) releaseRows(c *ui.Context, cfg config.Settings, caps services
 	s.switchRow(c, rowOpts{
 		ID:    "artist-tracker-notify",
 		Title: title,
-		Desc:  i18n.T("One notification for each new release, or one summary when several arrive together. Click it to open the release."),
-	}, t.Desktop, !t.Enabled, func(v bool) {
+		Desc:  i18n.T("A reminder that comes due and new releases from your artists are always in Notifications, under the bell. This also shows them on your desktop: one for each release, or one summary when several arrive together."),
+	}, t.Desktop, false, func(v bool) {
 		s.save(func(st *config.Settings) { st.ArtistTracker.Desktop = v })
 	})
 }

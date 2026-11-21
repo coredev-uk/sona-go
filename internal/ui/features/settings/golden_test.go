@@ -26,8 +26,8 @@ func TestSettingsGolden(t *testing.T) {
 		themeID string // "" keeps Sona's own
 		accent  string
 	}{
-		{"settings-general-light", "general", "Also show a desktop notification", nil, 1132, 1500, "", ""},
-		{"settings-general-dark", "general", "Also show a desktop notification", []uitest.Option{uitest.Dark()}, 1132, 1500, "", ""},
+		{"settings-general-light", "general", "Also show releases as desktop notifications", nil, 1132, 1500, "", ""},
+		{"settings-general-dark", "general", "Also show releases as desktop notifications", []uitest.Option{uitest.Dark()}, 1132, 1500, "", ""},
 		{"settings-appearance-light", "appearance", "Motion artwork", nil, 1132, 1700, "", ""},
 		{"settings-appearance-dark", "appearance", "Motion artwork", []uitest.Option{uitest.Dark()}, 1132, 1700, "", ""},
 		{"settings-appearance-accent-light", "appearance", "Motion artwork", nil, 1132, 1800, "sona", "rose"},
@@ -37,7 +37,7 @@ func TestSettingsGolden(t *testing.T) {
 		{"settings-appearance-accent-contrast-narrow-light", "appearance", "Motion artwork", nil, 940, 1900, "contrast", "teal"},
 		{"settings-playback-light", "playback", "Crossfade", nil, 1132, 1340, "", ""},
 		{"settings-playback-dark", "playback", "Crossfade", []uitest.Option{uitest.Dark()}, 1132, 1340, "", ""},
-		{"settings-general-narrow-dark", "general", "Also show a desktop notification", []uitest.Option{uitest.Dark()}, 707, 1300, "", ""},
+		{"settings-general-narrow-dark", "general", "Also show releases as desktop notifications", []uitest.Option{uitest.Dark()}, 707, 1300, "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			caps := linuxCaps()

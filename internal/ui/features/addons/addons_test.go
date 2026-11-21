@@ -44,6 +44,8 @@ func (f *fakeAPI) AnswerDev(token string, run bool) {
 	f.answers = append(f.answers, fmt.Sprintf("%s=%v", token, run))
 }
 
+func (f *fakeAPI) List() []services.AddonInfo { return nil }
+
 func (f *fakeAPI) answered() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -119,6 +121,10 @@ func newRig(t *testing.T, list ...services.AddonContribution) *rig {
 		head := ui.Column(c).Fill().Padding(20).AlignItems(ui.Start)
 		head.Children(func() {
 			r.menu.Trigger(c, head, kit.ActionTarget{Item: kit.AlbumItem(album()), Name: album().Name, Key: "a"}, kit.TriggerOpts{Visible: true})
+			// The notification centre's rows, as the panel builds them.
+			if r.f.status(c).Shown {
+				r.f.rows(c)
+			}
 		})
 		r.menu.Popup(c)
 	}, 500, 500)
@@ -373,10 +379,33 @@ func TestAnUnsafeLinkInAnAnswerGetsNoButton(t *testing.T) {
 	}
 }
 
-func TestAnAddonSwitchedOffIsToldToTheUser(t *testing.T) {
+// An add-on that waits for an approval, or can't run, is a row of the
+// notification centre with Review, which opens Settings → Add-ons; one that
+// runs is not, and the bell's mark says which needs the person.
+func TestAddonsThatWaitAreRowsOfTheNotificationCentre(t *testing.T) {
 	r := newRig(t, contribution())
-	r.f.notice(services.AddonNotice{ID: "webhook", Name: "Webhook", Kind: "crashed"})
-	r.tt.Until("the notice", r.tt.Shows("Webhook was switched off"))
+	nav := &uitest.Nav{}
+	r.h.Env.Nav = nav
+	r.f.infos = []services.AddonInfo{
+		{ID: "webhook", Name: "Webhook", State: services.AddonNeedsApproval},
+		{ID: "ok", Name: "Fine", State: services.AddonRunning},
+	}
+	r.tt.Until("the approval row", r.tt.Shows("Webhook needs your approval"))
+	if r.tt.HasText("Fine needs your approval") || r.tt.HasText("Fine can't run") {
+		t.Errorf("a running add-on has a row: %q", r.tt.Texts())
+	}
+	if s := r.f.status(nil); !s.News || s.Alert {
+		t.Errorf("status = %+v, want news and no alert", s)
+	}
+	r.tt.MustClick("Review")
+	if len(nav.Pushed) != 1 || nav.Pushed[0] != "/settings?section=addons" {
+		t.Errorf("Review went to %q", nav.Pushed)
+	}
+	r.f.infos = []services.AddonInfo{{ID: "webhook", Name: "Webhook", State: services.AddonNoSandbox}}
+	r.tt.Until("the can't-run row", r.tt.Shows("Webhook can't run"))
+	if s := r.f.status(nil); !s.Alert {
+		t.Errorf("status = %+v, want an alert", s)
+	}
 }
 
 func TestWhenTheAddonsChangeTheContributionsAreReadAgainOnceAtATime(t *testing.T) {

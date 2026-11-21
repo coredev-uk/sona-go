@@ -1,8 +1,10 @@
 // Package reminders is release reminders (Go's RemindersService): an upcoming
-// album's "Remind me" in its menus, for one desktop notification when it comes
-// out. The reminders mirror "reminders:changed" (store.UseReminders); the
-// button on an album's page is kit.RemindButton, over the same pieces
-// (kit.SetReminder), so the page ports without importing this feature.
+// album's "Remind me" in its menus, for one entry in the notification centre
+// when it comes out (and a desktop notification too, where Settings → General
+// asks for one). The reminders mirror "reminders:changed"
+// (store.UseReminders); the button on an album's page is kit.RemindButton,
+// over the same pieces (kit.SetReminder), so the page ports without importing
+// this feature.
 package reminders
 
 import (
@@ -21,8 +23,8 @@ type reminders struct {
 	env *module.Env
 	now func() time.Time
 	// list is RemindersService.List, available is kit.RemindAvailable (the
-	// platform has notifications, the album a date and a catalogue ID) and set
-	// is kit.SetReminder; tests replace them.
+	// album has a date and a catalogue ID) and set is kit.SetReminder; tests
+	// replace them.
 	list      func(ctx context.Context) ([]services.Reminder, error)
 	available func(services.Album) bool
 	set       func(album services.Album, on bool)
@@ -71,8 +73,7 @@ func upcoming(a services.Album, now time.Time) bool {
 // toggleAction is the album menu's "Remind me on {date}" / "Turn off reminder
 // for {date}" (plain "Remind me" / "Turn off reminder" without a date) (id
 // reminders.toggle, group item, order 25): listed for upcoming albums with a
-// release date, a catalogue ID and notifications, greyed out until the list
-// has loaded.
+// release date and a catalogue ID, greyed out until the list has loaded.
 func (r *reminders) toggleAction() kit.ActionDef {
 	data := r.loaded()
 	reminded := func(a *kit.ActionContext) bool {

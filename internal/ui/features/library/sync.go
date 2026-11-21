@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/account"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
@@ -163,99 +164,116 @@ func (l *library) announceSync(c *ui.Context, running, failed bool, lastSuccess 
 	s.phase, s.phaseSeen = phase, true
 }
 
-// syncIndicator is the library sync line at the foot of the sidebar: what
-// is syncing and how far, or when the library was last synced, with a Sync
-// now action. Nothing here moves on its own: the count and the bar move
-// only when Go reports some.
-func (l *library) syncIndicator(c *ui.Context) {
+// syncView is what the library sync is doing now, for the notification
+// centre's bell, its row and its foot line.
+type syncView struct {
+	// account: there is an account to sync; nothing shows without one.
+	account     bool
+	running     bool
+	failed      bool
+	current     *services.SyncProgress
+	last        *services.SyncDone
+	lastSuccess int64
+}
+
+func (l *library) syncNowView() syncView {
 	auth := l.authStatus()
 	status := l.syncStatus()
 	if !auth.HasData || !account.HasAccount(auth.Data.State) {
+		return syncView{}
+	}
+	v := syncView{account: true}
+	v.running, v.current, v.last, _ = l.sync.state()
+	v.failed = v.last != nil && !v.last.OK && v.last.ErrorCode != services.CodeCancelled
+	v.lastSuccess = status.Data.LastSuccess
+	if v.last != nil && v.last.OK {
+		v.lastSuccess = v.last.FinishedAt
+	}
+	return v
+}
+
+// syncLine is a running sync's words: the domain, how far ("812 of 2,040")
+// and the fraction done (0 until the first count arrives).
+func syncLine(current *services.SyncProgress) (text, count string, done float64) {
+	text = i18n.T("Syncing your library")
+	if current != nil {
+		text = syncingText(current.Domain)
+		if current.Total > 0 {
+			count = i18n.T("{done} of {total}", "done", i18n.FormatNumber(float64(current.Done)), "total", i18n.FormatNumber(float64(current.Total)))
+			done = min(1, float64(current.Done)/float64(current.Total))
+		}
+	}
+	return text, count, done
+}
+
+// syncActivity is the library sync's part of the notification centre: a
+// running sync is the bell's bar and a row with its domain, count and bar; a
+// failed one is the bell's danger dot and a row with Try again; the panel's
+// foot says when the library last synced, with Sync now. Nothing here moves
+// on its own: the count and the bars move only when Go reports some.
+func (l *library) syncActivity() *module.Activity {
+	return &module.Activity{Status: l.syncState, Build: l.syncRow, Foot: l.syncFoot}
+}
+
+// syncState is the Activity's Status. It also reads out a change of phase,
+// since the bell is always built.
+func (l *library) syncState(c *ui.Context) module.ActivityStatus {
+	v := l.syncNowView()
+	if !v.account {
+		return module.ActivityStatus{}
+	}
+	l.announceSync(c, v.running, v.failed, v.lastSuccess)
+	st := module.ActivityStatus{Shown: v.running || v.failed, Busy: v.running, Alert: v.failed}
+	if v.running {
+		text, count, done := syncLine(v.current)
+		st.Progress, st.Label = done, text
+		if count != "" {
+			// translators: The notification bell's name while the library syncs: "Syncing songs, 812 of 2,040".
+			st.Label = i18n.T("{what}, {count}", "what", text, "count", count)
+		}
+	}
+	return st
+}
+
+// syncRow is the Activity's row: the running sync, or the failed one.
+func (l *library) syncRow(c *ui.Context) {
+	v := l.syncNowView()
+	switch {
+	case v.running:
+		text, count, done := syncLine(v.current)
+		kit.ActivityRow(c, "library:sync", kit.ActivitySpec{
+			Icon: "refresh-cw", Title: text, Count: count, Progress: &done, ProgressLabel: i18n.T("Library sync"),
+		})
+	case v.failed:
+		kit.ActivityRow(c, "library:sync", kit.ActivitySpec{
+			Icon: "circle-alert", Alert: true, Title: i18n.T("Library sync failed"), Detail: i18n.ErrorText(v.last.ErrorCode),
+			Action: i18n.T("Try again"), OnAction: l.syncNow,
+		})
+	}
+}
+
+// syncFoot is the panel's foot line while no sync runs or failed: when the
+// library last synced, after a --positive dot, and Sync now.
+func (l *library) syncFoot(c *ui.Context) {
+	v := l.syncNowView()
+	if !v.account || v.running || v.failed {
 		return
 	}
-	running, current, last, _ := l.sync.state()
-	tk := theme.Current()
-	meta := tk.Type["meta"]
-	text := func(s string, color ui.Color) ui.Element {
-		return ui.Text(c, s).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(color).SingleLine()
-	}
-
-	failed := last != nil && !last.OK && last.ErrorCode != services.CodeCancelled
-	lastSuccess := status.Data.LastSuccess
-	if last != nil && last.OK {
-		lastSuccess = last.FinishedAt
-	}
-
-	l.announceSync(c, running, failed, lastSuccess)
-
-	// A sync that runs or failed is a card (a tone step above the sidebar);
-	// a synced library is one quiet line.
-	card := running || failed
-	col := ui.Column(c.Key("sync")).Margin(0, 8, 8, 8).Role(ui.RoleGroup).Label(i18n.T("Library sync"))
-	if card {
-		col.Padding(8, 10).Radius(tk.Radius["md"]).Background(theme.C("hover"))
-	} else {
-		col.Padding(0, 10)
-	}
-	col.Children(func() {
-		if running {
-			syncing := i18n.T("Syncing your library")
-			count := ""
-			pct := 0.0
-			if current != nil {
-				syncing = syncingText(current.Domain)
-				if current.Total > 0 {
-					count = i18n.T("{done} of {total}", "done", i18n.FormatNumber(float64(current.Done)), "total", i18n.FormatNumber(float64(current.Total)))
-					pct = min(1, float64(current.Done)/float64(current.Total))
-				}
+	meta := theme.Current().Type["meta"]
+	theme.Hairline(c).Margin(8, 0, 0, 0)
+	ui.Row(c.Key("library:sync-foot")).FillWidth().Padding(8, 4, 0, 8).Gap(8).AlignItems(ui.Center).
+		Role(ui.RoleGroup).Label(i18n.T("Library sync")).Children(func() {
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+			line := i18n.T("Library not synced yet")
+			if v.lastSuccess > 0 {
+				ui.Box(c.Key("ok")).Size(6, 6).Radius(3).Shrink(0).Background(theme.C("positive"))
+				line = i18n.T("Synced {synced}", "synced", i18n.RelativeTime(time.UnixMilli(v.lastSuccess), time.Now()))
 			}
-			// What is syncing at the left and how far at the right, the bar
-			// under both across the card. The row keeps its height before
-			// the first count arrives.
-			ui.Row(c).Height(16).Gap(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
-				ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
-					ui.Icon(c, theme.Icon("refresh-cw")).FontSize(12).Shrink(0).TextColor(theme.C("ink-muted"))
-					text(syncing, theme.C("ink")).Shrink(1).MinWidth(0)
-				})
-				if count != "" {
-					text(count, theme.C("ink-muted")).FontFeatures("tnum").Shrink(0)
-				}
-			})
-			kit.ProgressBar(c, pct, kit.ProgressOpts{A11yLabel: i18n.T("Library sync"), ValueText: count, Height: 3}).FillWidth().Margin(8, 0, 2, 0)
-			return
-		}
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
-			ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
-				colour := theme.C("ink-faint")
-				if failed {
-					colour = theme.C("ink")
-					ui.Icon(c, theme.Icon("circle-alert")).FontSize(12).Shrink(0).TextColor(theme.C("danger"))
-				} else if lastSuccess > 0 {
-					ui.Box(c.Key("ok")).Size(6, 6).Radius(3).Shrink(0).Background(theme.C("positive"))
-				}
-				switch {
-				case failed:
-					text(i18n.T("Library sync failed"), colour).Shrink(1).MinWidth(0).Tooltip(i18n.ErrorText(last.ErrorCode))
-				case lastSuccess > 0:
-					text(i18n.T("Synced {synced}", "synced", i18n.RelativeTime(time.UnixMilli(lastSuccess), time.Now())), colour).Shrink(1).MinWidth(0)
-				default:
-					text(i18n.T("Library not synced yet"), colour).Shrink(1).MinWidth(0)
-				}
-			})
-			label := i18n.T("Sync now")
-			if failed {
-				label = i18n.T("Try again")
-			}
-			b := ui.ButtonBase(c.Key("sync-now")).Shrink(0).PaddingX(6).Height(22).Radius(tk.Radius["sm"]).AlignItems(ui.Center).Label(label)
-			if b.Hovered() {
-				b.Background(theme.C("active"))
-			}
-			b.Children(func() {
-				text(label, theme.C("ink")).Role(ui.RoleNone)
-			})
-			if b.Clicked() {
-				l.syncNow()
-			}
+			ui.Text(c, line).FontSize(meta.Size).FixedLineHeight(meta.LineHeight).TextColor(theme.C("ink-muted")).
+				SingleLine().Shrink(1).MinWidth(0)
 		})
+		if kit.Button(c.Key("sync-now"), i18n.T("Sync now"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}).Clicked() {
+			l.syncNow()
+		}
 	})
 }

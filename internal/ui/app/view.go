@@ -160,7 +160,8 @@ func (a *App) page(c *ui.Context) {
 }
 
 // topBar is the top bar: history, the search a module provides, room
-// to grab the window by, and the account menu a module provides.
+// to grab the window by, the notification centre's bell and the account
+// menu modules provide.
 func (a *App) topBar(c *ui.Context) {
 	var search func(*ui.Context)
 	for _, m := range a.mods {
@@ -174,6 +175,16 @@ func (a *App) topBar(c *ui.Context) {
 		if m.Slots.TopBarAccount != nil {
 			account = m.Slots.TopBarAccount
 			break
+		}
+	}
+	var notices func(*ui.Context, []module.Activity)
+	var acts []module.Activity
+	for _, m := range a.mods {
+		if notices == nil && m.Slots.TopBarNotices != nil {
+			notices = m.Slots.TopBarNotices
+		}
+		if m.Slots.Activity != nil {
+			acts = append(acts, *m.Slots.Activity)
 		}
 	}
 	// A hidden title bar: the top bar is the window's, dragging it, and
@@ -199,8 +210,15 @@ func (a *App) topBar(c *ui.Context) {
 			ui.Row(c).MinWidth(240).Basis(520).Shrink(1).Grow(0).Children(func() { search(c) })
 		}
 		ui.Box(c).Grow(1).MinWidth(64).Height(1)
-		if account != nil {
-			account(c)
+		if notices != nil || account != nil {
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				if notices != nil {
+					notices(c, acts)
+				}
+				if account != nil {
+					account(c)
+				}
+			})
 		}
 	})
 }
@@ -234,17 +252,10 @@ func (a *App) sidebarView(c *ui.Context) {
 				}
 			})
 		})
-		ui.Column(c).Children(func() {
-			for _, m := range a.mods {
-				if m.Slots.SidebarFooter != nil {
-					m.Slots.SidebarFooter(c)
-				}
+		ui.Column(c).Gap(2).Children(func() {
+			for _, n := range a.nav[module.NavFooter] {
+				a.navLink(c, n)
 			}
-			ui.Column(c).Gap(2).Children(func() {
-				for _, n := range a.nav[module.NavFooter] {
-					a.navLink(c, n)
-				}
-			})
 		})
 	})
 }

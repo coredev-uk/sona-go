@@ -58,6 +58,10 @@ msgstr "A new code is on its way to your devices."
 msgid "A new code is on its way."
 msgstr "A new code is on its way."
 
+#: internal/ui/features/settings/releases.go
+msgid "A reminder that comes due and new releases from your artists are always in Notifications, under the bell. This also shows them on your desktop: one for each release, or one summary when several arrive together."
+msgstr "A reminder that comes due and new releases from your artists are always in Notifications, under the bell. This also shows them on your desktop: one for each release, or one summary when several arrive together."
+
 #: internal/ui/features/settings/connections.go
 msgid "A song counts once you've played half of it or four minutes. Radio and songs of 30 seconds or less aren't sent. Songs you play offline are sent when you're back online."
 msgstr "A song counts once you've played half of it or four minutes. Radio and songs of 30 seconds or less aren't sent. Songs you play offline are sent when you're back online."
@@ -373,10 +377,13 @@ msgid "Also offers release candidates and other test versions, so a test build u
 msgstr "Also offers release candidates and other test versions, so a test build updates to the next one."
 
 #: internal/ui/features/settings/find.go
-#: internal/ui/features/settings/releases.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "Also show a desktop notification"
 msgstr "Also show a desktop notification"
+
+#: internal/ui/features/settings/releases.go
+msgid "Also show releases as desktop notifications"
+msgstr "Also show releases as desktop notifications"
 
 #: internal/ui/features/settings/shortcuts.go
 msgid "Also used by {otherNames}. Only the first one runs."
@@ -1100,6 +1107,10 @@ msgstr "Classical"
 msgid "Clear"
 msgstr "Clear"
 
+#: internal/ui/features/notifications/panel.go
+msgid "Clear all"
+msgstr "Clear all"
+
 #: internal/ui/features/settings/storage.go
 msgid "Clear caches"
 msgstr "Clear caches"
@@ -1434,6 +1445,10 @@ msgstr "Couldn't check for updates"
 msgid "Couldn't check: {failure}"
 msgstr "Couldn't check: {failure}"
 
+#: internal/ui/features/notifications/notifications.go
+msgid "Couldn't clear notifications"
+msgstr "Couldn't clear notifications"
+
 #: internal/ui/features/search/queries.go
 msgid "Couldn't clear recent searches"
 msgstr "Couldn't clear recent searches"
@@ -1504,6 +1519,10 @@ msgstr "Couldn't export your settings"
 #: internal/ui/kit/song_itemstate.go
 msgid "Couldn't favourite {subject}"
 msgstr "Couldn't favourite {subject}"
+
+#: internal/ui/features/cdm/cdm.go
+msgid "Couldn't get Widevine"
+msgstr "Couldn't get Widevine"
 
 #: internal/ui/features/cdm/cdm.go
 msgid "Couldn't get Widevine · Retry in Settings"
@@ -1722,6 +1741,10 @@ msgstr "Couldn't load your music videos from Apple Music"
 msgid "Couldn't load your recommendations"
 msgstr "Couldn't load your recommendations"
 
+#: internal/ui/features/notifications/notifications.go
+msgid "Couldn't mark notifications read"
+msgstr "Couldn't mark notifications read"
+
 #: internal/ui/features/player/queue_ui.go
 msgid "Couldn't move it"
 msgstr "Couldn't move it"
@@ -1914,6 +1937,10 @@ msgstr "Couldn't refresh · from {fetched}"
 #: internal/ui/features/player/queue_ui.go
 msgid "Couldn't remove it"
 msgstr "Couldn't remove it"
+
+#: internal/ui/features/notifications/notifications.go
+msgid "Couldn't remove the notification"
+msgstr "Couldn't remove the notification"
 
 #: internal/ui/kit/account_service.go
 msgid "Couldn't remove the reminder"
@@ -2377,6 +2404,10 @@ msgstr "Downloaded from Google"
 #: internal/ui/features/updates/updates.go
 msgid "Downloading Sona {latest}…"
 msgstr "Downloading Sona {latest}…"
+
+#: internal/ui/features/cdm/cdm.go
+msgid "Downloading Widevine"
+msgstr "Downloading Widevine"
 
 #: internal/ui/features/onboarding/widevine.go
 msgid "Downloading Widevine…"
@@ -2993,6 +3024,10 @@ msgstr "Google doesn't make Widevine for this computer, so songs can't play here
 msgid "Google's Widevine plays Apple Music's protected songs. Sona downloads it from Google and keeps it up to date by itself; an update applies the next time playback starts."
 msgstr "Google's Widevine plays Apple Music's protected songs. Sona downloads it from Google and keeps it up to date by itself; an update applies the next time playback starts."
 
+#: internal/ui/features/cdm/cdm.go
+msgid "Google's Widevine plays protected songs. Sona downloads it once and keeps it up to date."
+msgstr "Google's Widevine plays protected songs. Sona downloads it once and keeps it up to date."
+
 #: internal/ui/features/onboarding/widevine.go
 msgid "Google's component that plays Apple Music's protected songs. Sona downloads it, checks Google's signature and keeps it up to date."
 msgstr "Google's component that plays Apple Music's protected songs. Sona downloads it, checks Google's signature and keeps it up to date."
@@ -3247,6 +3282,7 @@ msgstr "It applies the next time playback starts."
 msgid "It asks for a permission Sona doesn't have."
 msgstr "It asks for a permission Sona doesn't have."
 
+#: internal/ui/features/addons/addons.go
 #: internal/ui/features/settings/addons.go
 msgid "It asks for a permission you haven't approved. It doesn't run until you do."
 msgstr "It asks for a permission you haven't approved. It doesn't run until you do."
@@ -3351,7 +3387,7 @@ msgstr "It starts when Sona has something for it to do."
 msgid "It stopped on its own."
 msgstr "It stopped on its own."
 
-#: internal/ui/features/addons/addons.go
+#: internal/ui/features/notifications/panel.go
 msgid "It stopped several times in a row. Settings → Add-ons has its log."
 msgstr "It stopped several times in a row. Settings → Add-ons has its log."
 
@@ -4103,6 +4139,10 @@ msgstr "NetEase Cloud Music"
 msgid "Never"
 msgstr "Never"
 
+#: internal/ui/features/notifications/panel.go
+msgid "New EP from {artist}"
+msgstr "New EP from {artist}"
+
 #: internal/ui/features/playlist/dialogs.go
 msgid "New Folder"
 msgstr "New Folder"
@@ -4116,6 +4156,10 @@ msgstr "New Playlist"
 #: internal/ui/features/settings/general.go
 msgid "New Releases"
 msgstr "New Releases"
+
+#: internal/ui/features/notifications/panel.go
+msgid "New album from {artist}"
+msgstr "New album from {artist}"
 
 #: internal/ui/features/playlist/sidebar.go
 msgid "New folder…"
@@ -4143,9 +4187,9 @@ msgstr "New playlist or folder"
 msgid "New releases"
 msgstr "New releases"
 
-#: internal/ui/features/updates/updates.go
-msgid "New version"
-msgstr "New version"
+#: internal/ui/features/notifications/panel.go
+msgid "New single from {artist}"
+msgstr "New single from {artist}"
 
 #: internal/ui/features/discover/room.go
 msgid "Newest first"
@@ -4624,6 +4668,10 @@ msgstr "Nothing left to arrange"
 msgid "Nothing logged yet."
 msgstr "Nothing logged yet."
 
+#: internal/ui/features/notifications/panel.go
+msgid "Nothing new"
+msgstr "Nothing new"
+
 #: internal/ui/features/newreleases/page.go
 msgid "Nothing new yet"
 msgstr "Nothing new yet"
@@ -4657,9 +4705,16 @@ msgstr "Nothing to change"
 msgid "Nothing to show"
 msgstr "Nothing to show"
 
+#: internal/ui/features/notifications/notifications.go
+#: internal/ui/features/notifications/panel.go
 #: internal/ui/kit/overlays_toast.go
 msgid "Notifications"
 msgstr "Notifications"
+
+#. The notification bell's name with how many entries are unread.
+#: internal/ui/features/notifications/notifications.go
+msgid "Notifications, {n} new"
+msgstr "Notifications, {n} new"
 
 #: internal/ui/app/menubar.go
 #: internal/ui/features/player/queue_list.go
@@ -4801,10 +4856,6 @@ msgstr "On this page"
 #: internal/ui/features/settings/releases.go
 msgid "Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
 msgstr "Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
-
-#: internal/ui/features/settings/releases.go
-msgid "One notification for each new release, or one summary when several arrive together. Click it to open the release."
-msgstr "One notification for each new release, or one summary when several arrive together. Click it to open the release."
 
 #. Notice at the top of the playlist cover picker: the chosen cover is kept on this computer only; Apple Music and the user's other devices do not get it.
 #: internal/ui/features/playlist/covers.go
@@ -5798,6 +5849,10 @@ msgstr "Released"
 msgid "Released {releaseDate}"
 msgstr "Released {releaseDate}"
 
+#: internal/ui/features/notifications/panel.go
+msgid "Releases you asked to hear about, and anything that needs you, show up here."
+msgstr "Releases you asked to hear about, and anything that needs you, show up here."
+
 #: internal/ui/features/reminders/reminders.go
 #: internal/ui/kit/account_remind.go
 msgid "Remind me"
@@ -5848,6 +5903,10 @@ msgstr "Remove {name} from the queue"
 #: internal/ui/features/playlist/editor.go
 msgid "Remove {songName} from {playlist}"
 msgstr "Remove {songName} from {playlist}"
+
+#: internal/ui/features/notifications/panel.go
+msgid "Remove “{title}”"
+msgstr "Remove “{title}”"
 
 #: internal/ui/features/playlist/editor.go
 msgid "Removed {songName}"
@@ -6002,6 +6061,10 @@ msgstr "Retry"
 #: internal/ui/kit/controls_states.go
 msgid "Retrying…"
 msgstr "Retrying…"
+
+#: internal/ui/features/addons/addons.go
+msgid "Review"
+msgstr "Review"
 
 #: internal/ui/features/settings/addons.go
 msgid "Revoke"
@@ -6291,6 +6354,10 @@ msgstr "Settings has all of this, and Settings → General runs the setup again.
 #: internal/ui/features/settings/page.go
 msgid "Settings sections"
 msgstr "Settings sections"
+
+#: internal/ui/features/addons/addons.go
+msgid "Settings → Add-ons says why."
+msgstr "Settings → Add-ons says why."
 
 #: internal/ui/app/menubar.go
 msgid "Settings…"
@@ -7087,10 +7154,6 @@ msgstr "Sona {current} · no release published yet"
 msgid "Sona {current} · not checked yet"
 msgstr "Sona {current} · not checked yet"
 
-#: internal/ui/features/updates/updates.go
-msgid "Sona {latest}"
-msgstr "Sona {latest}"
-
 #: internal/ui/features/settings/updates.go
 #: internal/ui/features/updates/updates.go
 msgid "Sona {latest} is available"
@@ -7817,6 +7880,10 @@ msgstr "They also leave any playlists they're in."
 msgid "They open in {app} now."
 msgstr "They open in {app} now."
 
+#: internal/ui/features/notifications/panel.go
+msgid "They're in New Releases."
+msgstr "They're in New Releases."
+
 #: internal/ui/i18n/errors.go
 msgid "This Apple Account doesn't have an active Apple Music subscription."
 msgstr "This Apple Account doesn't have an active Apple Music subscription."
@@ -8085,6 +8152,7 @@ msgstr "Trusted phone number"
 #. Reads the sign-in from the system keyring again. Apple's wording: ASE.Web.Music.Error.TryAgain
 #: internal/ui/account/keyring.go
 #: internal/ui/features/auth/menu.go
+#: internal/ui/features/cdm/cdm.go
 #: internal/ui/features/library/sync.go
 #: internal/ui/features/library/videos.go
 #: internal/ui/features/onboarding/widevine.go
@@ -8264,6 +8332,10 @@ msgstr "Upcoming Concerts"
 #: internal/ui/features/updates/updates.go
 msgid "Update download"
 msgstr "Update download"
+
+#: internal/ui/features/updates/updates.go
+msgid "Update it the way you installed Sona."
+msgstr "Update it the way you installed Sona."
 
 #: internal/ui/features/settings/updates.go
 msgid "Update this AppImage in place with AppImageUpdate, or download the new one from the release page."
@@ -9271,6 +9343,11 @@ msgstr "{albumName} cover"
 msgid "{albums, plural, one {# album} other {# albums}}"
 msgstr "{albums, plural, one {# album} other {# albums}}"
 
+#. Notification: an album the person asked to be reminded of has come out.
+#: internal/ui/features/notifications/panel.go
+msgid "{album} is out"
+msgstr "{album} is out"
+
 #: internal/ui/features/settings/diag_rows.go
 msgid "{artists, plural, one {# artist} other {# artists}}"
 msgstr "{artists, plural, one {# artist} other {# artists}}"
@@ -9496,6 +9573,10 @@ msgstr "{n, plural, one {# music video} other {# music videos}}"
 msgid "{n, plural, one {# needs you} other {# need you}}"
 msgstr "{n, plural, one {# needs you} other {# need you}}"
 
+#: internal/ui/features/notifications/panel.go
+msgid "{n, plural, one {# new release from your artists} other {# new releases from your artists}}"
+msgstr "{n, plural, one {# new release from your artists} other {# new releases from your artists}}"
+
 #: internal/ui/features/settings/addons.go
 msgid "{n, plural, one {# on} other {# on}}"
 msgstr "{n, plural, one {# on} other {# on}}"
@@ -9523,6 +9604,10 @@ msgstr "{n, plural, one {# station} other {# stations}}"
 msgid "{n, plural, one {stopped once} other {stopped # times}}"
 msgstr "{n, plural, one {stopped once} other {stopped # times}}"
 
+#: internal/ui/features/addons/addons.go
+msgid "{name} can't run"
+msgstr "{name} can't run"
+
 #: internal/ui/features/search/profile.go
 msgid "{name} hasn't shared any playlists on their profile."
 msgstr "{name} hasn't shared any playlists on their profile."
@@ -9535,11 +9620,15 @@ msgstr "{name} is out now"
 msgid "{name} keeps their profile private, so only followers see what they share."
 msgstr "{name} keeps their profile private, so only followers see what they share."
 
+#: internal/ui/features/addons/addons.go
+msgid "{name} needs your approval"
+msgstr "{name} needs your approval"
+
 #: internal/ui/features/settings/connections.go
 msgid "{name} no longer accepts Sona's sign-in. Reconnect to keep scrobbling."
 msgstr "{name} no longer accepts Sona's sign-in. Reconnect to keep scrobbling."
 
-#: internal/ui/features/addons/addons.go
+#: internal/ui/features/notifications/panel.go
 msgid "{name} was switched off"
 msgstr "{name} was switched off"
 
@@ -9574,6 +9663,11 @@ msgstr "{note} Playback still works. To sandbox it fully, allow unprivileged use
 #: internal/ui/features/settings/diag_rows.go
 msgid "{note} Previews still play, but Sona loads the Widevine CDM only inside its sandbox, so full songs can't."
 msgstr "{note} Previews still play, but Sona loads the Widevine CDM only inside its sandbox, so full songs can't."
+
+#. The notification bell's name while something runs: "Notifications, 2 new" then "Syncing songs, 812 of 2,040".
+#: internal/ui/features/notifications/notifications.go
+msgid "{notifications}; {activity}"
+msgstr "{notifications}; {activity}"
 
 #: internal/ui/features/settings/storage.go
 msgid "{n} MB"
@@ -9750,6 +9844,11 @@ msgstr "{warnings, plural, one {# warning to look at below} other {# warnings to
 #: internal/ui/kit/overlays_actionmenu.go
 msgid "{what} selected"
 msgstr "{what} selected"
+
+#. The notification bell's name while the library syncs: "Syncing songs, 812 of 2,040".
+#: internal/ui/features/library/sync.go
+msgid "{what}, {count}"
+msgstr "{what}, {count}"
 
 #: internal/ui/features/onboarding/done.go
 msgid "{widevine}. Sona tries again by itself later."

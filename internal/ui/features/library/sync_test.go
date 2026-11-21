@@ -268,9 +268,6 @@ func TestModuleRoutesAndNav(t *testing.T) {
 			t.Error("Made for you is in the sidebar")
 		}
 	}
-	if m.Slots.SidebarFooter == nil {
-		t.Error("no sync indicator slot")
-	}
 }
 
 func TestMadeForYouRedirectsHome(t *testing.T) {

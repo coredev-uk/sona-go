@@ -32,14 +32,17 @@ func (a *addonEnv) useAll(t *testing.T) {
 	}
 }
 
-// notices are the "switched off" notices Sona emitted so far.
-func (a *addonEnv) notices() []AddonNotice {
-	a.rec.mu.Lock()
-	defer a.rec.mu.Unlock()
-	var out []AddonNotice
-	for k, name := range a.rec.events {
-		if name == EventAddonsNotice {
-			out = append(out, a.rec.data[k].(AddonNotice))
+// notices are the notification centre's "switched off" entries so far.
+func (a *addonEnv) notices(t *testing.T) []Notification {
+	t.Helper()
+	list, err := a.e.listNotices(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []Notification
+	for _, n := range list.Items {
+		if n.Kind == NoticeAddonOff {
+			out = append(out, n)
 		}
 	}
 	return out
@@ -258,7 +261,7 @@ func TestAddonsBundledAreNeverSwitchedOffByTheCrashRule(t *testing.T) {
 	if st := a.settings.Get().Addons["demo"]; st.Enabled {
 		t.Errorf("the user's add-on stayed on in the settings: %+v", st)
 	}
-	if got := a.notices(); len(got) != 1 || got[0].ID != "demo" {
+	if got := a.notices(t); len(got) != 1 || got[0].Subject != "Add-on demo" {
 		t.Errorf("notices = %+v, want one, for the user's add-on that was switched off", got)
 	}
 	lines, _ := a.svc.Log("lastfm")

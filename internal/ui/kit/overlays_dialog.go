@@ -351,6 +351,10 @@ type PopoverOpts struct {
 	Width float32
 	// Padding inside it; 0 is 16.
 	Padding float32
+	// End lines the panel's end up with the anchor's end, for an anchor at
+	// the window's trailing edge (the notification centre's bell); the
+	// start edges otherwise.
+	End bool
 }
 
 // Popover shows a panel below anchor while *open is true (above it where
@@ -372,6 +376,9 @@ func Popover(c *ui.Context, anchor ui.Element, open *bool, o PopoverOpts, build 
 		sh := tk.Shadow["float"]
 		panel.Width(w).Padding(pad).Margin(4, 0, 0, 0).Radius(tk.Radius["lg"]).Background(theme.C("popover")).
 			Border(1, theme.C("border")).Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color).TextColor(theme.C("popover-foreground"))
+		if o.End {
+			panel.AttachTo(anchor, ui.AnchorBottomEnd, ui.AnchorTopEnd)
+		}
 		if !theme.ReducedMotion() {
 			m := tk.Motion["float"]
 			panel.Transition(ui.ElementTransition{Enter: &ui.Motion{Scale: 0.95}, Duration: m.Duration, Ease: m.Ease})

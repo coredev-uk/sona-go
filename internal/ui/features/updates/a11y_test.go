@@ -10,11 +10,10 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
-// The notice's sentence is a status, announced as the notice appears (a
-// status is not read when it first appears) and read by MyGo as it changes,
-// each once, with View a button beside the text that Tab reaches, outside
-// the status; a failed open toasts, and the toast is announced.
-func TestA11yNoticeIsAnnouncedAndHasAReachableButton(t *testing.T) {
+// The row's title is announced as the update turns up and as it changes,
+// each once (the bell is always built, the panel only while open), with View
+// a button Tab reaches; a failed open toasts, and the toast is announced.
+func TestA11yUpdateIsAnnouncedAndHasAReachableButton(t *testing.T) {
 	r := newRig(t)
 	r.tt.Drain()
 	r.tt.UseScreenReader()
@@ -24,19 +23,17 @@ func TestA11yNoticeIsAnnouncedAndHasAReachableButton(t *testing.T) {
 	}
 	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, URL: "https://example.test/r"})
 	if ann := r.tt.Announcements(); !slices.Equal(ann, []string{"Sona 0.3.0 is available"}) {
-		t.Errorf("announcements %q, want the notice once", ann)
+		t.Errorf("announcements %q, want the update once", ann)
 	}
 	access.NoNestedControls(t, tt)
 	tr := access.Read(t, tt)
-	st, ok := tr.Find(ui.RoleStatus, "Sona 0.3.0 is available")
-	if !ok {
-		t.Fatalf("no status:\n%s", tr.Dump())
+	if _, ok := tr.Find(ui.RoleGroup, "Sona 0.3.0 is available"); !ok {
+		t.Fatalf("no group named by the row's title:\n%s", tr.Dump())
 	}
 	view, ok := tr.Find(ui.RoleButton, "View")
-	if !ok || !view.Has(access.Focusable) || tr.Within(view, ui.RoleStatus) {
-		t.Errorf("View: %+v, want a focusable button outside the status", view)
+	if !ok || !view.Has(access.Focusable) {
+		t.Errorf("View: %+v, want a focusable button", view)
 	}
-	_ = st
 	stops := access.TabWalk(t, tt, 5)
 	if len(stops) != 1 || stops[0].Node.Label != "View" {
 		t.Errorf("Tab stops %v", stops)
@@ -56,7 +53,7 @@ func TestA11yNoticeIsAnnouncedAndHasAReachableButton(t *testing.T) {
 		t.Errorf("the failure is not announced: %q", ann)
 	}
 
-	// What changes the sentence is read once, by the status.
+	// What changes the title is read once.
 	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.0", Available: true, Installing: true})
 	if ann := r.tt.Announcements(); !slices.Equal(ann, []string{"Downloading Sona 0.3.0…"}) {
 		t.Errorf("a download starting announced %q, want it once", ann)

@@ -261,10 +261,15 @@ type Slots struct {
 	Bottom         func(c *ui.Context) // across the bottom (the player bar)
 	Layer          func(c *ui.Context) // over the whole window (first-run setup); the window behind is inert while LayerOpen
 	LayerOpen      func() bool
-	SidebarFooter  func(c *ui.Context)
 	SidebarSection func(c *ui.Context) // stacks in module order
 	TopBarSearch   func(c *ui.Context) // the first one wins
 	TopBarAccount  func(c *ui.Context) // the top bar's trailing end (the account menu); the first one wins
+	// TopBarNotices is the notification centre's bell, before the account
+	// menu (the first one wins). The shell hands it every module's Activity,
+	// in module order, for the panel's live rows and the bell's marks.
+	TopBarNotices func(c *ui.Context, acts []Activity)
+	// Activity is the module's live part of the notification centre.
+	Activity *Activity
 	// Mini is the mini player window's whole content (the first one wins).
 	// The shell owns the window (fixed size, frameless, above other
 	// windows) and builds Mini in it while it is shown; the content drags
@@ -284,6 +289,36 @@ type Overlay struct {
 	// swipe, a link): the page that came is behind the overlay, where
 	// nothing shows it.
 	Close func()
+}
+
+// Activity is a module's live part of the notification centre: work under
+// way or a state that needs the person right now, which the module reads
+// from its own state (nothing of it is stored as an entry). Status is
+// called every time the bell is built, so it only reads stores; it may
+// announce a change of phase (c.Announce), as the bell is always built.
+// Build draws the module's rows at the top of the panel while Status is
+// Shown, and Foot, when set, a quiet line at the panel's foot whatever
+// Status says (the library's "Synced 2 minutes ago").
+type Activity struct {
+	Status func(c *ui.Context) ActivityStatus
+	Build  func(c *ui.Context)
+	Foot   func(c *ui.Context)
+}
+
+// ActivityStatus is what an Activity shows now.
+type ActivityStatus struct {
+	// Shown: Build has rows to draw.
+	Shown bool
+	// Busy: work under way. The bell draws a bar of Progress (0 to 1; below
+	// 0 while unknown) and adds Label to its name ("Syncing songs, 812 of
+	// 2,040").
+	Busy     bool
+	Progress float64
+	Label    string
+	// News: something new to look at (an update): the bell's ink dot.
+	News bool
+	// Alert: something failed and needs the person: the bell's danger dot.
+	Alert bool
 }
 
 // Module is a feature as the shell sees it.
