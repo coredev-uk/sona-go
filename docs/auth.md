@@ -90,6 +90,7 @@ Four surfaces get a MUT (§4.3). The loopback flow (§4.1–§4.6) and the nativ
 - **[verified]** Apple's authorize page stored `sessionStorage.ac = "http://127.0.0.1:<port>/auth/<nonce>/callback"` (with `document.referrer` = the start URL), so after sign-in it redirects to Sona's callback.
 - **[verified]** Simulating Apple's final hop (navigating to `callback#<btoa({cid,itre,musicUserToken})>` with a real MUT) runs the callback page JS, posts to `/complete`, and `authspike` prints `signed in: storefront=<id> (<name>)`.
 - **[verified]** Apple's own post-sign-in redirect to the loopback referrer: an interactive sign-in in the system browser completes the flow.
+- **[unverified]** The callback now has a path segment, `/auth/<nonce>/callback/<state>`, and the page rejects anything else (§4.5). Apple's code above takes the whole `referrer` href, so the path should survive; no real sign-in has run it yet. Run it before relying on it (§8).
 
 ### 4.2 Sequence
 
@@ -105,17 +106,17 @@ sequenceDiagram
 
   UI->>Go: SignIn()
   Go->>Go: devToken = webplayer.Token()
-  Go->>LB: start, nonce N (128-bit), 10 min deadline
+  Go->>LB: start, nonce N (128-bit), state S (256-bit), 10 min deadline
   Go->>B: open http://127.0.0.1:P/auth/N/start?t=T (single-use ticket T)
   B->>LB: GET /auth/N/start?t=T
   LB-->>B: Set-Cookie sona_signin=K (HttpOnly, SameSite=Strict, Path=/auth/N/); page: Referrer-Policy unsafe-url, location.replace(authorizeURL)
-  B->>AZ: GET /woa?a=b64(info)&referrer=http://127.0.0.1:P/auth/N/callback&app=music&p=subscribe
+  B->>AZ: GET /woa?a=b64(info)&referrer=http://127.0.0.1:P/auth/N/callback/S&app=music&p=subscribe
   AZ->>ID: Apple ID sign-in (+2FA)
   ID-->>AZ: validateMusicKitToken
   AZ-->>B: location.assign(callback + "#" + b64({cid,itre,musicUserToken}))
-  B->>LB: GET /auth/N/callback (cross-site navigation: no cookie; fragment stays client-side)
-  LB-->>B: page JS reads location.hash, history.replaceState, POST /auth/N/complete
-  B->>LB: POST /auth/N/complete {fragment} + cookie K (same-origin fetch)
+  B->>LB: GET /auth/N/callback/S (cross-site navigation: no cookie; fragment stays client-side)
+  LB-->>B: page JS reads location.hash, history.replaceState to /auth/N/callback (S leaves the address bar), POST /auth/N/complete
+  B->>LB: POST /auth/N/complete {fragment, state: S} + cookie K (same-origin fetch)
   LB->>Go: decode, single-use consume N
   Go->>API: GET /v1/me/storefront (Bearer + Media-User-Token)
   API-->>Go: 200 {data:[{id:"<storefront>"}]}
@@ -166,9 +167,16 @@ Start links and the cookie:
 - The UI's "Open the page again" and "Copy link" get a new link from `AuthService.SignInLink`.
 - `Strict` is enough. Apple's redirect to `/callback` is a cross-site navigation and carries no cookie, but `/callback` receives nothing (the token stays in the fragment). The cookie is needed only on the callback page's same-origin `fetch` to `/complete`, where it is sent. Checked in headless Chromium 155 with a stand-in authorize page (F7).
 
+The callback state:
+
+- The cookie binds the browser, not the fragment: a page open in the same browser could navigate it to `/callback#<another account's token>` and the callback page would post that fragment with the cookie (login CSRF, security review F?). So each attempt also has a 256-bit `state`, generated with the nonce and found only in the `referrer` Sona gives Apple: `http://127.0.0.1:<port>/auth/<nonce>/callback/<state>`. Apple's redirect returns to that exact URL plus `#<data>`, so only a fragment that came back through Apple's redirect arrives at a path that has it. It is in no start link and not in the cookie.
+- `GET /callback/<state>` serves the page only when the state matches (constant-time). `/callback`, and a wrong or extra segment, are 404 with nothing to post with. The page's script carries the state, replaces the address with `/auth/<nonce>/callback` (`history.replaceState`) and posts `{fragment, state}`.
+- `POST /complete` also requires `state` equal to the attempt's (constant-time, 403 otherwise; the attempt keeps waiting). The state dies with the attempt.
+- The state is a bearer secret only for the moment between Apple's redirect and the page's `replaceState`. The callback page sets `Referrer-Policy: no-referrer` and loads nothing, so the path goes nowhere else. A same-user process can read it from the browser, as it can read anything of Sona's.
+
 Request and response rules:
 
-- `POST /complete` requires `Origin: http://127.0.0.1:<port>`, the start cookie and `Content-Type: application/json`, with a body cap of 16 KiB.
+- `POST /complete` requires `Origin: http://127.0.0.1:<port>`, the start cookie, the state and `Content-Type: application/json`, with a body cap of 16 KiB.
 - Every response sets `Cache-Control: no-store` and a CSP of `default-src 'none'; script-src 'nonce-…'; connect-src 'self'`.
 - Never log the fragment, the MUT, the dev token or the cookie. `slog` uses a redacting `LogValuer` on token types.
 
@@ -184,6 +192,7 @@ Request and response rules:
 | Second `SignIn` while one is pending | existing attempt | cancel the old attempt (close its server), start a new one |
 | A start link loaded a second time | `mut.ErrStartReused` | the attempt ends; back to the prior state with "the sign-in link was opened twice; start the sign-in again" |
 | `POST /complete` without the start cookie | 403 | the attempt keeps waiting for the browser that started it |
+| `POST /complete` without the right state, or `/callback` without it | 403 / 404 | the attempt keeps waiting. If Apple or the browser drops the path, the callback page shows "This sign-in page is not the one Sona opened" and the attempt times out: offer retry or token paste |
 
 ### 4.7 Native sign-in (`internal/auth/appleid`)
 
@@ -397,3 +406,12 @@ Every step runs even if one fails; failures are returned and shown in `Status.La
 
 - The native no-device two-factor paths (§4.7).
 - Revocation: sign out in the Apple Account settings and record the 401/403 shape Sona then sees.
+
+### Live check of the callback path
+
+The state relies on Apple returning to the full `referrer` path. Unit tests cannot show that, and it needs a real Apple Account, so it is a maintainer check. In a private (incognito) browser window:
+
+1. `devenv shell -- go run ./cmd/authspike -open=false` prints a start link and waits.
+2. Open the link in the private window and sign in (password and code, or passkey).
+3. Watch the address bar after Apple's last page. It should show `http://127.0.0.1:<port>/auth/<nonce>/callback/<43 characters>` for a moment, then `…/callback` without the state, then the page says "Signed in. You can close this window and return to Sona." `authspike` then prints `signed in: storefront=<id> (<name>)`.
+4. Failure looks like this: the page says "This sign-in page is not the one Sona opened" (Apple dropped the path, so the address bar shows `…/callback#…` with nothing after it) or `authspike` times out. Record the browser and what the address bar shows. Repeat in Safari, where §4.4's referrer trimming applies, and in Firefox or Chrome.
