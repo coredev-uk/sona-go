@@ -1,6 +1,6 @@
 # Security review
 
-This document is Sona's security design and its audit record. It gives the threat model and the controls for each component that handles untrusted input, then lists the weaknesses found in Sona's own code (F1–F10), the control that closed each one and the tests that keep it closed.
+This document is Sona's security design and its audit record. It gives the threat model and the controls for each component that handles untrusted input, then lists the weaknesses found in Sona's own code (F1–F26), the control that closed each one and the tests that keep it closed.
 
 To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat model (workflows, secrets, the release bot) is maintainer documentation: [docs/maintainers/ci-and-secrets.md](maintainers/ci-and-secrets.md). For how the pieces fit together, see [architecture.md](architecture.md) and [auth.md](auth.md).
 
@@ -17,6 +17,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [Apple's translations](#apples-translations)
   - [Lyrics from other services](#lyrics-from-other-services)
   - [TuneIn metadata](#tunein-metadata)
+  - [Local broadcaster streams](#local-broadcaster-streams)
   - [WebAssembly add-ons](#webassembly-add-ons)
   - [The item inspector](#the-item-inspector)
   - [Sona's own add-ons](#sonas-own-add-ons)
@@ -33,6 +34,22 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [F8. A compromised child could exhaust the parent's memory](#f8-a-compromised-child-could-exhaust-the-parents-memory)
   - [F9. Artwork decoding accepted any registered image format](#f9-artwork-decoding-accepted-any-registered-image-format)
   - [F10. Development builds logged the build credentials](#f10-development-builds-logged-the-build-credentials)
+  - [F11. The child could reach the user's terminals](#f11-the-child-could-reach-the-users-terminals)
+  - [F12. On Ubuntu the CDM host child could reach the session bus](#f12-on-ubuntu-the-cdm-host-child-could-reach-the-session-bus)
+  - [F13. Release builds ran third-party tools without a pin or a checksum](#f13-release-builds-ran-third-party-tools-without-a-pin-or-a-checksum)
+  - [F14. CI and release images were trusted by a tag any branch could overwrite](#f14-ci-and-release-images-were-trusted-by-a-tag-any-branch-could-overwrite)
+  - [F15. The release bot's App key was readable by branch runs](#f15-the-release-bots-app-key-was-readable-by-branch-runs)
+  - [F16. A NUL byte or invalid UTF-8 in on-air metadata broke MPRIS](#f16-a-nul-byte-or-invalid-utf-8-in-on-air-metadata-broke-mpris)
+  - [F17. The sona command printed other people's text to the terminal unfiltered](#f17-the-sona-command-printed-other-peoples-text-to-the-terminal-unfiltered)
+  - [F18. The diagnostics bundle carried the person's city and device names](#f18-the-diagnostics-bundle-carried-the-persons-city-and-device-names)
+  - [F19. The motion-artwork remuxer panicked on a huge tfhd base offset](#f19-the-motion-artwork-remuxer-panicked-on-a-huge-tfhd-base-offset)
+  - [F20. The fMP4 parser panicked on crafted init segments and fragments](#f20-the-fmp4-parser-panicked-on-crafted-init-segments-and-fragments)
+  - [F21. Server-declared counts and lengths allocated without limit](#f21-server-declared-counts-and-lengths-allocated-without-limit)
+  - [F22. Artwork from the CDN was decoded without a pixel limit](#f22-artwork-from-the-cdn-was-decoded-without-a-pixel-limit)
+  - [F23. Local broadcaster streams followed any URL](#f23-local-broadcaster-streams-followed-any-url)
+  - [F24. CDM message events started unbounded renewal goroutines](#f24-cdm-message-events-started-unbounded-renewal-goroutines)
+  - [F25. The Last.fm approval token was in the browser's command line](#f25-the-lastfm-approval-token-was-in-the-browsers-command-line)
+  - [F26. The update manifest's version and platform were not signed](#f26-the-update-manifests-version-and-platform-were-not-signed)
 - [Areas reviewed without findings](#areas-reviewed-without-findings)
 - [Run the tests](#run-the-tests)
 
@@ -43,7 +60,7 @@ Each row is a trust boundary. The sections below give the detail.
 | Boundary | Trusted with | Main control |
 | --- | --- | --- |
 | UI process | The user's session, settings and tokens; drawing text | Strings from Apple, lyrics services and TuneIn are drawn as plain text, never markup or code. Artwork decodes only as JPEG or PNG ([F9](#f9-artwork-decoding-accepted-any-registered-image-format)). Settings import cannot set local keys ([F1](#f1-settings-import-could-set-the-cdm-path)) |
-| CDM host child, Linux | Running Google's closed CDM on Apple's encrypted media, nothing else | Own user, network and mount namespaces, Landlock, seccomp and a scrubbed environment ([Linux sandbox](#linux-sandbox)). No sandbox, no CDM ([F3](#f3-the-sandbox-failed-open)) |
+| CDM host child, Linux | Running Google's closed CDM on Apple's encrypted media, nothing else | Own user, network and mount namespaces, Landlock, seccomp and a scrubbed environment ([Linux sandbox](#linux-sandbox)). The `.deb` and `.rpm` ship the AppArmor profile Ubuntu needs for the namespaces ([F12](#f12-on-ubuntu-the-cdm-host-child-could-reach-the-session-bus)). No sandbox, no CDM ([F3](#f3-the-sandbox-failed-open)) |
 | CDM host child, macOS | The same | Seatbelt profile: no network, no writes outside temporary folders, Sona's folder and keychain out of reach. Fails open ([macOS sandbox](#macos-sandbox)) |
 | CDM host child, Windows | The same | AppContainer with no capabilities inside a job object. No sandbox, no CDM ([Windows sandbox](#windows-sandbox)) |
 | Add-ons, native (out of process) | Their own folder, a private data folder and what the user approved (`network` included); nothing else of the user's system | On every OS the process is confined by the system, and where that can't be set up it does not run: user, mount and PID namespaces, Landlock and seccomp on Linux, a Seatbelt profile on macOS, an AppContainer in a job object on Windows ([Native add-ons](#native-add-ons)) |
@@ -153,13 +170,15 @@ Each component lists what it does, the threats, the controls, the tests and the 
   - `childEnv` drops `DBUS_*`, `DISPLAY`, `WAYLAND_*`, `XAUTHORITY`, `SSH_*`, `GPG_*`, `GNOME_KEYRING*`, `AT_SPI_*`, `KRB5*` and `SESSION_MANAGER`.
   - It also drops anything named like a credential (`TOKEN`, `SECRET`, `PASSW`, `CREDENTIAL`, `COOKIE`, `API_KEY`, `PRIVATE_KEY`, `AUTH`).
   - The child starts in `/`.
+- **Session.** The child starts in a session of its own (`Setsid`) on every spawn path, so it has no controlling terminal: `open("/dev/tty")` fails with `ENXIO` and it cannot push keystrokes into Sona's terminal ([F11](#f11-the-child-could-reach-the-users-terminals)).
 - **Namespaces and filesystem.** The child starts in a new user, network and mount namespace. Its first stage (holding `CAP_SYS_ADMIN` in its own user namespace only, as an ambient capability) changes the view as follows:
-  - `/run`, `/tmp`, `/var/tmp` and `$XDG_RUNTIME_DIR` become empty tmpfs. `/run`'s top-level symlinks are recreated.
+  - `/run`, `/tmp`, `/var/tmp` and `$XDG_RUNTIME_DIR` become empty tmpfs. `/run`'s top-level symlinks are recreated. `/dev/pts` becomes an empty read-only tmpfs, so the user's terminals are not there at all.
   - Only these are bound back: the PipeWire socket (or PulseAudio's when there is no PipeWire), and the program's own files when they live under a covered directory (`APPDIR`, the executable's directory, `LD_LIBRARY_PATH`, the GStreamer plugin paths and scanner, the CDM's directory).
   - The home directory becomes recursively read-only (`mount_setattr`).
   - Sona's config and state directories, `~/.ssh`, `~/.gnupg`, `~/.password-store` and the keyrings are hidden under empty read-only tmpfs.
 - **Landlock** (applied with or without namespaces, at whatever ABI the kernel offers):
-  - No file writes outside `/dev`, plus the private `/tmp` when there is one.
+  - No file writes outside `/dev/null`, `/dev/shm` and `/dev/snd`, plus the private `/tmp` when there is one.
+  - No device ioctls outside those paths (`LANDLOCK_ACCESS_FS_IOCTL_DEV`, ABI 5), which includes `TIOCSTI` on any terminal.
   - No TCP or UDP.
   - `connect()` to path Unix sockets only for the audio socket (ABI 9).
   - Abstract Unix sockets and signals are scoped to the sandbox (ABI 6).
@@ -173,9 +192,15 @@ Each component lists what it does, the threats, the controls, the tests and the 
   - These fail with EPERM: `ptrace`, `process_vm_readv/writev`, `pidfd_getfd`, `kcmp`, `io_uring_*`, `bpf`, `perf_event_open`, `userfaultfd`, the keyring calls, `unshare`, `setns`, the mount calls and `clone` with namespace flags.
   - `clone3` fails with ENOSYS, and glibc then uses `clone`.
   - The child checks that `AF_INET`, `AF_INET6` and `AF_NETLINK` are refused.
-- **Without unprivileged user namespaces** (Flatpak, user namespaces disabled):
-  - The child runs with Landlock and seccomp only.
-  - Under Ubuntu 24.04's AppArmor restriction the namespaces are created without capabilities. The child keeps its network namespace but gets no private filesystem view ("make mounts private: permission denied", seen on GitHub's ubuntu-24.04 runners). Diagnostics says why.
+- **AppArmor profile** (the `.deb` and `.rpm`; `build/linux/apparmor/sona`, installed as `/etc/apparmor.d/sona`):
+  - Ubuntu 23.10 and later set `kernel.apparmor_restrict_unprivileged_userns=1`: an unconfined program that creates a user namespace gets one without capabilities, so the child's first stage cannot build its filesystem view.
+  - The profile (`profile sona /usr/bin/sona flags=(unconfined)` with `userns,`) lets the installed binary create user namespaces with capabilities. `flags=(unconfined)` means AppArmor mediates nothing else of Sona. It is the profile Chrome and Discord use on Ubuntu 24.04.
+  - `postinstall.sh` loads it when `apparmor_parser` and AppArmor are present; `preremove.sh` unloads it on removal (not on upgrade). It is a conffile: local changes survive upgrades, and `/etc/apparmor.d/local/sona` is included.
+  - The Arch package does not ship it (no Arch kernel carries the restriction). An AppImage cannot: it runs from a changing mount point, and a profile that matched that path would let any file there create namespaces.
+- **Without unprivileged user namespaces** (Flatpak, user namespaces disabled) **or under Ubuntu's AppArmor restriction without the profile** (an AppImage, or a binary installed outside `/usr/bin/sona`):
+  - The child runs with Landlock and seccomp only. Under the restriction it keeps its network namespace but gets no private filesystem view ("make mounts private: permission denied", seen on GitHub's ubuntu-24.04 runners).
+  - Below Landlock ABI 9 (every Ubuntu 24.04 kernel) nothing then refuses `connect()` to path Unix sockets, so the child can reach the session bus ([F12](#f12-on-ubuntu-the-cdm-host-child-could-reach-the-session-bus)). Seccomp cannot close this: it sees the address's pointer, not the path.
+  - Diagnostics says so (`Sandbox.ReachesSockets`, gap `sockets`: "It can connect to your session bus and other Unix sockets", with the way to fix it). The CDM still loads ([F3](#f3-the-sandbox-failed-open) needs seccomp and the network refusal only), so playback keeps working.
 - **`PR_SET_DUMPABLE=0` is not set in the parent.**
   - Measured: a non-dumpable process gets `Portal operation not allowed: Unable to open /proc/<pid>/root` from every xdg-desktop-portal call (Settings, and with it the file chooser for settings import/export).
   - Crash capture (`debug.SetCrashOutput`) would not have been affected.
@@ -192,6 +217,7 @@ Each component lists what it does, the threats, the controls, the tests and the 
   - It cannot open `AF_INET`/`AF_INET6`/`AF_NETLINK`.
   - It cannot read the parent's `/proc/<pid>/environ` or call `process_vm_readv` on it.
   - It does reach the PipeWire socket.
+- `TestSandboxGapsReportReachableSockets` (a child without a mount namespace reports `ReachesSockets` and the `sockets` gap below Landlock ABI 9 and not from it; with the view it never does). In `landlock only`, the assertion on path sockets states its condition: refused from ABI 9, reachable below it, and the reported gap agrees with what the probe observed.
 - `TestChildEnvDropsSessionAndSecrets`, `TestChildCannotOpenInetSockets` (also requires the mount namespace), `TestSandboxFallsBackWithoutNamespaces`.
 - **When tests skip.** `TestChildCannotOpenInetSockets` and the `namespaces` subtest skip, with the reason, only where the system refuses the namespaces:
   - EPERM or EACCES when a probe child of the test's own creates user, network and mount namespaces (Flatpak, user namespaces disabled), or changes its mounts in them (Ubuntu 24.04's AppArmor restriction creates the namespaces but denies their capabilities).
@@ -208,7 +234,7 @@ Each component lists what it does, the threats, the controls, the tests and the 
 
 - The PipeWire (or PulseAudio) socket stays reachable, because output needs it. The audio server is trusted. A PulseAudio server would also accept `load-module` requests.
 - Files in the home directory stay readable, except the hidden directories.
-  - Read data has no way out to the network: the child has no network, no bus and no writes outside `/dev` (which includes the shared `/dev/shm`).
+  - Read data has no way out to the network: the child has no network, no bus and no writes outside `/dev/null`, `/dev/shm` (shared) and `/dev/snd`.
   - Its only other channel is the pipe to the parent, whose CDM messages go to Apple's licence server.
 - A compromised child can get up to 8 of its own threads realtime (`SCHED_RR` at RTKit's `MaxRealtimePriority`, 20 by default, which the PipeWire server's own threads match or exceed).
   - It reports thread IDs only; the parent asks only for threads under `/proc/<child>/task`, each once.
@@ -218,7 +244,11 @@ Each component lists what it does, the threats, the controls, the tests and the 
 - On kernels without Landlock:
   - The fallback has seccomp only, so path sockets and home writes are reachable.
   - In both paths, `/proc/<pid>/mem` and `environ` of other same-user processes are guarded only by Yama and ordinary ptrace rules.
-- On kernels with Landlock below ABI 9, the fallback can still reach path Unix sockets.
+- Without a private filesystem view, below Landlock ABI 9, the child can reach path Unix sockets, the session bus among them, and so the impact of [F2](#f2-the-cdm-child-sandbox-blocked-only-inet-sockets) (systemd's `StartTransientUnit`) returns. This is the state of:
+  - an AppImage on Ubuntu 23.10 or later, and any install where the AppArmor profile is not loaded or does not match the binary's path;
+  - Flatpak, whose own bus proxy still limits what the session bus offers;
+  - any system without unprivileged user namespaces and with a kernel below ABI 9.
+  - Sona does not refuse playback there: that would end full-song playback for every Ubuntu AppImage user. Diagnostics reports it, and the packages, the kernel (Landlock ABI 9) or a namespace policy that allows Sona's binary close it. Using the `.deb` is the safe choice on Ubuntu.
 
 ### macOS sandbox
 
@@ -233,8 +263,9 @@ Each component lists what it does, the threats, the controls, the tests and the 
 | --- | --- | --- |
 | Network | Own network namespace; seccomp refuses `AF_INET`/`AF_INET6`/`AF_NETLINK` sockets; Landlock: no TCP/UDP | `(deny network*)`: no TCP, UDP or Unix-socket connect, bind or listen. Core Audio talks Mach IPC, not sockets |
 | Session services | Session and system bus sockets gone (fresh `/run`, `$XDG_RUNTIME_DIR`); Landlock allows only the audio socket | No bus to hide; the keychain's Mach services are denied (`com.apple.SecurityServer`, `com.apple.securityd`, `com.apple.securityd.xpc`, `com.apple.security.agent`, `com.apple.security.authhost`): the child is Sona's own executable, which Sona's keychain item trusts. Other Mach services stay reachable (Core Audio needs `coreaudiod`) |
-| File writes | Only `/dev` and the private `/tmp` (Landlock); home read-only | Only `/dev`, `/private/tmp`, `/private/var/tmp`, `/private/var/folders` (`$TMPDIR`) and GStreamer's registry cache (`$XDG_CACHE_HOME`/`~/.cache/gstreamer-1.0`, or `$GST_REGISTRY_1_0`'s folder) |
+| File writes | Only `/dev/null`, `/dev/shm`, `/dev/snd` and the private `/tmp` (Landlock); home read-only | Only `/dev` (except the terminals: `tty`, `ttys*`, `pty*`, `console`, no write or ioctl), `/private/tmp`, `/private/var/tmp`, `/private/var/folders` (`$TMPDIR`) and GStreamer's registry cache (`$XDG_CACHE_HOME`/`~/.cache/gstreamer-1.0`, or `$GST_REGISTRY_1_0`'s folder) |
 | Hidden files | Sona's config and state, `~/.ssh`, `~/.gnupg`, `~/.password-store`, the keyrings; the downloaded CDM's folder is bound back read-only | Sona's folder (`~/Library/Application Support/Sona`: settings, `credentials.json`, the database, the log), `~/Library/Keychains`, `~/.ssh`, `~/.gnupg`, `~/.password-store`: neither read nor written. The one exception is the downloaded CDM's folder (`<data>/widevine/<version>/mac_arm64`, from `SONA_CDMHOST_CDM_DIR`: the dylib and its `.sig`), readable but not writable, plus the metadata of the folders above it so the path resolves |
+| Terminals | New session (no controlling terminal); `/dev/pts` covered by an empty tmpfs; Landlock refuses writes and device ioctls outside `/dev/null`, `/dev/shm`, `/dev/snd` | New session (`Setsid`); the profile denies write and ioctl on `/dev/tty`, `/dev/ttys*`, `/dev/pty*`, `/dev/console` [INFERENCE: not run on a Mac] |
 | Other processes | seccomp denies `ptrace`/`process_vm_*`; Landlock's ptrace scope | Not restricted by the profile; macOS's own rules apply (no `task_for_pid` on another process without entitlements) [INFERENCE] |
 | Environment | `childEnv` drops session addresses and credential-like names | The same `childEnv` |
 | Self-check | Child tries `socket(AF_INET…)`; refused = `InetDenied` | Child tries a UDP `connect()` to `127.0.0.1:9` (sends nothing) and listing `~/Library/Keychains`; both must fail with `EPERM`/`EACCES` (`InetDenied`, `SecretsHidden`) |
@@ -578,6 +609,7 @@ Sona doesn't ship a privileged helper to get around a restricted user namespace,
   - TuneIn's JSON is decoded into a fixed struct. Every field reaches the UI as plain text drawn by MyGo's widgets (no markup).
   - The website TuneIn lists is kept only if it is an `http` or `https` URL without user info. It opens in the system browser on a click (`OpenURL` of `internal/services`, called from Now Playing), never inside the app.
   - A stream's ICY text is split at " - " and never interpreted.
+  - The MPRIS server (`internal/mpris/server.go`, `wireString`) makes every Metadata string one D-Bus can carry: NUL bytes are dropped and invalid UTF-8 becomes U+FFFD ([F16](#f16-a-nul-byte-or-invalid-utf-8-in-on-air-metadata-broke-mpris)).
 - **Not a listen:** the queue item is the station; the song on air is display and MPRIS metadata. It is never reported as Apple play activity, never recorded in the history, and live radio is never scrobbled (`internal/scrobble/track.go`).
 
 **Tests.**
@@ -585,6 +617,7 @@ Sona doesn't ship a privileged helper to get around a restricted user namespace,
 - `internal/tunein`: `TestStationID`, `TestParseDescribe`, `TestDescribe`, `TestWatch…`.
 - `internal/playback/native`: `TestBroadcastTuneIn`, `TestBroadcastOnAirWhenHeard`, `TestMatchArt`.
 - `internal/playback/broadcast`: `TestOnAirOfTitle`.
+- `internal/mpris`: `TestStreamMetadataTheBusCannotCarry`.
 
 **Residual risks.**
 
@@ -592,6 +625,39 @@ Sona doesn't ship a privileged helper to get around a restricted user namespace,
 - Private mode does not stop either (it keeps plays out of Apple's history and the scrobblers; these are reads).
 - `Describe.ashx` is TuneIn's long-public OPML endpoint, not a documented API for third parties. It can change or be withdrawn, in which case the profile and TuneIn's song disappear and the stream's own metadata remains.
 - The cover can be wrong only if the catalog holds a different song with the same title and artist.
+
+### Local broadcaster streams
+
+**What it does.** A local broadcaster (Capital, KISS, TuneIn's stations) plays from one clear URL Apple's `/v1/play/assets` names, often plain `http`: an HLS playlist, a PLS or M3U playlist, or a Shoutcast/Icecast stream. The parent fetches it (`internal/playback/broadcast`, `internal/playback/native/broadcast.go`; [architecture.md](architecture.md) §4.2). The URL, the playlists it leads to and the redirects it answers are all chosen by the broadcaster, or by anyone on the network path of a plain `http` request.
+
+**Threats.**
+
+- A hostile playlist, redirect or HLS segment list makes Sona send GETs to `127.0.0.1`, a router, another machine on the LAN or `169.254.169.254` (blind: no response data leaves Sona, but a browser-like request reaches services a web page could not, past a browser's Private Network Access).
+- A small playlist names tens of thousands of entries, so one play sends that many requests.
+- A name resolves to a public address when checked and a private one when dialled (DNS rebinding).
+
+**Controls** (`internal/playback/broadcast/guard.go`, `broadcast.go`; `native.Engine.streamHTTP`):
+
+- **One client for everything.** `broadcast.NewClient` is the engine's stream client. Playlists, nested playlists, HLS playlists and segments, the first request and every reconnect use it (`session.hc`).
+- **The dial is checked, not the URL.** The transport's `net.Dialer.Control` runs on the IP about to be connected to, after DNS and for every redirect and rebinding answer, and refuses:
+  - loopback (`127.0.0.0/8`, `::1`), private (RFC 1918, unique local `fc00::/7`), link-local (`169.254.0.0/16`, which holds cloud metadata, and `fe80::/10`);
+  - unspecified (`0.0.0.0/8`, `::`), multicast, reserved (`240.0.0.0/4`, broadcast), carrier-grade NAT (`100.64.0.0/10`), `192.0.0.0/24`, benchmarking `198.18.0.0/15`;
+  - an IPv4 address inside an IPv6 one (`::ffff:a.b.c.d`, the NAT64 prefix `64:ff9b::/96`) is judged as the IPv4 address.
+- **Redirects:** at most 5; only to `http` or `https`; never from `https` to `http`.
+- **Playlists:** only the first 16 entries of a playlist are tried, and the nth waits `(n-1) × 100 ms` (up to 1 s) after the previous one. Nesting stays at 3 levels, so a play makes at most a few thousand requests, not tens of thousands, and slowly.
+- **No environment proxy.** A proxy would be the host dialled (usually a private address, which this check would refuse) and would fetch the target itself, past the check. The stream client dials directly, so `HTTP_PROXY` and `HTTPS_PROXY` do not apply to broadcaster streams (Apple's own requests are unchanged).
+- Requests carry no Apple credential; TuneIn's profile fetch is a separate fixed-host client (see TuneIn metadata).
+
+**Tests.**
+
+- `internal/playback/broadcast`: `TestDialControl` (each range, IPv4-mapped and NAT64 forms, names), `TestClientRefusesLoopback`, `TestBroadcasterCannotAimRequestsAtPrivateAddresses` (a PLS, an M3U, an HLS playlist and a redirect from one server naming another: the target gets no GET), `TestRedirectCap`, `TestCheckRedirect`, `TestPlaylistEntryCap`, `TestPlaylistEntryBackoff`.
+- `internal/playback/native`: `TestEngineStreamClientRefusesLoopback`.
+
+**Residual risks.**
+
+- A broadcaster can still make Sona fetch from any public address, and an `http` stream can be read or altered on the path. Only the audio is played; nothing is executed.
+- A user who can reach the internet only through a proxy cannot play broadcaster streams until the proxy is not needed. The guard is not relaxed for them.
+- A station hosted on a private address (a LAN radio) is refused by design.
 
 ### WebAssembly add-ons
 
@@ -656,6 +722,7 @@ Sona doesn't ship a privileged helper to get around a restricted user namespace,
 | The add-on names a page for Sona to open that is not a web page | Sona opens only an `http` or `https` address without a user name; anything else fails the connection | `TestAddonScrobblerRefusesAnApprovalPageThatIsNotAWebAddress` |
 | The sign-in leaks through the environment, a log or an error | It is in the keyring item `addon.<id>`; it crosses the channel only in the `credential` of the request that needs it; the environment is an allowlist (plus the proxy and certificate variables and the loader's `LD_LIBRARY_PATH`, for bundled add-ons only); an error frame carries a fixed message, never the cause's text | `TestEnvironmentIsAnAllowlist`, `TestEnvironmentGivesBundledAddonsTheLoaderPath`, `TestListenBrainzAddonAnswersInCodes` |
 | A development override points the add-on at another host | The base-URL variables exist only in a `dev` build, are passed to bundled add-ons only, and are taken only for a loopback address | `endpoints_dev.go` |
+| The approval token is read from the browser's command line by another local user | The browser is given a one-use loopback link, not Last.fm's page: the listener drops connections another user owns (Linux), the link works once and checks `Host`, and the redirect to Last.fm happens inside the user's browser ([F25](#f25-the-lastfm-approval-token-was-in-the-browsers-command-line)) | `TestLastFMApprovalTokenIsNotOnTheBrowsersCommandLine`, `TestApprovalLinkWorksOnce` |
 
 **Residual risks.**
 
@@ -734,6 +801,22 @@ Each finding has an issue, its impact, the fix and the test that keeps it fixed.
 | F8 | Child could exhaust the parent's memory | Low | Fixed | `internal/playback/cdmhost/host.go` |
 | F9 | Artwork decoding accepted any registered image format, TIFF included | Low | Fixed | `internal/artwork/image.go`, `artwork.go`, `color.go` |
 | F10 | Development builds logged the build's Last.fm and Discord credentials, and the diagnostics bundle carried them | Low | Fixed | `internal/logging/redact.go`, `internal/diag/bundle.go`, `build/ldflags.sh` |
+| F11 | CDM child could reach the user's terminals (`/dev/tty`, `/dev/pts`, `TIOCSTI`) | Medium | Fixed | `internal/playback/cdmhost/stdio_unix.go`, `sandbox_linux.go`, `sandbox_fs_linux.go`, `seatbelt.go` |
+| F12 | On Ubuntu the CDM host child could reach the session bus | Medium | Fixed for the `.deb` and `.rpm` (residual risk for the AppImage listed) | `build/linux/apparmor/sona`, `build/linux/nfpm/`, `Sandbox.ReachesSockets` |
+| F13 | Release builds ran third-party tools (linuxdeploy and its plugins, the Chocolatey packages `nsis` and `pkgconfiglite`, the Go toolchain) without a pin or a checksum, next to the artefacts they could change, and kept a Go cache that outlived the run | Medium | Fixed | `build/linux/appimage-tools.sha256`, `build/windows/tools.sha256`, `build/windows/install-tool.sh`, `build/windows/package.sh`, `build/linux/release/Containerfile`, `build/ci/go.sha256`, `.github/workflows/release.yml` |
+| F14 | CI and release images were trusted by a tag any branch could overwrite, and the images they build on were named by tag | Medium | Fixed (residual risks listed) | `.github/workflows/images.yml`, `build/ci/find-image.sh`, `build/ci/Containerfile`, `build/linux/release/Containerfile`, `build/linux/release/release.sh`, `.github/workflows/flatpak.yml`, `.renovaterc.json5` |
+| F15 | The bot-cecil App key was a repository-level secret, readable by any `pull_request` run from a branch of this repository | Medium | Fixed (key rotation pending) | Repository settings: environments `bot-cecil`, `release`, `golden-update`, `nix-vendor-hash`; ruleset "release tags"; `docs/maintainers/ci-and-secrets.md` |
+| F16 | A NUL byte or invalid UTF-8 in on-air metadata broke MPRIS | Low | Fixed | `internal/mpris/server.go` |
+| F17 | The `sona` command printed other people's text to the terminal unfiltered | Low | Fixed | `internal/cli/plain.go`, `internal/cli/run.go`, `internal/cli/lyrics.go` |
+| F18 | The diagnostics bundle carried the person's city and device names | Low | Fixed | `internal/config/diagnostics.go`, `internal/services/system_bundle.go` |
+| F19 | The motion-artwork remuxer panicked on a huge tfhd base offset | Low | Fixed | `internal/motion/remux.go` |
+| F20 | The fMP4 parser panicked on crafted init segments and fragments | Low | Fixed | `internal/playback/fmp4/init.go`, `fragment.go` |
+| F21 | Server-declared counts and lengths allocated without limit in the parent | Low | Fixed | `internal/playback/fmp4/fragment.go`, `internal/playback/native/media.go`, `upload.go` |
+| F22 | Artwork from the CDN was decoded without a pixel limit | Low | Fixed | `internal/artwork/image.go`, `artwork.go` |
+| F23 | Local broadcaster streams followed any URL, so a playlist or redirect could aim requests at loopback, the LAN or cloud metadata | Low | Fixed | `internal/playback/broadcast/guard.go`, `broadcast.go`, `internal/playback/native/engine.go` |
+| F24 | CDM message events started unbounded renewal goroutines (F8 incomplete) | Low | Fixed | `internal/playback/cdmhost/host.go`, `internal/playback/native/engine.go`, `renewals.go`, `media.go` |
+| F25 | The Last.fm approval token was in the browser's command line | Low | Fixed (residual risks listed) | `internal/services/scrobble_link.go`, `scrobble.go`, `internal/auth/mut/peer.go` |
+| F26 | The update manifest's version and platform were not signed (downgrade, cross-platform archive) | Low | Fixed (residual risks listed) | `cmd/releasesign/main.go`, `internal/update/statement.go`, `manifest.go`, `source.go`, `internal/services/updates.go` |
 
 ### F1. Settings import could set the CDM path
 
@@ -998,6 +1081,370 @@ Severity: Low. Status: fixed.
 - `TestRedactBuildFlagsInText` (JSON and text records, bare, quoted and `-X=` forms, a command line; redacting twice changes nothing).
 - `TestBundleScrubsBuildCredentialsFromOldLogs` (JSON and text Build Info lines in `sona.log` and `sona.log.1`).
 
+### F11. The child could reach the user's terminals
+
+Severity: Medium. Status: fixed.
+
+**Issue.**
+
+- The child started in Sona's session, so it kept Sona's controlling terminal, and `/dev` was the host's and writable under Landlock, with no ioctl rule and no seccomp filter on `ioctl`.
+- A compromised child could `open("/dev/tty")` and `ioctl(TIOCSTI)` to push keystrokes into the terminal's input queue (run by the user's shell outside every sandbox layer; needs Sona started from a terminal and `dev.tty.legacy_tiocsti=1`). Independently it could open the user's other `/dev/pts/N` to write escape sequences (OSC 52 clipboard) or read typed input.
+- macOS: the Seatbelt profile allowed writes under `/dev`, and the child kept its session [INFERENCE: not run on a Mac].
+
+**Impact.** Arbitrary commands as the user (when `TIOCSTI` is enabled), otherwise input capture and escape-sequence or clipboard injection into the user's terminals. Same class as F2.
+
+**Fix:**
+
+- Every spawn path starts the child with `Setsid` (`newSession`, and in `namespaceAttr`): no controlling terminal, `/dev/tty` gives `ENXIO`. Windows needs nothing: the AppContainer child is detached from the console (`DETACHED_PROCESS`).
+- Landlock writes under `/dev` are limited to `/dev/null`, `/dev/shm` and `/dev/snd`; ABI 5 and later also handle `LANDLOCK_ACCESS_FS_IOCTL_DEV` and grant it only there.
+- In the mount namespace, `/dev/pts` is an empty read-only tmpfs.
+- macOS: the profile denies write and ioctl on the terminal devices under `/dev` (`tty`, `ttys*`, `pty*`, `console`), after the `/dev` write allowance.
+
+**Test.** `TestSandboxConfinesChild` (both subtests) opens `/dev/tty` and the slave of a pty the test created from inside the child: both must fail, while `/dev/null` still opens for writing. `TestSeatbeltProfile` keeps the terminal deny after the write allowance.
+
+### F12. On Ubuntu the CDM host child could reach the session bus
+
+Severity: Medium. Status: fixed for the `.deb` and `.rpm`; the AppImage keeps a residual risk (below).
+
+**Issue.** On stock Ubuntu 23.10 and later (24.04 included) the child had no private filesystem view and nothing else kept it off the session bus:
+
+- `kernel.apparmor_restrict_unprivileged_userns=1` creates an unconfined program's user namespace without capabilities. The child's first stage then could not make its mounts private, so it had no mount namespace and kept the real `$XDG_RUNTIME_DIR` ([Linux sandbox](#linux-sandbox)).
+- Landlock refuses `connect()` to path Unix sockets (`LANDLOCK_ACCESS_FS_RESOLVE_UNIX`) only from ABI 9. Ubuntu 24.04's kernels, the HWE ones included, are below it, and seccomp allows `AF_UNIX`.
+- The child's uid maps onto the real one, so the bus's `EXTERNAL` authentication accepted its connection to `/run/user/$UID/bus`.
+- The CDM still loaded, because the load gate needs only seccomp and the network refusal ([F3](#f3-the-sandbox-failed-open)).
+- The tests did not cover it: CI lifts the restriction, and `landlock only` asserted the refusal of path sockets only for ABI 9 and above, silently. The docs listed the case as an accepted residual risk without its impact.
+
+**Impact.** A compromised CDM host (Google's closed code, exploited) could call `org.freedesktop.systemd1.Manager.StartTransientUnit` on the session bus and run code outside the sandbox: the impact of [F2](#f2-the-cdm-child-sandbox-blocked-only-inet-sockets). It could also drive `dev.coredev.Sona.Instance.Run` (including `private off` and `like`) and MPRIS. Found by code review of 0.5.0; the whole chain was not exercised on a live system.
+
+**Fix:**
+
+- **AppArmor profile** (`build/linux/apparmor/sona`): `profile sona /usr/bin/sona flags=(unconfined) { userns, … }`, the profile Chrome and Discord use on Ubuntu 24.04. The `.deb` and `.rpm` install it as `/etc/apparmor.d/sona` (a conffile), `postinstall.sh` loads it when `apparmor_parser` and AppArmor are there, and `preremove.sh` unloads it when Sona is removed (a separate `postremove.sh` refreshes the desktop caches only, so a profile file that dpkg keeps after a plain `remove` is not loaded again). The Arch package does not ship it: no Arch kernel carries the restriction. `flags=(unconfined)` leaves everything but user namespace creation unmediated.
+- **Diagnostics** (`Sandbox.ReachesSockets`, `playback.SandboxGapSockets`): a child with no mount namespace and Landlock below ABI 9 now reports the gap `sockets` ("It can connect to your session bus and other Unix sockets"), and Settings → Diagnostics → Host sandbox says "Not fully sandboxed" with the way to fix it: install the `.deb` or `.rpm`, or run a kernel with Landlock ABI 9.
+- **Not done on purpose:** refusing the CDM there, as F3 does without seccomp. It would stop full-song playback for every Ubuntu AppImage user, who cannot ship a profile. That trade-off is the maintainer's; the residual risk is documented ([Linux sandbox](#linux-sandbox)) and shown in Diagnostics.
+
+**Residual risk.** The AppImage on Ubuntu 23.10 and later (and any install whose binary is not `/usr/bin/sona`, or where AppArmor does not load the profile) still has the child on the session bus below Landlock ABI 9. A profile for an AppImage would have to match its changing mount point, which lets any file there create user namespaces.
+
+**Test.**
+
+- `TestSandboxGapsReportReachableSockets` (`ReachesSockets` and the `sockets` gap for each combination of mount namespace and Landlock ABI 0, 4, 8 and 9).
+- `TestSandboxConfinesChild`: `landlock only` spells out the condition (path sockets refused from ABI 9, reachable below it) and checks that the reported gap matches what the probe child observed; `namespaces` checks that nothing is reachable and no gap is reported.
+- `TestSandboxRows` (the Diagnostics sentence and its hint).
+
+### F13. Release builds ran third-party tools without a pin or a checksum
+
+Severity: Medium (GHSA-f67w-fwwq-f3jj). Status: fixed.
+
+**Issue.**
+
+- Linux: `build/linux/appimage.sh` downloaded `linuxdeploy`, its AppImage plugin (the moving `continuous` release) and the GTK plugin (the head of `master`), and ran them as root in the release container with the finished `.deb`, `.rpm` and Arch packages in `/src/bin`, with `/out` and the Go caches mounted. A change reaching one of those upstream projects changed what ran with no commit of Sona's to show for it.
+- Windows: `choco install pkgconfiglite` and `choco install nsis` named no version. `makensis` ran after the update archive was written into the output folder, and the archive is what the update key signs.
+- The Go toolchain of the Linux release image and of the CI image was downloaded from go.dev without a checksum.
+- The release job restored a Go cache that earlier runs on `main` (nightlies and releases) had saved, and saved a new one, so code a build wrote into it ran in the next signed build.
+
+**Impact.** Code running in the release build could replace a package, the AppImage or the Windows update archive before it was checksummed, attested and (for the archive) signed. The result carried valid provenance and a valid update signature, and reached everyone who installed or self-updated. The cache let a one-off compromise persist.
+
+**Fix.**
+
+- **Pins.** linuxdeploy, its AppImage plugin and the GTK plugin come from fixed release tags and one commit, each checked against a SHA-256 in `build/linux/appimage-tools.sha256` before it is made executable. NSIS and pkg-config-lite install at a pinned version, and `build/windows/install-tool.sh` checks the installed files against a tree hash in `build/windows/tools.sha256`. The Go toolchain archive is checked against its published SHA-256 before it is unpacked (`ARG GO_SHA256` in the release Containerfile, `build/ci/go.sha256`, which is part of the CI image's tag).
+- **Order.** `build/windows/package.sh` runs `makensis` first, on the package folder, which must hash the same afterwards, with the installer written to a scratch folder; the zip and the update archive are written after it, by 7z and tar. This narrows what a compromised NSIS could change; it still runs in the job, and the pin is what keeps it out.
+- **Cache.** A release, nightly or prerelease run restores and saves no Go cache. A dry run keeps one under a key no publishing run reads (`release.yml`).
+
+**Residual.** The pins are bumped by hand (Renovate cannot compute a hash); the GTK plugin has no releases, so it is pinned by commit. The macOS job's `brew install pkgconf` (only when the runner image lacks it) and the distribution packages of the build images, which come from signed apt archives, are not hash-pinned.
+
+**Test.** Workflow and shell changes; no Go test. The release dry run (Actions → Release → Run workflow, no prerelease) builds, smoke-tests and exercises them.
+
+### F14. CI and release images were trusted by a tag any branch could overwrite
+
+Severity: Medium (GHSA-q2xm-pq49-7mxq). Status: fixed.
+
+**Issue.**
+
+- `images.yml` ran on `pull_request` with `packages: write`, and its pull request runs pushed to the same tag the main-scope runs pulled (`ghcr.io/coredev-uk/sona-ci:<tag>`; the release image was published too). Any workflow of a branch of the repository can push any tag of the packages linked to it. The release (`release.yml`, `release.sh`) pulled the image by tag, with no digest and no provenance check, and ran the build in it with the Last.fm and Discord values.
+- `images.yml` did not rebuild an image that existed (`build=false`), so one a branch pushed stayed.
+
+**Impact.** A backdoored image ran the release build, outside the protection of the `release` environment, and the packages it produced were attested and published with valid provenance.
+
+**Fix.**
+
+- **Who writes what.** A pull request's build goes to `pr-<tag>`; only a run on `main` writes `<tag>` and attests it. The release job does not pull an image: `release.sh` builds the Linux release image from the checked-out Containerfile, and `images.yml` publishes no release image.
+- **What main trusts.** Main, the nightly and the release run the CI image only when `build/ci/find-image.sh` verifies the build provenance of `images.yml` on `refs/heads/main` (`gh attestation verify --signer-workflow … --source-ref refs/heads/main`), and use the image by the digest it verified (`image@sha256:…`). A branch's run can't produce that attestation; an image without one is rebuilt by the next run on main.
+- **Base images by digest.** The `FROM` lines of both Containerfiles and the Flatpak workflow's `container:` image name a digest. `release.sh` pulls the digest the release Containerfile names and refuses a line without one. Renovate refreshes the digests weekly and never moves a tag; the release image's digest pull request is labelled `verdict/review`.
+
+**Residual.** GHCR still lets any workflow of the repository write its packages, so a tag a branch overwrote exists; it is ignored, not prevented. The `sona-release` package left from before the release image was built in the job can be deleted by the maintainer, and `sona-ci`'s "Manage Actions access" is worth a look; both are settings this change does not touch. The smoke tests' Fedora and Arch images (and the Ubuntu one for the `.deb`) are pulled by tag on purpose: they get the packages read-only and no secret.
+
+**Test.** Workflow and shell changes; no Go test. A pull request that changes `build/ci` builds `pr-<tag>` and its CI waits for it (the "CI image" job); the release dry run (Actions → Release → Run workflow, no prerelease) builds the release image from the pinned digest.
+
+### F15. The release bot's App key was readable by branch runs
+
+Severity: Medium. Status: fixed in the repository settings; the key's rotation is pending.
+
+**Issue.**
+
+- The bot-cecil GitHub App's client ID and private key (`RENOVATE_APP_CLIENT_ID`, `RENOVATE_APP_PRIVATE_KEY`) were repository-level secrets. Any workflow run on a branch of this repository could read them, including a `pull_request` run, whose workflow files come from the pull request's merge commit, so the pusher chooses the jobs. A fork's run gets no secrets; a branch push needs write access (a collaborator, or a compromised bot or agent credential).
+- The workflows already named environments for every job that used the key, but the environments `bot-cecil`, `golden-update` and `nix-vendor-hash` held no secrets and had no branch policy or reviewers, so the repository-level copies were what the jobs read.
+- The App can write contents, workflows, pull requests, issues, checks and statuses. Its key outlives the access of whoever read it, and its tokens could push a `v*` tag, which the `release` environment's policy at the time let in, reaching the update signing key.
+
+**Impact.** A long-lived key that mints write tokens for the repository, in reach of anyone who could push a branch. No misuse was seen; the key was not rotated before this fix, so it has to be assumed read.
+
+**Fix** (repository settings, 2026-11-21):
+
+- The App's credentials are environment secrets only: `bot-cecil` (deploys from `main` and `v*` tags), `release` (from `main`), and `golden-update` and `nix-vendor-hash` (required reviewers, because their jobs run on a pull request's ref, which no branch policy admits). The repository-level copies are deleted. The master copy is the 1Password item "bot-cecil"; `docs/maintainers/ci-and-secrets.md` has the rotation steps.
+- The "release tags" ruleset now also restricts creating `v*` tags (it already blocked updating and deleting them). Only repository admins and the bot-cecil App bypass it, so a write collaborator can no longer make a tag that satisfies the `bot-cecil` environment's policy.
+- To rotate: generate a new private key in the App's settings, update the 1Password item, set it in the four environments, and delete the old key from the App.
+
+**Test.**
+
+- After the move, `nix-branch.yml` dispatched on `main` (run 44931021094) minted the bot-cecil token from the `bot-cecil` environment and pushed: the environment path works without the repository-level copies.
+- With the ruleset change, a token minted for the App created and deleted a throwaway `v0.0.0-ruleset-check` tag (201, 204): the App's bypass keeps release-please and the nightly prereleases working.
+- `gh secret list` shows no repository-level secret; each of the four environments lists both App secrets.
+- Not tested: a push of a `v*` tag by a non-admin collaborator being refused (no such account was at hand); GitHub enforces the ruleset for every actor without a bypass.
+
+### F16. A NUL byte or invalid UTF-8 in on-air metadata broke MPRIS
+
+Severity: Low. Status: fixed.
+
+**Issue.** Metadata strings from a station (an ICY `StreamTitle`, HLS `EXTINF` attributes, TuneIn's Describe JSON) reached `mpris.metadata` unchanged. godbus refuses to encode a string holding a NUL byte or invalid UTF-8, and none of the three sources removed either (`streamTitle` kept NUL, `extinfOnAir` did not check UTF-8, and JSON `\u0000` decodes to NUL).
+
+**Impact.** While that title was current, every `PropertiesChanged` that carried `Metadata` was dropped, with the `PlaybackStatus` and `Volume` changes in the same signal, and `GetAll` and `Get(Metadata)` failed. Media widgets and `playerctl` lost Sona until the title changed. Availability of a desktop integration only, hence Low. A plain-http stream let an on-path attacker do the same.
+
+**Fix** (`internal/mpris/server.go`): `metadata` passes every string through `wireString` at the D-Bus boundary: NUL bytes are removed and invalid UTF-8 becomes U+FFFD. A value that is only NUL is left out of the Metadata map, like an empty one.
+
+**Test.** `TestStreamMetadataTheBusCannotCarry` (a title with NUL, an artist with invalid bytes and an album of only NUL, through `Update` and `GetAll` on a private bus; without the fix the signal never arrives).
+
+### F17. The sona command printed other people's text to the terminal unfiltered
+
+Severity: Low. Status: fixed.
+
+**Issue.** `sona status`, `lyrics` (plain, `--lrc` and `--follow`), `queue`, `search`, `library` and the error lines printed titles, lyrics and service messages as they came. The lyrics come from LRCLIB or Musixmatch community lyrics, the titles from Apple, a station or a library upload. The LRC parser only trims whitespace, and the text formatters replaced only CR and LF (`oneLiner`); only `--json` escaped.
+
+**Impact.** The source of a lyric or a title controlled what the user's terminal did: the window title, the screen's content, OSC 8 links, an OSC 52 clipboard write (kitty and WezTerm allow it by default), which enables paste-jacking. It needed the user to run the command in a terminal, hence Low.
+
+**Fix** (`internal/cli/plain.go`, `run.go`, `lyrics.go`):
+
+- `plain` returns a deep copy of a result with every string passed through `TerminalSafe` (the filter `addons dev` already uses: escape sequences in their 7-bit and 8-bit forms are removed whole, other control, format and bidirectional characters and line breaks become a space, invalid UTF-8 becomes U+FFFD). It walks the result's structs, slices, maps and pointers by reflection, so a field added later is covered.
+- It is applied where a result becomes text: `decodeText` for every command's reply, `writeStatus` for `status --follow` and the status line, `writeLyricsNow` for `lyrics --follow` and its templates, and `Env.write` for every error line.
+- Values reach `--format` templates already cleaned. The template text is the user's and is printed as written, so a template may still colour its own output.
+- `--json` is the data as received: JSON escapes control characters.
+
+**Test.**
+
+- `TestTextOutputHasNoTerminalControls` (every text command with OSC 52, OSC 0, CSI, 8-bit CSI/OSC, BEL, NUL and a bidi override in each field, and in an error from the service).
+- `TestFollowedLyricsLineHasNoTerminalControls`.
+- `TestJSONOutputIsNotChanged`.
+- `TestPlainCopiesAndLeavesTheOriginal`.
+
+### F18. The diagnostics bundle carried the person's city and device names
+
+Severity: Low. Status: fixed.
+
+**Issue.** The bundle's Settings section printed every setting except the credential and identity keys `diag.dropKey` names (and `lastRoute`). The Concerts city (`gb-manchester`), the sidebar's open folders and the audio output device (a PipeWire node name, which can carry a USB serial number) were in it. Settings export already treats these as belonging to one person and one computer (`config.localKeys`).
+
+**Impact.** The bundle is meant to be pasted into a public GitHub issue, and the site guide promised only tokens and the e-mail address were removed. The reporter's city and device identifiers were published.
+
+**Fix** (`internal/config/diagnostics.go`, `internal/services/system_bundle.go`):
+
+- The bundle's Settings section is `config.ForDiagnostics`, not the raw settings. It leaves out `concerts.city`, `sidebar.openFolders`, `audio.outputDevice` and every add-on's `values` (text the person typed into an add-on's settings).
+- It lists what it dropped under `_withheld`, so a maintainer reading a bundle knows a key is missing on purpose and not lost.
+- It keeps what a bug report needs: theme, quality, equaliser, crossfade, shortcuts, integrations, which add-ons are enabled and the permissions granted, and the rest.
+- The user-facing guide says what the report leaves out.
+
+**Test.**
+
+- `TestForDiagnosticsWithholdsWhereThePersonIs` (the city, open folders, device name and an add-on value are absent; the theme, equaliser and grants stay; `_withheld` lists the paths).
+- `TestForDiagnosticsLeavesTheSettingsAlone`.
+- `TestDiagnosticsBundleSettingsLeaveOutLocation` (the rendered bundle).
+
+### F19. The motion-artwork remuxer panicked on a huge tfhd base offset
+
+Severity: Low. Status: fixed.
+
+**Issue.**
+
+- `flatten` (`internal/motion/remux.go`) read a `tfhd` base-data-offset as `int64(u64)` and only rejected negative values, so any value up to `MaxInt64` passed.
+- The sample bounds check added the sample size to the position (`pos+int64(size)`). With a base near `MaxInt64` the sum overflowed negative, passed the check and sliced the source out of range.
+- `flatten` runs inside `singleflight.DoChan`, which re-panics in a new goroutine, so the panic could not be recovered. Nothing was cached, so every view of the album downloaded the rendition again and crashed again.
+
+**Impact.** A rendition from a compromised CDN or a broken TLS session crashed the UI process on every view of the album. Availability only; the allow-list and redirect checks of [F6](#f6-motion-artwork-followed-redirects-anywhere) still apply.
+
+**Fix** (`internal/motion/remux.go`): a `tfhd` base beyond the source is a bad `tfhd`, and the sample check compares the size with the remaining length (`int64(size) > len(src)-pos`), so nothing overflows.
+
+**Test.** `TestFlattenHugeBaseDataOffset` (base `MaxInt64`, `MaxInt64-1` and one past the file, default sample size 1).
+
+### F20. The fMP4 parser panicked on crafted init segments and fragments
+
+Severity: Low. Status: fixed.
+
+**Issue.**
+
+- `ParseInit` checked that the `stsd` entry count was not zero but not that the entry list held any entry, so a count of 1 with an empty body made `entries[0]` panic.
+- `ParseFragment` computed the `saio` aux-info position as `base + offset` and tested `pos + size` against the fragment length. An offset of 2^64-1 and a size of 1 wrap that sum to 0, pass the test and slice `b[2^64-1:0]`.
+- The parser runs in the parent (`native` streams, prefetch goroutine) and in the CDM host child; none of those goroutines recover.
+
+**Impact.** A crafted init segment or fragment from a compromised CDN or a broken TLS session crashed Sona when the item played or was prepared (in the child only playback died). Availability only.
+
+**Fix** (`internal/playback/fmp4/init.go`, `fragment.go`; no parsing moved across the CDM boundary):
+
+- `ParseInit` returns `fmp4: empty stsd` when the entry list is empty.
+- `parseAux` rejects an offset or base beyond the fragment and compares every entry size against the remaining length by subtraction, so nothing wraps.
+
+**Test.** `TestParseInitEmptyStsdEntryList`, `TestParseFragmentWrappingSaioOffset`.
+
+### F21. Server-declared counts and lengths allocated without limit
+
+Severity: Low. Status: fixed.
+
+**Issue.**
+
+- `fmp4.ParseFragment` trusted a `trun` sample count. Without per-sample fields the length check cannot fail, so a count up to 2^32-1 with a default sample size of 0 appended a `Sample` (~88 bytes) per entry, hundreds of GB. The parser runs in the parent (`native` streams) and in the CDM host child.
+- `native.fetchOnce` allocated `make([]byte, size)` from an `#EXT-X-BYTERANGE` length (`hls.parseRange` only requires a positive number) and preallocated from `Content-Length`; `downloadOnce` allocated `make([]byte, resp.ContentLength)` for an upload. Lengths above 2^48 panic, in a goroutine nothing recovers.
+
+**Impact.** One crafted response crashed or exhausted the memory of the UI process. Availability only; it needs control of an Apple media response over TLS.
+
+**Fix:**
+
+- `internal/playback/fmp4/fragment.go`: at most 65536 samples per fragment (`maxSamples`; Apple's segments hold a few hundred) and a zero-size sample is an error. No parsing moved across the CDM boundary.
+- `internal/playback/native/media.go`: one fetched resource is at most 64 MiB (`maxFetchBytes`). A larger byte range fails before any request, a larger `Content-Length` before the body is read, and a body without a length is read through a limit of the cap plus one byte. These fail with `errTooLarge`, which is not retried.
+- `internal/playback/native/upload.go`: an uploaded file held in memory is at most 2 GiB (`maxUploadBytes`), for a declared length and for a body without one.
+
+**Test.** `TestParseFragmentBoundsSampleCount`, `TestParseFragmentRejectsEmptySamples`, `TestFetchRefusesHugeDeclaredLengths`, `TestDownloadRefusesHugeContentLength`.
+
+### F22. Artwork from the CDN was decoded without a pixel limit
+
+Severity: Low. Status: fixed.
+
+**Issue.**
+
+- `Cache.fetch` capped the download at 16 MiB and read the image header, but never looked at the declared width and height. A ~1.5 MB PNG can declare 40000×40000 8-bit grey.
+- `Cache.source` wrote that file to the disk cache before anything decoded it, and `decode` ran `png.Decode` or `jpeg.Decode` on the whole picture (1.6 GB), after which resampling made an RGBA copy (6.4 GB).
+- The upload path was bounded (`MaxCoverPixels`); the CDN path was not.
+
+**Impact.** Go cannot recover from running out of memory, so the UI process died, and the cached file crashed Sona again on every view until the cache was cleared. Availability only; it needs a hostile artwork response from Apple's CDN (or a broken TLS session).
+
+**Fix** (`internal/artwork/image.go`, `artwork.go`):
+
+- `checkPixels` refuses a header with no area or more than `MaxSourcePixels` (the cover bound, 40 million) with `ErrTooManyPixels`.
+- `fetch` runs it right after reading the header, so a rejected image is never stored.
+- `decodeImage` runs it before any decoder allocates, so a bomb cached by an older build fails on every surface (`Get`, `Backdrop`, `DominantColors`, mosaics, uploads) with an error instead of an out-of-memory crash.
+- Artwork is still decoded once at the size it is shown (resampled by `fit` and `cover`); the limit only rejects sources far past any real cover.
+
+**Test.** `TestSourcePixelLimit` (a 40000×40000 PNG header served by the CDN fails `Get` and `Backdrop` and leaves the cache empty; `decodeImage` and `decode` of a cached bomb, and edge cases of the limit, fail with `ErrTooManyPixels`).
+
+### F23. Local broadcaster streams followed any URL
+
+Severity: Low. Status: fixed.
+
+**Issue.** The stream client for a local broadcaster's URL was the engine's default HTTP client: any host, up to 10 redirects, https to http allowed. A sniffed playlist was resolved and every entry played with no address or scheme check and no delay, nested to 3 levels, and HLS segments went through the same client.
+
+**Impact.** A hostile or on-path-modified broadcaster URL (often plain `http`) made Sona send blind GETs to `127.0.0.1`, RFC 1918 addresses and `169.254.169.254`, with a browser User-Agent and `Icy-MetaData: 1`, past a browser's Private Network Access. A 1 MiB playlist with tens of thousands of entries per level amplified that. No response data leaves Sona. Severity Low (about CVSS 3.4, AV:A/AC:H/PR:N/UI:R/S:C/I:L).
+
+**Fix** (`internal/playback/broadcast/guard.go`, `broadcast.go`, `internal/playback/native/engine.go`):
+
+- `broadcast.NewClient` is the engine's `streamHTTP`: a transport whose `net.Dialer.Control` refuses loopback, private, link-local, carrier-grade NAT, unspecified, multicast and reserved addresses on the IP dialled (so DNS rebinding and redirects are covered; IPv4-mapped IPv6 and NAT64 are judged as IPv4). The environment's proxy is not used (see the component section).
+- Redirects: at most 5, `http` or `https` only, no https to http.
+- A playlist's first 16 entries are tried, with a growing pause (100 ms steps, up to 1 s).
+- Playlists, HLS playlists and segments and reconnects all use the session's one client.
+- Tests serve from `httptest` on loopback by giving the engine a client without the guard (`Engine.streamHTTP`) or the broadcast tests a plain client; production never does.
+
+**Test.**
+
+- `TestDialControl`, `TestClientRefusesLoopback`, `TestBroadcasterCannotAimRequestsAtPrivateAddresses` (PLS, M3U, HLS, redirect: the target gets no request), `TestRedirectCap`, `TestCheckRedirect`, `TestPlaylistEntryCap`, `TestPlaylistEntryBackoff`.
+- `TestEngineStreamClientRefusesLoopback`.
+
+### F24. CDM message events started unbounded renewal goroutines
+
+Severity: Low. Status: fixed. Completes [F8](#f8-a-compromised-child-could-exhaust-the-parents-memory).
+
+**Issue.** F8 bounded the frames and the queue of undelivered events, but the engine drained that queue at once and ran `go e.renew(...)` for every `EventMessage`.
+
+- Each goroutine kept the message's `Data` (up to the 16 MiB frame limit) and waited on the media's licence lock; the ones that got through sent a licence request to Apple with the user's token.
+- `Session` and `Err` had no limit but the frame's.
+
+**Impact.** A compromised child that knows a session ID could exhaust the parent's memory (the thing F8 was meant to rule out) and send back-to-back licence requests to Apple with the account's credentials.
+
+- Severity Low, as F8: it needs a compromised child, and it affects availability only.
+
+**Fix:**
+
+- **Payload limits** (`internal/playback/cdmhost/host.go`, `checkEvent`). A child event whose payload no legitimate one has ends the child like any F8 violation (`errMisbehaved`):
+  - an `EventMessage` with more than 64 KiB of `Data` (`maxMessageData`; licence requests and renewals are a few KiB);
+  - a `Session` over 256 bytes (`maxEventSession`; session IDs are a few bytes);
+  - an `Err` over 16 KiB (`maxEventErr`; one error message).
+- **One renewal at a time** (`internal/playback/native/renewals.go`, `engine.go` `watch`):
+  - Each host has one renewal goroutine, not one per message.
+  - A message for a session the engine does not own is dropped without work (`queueRenewal`).
+  - A message for a session that already has one waiting replaces it, so there is at most one pending message per session. Memory is bounded by the number of sessions times 64 KiB, and Apple sees at most one renewal request at a time.
+  - When the host exits, the pending messages are dropped.
+- The CDM host child stays free of network access: it only sends the messages. The DRM rules are unchanged.
+
+**Test.**
+
+- `TestOversizedEventPayloadKillsChild` (`cdmhost/frames_test.go`): a child sends an oversized message, session ID and error, one at a time.
+- `TestRenewalFloodIsBounded` (`native/renewal_test.go`): 5,000 maximum-size messages for a live session and 5,000 for unknown ones while Apple's licence endpoint is held. The goroutine count stays flat, one renewal is in flight and one coalesced, and no other request is made.
+
+### F25. The Last.fm approval token was in the browser's command line
+
+Severity: Low. Status: fixed (residual risks listed).
+
+**Issue.** Connecting Last.fm opened `https://www.last.fm/api/auth/?api_key=…&token=…` with the system's URL opener, so the approval token was in the browser's (or launcher's) argv, which every user can read in `/proc/<pid>/cmdline` unless `/proc` is mounted with `hidepid` (the channel of [F7](#f7-another-local-user-could-complete-the-loopback-sign-in)). Sona then polls `auth.getSession` every 3 s with that token. The request is signed with the API secret, which is compiled into every release ([F10](#f10-development-builds-logged-the-build-credentials)), so it is no secret from another user.
+
+**Impact.** Another local user could poll faster and get a Last.fm session key for the victim (scrobble, now playing, love, tags) until it is revoked, or approve the token with their own account first, so that Sona connects to the attacker's account and sends the victim's listening history there. Whether Last.fm tokens are single-use is unconfirmed. Linux only, another local user, no `hidepid`, hence Low.
+
+**Fix** (`internal/services/scrobble_link.go`, `scrobble.go`; `internal/auth/mut/peer.go`):
+
+- `approveLastFM` no longer opens the page the add-on names. It starts `approvalLink`, a loopback HTTP server on a random `127.0.0.1` port that serves one path (`/lastfm/<130 random bits>`), and gives the system that address. The page, with its token, is only the `Location` of the link's redirect, which the user's browser follows: the token is never in an argv.
+- **Socket owner (Linux).** The listener is `mut.OwnerOnly`, the owner check of [F7](#f7-another-local-user-could-complete-the-loopback-sign-in): it drops a connection whose client socket another user owns, so reading the link from `/proc` gets another user nothing.
+- **Single use.** The first load redirects; a second gets 410. If someone else loaded it first (on a platform without the owner check) the user's browser is refused, so the user connects again instead of Sona silently connecting to another account.
+- **Narrow.** Only `GET` of the exact path with `Host` equal to the listener's address is answered (a rebound name or another method is 404). Answers are `no-store` with `Referrer-Policy: no-referrer`.
+- **It ends with the approval:** the server is closed when the connect succeeds, fails, times out (10 minutes) or is cancelled.
+- The Last.fm page the user approves on is unchanged, and so is polling. If the loopback server cannot start, the connect fails with the browser-open error; it never falls back to putting the token on the command line.
+
+**Test.**
+
+- `TestLastFMApprovalTokenIsNotOnTheBrowsersCommandLine` (the address Sona hands the system holds no token, key or Last.fm host; a browser that follows it ends on the approval page with the token).
+- `TestApprovalLinkWorksOnce` (a wrong path, the root, POST, HEAD and a rebound Host are 404 and do not use the link; the first load is 302 to the page, the second 410 with no page, and Close stops the listener).
+- `TestApprovalLinkIsClosedWhenTheApprovalEnds`.
+- The owner check itself is `TestOwnerListenerDropsOtherUsers` (`internal/auth/mut`).
+
+**Residual risks.**
+
+- On macOS and Windows the owner check is not implemented. macOS refuses another user's `KERN_PROCARGS2`. Windows does not show another user's command line to a standard user [INFERENCE: not tested]. So the link should not leak there either; if it did, the one-use rule would turn the race into a refused browser instead of a stolen token.
+- The token still travels in the browser's own address after the redirect (history, a synced browser). That is the user's browser, not another user's view.
+- A browser that cannot reach `127.0.0.1` on Sona's host (a different network namespace) cannot open the link. Flatpak and Snap browsers share the host's, and their sockets carry the user's uid ([F7](#f7-another-local-user-could-complete-the-loopback-sign-in)).
+- Last.fm's own page still shows the token in its address bar and is subject to Last.fm's handling of tokens.
+
+### F26. The update manifest's version and platform were not signed
+
+Severity: Low. Status: fixed (residual risks listed).
+
+**Issue.** `cmd/releasesign` signed only the archive's SHA-256, the signature MyGo's updater checks. The manifest's `version` was not covered, and neither was the platform it was published for. `Feed.Manifest` took any well-formed version, `UpdatesService` offered it when `Newer(version, current)`, and `Source.Open` checked the digest signature alone, whatever version or target the manifest said. MyGo's own `checkUpdate` compares the same unsigned version, and nothing noticed that a lower version was running afterwards.
+
+**Impact.** Whoever could publish or replace release assets without the signing key (a `contents: write` token, or a compromise of GitHub or its TLS) could put an old genuine archive (known bugs, or a release candidate) under the version `99.0.0`, or another platform's archive under this platform's manifest name. Installs would be offered the update and, once the user chose Install, move to the older build, be held back or looped, or get the wrong platform's files. No arbitrary code: the digest signature still held. CVSS AV:N/AC:H/PR:H/UI:R/C:N/I:L–H/A:L.
+
+**Fix** (`cmd/releasesign/main.go`; `internal/update/statement.go`, `manifest.go`, `source.go`; `internal/services/updates.go`):
+
+- `releasesign` also writes `sha256` (the digest, hex) and `statement_signature`: an Ed25519 signature, by the same key, of `sona-update-v1 NUL target NUL version NUL channel NUL hex(sha256)`. The prefix names and versions the format, the target is `darwin-arm64` or `windows-amd64`, and the channel is `prerelease` for a version with a pre-release part, else `stable`. No field can hold a NUL, so two different statements are never the same bytes.
+- `Feed.Manifest` verifies it with the build's public key (`VerifyStatement`) before the manifest is used: another version, platform or digest than was signed together, or no statement, is `ErrSignature` (`update_signature`). It also refuses a pre-release on the stable feed and, on the test-version feed, a manifest whose version is not the newest tag's.
+- `Source.Open` (before MyGo sees anything) checks the statement again, refuses a version not newer than the running one (`ErrNotNewer`; a build with no release version never updates), downloads, and requires the bytes' SHA-256 to be the statement's before the digest signature. MyGo's own digest signature is unchanged and still checked.
+- Installs that predate the statement keep working: MyGo reads the manifest ignoring unknown fields, and checks the same digest signature.
+
+**Test.**
+
+- `internal/update`:
+  - `TestReplayedOlderManifestIsNotInstalled` (an older genuine manifest, an older pre-release, the running version and a build with no version: `ErrNotNewer`, and the archive is never requested).
+  - `TestCrossPlatformManifestIsRefused` (another platform's archive with valid signatures for that platform: refused by `Feed.Manifest` and `Source.Open`, nothing downloaded).
+  - `TestTamperedManifestIsRefused` (a changed version, digest, digest format or statement, a statement by another key, and a manifest without one).
+  - `TestSignedManifestIsAccepted` (the valid manifest passes the feed and the source and the archive is served).
+  - `TestSourceHoldsTheDownloadToTheStatementsDigest`, `TestFeedNeedsTheBuildsKey`, `TestFeedRefusesTheWrongChannelOrRelease`.
+  - `TestStatementFormat` (the signed bytes and a signature over fixed inputs), `TestChannelOf`.
+- `cmd/releasesign`: `TestReleasesignWritesVerifiableManifest` (the statement verifies for its platform and version and for no other).
+- `internal/services`: `TestSelfUpdateRefusesAVersionTheKeyDidNotSign` (the advisory's reproduction: a manifest claiming `99.0.0` is refused at the check with `update_signature`, nothing is offered and the app is untouched).
+
+**Residual risks.**
+
+- A genuine older manifest replayed under the current one's name is authentic and never newer, so it is not installed; it can hide a newer release until the real manifest is restored. The statement carries no time or counter.
+- A release signed before this change has no statement and is refused by builds that check it. Run `releasesign` again over its archives to publish one that is offered.
+- Whoever holds `SONA_UPDATE_KEY` can sign any statement. The key's protection is `docs/maintainers/ci-and-secrets.md`.
+
 ## Areas reviewed without findings
 
 - native Apple ID input handling
@@ -1011,7 +1458,7 @@ Severity: Low. Status: fixed.
 - secret stores
 - the scrobble queue
 - the diagnostics bundle
-- the update check and autostart
+- autostart, and the update check's request (its manifest is [F26](#f26-the-update-manifests-version-and-platform-were-not-signed))
 
 ## Run the tests
 
