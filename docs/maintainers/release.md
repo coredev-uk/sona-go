@@ -203,7 +203,18 @@ and Windows development builds in ci.yml never hold a release up), then the
   environment's), or by the next release: the signature covers the bytes.
 - **Signing the manifests:** `go run ./cmd/releasesign` signs each archive's
   SHA-256 with the Ed25519 key `SONA_UPDATE_KEY` (public key:
-  `internal/update/update.pub`, linked into the macOS and Windows builds).
+  `internal/update/update.pub`, linked into the macOS and Windows builds),
+  the signature MyGo checks. It also writes the digest in hex (`sha256`) and
+  a second signature by the same key (`statement_signature`) over
+  `sona-update-v1 NUL target NUL version NUL channel NUL hex(sha256)`, so the
+  version and platform are signed too (`update.Statement`). The version is
+  the release's (`-version`, the tag without its `v`) and the channel follows
+  from it (`prerelease` when it has a pre-release part). Sona refuses a
+  manifest without a valid statement, so every manifest must come from this
+  tool: a release whose manifests were signed by an older `releasesign` is not
+  offered to current builds (their check reports `update_signature`) until
+  `releasesign` is run again over its archives. Installs that predate the
+  statement ignore the fields and update as before.
   Manifests are signed last, after the archives are uploaded. Without the key
   the release has no `update-<target>.json` and installs do not self-update;
   in this repository `publish` refuses to run without it. Where the key and

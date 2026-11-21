@@ -18,8 +18,9 @@
 #          writes only versions and hashes of the expected shapes, and pushes only if the
 #          result is the tree the check built.
 #
-# Maintainer setup: the bot-cecil environment (main and v* tags only) with the secrets
-# RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY (bot-cecil's, as release-please.yml uses), with Contents and Workflows write (merging main
+# Maintainer setup: the bot-cecil environment (main and v* tags only). bot-cecil's token comes from
+# octo-sts (octo-sts.hera.ac, which holds the App's key) under .github/chainguard/nix-branch.sts.yaml,
+# with Contents and Workflows write (merging main
 # brings its workflow changes onto the branch, which GitHub refuses an App without Workflows).
 name: Nix branch
 
@@ -149,16 +150,16 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     environment: bot-cecil # the App's key: main and v* tags only
-    permissions: {}
+    permissions:
+      id-token: write # the OIDC token octo-sts exchanges for bot-cecil's
     steps:
       - name: Generate bot-cecil token
         id: app-token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         with:
-          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          permission-contents: write # the branch
-          permission-workflows: write # main's workflow changes, merged onto it
+          domain: octo-sts.hera.ac
+          scope: ${{ github.repository }}
+          identity: nix-branch
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

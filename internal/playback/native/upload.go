@@ -125,6 +125,11 @@ func (e *Engine) prepareFile(ctx context.Context, m *media, url string) error {
 	return nil
 }
 
+// maxUploadBytes bounds a user-uploaded file held in memory: a CD-length
+// 24-bit/192 kHz FLAC is about 1.5 GB. A server-declared length beyond it
+// fails the download instead of allocating.
+const maxUploadBytes = 2 << 30
+
 // soundCheckHead is how much of a file is read for its Sound Check tag
 // before it starts.
 const soundCheckHead = 1 << 20
@@ -181,6 +186,10 @@ func (e *Engine) downloadOnce(ctx context.Context, u *upload) error {
 			u.mu.Unlock()
 			return e.downloadUnsized(u, resp.Body)
 		}
+		if resp.ContentLength > maxUploadBytes {
+			u.mu.Unlock()
+			return fmt.Errorf("GET file: %d bytes: %w", resp.ContentLength, errTooLarge)
+		}
 		u.size, u.data = resp.ContentLength, make([]byte, resp.ContentLength)
 		u.signal()
 	}
@@ -212,9 +221,12 @@ func (e *Engine) downloadOnce(ctx context.Context, u *upload) error {
 // downloadUnsized reads a response without a length to the end; the file
 // becomes available all at once.
 func (e *Engine) downloadUnsized(u *upload, body io.Reader) error {
-	b, err := io.ReadAll(body)
+	b, err := io.ReadAll(io.LimitReader(body, maxUploadBytes+1))
 	if err != nil {
 		return fmt.Errorf("GET file: %w", err)
+	}
+	if len(b) > maxUploadBytes {
+		return fmt.Errorf("GET file: more than %d bytes: %w", maxUploadBytes, errTooLarge)
 	}
 	u.mu.Lock()
 	u.data, u.n, u.size = b, len(b), int64(len(b))

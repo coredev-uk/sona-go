@@ -3,6 +3,7 @@ package artwork
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -17,6 +18,25 @@ import (
 // nothing else is handed to a decoder: in particular no TIFF, BMP, GIF or
 // WebP parser ever runs on downloaded bytes.
 var ErrFormat = errors.New("artwork: not a JPEG or PNG image")
+
+// ErrTooManyPixels reports an image whose header declares more than
+// MaxSourcePixels, or an empty one. A 1.5 MB PNG can declare 40000×40000
+// pixels, which a decoder would allocate (1.6 GB) before resampling copies
+// it again.
+var ErrTooManyPixels = errors.New("artwork: image dimensions out of range")
+
+// MaxSourcePixels bounds the picture of any artwork source, from the CDN or
+// the disk cache, that is decoded: the same bound as an uploaded cover.
+// Apple's originals are far below it.
+const MaxSourcePixels = MaxCoverPixels
+
+// checkPixels refuses an image header with no area or past MaxSourcePixels.
+func checkPixels(cfg image.Config) error {
+	if cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > MaxSourcePixels {
+		return fmt.Errorf("%w: %d×%d px", ErrTooManyPixels, cfg.Width, cfg.Height)
+	}
+	return nil
+}
 
 var pngMagic = []byte("\x89PNG\r\n\x1a\n")
 
@@ -37,8 +57,16 @@ func decodeConfig(b []byte) (image.Config, error) {
 }
 
 // decodeImage decodes a JPEG or PNG; any other format fails with ErrFormat
-// before a decoder sees it.
+// before a decoder sees it, and a header past MaxSourcePixels with
+// ErrTooManyPixels before any pixel is allocated.
 func decodeImage(b []byte) (image.Image, error) {
+	cfg, err := decodeConfig(b)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkPixels(cfg); err != nil {
+		return nil, err
+	}
 	switch {
 	case isJPEG(b):
 		return jpeg.Decode(bytes.NewReader(b))

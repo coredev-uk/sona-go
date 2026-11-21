@@ -60,14 +60,18 @@ needs:
   extraction rules and Sona's layout; `package.sh` runs it on what it made
   and `releasesign` runs it before it signs. `go run ./cmd/releasesign
   -target T -archive FILE -version V -url URL [-notes FILE] -out
-  update-T.json` signs it (key from `$SONA_UPDATE_KEY`); the publish job signs
+  update-T.json` signs it (key from `$SONA_UPDATE_KEY`): the digest, as MyGo
+  checks it, and a statement of target, version, channel and digest that
+  Sona checks (`docs/architecture.md`, "Updates"); the publish job signs
   last, after the archives are uploaded.
 - A prerelease's notes (and its manifests' notes) are `go run ./cmd/rcnotes
   -exclude <tag>`: the changes since the previous `v*` tag, by Conventional
   Commit type (`docs/maintainers/release.md`, "Releasing": the Prerelease notes item).
 - Tests run against an `httptest` fake release server (`internal/update`,
   `internal/services/updates_self_test.go`): the check, a bad signature
-  refused, no key (off), a development build never checking, the rollback
+  refused, a replayed older manifest, another platform's, a tampered
+  version or digest and a manifest without a statement refused, no key
+  (off), a development build never checking, the rollback
   decision, a failed install leaving the kept version as it was, and the
   archive rules (`archive_test.go`, pinned to what MyGo's extractor does with
   the same entries; the Windows archive script is run on a folder and its
@@ -87,8 +91,14 @@ nixpkgs), run `devenv update` and `nix flake update`, then `check`, `tests`,
 
 ## Dependency updates
 
-Renovate opens pull requests for Go modules and GitHub
-Actions (MyGo's are always left for review), and a review bot checks and merges them; the pinned devenv inputs
-are bumped by hand (see "Pinned inputs" above). You
+Renovate opens pull requests for Go modules, GitHub
+Actions and the digests of the container base images (the `FROM` lines of
+`build/ci/Containerfile` and `build/linux/release/Containerfile`, the Flatpak
+workflow's `container:` image; a tag is never moved by Renovate). MyGo's are
+always left for review, and so is the release image's digest. A review bot
+checks and merges them; the pinned devenv inputs
+are bumped by hand (see "Pinned inputs" above), and so are the downloaded
+tools' hashes (`build/linux/appimage-tools.sha256`, `build/windows/*.sha256`,
+the Go archive hashes): Renovate cannot compute a hash. You
 don't need to update dependencies yourself; a change that needs a newer
 dependency bumps it in the same PR.
