@@ -1178,7 +1178,7 @@ Severity: Medium (GHSA-q2xm-pq49-7mxq). Status: fixed.
 
 ### F15. The release bot's App key was readable by branch runs
 
-Severity: Medium. Status: fixed; since #608 the key is not in GitHub at all. Rotating the exposed key is still recommended.
+Severity: Medium. Status: fixed; since #608 the key is not in GitHub at all, and the exposed key has been rotated.
 
 **Issue.**
 
@@ -1201,7 +1201,7 @@ Severity: Medium. Status: fixed; since #608 the key is not in GitHub at all. Rot
 - `gh secret list` shows no repository-level secret; each of the four environments lists both App secrets.
 - Not tested: a push of a `v*` tag by a non-admin collaborator being refused (no such account was at hand); GitHub enforces the ruleset for every actor without a bypass.
 
-**Since.** #608 took the key out of GitHub: octo-sts holds it, and each job exchanges its OIDC token for an installation token under a trust policy in `.github/chainguard/` that names the job's environment ([ci-and-secrets.md](maintainers/ci-and-secrets.md)). None of the four environments holds the App's secrets any more. Unless the key was rotated when it moved, octo-sts uses the key the repository-level copies exposed, so it should still be rotated: new key in the App's settings, then the 1Password item, then delete the old key.
+**Since.** #608 took the key out of GitHub: octo-sts holds it, and each job exchanges its OIDC token for an installation token under a trust policy in `.github/chainguard/` that names the job's environment ([ci-and-secrets.md](maintainers/ci-and-secrets.md)). None of the four environments holds the App's secrets any more. The maintainer rotated the key on 2026-11-21, so the one the repository-level copies exposed no longer mints tokens.
 
 ### F16. A NUL byte or invalid UTF-8 in on-air metadata broke MPRIS
 
