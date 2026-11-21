@@ -29,6 +29,7 @@ Sona's interface is Go all the way down: [MyGo](https://github.com/egoist/mygo)'
 - [Conventions](#conventions)
 - [The app shell](#the-app-shell-internaluiapp)
   - [Start-up and windows](#start-up-and-windows)
+  - [Window materials](#window-materials)
   - [Routes, links and history](#routes-links-and-history)
   - [Shortcuts and the macOS menu bar](#shortcuts-and-the-macos-menu-bar)
 - [Features](#features)
@@ -857,7 +858,7 @@ Then, on the main thread, it follows the settings (theme mode, reduce effects, t
 
 **Layout**
 
-- The sidebar (232 DIP, `surface`): the mark and "Sona" in its 48 DIP header, the primary links, then a scrolling middle with the "Library" heading, the library links and the modules' `SidebarSection`s, then the footer links.
+- The sidebar (232 DIP, `surface`, translucent over the window's material on macOS: Window materials, below): the mark and "Sona" in its 48 DIP header, the primary links, then a scrolling middle with the "Library" heading, the library links and the modules' `SidebarSection`s, then the footer links.
 - A 1 DIP `line`.
 - The main column: the top bar (48 DIP, `surface`: MyGo's back and forward buttons on the router, the `TopBarSearch` slot, room to grab, then the `TopBarNotices` bell and the `TopBarAccount` avatar 8 DIP apart) over a 1 DIP `line` over the page row. The page row holds the routed page on `ground`, the `Aside`s, and each open `Overlay` covering the page. The page stays built, hidden, so it keeps its scroll.
 - The `Bottom` slots run across the window under both. A `Layer` is drawn over everything and, while its `LayerOpen` holds, the window under it takes no input.
@@ -887,7 +888,7 @@ Then, on the main thread, it follows the settings (theme mode, reduce effects, t
 - Closing the main window or the mini player (`OnClose`) hides it and keeps playing when there is a tray and Settings → General says "background"; otherwise, and always without a tray, it quits.
 - `Windows.Quit` (the tray, MPRIS Quit) and any app quit (Cmd+Q, the app menu, SIGTERM; `OnBeforeQuit`) let every window close.
 - `ShowMain` (the tray, MPRIS Raise, a second launch, the Dock icon through `OnActivate`) hides the mini player and shows, restores and focuses the main window.
-- The mini player (`Slots.Mini`, the first module's) is a 420×132 DIP frameless, fixed-size, always-on-top window that never maximises. It is made on first use and then hidden, never destroyed. `ToggleMini` shows it in the main window's place, and `post` redraws it beside the main window while it shows.
+- The mini player (`Slots.Mini`, the first module's) is a 420×132 DIP frameless, fixed-size, always-on-top window that never maximises, with 20 DIP rounded corners on macOS (`miniCornerRadius`). It is made on first use and then hidden, never destroyed. `ToggleMini` shows it in the main window's place, and `post` redraws it beside the main window while it shows.
 - `Env.Window` follows the main window's `OnFocus`/`OnBlur` and full screen, with a redraw on each.
 - `Options.Hidden` (`--hidden`) creates the window hidden when there is a tray. The network opens at once (no first frame comes); motion and `Env.Window.Focused` start off.
 
@@ -915,6 +916,17 @@ The tray (`mygo.NewTray`, made before the window; libayatana-appindicator3 on Li
 **Status banner** (`banner.go`): one `RoleStatus` line under the top bar for the keyring waiting or unavailable (with `account.KeyringRetry`), a token Apple stopped accepting (Sign in), Apple refusing Sona (Diagnostics) and offline.
 
 **System now playing.** MyGo's now playing stays unlinked on Linux, where MPRIS is Go's only player. On macOS and Windows Go's `internal/nowplaying` drives `mygo.NowPlaying` (media keys, Control Center, the volume flyout), wired in `cmd/sona/nowplaying_desktop.go`.
+
+### Window materials
+
+Only macOS has one, behind the sidebar alone ([design.md](design.md), "Window material (macOS)"). `material_darwin.go` and `material_other.go` are the seam; `material.go` is the rest, on every OS.
+
+- **The window.** `windowMaterial` is the main window's `WindowOptions.Vibrancy`: `VibrancyGlass` (Liquid Glass) from macOS 26 (`kern.osproductversion`), `VibrancySidebar` before it, `VibrancyNone` off macOS. The OS composites it; Sona draws no blur.
+- **The view.** Where the window shows it (`c.Vibrancy()`), the root is transparent, the main column draws `ground` itself, and the sidebar draws `surface` at the tint's opacity. Everywhere else the root draws `ground` and the sidebar is solid, as on Linux and Windows.
+- **The tint.** `sidebarTint` is the least opacity, in 5% steps, at which `ink`, `ink-muted` and `ink-faint` keep `theme.TextFloor` over every sample in `materialSamples` (what the material showed with no tint over black, white, grey and eight saturated desktops, light and dark, active and inactive, measured for #317; only the samples no other is worse than in every channel). `App.tintFor` works it out again only when `theme.Current()`'s tokens change. A tint of 1 means a solid sidebar.
+- **Off.** `followMaterial` sets the window's material to none (`Window.SetVibrancy`) while Reduce effects is on, the desktop asks for Reduce Transparency, or the theme needs a tint of 1, and back when none holds: a hidden material is still composited.
+- **Appearance.** `followAppearance` sets `mygo.Theme.SetSource` to the polarity `theme.Fixed` reports (the mode setting, or a one-variant theme), else the system's, so the material and the window buttons are drawn light or dark as Sona is. It runs only in the app (`Options.windowed`) where the window has a material.
+- **Tests.** `material_test.go` drives the Tester's `SetVibrancy` and `SetPreferences`: the sidebar lets the material through while the page stays opaque, and is opaque again with Reduce Transparency and with Reduce effects. The golden images are Linux's, with no material.
 
 ### Routes, links and history
 

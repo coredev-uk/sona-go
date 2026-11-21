@@ -158,6 +158,16 @@ type App struct {
 	banner banner
 	// menubar is the macOS menu bar (nil elsewhere). Main thread.
 	menubar *menuBar
+	// material is the main window's material (windowMaterial; none off
+	// macOS), and materialSet the one the window has now, which
+	// followMaterial switches off for Reduce effects and Reduce
+	// Transparency; appearance is the app's appearance followAppearance
+	// set; tint is the sidebar's tint over the material for tintTokens.
+	// Main thread.
+	material, materialSet mygo.Vibrancy
+	appearance            mygo.ThemeSource
+	tintTokens            *theme.Tokens
+	tint                  float32
 
 	mu        sync.Mutex
 	win       *mygo.Window
@@ -389,6 +399,9 @@ func (a *App) openWindow() {
 		Content:   ui.View(a.view),
 		Page:      mygo.PageOptions{DevTools: devtools},
 	}
+	a.material = windowMaterial()
+	a.materialSet = a.material
+	opts.Vibrancy = a.material
 	a.chrome(&opts)
 	win := mygo.NewWindow(opts)
 	if len(a.opts.Icon) > 0 {

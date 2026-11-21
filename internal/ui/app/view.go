@@ -22,6 +22,9 @@ func (a *App) view(c *ui.Context) {
 	c.Root().Direction(dir)
 	a.swipe.RightToLeft = dir == ui.RightToLeft
 	theme.Apply(c)
+	if a.opts.windowed {
+		a.followAppearance()
+	}
 	a.rememberRoute(c)
 
 	overlayOpen := a.overlayGivesWay()
@@ -32,8 +35,16 @@ func (a *App) view(c *ui.Context) {
 
 	// The window's keys come to the dispatcher by shortcut, and the "?" that
 	// MyGo gives no Key on GTK and AppKit by the root's input it observes
-	// (kit.ShiftSlash), wherever the focus is in it.
-	root := ui.Column(c).Fill().Background(theme.C("ground")).IgnoreInput(layerOpen).HandleInput(a.swipe.Input).ObserveInput(a.keys.slash.Observe)
+	// (kit.ShiftSlash), wherever the focus is in it. Over the window's
+	// material (macOS) the root is clear, so it shows behind the sidebar,
+	// and the main column draws the ground instead.
+	tint := a.followMaterial(c)
+	root := ui.Column(c).Fill().IgnoreInput(layerOpen).HandleInput(a.swipe.Input).ObserveInput(a.keys.slash.Observe)
+	if tint < 1 {
+		c.Root().Background(ui.Transparent)
+	} else {
+		root.Background(theme.C("ground"))
+	}
 	endPass := a.env.Art.Pass(c)
 	root.Draw(func(p *ui.Painter, _ ui.Rect) {
 		a.paintOnce.Do(a.painted)
@@ -42,10 +53,10 @@ func (a *App) view(c *ui.Context) {
 	root.Children(func() {
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			if a.sidebar {
-				a.sidebarView(c)
+				a.sidebarView(c, tint)
 				ui.Box(c).Width(1).FillHeight().Background(theme.C("line"))
 			}
-			a.mainColumn(c)
+			a.mainColumn(c, tint < 1)
 		})
 		for _, m := range a.mods {
 			if m.Slots.Bottom != nil {
@@ -111,9 +122,14 @@ func (a *App) painted() {
 	}
 }
 
-// mainColumn is the top bar over the page area.
-func (a *App) mainColumn(c *ui.Context) {
-	ui.Column(c).Grow(1).Basis(0).MinWidth(0).FillHeight().Children(func() {
+// mainColumn is the top bar over the page area, on the ground over the
+// window's material.
+func (a *App) mainColumn(c *ui.Context, material bool) {
+	col := ui.Column(c).Grow(1).Basis(0).MinWidth(0).FillHeight()
+	if material {
+		col.Background(theme.C("ground"))
+	}
+	col.Children(func() {
 		a.topBar(c)
 		theme.Hairline(c)
 		a.statusBanner(c)
@@ -224,10 +240,13 @@ func (a *App) topBar(c *ui.Context) {
 }
 
 // sidebarView is the sidebar: the modules' links by section, their
-// sections in the scrolling middle, their footers and footer links.
-func (a *App) sidebarView(c *ui.Context) {
+// sections in the scrolling middle, their footers and footer links, on the
+// surface tone at the tint's opacity over the window's material (1:
+// solid).
+func (a *App) sidebarView(c *ui.Context, tint float32) {
 	tk := theme.Current()
-	ui.Column(c).Width(tk.Metric["sidebar"]).FillHeight().Background(theme.C("surface")).
+	surface := theme.C("surface").Alpha(tint)
+	ui.Column(c).Width(tk.Metric["sidebar"]).FillHeight().Background(surface).
 		Padding(0, 12, 12).Clip().Label(i18n.T("Main")).Role(ui.RoleGroup).Children(func() {
 		a.brand(c)
 		ui.Column(c).Gap(2).Margin(8, 0, 0, 0).Children(func() {
