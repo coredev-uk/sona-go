@@ -290,7 +290,8 @@ func TestTheSheetSetsTheDotsWhereALineWouldBeAndTurnsToThem(t *testing.T) {
 	// dot is full, in the lit word's colour, and the last not begun.
 	look := sheetLook()
 	x0, y := box.X+look.padX, box.Y+box.H/2
-	if mid, _ := r.litDots(x0, y, look.dot, look.dotSpace); !mid[0] || mid[2] {
+	g := dotsFor(look.size)
+	if mid, _ := r.litDots(x0, y, g.d, g.space); !mid[0] || mid[2] {
 		t.Errorf("the dots' middles are lit %v: want the first only", mid)
 	}
 	// Line 9 begins: the dots clear and the sheet does not move.
@@ -412,5 +413,27 @@ func TestNowPlayingGapGolden(t *testing.T) {
 			r.tt.Settle()
 			uitest.Golden(t, r.tt.Image(), "nowplaying-gap-"+mode.name)
 		})
+	}
+}
+
+// The dots are sized from the font of the line they lead to, and an unlit dot
+// is the ink of a line still to come: never the brightest thing on screen.
+func TestTheDotsAreSizedFromTheLinesFontAndUnlitInTheComingInk(t *testing.T) {
+	if g := dotsFor(24); g.d != 14 || g.space != 6 {
+		t.Errorf("the sheet's dots: %+v, want 14 across and 6 apart", g)
+	}
+	r := stageRig(t, gapLines(), 500, nil)
+	st := r.p.np.stage
+	b := st.block(0)
+	if b.dots != dotsFor(b.size) || b.dots.d < b.size/2 {
+		t.Errorf("the dots %+v are not sized from the line's %v", b.dots, b.size)
+	}
+	box, _ := r.tt.Find("Instrumental break")
+	img := r.tt.Image()
+	// The third dot is unlit: as dim as a line still to come, and well under
+	// the near-white of a sung word.
+	x := st.g.left + 2*(b.dots.d+b.dots.space) + b.dots.d/2
+	if c := img.RGBAAt(int(x), int(box.Y+box.H/2)); c.R > 190 || c.G > 190 || c.B > 190 {
+		t.Errorf("an unlit dot is %v: brighter than the coming ink", c)
 	}
 }

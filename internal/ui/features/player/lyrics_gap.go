@@ -38,17 +38,26 @@ func gapStateOf(i, active, anchor int) gapState {
 	return gapComing
 }
 
-// gapTone is the colour of the dots not yet filled: ink while they are the
-// sung line, as the words of a sung line are, muted before.
-func gapTone(state gapState) ui.Color {
-	if state == gapSung {
-		return theme.C("ink")
-	}
-	return theme.C("ink-muted")
-}
+// gapTone is the colour of a dot not yet filled: the ink of a line still to
+// come in the view (--ink-muted in the sheet and in Full-Screen Lyrics), so
+// that the dots fill to --amber-ink as a word lights, and are never brighter
+// than the lines they stand among.
+func gapTone() ui.Color { return theme.C("ink-muted") }
+
+// The dots are sized from the font of the line they lead to: each gapDotEm
+// across, gapSpaceEm apart, so that they read as a line of the lyrics.
+const (
+	gapDotEm   = 0.6
+	gapSpaceEm = 0.25
+)
 
 // gapDots is the size of the three dots: d across, space between them.
 type gapDots struct{ d, space float32 }
+
+// dotsFor is the dots of a line set at size.
+func dotsFor(size float32) gapDots {
+	return gapDots{d: max(round32(size*gapDotEm), 6), space: max(round32(size*gapSpaceEm), 3)}
+}
 
 func (g gapDots) width() float32 { return 3*g.d + 2*g.space }
 
