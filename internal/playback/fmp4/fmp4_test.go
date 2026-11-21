@@ -395,3 +395,28 @@ func TestParseFragmentTakesItsSampleEntrysConstantIV(t *testing.T) {
 		}
 	}
 }
+
+// A trun without per-sample fields passes the length check whatever its
+// sample count, and a default size of 0 passes the data check: 2^32-1
+// samples used to append ~88 bytes each (hundreds of GB).
+func TestParseFragmentBoundsSampleCount(t *testing.T) {
+	in := testInit(t)
+	for name, n := range map[string]uint32{"max": 0xFFFFFFFF, "just over the cap": maxSamples + 1} {
+		tfhd := mkfull("tfhd", 0, 0x020010, be32(1), be32(0))
+		trun := mkfull("trun", 0, 0, be32(n))
+		b := cat(mkbox("moof", mkfull("mfhd", 0, 0, be32(1)), mkbox("traf", tfhd, trun)), mkbox("mdat", []byte{0}))
+		if _, err := ParseFragment(b, in); err == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+}
+
+func TestParseFragmentRejectsEmptySamples(t *testing.T) {
+	in := testInit(t)
+	tfhd := mkfull("tfhd", 0, 0x020010, be32(1), be32(0))
+	trun := mkfull("trun", 0, 0, be32(3))
+	b := cat(mkbox("moof", mkfull("mfhd", 0, 0, be32(1)), mkbox("traf", tfhd, trun)), mkbox("mdat", []byte{0}))
+	if _, err := ParseFragment(b, in); err == nil {
+		t.Fatal("expected an error for zero-size samples")
+	}
+}

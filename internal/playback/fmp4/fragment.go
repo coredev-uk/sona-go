@@ -24,6 +24,12 @@ const (
 	trunCTO              = 0x000800
 )
 
+// maxSamples bounds the samples of one fragment. Apple's segments hold a few
+// hundred (a ten-second AAC segment about 430, a 60 fps video segment 600);
+// a trun that declares more is damaged or hostile, and every sample costs a
+// Sample struct.
+const maxSamples = 1 << 16
+
 // ParseFragment parses every moof + mdat pair in b (one HLS byte range) and
 // returns the samples of init's track in decode order. Per-sample
 // encryption comes from senc, or from saiz/saio auxiliary information when
@@ -132,6 +138,9 @@ func parseTraf(b []byte, moof, traf box, in *Init, out []Sample) ([]Sample, erro
 				per += 4
 			}
 		}
+		if r.err == nil && len(out)+n > maxSamples {
+			return nil, fmt.Errorf("fmp4: fragment with more than %d samples", maxSamples)
+		}
 		if r.err != nil || n < 0 || len(r.b)-r.off < n*per {
 			return nil, fmt.Errorf("fmp4: trun with %d samples: %w", n, ErrTruncated)
 		}
@@ -154,6 +163,9 @@ func parseTraf(b []byte, moof, traf box, in *Init, out []Sample) ([]Sample, erro
 				} else {
 					s.CTO = int32(c)
 				}
+			}
+			if size == 0 {
+				return nil, errors.New("fmp4: empty sample")
 			}
 			if pos < 0 || uint64(pos)+uint64(size) > uint64(len(b)) {
 				return nil, fmt.Errorf("fmp4: sample data [%d,+%d) outside fragment of %d bytes", pos, size, len(b))
