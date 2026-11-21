@@ -24,6 +24,7 @@ Shuffle (S) plays the queue in a random order. Repeat (R) cycles through repeat 
 
 Press L to open the lyrics in Now Playing. Sona asks every lyrics source you turned on and shows the finest timing it finds: word by word, then line by line, then plain text.
 
+- The sung line stays a third of the way down the lyrics, and each line glides up to its place as it is sung, one after another, the lines after it a moment behind. Seek back and they glide down. With reduce motion on they jump.
 - Select a line to jump to it.
 - Where the singing stops for five seconds or more, three dots stand in the lyrics and fill in amber, one after the other, until the next line begins.
 - Press [ and ] to shift the lyrics earlier or later, and \ to reset.
@@ -37,7 +38,7 @@ Press Shift+L, or choose Full screen under the lyrics in Now Playing, to give th
 - Press Space to play or pause, ↑ and ↓ to go to the previous or next line, ← and → to go back or ahead 5 seconds, and Home for the start of the song. Escape or Shift+L leaves.
 - The screen stays on while the music plays, so a TV left on doesn't go dark. The view is dark in a light theme too.
 - A song with no lyrics shows its cover large, with the title and the artist.
-- With reduce motion on, lines jump to their place instead of climbing and the background holds still. The background also holds still on battery.
+- With reduce motion on, lines jump to their place instead of gliding and the background holds still. The background also holds still on battery.
 
 ## Open Now Playing
 

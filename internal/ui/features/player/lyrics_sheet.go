@@ -14,12 +14,25 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// The reading band, as fractions of the scroller's height: while the anchor
-// line sits inside it the words hold still; once it leaves, the sheet turns
-// so the anchor's verse starts at the band's top (useLyricsView.ts).
+// The reading position, as a fraction of the scroller's height: the sung
+// line stays there, a third of the way down, and the lines glide past it one
+// by one as the voice goes on (follow).
 const (
-	bandTop    = 0.14
-	bandBottom = 0.72
+	readAt = 1.0 / 3
+	// cutFar is how far, in sheet heights, a change of line may move the
+	// sheet and still glide; a seek further than that cuts.
+	cutFar = 1.0
+	// cutLines is how many lines a change of line may move the sung one and
+	// still glide; a seek or a click further than that cuts, so that a long
+	// glide never sweeps the whole sheet.
+	cutLines = 6
+	// rebaseWait is how long a rebase waits for the user's own scroll to come
+	// to rest.
+	rebaseWait = 120 * time.Millisecond
+	// rebaseSlop is how early a build may take the lines for at rest: the
+	// window's frames and the player's clock do not tick together, and the
+	// margin of cascadeSettle leaves the glide long finished.
+	rebaseSlop = 30 * time.Millisecond
 	// userScroll is how long the sheet is left alone after the user scrolled it.
 	userScroll = 4 * time.Second
 	// sweepStep: a line's shaped text is kept per width rounded down to this,
@@ -73,7 +86,7 @@ type lyricLook struct {
 func sheetLook() lyricLook {
 	return lyricLook{
 		size: 24, lineH: 30, weight: 650, subSize: 16, subLineH: 22, padX: 12, padY: 6,
-		subGap: 2, verseGap: 32, indent: 36, togetherSize: 12, topPad: bandTop, botPad: 0.70, fadeDIP: 48,
+		subGap: 2, verseGap: 32, indent: 36, togetherSize: 12, topPad: readAt, botPad: 0.70, fadeDIP: 48,
 	}
 }
 
@@ -85,23 +98,39 @@ type sweepKey struct {
 	whole  bool
 }
 
-// lyricsSheet is one lyric sheet's state: the scroller, the reading band's
+// lyricsSheet is one lyric sheet's state: the scroller, the cascade's
 // bookkeeping, the keyboard focus and the shaped sweeps. A new song gets a
 // new one (v0.2.0 remounted the pane per song). Main thread only.
 type lyricsSheet struct {
 	songID string
 
-	scroll ui.ScrollState
-	box    ui.Handle
-	lines  []ui.Handle
-	verses []ui.Handle
-	gapAt  []ui.Handle // the dots of an instrumental gap before a line
+	scroll  ui.ScrollState
+	box     ui.Handle
+	content ui.Handle // the column inside the scroller, whose top is where the lines' places are counted from
+	lines   []ui.Handle
+	gapAt   []ui.Handle // the dots of an instrumental gap before a line
 
 	lastY      float32
 	wasGliding bool
 	userAt     time.Time
 	anchored   int
 	jumped     bool
+
+	// The cascade (follow). The scroll is put where the sung line stands at
+	// the reading position as the line changes, and every line is posed back
+	// to where it was and glides on from there: off is how far the lines are
+	// posed from where the layout has them (the scroll is that far short of
+	// where the sung line wants it), up the way they go, settleAt when they
+	// are all at rest, and poseLo..poseHi the lines posed (those on screen,
+	// before or after, and the ones about to be).
+	off            float32
+	up             bool
+	settleAt       time.Time
+	poseLo, poseHi int
+	pad            float32 // the sheet's top padding as the last build set it
+	seen           int     // the anchor of the last build
+	tries          int     // the frames asked for before the first layout let the sheet take its place
+
 	// focused is the line that had the focus last (the roving tab stop), -1
 	// before any; want is the line a key asked the focus for.
 	focused, want int
@@ -109,13 +138,13 @@ type lyricsSheet struct {
 	lyricsModel
 	sweeps map[sweepKey]*kit.SweepText
 
-	// Last frame's picture, for tests and for the reading band.
+	// Last frame's picture, for tests and for the cascade.
 	active, anchor int
 	width          float32
 }
 
 func newLyricsSheet(songID string) *lyricsSheet {
-	return &lyricsSheet{songID: songID, anchored: -1, focused: -1, want: -1}
+	return &lyricsSheet{songID: songID, anchored: -1, seen: -1, focused: -1, want: -1}
 }
 
 // lyricsModel is what a view of lyrics derives from them, once per lyrics:
@@ -164,7 +193,6 @@ func (sh *lyricsSheet) bind(l *services.Lyrics) {
 		return
 	}
 	sh.lines = make([]ui.Handle, len(l.Lines))
-	sh.verses = make([]ui.Handle, len(sh.verseList))
 	sh.gapAt = make([]ui.Handle, len(l.Lines))
 	sh.sweeps = map[sweepKey]*kit.SweepText{}
 }
@@ -273,9 +301,9 @@ func paintFade(p *ui.Painter, r ui.Rect, wash func(x, y float32) ui.Color, top b
 
 func round32(v float32) float32 { return float32(math.Round(float64(v))) }
 
-// lyricsScroller builds the sheet: the lines in verses inside a scroller that
-// turns the page to keep the sung line in the reading band, and fades out at
-// its top and bottom. It returns the scroller.
+// lyricsScroller builds the sheet: the lines in verses inside a scroller whose
+// lines glide, one by one, to keep the sung line at the reading position,
+// and which fades out at its top and bottom. It returns the scroller.
 func (p *player) lyricsScroller(c *ui.Context, sh *lyricsSheet, l *services.Lyrics, in sheetIn) ui.Element {
 	sh.bind(l)
 	look := in.look
@@ -318,8 +346,11 @@ func (p *player) lyricsScroller(c *ui.Context, sh *lyricsSheet, l *services.Lyri
 	view := sheet.Bounds()
 	sh.width = view.W
 	text := view.W - 2*look.padX
+	dots := sh.synced && sung.Anchor >= 0 && lyricsync.HasGap(sh.gaps[sung.Anchor]) && gapStateOf(sung.Anchor, sung.Active, sung.Anchor) != gapPast
+	pad := view.H * look.topPad
+	sh.follow(c, view, sung.Anchor, pad, dots, reduced, now)
 	sheet.Children(func() {
-		ui.Column(c.Key("sheet")).FillWidth().Padding(view.H*look.topPad, 0, view.H*look.botPad).Children(func() {
+		ui.Column(c.Key("sheet")).FillWidth().Padding(pad, 0, view.H*look.botPad).Bind(&sh.content).Children(func() {
 			ui.Column(c.Key("column")).FillWidth().Children(func() {
 				p.lyricVerses(c, sh, in, prefs, sung, text, reduced)
 				p.lyricsFooter(c, sh)
@@ -327,8 +358,6 @@ func (p *player) lyricsScroller(c *ui.Context, sh *lyricsSheet, l *services.Lyri
 		})
 	})
 
-	// Turn the page: keep the anchor line inside the reading band.
-	sh.turnPage(c, view, sung.Anchor, reduced, now)
 	sh.lastY = sh.scroll.Y
 
 	// Fade the sheet out at its top and bottom (.lyrics-fade): no blur. The
@@ -363,50 +392,110 @@ func (p *player) wakeAtWordChange(c *ui.Context, m *lyricsModel, t int64) {
 	}
 }
 
-// turnPage keeps the anchor line in view by turning the sheet a verse at a
-// time instead of following every line: the words stay still while they are
-// read. A turn brings the anchor's verse to the top of the reading band, or
-// the anchor itself when its verse is too long for the band. The first turn
-// (and every turn under reduced motion) jumps; later ones scroll smoothly.
-func (sh *lyricsSheet) turnPage(c *ui.Context, view ui.Rect, anchor int, reduced bool, now time.Time) {
-	if anchor < 0 || anchor >= len(sh.lines) || view.H <= 0 || sh.anchored == anchor {
+// follow keeps the sung line (the anchor) at the reading position, line by
+// line: when the line changes the scroll goes to where the line stands a third
+// of the way down, and every line on screen glides to its new place on its own
+// (cascadeAnim), the sung line first and the lines trailing it after it, down
+// on a seek back. The glide is the lines' pose, which only paints; the scroll
+// itself does not glide.
+//
+// A pose can be set to a place but not read back, so the scroll goes to the
+// new place only once the lines have settled (rebase), in a build of its
+// own that jumps: until then the scroll stays where it was and the lines are
+// posed off from the layout. The jump of rebase moves the scroll by what
+// the pose held, and the pose to rest, so nothing shows. The first line, a
+// seek of more than cutFar sheet heights and reduced motion jump to place at
+// once. The user's scroll holds it all still (userScroll); a build that finds
+// the lines on their way and the line changed again moves on from where they
+// are.
+func (sh *lyricsSheet) follow(c *ui.Context, view ui.Rect, anchor int, pad float32, dots, reduced bool, now time.Time) {
+	sh.poseLo, sh.poseHi = 0, -1
+	// The bounds are those of the layout of the build before, whose padding
+	// was sh.pad: lines stand pad - sh.pad further down in this one. The
+	// first layout has no height to take a third of, and a window being resized
+	// changes it: the line is found again.
+	shift := pad - sh.pad
+	sh.pad = pad
+	seen := sh.seen // the line the last build had, which a seek is measured from
+	sh.seen = anchor
+	box, content := sh.box.Bounds(c), sh.content.Bounds(c)
+	if !sh.synced || view.H <= 0 || content.H <= 0 {
+		// Nothing to follow, or not laid out yet: the sheet takes its first
+		// place in a build of the frame after the layout, not at the next line.
+		if sh.synced && !sh.jumped && sh.tries < 3 {
+			sh.tries++
+			c.Invalidate()
+		}
 		return
 	}
-	if now.Sub(sh.userAt) < userScroll {
-		return
-	}
-	lb := sh.lines[anchor].Bounds(c)
-	if lb.H <= 0 {
-		return // not laid out yet
-	}
-	sh.anchored = anchor
-	h := view.H
-	y := sh.scroll.Y
-	top := lb.Y - view.Y + y
-	bottom := top + lb.H
-	if db := sh.gapAt[anchor].Bounds(c); db.H > 0 {
-		top = db.Y - view.Y + y // the dots lead the line, and are what is sung first
-	}
-	jump := !sh.jumped || reduced
-	sh.jumped = true
-	if !jump && top >= y+h*bandTop-1 && bottom <= y+h*bandBottom {
-		return
-	}
-	verseTop := top
-	if v := sh.verseOf[anchor]; v < len(sh.verses) {
-		if vb := sh.verses[v].Bounds(c); vb.H > 0 {
-			verseTop = vb.Y - view.Y + y
+	resized := shift != 0
+	if anchor >= 0 && anchor < len(sh.lines) && (sh.anchored != anchor || resized) && now.Sub(sh.userAt) >= userScroll {
+		if lb := sh.lines[anchor].Bounds(c); lb.H > 0 {
+			top := lb.Y - content.Y + shift
+			if db := sh.gapAt[anchor].Bounds(c); dots && db.H > 0 {
+				top = db.Y - content.Y + shift // the dots lead the line, and are what is sung first
+			}
+			want := max(0, top-view.H*readAt)
+			if sh.scroll.MaxY > 0 {
+				want = min(want, sh.scroll.MaxY+shift)
+			}
+			sh.anchored = anchor
+			from := sh.scroll.Y
+			switch {
+			case !sh.jumped || resized || reduced || abs(anchor-seen) > cutLines || max(want-from, from-want) > view.H*cutFar:
+				c.DisableAnimations()
+				sh.scroll.Y, sh.off, sh.settleAt = want, 0, time.Time{}
+			case from-want != sh.off:
+				sh.up = from-want < sh.off
+				sh.off = from - want
+				sh.settleAt = now.Add(cascadeSettle())
+			}
+			sh.jumped = true
 		}
 	}
-	from := top
-	if bottom-verseTop <= h*(bandBottom-bandTop) {
-		from = verseTop
+
+	// Rebase: the lines are at rest where the pose has them, so the scroll
+	// goes there and the pose to nothing, in one frame that shows no change.
+	if sh.off != 0 {
+		switch {
+		case sh.settleAt.Sub(now) > rebaseSlop:
+			c.After(sh.settleAt.Sub(now) + time.Millisecond)
+		case sh.scroll.Scrolling():
+			c.After(rebaseWait) // the user's glide goes on first
+		default:
+			c.DisableAnimations()
+			sh.scroll.Y -= sh.off
+			sh.off = 0
+		}
 	}
-	target := max(0, from-h*bandTop)
-	if jump {
-		sh.scroll.Y = target
-	} else {
-		sh.scroll.ScrollTo(0, target, ui.Smooth)
+
+	// The lines to pose: those that are, or were, or will be on screen, with
+	// half a sheet to spare, so that a line coming in glides in from where it
+	// was and does not appear.
+	scrolled := box.Y - content.Y // the scroll the layout used
+	lo := min(scrolled, sh.scroll.Y, sh.scroll.Y-sh.off) - view.H/2
+	hi := max(scrolled, sh.scroll.Y, sh.scroll.Y-sh.off) + view.H*1.5
+	first := true
+	for i, h := range sh.lines {
+		lb := h.Bounds(c)
+		if lb.H <= 0 || lb.Y-content.Y+shift+lb.H < lo || lb.Y-content.Y+shift > hi {
+			continue
+		}
+		if first {
+			sh.poseLo, first = i, false
+		}
+		sh.poseHi = i
+	}
+}
+
+// posed reports whether line i is posed by the cascade.
+func (sh *lyricsSheet) posed(i int) bool { return i >= sh.poseLo && i <= sh.poseHi }
+
+// glide poses element e, line i's (or its dots'), at the shift of the
+// cascade, as the line goes after the sung one.
+func (sh *lyricsSheet) glide(e ui.Element, i int, reduced bool) {
+	if sh.posed(i) {
+		e.AnimatePose(ui.Pose{Y: sh.off}, cascadeAnim(i-sh.anchor, sh.up, reduced))
 	}
 }
 
@@ -425,7 +514,7 @@ func (p *player) lyricVerses(c *ui.Context, sh *lyricsSheet, in sheetIn, prefs l
 		tabStop = max(sung.Anchor, 0)
 	}
 	for v, ids := range sh.verseList {
-		verse := ui.Column(c.Key("verse:" + strconv.Itoa(v))).FillWidth().Bind(&sh.verses[v])
+		verse := ui.Column(c.Key("verse:" + strconv.Itoa(v))).FillWidth()
 		if v > 0 {
 			verse.Margin(in.look.verseGap, 0, 0, 0)
 		}
@@ -464,6 +553,7 @@ func (p *player) lyricGap(c *ui.Context, sh *lyricsSheet, i int, in sheetIn, sta
 	if state == gapPast {
 		return
 	}
+	sh.glide(row, i, reduced)
 	row.Role(ui.RoleImage).Label(gapLabel()).
 		Draw(p.gapDraw(sh.songID, sh.gaps[i], dotsFor(look.size), look.padX, rtl(sh.lyr.Lines[i].Text), reduced, gapTone(), theme.C("amber-ink")))
 }
@@ -495,6 +585,7 @@ func (p *player) lyricLine(c *ui.Context, sh *lyricsSheet, ln *services.LyricLin
 	clickable := in.clickable && sh.synced
 
 	row := ui.Column(c.Key("line:"+strconv.Itoa(i))).FillWidth().Padding(look.padY, look.padX).Bind(&sh.lines[i])
+	sh.glide(row, i, in.reduced)
 	startPad := look.padX
 	if other {
 		startPad += look.indent
