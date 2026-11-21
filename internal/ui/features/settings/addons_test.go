@@ -448,7 +448,7 @@ func TestSettingsRowsSaveAndASecretIsNeverShown(t *testing.T) {
 
 	// A text row saves with Save, not on each key.
 	r.tt.MustClick("Web address")
-	r.tt.Key(ui.Ctrl, ui.KeyA)
+	r.tt.Key(ui.Cmd, ui.KeyA)
 	r.tt.Type("https://example.org/x")
 	r.tt.Drain()
 	if slices.ContainsFunc(f.seen(), func(c string) bool { return strings.HasPrefix(c, "value webhook url") }) {
