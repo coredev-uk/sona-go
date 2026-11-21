@@ -1,6 +1,6 @@
 # Security review
 
-This document is Sona's security design and its audit record. It gives the threat model and the controls for each component that handles untrusted input, then lists the weaknesses found in Sona's own code (F1–F26), the control that closed each one and the tests that keep it closed.
+This document is Sona's security design and its audit record. It gives the threat model and the controls for each component that handles untrusted input, then lists the weaknesses found in Sona's own code (F1–F27), the control that closed each one and the tests that keep it closed.
 
 To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat model (workflows, secrets, the release bot) is maintainer documentation: [docs/maintainers/ci-and-secrets.md](maintainers/ci-and-secrets.md). For how the pieces fit together, see [architecture.md](architecture.md) and [auth.md](auth.md).
 
@@ -50,6 +50,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [F24. CDM message events started unbounded renewal goroutines](#f24-cdm-message-events-started-unbounded-renewal-goroutines)
   - [F25. The Last.fm approval token was in the browser's command line](#f25-the-lastfm-approval-token-was-in-the-browsers-command-line)
   - [F26. The update manifest's version and platform were not signed](#f26-the-update-manifests-version-and-platform-were-not-signed)
+  - [F27. The loopback sign-in could be completed with another account's token](#f27-the-loopback-sign-in-could-be-completed-with-another-accounts-token)
 - [Areas reviewed without findings](#areas-reviewed-without-findings)
 - [Run the tests](#run-the-tests)
 
@@ -67,7 +68,7 @@ Each row is a trust boundary. The sections below give the detail.
 | Network fetches | Fixed `https` hosts for each feature | Host allow-lists checked on every redirect (at most 5), size caps, timeouts, no cookies or Apple credentials where none are needed |
 | Local files and settings | The user's own data | Imported settings cannot name a library or a local key. The child cannot read or write Sona's folders. Files are written atomically |
 | Secrets and tokens | The keyring, with a 0600 file fallback | Tokens never reach URLs, errors or logs. Build credentials are redacted from logs and diagnostics ([F10](#f10-development-builds-logged-the-build-credentials)). Secret scanning guards the repository ([Secret scanning](#secret-scanning)) |
-| Loopback sign-in server | Apple's sign-in redirect on `127.0.0.1` | The owner uid of each connection, single-use start links and a cookie ([F7](#f7-another-local-user-could-complete-the-loopback-sign-in)) |
+| Loopback sign-in server | Apple's sign-in redirect on `127.0.0.1` | The owner uid of each connection, single-use start links, a cookie ([F7](#f7-another-local-user-could-complete-the-loopback-sign-in)) and a per-attempt state in the callback path ([F27](#f27-the-loopback-sign-in-could-be-completed-with-another-accounts-token)) |
 | Add-ons, WebAssembly runtime | Running a third party's module inside Sona's process, with the user's grant | No ambient authority: no file but its data folder (links refused), no network, no process; memory and CPU capped. The module is checked and read once; the compiled cache is private ([WebAssembly add-ons](#webassembly-add-ons)). The exposure is the runtime itself: a bug in wazero is a bug in Sona's process |
 | Item inspector (Settings → Diagnostics → Developer tools) | The user's own item data, shown to the user | Off by default and only offered when the person turns it on (always in a development build). Reads Go's caches through one service method, never Apple; every text passes `logging.Redact`; no request header, token or credential is ever held. Nothing leaves the machine ([The item inspector](#the-item-inspector)) |
 | Add-ons, Sona's own | Sona's own signed code, run as `sona --addon <id>`, holding the Last.fm and ListenBrainz sign-ins | Registered in code, never from a folder. Sona keeps the private filter and the queue and sends only filtered listens; `scrobble.*` requests go to bundled add-ons only ([Sona's own add-ons](#sonas-own-add-ons)) |
@@ -817,6 +818,7 @@ Each finding has an issue, its impact, the fix and the test that keeps it fixed.
 | F24 | CDM message events started unbounded renewal goroutines (F8 incomplete) | Low | Fixed | `internal/playback/cdmhost/host.go`, `internal/playback/native/engine.go`, `renewals.go`, `media.go` |
 | F25 | The Last.fm approval token was in the browser's command line | Low | Fixed (residual risks listed) | `internal/services/scrobble_link.go`, `scrobble.go`, `internal/auth/mut/peer.go` |
 | F26 | The update manifest's version and platform were not signed (downgrade, cross-platform archive) | Low | Fixed (residual risks listed) | `cmd/releasesign/main.go`, `internal/update/statement.go`, `manifest.go`, `source.go`, `internal/services/updates.go` |
+| F27 | The loopback sign-in could be completed with another account's token (login CSRF) | Low | Fixed | `internal/auth/mut/loopback.go` |
 
 ### F1. Settings import could set the CDM path
 
@@ -1446,6 +1448,34 @@ Severity: Low. Status: fixed (residual risks listed).
 - A genuine older manifest replayed under the current one's name is authentic and never newer, so it is not installed; it can hide a newer release until the real manifest is restored. The statement carries no time or counter.
 - A release signed before this change has no statement and is refused by builds that check it. Run `releasesign` again over its archives to publish one that is offered.
 - Whoever holds `SONA_UPDATE_KEY` can sign any statement. The key's protection is `docs/maintainers/ci-and-secrets.md`.
+
+### F27. The loopback sign-in could be completed with another account's token
+
+Severity: Low. Status: fixed.
+
+**Issue.** [F7](#f7-another-local-user-could-complete-the-loopback-sign-in) bound a sign-in to the browser Sona opened with the `sona_signin` cookie, but nothing bound the fragment to Apple's redirect. The nonce and port are in the start link's argv. A page in the victim's browser during the 10-minute window could navigate it to `http://127.0.0.1:<port>/auth/<nonce>/callback#<btoa({"musicUserToken":"<attacker's token>"})>`. The connection is the victim's browser, so the owner check passes; the callback page posts the fragment to `/complete`, and the `SameSite=Strict` cookie is sent on that same-origin `fetch` (measured in F7). Sona stored whichever token it was handed first, once `/v1/me/storefront` accepted it.
+
+**Impact.** Sona used the attacker's account: the victim's plays and library edits went to it and the attacker saw what the victim listened to. Needs another local user (Linux without `hidepid`) and attacker content in the victim's browser at the right time, injected before Apple's redirect. CVSS 3.3 (AV:L/AC:H/PR:L/UI:R/C:L/I:L).
+
+**Fix** (`internal/auth/mut/loopback.go`):
+
+- Each attempt draws a 256-bit `state` (`crypto/rand`, base64url) with its nonce and cookie. It is a path segment of the callback URL Sona gives Apple as `referrer`: `/auth/<nonce>/callback/<state>`. It is in no start link, no cookie and no argv.
+- `GET /callback/<state>` serves the page only for the right state (constant-time compare). `/callback`, a wrong state and extra segments are 404 and the body does not contain the state.
+- The page carries the state, strips it from the address bar (`history.replaceState` to `/auth/<nonce>/callback`) and posts `{fragment, state}`.
+- `POST /complete` requires the state as well as the cookie: constant-time compare, 403 otherwise. A refused request does not end the attempt, so the real redirect can still complete it.
+- The callback page has `Referrer-Policy: no-referrer` and loads nothing, so the state goes nowhere but the page and `/complete`.
+- A foreign fragment is now useless to an attacker: to post it they need the state, which only Apple's redirect (and the browser that follows it) holds.
+
+**Test.**
+
+- `internal/auth/mut`:
+  - `TestCompleteRequiresTheCallbackState` (the foreign fragment with the victim's cookie and no state, a wrong, truncated or extended state, or the nonce gets 403 and leaves the attempt pending; the right state completes and `Wait` returns the token).
+  - `TestCallbackPageNeedsTheState` (the bare callback path, a wrong state and an extra segment are 404 without the state; the right path serves a page with `replaceState` to the stateless path and `Referrer-Policy: no-referrer`).
+  - `TestStateIsFreshAndOutsideTheStartLinkAndCookie`.
+  - `TestHappyPathWithCookieJar`, `TestStartPageRedirectsToAppleWithCallbackReferrer` (the authorize URL's referrer carries the state).
+- `internal/auth`: `TestLoopbackSignIn` (the manager's browser takes the state from the authorize URL's referrer, as Apple's redirect returns to it).
+
+**Live check.** That Apple's authorize page redirects back to the full `referrer` path, not only its origin, was read from its script (`sessionStorage.ac` takes the whole `referrer` href) and then run with a real account on 2026-11-21 (Linux, private window): `go run ./cmd/authspike -open=false` received the token through `…/callback/<state>` and printed `signed in: storefront=…`. Safari is still to run ([auth.md](auth.md#live-check-of-the-callback-path)). If Apple ever dropped the path, the sign-in would fail closed (404 page, timeout), never open.
 
 ## Areas reviewed without findings
 

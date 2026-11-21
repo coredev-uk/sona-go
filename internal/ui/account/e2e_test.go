@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -340,8 +342,10 @@ func TestEndToEndNoDeviceAccountGetsACallOnTheChosenNumber(t *testing.T) {
 }
 
 // browser plays the user's browser plus Apple: it loads the start link
-// (taking the attempt's cookie) and posts Apple's fragment for tok to the
-// loopback /complete endpoint with that cookie.
+// (taking the attempt's cookie), follows the referrer in the authorize URL it
+// is sent to back to the callback page as Apple's redirect does, and posts
+// Apple's fragment for tok to the loopback /complete endpoint with that cookie
+// and the callback path's state.
 func browser(t *testing.T, startURL, tok string) {
 	t.Helper()
 	jar, _ := cookiejar.New(nil)
@@ -351,9 +355,31 @@ func browser(t *testing.T, startURL, tok string) {
 		t.Error(err)
 		return
 	}
+	page, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
+	m := regexp.MustCompile(`referrer=([^&\\"]+)`).FindSubmatch(page)
+	if m == nil {
+		t.Errorf("start page carries no referrer: %s", page)
+		return
+	}
+	callback, err := url.QueryUnescape(string(m[1]))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	resp, err = c.Get(callback)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("callback %d", resp.StatusCode)
+		return
+	}
+	state := callback[strings.LastIndex(callback, "/")+1:]
 	frag := base64.StdEncoding.EncodeToString([]byte(`{"cid":"c","itre":"1","musicUserToken":"` + tok + `"}`))
-	body, _ := json.Marshal(map[string]string{"fragment": "#" + frag})
+	body, _ := json.Marshal(map[string]string{"fragment": "#" + frag, "state": state})
 	origin, rest, _ := strings.Cut(startURL, "/auth/")
 	nonce, _, _ := strings.Cut(rest, "/start")
 	req, _ := http.NewRequest(http.MethodPost, origin+"/auth/"+nonce+"/complete", strings.NewReader(string(body)))

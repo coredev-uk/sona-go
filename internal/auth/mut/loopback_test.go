@@ -115,8 +115,19 @@ func startCookieOf(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 	return nil
 }
 
+// complete POSTs fragment to /complete with the attempt's state, as the
+// callback page does.
 func complete(s *Session, origin, host, fragment string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
-	body := `{"fragment":"` + fragment + `"}`
+	return completeState(s, s.state, origin, host, fragment, cookies...)
+}
+
+// completeState is complete with an explicit state; "" sends none.
+func completeState(s *Session, state, origin, host, fragment string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	body := `{"fragment":"` + fragment + `"`
+	if state != "" {
+		body += `,"state":"` + state + `"`
+	}
+	body += `}`
 	req := httptest.NewRequest(http.MethodPost, s.origin+"/auth/"+s.nonce+"/complete", strings.NewReader(body))
 	req.Host = host
 	req.Header.Set("Origin", origin)
@@ -212,6 +223,74 @@ func TestCompleteRequiresTheStartCookie(t *testing.T) {
 	}
 	if res, err := s.Wait(context.Background()); err != nil || res.MusicUserToken != longToken {
 		t.Fatalf("Wait = %v, %v", res, err)
+	}
+}
+
+// TestCompleteRequiresTheCallbackState is the login-CSRF case: a page in the
+// victim's browser navigates to the callback with a foreign fragment, so the
+// callback page posts it with the victim's cookie but without the state that
+// only Apple's redirect (the authorize URL's referrer) carries.
+func TestCompleteRequiresTheCallbackState(t *testing.T) {
+	s := newSession(t)
+	foreign := appleFragment(t, `{"musicUserToken":"`+longToken+`"}`)
+	key := startCookieOf(t, start(s))
+
+	for name, state := range map[string]string{
+		"none":      "",
+		"wrong":     strings.Repeat("A", len(s.state)),
+		"truncated": s.state[:10],
+		"extended":  s.state + "A",
+		"nonce":     s.nonce,
+	} {
+		if rec := completeState(s, state, s.origin, host(s), foreign, key); rec.Code != http.StatusForbidden {
+			t.Fatalf("%s state: want 403, got %d %s", name, rec.Code, rec.Body)
+		}
+	}
+	pending(t, s)
+
+	if rec := completeState(s, s.state, s.origin, host(s), foreign, key); rec.Code != http.StatusNoContent {
+		t.Fatalf("right state: want 204, got %d %s", rec.Code, rec.Body)
+	}
+	if res, err := s.Wait(context.Background()); err != nil || res.MusicUserToken != longToken {
+		t.Fatalf("Wait = %v, %v", res, err)
+	}
+}
+
+func TestStateIsFreshAndOutsideTheStartLinkAndCookie(t *testing.T) {
+	a, b := newSession(t), newSession(t)
+	if len(a.state) < 43 || a.state == b.state || a.state == a.key || a.state == a.nonce {
+		t.Fatalf("state must be a fresh 256-bit secret: %q %q", a.state, b.state)
+	}
+	if strings.Contains(a.StartURL(), a.state) {
+		t.Fatal("the start link must not carry the state")
+	}
+	if c := startCookieOf(t, start(a)); c.Value == a.state {
+		t.Fatal("the cookie must not carry the state")
+	}
+}
+
+// TestCallbackPageNeedsTheState: only the exact callback path serves the
+// page that posts the fragment; it strips the state from the address bar.
+func TestCallbackPageNeedsTheState(t *testing.T) {
+	s := newSession(t)
+	for _, path := range []string{
+		s.callbackPath(),
+		s.callbackPath() + "/",
+		s.callbackPath() + "/" + strings.Repeat("A", len(s.state)),
+		s.callbackPath() + "/" + s.state + "/x",
+	} {
+		rec := open(s, s.origin+path)
+		if rec.Code != http.StatusNotFound || strings.Contains(rec.Body.String(), s.state) {
+			t.Fatalf("%s: want 404 without the state, got %d %s", path, rec.Code, rec.Body)
+		}
+	}
+	rec := open(s, s.callbackURL())
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK || rec.Header().Get("Referrer-Policy") != "no-referrer" {
+		t.Fatalf("callback: %d policy=%q", rec.Code, rec.Header().Get("Referrer-Policy"))
+	}
+	if !strings.Contains(body, `history.replaceState(null, "", "`+s.callbackPath()+`")`) || !strings.Contains(body, s.state) {
+		t.Fatalf("callback page must carry the state and strip it from the address bar:\n%s", body)
 	}
 }
 
@@ -323,7 +402,7 @@ func TestHappyPathWithCookieJar(t *testing.T) {
 
 	post := func(c *http.Client) int {
 		t.Helper()
-		req, err := http.NewRequest(http.MethodPost, s.origin+"/auth/"+s.nonce+"/complete", strings.NewReader(`{"fragment":"`+frag+`"}`))
+		req, err := http.NewRequest(http.MethodPost, s.origin+"/auth/"+s.nonce+"/complete", strings.NewReader(`{"fragment":"`+frag+`","state":"`+s.state+`"}`))
 		if err != nil {
 			t.Fatal(err)
 		}
