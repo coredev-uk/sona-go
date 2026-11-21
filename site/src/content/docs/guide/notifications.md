@@ -1,6 +1,6 @@
 ---
 title: Notifications
-description: What Sona tells you about, and where: the bell in the top bar.
+description: What Sona tells you about, and where to find it, behind the bell in the top bar.
 ---
 
 Sona keeps what happens while you're not asking behind the bell in the top bar, next to your account. Nothing pops up over your desktop unless you turn that on.
