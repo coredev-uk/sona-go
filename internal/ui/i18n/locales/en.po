@@ -7202,10 +7202,6 @@ msgstr "Sona's, without window buttons"
 msgid "Song"
 msgstr "Song"
 
-#: internal/ui/features/player/nowplaying_room.go
-msgid "Song progress"
-msgstr "Song progress"
-
 #: internal/ui/features/library/library.go
 #: internal/ui/features/library/songs.go
 #: internal/ui/features/search/groups.go
@@ -9375,7 +9371,6 @@ msgstr "{artworkUsed} of {artworkLimit}"
 
 #: internal/ui/features/miniplayer/view.go
 #: internal/ui/features/player/bar.go
-#: internal/ui/features/player/nowplaying_room.go
 #: internal/ui/features/video/view.go
 msgid "{at} of {total}"
 msgstr "{at} of {total}"
