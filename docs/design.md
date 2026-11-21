@@ -310,7 +310,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Cover tile: shelf, grid, library, search tiles (`kit` `CoverShelf`, `ItemGrid`) | song, album, playlist, video, station with a page | opens | opens (twice) | opens | none | none | disc, on hover and focus | yes | link, title underlines on hover |
 |  | artist, curator, room, grouping | opens | opens | opens | none | none | none | artist yes, curator no | link |
 |  | upcoming album | opens | opens | opens | none | none | none, release badge in its place | yes | link, "Out 19 Nov" |
-|  | station with no page | plays | plays twice ([#440]) | plays | plays | plays | none: the tile is the control | yes | button "X Play" ("X Pause" while it plays and a press pauses), play (pause) mark on hover |
+|  | station with no page | plays | plays | plays | plays | plays | none: the tile is the control | yes | button "X Play" ("X Pause" while it plays and a press pauses), play (pause) mark on hover |
 |  | web link | opens the browser | twice | same | none | none | none | no | link, arrow out, named "X Opens in your browser" |
 |  | unrouted page | none, no underline | none | none | none | none | disc | yes | group |
 |  | any with an Item, Shift/Ctrl+click | selects | | | | | | | |
@@ -321,7 +321,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 |  | station with no page | plays, pauses while it plays | twice | same | same | same | none | none | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 |  | web link | opens the browser | twice | same | same | none | none | none | link with the arrow out, named "X Opens in your browser" |
 | Station list (`StationList`, Radio's "Live now") | station with a page | opens | opens | opens | opens | none | ghost play button; the equaliser replaces it while playing and is the pause and resume button, "Pause X" | More button, no right-click ([#447]) | link |
-|  | station with no page | plays, or toggles while playing | twice ([#440]) | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
+|  | station with no page | plays, or toggles while playing | twice | same | same | same | none | More button, no right-click ([#447]) | button "X Play" / "X Pause" |
 | Track shelf rows (`TrackShelf`: Top songs on artist pages, Home's songs) | song | selects | plays from the row, the shelf is the queue | plays | none | selects | cover button | More button and right-click, Shift+F10, Menu key | list item, hover fill |
 |  | artist link in the row | opens the artist | twice | n/a | n/a | n/a | n/a | n/a | underline on hover |
 | Track list rows (`TrackList`: album, playlist, library, search Songs, charts) | song | selects | plays from the row | plays | none | selects | number-column button | yes, also on the artist and album links | row; link cells underline |
@@ -350,7 +350,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Discover Top songs, Charts | song | selects | plays from the row | none | number-column button | row; "Play Top songs" queues from the first, "See all" opens `/charts/songs` |
 | Radio board lane | station with a page | opens | opens | none | disc | link |
 |  | station with no page | plays | plays | plays | the name, play mark on hover | button "X Play" |
-|  | tuned station with no page | toggles ([#440]) | toggles | toggles | equaliser | button "X Pause" |
+|  | tuned station with no page | toggles | toggles | toggles | equaliser | button "X Pause" |
 |  | unplayable | none | not focusable | | none | disabled, reason in text |
 | Radio programme box | | opens the station page | not a Tab stop | | | link |
 
@@ -446,12 +446,10 @@ Argued departures that stay (not issues):
 | Issue | What |
 |---|---|
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
-| [#440] | a double-click acts twice |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
 | [#447] | curators, rooms and link tiles have no menu at all (no action is registered for them) |
 
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
-[#440]: https://github.com/coredev-uk/sona-go/issues/440
 [#443]: https://github.com/coredev-uk/sona-go/issues/443
 [#447]: https://github.com/coredev-uk/sona-go/issues/447
 
