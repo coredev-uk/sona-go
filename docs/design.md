@@ -344,7 +344,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Home "See all" | | opens the shelf's page | | | | link |
 | Discover lead card, queue tiles | album, playlist, station, video | opens | opens | none | disc | link |
 |  | artist, curator | opens | opens | none | none | link |
-|  | station with no page | plays | plays | plays | the name, and a second disc (Discover's lead is left, [#435]) | button |
+|  | station with no page | plays, pauses while it plays | same | same | the name, no disc | button "X Play" / "X Pause", play (pause) mark after the title on hover and focus |
 | Discover "Show in lead" (on a queue tile) | any | makes it the lead, the keyboard's focus going with it | same | same | | button |
 | Discover bands and room tiles | as the cover tile | | | | | |
 | Discover Top songs, Charts | song | selects | plays from the row | none | number-column button | row; "Play Top songs" queues from the first, "See all" opens `/charts/songs` |
@@ -445,13 +445,11 @@ Argued departures that stay (not issues):
 
 | Issue | What |
 |---|---|
-| [#435] | a page-less station has two controls, no cue, or replays instead of pausing: Discover's lead and strip cards still have a second disc ([#442]) |
 | [#436] | Discover's lead card has no cue for a web link (the other surfaces draw the arrow out) |
 | [#440] | a double-click acts twice |
 | [#443] | the sidebar's play glyph shuffles; a Play/Shuffle pin looks like a link |
 | [#447] | curators, rooms and link tiles have no menu at all (no action is registered for them) |
 
-[#435]: https://github.com/coredev-uk/sona-go/issues/435
 [#436]: https://github.com/coredev-uk/sona-go/issues/436
 [#440]: https://github.com/coredev-uk/sona-go/issues/440
 [#443]: https://github.com/coredev-uk/sona-go/issues/443

@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
 // The interaction rule under test: choosing a result opens it; Play plays; a
@@ -343,9 +344,8 @@ var discoverWant = map[string]map[string]outcomes{
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
-			// DEPARTS: a page-less station is played by its name and also has a separate Play button on the lead; its tile and row have the name as the one control
-			play: "play station:sn1",
-			cue:  "button",
+			play:       "no play control",
+			cue:        "button",
 		},
 		"video": {
 			click:      "nav /music-video/v1",
@@ -403,9 +403,8 @@ var discoverWant = map[string]map[string]outcomes{
 			enter:      "play station:sn1",
 			shiftEnter: "nothing",
 			space:      "play station:sn1",
-			// DEPARTS: a page-less station is played by its name and also has a separate Play button on its tile, as on the lead
-			play: "play station:sn1",
-			cue:  "button",
+			play:       "no play control",
+			cue:        "button",
 		},
 		"curator": {
 			click:      "nav /curator/cu1",
@@ -548,5 +547,47 @@ func TestInteractionDiscoverTopSongsControls(t *testing.T) {
 		if got := x.do(gClick, name, false); got != want {
 			t.Errorf("click on %q did %q, want %q", name, got, want)
 		}
+	}
+}
+
+// A station with no page is one control on Discover's lead and its strip
+// cards: named by its text and "Play", "Pause" while the station plays, "Play"
+// again when it is paused, with no second Play disc; a press on the one the
+// queue is on pauses or resumes it and never starts it over.
+func TestPagelessStationControlReadsPauseWhilePlaying(t *testing.T) {
+	it := iaItems()["station-nopage"]
+	for _, s := range surfaces() {
+		if s.name != "lead" && s.name != "queue" {
+			continue
+		}
+		t.Run(s.name, func(t *testing.T) {
+			x := s.build(t, it)
+			named := func(name string) bool {
+				for _, a := range x.r.tt.AccessAll() {
+					if a.Name == name {
+						return true
+					}
+				}
+				return false
+			}
+			if !named(it.Name+" Play") || named("Play "+it.Name) {
+				t.Fatalf("want one control named %q and no Play disc; texts %q", it.Name+" Play", x.r.tt.Texts())
+			}
+			x.r.h.Play(0, func(st *services.PlaybackState) { st.Current = &services.QueueItem{ID: it.Station.ID, Name: it.Name} })
+			x.r.tt.Drain()
+			if !named(it.Name+" Pause") || named(it.Name+" Play") {
+				t.Errorf("not named %q while it plays; texts %q", it.Name+" Pause", x.r.tt.Texts())
+			}
+			if got := x.do(gClick, it.Name, false); got != "nothing" {
+				t.Errorf("a press on the playing station did %q, want it to pause rather than play again", got)
+			}
+			x.r.h.Play(0, func(st *services.PlaybackState) {
+				st.Current, st.State = &services.QueueItem{ID: it.Station.ID, Name: it.Name}, store.StatePaused
+			})
+			x.r.tt.Drain()
+			if !named(it.Name + " Play") {
+				t.Errorf("not named %q while it is paused; texts %q", it.Name+" Play", x.r.tt.Texts())
+			}
+		})
 	}
 }
