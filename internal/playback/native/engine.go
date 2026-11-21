@@ -25,6 +25,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/playback"
+	"github.com/coredev-uk/sona-go/internal/playback/broadcast"
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 	"github.com/coredev-uk/sona-go/internal/playback/video"
@@ -136,8 +137,10 @@ type host interface {
 type Engine struct {
 	api  *applemusic.Client
 	http *http.Client
-	// streamHTTP fetches broadcasters' streams: http's transport without
-	// its overall timeout (a stream lasts for hours).
+	// streamHTTP fetches broadcasters' streams: no overall timeout (a
+	// stream lasts for hours) and no dialling of loopback, private or
+	// link-local addresses (broadcast.NewClient). Tests that serve a
+	// stream from httptest replace it.
 	streamHTTP *http.Client
 	// tuneIn reads TuneIn's station profiles; tuneInID names the station
 	// an asset URL plays there ("" for a station TuneIn does not serve).
@@ -230,7 +233,7 @@ func New(o Options) *Engine {
 	e := &Engine{
 		api:        o.Client,
 		http:       hc,
-		streamHTTP: &http.Client{Transport: hc.Transport, CheckRedirect: hc.CheckRedirect},
+		streamHTTP: broadcast.NewClient(),
 		tuneIn:     &tunein.Client{HTTP: hc, UserAgent: "Sona"},
 		tuneInID:   tunein.StationID,
 		log:        log.With("component", "playback"),

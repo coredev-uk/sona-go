@@ -70,6 +70,13 @@ const (
 	maxReconnects    = 3        // a stream's reconnections in a row without audio
 )
 
+// A playlist's nth entry is tried n-1 times entryBackoff after the
+// previous one, up to entryBackoffMax. Variables so tests need not wait.
+var (
+	entryBackoff    = 100 * time.Millisecond
+	entryBackoffMax = time.Second
+)
+
 var errStalled = errors.New("broadcast: the stream stopped delivering audio")
 
 // Play plays the stream at url into sink until ctx ends or the stream
@@ -181,13 +188,28 @@ func audioType(ct string) bool {
 
 // list plays a playlist's entries in order. Broadcasters list one stream
 // several times so that players reconnect: an entry that fails or ends
-// moves on to the next. It returns the last entry's error.
+// moves on to the next, after a growing pause. Only the first maxEntries
+// are tried: a hostile playlist of tens of thousands of entries would
+// otherwise make Sona send a request for each. It returns the last entry's
+// error.
 func (s *session) list(ctx context.Context, base string, urls []string, depth int) error {
 	if len(urls) == 0 {
 		return fmt.Errorf("broadcast: playlist %s: no entries", base)
 	}
+	total := len(urls)
+	if total > maxEntries {
+		s.log.Warn("broadcast: long playlist cut", "entries", total, "tried", maxEntries)
+		urls = urls[:maxEntries]
+	}
 	var err error
 	for i, u := range urls {
+		if i > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(min(time.Duration(i)*entryBackoff, entryBackoffMax)):
+			}
+		}
 		if u, err = hls.Resolve(base, u); err != nil {
 			continue
 		}
@@ -195,7 +217,7 @@ func (s *session) list(ctx context.Context, base string, urls []string, depth in
 			return ctx.Err()
 		}
 		if err != nil {
-			s.log.Warn("broadcast: playlist entry failed", "entry", i+1, "of", len(urls), "err", err)
+			s.log.Warn("broadcast: playlist entry failed", "entry", i+1, "of", total, "err", err)
 		}
 	}
 	return err
