@@ -403,7 +403,7 @@ What Go shows outside the UI packages is a typed `l10n.Message` in Go's own gett
 
 ### Diagnostics and crashes
 
-`internal/diag`: fatal crashes go to a crash file in the state directory and are logged at the next start. Service goroutines start through `Env.Go`, which recovers and logs panics. The bug-report bundle (OS, desktop, account state, settings, crash files, recent log lines) is scrubbed of tokens, e-mail addresses and the home path.
+`internal/diag`: fatal crashes go to a crash file in the state directory and are logged at the next start. Service goroutines start through `Env.Go`, which recovers and logs panics. The bug-report bundle (OS, desktop, account state, settings, crash files, recent log lines) is scrubbed of tokens, e-mail addresses and the home path. Its Settings section is `config.ForDiagnostics`: it also leaves out what says where the person is or what hardware the computer has (the Concerts city, the sidebar's open folders, the audio output device, add-ons' text settings) and lists the paths it withheld under `_withheld`, because the bundle is pasted into public issues.
 
 ### Settings export and import
 
