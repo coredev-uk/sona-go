@@ -3300,6 +3300,10 @@ msgid "It asks for these permissions:"
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
+msgid "It can connect to your session bus and other Unix sockets."
+msgstr ""
+
+#: internal/ui/features/settings/diag_rows.go
 msgid "It can list your app data folders."
 msgstr ""
 
@@ -9671,6 +9675,10 @@ msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
 msgid "{note} Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction)."
+msgstr ""
+
+#: internal/ui/features/settings/diag_rows.go
+msgid "{note} Playback still works. To sandbox it fully, install Sona's .deb or .rpm package, which includes an AppArmor profile that allows its user namespaces (an AppImage can't), or run a kernel with Landlock ABI 9."
 msgstr ""
 
 #: internal/ui/features/settings/diag_rows.go
