@@ -287,6 +287,8 @@ type fixture struct {
 	mu    sync.Mutex
 	count map[string]int // "path range" → requests
 	lics  []licenceReq   // every licence request, in order (spatial_test.go)
+	// licGate, when set, holds every licence request until it closes.
+	licGate atomic.Pointer[chan struct{}]
 	// webDown makes webPlayback answer 403, as a failed preparation.
 	webDown atomic.Bool
 }

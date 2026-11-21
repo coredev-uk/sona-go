@@ -540,7 +540,7 @@ At most 8 threads per child, each asked for once. Failure is not fatal, and Diag
 
 #### Licence renewal
 
-Apple's licences expire after 15 minutes. The CDM asks for a renewal 13 minutes after a licence is installed, and the engine posts it to `acquireWebPlaybackLicense` with `X-Apple-Renewal: true` and the `stkn` slot token.
+Apple's licences expire after 15 minutes. The CDM asks for a renewal 13 minutes after a licence is installed, and the engine posts it to `acquireWebPlaybackLicense` with `X-Apple-Renewal: true` and the `stkn` slot token. Messages are answered one at a time per host (`native/renewals.go`): one for an unknown session is dropped, and a newer one for a session replaces its waiting one. The parent also kills a child whose message is over 64 KiB ([security-review.md](security-review.md) F?).
 
 #### Lifecycle
 
@@ -569,7 +569,7 @@ The child starts in its own user, network and mount namespace (`cdmhost/sandbox_
 - **Landlock**: no writes outside `/dev` and the private `/tmp`, no TCP or UDP, `connect()` only to the audio socket, abstract sockets and signals scoped. The child then re-executes itself, so the second stage has no capabilities.
 - **Second stage**: installs a seccomp filter. Sockets are allowed only for `AF_UNIX`; ptrace, `process_vm_*`, `pidfd_getfd`, io_uring, bpf, perf events, keyrings, namespace changes and mounts are refused.
 - **Self-checks**: the child checks that inet and netlink sockets are refused and refuses to load the CDM without the seccomp filter.
-- **Without user namespaces** (Flatpak, Ubuntu's AppArmor restriction): it runs with Landlock and seccomp only, and Diagnostics shows why.
+- **Without user namespaces** (Flatpak, user namespaces disabled) or **under Ubuntu's AppArmor restriction** (`kernel.apparmor_restrict_unprivileged_userns=1`, which creates the namespaces without capabilities): it runs with Landlock and seccomp only, and Diagnostics shows why. The `.deb` and `.rpm` ship an AppArmor profile (`build/linux/apparmor/sona`) that lets the installed binary create namespaces with capabilities, so the full sandbox works on Ubuntu. Where it is missing (an AppImage on Ubuntu) and the kernel's Landlock is below ABI 9, nothing refuses `connect()` to path Unix sockets, the session bus included: Diagnostics reports the gap `sockets` and playback keeps working ([security-review.md](security-review.md#f11-on-ubuntu-the-cdm-host-child-could-reach-the-session-bus)).
 
 #### macOS
 
