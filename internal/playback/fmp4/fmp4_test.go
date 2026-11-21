@@ -131,6 +131,38 @@ func TestParseInitErrors(t *testing.T) {
 	}
 }
 
+// TestParseInitEmptyStsdEntryList: a stsd that declares one entry but holds
+// none used to index an empty slice and panic.
+func TestParseInitEmptyStsdEntryList(t *testing.T) {
+	b := mkinit(false, lcStereo44)
+	// Cut the single sample entry out of the stsd and fix up the box sizes.
+	entryLen := len(mkbox("mp4a", cat(make([]byte, 6), be16(1), make([]byte, 8), be16(2), be16(16), be16(0), be16(0), be32(44100<<16)), mkesds(lcStereo44)))
+	i := bytes.Index(b, []byte("stsd"))
+	end := i + 4 + 8 + entryLen
+	b = cat(b[:end-entryLen], b[end:])
+	for _, typ := range []string{"stsd", "stbl", "minf", "mdia", "trak", "moov"} {
+		at := bytes.Index(b, []byte(typ)) - 4
+		binary.BigEndian.PutUint32(b[at:], binary.BigEndian.Uint32(b[at:])-uint32(entryLen))
+	}
+	if _, err := ParseInit(b); err == nil {
+		t.Fatal("expected an error for an stsd without entries")
+	}
+}
+
+// TestParseFragmentWrappingSaioOffset: saio offset 2^64-1 plus a one-byte aux
+// entry wrapped to 0 and passed the bounds check, then sliced out of range.
+func TestParseFragmentWrappingSaioOffset(t *testing.T) {
+	in := testInit(t)
+	tfhd := mkfull("tfhd", 0, 0x020008, be32(1), be32(1024))
+	trun := mkfull("trun", 0, trunDataOffset|trunSize, be32(1), be32(0), be32(1))
+	saiz := mkfull("saiz", 0, 0, []byte{1}, be32(1))
+	saio := mkfull("saio", 1, 0, be32(1), be64(^uint64(0)))
+	b := cat(mkbox("moof", mkfull("mfhd", 0, 0, be32(1)), mkbox("traf", tfhd, saiz, saio, trun)), mkbox("mdat", []byte{0, 0, 0, 0}))
+	if _, err := ParseFragment(b, in); err == nil {
+		t.Fatal("expected an error for a saio offset outside the fragment")
+	}
+}
+
 type testSample struct {
 	data []byte
 	iv   []byte
@@ -361,5 +393,30 @@ func TestParseFragmentTakesItsSampleEntrysConstantIV(t *testing.T) {
 		if !bytes.Equal(got[0].IV, tc.iv) || len(got[0].Subsamples) != 1 || got[0].Subsamples[0] != (Subsample{Clear: 1, Cipher: 16}) {
 			t.Errorf("description %d: IV %x subsamples %+v, want IV %x", tc.desc, got[0].IV, got[0].Subsamples, tc.iv)
 		}
+	}
+}
+
+// A trun without per-sample fields passes the length check whatever its
+// sample count, and a default size of 0 passes the data check: 2^32-1
+// samples used to append ~88 bytes each (hundreds of GB).
+func TestParseFragmentBoundsSampleCount(t *testing.T) {
+	in := testInit(t)
+	for name, n := range map[string]uint32{"max": 0xFFFFFFFF, "just over the cap": maxSamples + 1} {
+		tfhd := mkfull("tfhd", 0, 0x020010, be32(1), be32(0))
+		trun := mkfull("trun", 0, 0, be32(n))
+		b := cat(mkbox("moof", mkfull("mfhd", 0, 0, be32(1)), mkbox("traf", tfhd, trun)), mkbox("mdat", []byte{0}))
+		if _, err := ParseFragment(b, in); err == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+}
+
+func TestParseFragmentRejectsEmptySamples(t *testing.T) {
+	in := testInit(t)
+	tfhd := mkfull("tfhd", 0, 0x020010, be32(1), be32(0))
+	trun := mkfull("trun", 0, 0, be32(3))
+	b := cat(mkbox("moof", mkfull("mfhd", 0, 0, be32(1)), mkbox("traf", tfhd, trun)), mkbox("mdat", []byte{0}))
+	if _, err := ParseFragment(b, in); err == nil {
+		t.Fatal("expected an error for zero-size samples")
 	}
 }

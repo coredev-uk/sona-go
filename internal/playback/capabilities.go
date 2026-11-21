@@ -108,6 +108,7 @@ type SandboxGap string
 const (
 	SandboxGapNamespaces     SandboxGap = "namespaces"      // no network or mount namespace: unprivileged user namespaces are blocked
 	SandboxGapFilesystem     SandboxGap = "filesystem"      // no private filesystem view
+	SandboxGapSockets        SandboxGap = "sockets"         // the host can connect() to Unix sockets by path, such as the session bus: no private filesystem view and Landlock below ABI 9
 	SandboxGapLandlock       SandboxGap = "landlock"        // no Landlock domain
 	SandboxGapSeccomp        SandboxGap = "seccomp"         // the seccomp filter isn't installed
 	SandboxGapNetwork        SandboxGap = "network"         // the host could open network sockets

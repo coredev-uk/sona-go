@@ -93,6 +93,11 @@ func (s *imageServer) serve(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://evil.example/x.jpg", http.StatusFound)
 		return
 	}
+	if strings.Contains(r.URL.Path, "/bomb/") {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(pngBomb(40000, 40000))
+		return
+	}
 	var bw, bh int
 	base := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
 	if i := strings.Index(r.URL.Path, "/upload-"); i >= 0 && base == "image" {

@@ -146,14 +146,22 @@ func (s *ScrobbleService) ConnectLastFM(ctx context.Context) (ScrobbleStatus, er
 }
 
 // approveLastFM asks the add-on for a token and the page to approve it on,
-// opens the page in the browser, and asks the add-on every poll until the user
-// has approved it: the account and the session key.
+// opens the browser, and asks the add-on every poll until the user has
+// approved it: the account and the session key. The page's address holds the
+// token, so the browser is given a one-use loopback link that redirects to it
+// (approvalLink), never the page itself: an address on the browser's command
+// line is readable by every user of the computer.
 func (s *ScrobbleService) approveLastFM(ctx context.Context) (account, credential string, err error) {
 	token, page, err := s.lastfm.Begin(ctx)
 	if err != nil {
 		return "", "", err
 	}
-	if err := s.e.OpenURL(page); err != nil {
+	link, err := newApprovalLink(page)
+	if err != nil {
+		return "", "", fmt.Errorf("%w: the Last.fm approval page: %w", ErrOpenBrowser, err)
+	}
+	defer func() { _ = link.Close() }()
+	if err := s.e.OpenURL(link.url); err != nil {
 		return "", "", fmt.Errorf("%w: the Last.fm approval page: %w", ErrOpenBrowser, err)
 	}
 	t := time.NewTicker(s.poll)

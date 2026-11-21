@@ -443,3 +443,37 @@ func TestTrackPath(t *testing.T) {
 		t.Error("empty id must map to NoTrack")
 	}
 }
+
+// A station's stream metadata is untrusted text. godbus refuses to encode a
+// NUL byte or invalid UTF-8, which used to drop every PropertiesChanged that
+// carried Metadata and fail GetAll until the title changed.
+func TestStreamMetadataTheBusCannotCarry(t *testing.T) {
+	bad := &Track{ID: "ra.station", Title: "a\x00b", Artist: "caf\xe9 \xff", Album: "\x00", AlbumArtist: "ok", Length: time.Minute}
+	snap := playing()
+	h := setup(t, snap)
+	sigs := h.signals(t)
+
+	snap.Status = StatusPaused
+	snap.Track = bad
+	snap.Position = 0
+	h.srv.Update(snap)
+	s := nextSignal(t, sigs)
+	changed := s.Body[1].(map[string]dbus.Variant)
+	if changed["PlaybackStatus"].Value() != "Paused" || changed["Metadata"].Value() == nil {
+		t.Fatalf("the signal for a station title with NUL lost properties: %v", changed)
+	}
+
+	md := h.getAll(t, playerIface)["Metadata"].Value().(map[string]dbus.Variant)
+	if got := md["xesam:title"].Value(); got != "ab" {
+		t.Errorf("title = %q, want %q", got, "ab")
+	}
+	if got := md["xesam:artist"].Value(); !reflect.DeepEqual(got, []string{"caf\uFFFD \uFFFD"}) {
+		t.Errorf("artist = %q, want U+FFFD for the invalid bytes", got)
+	}
+	if _, ok := md["xesam:album"]; ok {
+		t.Errorf("an album of only NUL is left in the metadata: %v", md["xesam:album"])
+	}
+	if got := md["xesam:albumArtist"].Value(); !reflect.DeepEqual(got, []string{"ok"}) {
+		t.Errorf("albumArtist = %v", got)
+	}
+}

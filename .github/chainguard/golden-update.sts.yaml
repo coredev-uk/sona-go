@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/octo-sts/app/refs/heads/main/pkg/octosts/octosts.TrustPolicy.json
+# golden-update.yml, push job: commits the regenerated golden images to a pull request's branch and removes the update-goldens label as bot-cecil, so CI runs on the push.
+issuer: https://token.actions.githubusercontent.com
+subject: repo:coredev-uk@64542347/sona-go@1441430256:environment:golden-update
+claim_pattern:
+  workflow_ref: coredev-uk/sona-go/\.github/workflows/golden-update\.yml@refs/pull/[0-9]+/merge
+permissions:
+  contents: write
+  issues: write
+  pull_requests: write

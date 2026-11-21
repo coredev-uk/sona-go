@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/octo-sts/app/refs/heads/main/pkg/octosts/octosts.TrustPolicy.json
+# renovate.yaml, main job: Renovate acts as bot-cecil so its pushes and PRs start workflows.
+issuer: https://token.actions.githubusercontent.com
+subject: repo:coredev-uk@64542347/sona-go@1441430256:environment:bot-cecil
+claim_pattern:
+  workflow_ref: coredev-uk/sona-go/\.github/workflows/renovate\.yaml@refs/heads/main
+permissions:
+  checks: write
+  contents: write
+  issues: write
+  pull_requests: write
+  statuses: write
+  vulnerability_alerts: read
+  workflows: write

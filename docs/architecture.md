@@ -257,8 +257,11 @@ What leaves Sona's own window (the scrobbler, the Discord presence and add-ons) 
 #### The update feed and install
 
 - The request is `releases/latest/download/update-<target>.json` (`darwin-arm64`, `windows-amd64`). It is MyGo's manifest format: version, notes, date, archive URL and size, and an Ed25519 signature of the archive's SHA-256. `cmd/releasesign` writes it in the publish job.
-- "Install and restart" has `internal/update.Source` download the gzip-tar archive and check its size and signature against the public key embedded at build (`internal/update/update.pub`).
+- MyGo's signature covers only that digest, so the version and platform would be unsigned. The manifest therefore also carries `sha256` (the digest in hex) and `statement_signature`: an Ed25519 signature, by the same key, of `sona-update-v1 NUL target NUL version NUL channel NUL hex(sha256)` (`update.Statement`; the channel is `stable`, or `prerelease` for a version with a pre-release part). MyGo ignores both fields, so installs that predate them go on working.
+- `update.Feed.Manifest` verifies the statement before anything is offered: a version, platform or digest the key holder did not sign together is refused (`update.ErrSignature`, `update_signature`), as is a manifest without one. It also refuses a pre-release on the stable feed and, on the test-version feed, a manifest that names another release than the newest tag.
+- "Install and restart" has `internal/update.Source` check the statement again, refuse a version that is not newer than the running one (`update.ErrNotNewer`; a build without a release version never updates), then download the gzip-tar archive and check its size, that its digest is the statement's and its signature against the public key embedded at build (`internal/update/update.pub`). Refusals before the download fetch nothing.
 - Only then does MyGo's `mygo.Updater` swap the app in and relaunch. It is fed through `SetSource` and given the same key and feed with `-X` at link time.
+- An older release's genuine manifest, replayed, passes the statement (it is real) but is never newer, so it is not offered or installed; it can still hide a newer release until the real manifest is back, since nothing in it says how recent it is.
 - A build without a key, or an install Sona can't write to, reports updates as off (`UpdateStatus.Disabled`: `unsigned`, `not_writable`) and only links the release.
 - Settings → General → Test versions makes the check read the newest tag including prereleases.
 
@@ -403,7 +406,7 @@ What Go shows outside the UI packages is a typed `l10n.Message` in Go's own gett
 
 ### Diagnostics and crashes
 
-`internal/diag`: fatal crashes go to a crash file in the state directory and are logged at the next start. Service goroutines start through `Env.Go`, which recovers and logs panics. The bug-report bundle (OS, desktop, account state, settings, crash files, recent log lines) is scrubbed of tokens, e-mail addresses and the home path.
+`internal/diag`: fatal crashes go to a crash file in the state directory and are logged at the next start. Service goroutines start through `Env.Go`, which recovers and logs panics. The bug-report bundle (OS, desktop, account state, settings, crash files, recent log lines) is scrubbed of tokens, e-mail addresses and the home path. Its Settings section is `config.ForDiagnostics`: it also leaves out what says where the person is or what hardware the computer has (the Concerts city, the sidebar's open folders, the audio output device, add-ons' text settings) and lists the paths it withheld under `_withheld`, because the bundle is pasted into public issues.
 
 ### Settings export and import
 
@@ -494,6 +497,8 @@ These are Capital, KISS and TuneIn's stations. The engine looks the station up f
 
 **The stream.** The parent plays the stream (`internal/playback/broadcast`): HLS of MPEG-TS or packed AAC segments, a PLS or M3U playlist, or a Shoutcast/Icecast stream, with reconnects and stall detection. It feeds the elementary audio (ADTS AAC or MP3 frames) to the child as a live file: `LoadFile` with size `gst.Live`, no length, no seeking, bytes dropped once decoded, at most 8 MiB held. Pause lets the stream go; Resume joins it live again.
 
+**Where it may connect.** The stream, every playlist it names and every redirect go through one client (`broadcast.NewClient`) whose dialer refuses loopback, private, link-local, carrier-grade NAT, unspecified, multicast and reserved addresses, checked on the address dialled. At most 5 redirects, none from https to http. A playlist's first 16 entries are tried, with a growing pause between them. The environment's proxy is not used. See `docs/security-review.md`, "Local broadcaster streams".
+
 **What is on air.** What the stream names as on air (ICY `StreamTitle`, ID3 tags, `EXTINF` titles) is stamped with the stream time it applies from, counted from the audio frames. It becomes `Status.OnAir` once playback reaches it, and the player bar's live line and the MPRIS title show it.
 
 - An ICY `StreamTitle` "Artist - Title" is split at its first " - " (`OnAir.Artist`, `OnAir.Title`; any other line stays the title).
@@ -535,7 +540,7 @@ At most 8 threads per child, each asked for once. Failure is not fatal, and Diag
 
 #### Licence renewal
 
-Apple's licences expire after 15 minutes. The CDM asks for a renewal 13 minutes after a licence is installed, and the engine posts it to `acquireWebPlaybackLicense` with `X-Apple-Renewal: true` and the `stkn` slot token.
+Apple's licences expire after 15 minutes. The CDM asks for a renewal 13 minutes after a licence is installed, and the engine posts it to `acquireWebPlaybackLicense` with `X-Apple-Renewal: true` and the `stkn` slot token. Messages are answered one at a time per host (`native/renewals.go`): one for an unknown session is dropped, and a newer one for a session replaces its waiting one. The parent also kills a child whose message is over 64 KiB ([security-review.md](security-review.md) F?).
 
 #### Lifecycle
 
@@ -565,7 +570,7 @@ The child starts in its own user, network and mount namespace (`cdmhost/sandbox_
 - **Landlock**: no writes outside `/dev/null`, `/dev/shm`, `/dev/snd` and the private `/tmp`, no device ioctls elsewhere (ABI 5), no TCP or UDP, `connect()` only to the audio socket, abstract sockets and signals scoped. The child then re-executes itself, so the second stage has no capabilities.
 - **Second stage**: installs a seccomp filter. Sockets are allowed only for `AF_UNIX`; ptrace, `process_vm_*`, `pidfd_getfd`, io_uring, bpf, perf events, keyrings, namespace changes and mounts are refused.
 - **Self-checks**: the child checks that inet and netlink sockets are refused and refuses to load the CDM without the seccomp filter.
-- **Without user namespaces** (Flatpak, Ubuntu's AppArmor restriction): it runs with Landlock and seccomp only, and Diagnostics shows why.
+- **Without user namespaces** (Flatpak, user namespaces disabled) or **under Ubuntu's AppArmor restriction** (`kernel.apparmor_restrict_unprivileged_userns=1`, which creates the namespaces without capabilities): it runs with Landlock and seccomp only, and Diagnostics shows why. The `.deb` and `.rpm` ship an AppArmor profile (`build/linux/apparmor/sona`) that lets the installed binary create namespaces with capabilities, so the full sandbox works on Ubuntu. Where it is missing (an AppImage on Ubuntu) and the kernel's Landlock is below ABI 9, nothing refuses `connect()` to path Unix sockets, the session bus included: Diagnostics reports the gap `sockets` and playback keeps working ([security-review.md](security-review.md#f11-on-ubuntu-the-cdm-host-child-could-reach-the-session-bus)).
 
 #### macOS
 
