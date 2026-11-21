@@ -508,10 +508,10 @@ func TestFullScreenLyricsAccessibility(t *testing.T) {
 	r.tt.Key(0, ui.KeyTab)
 	r.tt.Until("the strip", r.tt.Shows("Exit full screen"))
 	stops := access.TabWalk(t, r.tt.Tester, 12)
-	access.InOrder(t, access.StopLabels(stops), "Previous", "Pause", "Next", "Show lyrics 0.5 s earlier", "Show lyrics 0.5 s later", "Exit full screen")
+	access.InOrder(t, access.StopLabels(stops), "Previous", "Pause", "Next", "Seek", "Show lyrics 0.5 s earlier", "Show lyrics 0.5 s later", "Exit full screen")
 	tr = access.Read(t, r.tt.Tester)
-	if n, ok := tr.Find(ui.RoleProgress, "Song progress"); !ok || n.Value == "" {
-		t.Errorf("the progress is not a labelled progress bar with a value: %+v", n)
+	if n, ok := tr.Find(ui.RoleSlider, "Seek"); !ok || n.Description == "" {
+		t.Errorf("the scrubber is not a labelled slider that says where it is: %+v", n)
 	}
 	access.NoNestedControls(t, r.tt.Tester)
 }

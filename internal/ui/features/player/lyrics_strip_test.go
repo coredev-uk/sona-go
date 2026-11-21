@@ -79,7 +79,7 @@ func TestTheStripsControlsAreOnlyBuiltWhileItShows(t *testing.T) {
 func TestTabWalksThePlayerControlsBeforeTheTimingNudge(t *testing.T) {
 	r, _ := stripRig(t)
 	stops := access.TabWalk(t, r.tt.Tester, 12)
-	access.InOrder(t, access.StopLabels(stops), "Previous", "Pause", "Next", "Show lyrics 0.5 s earlier", "Show lyrics 0.5 s later", "Exit full screen")
+	access.InOrder(t, access.StopLabels(stops), "Previous", "Pause", "Next", "Seek", "Show lyrics 0.5 s earlier", "Show lyrics 0.5 s later", "Exit full screen")
 	access.NoNestedControls(t, r.tt.Tester)
 }
 
@@ -145,5 +145,65 @@ func TestTheStripFitsTheNarrowestWindowWithALongTitle(t *testing.T) {
 				t.Errorf("%dpx: %q is at %v..%v, outside the strip's %v..%v", w, l, b.X, b.X+b.W, left, right)
 			}
 		}
+	}
+}
+
+// The strip's scrubber is the bar's seek slider: a click jumps, a drag shows
+// where it will go and seeks once when the pointer lets go, the arrows seek.
+func TestTheStripsScrubberSeeksOnAClickADragAndTheArrows(t *testing.T) {
+	r, fake := stripRig(t)
+	b, ok := r.tt.Find("Seek")
+	if !ok {
+		t.Fatal("the strip has no scrubber")
+	}
+	y := b.Y + b.H/2
+	r.tt.ClickAt(b.X+b.W/2, y)
+	fake.Wait(t, 1)
+	seeks := fake.Seeks()
+	if len(seeks) != 1 || seeks[0] < 110_000 || seeks[0] > 130_000 {
+		t.Fatalf("a click half way along a 4:00 song sought %v ms", seeks)
+	}
+
+	r.tt.Press(b.X+b.W/4, y)
+	for i := 1; i <= 4; i++ {
+		r.tt.Move(b.X+b.W/4+float32(i)*b.W/16, y)
+		r.tt.Frame()
+	}
+	if got := fake.Seeks(); len(got) != 1 {
+		t.Fatalf("seeks while the pointer is held: %v", got)
+	}
+	r.tt.Release(b.X+b.W/2, y)
+	r.tt.Frame()
+	r.tt.Frame()
+	fake.Wait(t, 1)
+	seeks = fake.Seeks()
+	if len(seeks) != 2 || seeks[1] < 110_000 || seeks[1] > 130_000 {
+		t.Fatalf("a drag released half way sought %v ms, want one more seek there", seeks)
+	}
+
+	tabTo(t, r.tt.Tester, "Seek")
+	r.tt.Key(0, ui.KeyRight)
+	r.tt.Frame()
+	fake.Wait(t, 1)
+	if got := fake.Seeks(); len(got) != 3 {
+		t.Errorf("an arrow sought %v, want one more seek", got)
+	}
+}
+
+// What cannot seek, as a live station's controls say (Full-Screen Lyrics
+// itself closes for a station), has its scrubber there and disabled.
+func TestTheStripsScrubberIsDisabledWhereTheSongCannotSeek(t *testing.T) {
+	r, fake := stripRig(t, func(s *services.PlaybackState) {
+		s.Controls = services.PlaybackControls{}
+	})
+	n, ok := access.Read(t, r.tt.Tester).Find(ui.RoleSlider, "Seek")
+	if !ok || n.States&access.Disabled == 0 {
+		t.Fatalf("the scrubber is not disabled for a live item: %+v (found %v)", n, ok)
+	}
+	b, _ := r.tt.Find("Seek")
+	r.tt.ClickAt(b.X+b.W/2, b.Y+b.H/2)
+	fake.Quiet(t, "clicking a live item's scrubber")
+	if got := fake.Seeks(); len(got) != 0 {
+		t.Errorf("a live item's scrubber sought %v", got)
 	}
 }
