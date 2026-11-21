@@ -36,7 +36,8 @@ type seatbeltPaths struct {
 
 // seatbeltKeychainServices are the Mach services behind the keychain. The
 // child reaches the keychain through them even with its files hidden, and
-// it is the same executable as Sona, which the keychain item trusts.
+// it is the same executable as Sona, which Sona's keychain items let read
+// their secrets without a prompt (store.SystemKeyring).
 var seatbeltKeychainServices = []string{
 	"com.apple.SecurityServer",
 	"com.apple.securityd",

@@ -348,7 +348,7 @@ Never loop:
 
 ### The MUT store
 
-- `internal/auth/store`: `github.com/zalando/go-keyring`, service `sona`, key `mut`, value JSON `{token, obtained_at, restricted}`. `store.Open` probes the keyring by reading the real entry.
+- `internal/auth/store`: `store.SystemKeyring`, service `sona`, key `mut`, value JSON `{token, obtained_at, restricted}`. `store.Open` probes the keyring by reading the real entry. On Linux and Windows it is `github.com/zalando/go-keyring`. On macOS Sona calls Security.framework itself, so its keychain items let only Sona read them without a prompt; an item go-keyring made through `/usr/bin/security`, which any program could read, is moved on first read ([security-review.md, F28](security-review.md#f28-on-macos-any-program-could-read-sonas-keychain-items-without-a-prompt)). Sona is signed ad hoc, so after an update macOS asks once before Sona reads its items (Always Allow ends it; Deny is the file fallback below).
 - The dev token is not stored, because it is refetched from the web player.
 - SQLite stores metadata only (`auth.AccountStore`): storefront id/name, language, `itre`, obtained/validated timestamps.
 
@@ -367,7 +367,7 @@ The manager uses the store only off the caller's path.
 - A read or write the caller stopped waiting for still runs, and later ones queue behind it, so writes reach the keyring in order however late it answers.
 - A sign-in whose write times out, or that is cancelled while it waits, fails with `ErrKeyringTimeout` (error code `keyring`). It queues a write that puts back the token the manager still has, so a late write can't leave the abandoned sign-in stored.
 - A sign-out whose delete times out reports it; the delete runs once the keyring answers.
-- go-keyring's calls have no deadline. A Secret Service that is activatable but never starts costs two D-Bus activation timeouts before go-keyring reports an error (about 4 minutes with dbus-daemon's default of 2 minutes), and an unlock prompt nobody answers waits forever.
+- The keyring calls have no deadline. A Secret Service that is activatable but never starts costs two D-Bus activation timeouts before go-keyring reports an error (about 4 minutes with dbus-daemon's default of 2 minutes), and an unlock prompt, or macOS's prompt to let an updated Sona read its keychain items, waits forever if nobody answers it.
 
 ### Fallback file
 
