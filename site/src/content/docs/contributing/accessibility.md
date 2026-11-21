@@ -281,7 +281,7 @@ How Sona uses each state:
 **In Sona**
 
 - `theme.ReducedMotion` is the single switch.
-- Word-timed lyrics light each word whole as it begins; an instrumental gap's three dots light whole, one as each third of the gap begins, in place of a fill in steps.
+- Word-timed lyrics light each word whole as it begins, and no word lifts, swells or glows (`SweepClock.Still`); an instrumental gap's three dots light whole, one as each third of the gap begins, in place of a fill in steps.
 - Motion artwork does not play: Settings → Diagnostics → Motion artwork says which input stops it. Covers show their still.
 
 **Checked by** `TestReducedMotionAndEffects` in `internal/ui/theme`.

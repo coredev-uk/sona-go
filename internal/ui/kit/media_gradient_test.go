@@ -158,7 +158,7 @@ func TestSweepTextFillsEachWordAsItIsSung(t *testing.T) {
 		theme.Apply(c)
 		ui.Box(c).Padding(10).Children(func() {
 			ui.Box(c.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
-				moving = s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, 1, at, false)
+				moving = s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at, Sung: 1, Until: NoUntil}, false)
 			})
 		})
 	}, 420, 70)
@@ -191,9 +191,9 @@ func TestSweepTextKeepsKoreanWordsWhole(t *testing.T) {
 	// width here holds it.
 	for width := float32(130); width <= 300; width += 10 {
 		s := NewSweepText(words, "ko", 28, 700, 34, width)
-		for i, r := range s.rects {
-			if len(r) != 1 {
-				t.Errorf("width %v: %q is in %d boxes", width, words[i].Text, len(r))
+		for i, w := range s.words {
+			if len(w.boxes) != 1 {
+				t.Errorf("width %v: %q is in %d boxes", width, words[i].Text, len(w.boxes))
 			}
 		}
 	}
