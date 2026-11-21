@@ -3,12 +3,12 @@ title: New Releases
 description: Get told in Sona when an artist you've favourited puts out an album, EP or single.
 ---
 
-Sona can watch the artists you've favourited and list their new releases under New releases in the sidebar. It is off until you turn it on.
+Sona can watch the artists you've favourited and list their new releases under New releases in the sidebar. It is off until you turn it on, and the sidebar has no New releases link until then.
 
 ## Turn it on
 
 1. Open Settings → General → New releases.
-2. Turn on Track new releases from favourite artists.
+2. Turn on Track new releases from favourite artists. The New releases link appears in the sidebar as soon as it is on, and goes again if you turn it off.
 3. New releases also show in [Notifications](/guide/notifications/), under the bell in the top bar. To get a desktop notification as well, turn on Also show releases as desktop notifications. It is shown only where your system has notifications.
 
 Turning it on lists nothing that is already out: Sona notes what each artist has released so far, and lists only what comes out afterwards. It does the same for an artist you favourite later.

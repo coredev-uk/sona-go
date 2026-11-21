@@ -268,6 +268,7 @@ func navShortcuts(items [3][]module.NavItem, push func(string)) []module.Shortcu
 				Keys:  keys,
 				Scope: "global",
 				Icon:  item.Icon,
+				When:  item.Visible,
 				Run:   func() { push(item.To) },
 			}
 			if module.NavSection(section) == module.NavLibrary {

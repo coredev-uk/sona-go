@@ -3,7 +3,9 @@
 // of the artists the user has favourited, newest first, with the releases
 // still to come on top. Each row is the release as an album (cover, title,
 // artist and kind, its date) with the usual item menu; opening one marks it
-// read. The sidebar link carries how many are unread (module.NavItem.Count).
+// read. The sidebar link is there only while the tracker is on, and carries
+// how many are unread (module.NavItem.Visible, Count); the page itself opens
+// either way, and says so when the tracker is off.
 // The list mirrors "artisttracker:changed" (store.UseNewReleases).
 //
 // A release still to come carries the album's "Remind me" action
@@ -84,6 +86,7 @@ func (n *newReleases) module() module.Module {
 			To:      path,
 			Order:   27,
 			Count:   n.unread,
+			Visible: n.tracking,
 		}},
 		Actions: n.actions(),
 		Init: func() {
@@ -98,6 +101,15 @@ func (n *newReleases) module() module.Module {
 			store.Mirror[services.NewReleases](n.env.Bus, n.env.Queries, n.env.Post, store.KeyNewReleases, snapshot, services.EventArtistReleasesChanged)
 		},
 	}
+}
+
+// tracking reports whether the artist tracker is on (Settings → General): the
+// sidebar link is shown only then. The route stays, so a link to it (the
+// notification centre's, a desktop notification's) still opens the page, which
+// says the tracker is off and how to turn it on.
+func (n *newReleases) tracking() bool {
+	st := store.UseSettings(n.env.Queries, n.env.Core)
+	return st.HasData && st.Data.ArtistTracker.Enabled
 }
 
 // unread is how many releases are unread, for the sidebar link: 0 until the

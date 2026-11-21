@@ -251,7 +251,9 @@ func (a *App) sidebarView(c *ui.Context, tint float32) {
 		a.brand(c)
 		ui.Column(c).Gap(2).Margin(8, 0, 0, 0).Children(func() {
 			for _, n := range a.nav[module.NavPrimary] {
-				a.navLink(c, n)
+				if n.Shown() {
+					a.navLink(c, n)
+				}
 			}
 		})
 		ui.Scroll(c).Grow(1).Basis(0).MinHeight(0).Children(func() {
@@ -260,7 +262,9 @@ func (a *App) sidebarView(c *ui.Context, tint float32) {
 					theme.Text(c, i18n.T("Library"), "meta").TextColor(theme.C("ink-faint")).Padding(24, 10, 6)
 					ui.Column(c).Gap(2).Children(func() {
 						for _, n := range a.nav[module.NavLibrary] {
-							a.navLink(c, n)
+							if n.Shown() {
+								a.navLink(c, n)
+							}
 						}
 					})
 				}
@@ -273,7 +277,9 @@ func (a *App) sidebarView(c *ui.Context, tint float32) {
 		})
 		ui.Column(c).Gap(2).Children(func() {
 			for _, n := range a.nav[module.NavFooter] {
-				a.navLink(c, n)
+				if n.Shown() {
+					a.navLink(c, n)
+				}
 			}
 		})
 	})
