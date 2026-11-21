@@ -25,6 +25,12 @@ type Manifest struct {
 	URL       string `json:"url"`
 	Size      int64  `json:"size"`
 	Signature string `json:"signature"`
+	// SHA256 is the archive's digest in hex and StatementSignature the
+	// Ed25519 signature of Statement(target, version, channel, digest): what
+	// binds Version and the platform to the archive. MyGo ignores both. A
+	// manifest without them is refused (VerifyStatement).
+	SHA256             string `json:"sha256,omitempty"`
+	StatementSignature string `json:"statement_signature,omitempty"`
 }
 
 // MaxManifest and MaxArchive bound what an install downloads (MyGo's
@@ -54,14 +60,22 @@ type Feed struct {
 	// Web is the site releases download from (default https://github.com),
 	// API the REST root (default DefaultAPI). Repo defaults to Repo.
 	Web, API, Repo string
+	// Key is the base64 public key manifests must be signed with.
+	Key string
 }
 
 // Manifest reads the manifest of target from the latest release: one
 // anonymous GET of releases/latest/download/update-<target>.json. With
 // prerelease it lists the repository's releases first (the newest tag
 // including prereleases) and reads that release's manifest. It returns the
-// decoded manifest and its raw bytes.
+// decoded manifest and its raw bytes, once the signed statement says the
+// version is the key holder's for target (VerifyStatement), the stable feed
+// carries no pre-release and a release's manifest names that release.
 func (f Feed) Manifest(ctx context.Context, target string, prerelease bool) (Manifest, []byte, error) {
+	pub, err := ParseKey(f.Key)
+	if err != nil {
+		return Manifest{}, nil, err
+	}
 	web, repo := strings.TrimRight(f.Web, "/"), f.Repo
 	if web == "" {
 		web = "https://github.com"
@@ -69,9 +83,10 @@ func (f Feed) Manifest(ctx context.Context, target string, prerelease bool) (Man
 	if repo == "" {
 		repo = Repo
 	}
-	u := web + "/" + repo + "/releases/latest/download/" + ManifestName(target)
+	u, tag := web+"/"+repo+"/releases/latest/download/"+ManifestName(target), ""
 	if prerelease {
-		tag, err := f.newestTag(ctx, repo)
+		var err error
+		tag, err = f.newestTag(ctx, repo)
 		if err != nil {
 			return Manifest{}, nil, err
 		}
@@ -87,6 +102,15 @@ func (f Feed) Manifest(ctx context.Context, target string, prerelease bool) (Man
 	}
 	if err := m.validate(); err != nil {
 		return Manifest{}, nil, err
+	}
+	if err := VerifyStatement(pub, m, target); err != nil {
+		return Manifest{}, nil, err
+	}
+	switch {
+	case !prerelease && ChannelOf(m.Version) != ChannelStable:
+		return Manifest{}, nil, fmt.Errorf("update: the stable feed names the pre-release %s", m.Version)
+	case prerelease && m.Version != strings.TrimPrefix(tag, "v"):
+		return Manifest{}, nil, fmt.Errorf("update: release %s carries the manifest of %s", tag, m.Version)
 	}
 	return m, raw, nil
 }

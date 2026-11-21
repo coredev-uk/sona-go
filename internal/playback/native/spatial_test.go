@@ -76,6 +76,13 @@ func (fx *fixture) licence(w http.ResponseWriter, r *http.Request) {
 	fx.mu.Lock()
 	fx.lics = append(fx.lics, licenceReq{URI: body.URI, AdamID: body.AdamID, Renewal: !body.UserInitiated})
 	fx.mu.Unlock()
+	if g := fx.licGate.Load(); g != nil {
+		select {
+		case <-*g:
+		case <-r.Context().Done():
+			return
+		}
+	}
 	if body.AdamID == "SR" && body.URI == widevineURI(spatialKID2) {
 		_, _ = fmt.Fprint(w, `{"status":-1002,"message":"refused"}`)
 		return

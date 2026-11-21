@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/octo-sts/app/refs/heads/main/pkg/octosts/octosts.TrustPolicy.json
+# release.yml, publish job (run from release.yml on schedule/dispatch, or called by release-please.yml): uploads to and publishes the GitHub release as bot-cecil.
+issuer: https://token.actions.githubusercontent.com
+subject: repo:coredev-uk@64542347/sona-go@1441430256:environment:release
+claim_pattern:
+  workflow_ref: coredev-uk/sona-go/\.github/workflows/(release|release-please)\.yml@refs/heads/main
+permissions:
+  contents: write

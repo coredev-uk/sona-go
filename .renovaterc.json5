@@ -15,11 +15,39 @@
   dependencyDashboardTitle: "📦 Renovate Dashboard",
   dependencyDashboardHeader: "## 📦 Renovate Dashboard\n\n> 📻 **Reporting in.** Every update Renovate found in Sona is below. Renovate only opens the pull requests: Clarence, the repository's merge bot, rules on each one, and a merge counts once CI passes on `main`. Tick a box to make Renovate act on the next run.\n\n| | |\n|---|---|\n| **Merged by** | Clarence, see its card on each pull request |\n| **Verified by** | `Go vet and test (-race)` on `main` |\n",
   dependencyDashboardFooter: "<sub>📻 Renovate · runs every two hours from `.github/workflows/renovate.yaml` · merges go through Clarence</sub>",
-  // Covers go.mod and .github/workflows. devenv.lock is not a Renovate
-  // manager file; bump nixpkgs by hand (docs/maintainers/repository.md, "Pinned inputs")
-  enabledManagers: ["gomod", "github-actions"],
+  // Covers go.mod, .github/workflows and the images' Containerfiles (the
+  // digests their FROM lines and the workflows' container: images name).
+  // devenv.lock is not a Renovate manager file; bump nixpkgs by hand
+  // (docs/maintainers/repository.md, "Pinned inputs"). The tools the release
+  // build downloads (build/linux/appimage-tools.sha256, build/windows/*.sha256,
+  // the Go archive hashes) are moved by hand too: Renovate cannot compute a hash.
+  enabledManagers: ["gomod", "github-actions", "dockerfile"],
   postUpdateOptions: ["gomodTidy", "gomodUpdateImportPaths"],
   packageRules: [
+    {
+      // The base images are chosen here: Ubuntu 24.04 is the release
+      // baseline (the glibc the packages run on), 26.04 the CI image's, and
+      // the Flatpak builder's tag names its GNOME runtime. Renovate only keeps
+      // each pinned digest current (they are updated weekly), never moves to
+      // another tag.
+      description: "Container base images: digests only, weekly",
+      matchDatasources: ["docker"],
+      matchUpdateTypes: ["major", "minor", "patch"],
+      enabled: false,
+    },
+    {
+      description: "Container base images: refresh the pinned digest weekly",
+      matchDatasources: ["docker"],
+      matchUpdateTypes: ["digest"],
+      schedule: ["before 6am on monday"],
+    },
+    {
+      // CI never builds this image: the release run does, so its base is read
+      // by a person before it moves.
+      description: "Release build image: review every digest update",
+      matchFileNames: ["build/linux/release/Containerfile"],
+      addLabels: ["verdict/review"],
+    },
     {
       // MyGo is young and pre-1.0: every bump is read by hand (it needs a
       // matching Go release too), so it never automerges.

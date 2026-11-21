@@ -195,6 +195,13 @@ func TestSandboxRows(t *testing.T) {
 	if r = sandboxRow(p); r.value != "Not fully sandboxed" || !strings.Contains(r.detail, "kernel.unprivileged_userns_clone") {
 		t.Errorf("namespaces: %+v", r)
 	}
+	// Ubuntu 24.04 without the package's AppArmor profile: no private
+	// filesystem view, and Landlock too old to refuse the session bus.
+	p = services.DiagPlayback{SandboxKind: "linux", SandboxGaps: []playback.SandboxGap{playback.SandboxGapFilesystem, playback.SandboxGapSockets}}
+	if r = sandboxRow(p); r.value != "Not fully sandboxed" || r.status != statusWarning ||
+		!strings.Contains(r.detail, "session bus") || !strings.Contains(r.detail, "AppArmor profile") {
+		t.Errorf("sockets: %+v", r)
+	}
 	p = services.DiagPlayback{Sandboxed: true, SandboxKind: playback.SandboxAppContainer}
 	if r = sandboxRow(p); r.value != "Sandboxed by Windows · no network or file access" || r.status != statusOK {
 		t.Errorf("appcontainer: %+v", r)

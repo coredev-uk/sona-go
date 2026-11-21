@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,10 +13,12 @@ import (
 )
 
 // Source serves one verified update to MyGo's updater (it satisfies
-// mygo.UpdateSource). The manifest is the one already read; Open downloads
-// the archive itself, checks its size and its Ed25519 signature against the
-// build's key, and only then hands the bytes on. An archive that fails never
-// reaches the installer, and MyGo checks the signature once more.
+// mygo.UpdateSource). The manifest is the one already read; Open checks that
+// its signed statement names this platform and a version newer than the
+// running one, downloads the archive itself, checks its size, its digest
+// against the statement and its Ed25519 signature against the build's key,
+// and only then hands the bytes on. An archive that fails never reaches the
+// installer, and MyGo checks the digest's signature once more.
 type Source struct {
 	// HTTP is the download client (Sona's proxy-aware transport); nil means
 	// a default client.
@@ -25,6 +28,10 @@ type Source struct {
 	Raw    []byte
 	// Key is the base64 public key.
 	Key string
+	// Target is the platform's manifest target and Current the running
+	// version: the statement must name Target, and Update.Version must be
+	// newer than Current (a build without a release version never updates).
+	Target, Current string
 	// Dir holds the download (next to the app so it can be renamed into
 	// place; "" means the temp directory).
 	Dir string
@@ -52,6 +59,12 @@ func (s *Source) Open(ctx context.Context, url string) (io.ReadCloser, error) {
 	pub, err := ParseKey(s.Key)
 	if err != nil {
 		return nil, err
+	}
+	if err := VerifyStatement(pub, m, s.Target); err != nil {
+		return nil, err
+	}
+	if !Newer(m.Version, s.Current) {
+		return nil, fmt.Errorf("%w: %s is offered to %s", ErrNotNewer, m.Version, s.Current)
 	}
 	if err := checkURL(url); err != nil {
 		return nil, err
@@ -92,6 +105,9 @@ func (s *Source) Open(ctx context.Context, url string) (io.ReadCloser, error) {
 	}
 	if n != m.Size {
 		return nil, fmt.Errorf("update: downloaded %d bytes, want %d", n, m.Size)
+	}
+	if hex.EncodeToString(sum.Sum(nil)) != m.SHA256 {
+		return nil, fmt.Errorf("%w: the download is not the archive the manifest's statement names", ErrSignature)
 	}
 	if err := Verify(pub, sum.Sum(nil), m.Signature); err != nil {
 		return nil, err

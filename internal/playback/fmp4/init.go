@@ -121,6 +121,9 @@ func (in *Init) parseTrak(trak box) error {
 	if err != nil {
 		return err
 	}
+	if len(entries) == 0 {
+		return errors.New("fmp4: empty stsd")
+	}
 	if err := in.parseSampleEntry(entries[0]); err != nil {
 		return err
 	}

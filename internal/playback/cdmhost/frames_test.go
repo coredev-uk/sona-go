@@ -29,6 +29,12 @@ func misbehave(mode string) {
 		for range 2 * maxQueuedEvents {
 			_ = enc.Encode(frame{Event: &Event{Kind: EventBuffering, Track: 1, Buffering: true}})
 		}
+	case "big-message":
+		_ = gob.NewEncoder(os.Stdout).Encode(frame{Event: &Event{Kind: EventMessage, Session: "s1", Data: make([]byte, maxMessageData+1)}})
+	case "big-session":
+		_ = gob.NewEncoder(os.Stdout).Encode(frame{Event: &Event{Kind: EventMessage, Session: strings.Repeat("s", maxEventSession+1), Data: []byte("x")}})
+	case "big-err":
+		_ = gob.NewEncoder(os.Stdout).Encode(frame{Event: &Event{Kind: EventError, Track: 1, Err: strings.Repeat("e", maxEventErr+1)}})
 	}
 	time.Sleep(time.Minute)
 	os.Exit(0)
@@ -63,6 +69,19 @@ func TestOversizedFrameKillsChild(t *testing.T) {
 	h := spawnMisbehaving(t, "big-frame")
 	if err := h.Err(); !errors.Is(err, ErrExited) || !errors.Is(err, errMisbehaved) || !strings.Contains(err.Error(), "frame") {
 		t.Fatalf("Err = %v", err)
+	}
+}
+
+// F8: an event with a payload no legitimate CDM message, session ID or
+// error has ends the child.
+func TestOversizedEventPayloadKillsChild(t *testing.T) {
+	for mode, want := range map[string]string{"big-message": "CDM message", "big-session": "session ID", "big-err": "event error"} {
+		t.Run(mode, func(t *testing.T) {
+			h := spawnMisbehaving(t, mode)
+			if err := h.Err(); !errors.Is(err, ErrExited) || !errors.Is(err, errMisbehaved) || !strings.Contains(err.Error(), want) {
+				t.Fatalf("Err = %v", err)
+			}
+		})
 	}
 }
 

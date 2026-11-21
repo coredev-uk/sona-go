@@ -296,6 +296,13 @@ func (h *Host) Err() error {
 const (
 	maxChildFrame   = 16 << 20
 	maxQueuedEvents = 1024
+	// An EventMessage's Data is a licence request or renewal (a few KiB),
+	// its Session a CDM session ID (a few bytes) and an Event's Err one
+	// error message. The parent keeps these until it has answered, so they
+	// stay far below maxChildFrame.
+	maxMessageData  = 64 << 10
+	maxEventSession = 256
+	maxEventErr     = 16 << 10
 )
 
 // errMisbehaved wraps the reasons the parent stops reading a child and
@@ -354,6 +361,19 @@ func (g *gobFrames) Read(p []byte) (int, error) {
 	return k, err
 }
 
+// checkEvent fails an event whose payload is larger than any legitimate one.
+func checkEvent(ev *Event) error {
+	switch {
+	case ev.Kind == EventMessage && len(ev.Data) > maxMessageData:
+		return fmt.Errorf("%w: a %d-byte CDM message (limit %d)", errMisbehaved, len(ev.Data), maxMessageData)
+	case len(ev.Session) > maxEventSession:
+		return fmt.Errorf("%w: a %d-byte session ID (limit %d)", errMisbehaved, len(ev.Session), maxEventSession)
+	case len(ev.Err) > maxEventErr:
+		return fmt.Errorf("%w: a %d-byte event error (limit %d)", errMisbehaved, len(ev.Err), maxEventErr)
+	}
+	return nil
+}
+
 // queue adds ev for pump; false when the queue is full and ev is not a
 // position sample, which can be dropped.
 func (h *Host) queue(ev Event) bool {
@@ -386,6 +406,9 @@ loop:
 				ch <- *f.Reply
 			}
 		case f.Event != nil:
+			if readErr = checkEvent(f.Event); readErr != nil {
+				break loop
+			}
 			if !h.queue(*f.Event) {
 				readErr = fmt.Errorf("%w: more than %d events queued", errMisbehaved, maxQueuedEvents)
 				break loop
