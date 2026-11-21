@@ -11,6 +11,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // A page with one focusable button, the page the room opens over.
@@ -54,7 +55,10 @@ func TestTabInTheNowPlayingRoomNeverReachesThePageBehind(t *testing.T) {
 	}
 	tt.Until("a song playing", tt.Shows("Open now playing"))
 
-	behind := []string{"Page button", "Home", "Open now playing", "Close now playing", "Play", "Pause", "Next", "Previous"}
+	behind := []string{"Page button", "Home", "Open now playing", "Close now playing"}
+	// The room has its own previous, play or pause and next: the bar's
+	// controls of the same names are behind it.
+	transport := []string{"Play", "Pause", "Next", "Previous"}
 	// Before the room: the page takes the focus.
 	reached := false
 	for range 40 {
@@ -70,7 +74,7 @@ func TestTabInTheNowPlayingRoomNeverReachesThePageBehind(t *testing.T) {
 
 	tt.Key(ui.Shift, ui.KeyL) // Shift+L: full-screen lyrics
 	tt.Until("the room", tt.Shows("Full-Screen Lyrics"))
-	seenRoom := false
+	seenRoom, seenTransport := false, map[string]bool{}
 	for range 60 {
 		tt.Key(0, ui.KeyTab)
 		for _, l := range behind {
@@ -78,11 +82,28 @@ func TestTabInTheNowPlayingRoomNeverReachesThePageBehind(t *testing.T) {
 				t.Fatalf("Tab reached %q behind the open room", l)
 			}
 		}
+		tr := access.Read(t, tt.Tester)
+		for _, l := range transport {
+			if !tt.Focused(l) {
+				continue
+			}
+			in := false
+			for _, a := range tr.Ancestors(*tr.Focus) {
+				in = in || (a.Role == ui.RoleGroup && a.Label == "Full-Screen Lyrics")
+			}
+			if !in {
+				t.Fatalf("Tab reached the bar's %q behind the open room", l)
+			}
+			seenTransport[l] = true
+		}
 		if tt.Focused("Exit full screen") {
 			seenRoom = true
 		}
 	}
 	if !seenRoom {
 		t.Error("Tab never reached the room's own controls")
+	}
+	if !seenTransport["Previous"] || !seenTransport["Next"] || !(seenTransport["Pause"] || seenTransport["Play"]) {
+		t.Errorf("Tab did not reach the room's previous, play and next: %v", seenTransport)
 	}
 }

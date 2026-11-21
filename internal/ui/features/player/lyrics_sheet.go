@@ -63,6 +63,7 @@ type lyricLook struct {
 	subSize, subLineH float32 // background vocals, pronunciation, translation
 	padX, padY        float32
 	subGap, verseGap  float32
+	dot, dotSpace     float32 // an instrumental gap's dots: across, and between
 	indent            float32 // extra start padding of a duet's other voice
 	togetherSize      float32
 	topPad, botPad    float32 // the sheet's padding, as fractions of its height
@@ -73,7 +74,7 @@ type lyricLook struct {
 func sheetLook() lyricLook {
 	return lyricLook{
 		size: 24, lineH: 30, weight: 650, subSize: 16, subLineH: 22, padX: 12, padY: 6,
-		subGap: 2, verseGap: 32, indent: 36, togetherSize: 12, topPad: bandTop, botPad: 0.70, fadeDIP: 48,
+		subGap: 2, verseGap: 32, dot: 12, dotSpace: 8, indent: 36, togetherSize: 12, topPad: bandTop, botPad: 0.70, fadeDIP: 48,
 	}
 }
 
@@ -95,6 +96,7 @@ type lyricsSheet struct {
 	box    ui.Handle
 	lines  []ui.Handle
 	verses []ui.Handle
+	gapAt  []ui.Handle // the dots of an instrumental gap before a line
 
 	lastY      float32
 	wasGliding bool
@@ -125,6 +127,7 @@ type lyricsModel struct {
 	voices    []lyricsync.Voice
 	verseOf   []int
 	verseList [][]int
+	gaps      []lyricsync.Span // the instrumental gap before each line (the zero Span: none); synced lyrics only
 	synced    bool
 	wordTimed bool
 }
@@ -143,6 +146,10 @@ func (m *lyricsModel) bind(l *services.Lyrics) bool {
 	m.synced = lyricsync.IsSynced(l)
 	m.wordTimed = lyricsync.HasWordTiming(l)
 	m.verseList = lyricsync.Verses(l.Lines, m.spans, m.synced)
+	m.gaps = nil
+	if m.synced {
+		m.gaps = lyricsync.Gaps(m.spans)
+	}
 	m.verseOf = make([]int, len(l.Lines))
 	for v, ids := range m.verseList {
 		for _, i := range ids {
@@ -159,6 +166,7 @@ func (sh *lyricsSheet) bind(l *services.Lyrics) {
 	}
 	sh.lines = make([]ui.Handle, len(l.Lines))
 	sh.verses = make([]ui.Handle, len(sh.verseList))
+	sh.gapAt = make([]ui.Handle, len(l.Lines))
 	sh.sweeps = map[sweepKey]*kit.SweepText{}
 }
 
@@ -377,6 +385,9 @@ func (sh *lyricsSheet) turnPage(c *ui.Context, view ui.Rect, anchor int, reduced
 	y := sh.scroll.Y
 	top := lb.Y - view.Y + y
 	bottom := top + lb.H
+	if db := sh.gapAt[anchor].Bounds(c); db.H > 0 {
+		top = db.Y - view.Y + y // the dots lead the line, and are what is sung first
+	}
 	jump := !sh.jumped || reduced
 	sh.jumped = true
 	if !jump && top >= y+h*bandTop-1 && bottom <= y+h*bandBottom {
@@ -432,6 +443,9 @@ func (p *player) lyricVerses(c *ui.Context, sh *lyricsSheet, in sheetIn, prefs l
 						state = stFuture
 					}
 				}
+				if sh.synced && lyricsync.HasGap(sh.gaps[i]) {
+					p.lyricGap(c, sh, i, in, gapStateOf(i, sung.Active, sung.Anchor), reduced)
+				}
 				together := duet && sh.voices[i] == lyricsync.VoiceAll && (i == 0 || sh.voices[i-1] != lyricsync.VoiceAll)
 				p.lyricLine(c, sh, &l.Lines[i], i, lineIn{
 					sheetIn: in, state: state, prefs: prefs, together: together, textW: textW, reduced: reduced,
@@ -440,6 +454,20 @@ func (p *player) lyricVerses(c *ui.Context, sh *lyricsSheet, in sheetIn, prefs l
 			}
 		})
 	}
+}
+
+// lyricGap is the instrumental gap before line i: its dots in the height of a
+// line, at the lines' reading edge. Once passed they stay in the column, so
+// that nothing moves, but are not drawn and name nothing.
+func (p *player) lyricGap(c *ui.Context, sh *lyricsSheet, i int, in sheetIn, state gapState, reduced bool) {
+	look := in.look
+	row := ui.Box(c.Key("gap:" + strconv.Itoa(i))).FillWidth().Height(look.lineH + 2*look.padY).Bind(&sh.gapAt[i])
+	if state == gapPast {
+		return
+	}
+	g := gapDots{d: look.dot, space: look.dotSpace}
+	row.Role(ui.RoleImage).Label(gapLabel()).
+		Draw(p.gapDraw(sh.songID, sh.gaps[i], g, look.padX, rtl(sh.lyr.Lines[i].Text), reduced, gapTone(state), theme.C("amber-ink")))
 }
 
 // lyricsPrefsView is the Translation and Pronunciation choices.
