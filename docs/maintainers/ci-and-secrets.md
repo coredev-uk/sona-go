@@ -6,7 +6,7 @@ The repository's GitHub Actions run on GitHub-hosted runners only (a self-hosted
 
 ## Where the secrets live
 
-All CI secrets are Proton Pass items in the vault "CI":
+All CI secrets but the bot-cecil App's are Proton Pass items in the vault "CI":
 
 | Item | Fields |
 | --- | --- |
@@ -18,6 +18,8 @@ All CI secrets are Proton Pass items in the vault "CI":
 Item titles are matched exactly, case included.
 
 The `release` and `live` environments each hold one secret, `PROTON_PASS_PERSONAL_ACCESS_TOKEN`: the same token, `sona-ci`, viewer on that vault alone, which `protonpass/load-secret-action` uses to read the items. A pull request's run can't read it.
+
+The bot-cecil App's credentials are not in Proton Pass: their master copy is the 1Password item "bot-cecil" in the vault "Kubernetes" (the home-ops repository's service account reads it), fields `GITHUB_BOT_APP_CLIENT_ID` and `GITHUB_BOT_APP_PRIVATE_KEY`. They are copied into the four environments below as `RENOVATE_APP_CLIENT_ID` and `RENOVATE_APP_PRIVATE_KEY`, and into no repository-level secret. To rotate the key, generate a new one in the App's settings, update the item, set it in each environment (`op item get … | gh secret set RENOVATE_APP_PRIVATE_KEY --env <name>`, never printing it) and then delete the old key from the App.
 
 - **Rotate a value:** edit the item in Proton Pass; nothing changes in GitHub.
 - **Renew the token** (it expires 2027-11-14): run `pass-cli pat renew --pat-name sona-ci --expiration 1y`. It keeps its access to "CI", prints a new token string and stops the old one at once, so set the new one straight away with `gh secret set PROTON_PASS_PERSONAL_ACCESS_TOKEN --env release` and `--env live`.
@@ -33,8 +35,7 @@ The `release` and `live` environments each hold one secret, `PROTON_PASS_PERSONA
 | --- | --- | --- |
 | `MUSIC_USER_TOKEN` (a real account's Music User Token, about six months' access to its library and playback) | Proton Pass item "Apple Music User Token" in the vault "CI"; the `live` environment holds the vault token | Jobs that name `environment: live` and run from `main`: `live.yml` (weekly schedule, dispatch), `windows-playback.yml` (weekly schedule, dispatch) |
 | Last.fm API key and secret, Discord application ID (compiled into every release binary, so readable by anyone who has one; the risk is someone else's builds or abuse posing as Sona before a release), and the Ed25519 update key | Proton Pass items in the vault "CI"; the `release` environment holds the vault token | Jobs that name `environment: release` and run from `main` or a `v*` tag: `release.yml`'s build job (not a dispatched dry run, which has no environment), `release-secrets.yml` (monthly, dispatch, prints only whether each is set) |
-| `OP_SERVICE_ACCOUNT_TOKEN` (Renovate's 1Password service account, which yields the Renovate app's key) | Repository secret, maintained with Renovate (`renovate.yaml`) | Any workflow run on a branch of this repository; never a fork's run |
-| bot-cecil GitHub App credentials (`RENOVATE_APP_CLIENT_ID`, `RENOVATE_APP_PRIVATE_KEY`; the App's token is how release-please and the release publish step write, as Renovate does) | Environment secrets: `bot-cecil` (branch policy: `main` and `v*` tags), `release` (the same policy), `golden-update` and `nix-vendor-hash` (required reviewers) | Jobs that name the environment: `renovate.yaml`, `release-please.yml`, `nix-branch.yml`'s push job (`bot-cecil`); the `publish` job of `release.yml` (`release`); `golden-update.yml`'s push job and `nix-vendor-hash.yml`'s fix job (a reviewer approves each run, which runs on a pull request's ref and so can't satisfy a branch policy). Each mints a job-scoped token (contents, pull requests, issues write for release-please; contents write to publish) |
+| bot-cecil GitHub App credentials (`RENOVATE_APP_CLIENT_ID`, `RENOVATE_APP_PRIVATE_KEY`; the App's token is how release-please and the release publish step write, as Renovate does) | Environment secrets: `bot-cecil` (branch policy: `main` and `v*` tags), `release` (branch policy: `main`), `golden-update` and `nix-vendor-hash` (required reviewers) | Jobs that name the environment: `renovate.yaml`, `release-please.yml`, `nix-branch.yml`'s push job (`bot-cecil`); the `publish` job of `release.yml` (`release`); `golden-update.yml`'s push job and `nix-vendor-hash.yml`'s fix job (a reviewer approves each run, which runs on a pull request's ref and so can't satisfy a branch policy). Each mints a job-scoped token (contents, pull requests, issues write for release-please; contents write to publish) |
 | `GITHUB_TOKEN` write scopes | Per job | `live` (`issues: write`, to report a failed scheduled run), `issue-labels.yml` (`issues: write`, to add labels), `release.yml`'s build job (`id-token` and `attestations: write`, for the build provenance); every other job reads only; releases are written with the App token |
 | Release assets and tags | GitHub releases | The `publish` job, after the CI checks and the build; the `release tags` ruleset keeps `v*` tags immutable |
 
@@ -56,8 +57,8 @@ of which Renovate's token (`renovate.yaml`) already requests:
 
 Each job requests only what it uses (`permission-*` inputs), so the token is
 narrower than the installation. The same two secrets are in each of four
-environments (Settings → Environments): `bot-cecil` and `release` (deploy
-branches: `main` and `v*` tags), and `golden-update` and `nix-vendor-hash`
+environments (Settings → Environments): `bot-cecil` (deploy branches: `main`
+and `v*` tags), `release` (`main`), and `golden-update` and `nix-vendor-hash`
 (required reviewers: the jobs run on a pull request's ref, which no branch
 policy lets in, so a reviewer approves each run instead). The build provenance needs no App
 permission: it uses the workflow's `id-token: write` and
@@ -75,7 +76,7 @@ Each runs the branch's code without secrets; the job that writes runs none of it
 
 ## Threats and controls
 
-- *A fork's pull request runs its own code in CI.* Every workflow a pull request triggers uses `pull_request`, never `pull_request_target` or `workflow_run`, so a fork's run gets a read-only `GITHUB_TOKEN` and no secrets; GitHub withholds both. None of those workflows (`ci.yml`, `pr-title.yml`) reads a secret other than `GITHUB_TOKEN`. Environment secrets stay out of reach even for a pull request from a branch of this repository: an environment deploys only to the refs in its policy (`release` and `bot-cecil`: `main` and `v*` tags; `live`: `main`), and a pull request's ref is `refs/pull/<n>/merge`. The two jobs that must run on a pull request's ref and need bot-cecil's key (`golden-update.yml`, `nix-vendor-hash.yml`'s fix job) name an environment with required reviewers, so a person approves each run. Nothing holds the App's key as a repository-level secret.
+- *A fork's pull request runs its own code in CI.* Every workflow a pull request triggers uses `pull_request`, never `pull_request_target` or `workflow_run`, so a fork's run gets a read-only `GITHUB_TOKEN` and no secrets; GitHub withholds both. None of those workflows (`ci.yml`, `pr-title.yml`) reads a secret other than `GITHUB_TOKEN`. Environment secrets stay out of reach even for a pull request from a branch of this repository: an environment deploys only to the refs in its policy (`bot-cecil`: `main` and `v*` tags; `release` and `live`: `main`), and a pull request's ref is `refs/pull/<n>/merge`. The two jobs that must run on a pull request's ref and need bot-cecil's key (`golden-update.yml`, `nix-vendor-hash.yml`'s fix job) name an environment with required reviewers, so a person approves each run. Nothing holds the App's key as a repository-level secret.
 - *A token that outlives its job.* Every checkout sets `persist-credentials: false`, so the token isn't left in `.git/config` for later steps (tests, build scripts) to read. No workflow pushes with git.
 - *Too much token scope.* Each workflow starts from `permissions: contents: read` (`pr-title.yml`: `pull-requests: read`; `release-secrets.yml`: none), and only a few jobs widen it (`release.yml`'s build job for the provenance, `live`, and `images.yml`'s CI image jobs, which write packages: a pull request's build goes to `pr-<tag>` and gets no provenance, and the runs that matter verify the main-built one, "Where the images come from"). The release PR, tag and release are written with a job-scoped bot-cecil App token instead. The repository's default workflow permission is read.
 - *A third-party action moves its tag.* Every action is pinned to a full commit SHA, with the version in a comment; Renovate proposes updates to the pins, which are reviewed like any other pull request.
@@ -89,5 +90,4 @@ Each runs the branch's code without secrets; the job that writes runs none of it
 ## Residual risks
 
 - Anyone with write access can push a `v*` tag, and with it a workflow that names `environment: release` or `bot-cecil`. A tag ruleset that limits who may create `v*` tags closes that; once releases run from `main` alone, the `v*` rule can leave the environments' policies.
-- `OP_SERVICE_ACCOUNT_TOKEN` is a repository secret, readable by a workflow on any branch of this repository (not a fork's), including the branches Renovate's app pushes. Moving it into an environment limited to `main` would confine it to `renovate.yaml`'s own runs.
 - While the repository is private, forks' pull requests run no workflows at all ("Run workflows from fork pull requests" is off, and so are write tokens and secrets for them). Once it is public, a first-time contributor's pull request waits for a maintainer's approval before CI runs ("Require approval for outside contributors"); the controls above are what holds after that approval.
