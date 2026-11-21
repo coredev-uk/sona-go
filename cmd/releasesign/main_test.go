@@ -7,6 +7,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -79,6 +80,21 @@ func TestReleasesignWritesVerifiableManifest(t *testing.T) {
 	}
 	if err := update.Verify(pub, digest[:], m.Signature); err != nil {
 		t.Fatal(err)
+	}
+	// The second signature binds the version, the platform and the digest, as
+	// the updater checks them.
+	if m.SHA256 != hex.EncodeToString(digest[:]) {
+		t.Fatalf("sha256 = %s", m.SHA256)
+	}
+	if err := update.VerifyStatement(pub, m, "darwin-arm64"); err != nil {
+		t.Fatal(err)
+	}
+	if err := update.VerifyStatement(pub, m, "windows-amd64"); !errors.Is(err, update.ErrSignature) {
+		t.Fatalf("the statement verifies for another platform: %v", err)
+	}
+	m.Version = "9.9.9"
+	if err := update.VerifyStatement(pub, m, "darwin-arm64"); !errors.Is(err, update.ErrSignature) {
+		t.Fatalf("the statement verifies for another version: %v", err)
 	}
 }
 

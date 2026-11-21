@@ -164,6 +164,8 @@ Prints the shell completion script: `sona completion bash|zsh|fish`.
 
 Messages go to standard error, results to standard output.
 
+Titles, lyrics and messages come from Apple, from stations, from lyrics services and from files in your library, so a terminal must not obey them. The text output (not `--json`) removes escape sequences from them and turns other control characters, line breaks and bidirectional controls into a space; `--format` templates get their field values the same way, and the template text itself is yours and is printed as you wrote it. `--json` prints values as received, with control characters escaped as JSON does.
+
 ## JSON
 
 With `--json` a command prints one JSON object on one line. The schemas

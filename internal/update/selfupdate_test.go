@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -21,6 +22,7 @@ import (
 type release struct {
 	srv      *httptest.Server
 	pub      string
+	priv     ed25519.PrivateKey
 	archive  []byte
 	manifest Manifest
 	hits     map[string]int
@@ -52,14 +54,18 @@ func newRelease(t *testing.T, version string, sign func(digest []byte, priv ed25
 	}))
 	t.Cleanup(srv.Close)
 	r.srv = srv
+	r.priv = priv
 	digest := sha256.Sum256(r.archive)
-	r.manifest = Manifest{Version: version, Notes: "Notes.", URL: srv.URL + "/archive.tar.gz", Size: int64(len(r.archive)), Signature: sign(digest[:], priv)}
+	r.manifest = Manifest{
+		Version: version, Notes: "Notes.", URL: srv.URL + "/archive.tar.gz", Size: int64(len(r.archive)), Signature: sign(digest[:], priv),
+		SHA256: hex.EncodeToString(digest[:]), StatementSignature: SignStatement(priv, "darwin-arm64", version, digest[:]),
+	}
 	return r
 }
 
 func goodSig(d []byte, priv ed25519.PrivateKey) string { return Sign(priv, d) }
 
-func (r *release) feed() Feed { return Feed{Web: r.srv.URL, API: r.srv.URL} }
+func (r *release) feed() Feed { return Feed{Web: r.srv.URL, API: r.srv.URL, Key: r.pub} }
 
 func TestFeedFindsTheNewerRelease(t *testing.T) {
 	r := newRelease(t, "0.3.0", goodSig)
@@ -109,7 +115,7 @@ func TestFeedRefusesIncompleteOrInsecureManifests(t *testing.T) {
 }
 
 func source(r *release, key string) *Source {
-	return &Source{Update: r.manifest, Raw: []byte("{}"), Key: key, Dir: ""}
+	return &Source{Update: r.manifest, Raw: []byte("{}"), Key: key, Target: "darwin-arm64", Current: "0.2.0", Dir: ""}
 }
 
 func TestSourceServesAVerifiedArchive(t *testing.T) {

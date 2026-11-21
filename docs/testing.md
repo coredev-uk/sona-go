@@ -203,10 +203,14 @@ Tests get the directory from `internal/ui/uitest/artifacts`, and only when they 
 
 Run a golden's test binary inside `devenv shell` (`devenv shell -- go test …`, or `devenv shell -- /path/to/pkg.test`). MyGo draws Linux text with Pango, which it finds through the shell's `LD_LIBRARY_PATH`. A binary started outside it has no text engine: registering the font fails with "this system has no text engine to add fonts to" (the kit's goldens report it on every test), and a picture drawn anyway has boxes, icons and fills but no text at all.
 
-On a Mac, or any machine whose text differs from CI's, update goldens in the CI image:
+On a Mac, or any machine whose text differs from CI's, update goldens in the CI image. The tag is writable by any workflow of the repository; the build provenance is not, so check it before you run the image (a change of your own to `build/ci` is built as `pr-<tag>` and has none: build it by hand, `docs/maintainers/ci-workflows.md`):
 
 ```sh
-podman run --rm -v "$PWD":/src -w /src -e MYGO_GPU=0 ghcr.io/coredev-uk/sona-ci:$(build/ci/tag.sh) go test ./internal/ui/... -update
+image=ghcr.io/coredev-uk/sona-ci:$(build/ci/tag.sh)
+podman pull "$image"
+gh attestation verify "oci://$image" -R coredev-uk/sona-go \
+  --signer-workflow coredev-uk/sona-go/.github/workflows/images.yml --source-ref refs/heads/main
+podman run --rm -v "$PWD":/src -w /src -e MYGO_GPU=0 "$image" go test ./internal/ui/... -update
 ```
 
 The image is amd64 and arm64. An arm64 machine (Apple silicon, through Podman's VM) may draw text a hair differently from CI's amd64 runners. CI is the reference, so push and check the run.

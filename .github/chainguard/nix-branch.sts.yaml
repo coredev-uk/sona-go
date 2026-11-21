@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/octo-sts/app/refs/heads/main/pkg/octosts/octosts.TrustPolicy.json
+# nix-branch.yml, push job: pushes the flake's nix branch as bot-cecil (main merged in, workflow changes included); runs on main (schedule, dispatch) and on v* tags (release published).
+issuer: https://token.actions.githubusercontent.com
+subject: repo:coredev-uk@64542347/sona-go@1441430256:environment:bot-cecil
+claim_pattern:
+  workflow_ref: coredev-uk/sona-go/\.github/workflows/nix-branch\.yml@refs/(heads/main|tags/v.+)
+permissions:
+  contents: write
+  workflows: write

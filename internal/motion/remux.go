@@ -389,7 +389,7 @@ func parseFragment(src []byte, moof box, tr *track, samples []sample, runs []run
 		if flags&tfhdDefaultFlags != 0 {
 			d.flags = r.u32()
 		}
-		if r.bad || base < 0 {
+		if r.bad || base < 0 || base > int64(len(src)) {
 			return nil, nil, errors.New("mp4: bad tfhd")
 		}
 		pos := base
@@ -434,7 +434,7 @@ func parseFragment(src []byte, moof box, tr *track, samples []sample, runs []run
 					}
 				}
 				s.sync = sf&sampleNonSync == 0
-				if pos < 0 || pos+int64(size) > int64(len(src)) {
+				if pos < 0 || pos > int64(len(src)) || int64(size) > int64(len(src))-pos {
 					return nil, nil, errors.New("mp4: sample data outside the file")
 				}
 				s.data = src[pos : pos+int64(size)]

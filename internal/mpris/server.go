@@ -8,6 +8,7 @@ import (
 	"maps"
 	"math"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -373,12 +374,12 @@ func metadata(t *Track) map[string]dbus.Variant {
 		m["mpris:length"] = dbus.MakeVariant(t.Length.Microseconds())
 	}
 	str := func(key, v string) {
-		if v != "" {
+		if v = wireString(v); v != "" {
 			m[key] = dbus.MakeVariant(v)
 		}
 	}
 	list := func(key, v string) {
-		if v != "" {
+		if v = wireString(v); v != "" {
 			m[key] = dbus.MakeVariant([]string{v})
 		}
 	}
@@ -389,6 +390,19 @@ func metadata(t *Track) map[string]dbus.Variant {
 	str("mpris:artUrl", t.ArtURL)
 	str("xesam:url", t.URL)
 	return m
+}
+
+// wireString makes v a string D-Bus can carry: godbus refuses to encode a
+// string with a NUL byte or invalid UTF-8, and one such value fails every
+// PropertiesChanged and Get(Metadata) for as long as it is the current
+// track. The text comes from a station's stream metadata (ICY StreamTitle,
+// HLS tags, TuneIn), so it is untrusted: NUL is dropped, invalid UTF-8
+// becomes U+FFFD.
+func wireString(v string) string {
+	if strings.IndexByte(v, 0) >= 0 {
+		v = strings.ReplaceAll(v, "\x00", "")
+	}
+	return strings.ToValidUTF8(v, "\uFFFD")
 }
 
 // normalize fills defaults and enforces the CanControl rule.

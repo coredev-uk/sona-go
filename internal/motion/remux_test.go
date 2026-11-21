@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"slices"
 	"testing"
 )
@@ -421,5 +422,23 @@ func TestFlattenSegments(t *testing.T) {
 	// A segment that is not an MP4 fails.
 	if _, err := flatten(parts[0], []byte("garbage!")); err == nil {
 		t.Error("a garbage segment was accepted")
+	}
+}
+
+// A tfhd base-data-offset near MaxInt64 with a default sample size of 1
+// overflowed the bounds check (pos+size < 0) and sliced the source out of
+// range; flatten runs under singleflight, so the panic killed the process.
+func TestFlattenHugeBaseDataOffset(t *testing.T) {
+	src := testFile{movieScale: 30, scale: 30, base: 300, trunVersion: 1, frags: [][]frame{gop}}.build()
+	head := src[:bytes.Index(src, []byte("moof"))-4]
+	for _, base := range []uint64{math.MaxInt64, math.MaxInt64 - 1, uint64(len(src)) + 1} {
+		moof := mkbox("moof",
+			mkbox("mfhd", be(uint32(0), uint32(1))),
+			mkbox("traf",
+				mkbox("tfhd", be(uint32(tfhdBaseDataOffset|tfhdDefaultSize), uint32(1), base, uint32(1))),
+				mkbox("trun", be(uint32(0), uint32(1)))))
+		if _, err := flatten(slices.Concat(head, moof, mkbox("mdat", be(8)))); err == nil {
+			t.Errorf("base-data-offset %d: expected an error", base)
+		}
 	}
 }
