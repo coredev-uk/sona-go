@@ -184,9 +184,15 @@ func (b *menuBuilder) goMenu() menuEntry {
 		}
 	}
 	for _, n := range b.in.nav[module.NavPrimary] {
+		if !n.Shown() {
+			continue
+		}
 		pages = append(pages, b.command("nav."+navID(n.To), n.Label())...)
 	}
 	for _, n := range b.in.nav[module.NavLibrary] {
+		if !n.Shown() {
+			continue
+		}
 		library = append(library, b.command("nav."+navID(n.To), n.Label())...)
 	}
 	var libraryMenu []menuEntry

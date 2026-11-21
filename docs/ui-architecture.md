@@ -154,7 +154,7 @@ The concerts module sets `ConcertsShelf` and `ArtistConcerts` in its factory. Th
 ### What a module declares
 
 - **Routes** use MyGo's router patterns (`/album/{id}`, `/settings/{section...}`). The route memory, titles and the back and forward buttons are the shell's.
-- **Nav** entries sit in the primary, library or footer section and sort by `Order`. `To` is one of the module's own patterns. Each entry gets a go-to shortcut (`Keys`, else Ctrl+1…9 or Alt+1…9 by position). `Count`, when set, is a number the link carries at its end while it is above 0 and in its name for assistive technology ("New releases, 3 new"); it is read every frame, so it only peeks at a mirror.
+- **Nav** entries sit in the primary, library or footer section and sort by `Order`. `To` is one of the module's own patterns. Each entry gets a go-to shortcut (`Keys`, else Ctrl+1…9 or Alt+1…9 by position). `Count`, when set, is a number the link carries at its end while it is above 0 and in its name for assistive technology ("New releases, 3 new"); it is read every frame, so it only peeks at a mirror. `Visible`, when set, says whether the link is shown now (`NavItem.Shown`; nil is always): a hidden link is left out of the sidebar and the Go menu and its go-to shortcut does nothing (`When`), while its route stays registered. It is read every frame too, and follows `settings:changed` through the shared settings cache.
 - **Init** runs once after the shell connects, on the main thread: subscriptions (`store.On`) and first snapshots. A module's `Init` subscribes to each event, then calls `env.Queries.Invalidate(store.Key{"library"})` or the like.
 - **Actions** (`[]kit.ActionDef`) are the module's item actions, single (`Target` a kind) and bulk (`Target: kit.KindSelection`). The shell registers every module's into one `kit.ActionRegistry` (`Env.Actions`), which `kit.ActionMenus` lists and shortcuts and the palette share by ID. A duplicate ID panics at start-up.
 
@@ -974,7 +974,7 @@ MyGo limits this works around, for a maintainer's upstream report:
 
 - One dispatcher asks MyGo for every chord each frame (`c.Shortcut`), with the user's `config.Settings.Shortcuts` over the defaults. It runs the first shortcut bound to a pressed chord whose `When` holds. An `Unavailable` one takes the key, toasts and announces why.
 - MyGo gives a focused text input the keys it types, and a focused button or slider Enter, Space and the arrows, first.
-- Each link gets `nav.<path>` (`nav.library.albums`): Ctrl+1…9 by position in the primary section, Alt+1…9 in the library's, unless the item names `Keys`. The shell's own is `shell.sidebar` (Ctrl+B).
+- Each link gets `nav.<path>` (`nav.library.albums`): Ctrl+1…9 by position in the primary section, Alt+1…9 in the library's, unless the item names `Keys`. A link whose `Visible` is false is not in the menu and its shortcut is not allowed (`When`). The shell's own is `shell.sidebar` (Ctrl+B).
 - Back and forward are MyGo's (Cmd+[ and Cmd+] on macOS, Alt+Left and Alt+Right elsewhere, the mouse's side buttons), not shortcuts of ours.
 - MyGo reports a key held down as presses, so `Shortcut.Repeat` has no effect yet.
 
@@ -1770,7 +1770,7 @@ The location dialog (`location.go`) searches Sona's own city list (`ConcertsServ
 
 ### New releases (`features/newreleases`)
 
-`/new-releases` with the `New releases` nav item (icon `calendar`, primary, order 27: after Concerts, so the positional Ctrl+1…9 keys before it stay), the page of the artist tracker (`ArtistTrackerService`; `docs/architecture.md`, "Artist tracker"; its look is `docs/design.md`, "New releases"). The sidebar link is always there: the page says plainly when the tracker is off and links to Settings.
+`/new-releases` with the `New releases` nav item (icon `calendar`, primary, order 27: after Concerts, so the positional Ctrl+1…9 keys before it stay), the page of the artist tracker (`ArtistTrackerService`; `docs/architecture.md`, "Artist tracker"; its look is `docs/design.md`, "New releases"). The sidebar link (`NavItem.Visible`) is there only while the tracker is on (Settings → General), and appears or goes with `settings:changed`, no restart. The route is always registered, so the notification centre's "N new releases" entry and a desktop notification still open it; with the tracker off the page says plainly so and links to Settings. Nothing else points at the page: it has no palette command of its own beyond the go-to shortcut, which is not allowed while the link is hidden.
 
 - **State.** `artisttracker:changed` writes `store.KeyNewReleases` (`store.UseNewReleases`: items, unread count, when it was last checked); `Init` seeds it from `ArtistTrackerService.Releases`, which reads SQLite only. The nav item's `Count` peeks at it, so the sidebar shows the unread count without a fetch. Reads of the settings (`store.UseSettings`) tell the page whether the tracker is on.
 - **The page** (`page.go`) groups the list (`groupsOf`: Coming soon, soonest first; This week; Earlier) and builds each group as a table of rows (`row.go`), all in one `kit.Selection`, `kit.GridNav` and `kit.ActionMenus`, as the artist page's release list is: rows select, drag, open their item menu on right-click, Shift+F10 or the Menu key, and move with the arrows. A row is one Tab stop; the Delete key removes it.

@@ -528,6 +528,12 @@ func TestEveryShortcutIsInTheMenuBarOrLeftOutOnPurpose(t *testing.T) {
 	t.Cleanup(func() { a.env.Art.Close(); a.env.Art.Wait() })
 	a.firstPaint = nil
 	a.connect()
+	// The New releases page is in the Go menu only while the tracker is on.
+	if _, err := h.Settings.Update(func(s *config.Settings) { s.ArtistTracker.Enabled = true }); err != nil {
+		t.Fatal(err)
+	}
+	h.Bus.Emit(services.EventSettingsChanged, h.Settings.Get())
+	h.Main.Drain()
 
 	in := a.menuInput()
 	in.commands = newDispatcher(platformKeys(a.keys.shortcuts, ui.Super), a.keys.overrides).bindings()

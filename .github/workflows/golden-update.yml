@@ -10,7 +10,7 @@
 #   update  runs the pull request's code (go test -update) with a read-only
 #           token and no secrets, and hands the changed PNGs over as an
 #           artifact;
-#   push    in the `golden-update` environment (the App's secrets), runs no
+#   push    in the `golden-update` environment (the OIDC token octo-sts trades for the App's), runs no
 #           repository code: it checks each artifact path is a golden image,
 #           commits and pushes.
 # Only pull requests from this repository (a fork's is refused: the bot may not
@@ -18,10 +18,10 @@
 # label's event run it.
 #
 # Maintainer setup (docs/maintainers/ci-and-secrets.md, "bot-cecil App permissions"):
-# the `golden-update` environment needs required reviewers and the secrets
-# RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY (bot-cecil's, as
-# release-please.yml uses; they are not repository-level secrets, which a
-# pull request's run could read), and the label `update-goldens` must exist.
+# the `golden-update` environment needs required reviewers (bot-cecil's token comes from
+# octo-sts at octo-sts.hera.ac, which holds the App's key: this job's OIDC token is exchanged
+# under .github/chainguard/golden-update.sts.yaml, so no secret is stored here), and the label
+# `update-goldens` must exist.
 name: Update goldens
 
 on:
@@ -111,22 +111,18 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     environment: golden-update
-    permissions: {}
+    permissions:
+      id-token: write # the OIDC token octo-sts exchanges for bot-cecil's
     steps:
-      # bot-cecil's installation permissions must include these three
-      # (docs/maintainers/ci-and-secrets.md, "bot-cecil App permissions").
+      # The trust policy .github/chainguard/golden-update.sts.yaml grants these
+      # three (docs/maintainers/ci-and-secrets.md, "bot-cecil App permissions").
       - name: Generate bot-cecil token
         id: app-token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         with:
-          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          permission-contents: write # the push
-          # The label is on a pull request: with Issues alone, removing it is
-          # refused (403, run 42307168780), as release-please.yml, which asks
-          # for both, never is.
-          permission-issues: write
-          permission-pull-requests: write
+          domain: octo-sts.hera.ac
+          scope: ${{ github.repository }}
+          identity: golden-update
 
       - name: Remove the label when nothing changed
         if: ${{ needs.update.outputs.changed != 'true' }}

@@ -87,6 +87,32 @@ func TestTheSidebarCountIsTheUnreadReleases(t *testing.T) {
 	}
 }
 
+// The sidebar link is there only while the tracker is on; the route is
+// registered either way, so a link to the page still opens it.
+func TestTheSidebarLinkIsThereOnlyWhileTheTrackerIsOn(t *testing.T) {
+	r := newRig(t, sample(), false, 1132, 700)
+	m := r.n.module()
+	if len(m.Routes) != 1 || m.Routes[0].Pattern != "/new-releases" {
+		t.Fatalf("routes = %+v", m.Routes)
+	}
+	link := m.Nav[0]
+	if link.Shown() {
+		t.Error("the link is shown with the tracker off")
+	}
+	r.until("the off state", r.tt.Shows("Release tracking is off"))
+	cfg := r.h.Settings.Get()
+	cfg.ArtistTracker.Enabled = true
+	store.Set(r.h.Env.Queries, store.KeySettings, cfg)
+	if !link.Shown() {
+		t.Error("the link is not shown once the tracker is on")
+	}
+	cfg.ArtistTracker.Enabled = false
+	store.Set(r.h.Env.Queries, store.KeySettings, cfg)
+	if link.Shown() {
+		t.Error("the link is still shown after the tracker is turned off")
+	}
+}
+
 func TestOpeningAnUnreadReleaseMarksItReadAndOpensTheAlbum(t *testing.T) {
 	r := newRig(t, sample(), true, 1132, 900)
 	r.until("the list", r.tt.Shows("Night Signals"))
