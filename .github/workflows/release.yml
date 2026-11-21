@@ -60,12 +60,6 @@ on:
         required: true
         type: string
     secrets:
-      RENOVATE_APP_CLIENT_ID:
-        description: bot-cecil GitHub App client ID (the release environment's; inherited)
-        required: false
-      RENOVATE_APP_PRIVATE_KEY:
-        description: bot-cecil GitHub App private key (the release environment's; inherited)
-        required: false
       PROTON_PASS_PERSONAL_ACCESS_TOKEN:
         description: The release environment's Proton Pass token (inherited; a fork has none)
         required: false
@@ -553,14 +547,15 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # The upload and the publish go through the bot-cecil App token.
+      # The upload and the publish go through the bot-cecil token octo-sts
+      # mints under .github/chainguard/release.sts.yaml.
       - name: Generate bot-cecil token
         id: app-token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         with:
-          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          permission-contents: write # upload to and publish the release
+          domain: octo-sts.hera.ac
+          scope: ${{ github.repository }}
+          identity: release
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
