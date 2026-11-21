@@ -288,13 +288,17 @@ func parseAux(b []byte, tc []box, base int, in *Init, samples []Sample) error {
 	if o.err != nil {
 		return fmt.Errorf("fmp4: saio: %w", o.err)
 	}
+	// Compare without adding: a wrapping offset would pass a sum check.
+	if off > uint64(len(b)) || uint64(base) > uint64(len(b))-off {
+		return errors.New("fmp4: saio offset outside fragment")
+	}
 	pos := uint64(base) + off
 	for i := range samples {
 		size := defSize
 		if sizes != nil {
 			size = int(sizes[i])
 		}
-		if pos+uint64(size) > uint64(len(b)) {
+		if uint64(size) > uint64(len(b))-pos {
 			return fmt.Errorf("fmp4: aux info of sample %d outside fragment", i)
 		}
 		entry := reader{b: b[pos : pos+uint64(size)]}
