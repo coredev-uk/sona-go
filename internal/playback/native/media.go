@@ -555,8 +555,7 @@ func (e *Engine) renew(h host, gen int, ev cdmhost.Event) {
 	m := e.sessions[ev.Session]
 	e.mu.Unlock()
 	if m == nil {
-		e.log.Debug("CDM message for an unknown session", "session", ev.Session, "type", widevine.MessageType(ev.Type))
-		return
+		return // the session closed while the message waited
 	}
 	t0 := time.Now()
 	e.log.Info("licence renewal requested", "id", m.id, "session", ev.Session, "type", widevine.MessageType(ev.Type), "bytes", len(ev.Data))

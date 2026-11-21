@@ -28,6 +28,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback/cdmhost"
 	"github.com/coredev-uk/sona-go/internal/playback/equalizer"
 	"github.com/coredev-uk/sona-go/internal/playback/video"
+	"github.com/coredev-uk/sona-go/internal/playback/widevine"
 	"github.com/coredev-uk/sona-go/internal/tunein"
 )
 
@@ -1012,18 +1013,34 @@ func (e *Engine) ensureHost(ctx context.Context) (host, int, error) {
 
 // watch handles one host's events until it exits.
 func (e *Engine) watch(h host, gen int) {
+	rq := newRenewals()
+	go rq.run(func(ev cdmhost.Event) { e.renew(h, gen, ev) })
 	for ev := range h.Events() {
+		if ev.Kind == cdmhost.EventMessage {
+			e.queueRenewal(rq, ev)
+			continue
+		}
 		e.handle(h, gen, ev)
 	}
+	rq.close()
 	<-h.Done()
 	e.hostExited(h, h.Err())
 }
 
-func (e *Engine) handle(h host, gen int, ev cdmhost.Event) {
-	if ev.Kind == cdmhost.EventMessage {
-		go e.renew(h, gen, ev)
+// queueRenewal hands a CDM message to rq, unless it names a session that
+// is not ours: that costs no work and no memory.
+func (e *Engine) queueRenewal(rq *renewals, ev cdmhost.Event) {
+	e.mu.Lock()
+	m := e.sessions[ev.Session]
+	e.mu.Unlock()
+	if m == nil {
+		e.log.Debug("CDM message for an unknown session", "session", ev.Session, "type", widevine.MessageType(ev.Type))
 		return
 	}
+	rq.add(ev)
+}
+
+func (e *Engine) handle(h host, gen int, ev cdmhost.Event) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	it := e.cur

@@ -3,6 +3,9 @@
 package native
 
 import (
+	"runtime"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,5 +39,43 @@ func TestLicenceRenewalRoundTrip(t *testing.T) {
 	}
 	if loads, _, _ := f.snapshot(); len(loads) != 1 {
 		t.Fatalf("renewal reloaded the item: %+v", loads)
+	}
+}
+
+// A compromised child floods CDM messages (valid session, unknown sessions)
+// while Apple's licence server is slow. The engine keeps one renewal in
+// flight and one coalesced behind it, starts no goroutine per message, and
+// does no work for unknown sessions.
+func TestRenewalFloodIsBounded(t *testing.T) {
+	h := newHarness(t, -1, false)
+	if err := h.e.Play(ctx(t), "A", 0); err != nil {
+		t.Fatal(err)
+	}
+	f := h.host(0)
+	gate := make(chan struct{})
+	release := sync.OnceFunc(func() { close(gate) })
+	t.Cleanup(release)
+	h.fx.licGate.Store(&gate)
+	before := runtime.NumGoroutine()
+
+	const flood = 5000
+	data := make([]byte, 64<<10)
+	for i := range flood {
+		f.emit(cdmhost.Event{Kind: cdmhost.EventMessage, Session: "s1", Type: int(widevine.LicenseRenewal), Data: data})
+		f.emit(cdmhost.Event{Kind: cdmhost.EventMessage, Session: "x" + strconv.Itoa(i), Type: int(widevine.LicenseRenewal), Data: data})
+	}
+	eventually(t, "one renewal in flight", func() bool { return h.fx.requests("/lic", "") == 2 })
+	time.Sleep(100 * time.Millisecond)
+	if n := runtime.NumGoroutine() - before; n > 20 {
+		t.Fatalf("%d goroutines more than before the flood", n)
+	}
+	if n := h.fx.requests("/lic", ""); n != 2 {
+		t.Fatalf("%d licence requests while the first renewal is held, want 2", n)
+	}
+	release()
+	eventually(t, "the coalesced renewal", func() bool { return h.fx.requests("/lic", "") == 3 })
+	time.Sleep(100 * time.Millisecond)
+	if n := h.fx.requests("/lic", ""); n != 3 {
+		t.Fatalf("%d licence requests, want 3 (one in flight, one coalesced)", n)
 	}
 }

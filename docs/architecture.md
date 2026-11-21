@@ -535,7 +535,7 @@ At most 8 threads per child, each asked for once. Failure is not fatal, and Diag
 
 #### Licence renewal
 
-Apple's licences expire after 15 minutes. The CDM asks for a renewal 13 minutes after a licence is installed, and the engine posts it to `acquireWebPlaybackLicense` with `X-Apple-Renewal: true` and the `stkn` slot token.
+Apple's licences expire after 15 minutes. The CDM asks for a renewal 13 minutes after a licence is installed, and the engine posts it to `acquireWebPlaybackLicense` with `X-Apple-Renewal: true` and the `stkn` slot token. Messages are answered one at a time per host (`native/renewals.go`): one for an unknown session is dropped, and a newer one for a session replaces its waiting one. The parent also kills a child whose message is over 64 KiB ([security-review.md](security-review.md) F?).
 
 #### Lifecycle
 
