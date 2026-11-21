@@ -45,7 +45,10 @@ func (p *playlists) treeData() kit.MenuData {
 	}
 }
 
-func (p *playlists) addTo(kind kit.ItemKind) kit.ActionDef {
+// addTo is "Add to playlist" for one item: a submenu of New playlist… and
+// the user's playlists, loaded as the menu opens (addmenu.go). Until they
+// load, and when there are none, it is the plain row that opens the picker.
+func (p *playlists) addTo(kind kit.ItemKind, targets kit.MenuData) kit.ActionDef {
 	return kit.ActionDef{
 		ID:           "playlists.add-to." + string(kind),
 		Target:       kind,
@@ -54,10 +57,9 @@ func (p *playlists) addTo(kind kit.ItemKind) kit.ActionDef {
 		Icon:         "list-plus",
 		Group:        kit.GroupItem,
 		Order:        40,
-		Run: func(a *kit.ActionContext) {
-			it := a.Item()
-			p.addToPlaylist(playlistItems([]kit.Item{it}), kit.DescribeItems([]kit.Item{it}))
-		},
+		Data:         []kit.MenuData{targets},
+		Choices:      p.addChoices(targets),
+		Run:          p.pickPlaylist,
 	}
 }
 
@@ -121,11 +123,12 @@ func inEditablePlaylist(a *kit.ActionContext) bool {
 }
 
 // actions are the item actions: add songs, albums and playlists to a
-// playlist; pin library items to the sidebar; edit, change the cover of,
-// move and delete library playlists. A selection can be added to a playlist, or removed from the
+// playlist (a submenu of the user's playlists, addmenu.go); pin library
+// items to the sidebar; edit, change the cover of, move and delete library
+// playlists. A selection can be added to a playlist, or removed from the
 // playlist it is listed in, at once.
 func (p *playlists) actions() []kit.ActionDef {
-	tree := p.treeData()
+	tree, targets := p.treeData(), p.addTargetsData()
 	return []kit.ActionDef{
 		{
 			// Only the sidebar's rows list it (their container): it is the
@@ -144,7 +147,7 @@ func (p *playlists) actions() []kit.ActionDef {
 				p.playPin(pl.ID, pl.Name, true)
 			},
 		},
-		p.addTo(kit.KindSong),
+		p.addTo(kit.KindSong, targets),
 		{
 			ID:        "playlists.remove-from",
 			Target:    kit.KindSong,
@@ -157,8 +160,8 @@ func (p *playlists) actions() []kit.ActionDef {
 				p.removeTracks(a.Container.ID, []int{a.Container.Index}, []services.Song{a.Item().Song()})
 			},
 		},
-		p.addTo(kit.KindAlbum),
-		p.addTo(kit.KindPlaylist),
+		p.addTo(kit.KindAlbum, targets),
+		p.addTo(kit.KindPlaylist, targets),
 		{
 			ID:           "playlists.add-to.many",
 			NeedsRelease: true,
@@ -168,9 +171,9 @@ func (p *playlists) actions() []kit.ActionDef {
 			Icon:         "list-plus",
 			Group:        kit.GroupItem,
 			Order:        40,
-			Run: func(a *kit.ActionContext) {
-				p.addToPlaylist(playlistItems(a.Items), kit.DescribeItems(a.Items))
-			},
+			Data:         []kit.MenuData{targets},
+			Choices:      p.addChoices(targets),
+			Run:          p.pickPlaylist,
 		},
 		{
 			ID:        "playlists.remove-from.many",

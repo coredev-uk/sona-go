@@ -261,7 +261,7 @@ How Sona uses each state:
 
 | Drag | Keyboard |
 | --- | --- |
-| Songs, albums, playlists onto a sidebar playlist | "Add to playlist" in every item's action and context menu |
+| Songs, albums, playlists onto a sidebar playlist | "Add to playlist" in every item's action and context menu: a sub-menu (Right opens it, Left closes it) of New playlist… and your playlists |
 | Onto the queue | "Play next" / "Play last" in the same menus |
 | Reorder the queue | Alt+↑ / Alt+↓ on a focused queue row, or "Play next" and "Move to end" in its menu |
 | Reorder a playlist in the editor | Alt+↑ / Alt+↓ on a focused row, announced |

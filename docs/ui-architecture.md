@@ -596,6 +596,8 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 **The item menu's "Go to artist"** is an `ActionDef` with `Choices`. With more than one choice the row is a sub-menu (`MenuSub`) with one entry per artist; with one it is the plain row. A library song's artists arrive while the menu is open, from the same resolver, so its row turns into the sub-menu then.
 
+**Nested choices.** `ActionChoice` has `Icon`, `Rule` (a separator before it) and `Sub` (a choice that is itself a sub-menu of choices, with no `Run`); `ActionMenus.choiceItems` turns them into `MenuItem`s, so the menu's nesting, hover, Right and Left are `Menu`'s own. "Add to playlist" uses them (`features/playlist/addmenu.go`): its `MenuData` (`playlists.add-targets`) reads the tree from SQLite and Apple's recent targets (the network, waited for at most `addRecentGrace`, 300 ms, after the tree) off the main thread, and `buildAddMenu` works out the rows there, so a frame only wraps them. Folders nest to `addMenuDepth` (2), a level lists at most `addMenuLevel` (15) rows, and the remainder is "More playlists…", which opens the picker. With no rows to list, or none read yet (or the read failed), `Choices` returns nothing and the action is the plain row that opens the picker.
+
 ### Overlays and menus
 
 **Dialog**, **DialogFooter**, **ConfirmDialog** (`Confirm` + `ConfirmHost`)
@@ -1637,7 +1639,7 @@ Registered after video and before radio and the player. It owns:
 - the `/playlist/{id}` page;
 - the sidebar's playlist sections (`Slots.SidebarSection`);
 - the dialogs (`Slots.Aside`: `dialogHost` builds the open `kit.Dialog` and nothing else, so it takes no room);
-- the playlist item actions (`Module.Actions`): add to playlist for songs, albums, playlists and selections, remove from playlist inside an editable container, pin and unpin per kind, edit details, move to folder, delete from library.
+- the playlist item actions (`Module.Actions`): add to playlist (a sub-menu of New playlist… and the user's playlists and folders, with the picker for the rest) for songs, albums, playlists and selections, remove from playlist inside an editable container, pin and unpin per kind, edit details, move to folder, delete from library.
 
 #### State and data
 
@@ -1667,7 +1669,7 @@ Registered after video and before radio and the player. It owns:
 
 #### Dialogs
 
-- One at a time (`dialogs.show` replaces): the add picker (search, recents, groups by folder path, arrow keys), new playlist and edit details (one form), folder new and rename, move to folder.
+- One at a time (`dialogs.show` replaces): the add picker (search, recents, groups by folder path, arrow keys; opened by the menu's "More playlists…" or when its sub-menu has nothing to list), new playlist and edit details (one form), folder new and rename, move to folder.
 - A dialog takes the focus on its second built frame, after MyGo noted what to return it to (an `AutoFocus` in the first frame is remembered as the opener).
 - Deleting a playlist or folder asks through `kit.Confirm`.
 

@@ -243,11 +243,19 @@ type ActionDef struct {
 }
 
 // ActionChoice is one entry of an action's submenu: Key is its stable ID
-// (unique among the choices), Run what choosing it does.
+// (unique among its siblings), Run what choosing it does. A choice with Sub
+// is itself a submenu (a folder of playlists) and has no Run.
 type ActionChoice struct {
 	Key   string
 	Label string
-	Run   func(a *ActionContext)
+	// Icon is a Lucide name. When any sibling has one, those without line
+	// their labels up with it.
+	Icon string
+	// Rule draws a separator line before the choice (ignored on the first).
+	Rule bool
+	// Sub holds a nested submenu's choices.
+	Sub []ActionChoice
+	Run func(a *ActionContext)
 }
 
 func (d *ActionDef) bulk() bool { return d.Target == KindSelection }

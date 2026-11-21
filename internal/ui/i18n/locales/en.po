@@ -3964,6 +3964,10 @@ msgstr "More links"
 msgid "More playlists from this curator"
 msgstr "More playlists from this curator"
 
+#: internal/ui/features/playlist/addmenu.go
+msgid "More playlists…"
+msgstr "More playlists…"
+
 #: internal/ui/features/onboarding/appearance.go
 msgid "More themes, including OLED and community palettes, are in Settings → Appearance."
 msgstr "More themes, including OLED and community palettes, are in Settings → Appearance."
@@ -4180,6 +4184,10 @@ msgstr "New playlist here"
 #: internal/ui/features/playlist/sidebar.go
 msgid "New playlist or folder"
 msgstr "New playlist or folder"
+
+#: internal/ui/features/playlist/addmenu.go
+msgid "New playlist…"
+msgstr "New playlist…"
 
 #: internal/ui/features/newreleases/newreleases.go
 #: internal/ui/features/newreleases/page.go
