@@ -10,29 +10,22 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
-// RemindAvailable reports whether an album can have a release reminder: the
-// platform has notifications, and the album has a catalogue ID and a full
-// release date (shared/lib/release.ts and reminders/index.ts's isAvailable;
-// the caller decides the album is upcoming).
+// RemindAvailable reports whether an album can have a release reminder: there
+// are services, and the album has a catalogue ID and a full release date
+// (shared/lib/release.ts and reminders/index.ts's isAvailable; the caller
+// decides the album is upcoming). A reminder is an entry of the notification
+// centre, so it needs nothing of the platform.
 func RemindAvailable(core *services.Core, album services.Album) bool {
-	if core == nil {
-		return false
-	}
-	return remindable(services.Service[services.PlatformService](core).Capabilities().Notifications, album)
-}
-
-// remindable is RemindAvailable given whether the platform has notifications.
-func remindable(notifications bool, album services.Album) bool {
-	return notifications && album.CatalogID != "" && album.ReleaseAt != 0
+	return core != nil && album.CatalogID != "" && album.ReleaseAt != 0
 }
 
 // RemindButton is "Remind me" on an upcoming album's page: an outline toggle
 // (its name stays the same; pressed means a reminder is set, with the ringing
-// bell) for one desktop notification when the album comes out. lead makes it
-// the page's one primary action, ink-filled until a reminder is set. It builds
-// nothing where the platform has no notifications and for an album without a
-// full release date or a catalogue ID, and is disabled until the reminders
-// have loaded. It sets or removes the reminder itself (SetReminder).
+// bell) for one entry in the notification centre when the album comes out.
+// lead makes it the page's one primary action, ink-filled until a reminder is
+// set. It builds nothing for an album without a full release date or a
+// catalogue ID, and is disabled until the reminders have loaded. It sets or
+// removes the reminder itself (SetReminder).
 func RemindButton(c *ui.Context, cl *store.Client, core *services.Core, album services.Album, lead bool) {
 	if !RemindAvailable(core, album) {
 		return

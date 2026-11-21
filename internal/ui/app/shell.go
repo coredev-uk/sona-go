@@ -71,6 +71,9 @@ func routeForOpen(t services.OpenTarget) string {
 	if t.Kind == services.OpenNewReleases {
 		return "/new-releases" // Sona's own page, from a summary notification: no ID
 	}
+	if t.Kind == services.OpenSettings {
+		return "/settings?section=" + url.QueryEscape(t.ID) // a notification centre entry, Settings → Add-ons
+	}
 	if t.ID == "" {
 		return ""
 	}

@@ -270,11 +270,16 @@ func TestSlotsBuildWhenModulesHaveThem(t *testing.T) {
 		return module.Module{
 			ID: "slots",
 			Slots: module.Slots{
-				Bottom:        func(c *ui.Context) { ui.Text(c, "bottom bar") },
-				Aside:         func(c *ui.Context) { ui.Text(c, "aside") },
-				SidebarFooter: func(c *ui.Context) { ui.Text(c, "sidebar footer") },
-				TopBarSearch:  func(c *ui.Context) { ui.Text(c, "search field") },
-				Overlay:       &module.Overlay{Open: func() bool { return open }, Build: func(c *ui.Context) { ui.Text(c, "overlay") }},
+				Bottom: func(c *ui.Context) { ui.Text(c, "bottom bar") },
+				Aside:  func(c *ui.Context) { ui.Text(c, "aside") },
+				TopBarNotices: func(c *ui.Context, acts []module.Activity) {
+					if len(acts) == 1 && acts[0].Status(c).Shown {
+						ui.Text(c, "bell")
+					}
+				},
+				Activity:     &module.Activity{Status: func(*ui.Context) module.ActivityStatus { return module.ActivityStatus{Shown: true} }},
+				TopBarSearch: func(c *ui.Context) { ui.Text(c, "search field") },
+				Overlay:      &module.Overlay{Open: func() bool { return open }, Build: func(c *ui.Context) { ui.Text(c, "overlay") }},
 			},
 			Routes: []module.Route{{Pattern: "/p", Build: func(c *ui.Context, _ *ui.Route) { ui.Text(c, "page") }}},
 			Nav:    []module.NavItem{{Section: module.NavPrimary, Label: func() string { return "P" }, To: "/p"}},
@@ -282,7 +287,7 @@ func TestSlotsBuildWhenModulesHaveThem(t *testing.T) {
 	}
 	_, tt := newShell(t, Options{}, f)
 	tt.Frame()
-	for _, w := range []string{"bottom bar", "aside", "sidebar footer", "search field", "page"} {
+	for _, w := range []string{"bottom bar", "aside", "bell", "search field", "page"} {
 		if !tt.HasText(w) {
 			t.Errorf("%q not shown: %q", w, tt.Texts())
 		}

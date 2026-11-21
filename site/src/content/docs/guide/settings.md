@@ -28,7 +28,7 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Setting | What it does | Platform |
 | --- | --- | --- |
 | Track new releases from favourite artists | Once a day, looks at the artists you've favourited and lists their new albums, EPs and singles in [New releases](/guide/new-releases/). Off until you turn it on. Releases that are out when you turn it on aren't listed, only the ones that come out afterwards. | |
-| Also show a desktop notification | Shows a notification for a new release, or one summary when several arrive together. Click it to open the release. Needs the first setting. | Needs a notification service on _Linux_ and Sona.app on _macOS_. Not on _Windows_ yet. |
+| Also show releases as desktop notifications | Releases are always in [Notifications](/guide/notifications/): an album you asked to be reminded of when it comes out, and new releases from your artists. This shows them on your desktop too, one for each release or one summary when several arrive together. Click it to open the release. | Needs a notification service on _Linux_ and Sona.app on _macOS_. Not on _Windows_ yet. |
 
 ### Updates
 

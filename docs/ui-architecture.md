@@ -172,8 +172,10 @@ The concerts module sets `ConcertsShelf` and `ArtistConcerts` in its factory. Th
 | `Overlay` | Covers the page column. Its optional `Close` is called when the page changes while it is open: back, forward, a swipe or a link show the new page, not a page hidden behind it |
 | `Bottom` | The player bar |
 | `Layer` | Over the whole window. While `LayerOpen`, the shell builds it as a modal overlay: the window behind takes no input and assistive technology reads the layer alone. The page is still built and drawn, so first paint is reported as always |
-| `SidebarFooter`, `SidebarSection` | In the sidebar |
+| `SidebarSection` | In the sidebar's scrolling middle |
 | `TopBarSearch` | The top bar's search field |
+| `TopBarNotices` | The notification centre's bell, before the account menu (the first module's wins). The shell hands it every module's `Activity` |
+| `Activity` | The module's live part of the notification centre (`module.Activity`): `Status` for the bell's marks, `Build` for its rows at the top of the panel, `Foot` for a line at the panel's foot |
 | `TopBarAccount` | The top bar's trailing end: the account menu |
 | `Mini` | The mini player window's whole content (the first module's wins) |
 
@@ -855,9 +857,9 @@ Then, on the main thread, it follows the settings (theme mode, reduce effects, t
 
 **Layout**
 
-- The sidebar (232 DIP, `surface`): the mark and "Sona" in its 48 DIP header, the primary links, then a scrolling middle with the "Library" heading, the library links and the modules' `SidebarSection`s, then the `SidebarFooter`s and the footer links.
+- The sidebar (232 DIP, `surface`): the mark and "Sona" in its 48 DIP header, the primary links, then a scrolling middle with the "Library" heading, the library links and the modules' `SidebarSection`s, then the footer links.
 - A 1 DIP `line`.
-- The main column: the top bar (48 DIP, `surface`: MyGo's back and forward buttons on the router, the `TopBarSearch` slot, room to grab) over a 1 DIP `line` over the page row. The page row holds the routed page on `ground`, the `Aside`s, and each open `Overlay` covering the page. The page stays built, hidden, so it keeps its scroll.
+- The main column: the top bar (48 DIP, `surface`: MyGo's back and forward buttons on the router, the `TopBarSearch` slot, room to grab, then the `TopBarNotices` bell and the `TopBarAccount` avatar 8 DIP apart) over a 1 DIP `line` over the page row. The page row holds the routed page on `ground`, the `Aside`s, and each open `Overlay` covering the page. The page stays built, hidden, so it keeps its scroll.
 - The `Bottom` slots run across the window under both. A `Layer` is drawn over everything and, while its `LayerOpen` holds, the window under it takes no input.
 - A page owns its scroll container.
 
@@ -1181,6 +1183,15 @@ The view the Layer slot builds (`nowplaying_room.go`, with the cascade in `lyric
 
 **The module** also adds the player bar's Mini player button (`Env.PlayerControls`, order 30; `DesktopService.ToggleMiniPlayer`) and the shortcut `miniplayer.toggle` (Ctrl+Shift+M, "Show the mini player", View). The shell's window calls have no error to return, so a call that panics is the failure.
 
+### The notification centre (`features/notifications`)
+
+The bell in the top bar and its panel (`docs/design.md`, "Notification centre"). It owns `TopBarNotices`; what it shows comes from two places:
+
+- **Entries** Go keeps (`NotificationsService`, table `notifications`): a release reminder that came due, new releases the artist tracker found, an add-on switched off after crashing. The module mirrors `notifications:changed` into its own query (`["notifications"]`, never stale) and words each kind itself (`words`): Go keeps names, not sentences. Opening the panel calls `MarkRead` off the main thread and keeps the IDs that were unread (`fresh`) so they keep their mark until it closes. Choosing an entry emits `app:open` with its `OpenTarget` on the bus, so the shell opens it as it opens a link (`routeForOpen`, including `OpenSettings` for Settings → Add-ons), and closes the panel. Remove calls `Dismiss`, Clear all `Clear`; a failure toasts.
+- **Activities**, the live part: the shell hands the bell every module's `Slots.Activity` in module order (library sync, add-ons, updates, Widevine). The bell calls each `Status(c)` on every build (store reads only; a module may announce its phase there) for its dot (`News` ink, `Alert` danger) and its bar (the first `Busy` one's `Progress`, its `Label` in the bell's name). The panel builds each `Build` while its status is `Shown`, then each `Foot`. Rows use `kit.ActivityRow`, so every module's row has one shape.
+- The panel is `kit.Popover` with `End` (end-aligned to the bell), 360 DIP wide, 8 DIP padding. The entries scroll past 392 DIP. It closes when the page changes under it (an entry, a row's Review), as well as on Escape, a press outside or the bell.
+- Tests: `notifications_test.go` (marks, reading, opening, removing, clearing, live rows), goldens `panel-light`, `panel-dark`.
+
 ### Account side: private listening, Widevine, updates, reminders and motion
 
 Five modules whose state other features read. The shared parts sit where features may import them:
@@ -1206,21 +1217,21 @@ The account menu, Settings, the setup, the player bar and an album page use thos
   - Failed: a 6 DIP `danger` dot and "Couldn't get Widevine · Retry in Settings" (the failure's words as its tooltip), or "Songs can't play on this computer".
   - Ready: a check and "Widevine is ready. Press play to start."
 - A link to Settings → Playback appears only once that route exists (`Env.HasRoute`), plain text before.
+- Its `Activity` in the notification centre: the first download (not an update in the background) as a busy row with the percent and a bar, a failure as an alert row with the reason and Try again where `store.CDMCanRetry`, and "Songs can't play on this computer" without a dot where Google has no CDM.
 
 **Updates** (`features/updates`)
 
-- The `SidebarFooter` notice is a slip: a `raised` block (radius 6, padding 10, inset 10 from the sidebar's edges) with "New version" in meta, "Sona {latest}" at 14/500 (the status; assistive technology still reads "Sona {latest} is available") and a full-width ink button. It shows only while `UpdateStatus.Available`.
-- The button is "Install and restart" where `UpdateStatus.SelfUpdate` (macOS on Apple silicon and Windows on x64 installs; `UpdatesService.Install`; a failure toasts and the notice says "Couldn't install Sona {latest}"). Elsewhere it is "View" (`UpdatesService.OpenRelease`; a failed open toasts).
-- After a failed install (`UpdateStatus.InstallError`) the button reads "Try again" and an outline "View release" sits under it, so the notice is a way out and not a loop of retries. The cause is in the Diagnostics bundle's Updates section.
-- `updates:available` and `updates:install` write the query. Download progress shows as a bar inside the slip in place of the button, and "Restarting into Sona {latest}…" is the slip's line once installed.
+- Its `Activity` in the notification centre shows only while `UpdateStatus.Notify()`: a row titled "Sona {latest} is available" (the bell's ink dot) with "Install and restart" and a ghost "View release" where `UpdateStatus.SelfUpdate` (macOS on Apple silicon and Windows on x64 installs; `UpdatesService.Install`; a failure toasts and the row says "Couldn't install Sona {latest}"). Elsewhere it is "View" (`UpdatesService.OpenRelease`; a failed open toasts) under "Update it the way you installed Sona."
+- After a failed install (`UpdateStatus.InstallError`) the row is an alert, the button reads "Try again" and "View release" sits beside it, so the row is a way out and not a loop of retries. The cause is in the Diagnostics bundle's Updates section.
+- `updates:available` and `updates:install` write the query. While it downloads the row has a bar in place of the buttons and the bell its own; "Restarting into Sona {latest}…" is the row's title once installed.
 - Settings → General → Updates words why an install can't update itself (`UpdateStatus.Disabled`: no signing key, not writable) and has the Test versions switch (`updates.prereleases`). Linux packages and AppImages keep updating through their own tools (`docs/architecture.md`, "Updates").
 
 **Reminders** (`features/reminders`)
 
 - `reminders:changed` writes the list.
 - The album action `reminders.toggle` (item group, order 25, bell icon) reads "Remind me on {date}" / "Turn off reminder for {date}", the day from `i18n.ShortReleaseDate` of `Album.ReleaseAt`; it is plain "Remind me" / "Turn off reminder" without a date.
-- It is listed for upcoming albums with a full release date, a catalogue ID and notifications, and greyed out until the list has loaded with the menu.
-- The album page's button is `kit.RemindButton`, which sets and removes through the same `kit.SetReminder` ("Out now · {artist}" is the notification's body).
+- It is listed for upcoming albums with a full release date and a catalogue ID, and greyed out until the list has loaded with the menu. A reminder that comes due is an entry of the notification centre; "Out now · {artist}" is kept as the body of the desktop notification shown as well when Settings → General asks for one.
+- The album page's button is `kit.RemindButton`, which sets and removes through the same `kit.SetReminder`.
 
 **Add-ons** (`features/addons`)
 
@@ -1231,7 +1242,7 @@ The account menu, Settings, the setup, the player bar and an album page use thos
 - **Text.** Every label is cleaned again here (control and bidirectional characters out, at most 60 bytes), whatever the service did.
 - **Invocation.** Never on the main thread. The same action chosen again while it runs does nothing. The answer is a toast titled with the add-on's name, at most one a second per add-on, with a fixed ID so it never stacks.
 - **Links.** `cli.SafeLink` is checked when the answer arrives and again when the button is clicked. The button reads "Open {host}". Nothing opens before the click.
-- **Notices.** `addons:notice` shows a warning toast when Sona switches an add-on off.
+- **In the notification centre.** Its `Activity` lists each add-on that waits for an approval (the bell's ink dot) or can't run (`no_sandbox`, `invalid`: its danger dot), each with Review, which opens Settings → Add-ons; it reads `AddonsService.List` at start and every `addons:changed`. An add-on Sona switches off after crashing is an entry Go posts (`NoticeAddonOff`), not a row here.
 - **`sona addons dev`.** `addons:dev-ask` opens a `kit.Confirm` with the add-on's name, the folder and the permissions; `AnswerDev` carries the answer. A question of the person's own is never replaced: the answer is no. `addons:dev-ask-end` closes the dialog if it is still the one on screen.
 
 **Settings → Add-ons** (`features/settings/addons.go`, section `addons`)
@@ -1365,7 +1376,7 @@ A master and detail page.
 - `EventSyncProgress` and `EventSyncDone` feed `syncStore`. A `SyncStatus` answer older than an event is dropped.
 - A finished domain refreshes its lists and the counts; `sync:done` refreshes everything under `["library"]`.
 - `playlists:changed` with `Tree` (a playlist created or deleted here) refreshes Recently added (`keyRecentlyAdded`, `["library","recently-added"]`). The playlist feature refreshes its own lists, and features don't import each other.
-- The sidebar footer (`Slots.SidebarFooter`) shows, with an account, "Syncing <domain>" with the count and a bar, or "Synced <when>" / "Library sync failed" / "Library not synced yet" with Sync now or Try again.
+- Its `Activity` in the notification centre (`syncActivity`): with an account, a running sync is the bell's bar ("Syncing <domain>, <done> of <total>" in its name) and a row with the domain, the count and a bar; a failed one is the bell's danger dot and a row with the reason and Try again; the panel's foot is "Synced <when>" / "Library not synced yet" with Sync now. `announceSync` reads out a start, an end or a failure from the Activity's `Status`, as the bell is always built.
 - `EventItemState` (a rating or library change made by `sona like`, `dislike` or `library`) is `ItemStates.Remember`: it writes the item's state and refreshes Favourite songs.
 
 #### Item actions

@@ -48,7 +48,7 @@ func (g *rig) ctx(a services.Album, list []services.Reminder) *kit.ActionContext
 	return ac.WithData(map[string]any{g.r.loaded().ID: list})
 }
 
-func TestTheAlbumActionIsListedOnlyForUpcomingAlbumsWithADateAnIDAndNotifications(t *testing.T) {
+func TestTheAlbumActionIsListedOnlyForUpcomingAlbumsWithADateAndAnID(t *testing.T) {
 	g := newRig(t)
 	if g.def.ID != "reminders.toggle" || g.def.Target != kit.KindAlbum || g.def.Group != kit.GroupItem || g.def.Order != 25 {
 		t.Fatalf("action = %s %s group %d order %d", g.def.ID, g.def.Target, g.def.Group, g.def.Order)
@@ -76,7 +76,7 @@ func TestTheAlbumActionIsListedOnlyForUpcomingAlbumsWithADateAnIDAndNotification
 	}
 	g.r.available = func(services.Album) bool { return false }
 	if ok(upcomingAlbum()) {
-		t.Error("listed where the platform has no notifications")
+		t.Error("listed where kit.RemindAvailable refuses")
 	}
 }
 
@@ -149,13 +149,15 @@ func TestRemindersChangedUpdatesTheMirror(t *testing.T) {
 	}
 }
 
-// The service calls behind the button and the action: an album the platform
-// cannot remind about says so; removing a reminder confirms.
+// The service calls behind the button and the action: a reminder Go refuses
+// (an album with no catalogue ID) says so; removing a reminder confirms.
 func TestSetAndRemoveToastTheOutcome(t *testing.T) {
-	h := uitest.New(t) // a real RemindersService; the test platform has no notifications
+	h := uitest.New(t) // a real RemindersService
 	tt := h.Tester(t, func(c *ui.Context) { kit.Toaster(c) }, 600, 300)
 	album := upcomingAlbum()
-	kit.SetReminder(h.Env.Core, album, true)
+	noID := album
+	noID.CatalogID = ""
+	kit.SetReminder(h.Env.Core, noID, true)
 	tt.Until("the failure toast", tt.Shows("Couldn't set the reminder"))
 	kit.SetReminder(h.Env.Core, album, false)
 	tt.Until("the removal toast", tt.Shows("You won't be reminded about “Out Soon”"))

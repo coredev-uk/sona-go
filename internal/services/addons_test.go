@@ -271,23 +271,16 @@ func TestAddonsRestartWithBackoffThenSwitchOff(t *testing.T) {
 	}
 	a.svc.start()
 	a.waitState(t, "crashy", AddonCrashed)
-	// giveUp marks the add-on crashed first, then saves the switch and sends
-	// the notice: wait for the notice, the last of the three, before reading
+	// giveUp marks the add-on crashed first, then saves the switch and posts
+	// the entry: wait for the entry, the last of the three, before reading
 	// any of them (the test read them at once and failed on a slow runner).
-	var notice *AddonNotice
-	waitUntil(t, "the switch-off notice", func() bool {
-		a.rec.mu.Lock()
-		defer a.rec.mu.Unlock()
-		for k, name := range a.rec.events {
-			if name == EventAddonsNotice {
-				n := a.rec.data[k].(AddonNotice)
-				notice = &n
-			}
-		}
-		return notice != nil
+	var got []Notification
+	waitUntil(t, "the switch-off entry", func() bool {
+		got = a.notices(t)
+		return len(got) > 0
 	})
-	if notice.ID != "crashy" || notice.Kind != "crashed" || notice.Name != "Add-on crashy" {
-		t.Errorf("notice = %+v", notice)
+	if n := got[0]; len(got) != 1 || n.Subject != "Add-on crashy" || n.Target != (OpenTarget{Kind: OpenSettings, ID: "addons"}) || n.Read {
+		t.Errorf("entries = %+v, want one unread, naming the add-on and opening Settings → Add-ons", got)
 	}
 	if i := a.info(t, "crashy"); i.Restarts != 3 || i.Enabled {
 		t.Errorf("info = %+v", i)

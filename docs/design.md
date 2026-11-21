@@ -228,7 +228,7 @@ The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32,
 - The durations live in `tokens.json`. The backdrop crossfade is 300ms (see Backdrops).
 - Full-Screen Lyrics has two of its own: `climb` (600ms, the `out` curve) moves the column to the next sung line, and `drift` (40s, `in-out`) moves the wash a few percent and back. Both are poses (`AnimatePose`): transforms and fades that only paint, never layout.
 - Easing is `cubic-bezier(0.16, 1, 0.3, 1)` (exponential out, the `out` curve). No bounce, no layout animation, no scroll-linked effects.
-- A loop costs frames for as long as it runs: MyGo redraws the window on every frame something animates, however small the part that moves. So work that can run for long shows a still icon and progress that moves when the work does (the sidebar's sync line: its bar and count). A spinner (`kit.ButtonOpts.Spin`) is for waits of a second or two.
+- A loop costs frames for as long as it runs: MyGo redraws the window on every frame something animates, however small the part that moves. So work that can run for long shows a still icon and progress that moves when the work does (the library sync: the bell's bar, and the row's bar and count in the notification centre). A spinner (`kit.ButtonOpts.Spin`) is for waits of a second or two.
 - The desktop's reduced-motion preference, the Reduced motion setting and the reduce-effects mode all make the kit skip its transitions and animations (`theme.ReducedMotion()`).
 
 ## Reduce effects
@@ -620,7 +620,7 @@ Home ("For You") answers one question first: what shall I play now. It is set li
 
 ### Top bar and account
 
-- Top bar: back and forward, then the search field (max 520px, `/` or Ctrl+F focuses it, never narrower than 240px), an empty stretch of at least 64px, and the account avatar.
+- Top bar: back and forward, then the search field (max 520px, `/` or Ctrl+F focuses it, never narrower than 240px), an empty stretch of at least 64px, the notification bell and, 8px after it, the account avatar.
 - **The avatar** is the account menu's button.
   - A `--hover` circle signed out; `--active` with the glyph in ink signed in, and while its menu is open (it reads as held). A small `--danger` dot appears when the account needs the user (Apple stopped taking the sign-in, the keyring didn't hand it over, Apple refuses Sona's requests).
   - **The menu** (`--raised`, 288px, end-aligned) opens with "Apple Music" and then each fact about the account on a meta line of its own behind a 14px glyph: where it stands (a check, a clock while it is being checked, an alert in `--danger` when it needs the user), offline, restricted content, an unencrypted token in `--danger`.
@@ -631,6 +631,39 @@ Home ("For You") answers one question first: what shall I play now. It is set li
   - A 1px `--line` divides it from the account's panel, which holds the sign-in flow or the signed-in view in a 36px inset. Signed in, the panel titles the view "Account". The first lines of both panels sit on one centre line.
   - Below 640px of panel width the panels stack, the lead above the account with a hairline between. The whole panel scrolls as one in a short window, so the lead's tone runs as long as the form.
   - Close, Escape and a click on the scrim close it as every dialog, and focus returns to the opener.
+
+### Notification centre
+
+What happened without the person asking, and what is going on that they may need to act on, lives behind one bell in the top bar. It replaces desktop notifications for releases (they stay an opt-in), the toast that said an add-on was switched off, and the sidebar's sync line and update slip. Toasts stay what they were: quick feedback on something the person just did ("Link copied"). Track notifications are Playback's and stay desktop notifications.
+
+```text
+                                   ( 🔔• )  ( ◯ )      the bell, 8px before the avatar
+        ┌──────────────────────────────────────┐
+        │ Notifications              Clear all │     16/600, Title Case
+        │ ┌──────────────────────────────────┐ │
+        │ │ ⟳ Syncing songs     812 of 2,040 │ │     live rows: --hover, radius 6
+        │ │   ━━━━━━━━━━──────────────────── │ │
+        │ └──────────────────────────────────┘ │
+        │ [▣] In Rainbows is out       2h ago •│     entries, newest first
+        │     Radiohead                        │
+        │ (⧉) Webhook was switched off  Monday │
+        │     It stopped several times in a …  │
+        │ ──────────────────────────────────── │
+        │ • Synced 2 minutes ago      Sync now │     the foot: meta, --ink-muted
+        └──────────────────────────────────────┘
+```
+
+- **The bell** is a 32px ghost button (radius 6) with the Lucide `bell` at 16 in `--ink-muted`; hover is `--hover` with the glyph in ink, and while the panel is open it is `--active` (held, as the avatar is). It is never amber: nothing here is playing.
+  - **A dot** at its top end (8px, a 2px `--surface` ring, as the avatar's) says there is something to see: `--ink` for news (unread entries, an update waiting, an add-on waiting for approval), `--danger` when something failed (a sync, the Widevine download, an add-on that can't run, an update that didn't install). Colour is never the only sign: the bell's name says how many are new, and the panel says what failed.
+  - **Work under way** (a sync, the first Widevine download, an update downloading) draws a 2px bar, 14px wide, at the bell's foot: an `--ink-faint` track with the fill in the glyph's colour. It moves only when the work reports progress (no loop, "Motion"); a size not known yet is the empty track. The bell's name adds what runs ("Notifications; Syncing songs, 812 of 2,040").
+- **The panel** hangs from the bell, end-aligned: 360px, `--raised`, the float shadow, radius 8, 8px padding, Escape or a press outside closes it and the focus returns to the bell.
+  - **Head**: "Notifications" at 16/600 and, when there are entries, a ghost "Clear all" at the end.
+  - **Live rows** come first: what is going on now, read from each module's own state, never stored (`module.Activity`). Each is a `--hover` block at radius 6 (`kit.ActivityRow`): a 16px glyph in `--ink-muted` (`--danger` when it failed), the title at 14/500, a tabular count at its end in `--ink-muted`, a detail line at 13 in `--ink-muted`, a 3px bar while work runs, and its action as a small ink button (a quieter ghost one after it). In module order: the library sync (running, or failed with Try again), add-ons waiting for approval or unable to run (Review opens Settings → Add-ons), a new version (Install and restart where Sona updates itself, View elsewhere), and the first Widevine download (or why there is none, with Try again where it can help).
+  - **Entries** follow, newest first, in a list that scrolls past 392px: a release you asked to be reminded of came out ("In Rainbows is out", the artist under it, the cover), new releases from your artists (the release and "New single from …", or "3 new releases from your artists"), an add-on switched off after crashing. Each is a row with a 32px picture (the cover, with its 1px edge, or the kind's glyph on a 32px `--hover` tile), the title at 14 and the detail at 13 muted, each up to two lines, and when it happened at 12 in `--ink-faint` at the trailing end. Choosing the row opens what it is about and closes the panel. Under the pointer or the focus the row takes `--hover` and the time gives way to a Remove button (a ghost `x`), faded in over `press`.
+  - **New** entries have their title at 600 (500 once read) and a 6px `--ink` dot after the time. Opening the panel marks them read; the ones that were new keep their mark until it closes.
+  - **Nothing** live and no entries: "Nothing new" at 14/500 over one muted line, centred, instead of an empty list.
+  - **The foot** is the library's line while no sync runs or failed: a hairline, then a 6px `--positive` dot, "Synced 2 minutes ago" in meta `--ink-muted`, and a ghost "Sync now".
+- **Entries are kept** in SQLite for 30 days (the newest 100). They hold names, never sentences, so they read in the interface's language of the day. The ones about the account go at sign-out.
 
 ### Library pages
 
@@ -1293,7 +1326,7 @@ Settings (h1)                  Playback (h2 at 24/650)
   - Wider than 960px each group's h3 (16/600) and its one muted line (13, in the 176px column) sit in a left margin, level with the first row's title. The rows run in the column to its right, 32px on. A block with no heading of its own (Language, Widevine, Appearance) keeps to that same column with its margin empty, so every row of a section shares one left edge. At 960px and below the h3 stacks above its rows.
   - Every row sits under one 1px `--line` (no box, no tone step): the title at 14/500, what it does at 13 muted (60ch), the control at the right, 40px clear of the text. A row's state that needs attention keeps its own line under the description.
   - The content column is up to 960px.
-- **New releases** (General) holds the artist tracker's two switches under their own group heading: *Track new releases from favourite artists* and *Also show a desktop notification*. The second waits for the first (greyed while it is off) and, like every row the platform can't back, keeps its place with the reason where the platform has no notifications.
+- **New releases** (General) holds two switches under their own group heading: *Track new releases from favourite artists* and *Also show releases as desktop notifications*. Releases (a reminder that came due, what the tracker found) are in the notification centre either way; the second adds desktop notifications for them, with or without the tracker, and, like every row the platform can't back, keeps its place with the reason where the platform has no notifications.
 - **What the platform can't do** keeps its row: the title in `--ink-muted` and, where the control would be described, a `CircleSlash` and why ("Not available on macOS yet.", or the specific reason: no tray to keep playing from, a player that reports plays itself). Nothing disappears quietly. Without any playback, Playback is that one row and the lyrics.
 - **Theme** is three segments (System, Light, Dark) in one 32px outlined control, radio buttons underneath: every choice in view, ←/→ to move.
 - **Add-ons** sits after Connections. It is a roster rather than a document: one ledger row per add-on, in two groups, so ten add-ons read as ten rows.

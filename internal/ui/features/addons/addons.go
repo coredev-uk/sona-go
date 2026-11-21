@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"github.com/coredev-uk/sona-go/internal/addons"
 	"github.com/coredev-uk/sona-go/internal/cli"
 	"github.com/coredev-uk/sona-go/internal/config"
@@ -36,6 +38,7 @@ const (
 
 // api is what the feature asks of AddonsService.
 type api interface {
+	List() []services.AddonInfo
 	Contributions(locale string) []services.AddonContribution
 	Invoke(ctx context.Context, id, action string, target *services.AddonTarget) (services.AddonResult, error)
 	AnswerDev(token string, run bool)
@@ -63,6 +66,9 @@ type feature struct {
 	// asking is the token of the `sona addons dev` question on screen, "" when
 	// none is.
 	asking string
+	// infos is the add-ons and where each stands, for the notification
+	// centre's rows (main thread).
+	infos []services.AddonInfo
 }
 
 // New is the add-ons module.
@@ -73,13 +79,16 @@ func New(env *module.Env) module.Module {
 	}
 	env.AddonCommands = func() []module.Shortcut { return f.commands }
 	return module.Module{
-		ID: "addons",
+		ID:    "addons",
+		Slots: module.Slots{Activity: &module.Activity{Status: f.status, Build: f.rows}},
 		Init: func() {
 			if f.api == nil {
 				return
 			}
-			store.On(env.Bus, services.EventAddonsChanged, func([]services.AddonInfo) { f.refresh() })
-			store.On(env.Bus, services.EventAddonsNotice, f.notice)
+			store.On(env.Bus, services.EventAddonsChanged, func(list []services.AddonInfo) {
+				f.infos = list
+				f.refresh()
+			})
 			store.On(env.Bus, services.EventAddonsDevAsk, f.devAsk)
 			store.On(env.Bus, services.EventAddonsDevAskEnd, f.devAskEnd)
 			store.On(env.Bus, services.EventSettingsChanged, func(config.Settings) {
@@ -87,6 +96,7 @@ func New(env *module.Env) module.Module {
 					f.refresh()
 				}
 			})
+			f.infos = f.api.List()
 			f.refresh()
 		},
 	}
@@ -305,17 +315,62 @@ func safeLink(raw string) (link, host string, ok bool) {
 	return raw, host, true
 }
 
-// notice tells the user an add-on was switched off without being asked.
-func (f *feature) notice(n services.AddonNotice) {
-	name := clean(n.Name, 60)
-	if name == "" {
-		name = clean(n.ID, 60)
+// waiting is the add-ons the notification centre lists: one that waits
+// for the person's approval, or can't run at all. One that crashed and was
+// switched off is an entry of the centre instead (Go posts it).
+func (f *feature) waiting() []services.AddonInfo {
+	var out []services.AddonInfo
+	for _, a := range f.infos {
+		switch a.State {
+		case services.AddonNeedsApproval, services.AddonNoSandbox, services.AddonInvalid:
+			out = append(out, a)
+		}
 	}
-	kit.ShowToast(kit.ToastSpec{
-		ID: "addon-notice:" + n.ID, Title: i18n.T("{name} was switched off", "name", name),
-		Description: i18n.T("It stopped several times in a row. Settings → Add-ons has its log."),
-		Kind:        kit.ToastWarning, Duration: toastLong,
-	})
+	return out
+}
+
+// status is the Activity's Status: news while an add-on waits for an
+// approval, an alert while one can't run.
+func (f *feature) status(*ui.Context) module.ActivityStatus {
+	var s module.ActivityStatus
+	for _, a := range f.waiting() {
+		s.Shown = true
+		if a.State == services.AddonNeedsApproval {
+			s.News = true
+		} else {
+			s.Alert = true
+		}
+	}
+	return s
+}
+
+// rows is the Activity's rows: one per add-on that waits, each with Review,
+// which opens Settings → Add-ons where the approval and the log are.
+func (f *feature) rows(c *ui.Context) {
+	for _, a := range f.waiting() {
+		name := clean(a.Name, 60)
+		if name == "" {
+			name = clean(a.ID, 60)
+		}
+		spec := kit.ActivitySpec{Action: i18n.T("Review"), OnAction: f.review}
+		if a.State == services.AddonNeedsApproval {
+			spec.Icon = "shield-alert"
+			spec.Title = i18n.T("{name} needs your approval", "name", name)
+			spec.Detail = i18n.T("It asks for a permission you haven't approved. It doesn't run until you do.")
+		} else {
+			spec.Icon, spec.Alert = "circle-alert", true
+			spec.Title = i18n.T("{name} can't run", "name", name)
+			spec.Detail = i18n.T("Settings → Add-ons says why.")
+		}
+		kit.ActivityRow(c, "addon:"+a.ID, spec)
+	}
+}
+
+// review opens Settings → Add-ons.
+func (f *feature) review() {
+	if f.env.Nav != nil {
+		f.env.Nav.Push("/settings?section=addons")
+	}
 }
 
 // devAsk puts `sona addons dev`'s question to the person: this folder, these

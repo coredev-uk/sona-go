@@ -141,6 +141,22 @@ type LyricsCache struct {
 	ExpiresAt int64
 }
 
+type Notification struct {
+	ID              int64
+	Kind            string
+	Key             string
+	Subject         string
+	Artist          string
+	Variant         string
+	Count           int64
+	ArtworkTemplate string
+	TargetKind      string
+	TargetID        string
+	Account         int64
+	CreatedAt       int64
+	Read            int64
+}
+
 type Pin struct {
 	Kind            string
 	AppleID         string

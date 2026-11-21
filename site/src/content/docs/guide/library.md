@@ -19,7 +19,7 @@ Select an item to open it. Right-click it, or press Shift+F10 or the Menu key on
 
 ## Sync the library
 
-Sona syncs after you sign in, music videos included. To sync again, choose Sync now in the library sync indicator. It shows what Sona is syncing, and tells you if the sync failed.
+Sona syncs after you sign in, music videos included. While it syncs, a short bar under the bell in the top bar moves, and [Notifications](/guide/notifications/) shows what Sona is syncing and how far it is. If a sync fails, the bell gets a red dot and Notifications says why, with Try again. To sync again, open Notifications and choose Sync now at its foot.
 
 ## Manage playlists
 
