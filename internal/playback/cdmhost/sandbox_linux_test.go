@@ -131,6 +131,8 @@ const (
 	envProbeAudio    = "SONA_CDMHOST_PROBE_AUDIO"
 	envProbeAbstract = "SONA_CDMHOST_PROBE_ABSTRACT"
 	envProbeHome     = "SONA_CDMHOST_PROBE_HOME"
+	// envProbePTY is the slave of a pty the test created.
+	envProbePTY = "SONA_CDMHOST_PROBE_PTY"
 )
 
 // osTestChildMode runs the Linux test child modes: "probe" and "userns".
@@ -189,6 +191,19 @@ func probeChild() {
 		}
 		res[fam.name] = outcome(err)
 	}
+	// The terminals: the controlling one (none after setsid) and a pty
+	// the parent created.
+	_, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	res["open /dev/tty"] = outcome(err)
+	_, err = os.OpenFile("/dev/null", os.O_WRONLY, 0)
+	res["open /dev/null"] = outcome(err)
+	if p := os.Getenv(envProbePTY); p != "" {
+		f, err := os.OpenFile(p, os.O_RDWR, 0)
+		if err == nil {
+			_ = f.Close()
+		}
+		res["open pty"] = outcome(err)
+	}
 	ppid := os.Getppid()
 	_, err = os.ReadFile("/proc/" + strconv.Itoa(ppid) + "/environ")
 	res["parent environ"] = outcome(err)
@@ -207,7 +222,7 @@ func probe(t *testing.T, ns bool, extra ...string) map[string]string {
 	t.Helper()
 	env := append(childEnv(slog.New(slog.DiscardHandler)), envTestChild+"=probe")
 	env = append(env, extra...)
-	var attr *syscall.SysProcAttr
+	attr := newSession()
 	if ns {
 		env, attr = append(env, envSandboxNS+"=1"), namespaceAttr()
 	}
@@ -374,7 +389,22 @@ func TestSandboxConfinesChild(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cdmDir, "libwidevinecdm.so"), []byte("not a CDM"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// A terminal of the user's: the slave of a pty the test opens.
+	ptmx, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ptmx.Close() })
+	n, err := unix.IoctlGetInt(int(ptmx.Fd()), unix.TIOCGPTN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.IoctlSetPointerInt(int(ptmx.Fd()), unix.TIOCSPTLCK, 0); err != nil {
+		t.Fatal(err)
+	}
+	pty := "/dev/pts/" + strconv.Itoa(n)
 	extra := []string{
+		envProbePTY + "=" + pty,
 		envProbeDeny + "=" + strings.Join(deny, string(filepath.ListSeparator)),
 		envProbeAudio + "=" + audio,
 		envProbeAbstract + "=" + abstract,
@@ -415,9 +445,10 @@ func TestSandboxConfinesChild(t *testing.T) {
 		for _, p := range deny {
 			refused(t, res, "connect "+p)
 		}
-		for _, w := range []string{"abstract", "home write", "AF_INET", "AF_INET6", "AF_NETLINK", "process_vm_readv", "cdm write"} {
+		for _, w := range []string{"abstract", "home write", "AF_INET", "AF_INET6", "AF_NETLINK", "process_vm_readv", "cdm write", "open /dev/tty", "open pty"} {
 			refused(t, res, w)
 		}
+		reached(t, res, "open /dev/null")
 		reached(t, res, "cdm read")
 		if landlockABI(res) > 0 {
 			refused(t, res, "parent environ")
@@ -437,6 +468,9 @@ func TestSandboxConfinesChild(t *testing.T) {
 		}
 		refused(t, res, "home write")
 		refused(t, res, "cdm write")
+		refused(t, res, "open /dev/tty")
+		refused(t, res, "open pty")
+		reached(t, res, "open /dev/null")
 		reached(t, res, "cdm read")
 		refused(t, res, "parent environ")
 		if abi >= 6 {

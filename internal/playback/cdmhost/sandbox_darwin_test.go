@@ -90,7 +90,7 @@ func TestSeatbeltConfinesChild(t *testing.T) {
 		t.Fatal(err)
 	}
 	env := append(childEnv(slog.New(slog.DiscardHandler)), envTestChild+"=probe", envSeatbeltChild+"=1")
-	p, err := startChild([]string{sandboxExec, "-p", seatbeltProfile(paths), exe}, env, nil)
+	p, err := startChild([]string{sandboxExec, "-p", seatbeltProfile(paths), exe}, env, newSession())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -136,14 +136,14 @@ func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSan
 				paths.Readable = []string{filepath.Clean(d)}
 			}
 		}
-		p, err := startChild([]string{sandboxExec, "-p", seatbeltProfile(paths), exe}, append(slices.Clip(env), envSeatbeltChild+"=1"), nil)
+		p, err := startChild([]string{sandboxExec, "-p", seatbeltProfile(paths), exe}, append(slices.Clip(env), envSeatbeltChild+"=1"), newSession())
 		if err == nil {
 			return p, parentSandbox{}, nil
 		}
 		ps = parentSandbox{gap: playback.SandboxGapNoSeatbelt, reason: "no macOS sandbox: sandbox-exec did not start: " + err.Error()}
 	}
 	log.Warn("cdmhost: starting the playback host without the macOS sandbox", "reason", ps.reason)
-	p, err := startChild([]string{exe}, env, nil)
+	p, err := startChild([]string{exe}, env, newSession())
 	return p, ps, err
 }
 
