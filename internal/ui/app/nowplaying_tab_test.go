@@ -103,7 +103,7 @@ func TestTabInTheNowPlayingRoomNeverReachesThePageBehind(t *testing.T) {
 	if !seenRoom {
 		t.Error("Tab never reached the room's own controls")
 	}
-	if !seenTransport["Previous"] || !seenTransport["Next"] || !(seenTransport["Pause"] || seenTransport["Play"]) {
+	if !seenTransport["Previous"] || !seenTransport["Next"] || (!seenTransport["Pause"] && !seenTransport["Play"]) {
 		t.Errorf("Tab did not reach the room's previous, play and next: %v", seenTransport)
 	}
 }
