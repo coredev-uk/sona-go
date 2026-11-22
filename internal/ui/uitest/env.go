@@ -124,8 +124,9 @@ func Platform(f func(*services.Platform)) Option {
 }
 
 // ServiceClock gives the services (the library's release rule, the mapper) a
-// clock of the test's own in place of the wall clock: a test that moves a
-// library album past its release date moves this too.
+// clock of the test's own in place of notBeforeEpoch (the wall clock, never
+// before Epoch): a test that moves a library album past its release date
+// moves this too.
 func ServiceClock(now func() time.Time) Option { return func(o *options) { o.now = now } }
 
 // Harness is everything Env wired, for what a test must reach: the

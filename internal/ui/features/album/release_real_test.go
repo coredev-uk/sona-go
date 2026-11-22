@@ -1,6 +1,7 @@
 package album
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -46,7 +47,7 @@ func TestPreAddedLibraryAlbumComesOutAgainstTheRealLibrary(t *testing.T) {
 		}
 		return out
 	}
-	if d := detail(); !d.Album.Prerelease || len(d.Tracks) != 4 || !equalBools(playable(d), true, false, false, true) {
+	if d := detail(); !d.Album.Prerelease || len(d.Tracks) != 4 || !slices.Equal(playable(d), []bool{true, false, false, true}) {
 		t.Fatalf("before the release: prerelease %v, playable %v", d.Album.Prerelease, playable(d))
 	}
 
@@ -57,7 +58,8 @@ func TestPreAddedLibraryAlbumComesOutAgainstTheRealLibrary(t *testing.T) {
 	// The library says every song is out at midnight, whether or not Apple has
 	// published them: the page goes straight to an ordinary album page.
 	r.tt.Until("the released page", r.tt.Shows("Released", "Play "+uitest.PreAddedName))
-	if d := detail(); d.Album.Prerelease || !equalBools(playable(d), true, true, true, true) {
+	r.enabled("Play " + uitest.PreAddedName)
+	if d := detail(); d.Album.Prerelease || !slices.Equal(playable(d), []bool{true, true, true, true}) {
 		t.Errorf("after the release: prerelease %v, playable %v, want all four out", d.Album.Prerelease, playable(d))
 	}
 	heard := countTexts(r.tt.Announcements(), uitest.PreAddedName+" is out now")
@@ -73,16 +75,4 @@ func TestPreAddedLibraryAlbumComesOutAgainstTheRealLibrary(t *testing.T) {
 		t.Errorf("announced %d times, want once", heard)
 	}
 	r.wantNoTexts("Out in 10 minutes", "Pre-added", "Updating the songs", "Unavailable", badge)
-}
-
-func equalBools(got []bool, want ...bool) bool {
-	if len(got) != len(want) {
-		return false
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			return false
-		}
-	}
-	return true
 }

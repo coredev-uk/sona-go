@@ -20,7 +20,10 @@ func TestAlbumsTileOfAPreAddedAlbumComesOutAgainstTheRealLibrary(t *testing.T) {
 func albumsTileOfAPreAddedAlbumComesOut(t *testing.T) {
 	// The bubble's clock starts on 2000-01-01 and moves when the test sleeps.
 	release := time.Date(2000, 1, 3, 0, 0, 0, 0, time.Local)
+	f := &failingAlbums{}
 	r := newPageRig(t, albumsPath, 1132, 1000, func(l *library) {
+		f.libraryAPI = l.lib
+		l.lib = f
 		l.env.Players.Now = time.Now
 		l.env.Players.Register(services.ItemAlbum, func(services.Item) {})
 	}, uitest.Empty(), uitest.ServiceClock(time.Now))
@@ -45,8 +48,13 @@ func albumsTileOfAPreAddedAlbumComesOut(t *testing.T) {
 		t.Fatal("a Play disc on an album not out")
 	}
 
+	r.tt.Quiesce()
+	asked := f.asks.Load()
 	time.Sleep(time.Until(release) + time.Second)
 	r.tt.Drain()
 	r.tt.Until("the badge to go", func() bool { return !r.tt.HasText(badge) })
 	r.tt.Until("Play", hasPlay)
+	if n := f.asks.Load(); n != asked {
+		t.Errorf("the grid read the library %d more times at the release, want none", n-asked)
+	}
 }

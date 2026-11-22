@@ -15,21 +15,21 @@ const (
 	PreAddedArtist = "Mia Vale"
 )
 
-// PreAddedSongs are the songs of the album PreAdded stores, in track order:
+// preAddedSongs are the songs of the album PreAdded stores, in track order:
 // the first is out (dated, with playParams), the next two are not (no
 // playParams, no date of their own), the last is a single's, out with no date.
-var PreAddedSongs = []string{"Out already", "Later", "Last", "Single"}
+var preAddedSongs = []string{"Out already", "Later", "Last", "Single"}
 
 // PreAdded stores in d a pre-added library album as a sync leaves it: the
 // catalog's release date (a YYYY-MM-DD) and flag, no date of its own, one song
 // out and two with no playParams (docs/architecture.md, Sync), the way
-// the real LibraryService reads it (PreAddedID, PreAddedSongs).
+// the real LibraryService reads it (PreAddedID).
 func PreAdded(t testing.TB, d *db.DB, release string) {
 	t.Helper()
 	ctx := t.Context()
 	id, err := d.Q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{
 		LibraryID: db.NullString(PreAddedID), CatalogID: db.NullString("7"), Name: PreAddedName, ArtistName: PreAddedArtist,
-		TrackCount: int64(len(PreAddedSongs)), IsPrerelease: 1, CatalogReleaseDate: release, UpdatedAt: 1,
+		TrackCount: int64(len(preAddedSongs)), IsPrerelease: 1, CatalogReleaseDate: release, UpdatedAt: 1,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -37,12 +37,12 @@ func PreAdded(t testing.TB, d *db.DB, release string) {
 	if err := d.Q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "album", Ref: id, Generation: 1, DateAdded: sql.NullInt64{Int64: 1 << 40, Valid: true}}); err != nil {
 		t.Fatal(err)
 	}
-	for i, name := range PreAddedSongs {
+	for i, name := range preAddedSongs {
 		var date string
 		var noPlayParams int64
 		switch i {
 		case 0:
-			date = "2020-01-01"
+			date = "1999-12-01" // before any test clock
 		case 1, 2:
 			noPlayParams = 1
 		}
