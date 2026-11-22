@@ -92,7 +92,9 @@ nixpkgs), run `devenv update` and `nix flake update`, then `check`, `tests`,
 ## Dependency updates
 
 Renovate opens pull requests for Go modules, GitHub
-Actions and the digests of the container base images (the `FROM` lines of
+Actions, the docs site's npm packages (`site/`, grouped into one weekly pull
+request; its `overrides` in `site/package.json` pin transitive packages past
+a vulnerable range, so drop one once the package that needs it has moved on) and the digests of the container base images (the `FROM` lines of
 `build/ci/Containerfile` and `build/linux/release/Containerfile`, the Flatpak
 workflow's `container:` image; a tag is never moved by Renovate). MyGo's are
 always left for review, and so is the release image's digest. A review bot
