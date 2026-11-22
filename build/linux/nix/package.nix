@@ -53,7 +53,7 @@ in
   pname = "sona";
   inherit version src;
 
-  vendorHash = "sha256-x9S29ZfMsda0DOja9LEwqxXNEVLLxRSVT2i7/aBL9EY=";
+  vendorHash = "sha256-+btEJrEtrQXHhssfr7tV2EyMgK4v5XkJVs15UveOs0w=";
 
   subPackages = [ "cmd/sona" ];
   tags = [
