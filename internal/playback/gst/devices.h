@@ -1,7 +1,7 @@
 // Audio output listing: PipeWire's GStreamer device provider on Linux
-// (devices_linux.c), Core Audio on macOS (devices_darwin.c), wasapi2's
-// device provider on Windows (devices_windows.c, with the endpoint watch in
-// route_windows.c).
+// (devices_linux.c), Core Audio on macOS (devices_darwin.c), Core Audio's
+// endpoint enumerator on Windows (devices_windows.c, without GStreamer, with
+// the endpoint watch in route_windows.c).
 #ifndef SONA_DEVICES_H_
 #define SONA_DEVICES_H_
 
@@ -15,8 +15,9 @@ typedef struct {
 
 // sona_gst_audio_sinks lists the audio outputs. Linux: PipeWire's sinks;
 // without PipeWire's GStreamer plugin it returns 0 with *n = 0. macOS: the
-// devices that can play (output streams, alive, not hidden). -1 if listing
-// fails. Free *out with sona_gst_free_devices.
+// devices that can play (output streams, alive, not hidden). Windows: the
+// active render endpoints. -1 if listing fails. Free *out with
+// sona_gst_free_devices.
 int sona_gst_audio_sinks(sona_device** out, int* n);
 void sona_gst_free_devices(sona_device* d, int n);
 

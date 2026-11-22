@@ -74,7 +74,7 @@ Inside the tagged packages, what differs is in `_linux`, `_darwin` and `_windows
 | What | Files |
 | --- | --- |
 | The sink and the output device | `gst/output_<os>.go` |
-| The device list (PipeWire's device provider; Core Audio's devices and its default-output watch; WASAPI endpoints through wasapi2's provider) | `gst/devices_<os>.c` |
+| The device list (PipeWire's device provider; Core Audio's devices and its default-output watch; WASAPI render endpoints from Core Audio's `IMMDeviceEnumerator`, without GStreamer) | `gst/devices_<os>.c` |
 | Whether the chosen WASAPI endpoint can play, and the endpoint watch that moves the output when it leaves or comes back (MMDevice API, inside the CDM host's AppContainer) | `gst/route_windows.c` |
 | PipeWire's relink detection (a stub on macOS and Windows, which have no sound server that relinks streams) | `gst/relink_<os>.c` |
 | The add-on sandbox | `addons/sandbox/linux*.go` (the init that Sona's own executable becomes, `sandbox.Main`), `darwin.go` with the portable `seatbelt.go`, and `windows.go` over `internal/appcontainer` |
