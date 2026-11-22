@@ -145,7 +145,7 @@ What differs from Linux:
 - `build` writes `bin\sona.exe`, a GUI executable (`-H windowsgui`).
 - `tests` runs without `dbus-run-session`: there is no D-Bus.
 - `check` vets and lints the Windows build, plus the cgo-off Windows vet and the macOS type-check that Linux runs. The Linux-only files are checked by `check` on Linux and by CI.
-- just doesn't load `.env`; devenv does.
+- just doesn't load `.env`, as devenv does; `dev` and `gallery` still get it, from devloop (see [dev and gallery](#dev-and-gallery)).
 
 ### dev and gallery
 
