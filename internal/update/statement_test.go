@@ -130,7 +130,7 @@ func TestCrossPlatformManifestIsRefused(t *testing.T) {
 // and its signatures, under a version of the attacker's choosing.
 func TestTamperedManifestIsRefused(t *testing.T) {
 	for name, edit := range map[string]func(*release){
-		"version":           func(r *release) { r.manifest.Version = "99.0.0" },
+		"version": func(r *release) { r.manifest.Version = "99.0.0" },
 		"digest": func(r *release) {
 			d := sha256.Sum256([]byte("another archive"))
 			r.manifest.SHA256 = hex.EncodeToString(d[:])

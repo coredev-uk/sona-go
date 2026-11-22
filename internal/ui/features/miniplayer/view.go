@@ -271,7 +271,7 @@ func (m *mini) seekLine(c *ui.Context, s services.PlaybackState) {
 	sl := ui.SliderBase(c.Key("seek"), &v, 0, hi).Step(1).FocusRing(false).Cursor(ui.CursorPointer).
 		Absolute().Left(0).Right(0).Bottom(0).Height(hitH).Label(i18n.T("Seek"))
 	if can {
-		sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(pos), "total", i18n.FormatDuration(dur)))
+		sl.Value(i18n.T("{at} of {total}", "at", i18n.FormatDuration(pos), "total", i18n.FormatDuration(dur)))
 	} else {
 		sl.Disabled(true)
 	}

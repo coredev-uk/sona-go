@@ -25,8 +25,10 @@ var errOffline = &net.OpError{Op: "dial", Err: errors.New("offline")}
 // fakeAPI is PlaylistsService over memory: the tests set what it holds and
 // read what it was asked (calls, in order, as "Method args").
 type fakeAPI struct {
-	mu          sync.Mutex
-	tree        services.PlaylistTree
+	mu   sync.Mutex
+	tree services.PlaylistTree
+	// treeGate, when set, holds Tree back until it is closed.
+	treeGate    chan struct{}
 	pins        []services.Pin
 	details     map[string]services.PlaylistDetail
 	collab      map[string]services.PlaylistCollaboration
@@ -161,6 +163,9 @@ func (f *fakeAPI) Suggestions(_ context.Context, id string) ([]services.Song, er
 
 func (f *fakeAPI) Tree(context.Context) (services.PlaylistTree, error) {
 	f.note("Tree")
+	if f.treeGate != nil {
+		<-f.treeGate
+	}
 	if err := f.readErr(); err != nil {
 		return services.PlaylistTree{}, err
 	}

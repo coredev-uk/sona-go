@@ -237,7 +237,6 @@ func (s *PlaylistsService) libraryDetail(ctx context.Context, id string) (Playli
 		MoreByCurator:   []Playlist{},
 		CanDelete:       flags.CanDelete != 0,
 		IsPublic:        flags.IsPublic != 0,
-		Favorited:       flags.Favorited != 0,
 		FolderID:        flags.FolderID,
 	}
 	d.Playlist.TrackCount = len(tracks)

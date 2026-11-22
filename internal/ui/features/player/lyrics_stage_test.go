@@ -670,7 +670,7 @@ func TestFullScreenLyricsAccessibility(t *testing.T) {
 	stops := access.TabWalk(t, r.tt.Tester, 12)
 	access.InOrder(t, access.StopLabels(stops), "Previous", "Pause", "Next", "Seek", "Show lyrics 0.5 s earlier", "Show lyrics 0.5 s later", "Exit full screen")
 	tr = access.Read(t, r.tt.Tester)
-	if n, ok := tr.Find(ui.RoleSlider, "Seek"); !ok || n.Description == "" {
+	if n, ok := tr.Find(ui.RoleSlider, "Seek"); !ok || n.Value == "" {
 		t.Errorf("the scrubber is not a labelled slider that says where it is: %+v", n)
 	}
 	access.NoNestedControls(t, r.tt.Tester)

@@ -16,11 +16,13 @@ type Added struct {
 
 // recentlyAddedFrom selects the library albums and playlists: library
 // rows whose album or playlist row exists. The page and its total both go
-// through it, so a row that lost its target is neither listed nor counted.
+// through it, so a row that lost its target, or is Apple's Favourite Songs playlist
+// (Library → Favourite songs shows those songs), is neither listed nor counted.
 const recentlyAddedFrom = ` FROM library_items li
 	LEFT JOIN albums a ON li.kind = 'album' AND a.id = li.ref
 	LEFT JOIN playlists p ON li.kind = 'playlist' AND p.id = li.ref
-	WHERE li.kind IN ('album', 'playlist') AND coalesce(a.library_id, p.library_id) IS NOT NULL`
+	WHERE li.kind IN ('album', 'playlist') AND coalesce(a.library_id, p.library_id) IS NOT NULL
+	AND coalesce(p.favorited, 0) = 0`
 
 // RecentlyAdded lists library albums and playlists by the date they were
 // added, newest first, the way Apple's Recently Added does (songs are

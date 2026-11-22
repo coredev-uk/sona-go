@@ -2,6 +2,7 @@ package player
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 
@@ -84,6 +85,12 @@ func sketchGapLines() []services.LyricLine {
 // each show the same picture. Five states: a word-timed line mid-sweep, a
 // duet, no lyrics, the strip shown, and an instrumental gap.
 func TestFullScreenLyricsGoldens(t *testing.T) {
+	// A picture is all each case checks, and only Linux compares it: elsewhere
+	// every case would build and draw its view (minutes of the package's time
+	// on a macOS runner) to skip at the end.
+	if runtime.GOOS != "linux" {
+		t.Skip("golden images are compared on Linux only: macOS and Windows draw text differently")
+	}
 	for _, mode := range []struct {
 		name string
 		opts []uitest.Option

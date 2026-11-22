@@ -179,7 +179,8 @@ func (f *feature) bell(c *ui.Context, acts []module.Activity) {
 		}
 	}
 	if !f.open {
-		kit.Tooltip(c, btn, i18n.T("Notifications"))
+		// The bell's name starts with the tip, so the tip describes nothing.
+		kit.TooltipDescribed(c, btn, i18n.T("Notifications"), "")
 	}
 	kit.Popover(c, btn, &f.open, kit.PopoverOpts{Width: 360, Padding: 8, End: true}, func() {
 		f.panel(c, acts, statuses, list)

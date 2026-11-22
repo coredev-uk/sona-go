@@ -623,6 +623,10 @@ msgstr ""
 msgid "Apple wants you to review your account (new terms or a security update) before it can sign in. Do that at account.apple.com, then try again here."
 msgstr ""
 
+#: internal/ui/kit/controls_badge.go
+msgid "Apple's label for this release. Sona plays it as AAC."
+msgstr ""
+
 #: internal/ui/features/inspect/panel.go
 msgid "Apple's resource"
 msgstr ""
@@ -8835,10 +8839,6 @@ msgstr ""
 msgid "Your desktop asks apps to reduce motion (GTK's gtk-enable-animations is off)."
 msgstr ""
 
-#: internal/ui/features/playlist/header.go
-msgid "Your favourites"
-msgstr ""
-
 #. A choice of playlist cover: the picture the user chose from a file.
 #: internal/ui/features/playlist/covers.go
 msgid "Your image"
@@ -9515,10 +9515,6 @@ msgstr ""
 
 #: internal/ui/kit/controls_badge.go
 msgid "{label}, uploaded"
-msgstr ""
-
-#: internal/ui/kit/controls_badge.go
-msgid "{label}: Apple's label for this release. Sona plays it as AAC."
 msgstr ""
 
 #: internal/ui/features/radio/guide.go
