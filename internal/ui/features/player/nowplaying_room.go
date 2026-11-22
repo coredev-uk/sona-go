@@ -270,22 +270,24 @@ func (p *player) stageNone(c *ui.Context, cur *services.QueueItem, g stageGeom) 
 		})
 }
 
-// stageStrip is the foot strip, as the verse block's foot: a 1 DIP rule, the
-// 56 DIP cover, the title and artists, previous, play or pause and next (the
-// bar's own), the timing nudge, the elapsed time, an amber bar, the time left
-// and Exit full screen. It fades in and out.
+// stageStrip is the foot strip, as the verse block's foot: a 1 DIP rule, then
+// three parts on one line. At the left the song: the 56 DIP cover, the title
+// and artists. In the middle one control cluster: previous, play or pause and
+// next (the bar's own) with the scrubber under them, the time elapsed and the
+// time left at its ends, so that the transport and the thing it moves are read
+// as one. At the right the timing nudge and Exit full screen. The sides share
+// what the cluster leaves equally, so it stays at the strip's middle. It fades
+// in and out.
 func (p *player) stageStrip(c *ui.Context, st *stage, cur *services.QueueItem, g stageGeom, reduced bool) {
 	s := p.env.Play.State()
 	playing := s.State == store.StatePlaying
 	ss := min(max(g.scale, 1), 2)
+	live := cur.Live
 	dur := time.Duration(s.DurationMs) * time.Millisecond
-	pos := min(p.env.Play.Position(), dur)
-	var frac float64
-	if dur > 0 {
-		frac = float64(pos) / float64(dur)
-	}
-	if playing {
-		c.After(250 * time.Millisecond) // the time and the bar move
+	pos := p.stageSeek.Pos(min(p.env.Play.Position(), dur))
+	can := !live && dur > 0 && s.Controls.Seek
+	if !live {
+		p.stageSeek.Tick(c, playing) // the time and the bar move
 	}
 	text := func(key, s string, size, h float32, weight int, tone string) ui.Element {
 		return lineText(c.Key(key), s, round32(size*ss), round32(h*ss), weight, theme.C(tone)).SingleLine()
@@ -303,52 +305,63 @@ func (p *player) stageStrip(c *ui.Context, st *stage, cur *services.QueueItem, g
 		fade.Transition(tr)
 		strip.Transition(tr)
 	}
+	// The cluster is 44% of the window wide, at most 640 DIP (scaled); where
+	// the window is narrow it gives up width, down to what the transport
+	// needs, before the song's cover and name or the right controls do.
+	gap := round32(18 * ss)
+	room := g.w - 2*g.left - p.np.stripToolsW - 2*gap - round32(190*ss)
+	cluster := max(min(round32(0.44*g.w), round32(640*ss), room), 240)
 	strip.Role(ui.RoleGroup).Label(i18n.T("Song")).Children(func() {
 		ui.Box(c.Key("rule")).FillWidth().Height(1).Shrink(0).Background(theme.C("line"))
 		ui.Row(c.Key("foot")).FillWidth().Height(round32(109 * ss)).Gap(round32(18 * ss)).AlignItems(ui.Center).Children(func() {
-			kit.Artwork(c.Key("art"), p.env.Art, cur.Art.Small, round32(56*ss), kit.ArtOpts{}).Shrink(0)
-			ui.Column(c.Key("song")).Shrink(1).MinWidth(0).MaxWidth(round32(0.3 * g.w)).Children(func() {
-				text("name", cur.Name, 20, 26, 600, "ink")
-				text("artist", cur.Artist, 17, 24, 400, "ink-muted")
+			ui.Row(c.Key("song")).Grow(1).Basis(0).MinWidth(0).Gap(round32(18 * ss)).AlignItems(ui.Center).Children(func() {
+				kit.Artwork(c.Key("art"), p.env.Art, cur.Art.Small, round32(56*ss), kit.ArtOpts{}).Shrink(0)
+				ui.Column(c.Key("words")).Shrink(1).MinWidth(0).Children(func() {
+					text("name", cur.Name, 20, 26, 600, "ink")
+					text("artist", cur.Artist, 17, 24, 400, "ink-muted")
+				})
 			})
-			ui.Box(c.Key("space")).Grow(1)
-			// The bar's transport: its buttons, commands and guards.
-			ui.Row(c.Key("transport")).Shrink(0).Gap(8).AlignItems(ui.Center).Role(ui.RoleGroup).Label(i18n.T("Playback controls")).Children(func() {
-				p.prevButton(c, s)
-				p.playButton(c, s)
-				p.nextButton(c, s)
+			ui.Column(c.Key("cluster")).Width(cluster).Shrink(0).AlignItems(ui.Center).Gap(round32(6 * ss)).Children(func() {
+				// The bar's transport: its buttons, commands and guards.
+				ui.Row(c.Key("transport")).Shrink(0).Gap(8).AlignItems(ui.Center).Role(ui.RoleGroup).Label(i18n.T("Playback controls")).Children(func() {
+					p.prevButton(c, s)
+					p.playButton(c, s)
+					p.nextButton(c, s)
+				})
+				ui.Row(c.Key("scrub")).FillWidth().Gap(round32(10 * ss)).AlignItems(ui.Center).Children(func() {
+					elapsed, left := "–:––", "–:––"
+					if !live && dur > 0 {
+						elapsed, left = i18n.FormatDuration(pos), "\u2212"+i18n.FormatDuration(max(dur-pos, 0))
+					}
+					w := round32(60 * ss)
+					text("elapsed", elapsed, 15, 20, 400, "ink-muted").FontFeatures("tnum").Width(w).Shrink(0).TextAlign(ui.End)
+					p.stageSeek.slider(c, "seek", pos, dur, can, seekLook{fill: "amber-ink", centered: true}, p.seekTo).
+						Grow(1).MinWidth(0).Height(round32(20 * ss))
+					text("left", left, 15, 20, 400, "ink-muted").FontFeatures("tnum").Width(w).Shrink(0)
+				})
 			})
-			ui.Box(c.Key("space-end")).Grow(1)
-			p.lyricsTiming(c, st.songID)
-			if dur > 0 {
-				// Where the window is narrow the times go and the bar stays,
-				// so that the transport and Exit full screen are not pushed
-				// off the edge.
-				if g.w >= stageStripNarrow {
-					text("elapsed", i18n.FormatDuration(pos), 17, 24, 400, "ink-muted").FontFeatures("tnum").Shrink(0)
+			// The sides share what the cluster leaves, but the right one never
+			// less than its own controls' width as last laid out (as the bar's
+			// right group): the song gives way first. The controls are out of
+			// the flow, at the strip's right edge, built after the scrubber.
+			ui.Box(c.Key("tools-room")).Grow(1).Basis(0).MinWidth(p.np.stripToolsW)
+			tools := ui.Row(c.Key("tools")).Absolute().Top(0).Bottom(0).Right(0).AlignItems(ui.Center).Gap(round32(8 * ss))
+			tools.Children(func() {
+				p.lyricsTiming(c, st.songID)
+				if kit.Button(c.Key("exit"), i18n.T("Exit full screen"), kit.ButtonOpts{
+					Variant: kit.Ghost, Size: kit.SizeSM, Icon: "minimize-2", Tip: i18n.T("Exit Full-Screen Lyrics"), Keys: p.env.KeysOf("player.close-overlay"),
+				}).Bind(&p.np.roomExit).Clicked() {
+					p.ui.closeOverlay()
 				}
-				kit.ProgressBar(c.Key("progress"), frac, kit.ProgressOpts{
-					A11yLabel: i18n.T("Song progress"),
-					ValueText: i18n.T("{at} of {total}", "at", i18n.FormatDuration(pos), "total", i18n.FormatDuration(dur)),
-					Width:     min(round32(0.15*g.w), round32(420*ss)), Height: 4, Fill: theme.C("amber-ink"),
-				}).MinWidth(0).Shrink(6) // the bar gives way before the song's name does
-				if g.w >= stageStripNarrow {
-					text("left", "\u2212"+i18n.FormatDuration(dur-pos), 17, 24, 400, "ink-muted").FontFeatures("tnum").Shrink(0)
-				}
-			}
-			if kit.Button(c.Key("exit"), i18n.T("Exit full screen"), kit.ButtonOpts{
-				Variant: kit.Ghost, Size: kit.SizeSM, Icon: "minimize-2", Tip: i18n.T("Exit Full-Screen Lyrics"), Keys: p.env.KeysOf("player.close-overlay"),
-			}).Bind(&p.np.roomExit).Clicked() {
-				p.ui.closeOverlay()
+			})
+			if w := tools.Bounds().W + round32(18*ss); w != p.np.stripToolsW {
+				p.np.stripToolsW = w
+				c.Invalidate()
 			}
 		})
 	})
 	st.stripFocused = strip.FocusWithin()
 }
-
-// stageStripNarrow is the window width, in DIPs, under which the strip drops
-// the elapsed time and the time left: with the transport it would not fit.
-const stageStripNarrow = 1120
 
 // stageScope is the context of Full-Screen Lyrics' own keys (stageShortcuts).
 const stageScope = "lyrics-room"

@@ -36,7 +36,8 @@ type seatbeltPaths struct {
 
 // seatbeltKeychainServices are the Mach services behind the keychain. The
 // child reaches the keychain through them even with its files hidden, and
-// it is the same executable as Sona, which the keychain item trusts.
+// it is the same executable as Sona, which Sona's keychain items let read
+// their secrets without a prompt (store.SystemKeyring).
 var seatbeltKeychainServices = []string{
 	"com.apple.SecurityServer",
 	"com.apple.securityd",
@@ -53,6 +54,7 @@ var seatbeltKeychainServices = []string{
 //   - the network: no TCP, UDP or Unix-socket connection, bind or
 //     listen (network*; the child gets everything from the parent);
 //   - file writes outside /dev, the temporary folders and p.Writable;
+//   - writes and ioctls on the terminals under /dev (tty, ttys, ptys, console);
 //   - reading or writing p.Hidden, except reading p.Readable (and the
 //     metadata of the folders above it, to reach it);
 //   - the keychain's Mach services (seatbeltKeychainServices).
@@ -73,6 +75,10 @@ func seatbeltProfile(p seatbeltPaths) string {
 		fmt.Fprintf(&b, "  (subpath %s)\n", sbplString(d))
 	}
 	b.WriteString(")\n")
+	// The child has no business with a terminal: its session has none of
+	// its own, and the user's (ttys, ptys, the console) are neither
+	// written nor ioctl'ed (TIOCSTI).
+	b.WriteString("(deny file-write* file-ioctl\n  (regex #\"^/dev/(tty|ttys[0-9]+|pty[a-z0-9]+|console)$\"))\n")
 	if len(p.Hidden) > 0 {
 		b.WriteString("(deny file-read* file-write*\n")
 		for _, d := range p.Hidden {

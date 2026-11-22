@@ -5,10 +5,18 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"io"
+	"net"
 	"net/netip"
 	"strconv"
 	"strings"
 )
+
+// OwnerOnly wraps a loopback listener so that, on Linux, it drops every
+// connection whose client socket another user owns. A caller that hands a
+// loopback address to the browser (the sign-in start link, Last.fm's
+// approval link) uses it: the address is readable by every user in the
+// browser's command line. Elsewhere it returns ln (see peer_other.go).
+func OwnerOnly(ln net.Listener) net.Listener { return ownerOnly(ln) }
 
 // socketUID finds the TCP socket bound to local and connected to remote in a
 // Linux /proc/net/tcp or /proc/net/tcp6 table and returns its owner's uid.

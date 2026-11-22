@@ -84,7 +84,7 @@ Inside the tagged packages, what differs is in `_linux`, `_darwin` and `_windows
 | What | Linux | macOS | Windows |
 | --- | --- | --- | --- |
 | Config paths (`internal/config`) | XDG | `~/Library/...` | `%APPDATA%`, `%LOCALAPPDATA%` |
-| Keyring backend (go-keyring) | Secret Service | Keychain | Credential Manager |
+| Keyring backend (`store.SystemKeyring`) | Secret Service (go-keyring) | Keychain (Security.framework; items only Sona may read without a prompt) | Credential Manager (go-keyring) |
 | Discord IPC | Unix socket owned by the user | Unix socket owned by the user | Named pipe `\\.\pipe\discord-ipc-N` whose server runs as the user |
 | Track notifications | `org.freedesktop.Notifications` (`internal/desktop/notify`) | MyGo: UNUserNotificationCenter, from Sona.app only | MyGo: notification-area balloons, shown as toasts |
 | Start at login | XDG autostart entry (`app.XDGAutostart`, passes `--hidden`) | MyGo: SMAppService login item, from Sona.app only | MyGo: the user's `Run` key, which Task Manager can turn off |
@@ -96,6 +96,8 @@ Inside the tagged packages, what differs is in `_linux`, `_darwin` and `_windows
 | Window material and appearance (`internal/ui/app/material_darwin.go`, `material_other.go`) | None | Liquid Glass (macOS 26+) or the sidebar material behind the sidebar, the app's appearance following Sona's mode, and the mini player's rounded corners ([ui-architecture.md](ui-architecture.md), "Window materials") | None |
 | Audio sink | `pipewiresink` | `osxaudiosink` | `wasapi2sink` |
 | CDM library | `libwidevinecdm.so` | `libwidevinecdm.dylib` | `widevinecdm.dll` |
+
+On Linux, the `.deb` and `.rpm` (not the Arch package or the AppImage) install an AppArmor profile, `/etc/apparmor.d/sona` (`build/linux/apparmor/sona`), that lets `/usr/bin/sona` create the user namespaces the playback host's sandbox needs; Ubuntu 23.10 and later refuse them otherwise (`kernel.apparmor_restrict_unprivileged_userns=1`). `postinstall.sh` loads it and `preremove.sh` unloads it. An AppImage cannot carry a profile (its mount point changes), so on Ubuntu its playback host lacks the private filesystem view and, below Landlock ABI 9, can reach the session bus: Diagnostics says so ([security-review.md](security-review.md#f12-on-ubuntu-the-cdm-host-child-could-reach-the-session-bus)).
 
 ## Type-check and cross-build
 

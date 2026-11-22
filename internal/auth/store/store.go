@@ -1,10 +1,11 @@
 // Package store persists Sona's secrets: the Music User Token record and
 // other named secrets (the scrobblers' session key and user token).
 //
-// Every secret lives in the system keyring (via go-keyring, service "sona",
-// one key per secret: "mut" for the MUT record): the Secret Service on
-// Linux and other Unix systems, the login Keychain on macOS, Credential
-// Manager on Windows (SystemBackend). When the keyring isn't reachable, Open and OpenSecretWith fall back to a file in the config directory
+// Every secret lives in the system keyring (service "sona", one key per
+// secret: "mut" for the MUT record): the Secret Service on Linux and other
+// Unix systems and Credential Manager on Windows through go-keyring, the
+// login Keychain on macOS through Security.framework (SystemKeyring,
+// SystemBackend). When the keyring isn't reachable, Open and OpenSecretWith fall back to a file in the config directory
 // (credentials.json for the MUT, credentials-<key> for named secrets) with
 // mode 0600 and say so: they log a warning and Backend reports BackendFile so
 // Settings and Diagnostics can show an "unencrypted" warning. Only an error
@@ -95,21 +96,13 @@ type Secret interface {
 	Backend() Backend
 }
 
-// Keyring is the subset of go-keyring Sona uses; tests inject fakes.
+// Keyring is the keyring API Sona uses (go-keyring's shape; a missing entry
+// is keyring.ErrNotFound); SystemKeyring is the system's, tests inject fakes.
 type Keyring interface {
 	Get(service, user string) (string, error)
 	Set(service, user, password string) error
 	Delete(service, user string) error
 }
-
-// SystemKeyring is the desktop Secret Service via go-keyring.
-type SystemKeyring struct{}
-
-func (SystemKeyring) Get(service, user string) (string, error) { return keyring.Get(service, user) }
-func (SystemKeyring) Set(service, user, password string) error {
-	return keyring.Set(service, user, password)
-}
-func (SystemKeyring) Delete(service, user string) error { return keyring.Delete(service, user) }
 
 // Open returns the Secret Service store when it is reachable and the 0600
 // file store in configDir otherwise. It may block, without a deadline,

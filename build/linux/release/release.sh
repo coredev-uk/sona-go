@@ -12,11 +12,14 @@
 # The build image is named by the hash of the Containerfile. It is taken from
 # the local store if it is there and built here (about three minutes) if not;
 # it is never pulled from a registry, so what the release runs in is what the
-# checked-out Containerfile says.
+# checked-out Containerfile says. Its base image, which is, is the digest the
+# Containerfile's FROM line names, so the build starts from the same bytes
+# whatever the tag points at today.
 #
 # The Go module and build caches live in the podman/docker
 # volume sona-release-cache, or in the directory SONA_RELEASE_CACHE names
-# (CI keeps that one with actions/cache).
+# (CI keeps that one only for a dry run: a release run starts empty,
+# .github/workflows/release.yml).
 #
 # The version is VERSION's. SONA_LASTFM_KEY / SONA_LASTFM_SECRET and
 # SONA_DISCORD_CLIENT_ID, when set, are passed to the build
@@ -75,7 +78,9 @@ if "${engine[@]}" image inspect "$image" >/dev/null 2>&1; then
   echo "release: build image $image is in the local store"
 else
   echo "release: building $image"
-  pull docker.io/library/ubuntu:24.04
+  base=$(awk '$1 == "FROM" { print $2; exit }' "$here/Containerfile")
+  [[ $base == *@sha256:* ]] || { echo "release: the Containerfile's FROM line ($base) names no digest" >&2; exit 1; }
+  pull "$base"
   "${engine[@]}" build "${policy[@]}" --pull=never -t "$image" -f "$here/Containerfile" "$here"
 fi
 
@@ -128,7 +133,11 @@ smoke() { # image, kind: output prefixed with the kind, the runs being parallel
       -v "$root/build/lib/smoke.sh:/smoke-lib.sh:ro" "$1" bash /smoke.sh "$2"
   } 2>&1 | sed -u "s/^/[$2] /"
 }
-# Each package is smoke-tested on its own clean container, side by side.
+# Each package is smoke-tested on its own clean container, side by side. These
+# images are the current distributions on purpose (the point is that the package
+# installs on what users have today), so they are pulled by tag, not digest. They
+# can't change what ships: they get the packages read-only and no secret, and
+# only their exit status is used.
 pids=()
 smoke docker.io/library/ubuntu:24.04 deb & pids+=($!)
 smoke registry.fedoraproject.org/fedora:45 rpm & pids+=($!)

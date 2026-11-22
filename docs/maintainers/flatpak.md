@@ -169,7 +169,7 @@ It passes when `--version` prints `sona <VERSION>`, the log has `startup: first 
 
 **Not run:** the tray against a real host, notifications, a protected (Widevine) track (needs a Music User Token), a live Wayland GPU session (the run used the CPU renderer), Secret Service on GNOME and KDE, `music://` from a browser.
 
-**CI.** The dispatch-only `Flatpak` workflow (`.github/workflows/flatpak.yml`) builds the manifest in `ghcr.io/flathub-infra/flatpak-github-actions:gnome-51` and uploads `sona.flatpak`. It is not a required check and has no runtime test (the container has no desktop).
+**CI.** The dispatch-only `Flatpak` workflow (`.github/workflows/flatpak.yml`) builds the manifest in `ghcr.io/flathub-infra/flatpak-github-actions:gnome-51`, pinned by digest (Renovate refreshes it weekly), and uploads `sona.flatpak`. It is not a required check and has no runtime test (the container has no desktop).
 
 ## What remains
 

@@ -18,6 +18,8 @@ gh attestation verify <file> --repo coredev-uk/sona-go
 
 The packages pull in GTK3, GStreamer and `libayatana-appindicator3` (the tray icon). Your package manager updates them. The AppImage updates through AppImageUpdate.
 
+On Ubuntu 23.10 and later, prefer the `.deb` to the AppImage. Ubuntu stops programs creating the user namespaces Sona's playback sandbox is built from, unless an AppArmor profile allows them. The `.deb` (and `.rpm`) install that profile, `/etc/apparmor.d/sona`, and nothing else of Sona is restricted by it. An AppImage can't, so on Ubuntu it still plays, but Settings → Diagnostics → Host sandbox says "Not fully sandboxed" and that the playback helper can reach your session bus.
+
 ### Install with Nix
 
 The repository is a flake. Follow its `nix` branch:

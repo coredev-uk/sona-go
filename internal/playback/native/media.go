@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -344,6 +343,9 @@ type httpError struct {
 func (e *httpError) Error() string { return fmt.Sprintf("GET %s: HTTP %d", e.url, e.code) }
 
 func retryable(err error) bool {
+	if errors.Is(err, errTooLarge) {
+		return false
+	}
 	var he *httpError
 	if errors.As(err, &he) {
 		return he.code == http.StatusTooManyRequests || he.code >= 500
@@ -397,10 +399,22 @@ func (e *Engine) fetch(ctx context.Context, url string, r hls.ByteRange) (b []by
 	return b, nil
 }
 
+// maxFetchBytes bounds one fetched resource (a segment, init, key or
+// playlist). Apple's largest segments are a few MiB; the playlist lengths and
+// Content-Length the server declares must not pick the parent's allocation.
+const maxFetchBytes = 64 << 20
+
+// errTooLarge reports a response or declared length past its limit; it is
+// not worth retrying.
+var errTooLarge = errors.New("native: response too large")
+
 func (e *Engine) fetchOnce(ctx context.Context, url string, r hls.ByteRange) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
+	}
+	if r.Length > maxFetchBytes {
+		return nil, fmt.Errorf("GET %s: byte range of %d bytes: %w", url, r.Length, errTooLarge)
 	}
 	if h := r.Header(); h != "" {
 		req.Header.Set("Range", h)
@@ -431,12 +445,18 @@ func (e *Engine) fetchOnce(ctx context.Context, url string, r hls.ByteRange) ([]
 		}
 		return body, nil
 	}
-	if n, _ := strconv.Atoi(resp.Header.Get("Content-Length")); n > 0 {
-		body = make([]byte, 0, n)
+	if resp.ContentLength > maxFetchBytes {
+		return nil, fmt.Errorf("GET %s: %d bytes: %w", url, resp.ContentLength, errTooLarge)
+	}
+	if resp.ContentLength > 0 {
+		body = make([]byte, 0, resp.ContentLength)
 	}
 	buf := bytes.NewBuffer(body)
-	if _, err := buf.ReadFrom(resp.Body); err != nil {
+	if _, err := buf.ReadFrom(io.LimitReader(resp.Body, maxFetchBytes+1)); err != nil {
 		return nil, fmt.Errorf("GET %s: %w", url, err)
+	}
+	if buf.Len() > maxFetchBytes {
+		return nil, fmt.Errorf("GET %s: more than %d bytes: %w", url, maxFetchBytes, errTooLarge)
 	}
 	return buf.Bytes(), nil
 }
@@ -555,8 +575,7 @@ func (e *Engine) renew(h host, gen int, ev cdmhost.Event) {
 	m := e.sessions[ev.Session]
 	e.mu.Unlock()
 	if m == nil {
-		e.log.Debug("CDM message for an unknown session", "session", ev.Session, "type", widevine.MessageType(ev.Type))
-		return
+		return // the session closed while the message waited
 	}
 	t0 := time.Now()
 	e.log.Info("licence renewal requested", "id", m.id, "session", ev.Session, "type", widevine.MessageType(ev.Type), "bytes", len(ev.Data))

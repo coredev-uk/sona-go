@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image/png"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -390,13 +391,13 @@ func TestTheSheetFollowsTheSungLine(t *testing.T) {
 		t.Fatalf("at the start: active %d, scrolled %v", sh.active, sh.scroll.Y)
 	}
 	// The voice moves on: the sung line follows the clock under the lead, one
-	// line at a time, and the sheet holds still while it stays in the band.
+	// line at a time.
 	r.play(5300) // 5.3 s + 250 ms lead: line 1 (begins 5 s)
 	r.settle()
 	if sh.active != 1 {
 		t.Errorf("active %d at 5.3 s, want 1", sh.active)
 	}
-	// Far on: the sheet turned (smoothly), the anchor line is in view.
+	// Far on: the sheet followed, the anchor line is in view.
 	r.play(1000 + 40*4000 + 500)
 	for range 40 {
 		r.advance(50 * time.Millisecond)
@@ -407,13 +408,404 @@ func TestTheSheetFollowsTheSungLine(t *testing.T) {
 	if !r.tt.HasText(fmt.Sprintf("Line %d sung words", sh.active)) {
 		t.Errorf("the sung line %d is not in view: %q", sh.active, r.tt.Texts())
 	}
-	// A seek back: the page turns back to the top.
+	// A seek back: the lines follow it back to the top.
 	r.play(500)
 	for range 60 {
 		r.advance(50 * time.Millisecond)
 	}
 	if sh.active != 0 || sh.scroll.Y > 1 {
 		t.Errorf("after a seek back: active %d, scrolled %v", sh.active, sh.scroll.Y)
+	}
+}
+
+// lineY is where line i's text is on the sheet now.
+func (r *npRig) lineY(t *testing.T, i int) float32 {
+	t.Helper()
+	box, ok := r.tt.Find(fmt.Sprintf("Line %d sung words", i))
+	if !ok {
+		t.Fatalf("line %d is not on screen: %q", i, r.tt.Texts())
+	}
+	return box.Y
+}
+
+// The sheet follows each line, not each verse: the sung line stays at the
+// reading position through a verse of many lines, and the scroll moves on at
+// every one of them.
+func TestTheSheetFollowsEachLineNotEachVerse(t *testing.T) {
+	var view ui.Rect
+	r := newNPRig(t, func(r *npRig) {
+		r.inspect = func(c *ui.Context) {
+			if sh := r.p.np.sheet; sh != nil {
+				view = sh.box.Bounds(c)
+			}
+		}
+	})
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(60, false)}, nil)
+	r.play(2000)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 0 sung words"))
+	r.settle()
+	sh := r.p.np.sheet
+	if sh.verseOf[0] != sh.verseOf[12] {
+		t.Fatalf("lines 0 and 12 are in verses %d and %d: the lines are not one verse", sh.verseOf[0], sh.verseOf[12])
+	}
+	reading := r.lineY(t, 0)
+	if want := view.Y + view.H*readAt; reading < want-2 || reading > want+24 {
+		t.Fatalf("the first line is at %v, want the reading position %v (a third down the sheet) under its padding", reading, want)
+	}
+	was := sh.scroll.Y
+	for k := 1; k <= 12; k++ {
+		r.play(int64(1000 + k*4000 + 500))
+		for range 20 { // a second: the lines settle (cascadeSettle) and the scroll takes the place
+			r.advance(50 * time.Millisecond)
+		}
+		if sh.active != k {
+			t.Fatalf("line %d: active %d", k, sh.active)
+		}
+		if sh.scroll.Y <= was {
+			t.Errorf("line %d, in the verse of line 0: the scroll is %v, it was %v: it held still for the line", k, sh.scroll.Y, was)
+		}
+		was = sh.scroll.Y
+		if got := r.lineY(t, k); math.Abs(float64(got-reading)) > 1 {
+			t.Errorf("line %d is sung at %v, want the reading position %v", k, got, reading)
+		}
+		if sh.off != 0 {
+			t.Errorf("line %d: the lines are still posed %v off a second on", k, sh.off)
+		}
+	}
+}
+
+// Each line glides to its place on its own: the sung line first and the
+// lines after it a step later each, over the climb token's time, and the
+// scroll takes the place when they rest.
+func TestTheSheetsLinesGlideToTheReadingPositionOneByOne(t *testing.T) {
+	r := newNPRig(t, func(r *npRig) { r.animate = true })
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(60, false)}, nil)
+	r.play(1000 + 8*4000 + 500)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 8 sung words"))
+	r.settle()
+	r.advance(2 * time.Second)
+	sh := r.p.np.sheet
+	if sh.active != 8 || sh.off != 0 {
+		t.Fatalf("at the start: active %d, posed %v off", sh.active, sh.off)
+	}
+	reading := r.lineY(t, 8)
+	was := map[int]float32{}
+	for _, i := range []int{6, 7, 8, 9, 10, 12} {
+		was[i] = r.lineY(t, i)
+	}
+	scrolled := sh.scroll.Y
+	// Line 9 begins.
+	r.play(1000 + 9*4000 + 500)
+	r.tt.Drain() // the view builds and the glide starts
+	r.advance(30 * time.Millisecond)
+	if sh.active != 9 || sh.off >= 0 || !sh.up {
+		t.Fatalf("after the change: active %d, posed %v off, up %v: the lines are not going up", sh.active, sh.off, sh.up)
+	}
+	if sh.scroll.Y != scrolled {
+		t.Errorf("the scroll jumped from %v to %v: the lines glide, the scroll takes the place afterwards", scrolled, sh.scroll.Y)
+	}
+	moved := func(i int) float32 { return was[i] - r.lineY(t, i) }
+	if m := moved(9); m < 0.5 {
+		t.Errorf("30 ms in, the new sung line has moved %v: it goes first", m)
+	}
+	if m := moved(7); m < 0.5 {
+		t.Errorf("30 ms in, the line above has moved %v: the lines before the sung one go with it", m)
+	}
+	if m := moved(10); math.Abs(float64(m)) > 0.5 {
+		t.Errorf("30 ms in, the line after the sung one has moved %v: it follows a step later", m)
+	}
+	if m := moved(12); math.Abs(float64(m)) > 0.5 {
+		t.Errorf("30 ms in, line 12 (three places behind) has moved %v", m)
+	}
+	r.advance(cascadeStep) // 90 ms
+	if m := moved(10); m < 0.5 {
+		t.Errorf("90 ms in, the line after the sung one has not set off (%v)", m)
+	}
+	if lead, follow := moved(9), moved(10); follow >= lead {
+		t.Errorf("90 ms in, the follower has moved %v and the leader %v: it must trail", follow, lead)
+	}
+	if m := moved(12); math.Abs(float64(m)) > 0.5 {
+		t.Errorf("90 ms in, line 12 (three places behind, waiting %v) has moved %v", cascadeDelay(3, true, false), m)
+	}
+	// At rest the lines are where the reading position puts them, and the
+	// scroll holds the place the pose did.
+	r.advance(cascadeSettle() + 100*time.Millisecond)
+	if sh.off != 0 || sh.scroll.Y <= scrolled {
+		t.Errorf("at rest: posed %v off, scrolled %v (was %v): the scroll did not take the place", sh.off, sh.scroll.Y, scrolled)
+	}
+	if got := r.lineY(t, 9); math.Abs(float64(got-reading)) > 1 {
+		t.Errorf("at rest the sung line is at %v, want the reading position %v", got, reading)
+	}
+	for _, i := range []int{10, 12} {
+		if got, want := r.lineY(t, i)-reading, was[i]-was[8]-(was[9]-was[8]); math.Abs(float64(got-want)) > 1 {
+			t.Errorf("at rest line %d is %v under the sung line, want %v", i, got, want)
+		}
+	}
+}
+
+// On a seek back the lines glide down and the ones above the sung line trail.
+func TestTheSheetsLinesGlideBackOnASeekBack(t *testing.T) {
+	r := newNPRig(t, func(r *npRig) { r.animate = true })
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(60, false)}, nil)
+	r.play(1000 + 10*4000 + 500)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 10 sung words"))
+	r.settle()
+	r.advance(2 * time.Second)
+	sh := r.p.np.sheet
+	reading := r.lineY(t, 10)
+	was := map[int]float32{}
+	for _, i := range []int{6, 7, 8, 9, 10, 11} {
+		was[i] = r.lineY(t, i)
+	}
+	r.play(1000 + 8*4000 + 500) // two lines back
+	r.tt.Drain()
+	r.advance(30 * time.Millisecond)
+	if sh.active != 8 || sh.off <= 0 || sh.up {
+		t.Fatalf("after the seek: active %d, posed %v off, up %v: the lines are not going down", sh.active, sh.off, sh.up)
+	}
+	moved := func(i int) float32 { return r.lineY(t, i) - was[i] }
+	if m := moved(8); m < 0.5 {
+		t.Errorf("30 ms in, the new sung line has moved down %v", m)
+	}
+	if m := moved(9); m < 0.5 {
+		t.Errorf("30 ms in, the line below has moved down %v: it goes with the sung line", m)
+	}
+	if m := moved(7); math.Abs(float64(m)) > 0.5 {
+		t.Errorf("30 ms in, the line above the sung line has moved %v: it trails by a step", m)
+	}
+	r.advance(cascadeStep)
+	if m := moved(7); m < 0.5 {
+		t.Errorf("90 ms in, the line above has not set off (%v)", m)
+	}
+	r.advance(cascadeSettle() + 100*time.Millisecond)
+	if got := r.lineY(t, 8); math.Abs(float64(got-reading)) > 1 {
+		t.Errorf("at rest the sung line is at %v, want the reading position %v", got, reading)
+	}
+	if sh.off != 0 {
+		t.Errorf("at rest: posed %v off", sh.off)
+	}
+}
+
+// Under reduced motion the lines jump to the reading position the frame the
+// line changes: no pose, no wait, no lines trailing.
+func TestUnderReducedMotionTheSheetJumpsToTheSungLine(t *testing.T) {
+	theme.SetReducedMotion(true)
+	t.Cleanup(func() { theme.SetReducedMotion(false) })
+	r := newNPRig(t, func(r *npRig) { r.animate = true })
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(60, false)}, nil)
+	r.play(1000 + 8*4000 + 500)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 8 sung words"))
+	r.settle()
+	r.advance(time.Second)
+	sh := r.p.np.sheet
+	reading := r.lineY(t, 8)
+	scrolled := sh.scroll.Y
+	r.play(1000 + 9*4000 + 500)
+	r.tt.Drain()
+	r.advance(20 * time.Millisecond)
+	if sh.off != 0 || sh.scroll.Y <= scrolled || sh.scroll.Scrolling() {
+		t.Errorf("a frame after the line changed: posed %v off, scrolled %v (was %v): want a jump", sh.off, sh.scroll.Y, scrolled)
+	}
+	for _, i := range []int{9, 10, 12} {
+		if got, want := r.lineY(t, i), reading+float32(i-9)*(r.lineY(t, 10)-r.lineY(t, 9)); math.Abs(float64(got-want)) > 1 {
+			t.Errorf("a frame on line %d is at %v, want %v", i, got, want)
+		}
+	}
+	if got := r.lineY(t, 9); math.Abs(float64(got-reading)) > 1 {
+		t.Errorf("a frame on the sung line is at %v, want the reading position %v", got, reading)
+	}
+}
+
+// untilActive plays on in frames until line k is the sung one.
+func (r *npRig) untilActive(t *testing.T, sh *lyricsSheet, k int) {
+	t.Helper()
+	for range 600 {
+		if sh.active == k {
+			return
+		}
+		r.advance(16 * time.Millisecond)
+	}
+	t.Fatalf("line %d never became the sung one (it is %d)", k, sh.active)
+}
+
+// A seek of more than a few lines (cutLines) cuts: the lines are in place the
+// frame the sung line changes, with no glide that would sweep the sheet.
+func TestASeekOfManyLinesCutsTheSheetInsteadOfGliding(t *testing.T) {
+	r := newNPRig(t, func(r *npRig) { r.animate = true })
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(60, false)}, nil)
+	r.play(1000 + 8*4000 + 500)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 8 sung words"))
+	r.settle()
+	r.advance(2 * time.Second)
+	sh := r.p.np.sheet
+	reading := r.lineY(t, 8)
+	// Six lines on is still a glide; twelve is a cut.
+	r.play(1000 + 14*4000 + 500)
+	r.untilActive(t, sh, 14)
+	if sh.off == 0 {
+		t.Errorf("six lines on the sheet did not glide")
+	}
+	r.advance(2 * time.Second)
+	r.play(1000 + 26*4000 + 500)
+	r.untilActive(t, sh, 26)
+	if sh.off != 0 || sh.scroll.Y <= 0 {
+		t.Errorf("a seek of twelve lines left the lines posed %v off at scroll %v: want a cut", sh.off, sh.scroll.Y)
+	}
+	if got := r.lineY(t, 26); math.Abs(float64(got-reading)) > 1 {
+		t.Errorf("the frame after a seek of twelve lines the sung line is at %v, want the reading position %v", got, reading)
+	}
+}
+
+// A line that begins while the lines are still gliding sets them on from where
+// they are: no line jumps from one frame to the next by more than the glide
+// moves it.
+func TestALineThatBeginsMidGlideRetargetsWithoutAJump(t *testing.T) {
+	r := newNPRig(t, func(r *npRig) { r.animate = true })
+	lines := timedLines(60, false)
+	for i := range lines { // a fast song: a line every 300 ms
+		lines[i].BeginMs = int64(1000 + i*300)
+		lines[i].EndMs = lines[i].BeginMs + 250
+	}
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: lines}, nil)
+	r.play(1000 + 2*300 + 100)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 2 sung words"))
+	r.settle()
+	sh := r.p.np.sheet
+	pitch := r.lineY(t, 1) - r.lineY(t, 0)
+	if pitch < 20 {
+		t.Fatalf("a line is %v tall", pitch)
+	}
+	started := sh.active
+	prev := map[int]float32{}
+	worst, frames := float32(0), 0
+	for range 130 { // two seconds of frames, over six lines
+		r.advance(16 * time.Millisecond)
+		for _, i := range []int{6, 9, 12} {
+			box, ok := r.tt.Find(fmt.Sprintf("Line %d sung words", i))
+			if !ok {
+				delete(prev, i)
+				continue
+			}
+			if was, seen := prev[i]; seen {
+				worst = max(worst, float32(math.Abs(float64(box.Y-was))))
+			}
+			prev[i] = box.Y
+		}
+		frames++
+	}
+	if sh.active < started+5 {
+		t.Fatalf("the sung line went from %d to %d: the lines were not fast", started, sh.active)
+	}
+	if worst > pitch/2 {
+		t.Errorf("a line moved %v in one frame, more than half of a line (%v): it jumped", worst, pitch)
+	}
+	if worst == 0 {
+		t.Error("no line moved: the test saw nothing")
+	}
+}
+
+// While the user's scroll holds the sheet the lines do not cascade, and when
+// the hold ends the next line glides them once to the reading position.
+func TestTheUsersScrollHoldsTheCascadeAndTheFollowGlidesOnceAfterIt(t *testing.T) {
+	r := newNPRig(t, func(r *npRig) { r.animate = true })
+	lines := timedLines(60, false)
+	for i := range lines { // long lines, so that the 4 s of the hold fit inside one
+		lines[i].BeginMs = int64(1000 + i*10000)
+		lines[i].EndMs = lines[i].BeginMs + 9000
+	}
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: lines}, nil)
+	r.play(1000 + 8*10000 + 500)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 8 sung words"))
+	r.settle()
+	r.advance(2 * time.Second)
+	sh := r.p.np.sheet
+	reading := r.lineY(t, 8)
+	// The user scrolls the sheet.
+	sh.scroll.Y += 150
+	r.advance(time.Millisecond)
+	if sh.userAt.IsZero() {
+		t.Fatal("the scroll was not noticed")
+	}
+	held := r.lineY(t, 8)
+	// The next line begins inside the hold: nothing cascades, nothing moves.
+	r.play(1000 + 9*10000 + 500)
+	for range 40 {
+		r.advance(16 * time.Millisecond)
+		if sh.off != 0 {
+			t.Fatalf("the lines are posed %v off during the user's hold", sh.off)
+		}
+		if got := r.lineY(t, 8); math.Abs(float64(got-held)) > 0.5 {
+			t.Fatalf("line 8 moved from %v to %v during the user's hold", held, got)
+		}
+	}
+	if sh.active != 9 {
+		t.Fatalf("line %d is sung: the line did not change inside the hold", sh.active)
+	}
+	// The hold ends (4 s); the next line brings the sheet back with one glide.
+	r.advance(4500 * time.Millisecond) // inside line 9, which lasts 10 s
+	r.play(1000 + 10*10000 + 500)
+	r.untilActive(t, sh, 10)
+	if sh.off == 0 {
+		t.Fatal("the follow did not glide when the hold ended")
+	}
+	before := r.lineY(t, 10)
+	r.advance(100 * time.Millisecond)
+	if got := r.lineY(t, 10); got == before {
+		t.Error("the sung line did not move after the hold")
+	}
+	r.advance(cascadeSettle() + 100*time.Millisecond)
+	if got := r.lineY(t, 10); math.Abs(float64(got-reading)) > 1 {
+		t.Errorf("after the hold the sung line is at %v, want the reading position %v", got, reading)
+	}
+	if sh.off != 0 {
+		t.Errorf("the lines are still posed %v off", sh.off)
+	}
+}
+
+// The sheet is built when the sung line changes and once more when its lines
+// rest and the scroll takes their place, never once a frame: the glide is a
+// pose, which only paints.
+func TestAGlideDoesNotBuildTheSheetPerFrame(t *testing.T) {
+	builds := 0
+	r := newNPRig(t, func(r *npRig) {
+		r.animate = true
+		r.inspect = func(*ui.Context) { builds++ }
+	})
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: timedLines(60, false)}, nil)
+	r.play(1000 + 8*4000 + 500)
+	r.open("")
+	r.tt.Until("lyrics", r.tt.Shows("Line 8 sung words"))
+	r.settle()
+	r.advance(2 * time.Second)
+	before := builds
+	// The voice is 0.35 s from line 9 (the lyrics clock leads by 250 ms): then
+	// 150 frames at 16 ms, which hold the change, its glide and the rest.
+	r.play(1000 + 9*4000 - 100)
+	frames := 0
+	for range 150 {
+		r.h.Clock.Advance(16 * time.Millisecond)
+		r.tt.Advance(16 * time.Millisecond)
+		frames++
+	}
+	if r.p.np.sheet.active != 9 {
+		t.Fatalf("line %d is sung: the change did not come", r.p.np.sheet.active)
+	}
+	t.Logf("a line change and %d frames of its glide built the sheet %d times", frames, builds-before)
+	// The change of line (the lines glide: no scroll), then the rebase, which
+	// jumps the scroll and asks for the frame a jump always does: 3 builds,
+	// where building for the glide's frames would make 90.
+	if got := builds - before; got > 3 {
+		t.Errorf("the sheet was built %d times over one line change and %d frames", got, frames)
+	}
+	if r.p.np.sheet.off != 0 {
+		t.Errorf("the lines did not come to rest: posed %v off", r.p.np.sheet.off)
 	}
 }
 
@@ -1024,10 +1416,29 @@ func TestNextSweepEdgeIsTheNextWordLineEndOrRest(t *testing.T) {
 	}
 }
 
+// A line that ends before the next begins stays sung (and its words stay
+// lifted) until the next does: that is where its words settle, so it is an
+// edge, and a line wholly settled has none left.
+func TestNextSweepEdgeIncludesWhereTheWordsSettle(t *testing.T) {
+	spans := []lyricsync.Span{{BeginMs: 1000, EndMs: 2000}, {BeginMs: 2400, EndMs: 5000}}
+	words := []services.LyricWord{{BeginMs: 1000, EndMs: 1500}, {BeginMs: 1500, EndMs: 2000}}
+	if got := nextSweepEdge(spans, 0, words, 2100); got != 2400 {
+		t.Errorf("after the line's end, before the next begins: %d, want 2400, where it stops being sung", got)
+	}
+	if got := nextSweepEdge(spans, 0, words, 2400); got != lyricsync.Never {
+		t.Errorf("once it stopped: %d, want Never", got)
+	}
+	// Running on under the next line: until its own end.
+	spans = []lyricsync.Span{{BeginMs: 1000, EndMs: 9000}, {BeginMs: 2000, EndMs: 3000}}
+	if got := nextSweepEdge(spans, 0, nil, 3500); got != 9000 {
+		t.Errorf("a line running on under the next: %d, want 9000", got)
+	}
+}
+
 // Handle.Focus scrolls the line into view as the focus moves (MyGo v0.9.0),
 // so arrowing down the synced lines follows the focus, and neither the
-// sheet's smooth page turns nor its hold after the user moved it pulls the
-// sheet away from the focused line.
+// sheet's following of the sung line nor its hold after the user moved it
+// pulls the sheet away from the focused line.
 func TestArrowingThroughSyncedLinesKeepsTheFocusedLineInView(t *testing.T) {
 	r := newNPRig(t)
 	var sheet, line ui.Rect
@@ -1081,7 +1492,7 @@ func TestArrowingThroughSyncedLinesKeepsTheFocusedLineInView(t *testing.T) {
 	inView("End")
 }
 
-// A key pressed while the sheet glides to the sung line's page takes the
+// A key pressed while the lines glide to the sung line's place takes the
 // focus to the next line, and the glide does not carry it out of view.
 func TestArrowingDuringThePageTurnKeepsTheFocusedLineInView(t *testing.T) {
 	r := newNPRig(t, func(r *npRig) { r.animate = true })
@@ -1100,17 +1511,17 @@ func TestArrowingDuringThePageTurnKeepsTheFocusedLineInView(t *testing.T) {
 	r.tt.Until("lyrics", r.tt.Shows("Line 3 sung words"))
 	r.settle()
 	sh := r.p.np.sheet
-	// Play on until the sung line leaves the reading band and the sheet turns.
+	// Play on until the sung line changes and the lines start to glide.
 	turned := false
 	for range 4000 {
 		r.advance(16 * time.Millisecond)
-		if sh.scroll.Scrolling() {
+		if sh.off != 0 {
 			turned = true
 			break
 		}
 	}
 	if !turned {
-		t.Fatal("the sheet never turned a page")
+		t.Fatal("the sheet never followed a line")
 	}
 	sh.lines[sh.anchored].Focus()
 	r.settle()

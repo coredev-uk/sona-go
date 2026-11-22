@@ -20,6 +20,8 @@ Sona makes every folder readable by you only. [Troubleshooting](/guide/troublesh
 
 Sona keeps your Apple Music token in the system keyring: the Secret Service on Linux (GNOME Keyring or KWallet), the Keychain on macOS, the Credential Manager on Windows. If the keyring is not working, Sona stores the token in a file only you can read and warns you that it is unencrypted. Sona moves it into the keyring when one is available. Signing out deletes the token.
 
+On macOS only Sona can read its keychain items without asking you: another app that tries makes macOS ask first. After Sona updates, macOS asks once whether the new version may use them. Choose Always Allow. If you deny it, Sona can't read them: sign in again, and Sona keeps the new sign-in in a file only you can read and says so.
+
 ## Private listening
 
 [Private listening](/guide/private-listening/) keeps plays out of your Apple history, scrobbles and Discord.

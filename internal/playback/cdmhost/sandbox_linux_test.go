@@ -22,6 +22,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
 // initChild spawns a child and runs opInit with a CDM that does not exist:
@@ -129,6 +131,8 @@ const (
 	envProbeAudio    = "SONA_CDMHOST_PROBE_AUDIO"
 	envProbeAbstract = "SONA_CDMHOST_PROBE_ABSTRACT"
 	envProbeHome     = "SONA_CDMHOST_PROBE_HOME"
+	// envProbePTY is the slave of a pty the test created.
+	envProbePTY = "SONA_CDMHOST_PROBE_PTY"
 )
 
 // osTestChildMode runs the Linux test child modes: "probe" and "userns".
@@ -147,7 +151,7 @@ func osTestChildMode(m string) {
 // in the CDM might, and prints each outcome ("ok": it worked) as JSON.
 func probeChild() {
 	sb := enterSandbox()
-	res := map[string]string{"sandbox": fmt.Sprintf("%+v", sb)}
+	res := map[string]string{"sandbox": fmt.Sprintf("%+v", sb), "reaches sockets": strconv.FormatBool(sb.ReachesSockets())}
 	outcome := func(err error) string {
 		if err == nil {
 			return "ok"
@@ -187,6 +191,19 @@ func probeChild() {
 		}
 		res[fam.name] = outcome(err)
 	}
+	// The terminals: the controlling one (none after setsid) and a pty
+	// the parent created.
+	_, err = os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	res["open /dev/tty"] = outcome(err)
+	_, err = os.OpenFile("/dev/null", os.O_WRONLY, 0)
+	res["open /dev/null"] = outcome(err)
+	if p := os.Getenv(envProbePTY); p != "" {
+		f, err := os.OpenFile(p, os.O_RDWR, 0)
+		if err == nil {
+			_ = f.Close()
+		}
+		res["open pty"] = outcome(err)
+	}
 	ppid := os.Getppid()
 	_, err = os.ReadFile("/proc/" + strconv.Itoa(ppid) + "/environ")
 	res["parent environ"] = outcome(err)
@@ -205,7 +222,7 @@ func probe(t *testing.T, ns bool, extra ...string) map[string]string {
 	t.Helper()
 	env := append(childEnv(slog.New(slog.DiscardHandler)), envTestChild+"=probe")
 	env = append(env, extra...)
-	var attr *syscall.SysProcAttr
+	attr := newSession()
 	if ns {
 		env, attr = append(env, envSandboxNS+"=1"), namespaceAttr()
 	}
@@ -339,11 +356,13 @@ func TestSandboxConfinesChild(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(homeDir) })
-	deny := []string{filepath.Join(t.TempDir(), "agent.sock")}
+	own := []string{filepath.Join(t.TempDir(), "agent.sock")}
+	deny := slices.Clone(own)
 	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
 	if runtimeDir != "" {
 		// A session service's socket, like the bus or an agent.
 		s := filepath.Join(runtimeDir, "sona-probe-"+rand.Text()[:8])
+		own = append(own, s)
 		deny = append(deny, s)
 	}
 	for _, p := range deny {
@@ -370,7 +389,22 @@ func TestSandboxConfinesChild(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cdmDir, "libwidevinecdm.so"), []byte("not a CDM"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// A terminal of the user's: the slave of a pty the test opens.
+	ptmx, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ptmx.Close() })
+	n, err := unix.IoctlGetInt(int(ptmx.Fd()), unix.TIOCGPTN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.IoctlSetPointerInt(int(ptmx.Fd()), unix.TIOCSPTLCK, 0); err != nil {
+		t.Fatal(err)
+	}
+	pty := "/dev/pts/" + strconv.Itoa(n)
 	extra := []string{
+		envProbePTY + "=" + pty,
 		envProbeDeny + "=" + strings.Join(deny, string(filepath.ListSeparator)),
 		envProbeAudio + "=" + audio,
 		envProbeAbstract + "=" + abstract,
@@ -403,12 +437,18 @@ func TestSandboxConfinesChild(t *testing.T) {
 		if !strings.Contains(res["sandbox"], "MountNS:true") {
 			t.Fatalf("no mount namespace: %s", res["sandbox"])
 		}
+		// With a mount namespace the sockets are gone whatever the
+		// Landlock ABI: nothing to report, and nothing reachable.
+		if res["reaches sockets"] != "false" {
+			t.Errorf("ReachesSockets with a mount namespace: %q", res["reaches sockets"])
+		}
 		for _, p := range deny {
 			refused(t, res, "connect "+p)
 		}
-		for _, w := range []string{"abstract", "home write", "AF_INET", "AF_INET6", "AF_NETLINK", "process_vm_readv", "cdm write"} {
+		for _, w := range []string{"abstract", "home write", "AF_INET", "AF_INET6", "AF_NETLINK", "process_vm_readv", "cdm write", "open /dev/tty", "open pty"} {
 			refused(t, res, w)
 		}
+		reached(t, res, "open /dev/null")
 		reached(t, res, "cdm read")
 		if landlockABI(res) > 0 {
 			refused(t, res, "parent environ")
@@ -428,14 +468,34 @@ func TestSandboxConfinesChild(t *testing.T) {
 		}
 		refused(t, res, "home write")
 		refused(t, res, "cdm write")
+		refused(t, res, "open /dev/tty")
+		refused(t, res, "open pty")
+		reached(t, res, "open /dev/null")
 		reached(t, res, "cdm read")
 		refused(t, res, "parent environ")
 		if abi >= 6 {
 			refused(t, res, "abstract")
 		}
-		if abi >= 9 {
+		// The two conditions that decide whether the child can connect()
+		// to a path Unix socket (the session bus), spelled out. A mount
+		// namespace with its private filesystem removes the sockets
+		// (the "namespaces" subtest); this child has none, so Landlock
+		// has to refuse them, and it can only from ABI 9
+		// (landlockUnixABI). Below that, on Ubuntu 24.04 with its AppArmor
+		// restriction and no Sona profile, the connection succeeds, and
+		// Diagnostics must say so (SandboxGapSockets): the reported gap
+		// and the observed behaviour agree.
+		if reaches, want := res["reaches sockets"] == "true", abi < landlockUnixABI; reaches != want {
+			t.Errorf("Landlock ABI %d without a mount namespace: ReachesSockets = %v, want %v", abi, reaches, want)
+		}
+		if abi >= landlockUnixABI {
 			for _, p := range deny {
 				refused(t, res, "connect "+p)
+			}
+		} else {
+			t.Logf("Landlock ABI %d < %d and no mount namespace: path sockets stay reachable (the AppArmor profile or ABI %d closes it)", abi, landlockUnixABI, landlockUnixABI)
+			for _, p := range own {
+				reached(t, res, "connect "+p)
 			}
 		}
 		if audio != "" {
@@ -493,6 +553,38 @@ func TestCDMRefusedWithoutSeccomp(t *testing.T) {
 		rep := fail(1, err)
 		if got := replyErr(rep); rep.Code != codeSandbox || !errors.Is(got, ErrSandbox) || strings.Count(got.Error(), ErrSandbox.Error()) != 1 {
 			t.Errorf("%+v: reply %+v → %v", sb, rep, got)
+		}
+	}
+}
+
+// A child without a private filesystem view reaches path Unix sockets
+// (the session bus) unless Landlock handles connect() (ABI 9), and
+// Diagnostics must say so; with the view it never does.
+func TestSandboxGapsReportReachableSockets(t *testing.T) {
+	full := Sandbox{NetNS: true, MountNS: true, Landlock: 4, Seccomp: true, InetDenied: true}
+	for _, c := range []struct {
+		name string
+		sb   func(Sandbox) Sandbox
+		want bool
+	}{
+		{"full view, old Landlock", func(s Sandbox) Sandbox { return s }, false},
+		{"full view, no Landlock", func(s Sandbox) Sandbox { s.Landlock = 0; return s }, false},
+		{"AppArmor userns restriction, Ubuntu 24.04 (ABI 4)", func(s Sandbox) Sandbox { s.MountNS = false; return s }, true},
+		{"AppArmor userns restriction, ABI 8", func(s Sandbox) Sandbox { s.MountNS, s.Landlock = false, landlockUnixABI-1; return s }, true},
+		{"AppArmor userns restriction, no Landlock", func(s Sandbox) Sandbox { s.MountNS, s.Landlock = false, 0; return s }, true},
+		{"no namespaces, ABI 8 (Flatpak)", func(s Sandbox) Sandbox { s.NetNS, s.MountNS, s.Landlock = false, false, 8; return s }, true},
+		{"AppArmor userns restriction, ABI 9", func(s Sandbox) Sandbox { s.MountNS, s.Landlock = false, landlockUnixABI; return s }, false},
+		{"no namespaces, ABI 9", func(s Sandbox) Sandbox { s.NetNS, s.MountNS, s.Landlock = false, false, landlockUnixABI; return s }, false},
+	} {
+		sb := c.sb(full)
+		if got := sb.ReachesSockets(); got != c.want {
+			t.Errorf("%s: ReachesSockets = %v, want %v", c.name, got, c.want)
+		}
+		if got := slices.Contains(sb.Gaps(), playback.SandboxGapSockets); got != c.want {
+			t.Errorf("%s: gaps %v: sockets gap = %v, want %v", c.name, sb.Gaps(), got, c.want)
+		}
+		if c.want && sb.Active() {
+			t.Errorf("%s: Active() with reachable sockets", c.name)
 		}
 	}
 }

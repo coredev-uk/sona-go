@@ -50,6 +50,8 @@ func sandboxGap(gap playback.SandboxGap) string {
 		return i18n.T("It has no network or mount namespace of its own, because unprivileged user namespaces are blocked.")
 	case playback.SandboxGapFilesystem:
 		return i18n.T("It has no private view of the filesystem.")
+	case playback.SandboxGapSockets:
+		return i18n.T("It can connect to your session bus and other Unix sockets.")
 	case playback.SandboxGapLandlock:
 		return i18n.T("Landlock doesn't restrict its files.")
 	case playback.SandboxGapSeccomp:
@@ -105,10 +107,11 @@ func sandboxRow(p services.DiagPlayback) diagRow {
 		return diagRow{label: label, value: i18n.T("Unknown (the host did not start)")}
 	}
 	words := make([]string, len(gaps))
-	hasNamespaces, noAppContainer := false, false
+	hasNamespaces, hasSockets, noAppContainer := false, false, false
 	for i, g := range gaps {
 		words[i] = sandboxGap(g)
 		hasNamespaces = hasNamespaces || g == playback.SandboxGapNamespaces
+		hasSockets = hasSockets || g == playback.SandboxGapSockets
 		noAppContainer = noAppContainer || g == playback.SandboxGapNoAppContainer
 	}
 	note := strings.Join(words, " ")
@@ -128,8 +131,11 @@ func sandboxRow(p services.DiagPlayback) diagRow {
 		}
 	}
 	detail := i18n.T("{note} Playback still works.", "note", note)
-	if hasNamespaces {
+	switch {
+	case hasNamespaces:
 		detail = i18n.T("{note} Playback still works. To sandbox it fully, allow unprivileged user namespaces (sysctl kernel.unprivileged_userns_clone, or the AppArmor user namespace restriction).", "note", note)
+	case hasSockets:
+		detail = i18n.T("{note} Playback still works. To sandbox it fully, install Sona's .deb or .rpm package, which includes an AppArmor profile that allows its user namespaces (an AppImage can't), or run a kernel with Landlock ABI 9.", "note", note)
 	}
 	return diagRow{label: label, value: i18n.T("Not fully sandboxed"), status: statusWarning, detail: detail}
 }

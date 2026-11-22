@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 }
 
 // envTestChild selects a test child mode in the child's environment:
-// "big-frame" or "flood" (frames_test.go), or one of this OS's
+// "big-frame", "flood", "big-message", "big-session" or "big-err" (frames_test.go), or one of this OS's
 // (osTestChildMode in sandbox_<os>_test.go).
 const envTestChild = "SONA_CDMHOST_TEST_CHILD"
 
@@ -34,7 +34,7 @@ func testChildModes() {
 		return
 	}
 	switch m := os.Getenv(envTestChild); m {
-	case "big-frame", "flood":
+	case "big-frame", "flood", "big-message", "big-session", "big-err":
 		misbehave(m)
 	default:
 		osTestChildMode(m)

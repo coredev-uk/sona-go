@@ -5,15 +5,19 @@
 // btoa(JSON{cid, itre, musicUserToken}) and navigates to
 // `${referrer}#${data}`. The referrer is document.referrer, refined by the
 // `referrer` query parameter when both share an origin. Sona points it at
-// http://127.0.0.1:<port>/auth/<nonce>/callback; the callback page reads the
-// fragment and POSTs it back to this server. See docs/auth.md §4.
+// http://127.0.0.1:<port>/auth/<nonce>/callback/<state>; the callback page
+// reads the fragment and POSTs it, with the state, back to this server. See
+// docs/auth.md §4.
 //
 // The nonce travels in the URL Sona hands to the browser, so it is not a
 // secret from other local users. Two controls bind the attempt to the
 // browser Sona opened: each start link works once and sets a cookie with a
 // random value that never appears in a URL, which /complete requires; and
 // on Linux the listener drops connections from sockets another user owns
-// (ownerOnly). See docs/auth.md §4.5.
+// (ownerOnly). A third control binds the fragment to Apple's redirect: a
+// 256-bit state, known only to the authorize URL's referrer, rides in the
+// callback path and /complete requires it, so a fragment a page in the
+// same browser navigates to by hand is refused. See docs/auth.md §4.5.
 package mut
 
 import (
@@ -148,6 +152,7 @@ type Session struct {
 	opts     Options
 	nonce    string
 	key      string    // value of the cookie /start gives each browser
+	state    string    // path segment of the callback URL; /complete requires it
 	origin   string    // http://127.0.0.1:<port>
 	deadline time.Time // the attempt ends here (Options.Timeout from Start)
 	srv      *http.Server
@@ -174,11 +179,14 @@ func Start(devToken string, opts Options) (*Session, error) {
 		opts.Timeout = 10 * time.Minute
 	}
 	var nb [16]byte
-	var kb [32]byte
+	var kb, sb [32]byte
 	if _, err := rand.Read(nb[:]); err != nil {
 		return nil, err
 	}
 	if _, err := rand.Read(kb[:]); err != nil {
+		return nil, err
+	}
+	if _, err := rand.Read(sb[:]); err != nil {
 		return nil, err
 	}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -190,6 +198,7 @@ func Start(devToken string, opts Options) (*Session, error) {
 		opts:     opts,
 		nonce:    hex.EncodeToString(nb[:]),
 		key:      base64.RawURLEncoding.EncodeToString(kb[:]),
+		state:    base64.RawURLEncoding.EncodeToString(sb[:]),
 		origin:   "http://" + ln.Addr().String(),
 		deadline: time.Now().Add(opts.Timeout),
 		ln:       ln,
@@ -218,7 +227,12 @@ func (s *Session) StartURL() string {
 	return s.origin + "/auth/" + s.nonce + "/start?t=" + ticket
 }
 
-func (s *Session) callbackURL() string { return s.origin + "/auth/" + s.nonce + "/callback" }
+// callbackPath is the callback page's path without the state.
+func (s *Session) callbackPath() string { return "/auth/" + s.nonce + "/callback" }
+
+// callbackURL is the referrer Sona hands Apple. The state is only ever in
+// this URL: Apple's redirect returns to it, and the page strips it.
+func (s *Session) callbackURL() string { return s.origin + s.callbackPath() + "/" + s.state }
 
 // Wait blocks until sign-in completes, fails, reaches the deadline, ctx
 // ends, or Close is called. It always ends the attempt: afterwards every
@@ -272,11 +286,14 @@ func (s *Session) Handler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		switch strings.TrimPrefix(r.URL.Path, prefix) {
+		rest := strings.TrimPrefix(r.URL.Path, prefix)
+		if state, ok := strings.CutPrefix(rest, "callback/"); ok {
+			s.serveCallback(w, r, state)
+			return
+		}
+		switch rest {
 		case "start":
 			s.serveStart(w, r)
-		case "callback":
-			s.serveCallback(w, r)
 		case "complete":
 			s.serveComplete(w, r)
 		default:
@@ -298,10 +315,11 @@ var callbackTmpl = template.Must(template.New("callback").Parse(`<!doctype html>
 (async () => {
   const m = document.getElementById("m");
   const fragment = location.hash;
-  history.replaceState(null, "", location.pathname);
+  const state = {{.State}};
+  history.replaceState(null, "", {{.Callback}});
   if (!fragment) { m.textContent = "Sign-in did not return a token. Return to Sona and try again."; return; }
   try {
-    const r = await fetch({{.Complete}}, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({fragment})});
+    const r = await fetch({{.Complete}}, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({fragment, state})});
     m.textContent = r.ok ? "Signed in. You can close this window and return to Sona." : "Sign-in failed: " + await r.text();
     if (r.ok) setTimeout(() => window.close(), 800);
   } catch (e) { m.textContent = "Sign-in failed: " + e; }
@@ -382,13 +400,28 @@ func (s *Session) serveStart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Session) serveCallback(w http.ResponseWriter, r *http.Request) {
+// serveCallback serves the page that posts the fragment back. It answers
+// only at the attempt's own state: anything else gets nothing to post with.
+func (s *Session) serveCallback(w http.ResponseWriter, r *http.Request, state string) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if !s.hasState(state) {
+		http.Error(w, "This sign-in page is not the one Sona opened. Return to Sona and start again.", http.StatusNotFound)
+		return
+	}
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	s.render(w, callbackTmpl, map[string]any{"Complete": "/auth/" + s.nonce + "/complete"})
+	s.render(w, callbackTmpl, map[string]any{
+		"Complete": "/auth/" + s.nonce + "/complete",
+		"Callback": s.callbackPath(),
+		"State":    state,
+	})
+}
+
+// hasState reports whether v is the attempt's state (constant-time).
+func (s *Session) hasState(v string) bool {
+	return subtle.ConstantTimeCompare([]byte(v), []byte(s.state)) == 1
 }
 
 // hasKey reports whether r carries the attempt's cookie (constant-time).
@@ -427,9 +460,14 @@ func (s *Session) serveComplete(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Fragment string `json:"fragment"`
+		State    string `json:"state"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 16<<10)).Decode(&body); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if !s.hasState(body.State) {
+		http.Error(w, "this sign-in did not come from Sona's redirect", http.StatusForbidden)
 		return
 	}
 	res, err := DecodeFragment(body.Fragment)

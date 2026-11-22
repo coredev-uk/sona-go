@@ -17,7 +17,7 @@ import (
 
 // Full-Screen Lyrics sets the song's phrasing as its layout: lines climb a
 // left column, the sung line and the ones around it all in one size. The
-// numbers below are the contract's (.impeccable/surfaces/…nowplaying-room-go.md).
+// numbers below are the contract's (docs/design.md, "Full-Screen Lyrics").
 const (
 	// stageLineDIP is the size of a line of timed lyrics, at stageRefH of
 	// window height; it scales with the window's height. stageLadder is how
@@ -37,13 +37,18 @@ const (
 	stageWidth = 0.70
 	// stageFocus is where the sung line sits: its middle at 45% of the height.
 	stageFocus = 0.45
-	// stageReach is how many lines before and after the sung one are built:
-	// the two shown each way and one more, which is at rest and gone, so that
+	// stageReach is how many lines before and after the sung one count: the
+	// two shown each way and one more, which is at rest and gone, so that
 	// a line fades in and out as the column climbs.
 	stageReach = 3
 	// stageCut is how far the sung line may move and still be a climb; a seek
 	// further than that is a cut.
 	stageCut = 3
+	// stageBuild is how many lines each way are built: the lines beyond
+	// stageReach are gone but there, so that every line that a climb of up to
+	// stageCut brings to the screen was posed in the frame before and glides in
+	// from where it was, and none appears in place and over the others.
+	stageBuild = stageReach + stageCut
 	// stageSub is the size of a line's background vocals, romanisation and
 	// translation, as a share of the line's.
 	stageSub = 0.42
@@ -139,6 +144,7 @@ type stage struct {
 	anchor, active int
 	cursor         int // plain lyrics: the line the reader is at
 	cut            bool
+	colY           float32 // where the column was posed last (it was not before the first frame: anchor < 0)
 
 	// The wash's drift: started, and when it began.
 	driftAt time.Time
@@ -302,8 +308,19 @@ func (s *stage) gap(i int) float32 {
 }
 
 // reach lays the column out as far as lines lo to hi. It reports whether it
-// started again (the lines' places are not those of the frame before).
+// started again (the lines' places are not those of the frame before). A few
+// lines before the first one laid out are added in front of it, so that a seek
+// back from a song opened in the middle is still a glide.
 func (s *stage) reach(lo, hi int) (restarted bool) {
+	if len(s.tops) > 0 && lo < s.origin && s.origin-lo <= stageCut {
+		front := make([]float32, s.origin-lo)
+		next := s.tops[0]
+		for j := s.origin - 1; j >= lo; j-- {
+			next -= s.block(j).h + s.gap(j+1) + s.block(j+1).above()
+			front[j-lo] = next
+		}
+		s.tops, s.origin = append(front, s.tops...), lo
+	}
 	if len(s.tops) == 0 || lo < s.origin || lo > s.origin+len(s.tops) {
 		s.origin, s.tops, restarted = lo, s.tops[:0], true
 	}
@@ -324,12 +341,17 @@ func (s *stage) reach(lo, hi int) (restarted bool) {
 // top is where line i's body stands in the column (reach has laid it out).
 func (s *stage) top(i int) float32 { return s.tops[i-s.origin] }
 
-// climb is how the column goes to a new place when the sung line advances:
-// the climb token (600 ms, exponential out).
-func climb() ui.Animation {
-	m := theme.Current().Motion["climb"]
-	return ui.Animation{Duration: m.Duration, Ease: m.Ease}
+// pose is where a line of rank stands: its stagePose, moved by the shift that
+// puts the sung line in the middle.
+func (in stageIn) pose(rank int) ui.Pose {
+	p := stagePose(rank)
+	p.Y = in.shift
+	return p
 }
+
+// anim is how a line of rank goes to a new pose: after the wait its rank has
+// in the cascade (none when lines jump).
+func (in stageIn) anim(rank int) ui.Animation { return cascadeAnim(rank, in.up, in.instant) }
 
 // stagePose is where a line stands by its rank (how many lines it is from
 // the one in the middle): the sung line at full size, the others a little
@@ -363,6 +385,13 @@ type stageIn struct {
 	anchor  int // the line in the middle
 	active  int // the line sung (-1: none, as in a break)
 	reduced bool
+
+	// shift is how far each line is moved from where the column has it
+	// (the climb that puts the sung line in the middle), and up the way
+	// that goes. instant: lines jump to their place.
+	shift   float32
+	up      bool
+	instant bool
 
 	// lo is the first line built; lineRank and dotsRank are the rank (the
 	// places from the sung one) of each line built and of the dots before it.
@@ -398,17 +427,21 @@ func (st *stage) ranks(anchor int, dotsSung bool, lo, hi int) (lines, dots []int
 
 // cascade builds the column: the sung line in the middle and the lines
 // around it, all in one size. The lines stand where they stand in the
-// column; the column as a whole is posed so the sung line (or, in an
-// instrumental gap, its dots) is in the middle, and a new pose climbs there
-// over 600 ms in frames that only paint. The view is built once per line, not
-// once per frame.
+// column; each is posed to shift by what puts the sung line (or, in an
+// instrumental gap, its dots) in the middle, with its own rank's scale and
+// fade, and a new pose glides there line by line (cascadeAnim): the sung
+// line first, the lines trailing it after a delay that grows with the
+// distance. The glide is a pose, frames that only paint; the view is built
+// once per line, not once per frame.
 func (p *player) cascade(c *ui.Context, st *stage, in stageIn) {
 	n := len(st.lyr.Lines)
-	lo, hi := max(in.anchor-stageReach, 0), min(in.anchor+stageReach, n-1)
+	lo, hi := max(in.anchor-stageBuild, 0), min(in.anchor+stageBuild, n-1)
 	restarted := st.reach(lo, hi)
 	cut := restarted || st.anchor < 0 || abs(in.anchor-st.anchor) > stageCut
+	first := st.anchor < 0
 	st.anchor, st.active, st.cut = in.anchor, in.active, cut
-	if in.reduced || cut {
+	in.instant = in.reduced || cut
+	if in.instant {
 		// Lines jump into place: under reduced motion always, and after a
 		// seek that moves the column further than it climbs.
 		c.DisableAnimations()
@@ -424,6 +457,10 @@ func (p *player) cascade(c *ui.Context, st *stage, in stageIn) {
 	}
 	in.lo = lo
 	in.lineRank, in.dotsRank = st.ranks(in.anchor, dotsSung, lo, hi)
+	in.shift = in.g.focus - mid
+	// The column goes up when its shift falls: the sung line is lower in it.
+	in.up = first || in.shift <= st.colY
+	st.colY = in.shift
 
 	box := ui.Box(c.Key("cascade:" + st.songID)).Absolute().Top(0).Left(0).Right(0).Bottom(0).IgnoreInput(true).
 		Role(ui.RoleGroup).Label(i18n.T("Lyrics"))
@@ -433,7 +470,6 @@ func (p *player) cascade(c *ui.Context, st *stage, in stageIn) {
 			Colors: true, Enter: &ui.Motion{Y: 48 * in.g.scale}, Exit: &ui.Motion{}, Duration: m.Duration, Ease: m.Ease,
 		})
 	}
-	box.AnimatePose(ui.Pose{Y: in.g.focus - mid}, climb())
 	box.Children(func() {
 		for i := lo; i <= hi; i++ {
 			p.stageLine(c, st, in, i)
@@ -478,7 +514,7 @@ func (p *player) stageLine(c *ui.Context, st *stage, in stageIn, i int) {
 	col := ui.Column(c.Key("line:" + strconv.Itoa(i))).Absolute().Left(g.left + b.indent).Top(st.top(i) - b.headH - b.headGap).
 		Width(g.colW - b.indent).Height(b.headH + b.headGap + b.h).IgnoreInput(true)
 	col.TransformOrigin(0, 0.5)
-	col.AnimatePose(stagePose(in.lineRank[i-in.lo]), climb())
+	col.AnimatePose(in.pose(in.lineRank[i-in.lo]), in.anim(in.lineRank[i-in.lo]))
 	col.Children(func() {
 		if b.headed {
 			lineText(c.Key("together"), i18n.T("Together"), b.headH/1.3, b.headH, 500, theme.C("ink-muted")).Margin(0, 0, b.headGap, 0)
@@ -495,7 +531,7 @@ func (p *player) stageLine(c *ui.Context, st *stage, in stageIn, i int) {
 				if right {
 					x = r.X + r.W - sw.Width()
 				}
-				sw.Paint(pt, x, r.Y, base, base, 0, 0, right)
+				sw.Paint(pt, x, r.Y, base, base, kit.SweepClock{Still: true}, right)
 			})
 		}
 		part("lead", b.lead, b.shown.Lead, 0, tone, 0)
@@ -514,21 +550,23 @@ func (p *player) stageLine(c *ui.Context, st *stage, in stageIn, i int) {
 // stageGap is the dots of the instrumental gap before line i, above the line
 // and its heading. They take the pose of the place they hold: the sung one
 // while the gap runs, a place of their own before it, and gone (small and
-// faded, over the climb) once the line has begun. Their fill is painted from
-// the clock in steps, by timers (gapDraw).
+// faded, glided away with the lines) once the line has begun. Their fill is
+// painted from the clock in steps, by timers (gapDraw).
 func (p *player) stageGap(c *ui.Context, st *stage, in stageIn, i int, b *stageBlock) {
 	g := in.g
 	state := gapStateOf(i, in.active, in.anchor)
-	pose := ui.Pose{Scale: 0.6, Fade: 1}
+	rank, pose := in.dotsRank[i-in.lo], ui.Pose{Scale: 0.6, Fade: 1, Y: in.shift}
 	switch state {
 	case gapSung:
-		pose = stagePose(0)
+		rank, pose = 0, in.pose(0)
 	case gapComing:
-		pose = stagePose(in.dotsRank[i-in.lo])
+		pose = in.pose(rank)
+	default:
+		rank = in.lineRank[i-in.lo] // gone with its line: after it
 	}
 	e := ui.Box(c.Key("gap:" + strconv.Itoa(i))).Absolute().Left(g.left).Top(st.top(i) - b.above()).Width(g.colW).Height(b.dotsH).IgnoreInput(true)
 	e.TransformOrigin(0, 0.5)
-	e.AnimatePose(pose, climb())
+	e.AnimatePose(pose, in.anim(rank))
 	if state != gapPast {
 		e.Role(ui.RoleImage).Label(gapLabel()).
 			Draw(p.gapDraw(st.songID, st.gaps[i], b.dots, 0, rtl(st.lyr.Lines[i].Text), in.reduced, gapTone(), theme.C("amber-ink")))

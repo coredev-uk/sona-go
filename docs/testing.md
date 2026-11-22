@@ -127,6 +127,7 @@ The CDM host sandbox tests (`TestChildCannotOpenInetSockets`, `TestSandboxConfin
 - Where the system refuses them, they skip and say why. Refusals are EPERM or EACCES: Flatpak, user namespaces disabled, or Ubuntu 24.04's AppArmor restriction `kernel.apparmor_restrict_unprivileged_userns=1`. Any other failure fails them.
 - To run them on Ubuntu, lift the restriction for the session: `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
 - CI does that, and sets `SONA_CDMHOST_REQUIRE_NAMESPACES=1`, which turns a skip into a failure.
+- The shipped configuration is the restriction on, with the package's AppArmor profile (`build/linux/apparmor/sona`, installed as `/etc/apparmor.d/sona`). To run the tests that way on an Ubuntu 24.04 machine, build the test binary (`go test -c ./internal/playback/cdmhost`), install it as `/usr/bin/sona` (the path the profile matches), load the profile (`sudo apparmor_parser -r /etc/apparmor.d/sona`) and run it as an ordinary user with `-test.run 'TestSandboxConfinesChild|TestChildCannotOpenInetSockets'`. The `namespaces` subtest then runs and passes under the default sysctl. Without the profile it skips, and `landlock only` shows the session bus reachable below Landlock ABI 9 (`reaches sockets: true`).
 
 The add-on sandbox's tests (`internal/addons/sandbox`, in the same CI job) need the same user namespaces and follow the same rules: they skip where the system refuses, and `SONA_ADDON_REQUIRE_SANDBOX=1` (CI) fails them instead. The test binary is the add-on too: `TestMain` calls `sandbox.Main`, the sandbox starts the binary again as an add-on's init, and the add-on (the binary with `SONA_SANDBOX_TEST_PROBE` set) reports what it could reach. The supervisor's own tests (`internal/services`, `internal/addons`) run their fake add-ons without the sandbox through `SONA_ADDON_UNSANDBOXED=1`, which only a test binary honours; a simulated sandbox failure tests the refusal, and the unsandboxed start of Sona's own add-ons.
 
@@ -203,10 +204,14 @@ Tests get the directory from `internal/ui/uitest/artifacts`, and only when they 
 
 Run a golden's test binary inside `devenv shell` (`devenv shell -- go test …`, or `devenv shell -- /path/to/pkg.test`). MyGo draws Linux text with Pango, which it finds through the shell's `LD_LIBRARY_PATH`. A binary started outside it has no text engine: registering the font fails with "this system has no text engine to add fonts to" (the kit's goldens report it on every test), and a picture drawn anyway has boxes, icons and fills but no text at all.
 
-On a Mac, or any machine whose text differs from CI's, update goldens in the CI image:
+On a Mac, or any machine whose text differs from CI's, update goldens in the CI image. The tag is writable by any workflow of the repository; the build provenance is not, so check it before you run the image (a change of your own to `build/ci` is built as `pr-<tag>` and has none: build it by hand, `docs/maintainers/ci-workflows.md`):
 
 ```sh
-podman run --rm -v "$PWD":/src -w /src -e MYGO_GPU=0 ghcr.io/coredev-uk/sona-ci:$(build/ci/tag.sh) go test ./internal/ui/... -update
+image=ghcr.io/coredev-uk/sona-ci:$(build/ci/tag.sh)
+podman pull "$image"
+gh attestation verify "oci://$image" -R coredev-uk/sona-go \
+  --signer-workflow coredev-uk/sona-go/.github/workflows/images.yml --source-ref refs/heads/main
+podman run --rm -v "$PWD":/src -w /src -e MYGO_GPU=0 "$image" go test ./internal/ui/... -update
 ```
 
 The image is amd64 and arm64. An arm64 machine (Apple silicon, through Podman's VM) may draw text a hair differently from CI's amd64 runners. CI is the reference, so push and check the run.

@@ -436,53 +436,84 @@ const seekHit = 12
 // go (or a key moved it). A live station has none: its edge is a line.
 func (p *player) seekStrip(c *ui.Context, s services.PlaybackState) {
 	if s.Current != nil && s.Current.Live {
-		p.holding = false
+		p.seek.holding = false
 		ui.Box(c.Key("edge")).Absolute().Left(0).Right(0).Top(0).Height(1).Background(theme.C("line")).IgnoreInput(true)
 		return
 	}
 	idle := s.Current == nil
 	pos, dur := p.position(s, idle)
 	can := !idle && dur > 0 && s.Controls.Seek
-	v := pos.Seconds()
-	sl := ui.SliderBase(c.Key("seek"), &v, 0, max(dur.Seconds(), 1)).Absolute().Left(0).Right(0).Top(0).Height(seekHit).
-		PaddingX(seekThumb / 2).Cursor(ui.CursorPointer).Label(i18n.T("Seek"))
-	if !can {
-		sl.Disabled(true).Opacity(0.5)
-	}
-	told := pos // what assistive technology reads of the position
-	if can && sl.Focused() && !p.seek.Active() {
-		if !p.holding {
-			p.holding, p.held = true, math.Floor(pos.Seconds())
-		}
-		told = time.Duration(p.held * float64(time.Second))
-		sl.Range(0, max(dur.Seconds(), 1), p.held)
-	} else {
-		p.holding = false
-	}
-	if can {
-		// v0.2.0's aria-valuetext, there only while the slider is on.
-		sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(told), "total", i18n.FormatDuration(dur)))
-	}
-	if to, ok := p.seek.Update(sl, v); ok {
-		p.tr.SeekTo(to, p.now())
-	}
-	drawSeek(sl, v, 0, max(dur.Seconds(), 1), sl.Hovered() || sl.Focused() || p.seek.Active())
+	p.seek.slider(c, "seek", pos, dur, can, seekLook{fill: "amber"}, p.seekTo).Absolute().Left(0).Right(0).Top(0).Height(seekHit)
 }
+
+// seekTo seeks the song to at.
+func (p *player) seekTo(at time.Duration) { p.tr.SeekTo(at, p.now()) }
 
 // seekThumb is the seek thumb's diameter; the track is 3 DIP, 5 while the
 // pointer or the keyboard is on the bar.
 const seekThumb = 10
 
-// drawSeek paints the seek bar: the track edge to edge, the amber fill up to
-// the thumb, which is always shown (the thumb, not the fill's colour, marks
-// the value).
-func drawSeek(sl ui.Element, v, lo, hi float64, on bool) {
+// seekPad is one seek slider's state: its drag, and the position assistive
+// technology is told while the slider has the focus and nobody moves it
+// (holding says there is one): the bar and the time keep moving, but a screen
+// reader reads every change of a focused slider, four times a second as the
+// position ticks. The bar and the Full-Screen Lyrics strip each hold one, so
+// their drags cannot meet.
+type seekPad struct {
+	kit.SeekDrag
+	holding bool
+	held    float64
+}
+
+// seekLook is how a seek slider is painted: the fill's colour token, and
+// whether the track sits in the middle of the hit area (the bar's hangs from
+// its top edge).
+type seekLook struct {
+	fill     string
+	centered bool
+}
+
+// slider builds a seek slider for a song pos in of dur, which seeks once
+// through to when the pointer lets go (or a key moved it). It is disabled
+// unless can. The caller places the returned element.
+func (s *seekPad) slider(c *ui.Context, key string, pos, dur time.Duration, can bool, look seekLook, to func(time.Duration)) ui.Element {
+	v := pos.Seconds()
+	hi := max(dur.Seconds(), 1)
+	sl := ui.SliderBase(c.Key(key), &v, 0, hi).PaddingX(seekThumb / 2).Cursor(ui.CursorPointer).Label(i18n.T("Seek"))
+	if !can {
+		sl.Disabled(true).Opacity(0.5)
+	}
+	told := pos // what assistive technology reads of the position
+	if can && sl.Focused() && !s.Active() {
+		if !s.holding {
+			s.holding, s.held = true, math.Floor(pos.Seconds())
+		}
+		told = time.Duration(s.held * float64(time.Second))
+		sl.Range(0, hi, s.held)
+	} else {
+		s.holding = false
+	}
+	if can {
+		// v0.2.0's aria-valuetext, there only while the slider is on.
+		sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(told), "total", i18n.FormatDuration(dur)))
+	}
+	if at, ok := s.Update(sl, v); ok {
+		to(at)
+	}
+	drawSeek(sl, v, 0, hi, sl.Hovered() || sl.Focused() || s.Active(), look)
+	return sl
+}
+
+// drawSeek paints the seek bar: the track edge to edge, the fill up to the
+// thumb, which is always shown (the thumb, not the fill's colour, marks the
+// value).
+func drawSeek(sl ui.Element, v, lo, hi float64, on bool, look seekLook) {
 	at := float32(0)
 	if hi > lo {
 		at = float32((v - lo) / (hi - lo))
 	}
 	at = min(max(at, 0), 1)
-	track, fill, ink := theme.C("ink-faint").Alpha(0.4), theme.C("amber"), theme.C("ink")
+	track, fill, ink := theme.C("ink-faint").Alpha(0.4), theme.C(look.fill), theme.C("ink")
 	h := float32(3)
 	if on {
 		h = 5
@@ -490,6 +521,9 @@ func drawSeek(sl ui.Element, v, lo, hi float64, on bool) {
 	sl.Draw(func(p *ui.Painter, r ui.Rect) {
 		x0, w := r.X+seekThumb/2, r.W-seekThumb
 		cy := r.Y + seekThumb/2
+		if look.centered {
+			cy = r.Y + r.H/2
+		}
 		p.Fill(ui.Rect{X: r.X, Y: cy - h/2, W: r.W, H: h}, track, 0)
 		thumbX := x0 + w*at
 		if thumbX > r.X {

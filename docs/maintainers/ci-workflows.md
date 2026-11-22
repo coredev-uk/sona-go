@@ -73,6 +73,28 @@ builds it in the release job (about three minutes). Each kind of job (vet, e2e, 
 lifts the user-namespace restriction of the host). To rebuild it by hand:
 `podman build $(build/ci/tag.sh args) -f build/ci/Containerfile build/ci`.
 
+Base images are named by digest: the CI image's and the release image's
+`FROM` lines and the Flatpak workflow's `container:` image carry
+`@sha256:…`, so a rebuild starts from the bytes the file names. Renovate
+(`dockerfile` and `github-actions` managers) keeps those digests current once
+a week and never moves a tag; the release image's digest pull request is
+labelled `verdict/review`, because only a release dry run builds it. To move
+one by hand, put the new digest of the same tag in the `FROM` line
+(`docker buildx imagetools inspect <image>:<tag> --format '{{.Manifest.Digest}}'`).
+`release.sh` pulls the digest the Containerfile's `FROM` line names and refuses
+a line without one.
+
+**What a release build downloads.** Every tool is fixed to a version and a
+checksum in the repository before it runs: linuxdeploy and its plugins
+(`build/linux/appimage-tools.sha256`), NSIS and pkg-config-lite
+(`build/windows/tools.sha256`), GStreamer (`build/*/gstreamer.sha256`), and the
+Go toolchain of both images (`ARG GO_SHA256` in the release Containerfile,
+`build/ci/go.sha256` for the CI image; a Go bump changes the version and the
+hash together). Renovate does not move these: it cannot compute a hash, and a
+bump is a pull request that a release dry run (Actions → Release → Run
+workflow, no prerelease) checks. A release, the nightly and a prerelease
+restore no Go cache and save none; only a dry run has one (`release-dry-…`).
+
 Rules for workflow changes: trigger pull requests with `pull_request`, never
 `pull_request_target` or `workflow_run` (`cache-prune.yml` is the one
 `workflow_run`: it reacts to pushes to main only and runs no repository code); start from `permissions: contents:

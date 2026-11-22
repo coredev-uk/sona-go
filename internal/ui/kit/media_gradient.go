@@ -1,12 +1,10 @@
 package kit
 
 import (
-	"time"
 	"unicode/utf16"
 
 	"github.com/egoist/mygo/ui"
 
-	"github.com/coredev-uk/sona-go/internal/lyrics"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -50,7 +48,7 @@ type gradientShape struct {
 	key    gradientKey
 	layout *ui.TextLayout
 	w, h   float32
-	rects  []ui.Rect
+	rects  []fillBox
 }
 
 type gradientKey struct {
@@ -75,7 +73,7 @@ func shapeGradient(text string, o GradientOpts) *gradientShape {
 	s := &gradientShape{key: gradientKey{text, o.Size, o.Weight, o.LineHeight, o.Width}}
 	s.layout = ui.ShapeRichTextWith([]ui.Span{{Text: text}}, o.font(), ui.TextShape{Width: o.Width})
 	s.w, s.h = s.layout.Size()
-	s.rects = s.layout.SelectionRects(ui.TextInputRange{Start: 0, End: len(utf16.Encode([]rune(text)))})
+	s.rects = plainBoxes(s.layout.SelectionRects(ui.TextInputRange{Start: 0, End: len(utf16.Encode([]rune(text)))}))
 	return s
 }
 
@@ -108,23 +106,56 @@ func GradientText(c *ui.Context, text string, o GradientOpts) ui.Element {
 	return box
 }
 
+// fillBox is one box of a run of text that a fill reaches: in the layout's
+// coordinates, with how far the ink may overhang it to its left and right
+// (an italic's slant), above (a word lifted past its line's top) and below
+// (a descender of a face that has more than its line leaves).
+type fillBox struct {
+	r                         ui.Rect
+	left, right, above, below float32
+}
+
+// plainBoxes are rects as fill boxes whose ink stays inside them.
+func plainBoxes(rects []ui.Rect) []fillBox {
+	out := make([]fillBox, len(rects))
+	for i, r := range rects {
+		out[i].r = r
+	}
+	return out
+}
+
 // mediaPaintFill draws layout again over itself in col, clipped to the part of
-// rects (the boxes of one run of text, in reading order, laid out at x, y)
+// boxes (the boxes of one run of text, in reading order, laid out at x, y)
 // that progress, 0 to 1, has reached: solid up to p·(length + edge) − edge,
 // then edge DIPs fading out over gradientSteps slices. It reports nothing;
 // callers know whether progress moves.
-func mediaPaintFill(p *ui.Painter, layout *ui.TextLayout, x, y float32, rects []ui.Rect, progress, edge float32, rtl bool, col ui.Color) {
+func mediaPaintFill(p *ui.Painter, layout *ui.TextLayout, x, y float32, boxes []fillBox, progress, edge float32, rtl bool, col ui.Color) {
+	mediaFill(p, boxes, x, y, progress, edge, rtl, col, func(c ui.Color) { p.TextLayout(layout, x, y, c) }, nil)
+}
+
+// mediaFill is mediaPaintFill for any drawing: draw paints the text in the
+// colour it is given, once per slice, inside the slice's clip. place, when
+// set, moves a slice (laid out at ox, oy) to where its text is drawn, and
+// says false for one that holds none of it.
+func mediaFill(p *ui.Painter, boxes []fillBox, ox, oy float32, progress, edge float32, rtl bool, col ui.Color, draw func(ui.Color), place func(ui.Rect) (ui.Rect, bool)) {
 	if progress <= 0 || col.A == 0 {
 		return
 	}
 	fill := func(r ui.Rect, c ui.Color) {
-		if r.W > 0 {
-			p.Clip(r, 0, func() { p.TextLayout(layout, x, y, c) })
+		if r.W <= 0 {
+			return
 		}
+		if place != nil {
+			var ok bool
+			if r, ok = place(r); !ok {
+				return
+			}
+		}
+		p.Clip(r, 0, func() { draw(c) })
 	}
 	total := float32(0)
-	for _, r := range rects {
-		total += r.W
+	for _, b := range boxes {
+		total += b.r.W
 	}
 	// How far along the boxes the solid fill reaches; the edge runs on edge
 	// DIPs beyond it (CSS: p·(100% + edge) − edge).
@@ -133,18 +164,28 @@ func mediaPaintFill(p *ui.Painter, layout *ui.TextLayout, x, y float32, rects []
 		solid = total
 	}
 	offset := float32(0)
-	for _, r := range rects {
-		r.X, r.Y = r.X+x, r.Y+y
-		// The part of reading span from…to that falls in this box.
+	for _, b := range boxes {
+		r := b.r
+		r.X, r.Y = r.X+ox, r.Y+oy
+		// The part of reading span from…to that falls in this box, grown
+		// where it reaches the box's ends by the ink that overhangs them.
 		span := func(from, to float32) ui.Rect {
 			lo, hi := max(from-offset, 0), min(to-offset, r.W)
 			if hi <= lo {
 				return ui.Rect{}
 			}
+			x0 := r.X + lo
 			if rtl {
-				return ui.Rect{X: r.X + r.W - hi, Y: r.Y, W: hi - lo, H: r.H}
+				x0 = r.X + r.W - hi
 			}
-			return ui.Rect{X: r.X + lo, Y: r.Y, W: hi - lo, H: r.H}
+			x1 := x0 + hi - lo
+			if !rtl && lo == 0 || rtl && hi == r.W {
+				x0 -= b.left
+			}
+			if !rtl && hi == r.W || rtl && lo == 0 {
+				x1 += b.right
+			}
+			return ui.Rect{X: x0, Y: r.Y - b.above, W: x1 - x0, H: r.H + b.above + b.below}
 		}
 		fill(span(0, solid), col)
 		if progress < 1 {
@@ -162,87 +203,4 @@ func mediaPaintFill(p *ui.Painter, layout *ui.TextLayout, x, y float32, rects []
 func mediaAlpha(c ui.Color, a float32) ui.Color {
 	c.A = uint8(float32(c.A)*min(max(a, 0), 1) + 0.5)
 	return c
-}
-
-// SweepText is one word-timed text of a lyric line (its lead or its
-// background vocals), shaped once for the sheet's width: each word fills
-// with the sweep colour from its start to its end as it is sung, short
-// words too, behind the soft edge (index.css's .lyric-word). Build one per
-// line and width, keep it (shaping is the cost), and paint it from the
-// clock in a Draw callback.
-type SweepText struct {
-	words  []lyrics.Word
-	layout *ui.TextLayout
-	width  float32
-	h      float32
-	size   float32
-	rects  [][]ui.Rect // each word's boxes in the layout, wrapped words in several
-}
-
-// NewSweepText shapes words as one text of the font's size, weight and line
-// height (DIPs) wrapped at width, in the theme's face. lang is the words'
-// language (a BCP 47 tag, "" the app's): it picks the glyphs of Han
-// characters and where lines may break, so Korean words stay whole as in a
-// Text of that Lang.
-func NewSweepText(words []lyrics.Word, lang string, size float32, weight int, lineHeight, width float32) *SweepText {
-	return newSweepText(words, lang, size, weight, false, lineHeight, width)
-}
-
-// NewSweepTextItalic is NewSweepText in italic: a duet's other voice.
-func NewSweepTextItalic(words []lyrics.Word, lang string, size float32, weight int, lineHeight, width float32) *SweepText {
-	return newSweepText(words, lang, size, weight, true, lineHeight, width)
-}
-
-func newSweepText(words []lyrics.Word, lang string, size float32, weight int, italic bool, lineHeight, width float32) *SweepText {
-	spans := make([]ui.Span, len(words))
-	for i, w := range words {
-		spans[i] = ui.Span{Text: w.Text}
-	}
-	font := ui.Font{Family: theme.FontFamily, Size: size, Weight: weight, Italic: italic, Lang: lang, LineHeight: lineHeight / size}
-	s := &SweepText{words: words, width: width, size: size}
-	s.layout = ui.ShapeRichTextWith(spans, font, ui.TextShape{Width: width})
-	_, s.h = s.layout.Size()
-	// Each word's boxes, by UTF-16 offsets, without its trailing space.
-	at := 0
-	for _, w := range words {
-		units := utf16.Encode([]rune(w.Text))
-		trimmed := len(units)
-		for trimmed > 0 && (units[trimmed-1] == ' ' || units[trimmed-1] == '\u00a0') {
-			trimmed--
-		}
-		s.rects = append(s.rects, s.layout.SelectionRects(ui.TextInputRange{Start: at, End: at + trimmed}))
-		at += len(units)
-	}
-	return s
-}
-
-// Width is the width the text was shaped for, Height its height in DIPs.
-func (s *SweepText) Width() float32 { return s.width }
-
-// Height is the shaped height in DIPs.
-func (s *SweepText) Height() float32 { return s.h }
-
-// Paint draws the text at (x, y) in base, then each word sung by time t over
-// it in fill, a word being sung up to its soft edge; sung (0 to 1) scales the
-// fill's strength, which is how a line fades in and out. It reports whether a
-// word is being sung, which needs the next frame (Painter.AnimationFrame).
-// rtl fills from the right.
-func (s *SweepText) Paint(p *ui.Painter, x, y float32, base, fill ui.Color, sung float32, t time.Duration, rtl bool) (moving bool) {
-	p.TextLayout(s.layout, x, y, base)
-	if sung <= 0 {
-		return false
-	}
-	hi := mediaAlpha(fill, sung)
-	edge := s.size * 0.5
-	for k, w := range s.words {
-		if t < w.Begin {
-			break // the words after it are later still
-		}
-		prog := float32(1)
-		if t < w.End && w.End > w.Begin {
-			prog, moving = float32(t-w.Begin)/float32(w.End-w.Begin), true
-		}
-		mediaPaintFill(p, s.layout, x, y, s.rects[k], prog, edge, rtl, hi)
-	}
-	return moving
 }

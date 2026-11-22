@@ -65,14 +65,11 @@ type player struct {
 	// Now Playing take a live station's programme from its schedule.
 	station func(ctx context.Context, id string) (services.StationDetail, error)
 
-	// seek is the seek bar while the user drags it. held is the position
-	// assistive technology is told while the slider has the focus and nobody
-	// moves it (holding says there is one): the bar and the time keep moving,
-	// but a screen reader reads every change of a focused slider, four times a
-	// second as the position ticks.
-	seek    kit.SeekDrag
-	holding bool
-	held    float64
+	// seek is the seek bar while the user drags it, stageSeek Full-Screen
+	// Lyrics' scrubber (bar.go, seekPad): each its own, so the drags are not
+	// mixed.
+	seek      seekPad
+	stageSeek seekPad
 
 	// ui is the panels' state (view.go); np is Now Playing's (nowplaying_state.go).
 	ui *view

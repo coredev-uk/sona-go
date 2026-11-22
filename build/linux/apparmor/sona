@@ -1,0 +1,32 @@
+# AppArmor profile for Sona, installed by the .deb and .rpm packages as
+# /etc/apparmor.d/sona (build/linux/nfpm/nfpm.yaml; postinstall.sh loads it).
+#
+# Ubuntu 23.10 and later (and distributions that carry its patch) set
+# kernel.apparmor_restrict_unprivileged_userns=1: an unconfined program that
+# creates a user namespace gets one without capabilities. Sona's playback
+# host (the process that runs Google's Widevine CDM) is confined by its own
+# user, network and mount namespaces, and needs the capabilities inside them
+# to build its private view of the filesystem; without them it keeps only
+# Landlock and seccomp, and on kernels below Landlock ABI 9 (every Ubuntu
+# 24.04 kernel) it can still connect to the session bus (docs/architecture.md,
+# "Sandbox"; docs/security-review.md, "Linux sandbox").
+#
+# This profile changes nothing else: `flags=(unconfined)` makes AppArmor
+# mediate no file, network or capability access of Sona, and `userns,` lets
+# it create the user namespaces. It is the profile Chrome, Discord and other
+# Electron applications use on Ubuntu 24.04. Put local additions in
+# /etc/apparmor.d/local/sona.
+#
+# The path is where the packages install the binary. An AppImage runs from a
+# changing mount point and cannot be matched by a fixed path, so it runs
+# without this profile.
+
+abi <abi/4.0>,
+include <tunables/global>
+
+profile sona /usr/bin/sona flags=(unconfined) {
+  userns,
+
+  # Site-specific additions and overrides.
+  include if exists <local/sona>
+}

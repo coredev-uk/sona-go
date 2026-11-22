@@ -24,6 +24,8 @@ Shuffle (S) plays the queue in a random order. Repeat (R) cycles through repeat 
 
 Press L to open the lyrics in Now Playing. Sona asks every lyrics source you turned on and shows the finest timing it finds: word by word, then line by line, then plain text.
 
+- The sung line stays a third of the way down the lyrics, and each line glides up to its place as it is sung, one after another, the lines after it a moment behind. Seek back and they glide down. With reduce motion on they jump.
+- With word-by-word lyrics each letter lifts a little as the colour reaches it, so the lift runs along the word with the singing, and stays up until the line is done; a word held for a second or more swells letter by letter with a soft amber glow. The words in the lines around the sung one stand still. With reduce motion on the words only light, with no lift, swell or glow.
 - Select a line to jump to it.
 - Where the singing stops for five seconds or more, three dots stand in the lyrics and fill in amber, one after the other, until the next line begins.
 - Press [ and ] to shift the lyrics earlier or later, and \ to reset.
@@ -31,13 +33,13 @@ Press L to open the lyrics in Now Playing. Sona asks every lyrics source you tur
 
 ## Full-Screen Lyrics
 
-Press Shift+L, or choose Full screen under the lyrics in Now Playing, to give the whole screen to the words. The window goes full screen. Every line is set in the same large size. The sung line sits in the middle, with the lines before it fading above and the next two below, and the words light in amber as they are sung. In a long instrumental gap three dots take the middle and fill in amber until the singing returns. It suits a TV or a second screen across a room.
+Press Shift+L, or choose Full screen under the lyrics in Now Playing, to give the whole screen to the words. The window goes full screen. Every line is set in the same large size. The sung line sits in the middle, with the lines before it fading above and the next two below, and the words light in amber as they are sung, each letter lifting a little with the colour, a held word swelling with a soft glow. In a long instrumental gap three dots take the middle and fill in amber until the singing returns. It suits a TV or a second screen across a room.
 
 - The song, previous, play or pause and next, its progress, the lyrics timing and Exit full screen are hidden until you move the pointer or press a key, and hide again after three seconds. Music that is paused keeps them in view.
 - Press Space to play or pause, ↑ and ↓ to go to the previous or next line, ← and → to go back or ahead 5 seconds, and Home for the start of the song. Escape or Shift+L leaves.
 - The screen stays on while the music plays, so a TV left on doesn't go dark. The view is dark in a light theme too.
 - A song with no lyrics shows its cover large, with the title and the artist.
-- With reduce motion on, lines jump to their place instead of climbing and the background holds still. The background also holds still on battery.
+- With reduce motion on, lines jump to their place instead of gliding and the background holds still. The background also holds still on battery.
 
 ## Open Now Playing
 

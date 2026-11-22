@@ -155,39 +155,189 @@ func TestFullScreenLyricsOpensFromShiftLAndTheOtherEntryPoints(t *testing.T) {
 	}
 }
 
-func TestTheColumnClimbsWhenTheSungLineAdvances(t *testing.T) {
+// mid is where line label's middle is on the stage now.
+func (r *npRig) mid(t *testing.T, label string) float32 {
+	t.Helper()
+	box, ok := r.tt.Find(label)
+	if !ok {
+		t.Fatalf("%q is not on screen: %q", label, r.tt.Texts())
+	}
+	return box.Y + box.H/2
+}
+
+// Each line glides to its place on its own: the sung line goes first and the
+// line after it follows a step later (cascadeStep), then the ones beyond.
+func TestEachLineClimbsOnItsOwnWhenTheSungLineAdvances(t *testing.T) {
 	r := stageRig(t, heldLines(2500, 2500, 2500, 2500, 2500, 2500, 2500), 1500, nil, func(r *npRig) { r.animate = true })
 	r.settle()
 	r.advance(time.Second)
-	mid := func(label string) float32 {
-		t.Helper()
-		box, ok := r.tt.Find(label)
-		if !ok {
-			t.Fatalf("%q is not on screen: %q", label, r.tt.Texts())
-		}
-		return box.Y + box.H/2
-	}
 	focus := float32(r.height) * stageFocus
-	if got := mid("Held 0"); math.Abs(float64(got-focus)) > 6 {
+	if got := r.mid(t, "Held 0"); math.Abs(float64(got-focus)) > 6 {
 		t.Fatalf("the sung line is at %v, want the optical centre %v", got, focus)
 	}
-	was := mid("Held 1") // coming
-	// The next line begins: the column climbs to it over 600 ms.
+	was1, was2 := r.mid(t, "Held 1"), r.mid(t, "Held 2") // coming
+	// The next line begins: the lines climb to it over 600 ms, the second
+	// one after the first.
 	r.play(1000 + 2500 + 600 + 400)
 	r.tt.Drain() // the view builds and the climb starts
-	r.advance(60 * time.Millisecond)
-	early := mid("Held 1")
-	if !(early < was && early > focus+6) {
-		t.Errorf("60 ms into the climb Held 1 is at %v: not between where it was (%v) and the centre (%v)", early, was, focus)
+	r.advance(30 * time.Millisecond)
+	early1, early2 := r.mid(t, "Held 1"), r.mid(t, "Held 2")
+	if !(early1 < was1 && early1 > focus+6) {
+		t.Errorf("30 ms into the climb Held 1 is at %v: not between where it was (%v) and the centre (%v)", early1, was1, focus)
+	}
+	if math.Abs(float64(early2-was2)) > 0.5 {
+		t.Errorf("30 ms into the climb Held 2 has moved from %v to %v: it follows a step (%v) after the sung line", was2, early2, cascadeStep)
+	}
+	r.advance(cascadeStep) // 90 ms: Held 2's turn has come
+	mid1, mid2 := r.mid(t, "Held 1"), r.mid(t, "Held 2")
+	if !(mid2 < was2-0.5 && mid2 > was2-(was1-mid1)) {
+		t.Errorf("90 ms in, Held 2 is at %v (was %v) and Held 1 at %v (was %v): the follower did not start behind the leader", mid2, was2, mid1, was1)
 	}
 	r.advance(150 * time.Millisecond)
-	later := mid("Held 1")
-	if !(later < early && later > focus) {
-		t.Errorf("it did not keep climbing: %v then %v", early, later)
+	if later := r.mid(t, "Held 1"); !(later < mid1 && later > focus) {
+		t.Errorf("it did not keep climbing: %v then %v", mid1, later)
 	}
-	r.advance(700 * time.Millisecond)
-	if got := mid("Held 1"); math.Abs(float64(got-focus)) > 6 {
+	r.advance(time.Second)
+	if got := r.mid(t, "Held 1"); math.Abs(float64(got-focus)) > 6 {
 		t.Errorf("after the climb Held 1 is at %v, want the centre %v", got, focus)
+	}
+	// Every line is where the column puts it, spaced as it was.
+	if got, want := r.mid(t, "Held 2")-r.mid(t, "Held 1"), was2-was1; math.Abs(float64(got-want)) > 1 {
+		t.Errorf("after the climb Held 2 is %v under Held 1, want %v", got, want)
+	}
+}
+
+// On a seek back one line the lines go down, mirrored: the lines above the
+// sung one trail it, the ones below go with it.
+func TestTheLinesGoDownOnASeekBackAndTheOnesAboveTrail(t *testing.T) {
+	r := stageRig(t, heldLines(2500, 2500, 2500, 2500, 2500, 2500, 2500), 1000+2*(2500+600)+400, nil, func(r *npRig) { r.animate = true })
+	r.settle()
+	r.advance(time.Second)
+	if got := r.p.np.stage.anchor; got != 2 {
+		t.Fatalf("the sung line is %d, want 2", got)
+	}
+	was0, was1, was2 := r.mid(t, "Held 0"), r.mid(t, "Held 1"), r.mid(t, "Held 2")
+	r.play(1000 + 2500 + 600 + 400) // back to line 1
+	r.tt.Drain()
+	r.advance(30 * time.Millisecond)
+	if got := r.mid(t, "Held 1"); !(got > was1+0.5) {
+		t.Errorf("30 ms into the seek back the new sung line is at %v (was %v): it did not go down", got, was1)
+	}
+	if got := r.mid(t, "Held 2"); !(got > was2+0.5) {
+		t.Errorf("30 ms in, the line below is at %v (was %v): it did not go down with the sung one", got, was2)
+	}
+	if got := r.mid(t, "Held 0"); math.Abs(float64(got-was0)) > 0.5 {
+		t.Errorf("30 ms in, the line above has moved from %v to %v: it trails the sung line by a step (%v)", was0, got, cascadeStep)
+	}
+	r.advance(cascadeStep)
+	if got := r.mid(t, "Held 0"); !(got > was0+0.5) {
+		t.Errorf("90 ms in, the line above is still at %v (was %v)", got, was0)
+	}
+	r.advance(time.Second)
+	focus := float32(r.height) * stageFocus
+	if got := r.mid(t, "Held 1"); math.Abs(float64(got-focus)) > 6 {
+		t.Errorf("after the seek back Held 1 is at %v, want the centre %v", got, focus)
+	}
+}
+
+// A seek back from a song opened in the middle goes to lines before the first
+// one the column laid out: they are added in front of it, and the column
+// glides instead of cutting.
+func TestASeekBackBeforeTheFirstLineLaidOutStillGlides(t *testing.T) {
+	r := stageRig(t, heldLines(2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500), 1000+9*(2500+600)+400, nil, func(r *npRig) { r.animate = true })
+	r.settle()
+	r.advance(time.Second)
+	st := r.p.np.stage
+	if st.anchor != 9 || st.origin != 9-stageBuild {
+		t.Fatalf("anchor %d origin %d: the song was not opened at line 9", st.anchor, st.origin)
+	}
+	focus := float32(r.height) * stageFocus
+	was := r.mid(t, "Held 7") // two places above the sung line
+	r.play(1000 + 7*(2500+600) + 400)
+	r.tt.Drain()
+	r.advance(30 * time.Millisecond)
+	if st.anchor != 7 || st.origin != 7-stageBuild {
+		t.Fatalf("anchor %d origin %d after the seek: want 7 and %d (the column grew in front)", st.anchor, st.origin, 7-stageBuild)
+	}
+	if got := r.mid(t, "Held 7"); !(got > was+0.5 && got < focus-6) {
+		t.Errorf("30 ms into the seek back Held 7 is at %v: not between where it was (%v) and the centre (%v): it cut", got, was, focus)
+	}
+	r.advance(time.Second)
+	if got := r.mid(t, "Held 7"); math.Abs(float64(got-focus)) > 6 {
+		t.Errorf("after the seek back Held 7 is at %v, want the centre %v", got, focus)
+	}
+	// Lines laid out in front of the first one stand where a column laid out
+	// from there would have them.
+	if got, want := st.top(8)-st.top(7), st.top(9)-st.top(8); math.Abs(float64(got-want)) > 0.5 {
+		t.Errorf("lines 7 and 8 are %v apart, lines 8 and 9 %v", got, want)
+	}
+	if got, want := st.top(2)-st.top(1), st.top(3)-st.top(2); math.Abs(float64(got-want)) > 0.5 {
+		t.Errorf("lines 1 and 2 (laid in front) are %v apart, lines 2 and 3 %v", got, want)
+	}
+}
+
+// A seek of more than a few lines cuts: every line is in place the frame the
+// sung line changes, none of them gliding the way of the cascade.
+func TestASeekOfSeveralLinesCutsTheColumnInsteadOfGliding(t *testing.T) {
+	r := stageRig(t, heldLines(2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500, 2500), 1500, nil, func(r *npRig) { r.animate = true })
+	r.settle()
+	r.advance(time.Second)
+	r.play(1000 + 6*(2500+600) + 400) // line 6: six places on
+	r.tt.Drain()
+	r.advance(20 * time.Millisecond)
+	st := r.p.np.stage
+	if st.anchor != 6 {
+		t.Fatalf("anchor %d after a seek of six lines, want 6", st.anchor)
+	}
+	focus := float32(r.height) * stageFocus
+	was := r.mid(t, "Held 7")
+	if got := r.mid(t, "Held 6"); math.Abs(float64(got-focus)) > 6 {
+		t.Errorf("a frame after the seek Held 6 is at %v, want the centre %v", got, focus)
+	}
+	r.advance(time.Second)
+	if got := r.mid(t, "Held 7"); math.Abs(float64(got-was)) > 0.5 {
+		t.Errorf("Held 7 was at %v a frame after the seek and %v at rest: it glided", was, got)
+	}
+}
+
+// A line that begins while the lines are still gliding sets them on from where
+// they are: no line jumps from one frame to the next by more than the glide
+// moves it.
+func TestALineThatBeginsMidClimbRetargetsWithoutAJump(t *testing.T) {
+	lines := make([]services.LyricLine, 12)
+	for i := range lines { // a fast song: a line every 200 ms
+		begin := int64(1000 + i*200)
+		lines[i] = services.LyricLine{BeginMs: begin, EndMs: begin + 180, Text: fmt.Sprintf("Held %d", i), Agent: "v1", AgentType: "person"}
+	}
+	r := stageRig(t, lines, 1000+2*200+100, nil, func(r *npRig) { r.animate = true })
+	st := r.p.np.stage
+	pitch := st.top(5) - st.top(4)
+	started := st.anchor
+	prev := map[int]float32{}
+	worst := float32(0)
+	for range 70 { // over a second of frames, over five lines
+		r.advance(16 * time.Millisecond)
+		for _, i := range []int{6, 7} {
+			box, ok := r.tt.Find(fmt.Sprintf("Held %d", i))
+			if !ok {
+				delete(prev, i)
+				continue
+			}
+			y := box.Y + box.H/2
+			if was, seen := prev[i]; seen {
+				worst = max(worst, float32(math.Abs(float64(y-was))))
+			}
+			prev[i] = y
+		}
+	}
+	if st.anchor < started+4 {
+		t.Fatalf("the sung line went from %d to %d: the lines were not fast", started, st.anchor)
+	}
+	if worst == 0 {
+		t.Fatal("no line moved: the test saw nothing")
+	}
+	if worst > pitch/2 {
+		t.Errorf("a line moved %v in one frame, more than half of a line (%v): it jumped", worst, pitch)
 	}
 }
 
@@ -210,6 +360,16 @@ func TestUnderReducedMotionTheColumnJumpsAndTheWashDoesNotDrift(t *testing.T) {
 	}
 	if got, want := box.Y+box.H/2, float32(r.height)*stageFocus; math.Abs(float64(got-want)) > 6 {
 		t.Errorf("one frame after the line advanced Held 1 is at %v, want the centre %v: a jump", got, want)
+	}
+	// Every line jumped with it, the ones that would trail too: a frame on
+	// they are where they will be a second on.
+	next, later := r.mid(t, "Held 2"), r.mid(t, "Held 0")
+	r.advance(time.Second)
+	if got := r.mid(t, "Held 2"); math.Abs(float64(got-next)) > 0.5 {
+		t.Errorf("a frame after the jump Held 2 is at %v but comes to rest at %v: it trailed", next, got)
+	}
+	if got := r.mid(t, "Held 0"); math.Abs(float64(got-later)) > 0.5 {
+		t.Errorf("a frame after the jump Held 0 is at %v but comes to rest at %v: it trailed", later, got)
 	}
 	if r.p.np.stage.drifted {
 		t.Error("the wash drifts under reduced motion")
@@ -508,10 +668,10 @@ func TestFullScreenLyricsAccessibility(t *testing.T) {
 	r.tt.Key(0, ui.KeyTab)
 	r.tt.Until("the strip", r.tt.Shows("Exit full screen"))
 	stops := access.TabWalk(t, r.tt.Tester, 12)
-	access.InOrder(t, access.StopLabels(stops), "Previous", "Pause", "Next", "Show lyrics 0.5 s earlier", "Show lyrics 0.5 s later", "Exit full screen")
+	access.InOrder(t, access.StopLabels(stops), "Previous", "Pause", "Next", "Seek", "Show lyrics 0.5 s earlier", "Show lyrics 0.5 s later", "Exit full screen")
 	tr = access.Read(t, r.tt.Tester)
-	if n, ok := tr.Find(ui.RoleProgress, "Song progress"); !ok || n.Value == "" {
-		t.Errorf("the progress is not a labelled progress bar with a value: %+v", n)
+	if n, ok := tr.Find(ui.RoleSlider, "Seek"); !ok || n.Description == "" {
+		t.Errorf("the scrubber is not a labelled slider that says where it is: %+v", n)
 	}
 	access.NoNestedControls(t, r.tt.Tester)
 }
@@ -570,6 +730,40 @@ func TestTheClimbAndTheSweepDoNotBuildTheViewPerFrame(t *testing.T) {
 	}
 	if got := builds - before; got > 6 {
 		t.Errorf("the view was built %d times in 60 frames of sweep and climb", got)
+	}
+}
+
+// A change of line builds the stage once, and the cascade of lines gliding
+// over the next 90 frames builds it no more: each line's glide is its own
+// pose, which only paints.
+func TestTheCascadeBuildsTheStageOnceForALineNotPerFrame(t *testing.T) {
+	builds := 0
+	r := newNPRigWith(t, nil, func(r *npRig) {
+		r.width, r.height = 1920, 1080
+		r.animate = true
+		r.inspect = func(*ui.Context) { builds++ }
+	})
+	lines := heldLines(2500, 2500, 2500, 2500, 2500, 2500, 2500)
+	r.lyr.set(services.Lyrics{Timing: "Line", Lines: lines}, nil)
+	r.play(1500)
+	r.p.ui.openRoom()
+	r.tt.Until("the room and its lines", r.tt.Shows("Full-Screen Lyrics", "Held 0"))
+	r.settle()
+	r.advance(2 * time.Second)
+	before := builds
+	r.play(1000 + 2500 + 600 - 300) // a little before line 1 begins
+	frames := 0
+	for range 90 {
+		r.h.Clock.Advance(16 * time.Millisecond)
+		r.tt.Advance(16 * time.Millisecond)
+		frames++
+	}
+	if r.p.np.stage.anchor != 1 {
+		t.Fatalf("line %d is the stage's: the change did not come", r.p.np.stage.anchor)
+	}
+	t.Logf("a line change and %d frames of its cascade built the stage %d times", frames, builds-before)
+	if got := builds - before; got > 2 {
+		t.Errorf("the stage was built %d times over one line change and %d frames", got, frames)
 	}
 }
 

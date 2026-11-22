@@ -45,6 +45,10 @@ type nowPlayingState struct {
 
 	root, closeBtn, roomToggle, roomExit ui.Handle
 	tabs                                 [2]ui.Handle
+	// stripToolsW is the width of Full-Screen Lyrics' strip's right controls
+	// (the timing nudge, Exit) as last laid out, with the gap before them:
+	// the least their column keeps.
+	stripToolsW float32
 
 	// lastPane is the pane the last build showed and tabHad whether one of
 	// the tabs had the focus then: a pane changed from outside (the Queue

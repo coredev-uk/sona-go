@@ -5,9 +5,16 @@ package cdmhost
 import (
 	"fmt"
 	"os"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 )
+
+// newSession is the attributes of a child that has no namespaces to ask
+// for: a session of its own. It therefore has no controlling terminal
+// (opening /dev/tty fails with ENXIO) and cannot push keystrokes into
+// Sona's with TIOCSTI.
+func newSession() *syscall.SysProcAttr { return &syscall.SysProcAttr{Setsid: true} }
 
 // childDir is the working directory of a child.
 func childDir() string { return "/" }

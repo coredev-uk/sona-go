@@ -188,6 +188,10 @@ and Windows development builds in ci.yml never hold a release up), then the
   `SONA_CDM_SHIM` are set (as the CI action does); `SONA_SMOKE_TOOLS=1
   build/windows/package.sh OUTDIR && build/windows/smoke.sh OUTDIR` is what
   the release job runs.
+  `package.sh` runs `makensis` before the zip and the update archive are
+  written (the archive is what the update key signs), on the package folder
+  with its hash checked afterwards, and writes the installer into a scratch
+  folder that is moved into `OUTDIR` last.
 - **Update archives:** `sona-<v>-darwin-arm64.tar.gz` holds `Sona.app/` alone;
   `sona-<v>-windows-amd64.tar.gz` holds the install folder's files at the top
   level, every entry named from there: MyGo's updater refuses the whole
@@ -203,7 +207,18 @@ and Windows development builds in ci.yml never hold a release up), then the
   environment's), or by the next release: the signature covers the bytes.
 - **Signing the manifests:** `go run ./cmd/releasesign` signs each archive's
   SHA-256 with the Ed25519 key `SONA_UPDATE_KEY` (public key:
-  `internal/update/update.pub`, linked into the macOS and Windows builds).
+  `internal/update/update.pub`, linked into the macOS and Windows builds),
+  the signature MyGo checks. It also writes the digest in hex (`sha256`) and
+  a second signature by the same key (`statement_signature`) over
+  `sona-update-v1 NUL target NUL version NUL channel NUL hex(sha256)`, so the
+  version and platform are signed too (`update.Statement`). The version is
+  the release's (`-version`, the tag without its `v`) and the channel follows
+  from it (`prerelease` when it has a pre-release part). Sona refuses a
+  manifest without a valid statement, so every manifest must come from this
+  tool: a release whose manifests were signed by an older `releasesign` is not
+  offered to current builds (their check reports `update_signature`) until
+  `releasesign` is run again over its archives. Installs that predate the
+  statement ignore the fields and update as before.
   Manifests are signed last, after the archives are uploaded. Without the key
   the release has no `update-<target>.json` and installs do not self-update;
   in this repository `publish` refuses to run without it. Where the key and
@@ -370,6 +385,7 @@ still need the hand check for what the VM can't show.
 | D13 | Sleep inhibit | While playing, the session does not suspend on idle (`systemd-inhibit --list` shows Sona); paused, it does | Manual |
 | D14 | Restart persistence | Quit and relaunch: signed in, library from cache before any network, last route/queue restored per settings | Part: the saved queue is restored after each start. The rest manual |
 | D15 | Uninstall | Removing the package leaves no launcher entry; user data stays in XDG dirs | Manual (NixOS installs declaratively) |
+| D19 | AppArmor profile on Ubuntu | On Ubuntu 24.04 (default `kernel.apparmor_restrict_unprivileged_userns=1`): after `sudo apt install ./sona_*.deb`, `sudo aa-status` lists `sona`; Settings → Diagnostics → Host sandbox says "Sandboxed", not "Not fully sandboxed". `sudo apt remove sona` unloads it (`aa-status` no longer lists it) and `sudo apt purge sona` deletes `/etc/apparmor.d/sona`. The AppImage on the same machine shows "Not fully sandboxed" with the sockets sentence | Manual (the VM tests are NixOS) |
 
 ## 3. Results
 

@@ -25,7 +25,8 @@ type scrobbleEnv struct {
 	s       *ScrobbleService
 	srv     *httptest.Server
 	kr      store.Keyring
-	opened  chan string
+	opened  chan string // the page the browser ends up on
+	argv    chan string // the address Sona handed the system to open
 	link    *pipeAddons
 	private *privatemode.Mode
 
@@ -101,14 +102,14 @@ func newScrobbleEnvWith(t *testing.T, kr store.Keyring) *scrobbleEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	se.kr, se.opened = kr, make(chan string, 1)
+	se.kr, se.opened, se.argv = kr, make(chan string, 1), make(chan string, 1)
 	e := &Env{Deps: Deps{
 		Paths:    config.Paths{State: t.TempDir(), Config: t.TempDir()},
 		Keyring:  se.kr,
 		Settings: settings,
 		Logger:   discard(),
 		Emit:     &recorder{},
-		OpenURL:  func(u string) error { se.opened <- u; return nil },
+		OpenURL:  se.browse,
 	}}
 	se.link = newPipeAddons(t, own.Options{Version: "test", HTTP: srv.Client(), Endpoints: own.Endpoints{
 		ListenBrainz: srv.URL, LastFM: srv.URL + "/2.0/", LastFMAuth: "https://www.last.fm/api/auth/",
