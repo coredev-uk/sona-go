@@ -750,14 +750,14 @@ The `inspect` module is in every build (`app/modules.go`). It offers **Inspect**
 - an artwork cache whose HTTP serves generated covers (`fixture.CDN`);
 - a Poster that queues what goroutines post until the test drains it (`Harness.Main`), and a fake clock (`Harness.Clock`).
 
-Options: `Albums(...)` for a library of your own, `Empty()`, `Bare()` (no services: the bus, the playback mirror and the artwork loader only), `Dark()`. `Env` sets `MYGO_GPU=0` (the CPU renderer), English and the light theme, and restores the theme afterwards.
+Options: `Albums(...)` for a library of your own, `Empty()`, `ServiceClock(now)` (the services' clock, for a test that crosses a release date), `Bare()` (no services: the bus, the playback mirror and the artwork loader only), `Dark()`. `Env` sets `MYGO_GPU=0` (the CPU renderer), English and the light theme, and restores the theme afterwards.
 
 `h.Tester(t, view, w, h)` (or `uitest.Tester(t, env, view, w, h)`) is a `ui.Tester` plus:
 
 - `Until(what, cond)`: drains and draws frames until the goroutines delivered, `uitest.HangGuard` (30 s) at most.
 - `Shows(texts...)` (parts of a text, as `HasText`), `ShowsExactly(texts...)` (a whole text or label, what `MustClick` needs), `Drain()`, and `Settle()` (frames until the picture stops changing).
 
-Other helpers: `uitest.Transport` (a recording fake of the playback commands, over `uitest.Recorder`), `uitest.Nav`, `Harness.Play` (a playing song seeded into the mirror), and the `Session` helpers `MustClick`, `Want`, `Lacks`, `Emit`, `Hover` and `Pump`. The Tester's own `Click` tries every control of the name.
+Other helpers: `uitest.Transport` (a recording fake of the playback commands, over `uitest.Recorder`), `uitest.Nav`, `Harness.Play` (a playing song seeded into the mirror), `PreAdded` (a pre-added library album as a sync stores it, for a release test), and the `Session` helpers `MustClick`, `Want`, `Lacks`, `Emit`, `Hover` and `Pump`. The Tester's own `Click` tries every control of the name.
 
 ### `uitest/access`
 

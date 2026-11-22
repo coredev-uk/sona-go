@@ -72,6 +72,7 @@ type options struct {
 	equalizer bool
 	platform  []func(*services.Platform)
 	seeded    []func(context.Context, *db.DB) error
+	now       func() time.Time
 }
 
 // Albums seeds the library with these albums instead of the fixture's
@@ -121,6 +122,12 @@ func Equalizer() Option { return func(o *options) { o.equalizer = true } }
 func Platform(f func(*services.Platform)) Option {
 	return func(o *options) { o.platform = append(o.platform, f) }
 }
+
+// ServiceClock gives the services (the library's release rule, the mapper) a
+// clock of the test's own in place of notBeforeEpoch (the wall clock, never
+// before Epoch): a test that moves a library album past its release date
+// moves this too.
+func ServiceClock(now func() time.Time) Option { return func(o *options) { o.now = now } }
 
 // Harness is everything Env wired, for what a test must reach: the
 // database to change, the engine to ask what it played, the clock.
@@ -199,7 +206,7 @@ func New(t testing.TB, opts ...Option) *Harness {
 	// English, whatever the machine says: text and numbers are asserted.
 	t.Setenv("LC_ALL", "en_US.UTF-8")
 	t.Setenv("LANGUAGE", "")
-	o := options{albums: fixture.Albums(), playlists: fixture.Playlists(), seed: true, core: true, version: "test"}
+	o := options{now: notBeforeEpoch, albums: fixture.Albums(), playlists: fixture.Playlists(), seed: true, core: true, version: "test"}
 	for _, f := range opts {
 		f(&o)
 	}
@@ -347,7 +354,7 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 		Paths:    config.Paths{Config: h.Dir, Data: h.Dir, Cache: h.Dir, Art: h.Dir, State: h.Dir},
 		Settings: settings, DB: d, Auth: authm, API: api, Catalog: cat, Storefront: appleStorefront(o.apple != nil), Library: ilib.New(d, libAPI), Syncer: ilib.NewSyncer(d, nil, nil, 0), Art: art, Engine: h.Engine, Coord: h.Coord,
 		Private: privatemode.New(privatemode.Options{}), Gate: services.NewGate(time.Hour, nil),
-		Keyring: h.Keyring, Transport: h.Network, Now: notBeforeEpoch,
+		Keyring: h.Keyring, Transport: h.Network, Now: o.now,
 		Emit: h.Bus, OpenURL: h.open, Clipboard: h.copy, Windows: noWindows{}, Logger: slog.New(slog.DiscardHandler), Version: o.version, Started: Epoch, Platform: plat,
 	})
 	t.Cleanup(core.Close)
