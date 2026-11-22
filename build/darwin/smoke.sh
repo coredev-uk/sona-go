@@ -5,25 +5,47 @@
 #   build/darwin/smoke.sh OUTDIR   # bundle.sh's output directory
 #
 # Passes when the bundle names no build-machine path, the extracted update
-# archive is Sona.app alone and passes codesign, `sona --version` prints the
-# version, and the app reaches "startup: first paint" with a private HOME and
-# only the bundle's GStreamer (its plugins load, a registry is written, and
-# nothing from the framework in /Library is opened). Plays nothing
-# (SONA_PRIVATE=1).
+# archive is Sona.app alone and passes codesign, the disk image is the
+# designed install window (mounted read-only: its .DS_Store read back with
+# dmgbuild's reader, dmgcheck.py), `sona --version` prints the version, and the
+# app reaches "startup: first paint" with a private HOME and only the bundle's
+# GStreamer (its plugins load, a registry is written, and nothing from the
+# framework in /Library is opened). Plays nothing (SONA_PRIVATE=1). Needs
+# dmgbuild where install-dmgbuild.sh puts it (DMGBUILD_DIR), and Python 3.11+
+# (PYTHON).
 set -euo pipefail
 smoke_name="smoke(darwin)"
 # shellcheck source=../lib/smoke.sh
 . "$(dirname "$0")/../lib/smoke.sh"
+here=$(cd "$(dirname "$0")" && pwd)
 out=$(cd "${1:?usage: smoke.sh OUTDIR}" && pwd)
 version=$(version)
 
 work=$(mktemp -d)
-trap 'kill "${pid:-}" 2>/dev/null || true; rm -rf "$work"' EXIT
+dmgmnt=$(mktemp -d)
+trap 'kill "${pid:-}" 2>/dev/null || true; hdiutil detach -force "$dmgmnt" >/dev/null 2>&1 || true; rm -rf "$work" "$dmgmnt"' EXIT
 # The update archive is what users run after an update.
 tar -C "$work" -xzf "$out/sona-$version-darwin-arm64.tar.gz"
 [[ $(ls "$work") == Sona.app ]] || fail "update archive is not Sona.app alone: $(ls "$work")"
 app=$work/Sona.app
 exe=$app/Contents/MacOS/sona
+
+# The disk image: mounted read-only, its window is the one dmg/settings.py
+# sets (bundle.sh wrote it with dmgbuild, no Finder), and the Sona.app in it
+# is the signed bundle, untouched by the tool that built the image.
+dmg=$out/Sona-$version-macos-arm64.dmg
+dmgtools=${DMGBUILD_DIR:-$smoke_repo/bin/dmgbuild}
+[[ -f $dmg ]] || fail "no $dmg"
+[[ -f $dmgtools/ds_store/__init__.py ]] || fail "no dmgbuild in $dmgtools (build/darwin/install-dmgbuild.sh)"
+[[ $(hdiutil imageinfo -plist "$dmg" 2>/dev/null | plutil -extract Format raw -o - -) == ULMO ]] || fail "the disk image is not ULMO"
+hdiutil attach -readonly -nobrowse -noverify -mountpoint "$dmgmnt" "$dmg" >/dev/null 2>&1 || fail "the disk image does not mount"
+[[ $(diskutil info -plist "$dmgmnt" | plutil -extract VolumeName raw -o - -) == Sona ]] || fail "the volume is not named Sona"
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=$dmgtools "${PYTHON:-python3}" "$here/dmgcheck.py" "$dmgmnt" || fail "the disk image's window layout"
+codesign --verify --deep --strict "$dmgmnt/Sona.app" || fail "codesign verification of the Sona.app in the disk image"
+cmp <(cd "$dmgmnt/Sona.app" && find . -type f -exec shasum -a 256 {} + | sort) <(cd "$app" && find . -type f -exec shasum -a 256 {} + | sort) ||
+  fail "the Sona.app in the disk image is not the update archive's"
+hdiutil detach "$dmgmnt" >/dev/null 2>&1 || fail "the disk image does not detach"
+echo "smoke(darwin): disk image layout"
 
 codesign --verify --deep --strict "$app" || fail "codesign verification"
 plutil -lint "$app/Contents/Info.plist" >/dev/null || fail "Info.plist"
