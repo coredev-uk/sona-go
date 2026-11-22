@@ -145,6 +145,18 @@ func (q *Queries) DeleteStaleLibraryMusicVideos(ctx context.Context, generation 
 	return result.RowsAffected()
 }
 
+const deleteTrackArtists = `-- name: DeleteTrackArtists :execrows
+DELETE FROM track_artists WHERE track_id = ?
+`
+
+func (q *Queries) DeleteTrackArtists(ctx context.Context, trackID int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteTrackArtists, trackID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getAlbumByLibraryID = `-- name: GetAlbumByLibraryID :one
 SELECT id, library_id, catalog_id, name, artist_name, artist_library_id, artist_catalog_id, artwork_template, release_date, genre, track_count, content_rating, is_single, is_compilation, record_label, copyright, editorial_notes, url, updated_at, is_prerelease, catalog_release_date FROM albums WHERE library_id = ?
 `
@@ -211,7 +223,7 @@ func (q *Queries) GetPlaylistByLibraryID(ctx context.Context, libraryID sql.Null
 }
 
 const getTrackByLibraryID = `-- name: GetTrackByLibraryID :one
-SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at, no_play_params FROM tracks WHERE library_id = ?
+SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at, no_play_params, credits_checked FROM tracks WHERE library_id = ?
 `
 
 func (q *Queries) GetTrackByLibraryID(ctx context.Context, libraryID sql.NullString) (Track, error) {
@@ -240,6 +252,7 @@ func (q *Queries) GetTrackByLibraryID(ctx context.Context, libraryID sql.NullStr
 		&i.Composer,
 		&i.UpdatedAt,
 		&i.NoPlayParams,
+		&i.CreditsChecked,
 	)
 	return i, err
 }
@@ -256,6 +269,28 @@ type InsertPlaylistTrackParams struct {
 
 func (q *Queries) InsertPlaylistTrack(ctx context.Context, arg InsertPlaylistTrackParams) error {
 	_, err := q.db.ExecContext(ctx, insertPlaylistTrack, arg.PlaylistID, arg.Position, arg.TrackID)
+	return err
+}
+
+const insertTrackArtist = `-- name: InsertTrackArtist :exec
+INSERT INTO track_artists (track_id, artist_catalog_id, name, position) VALUES (?, ?, ?, ?)
+ON CONFLICT (track_id, artist_catalog_id) DO NOTHING
+`
+
+type InsertTrackArtistParams struct {
+	TrackID         int64
+	ArtistCatalogID string
+	Name            string
+	Position        int64
+}
+
+func (q *Queries) InsertTrackArtist(ctx context.Context, arg InsertTrackArtistParams) error {
+	_, err := q.db.ExecContext(ctx, insertTrackArtist,
+		arg.TrackID,
+		arg.ArtistCatalogID,
+		arg.Name,
+		arg.Position,
+	)
 	return err
 }
 
@@ -474,6 +509,44 @@ func (q *Queries) ListLibraryMusicVideos(ctx context.Context, arg ListLibraryMus
 	return items, nil
 }
 
+const listTracksToCredit = `-- name: ListTracksToCredit :many
+SELECT t.id, t.catalog_id, t.artist_name
+FROM tracks t JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
+WHERE t.catalog_id IS NOT NULL AND t.catalog_id <> '' AND t.credits_checked = 0
+ORDER BY t.id
+`
+
+type ListTracksToCreditRow struct {
+	ID         int64
+	CatalogID  sql.NullString
+	ArtistName string
+}
+
+// The library songs the catalogue was not asked about yet (see 00019): the
+// sync keeps those whose artist string may name several.
+func (q *Queries) ListTracksToCredit(ctx context.Context) ([]ListTracksToCreditRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTracksToCredit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTracksToCreditRow{}
+	for rows.Next() {
+		var i ListTracksToCreditRow
+		if err := rows.Scan(&i.ID, &i.CatalogID, &i.ArtistName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markLibraryItem = `-- name: MarkLibraryItem :exec
 INSERT INTO library_items (kind, ref, date_added, added_rank, generation)
 VALUES (?, ?, ?, ?, ?)
@@ -499,6 +572,20 @@ func (q *Queries) MarkLibraryItem(ctx context.Context, arg MarkLibraryItemParams
 		arg.AddedRank,
 		arg.Generation,
 	)
+	return err
+}
+
+const markTrackCredited = `-- name: MarkTrackCredited :exec
+UPDATE tracks SET credits_checked = ? WHERE id = ?
+`
+
+type MarkTrackCreditedParams struct {
+	CreditsChecked int64
+	ID             int64
+}
+
+func (q *Queries) MarkTrackCredited(ctx context.Context, arg MarkTrackCreditedParams) error {
+	_, err := q.db.ExecContext(ctx, markTrackCredited, arg.CreditsChecked, arg.ID)
 	return err
 }
 
@@ -530,8 +617,26 @@ INSERT INTO search_fts (kind, ref, artwork, name, artist, album)
 SELECT 'artist', r.library_id, r.artwork_template, r.name, '', ''
 FROM library_items li JOIN artists r ON r.id = li.ref
 WHERE li.kind = 'artist'
+  AND NOT (
+    r.library_id IN (SELECT t.artist_library_id FROM track_artists ta JOIN tracks t ON t.id = ta.track_id
+                     WHERE t.artist_library_id IS NOT NULL)
+    AND r.library_id NOT IN (SELECT a.artist_library_id FROM albums a JOIN library_items x ON x.kind = 'album' AND x.ref = a.id
+                             WHERE a.artist_library_id IS NOT NULL)
+    AND r.library_id NOT IN (SELECT k.artist_key FROM track_credit_keys k JOIN library_items x ON x.kind = 'song' AND x.ref = k.track_id
+                             WHERE k.artist_key IS NOT NULL))
+UNION ALL
+SELECT 'artist', k.artist_key,
+       coalesce((SELECT c.artwork_template FROM artists c WHERE c.catalog_id = k.artist_key AND c.library_id IS NULL LIMIT 1), ''),
+       min(k.credited_name), '', ''
+FROM track_credit_keys k JOIN library_items x ON x.kind = 'song' AND x.ref = k.track_id
+WHERE k.credited_catalog_id = k.artist_key
+GROUP BY k.artist_key
 `
 
+// The Artists list's entries (Library.ArtistIndex): a library artist unless
+// its songs were all credited elsewhere and it has no album, and each
+// credited artist the library holds no artist row for (keyed by its
+// catalogue ID).
 func (q *Queries) RebuildSearchArtists(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, rebuildSearchArtists)
 	return err
@@ -904,6 +1009,7 @@ ON CONFLICT (library_id) DO UPDATE SET
     isrc = excluded.isrc,
     composer = excluded.composer,
     no_play_params = excluded.no_play_params,
+    credits_checked = CASE WHEN excluded.artist_name <> tracks.artist_name OR excluded.catalog_id IS NOT tracks.catalog_id THEN 0 ELSE tracks.credits_checked END,
     updated_at = excluded.updated_at
 RETURNING id
 `

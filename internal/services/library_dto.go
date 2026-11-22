@@ -28,8 +28,9 @@ type AlbumPage struct {
 	Total int     `json:"total"`
 }
 
-// ArtistEntry is one row of the Artists overview's list: a library artist
-// with how many of their albums and songs the library holds. Art is the
+// ArtistEntry is one row of the Artists overview's list: a library artist (ID
+// its library ID), or one the library holds only through the credits of songs
+// (ID its catalogue ID), with how many of their albums and songs the library holds. Art is the
 // small artwork URL (the artist's, else their newest album's; "" for none).
 type ArtistEntry struct {
 	ID        string `json:"id"`
@@ -40,7 +41,7 @@ type ArtistEntry struct {
 	Songs     int    `json:"songs"`
 }
 
-// ArtistAlbums is a library artist and their library albums, newest
+// ArtistAlbums is an artist of the list (see ArtistEntry) and their library albums, newest
 // release first (the Artists overview's detail).
 type ArtistAlbums struct {
 	Artist Artist  `json:"artist"`

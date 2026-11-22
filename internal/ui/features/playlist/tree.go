@@ -151,7 +151,8 @@ type sidebarLists struct {
 // playlist (library IDs in pinned) is in none of them: it shows once, under
 // Pinned, whatever its section. Folders keep to the user's own playlists; a
 // folder's non-editable playlists are listed in their section and counted
-// as left out of the folder.
+// as left out of the folder. Apple's Favourite Songs playlist (Favorited) is
+// listed nowhere: Library → Favourite songs shows those songs.
 func sidebarPlaylists(tree services.PlaylistTree, pinned map[string]bool) sidebarLists {
 	var out sidebarLists
 	hidden := make(map[string]bool, len(pinned))
@@ -159,6 +160,11 @@ func sidebarPlaylists(tree services.PlaylistTree, pinned map[string]bool) sideba
 		hidden[id] = true
 	}
 	for _, item := range tree.Playlists {
+		if item.Favorited {
+			// Library → Favourite songs is where these songs are.
+			hidden[item.Playlist.ID] = true
+			continue
+		}
 		if playlistSection(item) == sectionOwn {
 			continue
 		}

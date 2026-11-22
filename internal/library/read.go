@@ -361,7 +361,8 @@ func scanPlaylist(sc scanner) (Playlist, error) {
 	return p, err
 }
 
-// Playlists lists library playlists.
+// Playlists lists library playlists, except Apple's Favourite Songs playlist
+// (Favorited): Sona shows those songs once, on Library → Favourite songs.
 func (l *Library) Playlists(ctx context.Context, o ListOptions) ([]Playlist, error) {
 	d := dir(o.Desc)
 	var order string
@@ -376,6 +377,7 @@ func (l *Library) Playlists(ctx context.Context, o ListOptions) ([]Playlist, err
 	limit, offset := o.page()
 	pls, err := query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
 		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
+		WHERE p.favorited = 0
 		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanPlaylist, limit, offset)
 	if err != nil {
 		return nil, err
@@ -413,71 +415,124 @@ func (l *Library) Album(ctx context.Context, id string) (Album, []Song, error) {
 	return a, songs, nil
 }
 
-// ArtistAlbums returns library artist id and its library albums (newest
-// release first), without its songs: what the Artists overview shows.
-func (l *Library) ArtistAlbums(ctx context.Context, id string) (Artist, []Album, error) {
+// artistRow is the artist the Artists list shows under key: a library
+// artist's library ID, or the catalogue ID of an artist the library holds
+// only through the credits of songs (credit-only: no library ID, the
+// catalogue row's artwork when the catalogue cache has one). ErrNotFound for
+// neither.
+func (l *Library) artistRow(ctx context.Context, key string) (Artist, error) {
 	a, err := one(query(ctx, l, `SELECT r.library_id, r.catalog_id, r.name, r.artwork_template FROM artists r
-		WHERE r.library_id = ?`, scanArtist, id))
+		WHERE r.library_id = ?`, scanArtist, key))
+	if !errors.Is(err, ErrNotFound) {
+		return a, err
+	}
+	return one(query(ctx, l, `SELECT NULL, ta.artist_catalog_id, ta.name,
+			coalesce((SELECT c.artwork_template FROM artists c WHERE c.catalog_id = ta.artist_catalog_id AND c.library_id IS NULL LIMIT 1), '')
+		FROM track_artists ta
+		WHERE ta.artist_catalog_id = ? AND EXISTS (SELECT 1 FROM library_items x WHERE x.kind = 'song' AND x.ref = ta.track_id)
+		ORDER BY ta.position, ta.track_id LIMIT 1`, scanArtist, key))
+}
+
+// ArtistAlbums returns the artist under key (a library artist's library ID, or
+// the catalogue ID of a credit-only artist, see artistRow) and its library
+// albums (newest release first), without its songs: what the Artists overview
+// shows. A credit-only artist has no album: albums are not attributed by
+// credit.
+func (l *Library) ArtistAlbums(ctx context.Context, key string) (Artist, []Album, error) {
+	a, err := l.artistRow(ctx, key)
 	if err != nil {
 		return Artist{}, nil, err
+	}
+	if a.LibraryID == "" {
+		return a, []Album{}, nil
 	}
 	albums, err := query(ctx, l, `SELECT `+albumColumns+` FROM albums a
 		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
 		WHERE a.artist_library_id = ?
-		ORDER BY a.release_date DESC, a.name COLLATE NOCASE`, scanAlbum, id)
+		ORDER BY a.release_date DESC, a.name COLLATE NOCASE`, scanAlbum, key)
 	if err != nil {
 		return Artist{}, nil, err
 	}
 	return a, albums, nil
 }
 
-// Artist returns library artist id, its library albums (newest first) and
-// its library songs that are out.
-func (l *Library) Artist(ctx context.Context, id string) (Artist, []Album, []Song, error) {
-	a, albums, err := l.ArtistAlbums(ctx, id)
+// Artist returns the artist under key (see ArtistAlbums), its library albums
+// (newest first) and its library songs that are out: the songs credited to
+// it (Syncer.syncCredits), and those of its library artist with no credits.
+func (l *Library) Artist(ctx context.Context, key string) (Artist, []Album, []Song, error) {
+	a, albums, err := l.ArtistAlbums(ctx, key)
 	if err != nil {
 		return Artist{}, nil, nil, err
 	}
 	today := l.today()
 	songs, err := query(ctx, l, `SELECT `+trackColumns(today)+` FROM tracks t
 		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id`+withAlbum+`
-		WHERE t.artist_library_id = ? AND `+out(today)+`
-		ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number`, scanSong, id)
+		WHERE (t.artist_library_id = ? OR t.id IN (SELECT k.track_id FROM track_credit_keys k WHERE k.artist_key = ?)) AND `+out(today)+`
+		ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number`, scanSong, key, key)
 	if err != nil {
 		return Artist{}, nil, nil, fmt.Errorf("library: artist tracks: %w", err)
 	}
 	return a, albums, songs, nil
 }
 
-// ArtistSummary is a library artist with how much of them the library
-// holds. An artist with no artwork of their own takes the cover of their
-// newest library album.
+// ArtistSummary is an artist of the Artists list with how much of them the
+// library holds: a library artist (LibraryID set), or one the library holds
+// only through the credits of songs (LibraryID empty; CatalogID is its key).
+// An artist with no artwork of their own takes the cover of their newest
+// library album.
 type ArtistSummary struct {
 	Artist
 	Albums int `json:"albums"`
 	Songs  int `json:"songs"`
 }
 
-// ArtistIndex lists every library artist by name with the number of library
-// albums and songs (that are out) they have: the Artists overview's list, filtered in the
-// UI, so it is one query and never paged.
+// ArtistIndex lists every artist by name with the number of library albums
+// and songs (that are out) they have: the Artists overview's list, filtered in
+// the UI, so it is one query and never paged.
+//
+// Songs group by the artists the catalogue credits them to (track_artists,
+// through track_credit_keys), each credited artist counting the song; a song
+// with no credits counts for its library artist. A credited artist the library
+// has no artist row for is listed from its credits. A library artist whose
+// songs were all credited elsewhere ("A & B") and that holds no album is not
+// listed: albums are still attributed to their first artist alone, so one with
+// albums stays.
 func (l *Library) ArtistIndex(ctx context.Context) ([]ArtistSummary, error) {
 	today := l.today()
-	return query(ctx, l, `SELECT r.library_id, r.catalog_id, r.name,
-			COALESCE(NULLIF(r.artwork_template, ''), (
-				SELECT a.artwork_template FROM albums a
-				JOIN library_items x ON x.kind = 'album' AND x.ref = a.id
-				WHERE a.artist_library_id = r.library_id AND a.artwork_template <> ''
-				ORDER BY a.release_date DESC LIMIT 1), ''),
-			COALESCE(al.n, 0), COALESCE(so.n, 0)
-		FROM artists r
-		JOIN library_items li ON li.kind = 'artist' AND li.ref = r.id
-		LEFT JOIN (SELECT a.artist_library_id AS id, COUNT(*) AS n FROM albums a
-			JOIN library_items x ON x.kind = 'album' AND x.ref = a.id GROUP BY 1) al ON al.id = r.library_id
-		LEFT JOIN (SELECT t.artist_library_id AS id, COUNT(*) AS n FROM tracks t
+	return query(ctx, l, `WITH cr AS (
+			SELECT DISTINCT t.artist_library_id AS key FROM track_artists ta
+			JOIN tracks t ON t.id = ta.track_id WHERE t.artist_library_id IS NOT NULL),
+		so AS (
+			SELECT k.artist_key AS key, COUNT(*) AS n FROM track_credit_keys k
+			JOIN tracks t ON t.id = k.track_id
 			JOIN library_items x ON x.kind = 'song' AND x.ref = t.id`+withAlbum+`
-			WHERE `+out(today)+` GROUP BY 1) so ON so.id = r.library_id
-		ORDER BY r.name COLLATE NOCASE, r.id`, func(sc scanner) (ArtistSummary, error) {
+			WHERE `+out(today)+` GROUP BY 1),
+		al AS (
+			SELECT a.artist_library_id AS key, COUNT(*) AS n FROM albums a
+			JOIN library_items x ON x.kind = 'album' AND x.ref = a.id GROUP BY 1)
+		SELECT library_id, catalog_id, name, artwork, albums, songs FROM (
+			SELECT r.library_id AS library_id, r.catalog_id AS catalog_id, r.name AS name,
+				COALESCE(NULLIF(r.artwork_template, ''), (
+					SELECT a.artwork_template FROM albums a
+					JOIN library_items x ON x.kind = 'album' AND x.ref = a.id
+					WHERE a.artist_library_id = r.library_id AND a.artwork_template <> ''
+					ORDER BY a.release_date DESC LIMIT 1), '') AS artwork,
+				COALESCE(al.n, 0) AS albums, COALESCE(so.n, 0) AS songs, r.library_id AS ord
+			FROM artists r
+			JOIN library_items li ON li.kind = 'artist' AND li.ref = r.id
+			LEFT JOIN al ON al.key = r.library_id
+			LEFT JOIN so ON so.key = r.library_id
+			WHERE NOT (COALESCE(al.n, 0) = 0 AND COALESCE(so.n, 0) = 0
+				AND r.library_id IN (SELECT key FROM cr))
+			UNION ALL
+			SELECT NULL, so.key,
+				(SELECT ta.name FROM track_artists ta WHERE ta.artist_catalog_id = so.key ORDER BY ta.position, ta.track_id LIMIT 1),
+				COALESCE((SELECT c.artwork_template FROM artists c WHERE c.catalog_id = so.key AND c.library_id IS NULL LIMIT 1), ''),
+				0, so.n, so.key
+			FROM so
+			WHERE EXISTS (SELECT 1 FROM track_artists ta WHERE ta.artist_catalog_id = so.key)
+				AND NOT EXISTS (SELECT 1 FROM artists r WHERE r.library_id = so.key)
+		) ORDER BY name COLLATE NOCASE, ord`, func(sc scanner) (ArtistSummary, error) {
 		var s ArtistSummary
 		var lib, cat sql.NullString
 		err := sc.Scan(&lib, &cat, &s.Name, &s.ArtworkTemplate, &s.Albums, &s.Songs)
@@ -586,11 +641,14 @@ func (l *Library) Song(ctx context.Context, id string) (Song, error) {
 // playlists.
 func (l *Library) Counts(ctx context.Context) (Counts, error) {
 	// One statement: a row per kind, the songs less those not out yet
-	// (release.go; found by index, not by reading every song).
+	// (release.go; found by index, not by reading every song) and the
+	// playlists less the Favourite Songs one (Playlists leaves it out).
 	rows, err := query(ctx, l, `SELECT li.kind, count(*) - CASE li.kind WHEN 'song' THEN (
 			SELECT count(*) FROM tracks t
 			JOIN library_items x ON x.kind = 'song' AND x.ref = t.id`+withAlbum+`
-			WHERE `+unreleased(l.today())+`) ELSE 0 END
+			WHERE `+unreleased(l.today())+`) WHEN 'playlist' THEN (
+			SELECT count(*) FROM playlists p
+			JOIN library_items x ON x.kind = 'playlist' AND x.ref = p.id WHERE p.favorited <> 0) ELSE 0 END
 		FROM library_items li GROUP BY li.kind`, func(sc scanner) (kindCount, error) {
 		var k kindCount
 		err := sc.Scan(&k.kind, &k.n)
@@ -640,6 +698,10 @@ func (l *Library) Search(ctx context.Context, term string, limit int, kinds ...s
 	today := l.today()
 	q += ` AND (kind <> 'song' OR EXISTS (SELECT 1 FROM tracks t` + withAlbum + `
 		WHERE t.library_id = search_fts.ref AND ` + out(today) + `))`
+	// The Favourite Songs playlist is not a hit: Library → Favourite songs
+	// is where those songs are.
+	q += ` AND (kind <> 'playlist' OR NOT EXISTS (SELECT 1 FROM playlists p
+		WHERE p.library_id = search_fts.ref AND p.favorited <> 0))`
 	if len(kinds) > 0 {
 		q += ` AND kind IN (` + placeholders(len(kinds)) + `)`
 		args = append(args, anys(kinds)...)

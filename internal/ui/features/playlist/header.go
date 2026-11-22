@@ -60,8 +60,6 @@ func (p *playlists) ledger(d services.PlaylistDetail, collab *services.PlaylistC
 		kind = i18n.T("Made for you")
 	case d.IsChart:
 		kind = i18n.T("Chart")
-	case d.Favorited:
-		kind = i18n.T("Your favourites")
 	}
 	cells := []ledgerCell{{text: kind, lead: true}}
 	if collab != nil && collab.Viewer == services.RoleCollaborator {

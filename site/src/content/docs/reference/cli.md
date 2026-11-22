@@ -107,7 +107,7 @@ Rate the playing song. Need an Apple Music account signed in to Sona.
 The playing song's place in your library, and your library's lists. Needs an Apple Music account signed in to Sona.
 
 - `sona library [add|remove|toggle|status]` - adds the playing song to your library, removes it, switches it, or shows whether it is there. The default is `status`.
-- `sona library playlists`, `sona library albums` - your library's playlists or albums, most recently added first, at most 500, each with the link `sona play` takes.
+- `sona library playlists`, `sona library albums` - your library's playlists or albums, most recently added first, at most 500, each with the link `sona play` takes. The playlists leave out Apple's Favourite Songs playlist: your favourite songs are Library → Favourite songs in Sona.
 - `--json` - prints `{"track", "liked", "disliked", "inLibrary"}`, or for the lists `{"kind", "total", "items"}`.
 
 ### `sona private`
