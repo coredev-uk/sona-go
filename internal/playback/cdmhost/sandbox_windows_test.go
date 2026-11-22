@@ -129,6 +129,7 @@ func probeChild() {
 	ps := exec.Command(filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe"), "/c", "exit")
 	ps.Stdin, ps.Stdout, ps.Stderr = os.Stdin, os.Stderr, os.Stderr
 	outcome("start a process", ps.Run())
+	outcome("register a thread with MMCSS", registerMMCSS())
 	_ = json.NewEncoder(os.Stdout).Encode(res)
 	os.Exit(0)
 }
@@ -167,8 +168,9 @@ func sandboxedChild(t *testing.T, mode string, extra ...string) proc {
 // TestAppContainerConfinesChild starts a probe child in the AppContainer
 // and checks what it could and could not do: no network, not even to a
 // listener on the loopback; no reading outside the folders granted to it, no
-// writing to the user's profile, no new process; but loading the CDM and
-// writing its own folders.
+// writing to the user's profile, no new process; but loading the CDM,
+// writing its own folders and registering a thread with MMCSS's "Pro Audio"
+// task, as wasapi2sink's render thread does.
 func TestAppContainerConfinesChild(t *testing.T) {
 	lib := cdmtest.Library(t)
 	outside := filepath.Join(t.TempDir(), "outside.txt")
@@ -241,6 +243,7 @@ func TestAppContainerConfinesChild(t *testing.T) {
 	allowed("load the CDM")
 	allowed("write in the temp folder")
 	allowed("write beside the GStreamer registry")
+	allowed("register a thread with MMCSS")
 	if _, err := os.Stat(filepath.Join(os.Getenv("USERPROFILE"), "sona-sandbox-probe.tmp")); err == nil {
 		t.Error("the child created a file in the user profile")
 		_ = os.Remove(filepath.Join(os.Getenv("USERPROFILE"), "sona-sandbox-probe.tmp"))

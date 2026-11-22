@@ -75,13 +75,16 @@ type DiagPlayback struct {
 	// why.
 	CDMBlocked bool `json:"cdmBlocked"`
 	// Realtime is the scheduling the running host's audio threads got,
-	// asked of RTKit or the Realtime portal on Linux: "granted" (realtime,
-	// RealtimePriority is the SCHED_RR priority), "raised" (realtime
-	// refused, a raised nice level instead: RealtimePriority), "denied",
+	// asked of RTKit or the Realtime portal on Linux, read off the render
+	// thread MMCSS registered on Windows: "granted" (realtime,
+	// RealtimePriority is the SCHED_RR priority, or on Windows the
+	// thread's base priority, 16 and up), "raised" (realtime refused, a
+	// raised nice level instead: RealtimePriority), "denied",
 	// "unavailable" (neither RTKit nor the portal answered),
-	// "unsupported" (not asked for on this platform) or "" (no host has
-	// started playing yet). RealtimeVia names who answered ("RTKit",
-	// "portal"); RealtimeRefusal says why realtime was refused.
+	// "unsupported" (neither asked for nor measured on this platform:
+	// macOS) or "" (no host has started playing yet). RealtimeVia names who
+	// answered ("RTKit", "portal", "MMCSS"); RealtimeRefusal says why
+	// realtime was refused.
 	Realtime         string                   `json:"realtime"`
 	RealtimeVia      string                   `json:"realtimeVia"`
 	RealtimePriority int                      `json:"realtimePriority"`

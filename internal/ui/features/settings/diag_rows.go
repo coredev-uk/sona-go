@@ -142,7 +142,10 @@ func sandboxRow(p services.DiagPlayback) diagRow {
 
 // realtimeRow is the scheduling the playing host's audio thread got
 // (cdmhost.Realtime). The sandboxed host has no D-Bus, so on Linux Sona asks
-// RTKit or the Realtime portal for it on the host's behalf.
+// RTKit or the Realtime portal for it on the host's behalf. On Windows the
+// render thread registers with MMCSS itself and Sona reads the priority it
+// got ("Realtime · priority 24 (MMCSS)", or "Normal" with "MMCSS refused
+// it." when the host's own registration failed).
 func realtimeRow(p services.DiagPlayback) diagRow {
 	label := i18n.T("Audio priority")
 	priority := strconv.Itoa(p.RealtimePriority)

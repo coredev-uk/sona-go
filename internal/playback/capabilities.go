@@ -76,8 +76,8 @@ type Diagnosis struct {
 	// RealtimeGranted, RealtimeRaised, RealtimeDenied, RealtimeUnavailable
 	// or RealtimeUnsupported; "" while no host has started its output.
 	Realtime         string
-	RealtimeVia      string // who answered: "RTKit" or "portal"
-	RealtimePriority int    // the SCHED_RR priority (granted) or nice level (raised)
+	RealtimeVia      string // who answered: "RTKit", "portal" or "MMCSS" (Windows)
+	RealtimePriority int    // the SCHED_RR priority (granted), nice level (raised), or Windows base priority (granted by MMCSS)
 	// RealtimeRefusal is why realtime was refused (RealtimeRaised or
 	// RealtimeDenied); "" otherwise. The log has the backend's own error.
 	RealtimeRefusal RealtimeRefusal
@@ -93,11 +93,11 @@ const (
 
 // Diagnosis.Realtime values.
 const (
-	RealtimeGranted     = "granted"     // realtime scheduling (SCHED_RR)
+	RealtimeGranted     = "granted"     // realtime scheduling (SCHED_RR; on Windows, MMCSS's priority range)
 	RealtimeRaised      = "raised"      // realtime refused; a raised nice level instead
-	RealtimeDenied      = "denied"      // both refused
+	RealtimeDenied      = "denied"      // both refused (on Windows, the render thread runs below MMCSS's range)
 	RealtimeUnavailable = "unavailable" // neither RTKit nor the Realtime portal answered
-	RealtimeUnsupported = "unsupported" // not asked for on this platform
+	RealtimeUnsupported = "unsupported" // not asked for or measured on this platform (macOS)
 )
 
 // SandboxGap is a missing layer of the host's sandbox, or why it runs
@@ -128,5 +128,5 @@ type RealtimeRefusal string
 const (
 	RealtimeNoPriority RealtimeRefusal = "no_priority" // RTKit or the portal allows no realtime priority
 	RealtimeCPULimit   RealtimeRefusal = "cpu_limit"   // the host's realtime CPU time couldn't be limited, as RTKit requires
-	RealtimeRefused    RealtimeRefusal = "refused"     // RTKit or the portal said no
+	RealtimeRefused    RealtimeRefusal = "refused"     // RTKit or the portal said no; on Windows, MMCSS refused the host's own registration
 )

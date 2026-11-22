@@ -363,8 +363,8 @@ Whether the sandbox is used is decided once per process, on the first host start
 - `TestAppContainerConfinesChild` starts a probe child through `startSandboxed` and checks that:
   - its outbound `connect()` and its connection to a loopback listener of the test fail (the listener sees nothing)
   - it reads nothing in a folder that was not granted, writes nothing under the profile, lists no app data folder and starts no process
-  - it reads and loads the real CDM and writes its temp and registry folders
-- `TestAppContainerKill`; `TestSandboxedHostReports` (a real host reports `Active()` and the `appcontainer` kind); `TestGrantAccess`, `TestReadFolders`, `TestSandboxLoadsCDM`, `TestSandboxGaps`, `TestEnvHelpers`.
+  - it reads and loads the real CDM, writes its temp and registry folders, and registers a thread with MMCSS's "Pro Audio" task as wasapi2sink's render thread does (the capability-less token is enough)
+- `TestAppContainerKill`; `TestSandboxedHostReports` (a real host reports `Active()` and the `appcontainer` kind); `TestSandboxedHostReportsMMCSS` (a sandboxed host playing through `wasapi2sink`, muted, reports its render thread at MMCSS's priority; skipped without an audio endpoint, so on the runners); `TestGrantAccess`, `TestReadFolders`, `TestSandboxLoadsCDM`, `TestSandboxGaps`, `TestEnvHelpers`.
 - `TestRemoveSandbox` creates a profile of its own (never `sona.cdmhost`, which the other tests use), grants it a program folder and a CDM folder with a file, and runs the removal. It checks that:
   - the profile's registry mapping and package folder, and every entry of its SID (including the file's inherited one), are gone
   - the CDM file stays
