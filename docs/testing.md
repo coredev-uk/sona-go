@@ -196,6 +196,8 @@ Only Linux compares them. A test whose whole job is the picture starts with `if 
 
 When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`. Commit the new PNGs and say in the pull request why. You can also ask a maintainer to regenerate them on your pull request.
 
+Pixel readings of a drawn glyph (the Play triangle's and the sidebar shuffle's centring) are Linux's too: they read Lucide's shape, where macOS draws the system's SF Symbol ([design.md](design.md#icons)). Such a test skips with "pixel readings are asserted on Linux only" (the allow-list in `.github/ci/skips-darwin.txt` takes that reason), after anything it asserts without pixels: the shuffle's button still lies on its artwork on every system.
+
 A failing run keeps the picture and a diff in the test's artifact directory:
 
 - `$SONA_TEST_ARTIFACTS/<test name>` when that variable is set (CI's `.github/ci/test.sh` sets it and uploads the directory);

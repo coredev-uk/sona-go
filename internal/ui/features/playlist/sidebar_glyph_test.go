@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -45,7 +46,9 @@ func glyphCentres(im *image.RGBA, sc float32, r ui.Rect) (box, mass [2]float64) 
 // The shuffle button lies exactly on the artwork (a pinned row, a plain one
 // and one inside a folder, at device scales 1 and 2), and its shuffle glyph
 // is centred: the middle of its box within 0.6px of the button's, and its
-// mass (which the arrowheads pull right) within 1.6px of it.
+// mass (which the arrowheads pull right) within 1.6px of it. The glyph is
+// read in Lucide's shuffle, which Linux and Windows draw: macOS draws an SF
+// Symbol, and there the test stops at the button.
 func TestShuffleButtonLiesOnTheArtworkAndItsGlyphIsCentred(t *testing.T) {
 	goldenFont(t)
 	tree := sbLibrary()
@@ -76,6 +79,9 @@ func TestShuffleButtonLiesOnTheArtworkAndItsGlyphIsCentred(t *testing.T) {
 			}
 			overlay.OnArtwork(t, fmt.Sprintf("scale %v, %s: the shuffle button", sc, name), rest, sc, btn)
 			overlay.WholePixels(t, fmt.Sprintf("scale %v, %s: the shuffle button", sc, name), btn, sc)
+			if runtime.GOOS != "linux" {
+				continue // the glyph itself is read below, on Linux only
+			}
 
 			e.hover(name)
 			e.tt.Settle()
@@ -89,5 +95,8 @@ func TestShuffleButtonLiesOnTheArtworkAndItsGlyphIsCentred(t *testing.T) {
 				t.Errorf("scale %v, %s: the glyph's mass is off the button's middle by (%.2f, %.2f)", sc, name, dx, dy)
 			}
 		}
+	}
+	if runtime.GOOS != "linux" {
+		t.Skip("pixel readings are asserted on Linux only: macOS draws the SF Symbol shuffle, whose shape the system sets (docs/design.md, \"Icons\")")
 	}
 }
