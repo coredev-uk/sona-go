@@ -338,3 +338,130 @@ func TestMenuKeepOpenRunsAtOnceAndLeavesTheMenuOpen(t *testing.T) {
 		t.Fatalf("after two choices: on %v, open %v", on, a.menu.IsOpen())
 	}
 }
+
+// aimMenu opens a menu at a fixed point with a sub-menu taller than the rows
+// under its row open from the pointer on that row, the pointer there. It
+// returns where the rows are: the middle of the menu's panel, the sub-menu
+// row's and the row after it's, and the panel's right edge.
+func aimMenu(t *testing.T) (a *menuApp, tt *ui.Tester, midX, moreY, nextY, right float32) {
+	t.Helper()
+	a, tt = newMenuApp(t)
+	a.items = []MenuItem{
+		{Key: "one", Label: "One", Run: a.pick("one")},
+		{Key: "more", Label: "More", Kind: MenuSub, Sub: []MenuItem{
+			{Key: "a", Label: "Alpha", Run: a.pick("a")},
+			{Key: "b", Label: "Beta", Run: a.pick("b")},
+			{Key: "c", Label: "Gamma", Run: a.pick("c")},
+			{Key: "d", Label: "Delta", Run: a.pick("d")},
+			{Key: "e", Label: "Epsilon", Run: a.pick("e")},
+		}},
+		{Key: "three", Label: "Three", Run: a.pick("three")},
+		{Key: "four", Label: "Four", Run: a.pick("four")},
+	}
+	a.menu.OpenAt(40, 60, false)
+	tt.Frame()
+	tt.Frame()
+	box := a.menu.levels[0].box
+	more, ok := tt.Find("More")
+	if !ok {
+		t.Fatalf("no More row: %q", tt.Texts())
+	}
+	next, ok := tt.Find("Three")
+	if !ok {
+		t.Fatalf("no Three row: %q", tt.Texts())
+	}
+	midX, moreY, nextY, right = box.X+box.W/2, more.Y+more.H/2, next.Y+next.H/2, box.X+box.W
+	tt.Move(midX, moreY)
+	if !tt.HasText("Alpha") || a.menu.levels[0].hi != "more" {
+		t.Fatalf("the sub-menu did not open on the pointer: hi %q", a.menu.levels[0].hi)
+	}
+	return a, tt, midX, moreY, nextY, right
+}
+
+// menuHi is the highlighted row of the menu at level lv, "" when that level is
+// not open.
+func menuHi(a *menuApp, lv int) string {
+	if lv >= len(a.menu.levels) {
+		return ""
+	}
+	return a.menu.levels[lv].hi
+}
+
+func TestMenuPointerHeadingForTheSubmenuKeepsItOpenAcrossASiblingRow(t *testing.T) {
+	a, tt, _, _, nextY, right := aimMenu(t)
+	// Down and across onto Three, toward the sub-menu: no highlight moves.
+	tt.Move(right-10, nextY)
+	if !tt.HasText("Alpha") || menuHi(a, 0) != "more" {
+		t.Fatalf("crossing Three toward the sub-menu: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+	}
+	tt.Advance(menuAimGrace - time.Millisecond)
+	if !tt.HasText("Alpha") || menuHi(a, 0) != "more" {
+		t.Fatalf("1 ms before the grace ends: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+	}
+	// Resting there, Three takes the highlight once the grace ends, and the
+	// sub-menu closes.
+	tt.Advance(2 * time.Millisecond)
+	if tt.HasText("Alpha") || menuHi(a, 0) != "three" {
+		t.Fatalf("resting on Three past the grace: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+	}
+}
+
+func TestMenuPointerHeadingOnKeepsTheSubmenuAndReachesIt(t *testing.T) {
+	a, tt, midX, _, nextY, right := aimMenu(t)
+	tt.Move(midX+(right-midX)/2, nextY-2) // onto Three, halfway
+	tt.Advance(menuAimGrace / 2)
+	tt.Move(right-10, nextY) // on toward the sub-menu: the grace starts again
+	tt.Advance(menuAimGrace * 3 / 4)
+	if !tt.HasText("Alpha") || menuHi(a, 0) != "more" {
+		t.Fatalf("moving on toward the sub-menu: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+	}
+	alpha, ok := tt.Find("Alpha")
+	if !ok {
+		t.Fatal("no Alpha")
+	}
+	tt.Move(alpha.X+alpha.W/2, alpha.Y+alpha.H/2)
+	tt.Advance(time.Second)
+	if !tt.HasText("Alpha") || menuHi(a, 0) != "more" || menuHi(a, 1) != "a" {
+		t.Fatalf("reaching the sub-menu: Alpha shown %v, highlighted %q and %q", tt.HasText("Alpha"), menuHi(a, 0), menuHi(a, 1))
+	}
+}
+
+func TestMenuPointerMovingAwayFromTheSubmenuSwitchesAtOnce(t *testing.T) {
+	a, tt, _, _, nextY, _ := aimMenu(t)
+	tt.Move(a.menu.levels[0].box.X+10, nextY) // away from it, onto Three
+	if tt.HasText("Alpha") || menuHi(a, 0) != "three" {
+		t.Fatalf("moving away: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+	}
+
+	a, tt, midX, _, nextY, _ := aimMenu(t)
+	tt.Move(midX, nextY) // straight down: outside the triangle
+	if tt.HasText("Alpha") || menuHi(a, 0) != "three" {
+		t.Fatalf("moving straight down: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+	}
+}
+
+func TestMenuAimTowardTriangle(t *testing.T) {
+	sub := ui.Rect{X: 200, Y: 100, W: 100, H: 150}
+	cases := []struct {
+		name     string
+		from, to [2]float32
+		want     bool
+	}{
+		{"diagonally down toward it", [2]float32{100, 110}, [2]float32{190, 140}, true},
+		{"straight across", [2]float32{100, 110}, [2]float32{190, 110}, true},
+		{"straight down", [2]float32{100, 110}, [2]float32{100, 140}, false},
+		{"away", [2]float32{100, 110}, [2]float32{60, 120}, false},
+		{"below the edge's far corner", [2]float32{100, 110}, [2]float32{190, 400}, false},
+		{"over it", [2]float32{250, 110}, [2]float32{260, 140}, false},
+		{"flipped, toward it from the right", [2]float32{400, 110}, [2]float32{310, 140}, true},
+		{"flipped, away", [2]float32{400, 110}, [2]float32{420, 140}, false},
+	}
+	for _, tc := range cases {
+		if got := menuAimToward(sub, tc.from, tc.to); got != tc.want {
+			t.Errorf("%s: %v, want %v", tc.name, got, tc.want)
+		}
+	}
+	if menuAimToward(ui.Rect{}, [2]float32{0, 0}, [2]float32{5, 5}) {
+		t.Error("an empty panel is aimed at")
+	}
+}

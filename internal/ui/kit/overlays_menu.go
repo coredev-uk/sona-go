@@ -138,7 +138,11 @@ type Menu struct {
 	// a row under the pointer take the highlight; a menu appearing or
 	// scrolling under a resting pointer must not take it from the keys.
 	moved bool
-	now   time.Time
+	// aimHold: a row under a pointer that heads for an open sub-menu kept
+	// its highlight this frame (aim), so the move is still to be taken when
+	// the grace ends.
+	aimHold bool
+	now     time.Time
 	// dismissed is set the frame the user closed the menu (Escape, a
 	// press outside, Tab): Dismissed reports it once.
 	dismissed bool
@@ -153,7 +157,20 @@ type menuLevel struct {
 	hi     string
 	byKey  bool
 	reveal bool
+	// box is the panel's rectangle in window DIPs as last built.
+	box ui.Rect
+	// last is where the pointer was over the panel as it last built, when
+	// lastOK; aimUntil, nonzero, is when the pointer heading for the
+	// sub-menu (aim) stops keeping it open.
+	last     [2]float32
+	lastOK   bool
+	aimUntil time.Time
 }
+
+// menuAimGrace is how long a pointer heading for an open sub-menu across the
+// rows of the menu that holds it keeps the sub-menu open after its last move
+// toward it: the menu-aim rule of macOS's menus and Radix's.
+const menuAimGrace = 300 * time.Millisecond
 
 // IsOpen reports whether the menu shows.
 func (m *Menu) IsOpen() bool { return m.open }
@@ -273,7 +290,7 @@ func (m *Menu) Show(c *ui.Context, o MenuOpts, anchor ui.Element, items []MenuIt
 			rows = rows[i].Sub
 		}
 	})
-	m.moved = false
+	m.moved, m.aimHold = m.aimHold, false
 	if !m.open {
 		m.levels = nil
 		return
@@ -388,9 +405,12 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 	}
 	level().reveal = false
 
+	level().box = panel.Bounds()
 	// The pointer moving onto a row highlights it, opening its sub-menu and
-	// closing the others'; the keys go on from there.
-	if m.moved && hovered != "" {
+	// closing the others', unless it heads for an open sub-menu (aiming); the
+	// keys go on from there.
+	aim := m.aiming(c, panel, lv, hovered)
+	if m.moved && hovered != "" && !aim {
 		changed := level().hi != hovered
 		level().hi, level().byKey = hovered, false
 		isSub := slices.ContainsFunc(items, func(it MenuItem) bool { return it.Key == hovered && it.Kind == MenuSub })
@@ -419,6 +439,79 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 		m.dismiss()
 	}
 	return panel, rowEls
+}
+
+// aiming reports whether the pointer, over the row hovered of the panel at
+// level lv whose sub-menu is open from another row, heads for that sub-menu:
+// it moved toward it since the panel last built, into the triangle between
+// where it was and the sub-menu's near edge. The sub-menu then stays open with
+// the highlight where it is, for menuAimGrace after the last such move; once
+// the pointer rests or goes elsewhere the row under it takes the highlight,
+// as the frame the grace ends in (Context.After) lets it. Panels with no
+// sub-menu open ask the pointer nothing.
+func (m *Menu) aiming(c *ui.Context, panel ui.Element, lv int, hovered string) bool {
+	l := &m.levels[lv]
+	if lv+1 >= len(m.levels) {
+		l.lastOK, l.aimUntil = false, time.Time{}
+		return false
+	}
+	x, y, over := panel.PointerPosition()
+	if !over {
+		l.lastOK, l.aimUntil = false, time.Time{}
+		return false
+	}
+	wx, wy := panel.LocalToWindow(x, y)
+	at := [2]float32{wx, wy}
+	if l.lastOK && at != l.last {
+		l.aimUntil = time.Time{}
+		if menuAimToward(m.levels[lv+1].box, l.last, at) {
+			l.aimUntil = m.now.Add(menuAimGrace)
+		}
+	}
+	l.last, l.lastOK = at, true
+	if hovered == "" || hovered == m.levels[lv+1].sub || l.aimUntil.IsZero() {
+		return false
+	}
+	if !m.now.Before(l.aimUntil) {
+		l.aimUntil = time.Time{}
+		return false
+	}
+	c.After(l.aimUntil.Sub(m.now))
+	m.aimHold = true
+	return true
+}
+
+// menuAimToward reports whether a pointer moving from one window point to
+// another heads for the sub-menu panel sub: it lies in the triangle from
+// where it was to the corners of the panel's edge facing it, the left one
+// where the sub-menu opened after its menu, the right one where it flipped
+// before it.
+func menuAimToward(sub ui.Rect, from, to [2]float32) bool {
+	if sub.W <= 0 || sub.H <= 0 {
+		return false
+	}
+	var edge float32
+	switch {
+	case from[0] < sub.X:
+		edge = sub.X
+	case from[0] > sub.X+sub.W:
+		edge = sub.X + sub.W
+	default:
+		return false // over it, or beside it, which no triangle leads to
+	}
+	if (to[0]-from[0])*(edge-from[0]) <= 0 {
+		return false // not toward it
+	}
+	top, bottom := sub.Y, sub.Y+sub.H
+	side := func(ax, ay, bx, by float32) float32 {
+		return (bx-ax)*(to[1]-ay) - (by-ay)*(to[0]-ax)
+	}
+	d1 := side(from[0], from[1], edge, top)
+	d2 := side(edge, top, edge, bottom)
+	d3 := side(edge, bottom, from[0], from[1])
+	neg := d1 < 0 || d2 < 0 || d3 < 0
+	pos := d1 > 0 || d2 > 0 || d3 > 0
+	return !neg || !pos
 }
 
 // row draws one choosable row.
