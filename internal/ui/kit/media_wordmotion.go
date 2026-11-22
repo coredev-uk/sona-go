@@ -22,16 +22,17 @@ const (
 	// liftEm is how far a letter rises as it is sung (-0.05em; background
 	// vocals 0.10em), held while the line is sung.
 	liftEm = 0.05
-	// riseFloor is the shortest a word's letters take to rise, however
-	// short the word, so that a word of a few tens of ms does not snap.
-	riseFloor = 120 * time.Millisecond
+	// riseDur is how long a letter takes to come up once the colour reaches
+	// it, whatever the word's length: the letter answers the voice at once
+	// instead of trailing a slow word's fill. riseEase shapes it.
+	riseDur = 180 * time.Millisecond
 	// settleDur is how long a letter takes to settle back once its line has
 	// stopped, settleStagger how much later each letter of the text than the
 	// one before starts (from the left), at most settleStaggerMax, so that
 	// the line settles in a wave in at most maxSettle.
-	settleDur        = 350 * time.Millisecond
-	settleStagger    = 12 * time.Millisecond
-	settleStaggerMax = 200 * time.Millisecond
+	settleDur        = 220 * time.Millisecond
+	settleStagger    = 8 * time.Millisecond
+	settleStaggerMax = 120 * time.Millisecond
 	maxSettle        = settleStaggerMax + settleDur
 	// empMin is how long a word is held to swell, and empMaxChars the longest
 	// (CJK: no longest) it may be, trimmed.
@@ -75,7 +76,7 @@ func (b bezier) at(x float32) float32 {
 }
 
 var (
-	easeOut = bezier{0, 0, 0.58, 1}     // CSS ease-out: the rise
+	riseEase = bezier{0.16, 1, 0.3, 1} // expo out: most of the move at once, a soft landing (rise and settle)
 	empIn   = bezier{0.2, 0.4, 0.58, 1} // the swell's way up
 	empOut  = bezier{0.3, 0, 0.58, 1}   // and, reversed, down
 )
