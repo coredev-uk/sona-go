@@ -298,14 +298,17 @@ A failed install leaves Sona as it was. MyGo unpacks beside the install, validat
 
 #### Playback while the files are swapped (Windows)
 
-MyGo renames the install's entries (`lib\`, the DLLs, `sona.exe`) while Sona runs. The running executable and the DLLs the process loaded can be renamed, but a folder with a loaded DLL in it can't. The CDM host child (the same executable) has GStreamer's plugins in `lib\gstreamer-1.0` mapped while it lives, which it does for the idle timeout after the last play.
+MyGo renames the install's entries (`lib\`, the DLLs, `sona.exe`) while Sona runs; a manual restore (below) does the same the other way. The CDM host child (the same executable) has GStreamer's plugins in `lib\gstreamer-1.0` mapped while it lives, which it does for the idle timeout after the last play, and it loads more of them, and the DLLs they import, as it needs them.
 
-So once the archive is downloaded and verified (`update.Source.Ready`, just before MyGo unpacks it), `UpdatesService` has the coordinator hold the host (`Coordinator.HoldHost`, `playback.HostHolder`, `native.Engine.HoldHost`):
+- **What a rename survives** (measured on Windows 11 26200, issue #314): the running executable, the DLLs a process loaded, and a folder whose DLLs other processes have loaded, the AppContainer host's 11 to 24 plugins and the UI process's included, all rename. What stops one is a file in the folder that something opened without `FILE_SHARE_DELETE` (an indexer, an antivirus scan, a tool holding it), or a process whose current folder is inside it. Then the rename fails with "Access is denied".
+- **Why the host is let go of all the same**: a host that outlives the swap would load the other version's plugins into a process built against this one's, and a play while the files move would start a host from a half-swapped folder.
+
+So once the archive is downloaded and verified (`update.Source.Ready`, just before MyGo unpacks it), and before a manual restore renames anything, `UpdatesService` has the coordinator hold the host (`Coordinator.HoldHost`, `playback.HostHolder`, `native.Engine.HoldHost`):
 
 - The item is paused where it is. The host child is ended now and waited for, and so are the probe children (`cdmhost.WaitIdle`, 10 s at most).
 - No host starts until the hold is released. A play meanwhile fails with `native.ErrHostHeld`. Starting playback is the user's act, so a track that is playing stops there, with the download's bar still showing.
-- A failed install releases the hold: playback stays paused where it was and the next play starts a new host, as after an idle shutdown. A good install keeps it, because Sona restarts.
-- A host that can't be ended is logged and the install goes on (the swap then fails and says so).
+- A failed install or restore releases the hold: playback stays paused where it was and the next play starts a new host, as after an idle shutdown. A good one keeps it, because Sona restarts.
+- A host that can't be ended is logged and the install or restore goes on (the swap then fails and says so if it can't).
 - macOS replaces the bundle after the quit and holds nothing (`Guard.SwapsInPlace`).
 
 #### The sandbox after an update (Windows)
@@ -335,8 +338,8 @@ Settings → Diagnostics → Updates → Previous version shows the version the 
 
 - **Where it exists**: only where Sona updates itself (macOS and Windows installs that can write where they are installed) and a previous version is kept, and not while an update installs or a restore runs. Elsewhere (Linux, development builds) the row is absent, not a stub.
 - **The version's number**: `CFBundleShortVersionString` in the kept bundle's `Info.plist` on macOS and, on Windows, `update-previous` in the state folder, which `Guard.Commit` writes. A snapshot made by a Sona that wrote none is offered without a number.
-- **The restore**: Sona asks first, then runs the guard's `restore` on the running install (both systems allow renaming a running app). It records the restore in `update-rollback.json` with `manual: true`, so the Diagnostics bundle tells "you restored" from "the failed update was rolled back". It drops `update-pending` and has MyGo's `Relaunch` quit Sona through its normal quit (settings and the queue are saved, the single-instance lock is released) and start what is now installed.
-- **A failure** leaves Sona running and the row says why (`restore_failed`).
+- **The restore**: Sona asks first, lets go of the playback host on Windows (above), then runs the guard's `restore` on the running install (both systems allow renaming a running app). It records the restore in `update-rollback.json` with `manual: true`, so the Diagnostics bundle tells "you restored" from "the failed update was rolled back". It drops `update-pending` and has MyGo's `Relaunch` quit Sona through its normal quit (settings and the queue are saved, the single-instance lock is released) and start what is now installed.
+- **A failure** leaves Sona running and the row says why (`restore_failed`). On Windows the entries are renamed one by one; one that can't be (a locked file in it) has the guard rename back those it already swapped, so the running version stays whole and `previous\` stays complete for another try, as MyGo's own swap does.
 - **After the restart**: the version just left is not offered again in the notification centre (`UpdateStatus.Declined`, read from the manual record when it names this run's version), because the row would otherwise invite the user straight back. Settings → General still says it is available, "Check now" (or installing it) ends the hold, and a newer release is offered as usual.
 - **One way**: the version left isn't kept, so going forward again is an ordinary update.
 
