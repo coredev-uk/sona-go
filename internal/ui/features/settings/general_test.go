@@ -794,7 +794,17 @@ func TestClickingARowsTitleGoesToItsControl(t *testing.T) {
 // it.
 func TestARowsButtonKeepsItsOwnName(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), nil)
-	g.toEnd()
+	// The row scrolls into view by itself, wherever the fonts put it: at the
+	// page's end it was above the fold on macOS, where the rows below it take
+	// more room, and its text had no area to click. Landing focuses the
+	// button; Tab takes the focus on to the next row, so the click on the
+	// title has somewhere to bring it back from.
+	g.reveal("window-size")
+	g.tt.Key(0, ui.KeyTab)
+	g.tt.Drain()
+	if f := access.Read(t, g.tt.Tester).Focus; f == nil || f.Label == "Reset size" {
+		t.Fatalf("after Tab the focus is %v, want a control other than Reset size", f)
+	}
 	g.tt.Until("the row", g.tt.Shows("Window size", "Reset size"))
 	tr := access.Read(t, g.tt.Tester)
 	if _, ok := tr.Find(ui.RoleButton, "Reset size"); !ok {
