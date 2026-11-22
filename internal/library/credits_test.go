@@ -115,6 +115,8 @@ func TestCreditedSongsGroupUnderEachArtist(t *testing.T) {
 		"r.bo":  {"Solo B", "Three", "Together"},
 		"900":   {"Three"},
 		"r.up":  {"Mine"},
+		// The combined library artist still has its own songs (its page, its pin).
+		"r.duo": {"Together"},
 	} {
 		a, albums, got, err := e.lib.Artist(ctx, id)
 		if err != nil {
@@ -270,5 +272,67 @@ func TestNoCreditsWithoutAStorefront(t *testing.T) {
 	}
 	if duo, ok := artistNamed(t, index, "Ada & Bo"); !ok || duo.Songs != 1 {
 		t.Errorf("uncredited songs stay under their library artist: %+v", duo)
+	}
+}
+
+func trackCredits(t *testing.T, e *env, libraryID string) (n int, checked int64) {
+	t.Helper()
+	ctx := context.Background()
+	if err := e.db.R.QueryRowContext(ctx, `SELECT count(*) FROM track_artists WHERE track_id = (SELECT id FROM tracks WHERE library_id = ?)`, libraryID).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.db.R.QueryRowContext(ctx, `SELECT credits_checked FROM tracks WHERE library_id = ?`, libraryID).Scan(&checked); err != nil {
+		t.Fatal(err)
+	}
+	return n, checked
+}
+
+// A song whose artist string stops naming several loses its credits; songs
+// that name one are marked as checked, so a sync does not read them again.
+func TestStaleCreditsAreClearedAndSingleNamesChecked(t *testing.T) {
+	e := newEnv(t)
+	collabLibrary(e)
+	if err := e.run(t); err != nil {
+		t.Fatal(err)
+	}
+	if n, c := trackCredits(t, e, "i.c1"); n != 2 || c == 0 {
+		t.Fatalf("credits of Together = %d (checked %d), want 2", n, c)
+	}
+	if _, c := trackCredits(t, e, "i.s1"); c == 0 {
+		t.Error("a song naming one artist is not marked as checked")
+	}
+
+	// Apple now credits the song to Ada alone.
+	e.fake.songs[2]["attributes"].(map[string]any)["artistName"] = "Ada"
+	if err := e.runFull(t, DomainSongs); err != nil {
+		t.Fatal(err)
+	}
+	if n, c := trackCredits(t, e, "i.c1"); n != 0 || c == 0 {
+		t.Errorf("credits of Together = %d (checked %d) after its artist string named one, want none and checked", n, c)
+	}
+	if reqs := catalogRequests(e); len(reqs) != 1 {
+		t.Errorf("catalogue requests = %v, want the first sync's only", reqs)
+	}
+}
+
+// A song whose catalogue ID changes is asked about again.
+func TestCreditsAreAskedAgainWhenTheCatalogueIDChanges(t *testing.T) {
+	e := newEnv(t)
+	collabLibrary(e)
+	if err := e.run(t); err != nil {
+		t.Fatal(err)
+	}
+	e.fake.reset()
+	e.fake.songs[2]["attributes"].(map[string]any)["playParams"].(map[string]any)["catalogId"] = "cnew1"
+	e.fake.credits["cnew1"] = [][2]string{{"cr.bo", "Bo"}}
+	if err := e.runFull(t, DomainSongs); err != nil {
+		t.Fatal(err)
+	}
+	reqs := catalogRequests(e)
+	if len(reqs) != 1 || !strings.Contains(reqs[0], "cnew1") {
+		t.Fatalf("requests = %v, want one for the new catalogue ID", reqs)
+	}
+	if n, _ := trackCredits(t, e, "i.c1"); n != 1 {
+		t.Errorf("credits of Together = %d, want the new answer's 1", n)
 	}
 }

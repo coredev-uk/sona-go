@@ -145,13 +145,16 @@ func (q *Queries) DeleteStaleLibraryMusicVideos(ctx context.Context, generation 
 	return result.RowsAffected()
 }
 
-const deleteTrackArtists = `-- name: DeleteTrackArtists :exec
+const deleteTrackArtists = `-- name: DeleteTrackArtists :execrows
 DELETE FROM track_artists WHERE track_id = ?
 `
 
-func (q *Queries) DeleteTrackArtists(ctx context.Context, trackID int64) error {
-	_, err := q.db.ExecContext(ctx, deleteTrackArtists, trackID)
-	return err
+func (q *Queries) DeleteTrackArtists(ctx context.Context, trackID int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteTrackArtists, trackID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getAlbumByLibraryID = `-- name: GetAlbumByLibraryID :one
@@ -1006,7 +1009,7 @@ ON CONFLICT (library_id) DO UPDATE SET
     isrc = excluded.isrc,
     composer = excluded.composer,
     no_play_params = excluded.no_play_params,
-    credits_checked = CASE WHEN excluded.artist_name <> tracks.artist_name THEN 0 ELSE tracks.credits_checked END,
+    credits_checked = CASE WHEN excluded.artist_name <> tracks.artist_name OR excluded.catalog_id IS NOT tracks.catalog_id THEN 0 ELSE tracks.credits_checked END,
     updated_at = excluded.updated_at
 RETURNING id
 `

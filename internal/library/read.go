@@ -426,8 +426,9 @@ func (l *Library) artistRow(ctx context.Context, key string) (Artist, error) {
 	}
 	return one(query(ctx, l, `SELECT NULL, ta.artist_catalog_id, ta.name,
 			coalesce((SELECT c.artwork_template FROM artists c WHERE c.catalog_id = ta.artist_catalog_id AND c.library_id IS NULL LIMIT 1), '')
-		FROM track_artists ta JOIN library_items x ON x.kind = 'song' AND x.ref = ta.track_id
-		WHERE ta.artist_catalog_id = ? ORDER BY ta.position, ta.track_id LIMIT 1`, scanArtist, key))
+		FROM track_artists ta
+		WHERE ta.artist_catalog_id = ? AND EXISTS (SELECT 1 FROM library_items x WHERE x.kind = 'song' AND x.ref = ta.track_id)
+		ORDER BY ta.position, ta.track_id LIMIT 1`, scanArtist, key))
 }
 
 // ArtistAlbums returns the artist under key (a library artist's library ID, or
@@ -464,8 +465,8 @@ func (l *Library) Artist(ctx context.Context, key string) (Artist, []Album, []So
 	today := l.today()
 	songs, err := query(ctx, l, `SELECT `+trackColumns(today)+` FROM tracks t
 		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id`+withAlbum+`
-		WHERE t.id IN (SELECT k.track_id FROM track_credit_keys k WHERE k.artist_key = ?) AND `+out(today)+`
-		ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number`, scanSong, key)
+		WHERE (t.artist_library_id = ? OR t.id IN (SELECT k.track_id FROM track_credit_keys k WHERE k.artist_key = ?)) AND `+out(today)+`
+		ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number`, scanSong, key, key)
 	if err != nil {
 		return Artist{}, nil, nil, fmt.Errorf("library: artist tracks: %w", err)
 	}

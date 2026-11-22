@@ -27,7 +27,7 @@ ON CONFLICT (library_id) DO UPDATE SET
     isrc = excluded.isrc,
     composer = excluded.composer,
     no_play_params = excluded.no_play_params,
-    credits_checked = CASE WHEN excluded.artist_name <> tracks.artist_name THEN 0 ELSE tracks.credits_checked END,
+    credits_checked = CASE WHEN excluded.artist_name <> tracks.artist_name OR excluded.catalog_id IS NOT tracks.catalog_id THEN 0 ELSE tracks.credits_checked END,
     updated_at = excluded.updated_at
 RETURNING id;
 
@@ -39,7 +39,7 @@ FROM tracks t JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
 WHERE t.catalog_id IS NOT NULL AND t.catalog_id <> '' AND t.credits_checked = 0
 ORDER BY t.id;
 
--- name: DeleteTrackArtists :exec
+-- name: DeleteTrackArtists :execrows
 DELETE FROM track_artists WHERE track_id = ?;
 
 -- name: InsertTrackArtist :exec

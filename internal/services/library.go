@@ -125,7 +125,7 @@ func (s *LibraryService) ArtistIndex(ctx context.Context) ([]ArtistEntry, error)
 	}), nil
 }
 
-// ArtistAlbums returns a library artist and their library albums, newest
+// ArtistAlbums returns an artist of the list (a library artist or a credit-only one) and their library albums, newest
 // release first, without their songs.
 func (s *LibraryService) ArtistAlbums(ctx context.Context, id string) (ArtistAlbums, error) {
 	a, albums, err := s.o.Library.ArtistAlbums(ctx, id)
