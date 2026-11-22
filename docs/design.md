@@ -14,7 +14,7 @@ This is the visual direction for Sona's interface: type, colour, shape, motion a
   - [Icons](#icons)
   - [Artwork](#artwork)
   - [Backdrops (pre-blurred in Go)](#backdrops-pre-blurred-in-go)
-  - [Window material (macOS)](#window-material-macos)
+  - [Window material (macOS, Windows 11)](#window-material-macos-windows-11)
   - [Motion](#motion)
   - [Reduce effects](#reduce-effects)
   - [Lists](#lists)
@@ -172,7 +172,7 @@ The table above is Sona's own theme (`sona`): `tokens.json` is its whole documen
 
 - Surfaces separate by a tone step, or by one 1px `--line`, never both.
 - Shadows only on what floats (menus, dialogs, toasts): the `float` shadow, 8px down with a 24px blur, black at 12% in light and 40% in dark.
-- No gradients, no glows, no glass. Two exceptions: the album page's band, which ends in a dissolve and a far-end gradient (Album page), and on macOS the OS's window material behind the sidebar, never drawn by Sona (Window material, below).
+- No gradients, no glows, no glass. Two exceptions: the album page's band, which ends in a dissolve and a far-end gradient (Album page), and on macOS and Windows 11 the OS's window material behind the sidebar, never drawn by Sona (Window material, below).
 
 ## Icons
 
@@ -213,17 +213,18 @@ The artwork service renders, per cover, a tiny pre-blurred JPEG (target ~32×32,
   - Text sits on the scrim, so contrast is the scrim's, not the image's. The scrim is the floor at which `--ink-muted` and `--ink-faint` stay ≥ 4.5:1 over any backdrop: a black one in light (the binding case: 91% on surface) and a white one in dark (85%).
   - It is one value per theme, never lowered per surface. A stronger cover colour would need a darker text token, not a thinner scrim.
 - **Change**: when the track changes the new backdrop fades in over 300ms (the one authored motion moment). Images are decoded before the swap so the fade never shows an empty frame.
-- **Banned**: any live blur (a blur effect at paint time) on anything larger than an icon, and any blur on scrolling content. The macOS window material (below) is the system's, composited by the OS, not a blur Sona paints.
+- **Banned**: any live blur (a blur effect at paint time) on anything larger than an icon, and any blur on scrolling content. The window material (below) is the system's, composited by the OS, not a blur Sona paints.
 - **Reduce effects**: backdrops are not rendered at all; the surfaces are solid tokens. Full-Screen Lyrics then has no wash to drift.
 
-## Window material (macOS)
+## Window material (macOS, Windows 11)
 
-On macOS the sidebar lets the OS's window material through: Liquid Glass from macOS 26, the sidebar material on 14 and 15. The system draws it from the desktop and the windows behind Sona; Sona draws nothing of it and nothing else of the window is translucent.
+On macOS and Windows 11 the sidebar lets the OS's window material through: on macOS Liquid Glass from macOS 26, the sidebar material on 14 and 15; on Windows Mica from Windows 11 22H2 (build 22621), the same backdrop as Settings' and File Explorer's navigation panes. The system draws it from the desktop (and on macOS the windows behind Sona); Sona draws nothing of it and nothing else of the window is translucent. Linux and older Windows have none.
 
 - **The sidebar only.** The top bar, the page, the player bar, menus, dialogs and Now Playing stay solid tokens. The 1px `--line` still separates the sidebar from the page.
-- **A tint keeps the text readable.** The sidebar lays its `--surface` over the material at the least opacity, in steps of 5%, at which `--ink`, `--ink-muted` and `--ink-faint` keep 4.5:1 over every measured sample of the material: Liquid Glass and the sidebar material, active and inactive, over black, white, grey and saturated desktops (`materialSamples` in `internal/ui/app/material.go`, measured on Apple silicon for #317). Sona's own theme gets 80% in light and 70% in dark. A theme whose text needs more than 95% gets a solid sidebar and no material.
+- **A tint keeps the text readable.** The sidebar lays its `--surface` over the material at the least opacity, in steps of 5%, at which `--ink`, `--ink-muted` and `--ink-faint` keep 4.5:1 over every measured sample of that material (`internal/ui/app/material.go`): over black, white, grey and saturated desktops, active and inactive, Liquid Glass and the sidebar material measured on Apple silicon for #317 (`glassSamples`), Mica on Windows 11 build 26200 (`micaSamples`). Sona's own theme gets 80% in light and 70% in dark over the Mac's materials, and none over Mica: Mica stays within a few steps of its light or dark grey whatever the wallpaper, so the sidebar is plain Mica, as Windows' own navigation panes are. A theme whose text needs more than 95% gets a solid sidebar and no material.
 - **Light and dark as Sona is.** The app's appearance follows Sona's mode (or a one-variant theme), so the material, the window buttons and the system's menus are drawn light or dark as Sona's tokens are, whatever the desktop's mode.
-- **Solid where asked.** Reduce effects and the desktop's Reduce Transparency turn the material off and the sidebar is solid `--surface` again.
+- **Solid where asked.** Reduce effects and the desktop's Reduce Transparency (on Windows, Settings → Personalisation → Colours → Transparency effects) turn the material off and the sidebar is solid `--surface` again.
+- **Inactive.** Windows draws Mica only in the active window; an inactive one shows its plain light or dark grey, which the samples include.
 - **The mini player** has no material; on macOS its frameless window has rounded corners (20px), as a floating panel does.
 
 ## Motion

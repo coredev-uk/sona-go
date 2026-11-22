@@ -93,7 +93,7 @@ Inside the tagged packages, what differs is in `_linux`, `_darwin` and `_windows
 | On battery (motion artwork) | UPower (`internal/power`) | MyGo: `Power.IsOnBattery`, polled | MyGo: `Power.IsOnBattery`, polled |
 | File chooser (settings export and import) | xdg-desktop-portal's FileChooser (`app.Portal`) | MyGo: `Dialog`, NSOpenPanel and NSSavePanel | MyGo: `Dialog`, the shell's IFileOpenDialog and IFileSaveDialog |
 | Open Apple Music links in Sona | `xdg-mime` default for the desktop entry (`app.XDGLinkHandler`) | NSWorkspace, from Sona.app only (`linkhandler_darwin.go`) | The user's URL classes, unless their choice in Windows' settings or a packaged app holds a scheme (`app.WindowsLinkHandler`) |
-| Window material and appearance (`internal/ui/app/material_darwin.go`, `material_other.go`) | None | Liquid Glass (macOS 26+) or the sidebar material behind the sidebar, the app's appearance following Sona's mode, and the mini player's rounded corners ([ui-architecture.md](ui-architecture.md), "Window materials") | None |
+| Window material and appearance (`internal/ui/app/material_darwin.go`, `material_windows.go`, `material_other.go`) | None | Liquid Glass (macOS 26+) or the sidebar material behind the sidebar, the app's appearance following Sona's mode, and the mini player's rounded corners ([ui-architecture.md](ui-architecture.md), "Window materials") | Mica (Windows 11 22H2+, build 22621) behind the sidebar, the app's appearance following Sona's mode; none before |
 | Audio sink | `pipewiresink` | `osxaudiosink` | `wasapi2sink` |
 | CDM library | `libwidevinecdm.so` | `libwidevinecdm.dylib` | `widevinecdm.dll` |
 
