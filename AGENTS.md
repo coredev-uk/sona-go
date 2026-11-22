@@ -9,7 +9,7 @@ The main checkout is read-only: it stays on `main` and you never edit, build or 
 1. From the main checkout's root, create a worktree beside it: `git worktree add ../sona-go-<slug> -b <type>/<slug> origin/main` (`<type>` is the Conventional Commit type, e.g. `feat/queue-autoplay`).
 2. `cd` into it, then run `pwd` and `git branch --show-current`: the path must be `…/sona-go-<slug>` and the branch must not be `main`.
 3. Use absolute paths into the worktree for every file tool (read, edit, write). File tools resolve relative paths against the session's starting directory, which is often the main checkout.
-4. Implement, with the docs and tests that describe the change in the same PR. A new worktree has no `.env`; symlink it from the main checkout only when a live token is needed.
+4. Implement, with the docs and tests that describe the change in the same PR. A new worktree has no `.env`; symlink it from the main checkout only when a live token is needed (on Windows, `devloop` reads the main checkout's itself).
 5. Run `devenv shell -- check` and `devenv shell -- tests`. After rebasing onto `main`, also run `gen` and `go run ./cmd/i18ntool extract`, and commit the results.
 6. Push and open the PR with a Conventional Commit title and the template (`.github/pull_request_template.md`): What, Why, Evidence (commands with their output; light and dark screenshots for UI, no personal account data), Tests, Docs, Left.
 7. When CI is green and the work is done, comment `@bot-clarence merge`.
