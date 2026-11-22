@@ -39,7 +39,7 @@ type SweepText struct {
 type sweepWord struct {
 	text       string
 	begin, end time.Duration
-	d          time.Duration // how long its letters take to rise: max(riseFloor, end − begin)
+	d          time.Duration // how long the colour takes to cross it: end − begin, at least 1 ms
 	up         float32       // how far a letter rests raised, in em
 	total      float32       // the length of its boxes, in reading order
 	boxes      []fillBox
@@ -133,7 +133,7 @@ func newSweepText(words []lyrics.Word, lang string, size float32, weight int, it
 		}
 		sw := &s.words[i]
 		sw.text, sw.begin, sw.end = w.Text, w.Begin, w.End
-		sw.d = max(riseFloor, w.End-w.Begin)
+		sw.d = max(w.End-w.Begin, time.Millisecond)
 		sw.up = liftEm
 		if w.Background {
 			sw.up = 2 * liftEm
@@ -314,29 +314,33 @@ func (s *SweepText) Width() float32 { return s.width }
 func (s *SweepText) Height() float32 { return s.h }
 
 // rise is how far, 0 to 1, letter l of word w has risen s after the word
-// begins: the front of the fill (its soft edge's far side) is at
-// s/d·(length + edge) along the word, and a letter starts to rise as the front
-// reaches its leading edge and is up once it has passed its trailing edge and
-// the width of the soft edge, so the rise runs with the colour. rtl reads
-// the word from the right.
+// begins: it comes up over riseDur from the moment the colour reaches it
+// (reach), whatever the word's length, so a slow word's letters answer the
+// voice at once instead of creeping up with its fill. rtl reads the word
+// from the right.
 func (w *sweepWord) rise(l *sweepLetter, s time.Duration, edge float32, rtl bool) float32 {
 	if s <= 0 {
 		return 0
 	}
-	lo, hi := l.l, l.t
+	return clamp01(float32(s-w.reach(l, edge, rtl)) / float32(riseDur))
+}
+
+// reach is how long after the word begins the colour reaches letter l: the
+// front of the fill (its soft edge's far side) is at s/d·(length + edge)
+// along the word.
+func (w *sweepWord) reach(l *sweepLetter, edge float32, rtl bool) time.Duration {
+	lo := l.l
 	if rtl {
-		lo, hi = l.lm, l.tm
+		lo = l.lm
 	}
-	front := float32(s) / float32(w.d) * (w.total + edge)
-	return clamp01((front - lo) / (hi - lo + edge))
+	return time.Duration(float64(w.d) * float64(lo/(w.total+edge)))
 }
 
 // lift is how far letter l of word w is raised at t, in em (up), the line
 // sung until until, and whether it is moving (still rising, or settling).
-// While the line is sung a letter is raised by the front of the fill. After
+// While the line is sung a letter comes up as the colour reaches it. After
 // it a letter settles from where it was: each at its turn from the left,
-// over settleDur, the rise played back (a swollen word finishes its swell
-// first).
+// over settleDur (a swollen word finishes its swell first).
 func (w *sweepWord) lift(l *sweepLetter, t, until time.Duration, edge float32, rtl bool) (lift float32, moving bool) {
 	stop := until
 	if w.emp != nil {
@@ -344,9 +348,9 @@ func (w *sweepWord) lift(l *sweepLetter, t, until time.Duration, edge float32, r
 	}
 	if t <= stop {
 		s := t - w.begin
-		return w.up * easeOut.at(w.rise(l, s, edge, rtl)), s >= 0 && s < w.d
+		return w.up * riseEase.at(w.rise(l, s, edge, rtl)), s >= 0 && s < w.d+riseDur
 	}
-	v0 := w.up * easeOut.at(w.rise(l, stop-w.begin, edge, rtl))
+	v0 := w.up * riseEase.at(w.rise(l, stop-w.begin, edge, rtl))
 	if v0 == 0 {
 		return 0, false
 	}
@@ -354,7 +358,7 @@ func (w *sweepWord) lift(l *sweepLetter, t, until time.Duration, edge float32, r
 	if x >= 1 {
 		return 0, false
 	}
-	return v0 * easeOut.at(1-clamp01(x)), true
+	return v0 * (1 - riseEase.at(clamp01(x))), true
 }
 
 // lifts reports whether any letter may be away from its place at c: from the

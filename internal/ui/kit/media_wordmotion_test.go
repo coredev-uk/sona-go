@@ -425,14 +425,14 @@ func TestSweepPaintReportsWhetherItMoves(t *testing.T) {
 		{"before the line", 0, 0, false},
 		{"as it begins", time.Second, 1, true},
 		{"filling the first word", 1100 * ms, 1, true},
-		{"after the first word is sung, no lag", 1700 * ms, 1, false},
+		{"after the first word is sung and its letters are up", 1800 * ms, 1, false},
 		{"both lifted, between words", 2400 * ms, 1, false},
 		{"held at rest", 5 * time.Second, 1, false},
 		{"the last word begins", 6 * time.Second, 1, true},
 		{"the last word held", 8 * time.Second, 1, false},
 		{"just after the line stops", until + 100*ms, 0, true},
-		{"settling", until + 400*ms, 0, true},
-		{"settled", until + 600*ms, 0, false},
+		{"settling", until + 200*ms, 0, true},
+		{"settled", until + 400*ms, 0, false},
 		{"long after", until + 60*time.Second, 0, false},
 	} {
 		clock = SweepClock{T: c.at, Sung: c.sung, Until: until}

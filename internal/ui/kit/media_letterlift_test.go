@@ -23,34 +23,34 @@ func fourLetters(t *testing.T, begin, end time.Duration, bg bool) *SweepText {
 	return NewSweepText([]lyrics.Word{{Begin: begin, End: end, Text: "HHHH", Background: bg}}, "", 40, 700, 48, 400)
 }
 
-// A letter starts to rise as the front of the fill reaches its leading edge
-// and has risen 0.05em once the front has passed its trailing edge and the
-// soft edge's width: the rise runs with the colour, letter by letter.
-func TestLettersRiseAsTheFrontOfTheFillReachesThem(t *testing.T) {
+// A letter starts to rise as the colour reaches it and is up riseDur later,
+// whatever the word's length: letter by letter, in a wave, with no lag.
+func TestLettersRiseAsTheColourReachesThem(t *testing.T) {
 	s := fourLetters(t, time.Second, 2*time.Second, false)
 	w := &s.words[0]
 	edge := s.size * 0.5
 	if len(w.letters) != 4 {
 		t.Fatalf("%d letters", len(w.letters))
 	}
-	// The front is at s/d·(length + edge) along the word.
+	// The front of the fill is at s/d·(length + edge) along the word.
 	at := func(front float32) time.Duration {
 		return time.Second + time.Duration(front/(w.total+edge)*float32(w.d))
 	}
 	for i := range w.letters {
 		l := &w.letters[i]
-		if v, _ := liftOf(s, 0, i, at(l.l-0.5), NoUntil); v != 0 {
-			t.Errorf("letter %d is %v em up before the front reaches it", i, v)
+		reach := at(l.l)
+		if v, _ := liftOf(s, 0, i, reach-5*ms, NoUntil); v != 0 {
+			t.Errorf("letter %d is %v em up before the colour reaches it", i, v)
 		}
-		if v, _ := liftOf(s, 0, i, at(l.l+1), NoUntil); v <= 0 {
-			t.Errorf("letter %d has not begun to rise as the front enters it", i)
+		if v, _ := liftOf(s, 0, i, reach+riseDur/4, NoUntil); v < liftEm/2 {
+			t.Errorf("letter %d is only %v of %v up a quarter into its rise: too slow", i, v, liftEm)
 		}
-		if v, _ := liftOf(s, 0, i, at(l.t+edge+0.5), NoUntil); !withinTol(v, liftEm, 1e-6) {
-			t.Errorf("letter %d is %v em up once the front is past it and its edge, want %v", i, v, liftEm)
+		if v, _ := liftOf(s, 0, i, reach+riseDur, NoUntil); !withinTol(v, liftEm, 1e-6) {
+			t.Errorf("letter %d is %v em up riseDur after the colour reached it, want %v", i, v, liftEm)
 		}
 	}
 	// A wave: at any time a letter further along is no higher than one before.
-	for d := time.Duration(0); d <= time.Second; d += 20 * ms {
+	for d := time.Duration(0); d <= time.Second+riseDur; d += 10 * ms {
 		prev := float32(1)
 		for i := range w.letters {
 			v, _ := liftOf(s, 0, i, time.Second+d, NoUntil)
@@ -60,24 +60,22 @@ func TestLettersRiseAsTheFrontOfTheFillReachesThem(t *testing.T) {
 			prev = v
 		}
 	}
-	// Eased out: a letter is past half way up at half the distance.
-	l := &w.letters[0]
-	if v, _ := liftOf(s, 0, 0, at(l.l+(l.t-l.l+edge)/2), NoUntil); v <= liftEm/2 {
-		t.Errorf("half way through its ramp a letter is %v of %v: not eased out", v, liftEm)
+	// Moving until the last letter is up, then at rest.
+	last := at(w.letters[3].l)
+	if _, mv := liftOf(s, 0, 3, last+riseDur/2, NoUntil); !mv {
+		t.Error("the last letter is not moving while it rises")
 	}
-	// The last letter is up exactly as the colour finishes: no trailing.
-	if v, mv := liftOf(s, 0, 3, 2*time.Second, NoUntil); !withinTol(v, liftEm, 1e-6) || mv {
-		t.Errorf("at the word's end the last letter is %v up, moving %v", v, mv)
+	if _, mv := liftOf(s, 0, 3, 2*time.Second+riseDur, NoUntil); mv {
+		t.Error("still moving after the last letter is up")
 	}
 }
 
-// A quick word is up as soon as it is sung: no lag behind its colour, as a
-// word that eased over a second would have.
-func TestAQuickWordHasRisenWhenItsColourIsDone(t *testing.T) {
+// A quick word is up within riseDur of its colour finishing: no lag.
+func TestAQuickWordHasRisenRightAfterItsColour(t *testing.T) {
 	s := fourLetters(t, time.Second, 1250*ms, false)
 	for i := range s.words[0].letters {
-		if v, mv := liftOf(s, 0, i, 1250*ms, NoUntil); !withinTol(v, liftEm, 1e-6) || mv {
-			t.Errorf("letter %d at the end of a 250 ms word: %v up, moving %v", i, v, mv)
+		if v, mv := liftOf(s, 0, i, 1250*ms+riseDur, NoUntil); !withinTol(v, liftEm, 1e-6) || mv {
+			t.Errorf("letter %d riseDur after a 250 ms word: %v up, moving %v", i, v, mv)
 		}
 	}
 	if _, mv := liftOf(s, 0, 0, 1100*ms, NoUntil); !mv {
@@ -85,29 +83,16 @@ func TestAQuickWordHasRisenWhenItsColourIsDone(t *testing.T) {
 	}
 }
 
-// A word of a few tens of ms does not snap: its letters take at least 120 ms.
-func TestAVeryShortWordRisesOverTheFloor(t *testing.T) {
-	s := fourLetters(t, time.Second, 1020*ms, false)
-	if s.words[0].d != riseFloor {
-		t.Fatalf("a 20 ms word rises over %v, want %v", s.words[0].d, riseFloor)
-	}
-	if v, mv := liftOf(s, 0, 3, 1020*ms, NoUntil); v >= liftEm-1e-4 || !mv {
-		t.Errorf("at the end of a 20 ms word the last letter is %v up, moving %v: it snapped", v, mv)
-	}
-	if v, mv := liftOf(s, 0, 3, time.Second+riseFloor, NoUntil); !withinTol(v, liftEm, 1e-6) || mv {
-		t.Errorf("after the floor: %v up, moving %v", v, mv)
-	}
-}
-
-// A letter of a long word waits for the front: the first letters of a word held
-// 3 s are up long before its last begin.
-func TestASlowWordsLettersRiseOneAfterAnother(t *testing.T) {
+// A slow word's letters do not creep up with its fill: each comes up in
+// riseDur once the colour reaches it, so the first letter of a word held 3 s
+// is up long before the last begins.
+func TestASlowWordsLettersComeUpQuickly(t *testing.T) {
 	s := fourLetters(t, 0, 3*time.Second, false)
-	if v, _ := liftOf(s, 0, 0, 1500*ms, NoUntil); !withinTol(v, liftEm, 1e-6) {
-		t.Errorf("the first letter at half the word: %v", v)
+	if v, _ := liftOf(s, 0, 0, riseDur, NoUntil); !withinTol(v, liftEm, 1e-6) {
+		t.Errorf("the first letter riseDur into a 3 s word: %v, want up", v)
 	}
 	if v, _ := liftOf(s, 0, 3, 700*ms, NoUntil); v != 0 {
-		t.Errorf("the last letter is up (%v) a quarter in", v)
+		t.Errorf("the last letter is up (%v) before the colour reaches it", v)
 	}
 }
 
@@ -156,10 +141,11 @@ func TestLettersSettleLeftToRightWhenTheLineStops(t *testing.T) {
 	if !s.lifts(SweepClock{T: until + maxSettle - 50*ms, Until: until}) {
 		t.Error("a line still settling is painted whole")
 	}
-	// Eased: the settle is the rise played back, slow at first.
-	early, _ := liftOf(s, 0, 0, until+settleDur/10, until)
-	if early < liftEm*0.8 {
-		t.Errorf("the settle starts fast: %v of %v after a tenth", early, liftEm)
+	// Quick: most of the way down in the first third of the settle, then a
+	// soft landing.
+	early, _ := liftOf(s, 0, 0, until+settleDur/3, until)
+	if early > liftEm/2 {
+		t.Errorf("the settle is slow: %v of %v left after a third", early, liftEm)
 	}
 }
 
@@ -167,7 +153,7 @@ func TestLettersSettleLeftToRightWhenTheLineStops(t *testing.T) {
 // risen settle from where they are.
 func TestSettlingStartsFromWhereTheLettersWere(t *testing.T) {
 	s := fourLetters(t, time.Second, 1900*ms, false)
-	until := 1150 * ms // the front is in the first letter
+	until := 1050 * ms // the first letter is part way up
 	v0, _ := liftOf(s, 0, 0, until, until)
 	if v0 <= 0 || v0 >= liftEm {
 		t.Fatalf("the first letter at the stop: %v", v0)
