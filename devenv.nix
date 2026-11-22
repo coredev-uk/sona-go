@@ -31,7 +31,6 @@ let
     gdk-pixbuf
     harfbuzz
     fontconfig.lib
-    freetype
     libepoxy
     at-spi2-core
     libglvnd
@@ -58,8 +57,6 @@ in
       golangci-lint
       gofumpt
       sqlc
-      goose
-      sqlite
       pkg-config
       # Only the documentation site (site/, the `docs` script); the app's
       # build and `check` never touch it.
