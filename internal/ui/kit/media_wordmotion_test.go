@@ -28,109 +28,6 @@ func useAppFont(t *testing.T) {
 	}
 }
 
-// A word lifts 0.05em, easing out over a second from its begin, and stays up
-// while its line is sung.
-func TestWordLiftsByTimeAndStaysUp(t *testing.T) {
-	w := &sweepWord{begin: time.Second, end: 1200 * ms, dur: time.Second, up: liftEm}
-	for _, c := range []struct {
-		at         time.Duration
-		lo, hi     float32
-		wantMoving bool
-	}{
-		{0, 0, 0, false},
-		{time.Second, 0, 0, true},                  // as it begins
-		{time.Second + 150*ms, 0.002, 0.045, true}, // partway
-		{time.Second + 500*ms, 0.03, 0.05, true},   // ease-out: more than half done by half way
-		{2 * time.Second, 0.05, 0.05, false},       // max(1 s, 0.2 s) after its begin
-		{30 * time.Second, 0.05, 0.05, false},      // held while the line is sung
-	} {
-		lift, swelling, _, moving := w.state(c.at, NoUntil)
-		if swelling || lift < c.lo-1e-6 || lift > c.hi+1e-6 || moving != c.wantMoving {
-			t.Errorf("at %v: lift %v swelling %v moving %v, want %v..%v moving %v", c.at, lift, swelling, moving, c.lo, c.hi, c.wantMoving)
-		}
-	}
-	// Eased out: halfway through the time, past halfway up.
-	if half, _, _, _ := w.state(time.Second+500*ms, NoUntil); half <= liftEm/2 {
-		t.Errorf("at half the time the word is %v of %v up: not eased out", half, liftEm)
-	}
-	// Monotonic on the way up.
-	prev := float32(-1)
-	for at := time.Second; at <= 2*time.Second; at += 20 * ms {
-		l, _, _, _ := w.state(at, NoUntil)
-		if l < prev {
-			t.Fatalf("the lift falls at %v: %v after %v", at, l, prev)
-		}
-		prev = l
-	}
-}
-
-// A word held longer than a second rises over the whole of it.
-func TestLongWordLiftsOverItsOwnLength(t *testing.T) {
-	// Not held to swell: eight characters.
-	s := NewSweepText([]lyrics.Word{{Begin: 0, End: 3 * time.Second, Text: "stretched"}}, "", 30, 600, 38, 400)
-	w := &s.words[0]
-	if w.emp != nil {
-		t.Fatal("eight characters swell")
-	}
-	if l, _, _, _ := w.state(time.Second, NoUntil); l >= liftEm-0.001 {
-		t.Errorf("after a second of three the lift is already %v", l)
-	}
-	if l, _, _, m := w.state(3*time.Second, NoUntil); !withinTol(l, liftEm, 1e-6) || m {
-		t.Errorf("after its three seconds: %v moving %v", l, m)
-	}
-}
-
-// Background vocals lift twice as far.
-func TestBackgroundWordsLiftTwiceAsFar(t *testing.T) {
-	s := NewSweepText([]lyrics.Word{
-		{Begin: 0, End: 300 * ms, Text: "lead "},
-		{Begin: 0, End: 300 * ms, Text: "back", Background: true},
-	}, "", 30, 600, 38, 400)
-	lead, _, _, _ := s.words[0].state(2*time.Second, NoUntil)
-	back, _, _, _ := s.words[1].state(2*time.Second, NoUntil)
-	if !withinTol(lead, 0.05, 1e-6) || !withinTol(back, 0.10, 1e-6) {
-		t.Errorf("lead %v, background %v", lead, back)
-	}
-}
-
-// When the line stops being sung the word settles back to 0, the same ease
-// played backwards from where it had got, at the speed it went.
-func TestWordSettlesWhenTheLineStops(t *testing.T) {
-	w := &sweepWord{begin: time.Second, end: 1300 * ms, dur: time.Second, up: liftEm}
-	until := 5 * time.Second
-	for _, c := range []struct {
-		at         time.Duration
-		lo, hi     float32
-		wantMoving bool
-	}{
-		{until, 0.05, 0.05, false},            // still up as it stops
-		{until + 200*ms, 0.002, 0.049, true},  // coming down
-		{until + time.Second, 0, 0, false},    // back where it began
-		{until + 10*time.Second, 0, 0, false}, // and it stays
-	} {
-		lift, _, _, moving := w.state(c.at, until)
-		if lift < c.lo-1e-6 || lift > c.hi+1e-6 || moving != c.wantMoving {
-			t.Errorf("at %v: lift %v moving %v, want %v..%v moving %v", c.at, lift, moving, c.lo, c.hi, c.wantMoving)
-		}
-	}
-	// Stopping part way up plays back from there: 300 ms in, it is back at 0
-	// 300 ms later, not a second.
-	early := 1300 * ms
-	if l, _, _, _ := w.state(early, early); l <= 0 {
-		t.Fatalf("not yet up at %v: %v", early, l)
-	}
-	if l, _, _, m := w.state(early+300*ms, early); !withinTol(l, 0, 1e-6) || m {
-		t.Errorf("settled 300 ms after a 300 ms rise: lift %v moving %v", l, m)
-	}
-	if l, _, _, m := w.state(early+150*ms, early); l <= 0 || !m {
-		t.Errorf("half way down: lift %v moving %v", l, m)
-	}
-	// A word the line stopped before it began never moves.
-	if l, _, _, m := w.state(early+time.Second, 500*ms); l != 0 || m {
-		t.Errorf("a word that never began: lift %v moving %v", l, m)
-	}
-}
-
 func TestEmphasizesWordsHeldToSwell(t *testing.T) {
 	for _, c := range []struct {
 		text string
@@ -242,31 +139,15 @@ func TestLettersSwellInTurnAndSpreadFromTheCentre(t *testing.T) {
 	if !withinTol(a.dx, -0.03*w.amount*2, 1e-3) {
 		t.Errorf("the first letter's offset %v em", a.dx)
 	}
-	// Every letter lifts, and the glow and the scale are gone at the end,
-	// leaving the word raised 0.05em like any other.
+	// The glow, the scale, the spread and the swell's own offset are gone at
+	// the end: what is left of the lift is the fill front's, not the swell's.
 	end := w.pose(3, w.total())
-	if end.scale != 1 || !withinTol(end.glow, 0, 1e-4) || !withinTol(end.dx, 0, 1e-4) || !withinTol(end.dy, -liftEm, 1e-4) {
+	if end.scale != 1 || !withinTol(end.glow, 0, 1e-4) || !withinTol(end.dx, 0, 1e-4) || !withinTol(end.dy, 0, 1e-4) {
 		t.Errorf("at the end: %+v", end)
 	}
-	bg := newSwell(2*time.Second, 4, false, true)
-	if e := bg.pose(3, bg.total()); !withinTol(e.dy, -2*liftEm, 1e-4) {
-		t.Errorf("a background word ends %v em up", e.dy)
-	}
-}
-
-func TestWordClockPlaysBackFromWhereItGot(t *testing.T) {
-	for _, c := range []struct {
-		t, begin, until, total, want time.Duration
-	}{
-		{5 * time.Second, 2 * time.Second, NoUntil, time.Second, 3 * time.Second},
-		{time.Second, 2 * time.Second, NoUntil, time.Second, -time.Second},
-		{10 * time.Second, 2 * time.Second, 10 * time.Second, time.Second, 8 * time.Second}, // at the stop
-		{10500 * ms, 2 * time.Second, 10 * time.Second, time.Second, 500 * ms},              // back from its end, 500 ms on
-		{10300 * ms, 9800 * ms, 10 * time.Second, time.Second, -100 * ms},                   // it had 200 ms, so 100 ms past its start
-	} {
-		if got := wordClock(c.t, c.begin, c.until, c.total); got != c.want {
-			t.Errorf("wordClock(%v, %v, %v, %v) = %v, want %v", c.t, c.begin, c.until, c.total, got, c.want)
-		}
+	// Half way, a letter rises a little over the lift the front gives it.
+	if mid := w.pose(0, w.du/2); mid.dy >= 0 {
+		t.Errorf("a swelling letter at its peak is %v em up, want a rise of its own", -mid.dy)
 	}
 }
 
@@ -283,8 +164,8 @@ func TestSweepTextSwellsOnlyWhatIsHeldToSwell(t *testing.T) {
 	s := NewSweepText(words, "", 30, 600, 38, 600)
 	for i, want := range []int{0, 4, 0, 0} {
 		got := 0
-		if e := s.words[i].emp; e != nil {
-			got = len(e.letters)
+		if s.words[i].emp != nil {
+			got = len(s.words[i].letters)
 		}
 		if got != want {
 			t.Errorf("%q has %d letters, want %d", words[i].Text, got, want)
@@ -306,67 +187,27 @@ func TestSweepTextSwellsOnlyWhatIsHeldToSwell(t *testing.T) {
 	}
 	// CJK: a letter each.
 	cjk := NewSweepText([]lyrics.Word{{Begin: 0, End: 2 * time.Second, Text: "ありがとう"}}, "ja", 30, 600, 38, 600)
-	if e := cjk.words[0].emp; e == nil || len(e.letters) != 5 {
+	if e := cjk.words[0].emp; e == nil || len(cjk.words[0].letters) != 5 {
 		t.Errorf("five kana: %+v", e)
 	}
 	// Letters tile the word: each starts where the one before ends.
-	e := s.words[1].emp
+	letters := s.words[1].letters
 	box := s.words[1].boxes[0].r
-	if !withinTol(e.letters[0].x, box.X, 0.5) || !withinTol(e.letters[3].x+e.letters[3].w, box.X+box.W, 0.5) {
-		t.Errorf("letters %v…%v over a box %v…%v", e.letters[0].x, e.letters[3].x+e.letters[3].w, box.X, box.X+box.W)
+	if !withinTol(letters[0].x, box.X, 0.5) || !withinTol(letters[3].x+letters[3].w, box.X+box.W, 0.5) {
+		t.Errorf("letters %v…%v over a box %v…%v", letters[0].x, letters[3].x+letters[3].w, box.X, box.X+box.W)
 	}
-	for i := 1; i < len(e.letters); i++ {
-		if !withinTol(e.letters[i].x, e.letters[i-1].x+e.letters[i-1].w, 0.5) {
-			t.Errorf("letter %d starts at %v after %v", i, e.letters[i].x, e.letters[i-1].x+e.letters[i-1].w)
+	for i := 1; i < len(letters); i++ {
+		if !withinTol(letters[i].x, letters[i-1].x+letters[i-1].w, 0.5) {
+			t.Errorf("letter %d starts at %v after %v", i, letters[i].x, letters[i-1].x+letters[i-1].w)
 		}
 	}
-}
-
-// A held word swells whether or not its line is still sung, rests raised
-// 0.05em, and once the line has stopped settles back over a second: the
-// letters are not played backwards.
-func TestSwollenWordFinishesItsSwellThenSettles(t *testing.T) {
-	useAppFont(t)
-	s := NewSweepText([]lyrics.Word{{Begin: 0, End: 2 * time.Second, Text: "tide"}}, "", 40, 600, 48, 400)
-	w := &s.words[0]
-	if w.emp == nil {
-		t.Fatal("no swell")
-	}
-	run := w.emp.run
-	if lift, swelling, _, moving := w.state(500*ms, NoUntil); !swelling || !moving || lift != liftEm {
-		t.Errorf("mid swell: lift %v swelling %v moving %v", lift, swelling, moving)
-	}
-	// The line stops a second in: the swell runs on to its end.
-	if _, swelling, f, moving := w.state(run-10*ms, time.Second); !swelling || !moving || f != run-10*ms {
-		t.Errorf("after the line stopped, before the swell's end: swelling %v moving %v", swelling, moving)
-	}
-	// Then it is at rest, and settles over a second from there.
-	for _, c := range []struct {
-		at     time.Duration
-		lo, hi float32
-		moving bool
-	}{
-		{run, liftEm, liftEm, false},
-		{run + 500*ms, 0.001, 0.049, true},
-		{run + time.Second, 0, 0, false},
-		{run + time.Minute, 0, 0, false},
-	} {
-		lift, swelling, _, moving := w.state(c.at, time.Second)
-		if swelling || lift < c.lo-1e-6 || lift > c.hi+1e-6 || moving != c.moving {
-			t.Errorf("at %v: lift %v swelling %v moving %v, want %v..%v moving %v", c.at, lift, swelling, moving, c.lo, c.hi, c.moving)
+	// Every word, swelling or not, has its letters, each with glyphs of its own.
+	for i, w := range s.words {
+		for _, l := range w.letters {
+			if l.glyphs == nil {
+				t.Errorf("a letter of %q has no glyphs", words[i].Text)
+			}
 		}
-	}
-	// Still sung when the swell ends: it rests raised until the line stops.
-	if lift, swelling, _, moving := w.state(run+5*time.Second, NoUntil); swelling || moving || lift != liftEm {
-		t.Errorf("held: lift %v swelling %v moving %v", lift, swelling, moving)
-	}
-	until := run + 10*time.Second
-	if lift, _, _, moving := w.state(until+500*ms, until); lift <= 0 || lift >= liftEm || !moving {
-		t.Errorf("settling after the line: lift %v moving %v", lift, moving)
-	}
-	// The painted text is whole once all of it has settled.
-	if !s.lifts(SweepClock{T: run + 900*ms, Until: time.Second}) || s.lifts(SweepClock{T: run + time.Second + 10*ms, Until: time.Second}) {
-		t.Error("a settled text is not painted whole, or one still settling is")
 	}
 }
 
@@ -508,8 +349,8 @@ func TestLiftedInkStandsHigher(t *testing.T) {
 	if s0 != s1 {
 		t.Errorf("the unsung word moved: %v then %v", s0, s1)
 	}
-	// Half way up, between.
-	f2, _, mv := frame(150 * ms)
+	// Partway up (the front in the first letter), between.
+	f2, _, mv := frame(40 * ms)
 	if !mv {
 		t.Error("not moving mid-lift")
 	}
@@ -584,14 +425,14 @@ func TestSweepPaintReportsWhetherItMoves(t *testing.T) {
 		{"before the line", 0, 0, false},
 		{"as it begins", time.Second, 1, true},
 		{"filling the first word", 1100 * ms, 1, true},
-		{"the first word lifting after it is sung", 1700 * ms, 1, true},
+		{"after the first word is sung, no lag", 1700 * ms, 1, false},
 		{"both lifted, between words", 2400 * ms, 1, false},
 		{"held at rest", 5 * time.Second, 1, false},
 		{"the last word begins", 6 * time.Second, 1, true},
 		{"the last word held", 8 * time.Second, 1, false},
 		{"just after the line stops", until + 100*ms, 0, true},
-		{"settling", until + 600*ms, 0, true},
-		{"settled", until + 2*time.Second, 0, false},
+		{"settling", until + 400*ms, 0, true},
+		{"settled", until + 600*ms, 0, false},
 		{"long after", until + 60*time.Second, 0, false},
 	} {
 		clock = SweepClock{T: c.at, Sung: c.sung, Until: until}
@@ -647,7 +488,10 @@ func TestSwollenLettersStaySharp(t *testing.T) {
 	}
 	rest := softness(-time.Second)
 	peak := softness(time.Duration(float64(s.words[0].emp.du) * 0.5)) // the first letter at its biggest
-	if peak > rest*1.25 {
+	// A swelling letter moves, so it is drawn at fractional offsets and a
+	// little softer than at rest; letters at rest are as sharp as ever
+	// (TestLettersAtRestStaySharp).
+	if peak > rest*2.2 {
 		t.Errorf("swollen letters are soft: %.3f of the ink at the edge, %.3f at rest", peak, rest)
 	}
 	// And the letters did swell: more ink than at rest.

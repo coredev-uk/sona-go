@@ -19,12 +19,20 @@ import (
 // springs. This file is the arithmetic, in time and em, with no painting.
 
 const (
-	// liftEm is how far a word rises as it is sung (-0.05em; background
-	// vocals 0.10em): the float animation's end, held while the line is sung.
+	// liftEm is how far a letter rises as it is sung (-0.05em; background
+	// vocals 0.10em), held while the line is sung.
 	liftEm = 0.05
-	// liftMin is the shortest a word's rise takes, however short the word:
-	// max(1 s, the word's own length), eased out from the word's begin.
-	liftMin = time.Second
+	// riseFloor is the shortest a word's letters take to rise, however
+	// short the word, so that a word of a few tens of ms does not snap.
+	riseFloor = 120 * time.Millisecond
+	// settleDur is how long a letter takes to settle back once its line has
+	// stopped, settleStagger how much later each letter of the text than the
+	// one before starts (from the left), at most settleStaggerMax, so that
+	// the line settles in a wave in at most maxSettle.
+	settleDur        = 350 * time.Millisecond
+	settleStagger    = 12 * time.Millisecond
+	settleStaggerMax = 200 * time.Millisecond
+	maxSettle        = settleStaggerMax + settleDur
 	// empMin is how long a word is held to swell, and empMaxChars the longest
 	// (CJK: no longest) it may be, trimmed.
 	empMin      = time.Second
@@ -166,32 +174,21 @@ func (w swell) pose(i int, s time.Duration) letterPose {
 		return letterPose{scale: 1}
 	}
 	e := empEasing(clamp01(float32(local) / float32(w.du)))
-	// The float: a rise of 0.05em at its end, with a bump of 0.05em on the
-	// way (twice both for a background voice) over 1.4 du.
+	// The float's bump: 0.05em on the way (twice for a background voice)
+	// over 1.4 du, which ends where it began. Its rise is the fill front's,
+	// not a clock's (the lift in media_sweep.go).
 	x := float64(clamp01(float32(local) / (1.4 * float32(w.du))))
 	k := float32(1)
 	if w.bg {
 		k = 2
 	}
-	float := k * float32(math.Sin(math.Pi*x)*liftEm+x*liftEm)
+	bump := k * float32(math.Sin(math.Pi*x)*liftEm)
 	return letterPose{
 		scale: 1 + e*0.1*w.amount,
 		dx:    -e * 0.03 * w.amount * (float32(w.n)/2 - float32(i)),
-		dy:    -e*0.025*w.amount - float,
+		dy:    -e*0.025*w.amount - bump,
 		glow:  e * w.blur,
 	}
 }
 
 func clamp01(x float32) float32 { return min(max(x, 0), 1) }
-
-// wordClock is how far into a word's motion the voice is at t: t − begin
-// while the line is sung (until is when it stops), and once it has stopped
-// the motion plays back the way it came, from where it had got (no further
-// than total, its end) at the speed it went: AMLL plays the float with
-// playbackRate −1 as a line is deactivated. Zero or less is not begun.
-func wordClock(t, begin, until, total time.Duration) time.Duration {
-	if t <= until {
-		return t - begin
-	}
-	return min(until-begin, total) - (t - until)
-}
