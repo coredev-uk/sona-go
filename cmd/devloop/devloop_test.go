@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -72,19 +73,27 @@ func TestAppEnv(t *testing.T) {
 }
 
 func TestExtldProbeCache(t *testing.T) {
+	// os.UserCacheDir: XDG_CACHE_HOME on Linux, HOME on macOS, LocalAppData on Windows.
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("LocalAppData", t.TempDir())
+	// The "linker" is the test binary itself: a program probeKey can find on every system
+	// (there is no sh on Windows' PATH).
+	real, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
 	probe := func(tmp string) []string {
 		return []string{"-m64", "-o", filepath.Join(tmp, "a.out"), "-Wl,--build-id=0x1234567890abcdef", filepath.Join(tmp, "trivial.c")}
 	}
-	k1, k2 := probeKey("sh", probe("/tmp/go-link-1")), probeKey("sh", probe("/tmp/go-link-2"))
+	k1, k2 := probeKey(real, probe("/tmp/go-link-1")), probeKey(real, probe("/tmp/go-link-2"))
 	if k1 == "" || k1 != k2 {
 		t.Fatalf("one probe in two temporary directories must share a key: %q %q", k1, k2)
 	}
-	if k := probeKey("sh", []string{"-m64", "-o", "/tmp/x/a.out", "obj.o"}); k != "" {
+	if k := probeKey(real, []string{"-m64", "-o", "/tmp/x/a.out", "obj.o"}); k != "" {
 		t.Fatalf("a real link is not a probe: %q", k)
 	}
-	if k := probeKey("sh", append(probe("/tmp/go-link-1"), "-Wl,-z,relro")); k == k1 {
+	if k := probeKey(real, append(probe("/tmp/go-link-1"), "-Wl,-z,relro")); k == k1 {
 		t.Fatal("another flag, another key")
 	}
 
