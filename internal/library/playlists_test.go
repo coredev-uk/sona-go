@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
-	"github.com/coredev-uk/sona-go/internal/db"
 )
 
 func folder(id, name string) map[string]any {
@@ -129,8 +128,9 @@ func TestSyncDropsTombstonesAndStoresFolders(t *testing.T) {
 	if got["p.big"] != [2]any{"", int64(1)} || got["p.small"] != [2]any{"p.f1", int64(1)} || got["p.empty"] != [2]any{"p.f2", int64(0)} {
 		t.Fatalf("placement = %v", got)
 	}
-	if f, err := e.db.RQ.PlaylistFlags(ctx, db.NullString("p.fav")); err != nil || f.Favorited != 1 {
-		t.Fatalf("favourite flag = %+v, %v", f, err)
+	ids, total := recentlyAdded(t, e, ListOptions{})
+	if slices.Contains(ids, "playlist:p.fav") || len(ids) != total {
+		t.Fatalf("recently added = %v of %d: it lists the Favourite Songs playlist or counts it", ids, total)
 	}
 
 	// The playlist is deleted on Apple: it becomes a tombstone and the

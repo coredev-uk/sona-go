@@ -71,7 +71,7 @@ WHERE p.library_id IS NOT NULL
 ORDER BY p.folder_id, p.folder_position, p.name COLLATE NOCASE;
 
 -- name: PlaylistFlags :one
-SELECT p.can_delete, p.is_public, p.favorited, p.folder_id
+SELECT p.can_delete, p.is_public, p.folder_id
 FROM playlists p WHERE p.library_id = ?;
 
 -- name: ClearPins :exec

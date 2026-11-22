@@ -28,7 +28,7 @@ func TestSidebarDoesNotListTheFavouriteSongsPlaylist(t *testing.T) {
 func TestAPinOfTheFavouriteSongsPlaylistOpensLibraryFavouriteSongs(t *testing.T) {
 	pin := services.Pin{Kind: "playlist", ID: "p.fav", Name: "Faves", Action: "drillIn"}
 	e := sbSetup(t, favouritedTree(), []services.Pin{pin})
-	e.shows("Pinned", "Faves")
+	e.shows("Pinned", "Faves", "Quiet Hours")
 	if err := e.tt.Click("Faves"); err != nil {
 		t.Fatal(err)
 	}
@@ -38,11 +38,28 @@ func TestAPinOfTheFavouriteSongsPlaylistOpensLibraryFavouriteSongs(t *testing.T)
 }
 
 func TestTheFavouriteSongsPlaylistPageRedirectsToLibraryFavouriteSongs(t *testing.T) {
-	r := newPageRigWith(t, "p.fav", func(a *fakeAPI) { a.tree = favouritedTree() },
-		services.PlaylistDetail{Playlist: services.Playlist{ID: "p.fav", Name: "Favourite Songs"}, Favorited: true})
-	r.tt.Until("the redirect", func() bool { return r.router.Path() == favouritesPath })
-	if r.tt.HasText("Favourite Songs") {
-		t.Error("the playlist page showed before the redirect")
+	gate := make(chan struct{})
+	r := newPageRigWith(t, "p.fav", func(a *fakeAPI) { a.tree, a.treeGate = favouritedTree(), gate },
+		services.PlaylistDetail{Playlist: services.Playlist{ID: "p.fav", Name: "Favourite Songs"}})
+	shown := false
+	r.tt.Until("the tree to be asked", func() bool {
+		shown = shown || r.tt.HasText("Favourite Songs")
+		return r.api.did("Tree")
+	})
+	r.tt.Until("a few frames", func() bool { shown = shown || r.tt.HasText("Favourite Songs"); return true })
+	if r.api.did("Playlist p.fav") {
+		t.Error("the playlist was fetched while the tree was loading")
+	}
+	close(gate)
+	r.tt.Until("the redirect", func() bool {
+		shown = shown || r.tt.HasText("Favourite Songs")
+		return r.router.Path() == favouritesPath
+	})
+	if shown {
+		t.Error("the playlist page was drawn before the redirect")
+	}
+	if r.router.CanGoBack() {
+		t.Error("the redirect pushed a history entry instead of replacing the page")
 	}
 }
 
