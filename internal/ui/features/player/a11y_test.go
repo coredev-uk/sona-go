@@ -71,8 +71,8 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 						t.Errorf("%q is not disabled with nothing playing", n.label)
 					}
 				}
-				if d := tr.MustFind(t, ui.RoleSlider, "Seek").Description; d != "" {
-					t.Errorf("an idle Seek reads %q", d)
+				if d := tr.MustFind(t, ui.RoleSlider, "Seek"); d.Value != "" || d.Description != "" {
+					t.Errorf("an idle Seek reads %q and %q", d.Value, d.Description)
 				}
 			},
 		},
@@ -84,8 +84,16 @@ func TestBarKeyboardWalkAndTree(t *testing.T) {
 				if g, ok := tr.Find(ui.RoleRegion, "Player"); !ok || !tr.Within(tr.MustFind(t, ui.RoleButton, "Pause"), ui.RoleRegion) {
 					t.Errorf("the bar is not a region named Player: %v", g)
 				}
-				if got := tr.MustFind(t, ui.RoleSlider, "Seek").Description; got != "0:30 of 3:00" {
-					t.Errorf("Seek reads %q", got)
+				// The position is the value's text (AXValueDescription on macOS),
+				// not a description VoiceOver reads after the number as a hint.
+				if got := tr.MustFind(t, ui.RoleSlider, "Seek"); got.Value != "0:30 of 3:00" || got.Description != "" {
+					t.Errorf("Seek reads %q and is described %q", got.Value, got.Description)
+				}
+				// The dot between the artist and the album is no stop of its own.
+				for _, n := range tr.Roles(ui.RoleText) {
+					if strings.TrimSpace(n.Label) == "·" {
+						t.Errorf("the separator is read: %+v", n)
+					}
 				}
 				// 0 to 100: the number and the percentage say it; a description would
 				// make a screen reader say it a third time.
@@ -723,15 +731,15 @@ func TestFocusedSeekHoldsTheValueAssistiveTechnologyReads(t *testing.T) {
 	r.seed()
 	tabTo(t, r.tt.Tester, "Seek")
 	held := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleSlider, "Seek")
-	if held.Now != 30 || held.Description != "0:30 of 3:00" {
-		t.Fatalf("Seek reads %v and %q on arrival", held.Now, held.Description)
+	if held.Now != 30 || held.Value != "0:30 of 3:00" {
+		t.Fatalf("Seek reads %v and %q on arrival", held.Now, held.Value)
 	}
 	for range 3 {
 		r.h.Clock.Advance(4 * time.Second)
 		r.tt.Advance(4 * time.Second)
 	}
-	if got := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleSlider, "Seek"); got.Now != 30 || got.Description != "0:30 of 3:00" {
-		t.Errorf("a focused Seek reads %v and %q while the song plays on", got.Now, got.Description)
+	if got := access.Read(t, r.tt.Tester).MustFind(t, ui.RoleSlider, "Seek"); got.Now != 30 || got.Value != "0:30 of 3:00" {
+		t.Errorf("a focused Seek reads %v and %q while the song plays on", got.Now, got.Value)
 	}
 	if !r.tt.HasText("0:42") {
 		t.Errorf("the time beside the bar does not move: %q", r.tt.Texts())

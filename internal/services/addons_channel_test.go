@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/coredev-uk/sona-go/internal/cli"
 )
@@ -19,7 +18,10 @@ import (
 // reaches the add-on's permissions nor takes the place of the real one.
 func TestAddonHelloOverTheCommandTransportIsRefused(t *testing.T) {
 	a := newAddonEnv(t)
-	dir := a.install(t, "demo", manifestJSON("demo", "playback.read", "playback.control"), hello("demo", "playback.read")+"exec 3<&0\ncat <&3 > in.log &\nwait\n")
+	script := hello("demo", "playback.read") + "exec 3<&0\ncat <&3 > in.log &\n" +
+		"until [ -e go ]; do sleep 0.05; done\n" +
+		`printf '%s\n' '{"id":2,"method":"call","params":{"command":"status"}}'` + "\nwait\n"
+	dir := a.install(t, "demo", manifestJSON("demo", "playback.read", "playback.control"), script)
 	if err := a.svc.Enable("demo", []string{"playback.read", "playback.control"}); err != nil {
 		t.Fatal(err)
 	}
@@ -41,8 +43,16 @@ func TestAddonHelloOverTheCommandTransportIsRefused(t *testing.T) {
 	if st := a.status(t, "status"); st.State == cli.StatePlaying {
 		t.Errorf("a command ran: %+v", st)
 	}
-	time.Sleep(100 * time.Millisecond)
-	if b, _ := os.ReadFile(filepath.Join(dir, "in.log")); strings.Count(string(b), `"id":1,"result"`) != 1 {
+	// Whatever the refused commands wrote to the channel was written before
+	// they returned, so the add-on's second request, which it sends only now,
+	// is answered after it: once that answer is in the log, so is anything
+	// else the channel was given, and only the add-on's own hello was answered.
+	if err := os.WriteFile(filepath.Join(dir, "go"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	in := filepath.Join(dir, "in.log")
+	waitUntil(t, "the add-on's second answer", fileHas(in, `"id":2,"result"`))
+	if b, _ := os.ReadFile(in); strings.Count(string(b), `"id":1,"result"`) != 1 {
 		t.Errorf("the add-on's channel saw other hellos:\n%s", b)
 	}
 	// The channel is the process's own standard streams, nothing nameable:

@@ -177,7 +177,9 @@ func (p *player) separator(c *ui.Context, style string) {
 		return w
 	}
 	w := float32(math.Ceil(float64(span("x · x")-2*span("x")))) + 1
-	theme.Text(c, " · ", style).TextColor(theme.C("ink-muted")).SingleLine().Width(w).MinWidth(w).Shrink(0).TextAlign(ui.Center)
+	// Decorative: the artist and the album are two links, and a screen reader
+	// would stop on the dot between them (VoiceOver: a text stop of its own).
+	theme.Text(c, " · ", style).TextColor(theme.C("ink-muted")).SingleLine().Width(w).MinWidth(w).Shrink(0).TextAlign(ui.Center).Role(ui.RoleNone)
 }
 
 // artist is the song's artist in the type style given: a link to their page,
@@ -494,8 +496,10 @@ func (s *seekPad) slider(c *ui.Context, key string, pos, dur time.Duration, can 
 		s.holding = false
 	}
 	if can {
-		// v0.2.0's aria-valuetext, there only while the slider is on.
-		sl.Description(i18n.T("{at} of {total}", "at", i18n.FormatDuration(told), "total", i18n.FormatDuration(dur)))
+		// The position as text (aria-valuetext): VoiceOver reads it as the
+		// value (AXValueDescription) in place of the seconds; a description
+		// would come after the number, as a hint.
+		sl.Value(i18n.T("{at} of {total}", "at", i18n.FormatDuration(told), "total", i18n.FormatDuration(dur)))
 	}
 	if at, ok := s.Update(sl, v); ok {
 		to(at)

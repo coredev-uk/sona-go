@@ -21,13 +21,32 @@ import (
 var (
 	modUserenv  = windows.NewLazySystemDLL("userenv.dll")
 	modAdvapi32 = windows.NewLazySystemDLL("advapi32.dll")
+	modKernel32 = windows.NewLazySystemDLL("kernel32.dll")
 
 	procCreateAppContainerProfile = modUserenv.NewProc("CreateAppContainerProfile")
 	procDeleteAppContainerProfile = modUserenv.NewProc("DeleteAppContainerProfile")
 	procDeriveAppContainerSid     = modUserenv.NewProc("DeriveAppContainerSidFromAppContainerName")
 	procGetAppContainerFolderPath = modUserenv.NewProc("GetAppContainerFolderPath")
 	procFreeSid                   = modAdvapi32.NewProc("FreeSid")
+
+	// procSetInformationJobObject is called through LazyProc.Call, which keeps
+	// the pointers passed as uintptr alive and unmoved across the syscall;
+	// windows.SetInformationJobObject takes a plain uintptr, which does not.
+	procSetInformationJobObject = modKernel32.NewProc("SetInformationJobObject")
 )
+
+// setJobInfo is SetInformationJobObject for the info struct at info, size
+// bytes long.
+func setJobInfo(job windows.Handle, class uint32, info unsafe.Pointer, size uintptr) error {
+	r, _, err := procSetInformationJobObject.Call(uintptr(job), uintptr(class), uintptr(info), size)
+	if r != 0 {
+		return nil
+	}
+	if err == windows.ERROR_SUCCESS {
+		return syscall.EINVAL
+	}
+	return err
+}
 
 // hrAlreadyExists is HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS).
 const hrAlreadyExists = 0x800700B7
@@ -422,14 +441,14 @@ func newJob(maxProcesses uint32) (windows.Handle, error) {
 		limits.BasicLimitInformation.LimitFlags |= windows.JOB_OBJECT_LIMIT_ACTIVE_PROCESS
 		limits.BasicLimitInformation.ActiveProcessLimit = maxProcesses
 	}
-	if _, err := windows.SetInformationJobObject(job, windows.JobObjectExtendedLimitInformation,
-		uintptr(unsafe.Pointer(&limits)), uint32(unsafe.Sizeof(limits))); err != nil {
+	if err := setJobInfo(job, windows.JobObjectExtendedLimitInformation,
+		unsafe.Pointer(&limits), unsafe.Sizeof(limits)); err != nil {
 		_ = windows.CloseHandle(job)
 		return 0, fmt.Errorf("limit the job object: %w", err)
 	}
 	ui := windows.JOBOBJECT_BASIC_UI_RESTRICTIONS{UIRestrictionsClass: uiRestrictions}
-	if _, err := windows.SetInformationJobObject(job, windows.JobObjectBasicUIRestrictions,
-		uintptr(unsafe.Pointer(&ui)), uint32(unsafe.Sizeof(ui))); err != nil {
+	if err := setJobInfo(job, windows.JobObjectBasicUIRestrictions,
+		unsafe.Pointer(&ui), unsafe.Sizeof(ui)); err != nil {
 		_ = windows.CloseHandle(job)
 		return 0, fmt.Errorf("restrict the job object's UI: %w", err)
 	}
