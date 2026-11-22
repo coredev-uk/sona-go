@@ -3,6 +3,8 @@
 package gst
 
 /*
+#cgo LDFLAGS: -lole32
+#include <stdlib.h>
 #include "devices.h"
 */
 import "C"
@@ -12,10 +14,12 @@ import (
 	"unsafe"
 )
 
-// routeEpoch never moves: wasapi2sink on the default device is moved by
-// Windows itself (automatic stream routing), and one on a chosen device that
-// goes away fails, which rebuilds the output.
-func routeEpoch() uint64 { return 0 }
+// routeEpoch moves when an endpoint is added or removed or changes state
+// (plugged in, unplugged, enabled, disabled): the chosen device may have
+// gone or come back, which moves the output (streamProps). A change of the
+// default needs no move: wasapi2sink on the default is moved by Windows
+// itself (automatic stream routing).
+func routeEpoch() uint64 { return uint64(C.sona_route_epoch()) }
 
 // AudioSinks lists the WASAPI render endpoints (wasapi2's device provider). A
 // Device's Name is the endpoint ID wasapi2sink takes as its device. It needs
@@ -43,12 +47,35 @@ func AudioSinks() ([]Device, error) {
 // GStreamer picks.
 var Sinks = []string{"wasapi2sink", "wasapisink", "directsoundsink", "autoaudiosink"}
 
+// endpoint is what Windows says of an endpoint ID (sona_endpoint_state).
+type endpoint int
+
+const (
+	endpointUnknown endpoint = C.SONA_ENDPOINT_UNKNOWN // the endpoint API failed
+	endpointGone    endpoint = C.SONA_ENDPOINT_GONE    // unknown, unplugged or disabled
+	endpointActive  endpoint = C.SONA_ENDPOINT_ACTIVE  // can play
+)
+
+func endpointState(id string) endpoint {
+	c := C.CString(id)
+	defer C.free(unsafe.Pointer(c))
+	return endpoint(C.sona_endpoint_state(c))
+}
+
 // streamProps returns wasapi2sink's device: the endpoint ID of the device to
-// play to, "" for the default. Other sinks play to the default (wasapisink
-// takes another kind of device ID).
+// play to now, "" for the default (outputTarget). Other sinks play to the
+// default (wasapisink takes another kind of device ID).
 func streamProps(sink, _, device string) string {
-	if sink == "wasapi2sink" {
-		return device
+	return outputTarget(sink, device, endpointState)
+}
+
+// outputTarget is wasapi2sink's device for the chosen device: device while
+// it can play, else "" (the default, which Windows moves the stream to when
+// it changes) until it is back. When Windows cannot say (state fails),
+// device is kept: the sink reports whether it opens.
+func outputTarget(sink, device string, state func(id string) endpoint) string {
+	if sink != "wasapi2sink" || device == "" || state(device) == endpointGone {
+		return ""
 	}
-	return ""
+	return device
 }
