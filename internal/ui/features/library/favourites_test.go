@@ -1,12 +1,14 @@
 package library
 
 import (
+	"net/http"
 	"slices"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
@@ -156,4 +158,26 @@ func TestFavouriteSongsErrorStateRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Until("the song", r.tt.Shows("1 song", "Apple Orchard song 1"))
+}
+
+// Favouriting a song, through the call the UI's Favourite button makes
+// (ItemStates.Change → LibraryService.Favorite), lists it at once with no
+// sync: the rating is mirrored locally and the page's query is refreshed.
+func TestFavouritingASongListsItWithoutASync(t *testing.T) {
+	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	})
+	r := newSongsRig(t, favouritePath, nil, uitest.Albums(sevenAlbums...), uitest.Apple(ok))
+	r.tt.Until("no favourites", r.tt.Shows("No favourite songs yet"))
+
+	id := fixture.SongLibraryID(1, 0)
+	it := kit.StateItem{ID: id, Source: services.SourceLibrary, LibraryID: id}
+	if _, err := r.h.Env.ItemStates.Change(t.Context(), kit.StateSongs, it, kit.StateChange(kit.RateFavorite)); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the favourite", r.tt.Shows("1 song", "Apple Orchard song 1"))
+	if r.tt.HasText("No favourite songs yet") {
+		t.Error("the empty state stays")
+	}
 }
