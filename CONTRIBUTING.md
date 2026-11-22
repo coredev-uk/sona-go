@@ -27,7 +27,7 @@ tests               # go test -race
 
 Outside the shell, run any of these as `devenv shell -- <command>`. Everything runs in devenv's pinned toolchain.
 
-On Windows, where Nix doesn't run, install [Task](https://taskfile.dev) (`winget install Task.Task`) and the tools in [docs/development.md](docs/development.md#on-windows), "On Windows", then run the same commands in PowerShell as `task dev`, `task check`, `task tests`. Each command has one definition, in `Taskfile.yml`, which devenv's scripts run too.
+On Windows, where Nix doesn't run, install [just](https://just.systems) (`winget install Casey.Just`) and the tools in [docs/development.md](docs/development.md#on-windows), "On Windows", then run the same commands in PowerShell as `just dev`, `just check`, `just tests`. Each command has one definition, in the `justfile`, which devenv's scripts run too.
 
 Development tools: **Inspect** is in every item's right-click menu and shows the item's IDs, artwork, what Apple sent (from Go's cache) and what an add-on receives for it (see [Debugging the UI](docs/development.md#debugging-the-ui)). A development build (`dev` makes one) always has it; a release build has it while Settings → Diagnostics → Developer tools is on. `SONA_INSPECTOR=1 dev` opens MyGo's element inspector, which release builds never carry.
 

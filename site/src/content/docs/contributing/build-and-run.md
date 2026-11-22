@@ -3,7 +3,7 @@ title: Build and Run
 description: Run Sona from a checkout, with live reload, the component gallery, previews and private mode.
 ---
 
-Run these in the [devenv environment](/contributing/setup/): prefix each command with `devenv shell --`, or use direnv. On Windows, run each as `task <command>` (`task dev`, `task build`; see [On Windows](/contributing/setup/#on-windows)).
+Run these in the [devenv environment](/contributing/setup/): prefix each command with `devenv shell --`, or use direnv. On Windows, run each as `just <command>` (`just dev`, `just build`; see [On Windows](/contributing/setup/#on-windows)).
 
 ## Run with live reload
 

@@ -41,7 +41,7 @@ nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv -- shell
 
 With [direnv](https://direnv.net), the checked-in `.envrc` loads the same environment whenever you `cd` into the checkout or a worktree. Run `direnv allow` once in each, and `go`, `dev`, `check` and the other commands work without the `devenv shell --` prefix.
 
-devenv needs Nix, and Nix runs on Linux and macOS only ([supported platforms](https://nix.dev/manual/nix/latest/installation/supported-platforms)); devenv's and Nix's install pages offer Windows only through WSL2 ([devenv](https://devenv.sh/getting-started/), [Nix](https://nixos.org/download/)). A WSL2 shell builds the Linux app, not the Windows one, so on Windows you build natively and run the same commands with Task (see [On Windows](#on-windows)).
+devenv needs Nix, and Nix runs on Linux and macOS only ([supported platforms](https://nix.dev/manual/nix/latest/installation/supported-platforms)); devenv's and Nix's install pages offer Windows only through WSL2 ([devenv](https://devenv.sh/getting-started/), [Nix](https://nixos.org/download/)). A WSL2 shell builds the Linux app, not the Windows one, so on Windows you build natively and run the same commands with just (see [On Windows](#on-windows)).
 
 ### What devenv sets
 
@@ -88,12 +88,14 @@ Every test, smoke or live check that plays music runs in private mode. See also 
 
 ### Command summary
 
-Each command is a task in `Taskfile.yml`, its one definition. Run it on any system:
+Each command is a recipe in the `justfile`, its one definition. Run it on any system:
 
-- In devenv (Linux and macOS): `devenv shell -- <command>`, or bare under direnv. Each devenv script is `task <command>` (`devenv.nix`).
-- Anywhere [Task](https://taskfile.dev) is installed, Windows' PowerShell included: `task <command>`. Task runs the commands through its own POSIX shell, so they need no bash.
+- In devenv (Linux and macOS): `devenv shell -- <command>`, or bare under direnv. Each devenv script is `just <command>` (`devenv.nix`).
+- Anywhere [just](https://just.systems) is installed, Windows' PowerShell included: `just <command>`.
 
-Arguments go after `--` with `task` (`task tests -- -run '^TestName$'`) and straight after the name with the devenv script (`tests -run '^TestName$'`). Commands run at the root of the checkout wherever you start them. `task` alone lists them.
+Arguments follow the name and reach the command as you typed them: `just tests -run '^TestName$'`, or `tests -run '^TestName$'` in devenv. Commands run at the root of the checkout wherever you start them. `just` alone lists them.
+
+Every recipe runs in a POSIX shell, so it reads the same on every system: `sh` on Linux and macOS, Git for Windows' `sh` on Windows. What differs per system is spelled out in the `justfile`: the `.exe` suffix, `dbus-run-session` on Linux, and the recipes that need Linux.
 
 | Command | Does |
 | --- | --- |
@@ -115,26 +117,26 @@ Arguments go after `--` with `task` (`task tests -- -run '^TestName$'`) and stra
 
 `docs` needs Node, which is in the dev shell only for this command. The app's build and `check` don't use it. See [Writing Docs](https://sona.coredev.uk/contributing/documentation/).
 
-`headless`, `e2e`, `orca-walk`, `package` and `release` need Linux. Elsewhere they stop at once and say so.
+`headless`, `e2e`, `orca-walk` and `release` need Linux. Elsewhere they stop at once and say so. `package` stays in `Taskfile.yml` (see [Packages](#packages)).
 
 `release` builds every Linux package (.deb, .rpm, Arch, AppImage) on Ubuntu 24.04 in podman or docker. It smoke-tests each on a clean distro container (Xvfb, `MYGO_GPU=0`).
 
 ### On Windows
 
-devenv doesn't run on Windows, so you install the tools yourself (with [winget](https://learn.microsoft.com/windows/package-manager/winget/) where there is a package) and run the commands with Task in PowerShell:
+devenv doesn't run on Windows, so you install the tools yourself (with [winget](https://learn.microsoft.com/windows/package-manager/winget/) where there is a package) and run the commands with just in PowerShell:
 
-- Task: `winget install Task.Task`.
-- Git for Windows: `winget install Git.Git`. `build` runs `build/ldflags.sh` with its bash, which Task finds beside `git`; the `bash.exe` on `PATH` is WSL's, never used.
+- just: `winget install Casey.Just`.
+- Git for Windows: `winget install Git.Git`. The recipes run in its `sh` (`C:\Program Files\Git\bin\sh.exe`, the `justfile`'s `shell` setting), which also brings the `bash` that `build/ldflags.sh` needs, and `grep` and `xargs`. Git installed elsewhere: `just --shell <path to sh.exe> --shell-arg -cu <recipe>`.
 - golangci-lint: `winget install GolangCI.golangci-lint`.
 - gofumpt, the version devenv pins: `go install mvdan.cc/gofumpt@v0.12.0`.
 - sqlc, only for `gen`: there is no winget package; put `sqlc.exe` from the Windows zip of [sqlc's release](https://github.com/sqlc-dev/sqlc/releases) on `PATH` (1.31.1, the version in `internal/db/dbq`'s headers).
 - The cgo environment of [platforms.md](platforms.md), "Platform support" (`CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5`, MinGW, GStreamer, `SONA_CDM_SHIM`), in your user environment.
 
 ```powershell
-task dev        # the dev loop: r⏎ rebuilds, q⏎ quits
-task check
-task tests
-task build      # bin\sona.exe
+just dev        # the dev loop: r⏎ rebuilds, q⏎ quits
+just check
+just tests
+just build      # bin\sona.exe
 ```
 
 What differs from Linux:
@@ -143,7 +145,7 @@ What differs from Linux:
 - `build` writes `bin\sona.exe`, a GUI executable (`-H windowsgui`).
 - `tests` runs without `dbus-run-session`: there is no D-Bus.
 - `check` vets and lints the Windows build, plus the cgo-off Windows vet and the macOS type-check that Linux runs. The Linux-only files are checked by `check` on Linux and by CI.
-- Task doesn't load `.env`; devenv does.
+- just doesn't load `.env`; devenv does.
 
 ### dev and gallery
 
@@ -158,7 +160,7 @@ Keys: `r` rebuilds, `q` quits. A first argument `-background` (`dev -background 
 
 `gallery` is the same loop on `./cmd/uigallery`: the component gallery, with every kit component, light and dark, with knobs. It restarts like `dev`.
 
-On Windows `task dev` builds `bin\devloop.exe` and the loop builds `bin\sona-dev.exe` (see [On Windows](#on-windows)).
+On Windows `just dev` builds `bin\devloop.exe` and the loop builds `bin\sona-dev.exe` (see [On Windows](#on-windows)).
 
 Outside devenv (no `DEVENV_ROOT`), `devloop` also does devenv's `dotenv` job: each time it starts the app, it reads `.env` from the checkout, or in a worktree without one, from the main checkout. The app gets each variable its environment doesn't already set; a variable set in the environment, even to empty, wins. `go build` never gets them, so they can't be linked into a dev build. The loop logs the file and the names it passed, never a value. Under devenv it leaves `.env` to devenv.
 

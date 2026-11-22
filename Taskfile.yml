@@ -1,17 +1,10 @@
 version: '3'
 
-# Sona's developer commands and its packaging, for Linux, macOS and Windows.
-# This file is the one definition of each command: `task <name>` runs it
-# anywhere (Task runs the commands through its built-in POSIX shell, so
-# PowerShell on Windows needs no bash), and devenv's scripts (devenv.nix) are
-# `task <name>` too. docs/development.md ("Developer commands") describes them.
-#
-# Arguments go after `--`: `task tests -- -run '^TestName$'`. Each reaches the
-# command as one shell word (ARGS).
-#
-# The Go environment comes from outside: devenv on Linux and macOS, the cgo
-# environment of docs/platforms.md on Windows. Packaging a release build:
-# `package` and `release` (Linux), build/linux and build/darwin.
+# Sona packaging tasks. Day-to-day building, testing and checking are the
+# justfile's recipes (build, dev, tests, check); this Taskfile only packages
+# a release build. Linux, macOS and Windows all ship releases (docs/architecture.md §9);
+# on macOS `build` makes an unsigned development build
+# (build/darwin/Taskfile.yml).
 #
 # Never add `go mod tidy` here: other packages are developed in parallel and
 # tidy would drop their dependencies.
@@ -23,216 +16,28 @@ vars:
   # into the binary (-X main.version) and the packages (nfpm SONA_VERSION).
   VERSION:
     sh: cat "{{.ROOT_DIR}}/VERSION"
-  # The arguments after `--`, each quoted as one shell word.
-  ARGS: '{{range .CLI_ARGS_LIST}}{{shellQuote .}} {{end}}'
-  # The packages with dev-only code, which `tests` also runs in a development
-  # build.
-  DEV_PACKAGES: ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/ui/features/discover ./internal/app ./internal/mpris
 
 includes:
   linux: ./build/linux/Taskfile.yml
   darwin: ./build/darwin/Taskfile.yml
 
 tasks:
-  default:
-    desc: Lists the commands
-    silent: true
-    cmds:
-      - '"{{.TASK_EXE}}" --list'
-
-  dev:
-    desc: 'Runs the app and rebuilds it on every change (cmd/devloop); `r⏎` rebuilds, `q⏎` quits. `-- -background` keeps the focus off restarts'
-    silent: true
-    interactive: true
-    cmds:
-      - task: devloop
-
-  gallery:
-    desc: The dev loop on the component gallery (cmd/uigallery)
-    silent: true
-    interactive: true
-    cmds:
-      - task: devloop
-        vars: { DEVLOOP_FLAGS: -target ./cmd/uigallery }
-
-  # dev and gallery: builds cmd/devloop and runs it with your arguments after
-  # its `--`. A first argument `-background` is devloop's: restarts don't take
-  # the focus.
-  devloop:
-    internal: true
-    silent: true
-    interactive: true
-    cmds:
-      - go build -o {{.BIN_DIR}}/devloop{{exeExt}} ./cmd/devloop
-      - |
-        set -- {{.ARGS}}
-        flags=
-        if [ "${1:-}" = -background ]; then flags=-background; shift; fi
-        {{.BIN_DIR}}/devloop{{exeExt}} {{.DEVLOOP_FLAGS}} $flags -- "$@"
-
   build:
-    desc: Builds the production binary into bin/sona (bin\sona.exe on Windows)
-    summary: |
-      No inspector (mygo_noinspector) and MyGo's production mode
-      (build/ldflags.sh; without the Last.fm and Discord credentials: no
-      -trimpath here, which would leave them in the build info). The release
-      packages build with build/linux and build/darwin instead.
-    silent: true
-    vars:
-      # build/ldflags.sh is a bash script. On Windows that bash is Git for
-      # Windows' (found from git itself), never the bash.exe on PATH, which is
-      # WSL's.
-      BASH:
-        sh: '{{if eq OS "windows"}}echo "$(git --exec-path)/../../../bin/bash.exe"{{else}}echo bash{{end}}'
+    summary: Builds the production application into bin/sona
     cmds:
-      - go build -tags mygo_noinspector,sqlite_fts5 -ldflags "$("{{.BASH}}" build/ldflags.sh --no-credentials --goos "$(go env GOOS)")" -o {{.BIN_DIR}}/{{.APP_NAME}}{{exeExt}} ./cmd/sona {{.ARGS}}
-
-  check:
-    desc: The static checks (vet, type-checks, lint, mygo vet, catalogues, path case, gofumpt)
-    silent: true
-    cmds:
-      - |
-        set -e
-        go vet ./...
-        # Development builds (devloop's restore, the instance names, probe
-        # builds) type-check too.
-        go vet -tags dev,sqlite_fts5 ./...
-        go vet -tags probe,sqlite_fts5 ./...
-        # Every package must still type-check on the other platforms
-        # (docs/platforms.md, "Type-check and cross-build").
-        GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
-        go run ./cmd/typecheck -os darwin -arch arm64 ./...
-        golangci-lint run --new-from-rev=origin/main ./...
-        # Build values kept past their frame (MyGo's lifetime check).
-        go tool mygo vet internal/ui
-        # Both message catalogues match the source (docs/translations.md,
-        # "Add or change a UI string").
-        go run ./cmd/i18ntool extract -check
-        go run ./cmd/pathcase
-        # Every tracked Go file is formatted the way `fmt` leaves it (#409).
-        # xargs -n keeps each command line under Windows' 32 KiB limit.
-        unformatted=$(git ls-files '*.go' ':!internal/db/dbq/' | xargs -n 200 gofumpt -l)
-        if [ -n "$unformatted" ]; then
-          echo "check: not gofumpt-formatted (run fmt):" >&2
-          echo "$unformatted" >&2
-          exit 1
-        fi
-
-  tests:
-    desc: go test -race, and the tests of dev-only code in a development build (Linux - in a private D-Bus session)
-    summary: |
-      Not `test`: in devenv, the shell's `test` builtin would shadow it.
-      go test's 10 minute default is a wall-clock limit a busy machine can
-      pass in the UI packages (docs/testing.md, "Timing in tests"): 30
-      minutes only guards against a hang. Your arguments go to the first
-      go test and come last, so they win.
-    silent: true
-    vars:
-      # No test reaches your session bus.
-      DBUS: '{{if eq OS "linux"}}dbus-run-session -- {{end}}'
-    cmds:
-      - |
-        set -e
-        {{.DBUS}}go test -race -timeout 30m ./... {{.ARGS}}
-        {{.DBUS}}go test -race -timeout 30m -tags dev,sqlite_fts5 {{.DEV_PACKAGES}}
-
-  fmt:
-    desc: gofumpt on every tracked Go file except internal/db/dbq
-    silent: true
-    cmds:
-      - git ls-files '*.go' ':!internal/db/dbq/' | xargs -n 200 gofumpt -w
-
-  gen:
-    desc: sqlc generate into internal/db/dbq (commit the result)
-    silent: true
-    cmds:
-      - sqlc generate -f internal/db/sqlc.yaml
-
-  docs:
-    desc: The documentation site (site/, Astro Starlight) with live reload
-    silent: true
-    interactive: true
-    dir: site
-    cmds:
-      - npm ci
-      - npm run dev -- {{.ARGS}}
-
-  auth-spike:
-    desc: The Apple sign-in flow from the terminal (cmd/authspike)
-    silent: true
-    interactive: true
-    cmds:
-      - go run ./cmd/authspike {{.ARGS}}
-
-  play-spike:
-    desc: The DRM path regression (cmd/playspike; needs MUSIC_USER_TOKEN, or -preview)
-    silent: true
-    cmds:
-      - go run ./cmd/playspike {{.ARGS}}
-
-  probe:
-    desc: The Albums scroll probe in the app's own process (docs/performance.md)
-    silent: true
-    cmds:
-      - go build -tags probe,sqlite_fts5 -o {{.BIN_DIR}}/sona-probe{{exeExt}} ./cmd/sona
-      - SONA_PRIVATE=1 {{.BIN_DIR}}/sona-probe{{exeExt}} -probe {{.ARGS}}
-
-  # A headless sway session with private XDG dirs, D-Bus, AT-SPI and stub
-  # portals around a command (docs/testing.md, "UI tests and the end-to-end
-  # smoke"); `e2e` runs the end-to-end smoke in it.
-  headless:
-    desc: 'Runs a command in a private headless sway session (Linux): `task headless -- <cmd>`'
-    silent: true
-    preconditions:
-      - &linux-session
-        sh: '[ "{{OS}}" = linux ]'
-        msg: 'headless, e2e and orca-walk need Linux: a headless sway session with its own D-Bus and AT-SPI (e2e/headless.sh). Run them in devenv on Linux; CI runs them for every pull request.'
-    cmds:
-      - bash e2e/headless.sh {{.ARGS}}
-
-  e2e:
-    desc: The end-to-end smoke and the accessibility check, in headless (Linux)
-    silent: true
-    preconditions:
-      - *linux-session
-    cmds:
-      - bash e2e/headless.sh -- go test -tags e2e -count=1 ./e2e/... {{.ARGS}}
-
-  # A real Orca walked through the app in `headless`
-  # (site/src/content/docs/contributing/accessibility.md, "Listening with
-  # Orca"). Orca comes from the pinned nixpkgs and is built on first use, so
-  # it is not part of everyone's dev shell; what it said is kept in
-  # bin/orca-out (E2E_OUT).
-  orca-walk:
-    desc: Walks the app with a real Orca, in headless (Linux, Nix)
-    silent: true
-    preconditions:
-      - *linux-session
-    cmds:
-      - |
-        set -e
-        rev=$(sed -n 's|.*nixpkgs/\([0-9a-f]\{40\}\)$|\1|p' devenv.yaml)
-        orca=$(nix build --no-link --print-out-paths "github:NixOS/nixpkgs/$rev#orca")/bin/orca
-        E2E_ORCA=1 E2E_ORCA_BIN=$orca E2E_OUT=${E2E_OUT:-$PWD/bin/orca-out} bash e2e/headless.sh -- go test -tags e2e -count=1 -v -run '^TestOrca' ./e2e/ {{.ARGS}}
+      - task: '{{if eq OS "darwin"}}darwin{{else}}linux{{end}}:build'
 
   package:
-    desc: Packages a production build as .deb, .rpm, Arch package and AppImage (Linux)
-    preconditions:
-      - &linux-packages
-        sh: '[ "{{OS}}" = linux ]'
-        msg: 'package and release make the Linux packages, on Linux (podman or docker for release). The macOS and Windows release builds are build/darwin/bundle.sh and build/windows/package.sh, which release.yml runs.'
+    summary: Packages a production build as .deb, .rpm, Arch package and AppImage
     cmds:
       - task: linux:package
 
   release:
-    desc: Builds and smoke-tests the Linux release packages on Ubuntu 24.04 in podman/docker (bin/release)
-    silent: true
-    preconditions:
-      - *linux-packages
+    summary: Builds and smoke-tests release packages on Ubuntu 24.04 in a container (bin/release)
     cmds:
-      - bash build/linux/release/release.sh {{.ARGS}}
+      - task: linux:release
 
   run:
-    desc: Runs the built application
+    summary: Runs the built application
     cmds:
       - task: '{{if eq OS "darwin"}}darwin{{else}}linux{{end}}:run'

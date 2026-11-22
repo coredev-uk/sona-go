@@ -67,8 +67,8 @@ in
       # Only build/darwin/dmg/render.sh, which draws the .dmg window's
       # background from its SVG.
       resvg
-      # Runs the developer commands (Taskfile.yml); devenv's scripts call it.
-      go-task
+      # Runs the developer commands (justfile); devenv's scripts call it.
+      just
     ]
     ++ gstPlugins
     ++ map lib.getDev [
@@ -115,28 +115,32 @@ in
     MACOSX_DEPLOYMENT_TARGET = darwinMinVersion;
   };
 
-  # Each script is the Taskfile.yml task of its name, so `dev` here and
-  # `task dev` (Windows, or anywhere Task is installed) run the same commands
-  # (docs/development.md, "Developer commands"). -x passes the command's exit
-  # code through.
-  scripts = lib.genAttrs [
-    "auth-spike"
-    "build"
-    "check"
-    "dev"
-    "docs"
-    "e2e"
-    "fmt"
-    "gallery"
-    "gen"
-    "headless"
-    "orca-walk"
-    "play-spike"
-    "probe"
-    "release"
-    # Not `test`: the shell's `test` builtin would shadow it.
-    "tests"
-  ] (name: { exec = ''exec task -x -d "$DEVENV_ROOT" ${name} -- "$@"''; });
+  # Each script is the justfile recipe of its name, so `dev` here and
+  # `just dev` (Windows, or anywhere just is installed) run the same commands
+  # (docs/development.md, "Developer commands").
+  scripts =
+    lib.genAttrs
+      [
+        "auth-spike"
+        "build"
+        "check"
+        "dev"
+        "docs"
+        "e2e"
+        "fmt"
+        "gallery"
+        "gen"
+        "headless"
+        "orca-walk"
+        "play-spike"
+        "probe"
+        "release"
+        # Not `test`: the shell's `test` builtin would shadow it.
+        "tests"
+      ]
+      (name: {
+        exec = ''exec just --justfile "$DEVENV_ROOT/justfile" ${name} "$@"'';
+      });
 
   # .githooks refuse commits and pushes on main (AGENTS.md, "Workflow"). The
   # setting lives in the shared git config, so it covers every worktree.

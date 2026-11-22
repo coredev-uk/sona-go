@@ -23,7 +23,7 @@ The main checkout is read-only: it stays on `main` and you never edit, build or 
 
 ## Commands
 
-Run everything as `devenv shell -- <cmd>` (devenv 2.4+; it sets `CGO_ENABLED`, `GOFLAGS=-tags=sqlite_fts5`, GStreamer paths, `.env`). Without it, `-tags` replaces `GOFLAGS`: name `sqlite_fts5` too. Each command is a task in `Taskfile.yml` (the devenv scripts run `task <cmd>`); on Windows, where Nix doesn't run, run `task <cmd>` with the cgo environment (`docs/development.md`, "On Windows").
+Run everything as `devenv shell -- <cmd>` (devenv 2.4+; it sets `CGO_ENABLED`, `GOFLAGS=-tags=sqlite_fts5`, GStreamer paths, `.env`). Without it, `-tags` replaces `GOFLAGS`: name `sqlite_fts5` too. Each command is a recipe in the `justfile` (the devenv scripts run `just <cmd>`); on Windows, where Nix doesn't run, run `just <cmd>` with the cgo environment (`docs/development.md`, "On Windows").
 
 - `check`: vet (also `dev` and `probe` tags), Windows and macOS type-checks, golangci-lint on new code, `mygo vet internal/ui`, i18n extract check, path case. `tests`: `go test -race` in `dbus-run-session`, `ui.Tester` and golden images included.
 - `fmt` (gofumpt), `gen` (sqlc into `internal/db/dbq`), `go run ./cmd/i18ntool extract` (English `.po` catalogues; a test fails when stale).
