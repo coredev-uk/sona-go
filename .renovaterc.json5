@@ -21,7 +21,7 @@
   // (docs/maintainers/repository.md, "Pinned inputs"). The tools the release
   // build downloads (build/linux/appimage-tools.sha256, build/windows/*.sha256,
   // the Go archive hashes) are moved by hand too: Renovate cannot compute a hash.
-  enabledManagers: ["gomod", "github-actions", "dockerfile"],
+  enabledManagers: ["gomod", "github-actions", "dockerfile", "npm"],
   postUpdateOptions: ["gomodTidy", "gomodUpdateImportPaths"],
   packageRules: [
     {
@@ -47,6 +47,15 @@
       description: "Release build image: review every digest update",
       matchFileNames: ["build/linux/release/Containerfile"],
       addLabels: ["verdict/review"],
+    },
+    {
+      // The npm manager reads only site/ (the docs site and its markdownlint
+      // dev tooling), the repository's one package.json. Its updates are
+      // grouped into one weekly pull request, so the site never floods the queue.
+      description: "site/ npm dependencies: one weekly group",
+      matchManagers: ["npm"],
+      groupName: "site npm dependencies",
+      schedule: ["before 6am on monday"],
     },
     {
       // MyGo is young and pre-1.0: every bump is read by hand (it needs a
