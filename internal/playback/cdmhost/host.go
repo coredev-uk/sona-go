@@ -418,7 +418,7 @@ loop:
 			default:
 			}
 		case f.Threads != nil:
-			h.audioThreads(f.Threads.TIDs)
+			h.audioThreads(*f.Threads)
 		case f.Video != nil:
 			if h.onFrame != nil && f.Video.valid() {
 				h.onFrame(*f.Video)

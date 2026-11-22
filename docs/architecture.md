@@ -541,7 +541,7 @@ The thread that exchanges buffers with PipeWire's graph (pipewiresink's `pipewir
 4. It calls RTKit's `MakeThreadRealtimeWithPID` on the system bus at PipeWire's client priority (83) capped by `MaxRealtimePriority` (RTKit's default 20). In Flatpak, or without RTKit, it uses the Realtime portal (`org.freedesktop.portal.Realtime`, same methods).
 5. Refused, it asks for a raised nice level (`MakeThreadHighPriorityWithPID`, `MinNiceLevel`).
 
-At most 8 threads per child, each asked for once. Failure is not fatal, and Diagnostics → Audio priority shows the outcome (granted, raised, denied or unavailable, and why). macOS asks nothing (Core Audio runs its own I/O thread at realtime priority) and reports it unsupported.
+At most 8 threads per child, each asked for once. Failure is not fatal, and Diagnostics → Audio priority shows the outcome (granted, raised, denied or unavailable, and why). macOS asks nothing (Core Audio runs its own I/O thread at realtime priority) and reports it unsupported. Windows asks nothing either but measures the outcome (`cdmhost/realtime_windows.go`, §9 "Playback").
 
 #### Licence renewal
 
@@ -1007,7 +1007,12 @@ The CDM host child inherits all of it.
 
 #### Playback
 
-- Playback goes through the same CDM host child with the Windows CDM Google ships (`win_x64`, `widevinecdm.dll`) and GStreamer's WASAPI output. `wasapi2sink` follows the default device through Windows' automatic stream routing; a chosen endpoint plays while it is active and falls back to the default while it is gone ("Output resilience"). The output list comes from the wasapi2 device provider, and the sink's render thread registers with MMCSS itself.
+- Playback goes through the same CDM host child with the Windows CDM Google ships (`win_x64`, `widevinecdm.dll`) and GStreamer's WASAPI output. `wasapi2sink` follows the default device through Windows' automatic stream routing; a chosen endpoint plays while it is active and falls back to the default while it is gone ("Output resilience"). The output list comes from the wasapi2 device provider.
+- **Audio priority (MMCSS).** The sink's render thread (`GstWasapi2Rbuf`) registers itself with the Multimedia Class Scheduler's "Pro Audio" task (`AvSetMmThreadCharacteristicsW`) before it opens the device, and ignores a failure. The AppContainer allows it: the capability-less token registers (`TestAppContainerConfinesChild`), and on a Windows 11 PC (build 26200) the playing host's render threads ran at base priority 24 (issue #313). Sona measures rather than assumes it (`cdmhost/realtime_windows.go`):
+  1. Once an output plays, the child reports its threads named `GstWasapi2Rbuf`, with the outcome of one registration of its own (register, then revert, once per child): the Win32 error wasapi2 drops.
+  2. The parent reads those threads' base priority from a Toolhelp snapshot, which also proves they are the child's.
+  3. A thread at 16 or above is MMCSS's: a thread of a normal-priority-class process tops out at 15 without it, and "Pro Audio" gives 23–26. Diagnostics → Audio priority then reads "Realtime · priority 24 (MMCSS)". Below 16 it says "Normal", as refused by MMCSS when the child's own registration failed (its error in the log); otherwise the log gives the thread's priority.
+  - What is measured is the priority at the moment the output starts playing, not over time (MMCSS may lower a task that overruns its share). Another sink (`wasapisink`, `directsoundsink`) is not looked at, and the row stays at "Requested when audio starts".
 - Google's CDM is built with the MSVC C++ ABI, which cgo's MinGW cannot speak. The shim (`internal/playback/widevine/shim.cc`) is therefore built with MSVC into `sona_cdm_shim.dll` (`build/windows/build-shim.sh`, static CRT) beside `sona.exe`. `shim_windows.c` gives cgo the same C API as thunks over its exports.
 - Apple's licence server licenses this host (checked on windows-2025 with `windows-playback.yml`, weekly and on dispatch).
 - The UI, media keys and Now Playing run, and so does motion artwork, played by Media Foundation through MyGo's `ui/video` in the UI process with no GStreamer involved (§8, "Motion artwork"). The windows job of `ci.yml` plays a generated clip through it, since a package has nothing of it to smoke-test.

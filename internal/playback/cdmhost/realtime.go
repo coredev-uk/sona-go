@@ -10,20 +10,24 @@ import (
 	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
-// Realtime is the scheduling the child's audio threads got. The child
-// cannot ask for realtime priority itself: its sandbox has no D-Bus, so
-// it reports the threads (threadReport) once its output plays, and the
+// Realtime is the scheduling the child's audio threads got. On Linux the
+// child cannot ask for realtime priority itself: its sandbox has no D-Bus,
+// so it reports the threads (threadReport) once its output plays, and the
 // parent asks RTKit or the Realtime portal on its behalf
-// (realtime_linux.go and realtime_other.go). Failure is not fatal: the audio then plays at
-// normal priority and may skip under heavy CPU load.
+// (realtime_linux.go). On Windows the output's render thread registers with
+// the Multimedia Class Scheduler itself, and the parent reads the priority
+// it got (realtime_windows.go). macOS asks nothing (realtime_darwin.go).
+// Failure is not fatal: the audio then plays at normal priority and may
+// skip under heavy CPU load.
 type Realtime struct {
 	// State is one of playback.Realtime*, or "" while no audio thread has
 	// been reported (the output has not played yet).
 	State string
-	// Via names who answered: "RTKit" or "portal".
+	// Via names who answered: "RTKit", "portal" or "MMCSS".
 	Via string
-	// Priority is the SCHED_RR priority (RealtimeGranted) or the nice
-	// level (RealtimeRaised).
+	// Priority is the SCHED_RR priority (RealtimeGranted on Linux), the
+	// nice level (RealtimeRaised), or the thread's base priority Windows
+	// reports (RealtimeGranted through MMCSS, 16 and up).
 	Priority int
 	// Threads counts the child's threads that got it.
 	Threads int
@@ -40,6 +44,9 @@ type Realtime struct {
 // namespace of its own, so its thread IDs are the parent's.
 type threadReport struct {
 	TIDs []int
+	// Probe is why the child's own attempt at that scheduling failed, ""
+	// when it worked or the child makes none (schedProbe).
+	Probe string
 }
 
 // maxRealtimeThreads bounds how many threads one child gets raised over
@@ -70,7 +77,7 @@ type rtBroker interface {
 	close()
 }
 
-// rtEnv is what a realtime request needs from the OS (realtime_linux.go and realtime_other.go);
+// rtEnv is what a realtime request needs from the OS (realtime_<os>.go);
 // tests replace it.
 type rtEnv struct {
 	// dial returns the first broker that answers, or why none did.
@@ -80,6 +87,19 @@ type rtEnv struct {
 	limitRTTime func(pid int, usec int64) error
 	// owns reports whether tid is a thread of process pid.
 	owns func(pid, tid int) bool
+	// observe, where set, replaces asking a broker: it reads the
+	// scheduling the OS gave the threads of process pid that r reports
+	// (Windows' MMCSS). ok is false when none of them is pid's.
+	observe func(pid int, r threadReport) (rt Realtime, ok bool)
+}
+
+// request gets the threads r reports of process pid the scheduling env
+// gives them: observed where env observes, else asked of its broker.
+func (env rtEnv) request(pid int, r threadReport) (Realtime, bool) {
+	if env.observe != nil {
+		return env.observe(pid, r)
+	}
+	return env.raise(pid, r.TIDs)
 }
 
 // raise asks env's broker for realtime scheduling for the threads tids of
@@ -160,13 +180,13 @@ func (rt Realtime) merge(next Realtime) Realtime {
 	return next
 }
 
-// audioThreads takes the child's report of its audio threads: those not
-// asked for before, up to maxRealtimeThreads per child, are raised off
-// the read loop, one request at a time.
-func (h *Host) audioThreads(tids []int) {
+// audioThreads takes the child's report r of its audio threads: those not
+// asked for before, up to maxRealtimeThreads per child, are raised (or
+// observed) off the read loop, one request at a time.
+func (h *Host) audioThreads(r threadReport) {
 	h.rtMu.Lock()
 	var fresh []int
-	for _, tid := range tids {
+	for _, tid := range r.TIDs {
 		if len(h.rtAsked) >= maxRealtimeThreads {
 			break
 		}
@@ -176,13 +196,13 @@ func (h *Host) audioThreads(tids []int) {
 		}
 	}
 	h.rtMu.Unlock()
-	if len(fresh) == 0 || h.rtEnv.dial == nil {
+	if len(fresh) == 0 || (h.rtEnv.dial == nil && h.rtEnv.observe == nil) {
 		return
 	}
 	go func() {
 		h.rtReq.Lock()
 		defer h.rtReq.Unlock()
-		rt, ok := h.rtEnv.raise(h.cmd.Process.Pid, fresh)
+		rt, ok := h.rtEnv.request(h.cmd.Process.Pid, threadReport{TIDs: fresh, Probe: r.Probe})
 		if !ok {
 			return
 		}

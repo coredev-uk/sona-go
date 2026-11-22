@@ -253,6 +253,15 @@ func TestRealtimeRows(t *testing.T) {
 	if r.status != statusWarning || !strings.HasPrefix(r.detail, "RTKit allows no realtime priority. Audio may skip") {
 		t.Errorf("%+v", r)
 	}
+	// Windows: the render thread's priority read off MMCSS, or its refusal.
+	mmcss := services.DiagPlayback{Realtime: playback.RealtimeGranted, RealtimeVia: "MMCSS", RealtimePriority: 24}
+	if r = realtimeRow(mmcss); r.value != "Realtime · priority 24 (MMCSS)" || r.status != statusOK {
+		t.Errorf("%+v", r)
+	}
+	r = realtimeRow(services.DiagPlayback{Realtime: playback.RealtimeDenied, RealtimeVia: "MMCSS", RealtimeRefusal: playback.RealtimeRefused})
+	if r.value != "Normal" || r.status != statusWarning || !strings.HasPrefix(r.detail, "MMCSS refused it. Audio may skip") {
+		t.Errorf("%+v", r)
+	}
 }
 
 // The Diagnostics row for a token kept in a file names this OS's keyring,
