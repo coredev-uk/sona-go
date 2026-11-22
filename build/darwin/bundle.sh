@@ -10,10 +10,14 @@
 # libexec/ are copied into Sona.app/Contents/Frameworks/GStreamer, trimmed to
 # the plugins Sona uses and made relocatable.
 #
+# Installs dmgbuild (build/darwin/install-dmgbuild.sh: Python 3.11 or later and
+# network access to PyPI) for the .dmg's window.
+#
 # Environment:
 #   GSTREAMER_ROOT  the framework's Versions/1.0 directory
 #                   (default /Library/Frameworks/GStreamer.framework/Versions/1.0)
 #   VERSION         default: the VERSION file
+#   DMGBUILD_DIR    where install-dmgbuild.sh put dmgbuild (default bin/dmgbuild)
 #   SONA_SMOKE_TOOLS=1   also build OUTDIR/smoke-tools (playspike) for smoke.sh
 #   UPDATE_FEED, UPDATE_KEY, SONA_LASTFM_KEY, SONA_LASTFM_SECRET,
 #                   SONA_DISCORD_CLIENT_ID   linked in as build/ldflags.sh says
@@ -30,6 +34,10 @@ version=${VERSION:-$(cat "$repo/VERSION")}
 gst=${GSTREAMER_ROOT:-/Library/Frameworks/GStreamer.framework/Versions/1.0}
 minos=$(tr -d '[:space:]' <"$here/MIN_MACOS")
 [[ -d $gst/lib/gstreamer-1.0 ]] || { echo "bundle: no GStreamer framework at $gst (build/darwin/install-gstreamer.sh)" >&2; exit 1; }
+# The .dmg's window is made by dmgbuild at the versions dmgbuild.sha256 pins:
+# fetched and checked now, so a bad pin fails here and not after the Go build.
+export DMGBUILD_DIR=${DMGBUILD_DIR:-$repo/bin/dmgbuild}
+bash "$here/install-dmgbuild.sh" "$DMGBUILD_DIR"
 
 # Plugins Sona uses: playback (decodebin, the preview and CDM host engines:
 # AAC through libav's avdec_aac) and osxaudiosink. Motion artwork needs none of
@@ -193,13 +201,22 @@ done < <(find "$app/Contents/Frameworks" -type f -print0)
 codesign --force -s - "$app"
 codesign --verify --deep --strict "$app"
 
-# 6. The artefacts. Sona.app/ is the only top-level entry of the update
+# 6. The artefacts. dmgbuild is a third-party tool (a pinned set of wheels,
+# install-dmgbuild.sh), so it runs first, before any file the updater trusts
+# exists: it reads Sona.app, writes the image into a scratch folder of its
+# own, and the bundle must hash the same afterwards. The update archive (the
+# one the manifest signs) is then written by tar alone, and the image is moved
+# into OUTDIR last. Sona.app/ is the only top-level entry of the update
 # archive (MyGo's updater requires it).
-stage=$work/dmg
-mkdir "$stage"
-ditto "$app" "$stage/Sona.app"
-ln -s /Applications "$stage/Applications"
-rm -f "$out/Sona-$version-macos-arm64.dmg"
-hdiutil create -quiet -volname "Sona" -srcfolder "$stage" -ov -format UDZO "$out/Sona-$version-macos-arm64.dmg"
+tree_hash() {
+  (cd "$1" && LC_ALL=C find . -type f -print0 | LC_ALL=C sort -z | while IFS= read -r -d '' f; do
+    printf '%s  %s\n' "$(shasum -a 256 <"$f" | awk '{print $1}')" "$f"
+  done | shasum -a 256 | awk '{print $1}')
+}
+before=$(tree_hash "$app")
+mkdir "$work/image"
+bash "$here/dmg.sh" "$app" "$work/image/Sona-$version-macos-arm64.dmg"
+[[ $(tree_hash "$app") == "$before" ]] || { echo "bundle: dmgbuild changed Sona.app" >&2; exit 1; }
 tar -C "$out" --no-xattrs -czf "$out/sona-$version-darwin-arm64.tar.gz" Sona.app
+mv -f "$work/image/Sona-$version-macos-arm64.dmg" "$out/Sona-$version-macos-arm64.dmg"
 echo "bundle: $app, $out/Sona-$version-macos-arm64.dmg, $out/sona-$version-darwin-arm64.tar.gz"

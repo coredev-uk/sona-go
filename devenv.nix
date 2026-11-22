@@ -64,6 +64,9 @@ in
       # Only the documentation site (site/, the `docs` script); the app's
       # build and `check` never touch it.
       nodejs
+      # Only build/darwin/dmg/render.sh, which draws the .dmg window's
+      # background from its SVG.
+      resvg
     ]
     ++ gstPlugins
     ++ map lib.getDev [
