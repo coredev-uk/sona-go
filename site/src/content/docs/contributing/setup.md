@@ -45,7 +45,7 @@ Most work needs no account. For live checks (`playspike`, the live tests), put y
 MUSIC_USER_TOKEN=...
 ```
 
-A new worktree has no `.env`. Symlink the one from your main checkout only when you need a live token.
+A new worktree has no `.env`. Symlink the one from your main checkout only when you need a live token. On Windows, where devenv doesn't run, `devloop` passes `.env`'s variables to the app itself and, in a worktree without one, uses the main checkout's.
 
 Never print, log or commit `.env` or a token. `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET` and `SONA_DISCORD_CLIENT_ID` can live there too; development builds read them at run time.
 

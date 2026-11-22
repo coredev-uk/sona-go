@@ -63,8 +63,12 @@ With [direnv](https://direnv.net), the checked-in `.envrc` loads the same enviro
 It may also hold `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET` and `SONA_DISCORD_CLIENT_ID`:
 
 - Production builds compile them in (`-X`, with `-trimpath` so the flags stay out of the binary's build info).
-- Development builds read them from the environment at run time.
+- Development builds read them from the environment at run time. devenv puts them there on Linux and macOS; on Windows, `cmd/devloop` hands them to the app (see [dev and gallery](#dev-and-gallery)).
 - Never pass them in `-ldflags` of a build without `-trimpath`. Go records the flags in the build info; the log handler and the diagnostics bundle redact `-ldflags` values, but don't rely on that.
+
+Values are `KEY=value` lines. An `export ` prefix, `#` comments and blank lines are allowed. A value can be bare (trimmed, ended by ` #`), `'single quoted'` (literal) or `"double quoted"` (`\n`, `\t`, `\"`, `\\`, `\$` escapes). There is no `$VAR` expansion and no value spans lines.
+
+A new worktree has no `.env`. Under devenv, symlink the main checkout's when you need it there (`ln -s ../sona-go/.env .env`). On Windows you need not: `devloop` falls back to the main checkout's `.env`. A symlink there needs Developer Mode or an elevated shell.
 
 ## Private mode
 
@@ -119,6 +123,8 @@ Keys: `r` rebuilds, `q` quits. A first argument `-background` (`dev -background 
 `gallery` is the same loop on `./cmd/uigallery`: the component gallery, with every kit component, light and dark, with knobs. It restarts like `dev`.
 
 On Windows, where devenv doesn't run, build and start the loop yourself with the cgo environment of [platforms.md](platforms.md), "Platform support": `go build -o bin\devloop.exe .\cmd\devloop`, then `bin\devloop.exe` with the same flags.
+
+Outside devenv (no `DEVENV_ROOT`), `devloop` also does devenv's `dotenv` job: each time it starts the app, it reads `.env` from the checkout, or in a worktree without one, from the main checkout. The app gets each variable its environment doesn't already set; a variable set in the environment, even to empty, wins. `go build` never gets them, so they can't be linked into a dev build. The loop logs the file and the names it passed, never a value. Under devenv it leaves `.env` to devenv.
 
 ### build
 

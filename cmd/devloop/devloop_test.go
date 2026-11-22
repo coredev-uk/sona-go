@@ -97,6 +97,29 @@ func TestAppEnv(t *testing.T) {
 	}
 }
 
+func TestLoopEnvDotenv(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".env"), []byte("export DEVLOOP_TEST_NEW='from file'\nDEVLOOP_TEST_SET=file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DEVLOOP_TEST_SET", "mine")
+
+	// Only the test's own names in a failure: the environment may hold
+	// secrets (devenv loads .env).
+	mine := func(env []string) []string {
+		return slices.DeleteFunc(slices.Clone(env), func(kv string) bool { return !strings.HasPrefix(kv, "DEVLOOP_TEST_") })
+	}
+	got := mine(newLoop(config{root: root, dotenv: true}).env())
+	if want := []string{"DEVLOOP_TEST_SET=mine", "DEVLOOP_TEST_NEW=from file"}; !slices.Equal(got, want) {
+		t.Errorf("dotenv: %q, want %q", got, want)
+	}
+
+	// Under devenv, whose dotenv has loaded .env already.
+	if got := mine(newLoop(config{root: root}).env()); !slices.Equal(got, []string{"DEVLOOP_TEST_SET=mine"}) {
+		t.Errorf("dotenv off: %q", got)
+	}
+}
+
 func TestExtldProbeCache(t *testing.T) {
 	// os.UserCacheDir: XDG_CACHE_HOME on Linux, HOME on macOS, LocalAppData on Windows.
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())

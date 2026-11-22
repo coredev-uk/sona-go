@@ -6,6 +6,8 @@
 // same arguments and environment; a build that fails prints its errors and
 // leaves the app alone. Design tokens and catalogues are not built in the
 // dev build's run: the app reloads tokens.json and the .po files itself.
+// Outside devenv (Windows), the app also gets the variables of the
+// checkout's .env that its environment lacks, as devenv's dotenv gives them.
 //
 //	devloop                         # ./cmd/sona
 //	devloop -target ./cmd/uigallery # the component gallery
@@ -31,6 +33,7 @@ import (
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/devwatch"
+	"github.com/coredev-uk/sona-go/internal/dotenv"
 )
 
 type config struct {
@@ -45,8 +48,11 @@ type config struct {
 	// background starts the app without taking the focus (MyGo's dev builds
 	// read MYGO_DEV_BACKGROUND), so restarts leave it in the editor.
 	background bool
-	grace      time.Duration
-	args       []string
+	// dotenv hands the app the variables of .env its environment does not
+	// set (see loop.env); off under devenv, which has loaded .env itself.
+	dotenv bool
+	grace  time.Duration
+	args   []string
 	// linker is the compiler that links the target (targetLinker), which
 	// devloop passes each link on to.
 	linker string
@@ -71,6 +77,9 @@ func main() {
 	}
 	flag.Parse()
 	cfg.args = flag.Args()
+	// devenv exports DEVENV_ROOT in its shell and scripts; there its dotenv
+	// has loaded .env already (or the checkout has none).
+	cfg.dotenv = os.Getenv("DEVENV_ROOT") == ""
 
 	root, err := filepath.Abs(cfg.root)
 	if err != nil {
@@ -122,6 +131,7 @@ type loop struct {
 	building bool
 	again    bool      // a change arrived during the build: its result is stale
 	since    time.Time // when the change the build answers was saved
+	dotenv   string    // what loop.env last said about .env
 }
 
 func newLoop(cfg config) *loop { return &loop{cfg: cfg} }
@@ -166,7 +176,7 @@ func (l *loop) run() int {
 		}()
 	}
 	startApp := func(t0 time.Time, buildTook, stopTook time.Duration) {
-		p, err := startProcess(l.cfg, func(painted time.Time) {
+		p, err := startProcess(l.cfg, l.env(), func(painted time.Time) {
 			logf("window painted: %.2fs after the change (build %.2fs, stop %.2fs)",
 				painted.Sub(t0).Seconds(), buildTook.Seconds(), stopTook.Seconds())
 		})
@@ -281,6 +291,44 @@ func (l *loop) stop() time.Duration {
 	t := time.Now()
 	p.terminate(l.cfg.grace)
 	return time.Since(t)
+}
+
+// env is the environment the app starts in (see appEnv). With cfg.dotenv it
+// has the variables of the checkout's .env (or, in a worktree without one,
+// the main checkout's: dotenv.Find) that the loop's own environment does not
+// set, read again at every start, so an edit applies on the next restart.
+// Only the app gets them, never `go build`, so nothing can link them in. It
+// says which file and which names when that changes; never a value.
+func (l *loop) env() []string {
+	env := os.Environ()
+	if !l.cfg.dotenv {
+		return appEnv(l.cfg, env)
+	}
+	var said string
+	if path := dotenv.Find(l.cfg.root); path == "" {
+		said = "no .env here or in the main checkout"
+	} else if vars, err := dotenv.Load(path); err != nil {
+		said = fmt.Sprintf(".env not loaded: %v", err)
+	} else {
+		var added []string
+		env, added = dotenv.Merge(env, vars)
+		said = fmt.Sprintf("%s: the app gets %s", path, names(added))
+		if kept := len(vars) - len(added); kept > 0 {
+			said += fmt.Sprintf(" (%d already set in the environment, kept)", kept)
+		}
+	}
+	if said != l.dotenv {
+		l.dotenv = said
+		logf("%s", said)
+	}
+	return appEnv(l.cfg, env)
+}
+
+func names(keys []string) string {
+	if len(keys) == 0 {
+		return "nothing"
+	}
+	return strings.Join(keys, ", ")
 }
 
 // build runs go build into out.new, linking through devloop itself (see

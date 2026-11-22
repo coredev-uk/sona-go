@@ -1091,7 +1091,7 @@ Severity: Low. Status: fixed.
   - In free text, `Redact` replaces a quoted or bare `-ldflags` value, and the value of every linker `-X name=value` assignment whatever the symbol is called.
 - **Diagnostics bundle** (`internal/diag/bundle.go`): `Scrub` runs `logging.Redact` over the log tail as read from disk, so a log written by an older build still loses the values.
 - **Build** (`build/ldflags.sh`, used by `build/linux/Taskfile.yml`, `build/darwin/Taskfile.yml`, `bundle.sh`, `package.sh`, devenv's `build` and CI's build steps; `cmd/devloop`):
-  - Development builds (what `dev` builds through `cmd/devloop`, whose `-ldflags` are only `-w`) do not compile the credentials in. Sona reads the same variables from the environment at runtime (`internal/scrobble/lastfm.go`, `internal/discord/discord.go`; devenv loads `.env`).
+  - Development builds (what `dev` builds through `cmd/devloop`, whose `-ldflags` are only `-w`) do not compile the credentials in. Sona reads the same variables from the environment at runtime (`internal/scrobble/lastfm.go`, `internal/discord/discord.go`). devenv loads `.env`; outside devenv (Windows) `cmd/devloop` adds `.env`'s variables to the app's environment only, never to `go build`'s, and logs their names, never their values.
   - The Taskfiles' production and release builds keep the injection, with `-trimpath`, so `go version -m bin/sona` shows no `-ldflags`.
   - `ldflags.sh` reads the credentials from the environment, so no command line holds them. Devenv's `build` and CI's builds (no `-trimpath`) pass `--no-credentials`.
 
