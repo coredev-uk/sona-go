@@ -71,12 +71,19 @@ type options struct {
 	auth      []func(*auth.Config)
 	equalizer bool
 	platform  []func(*services.Platform)
+	seeded    []func(context.Context, *db.DB) error
 }
 
 // Albums seeds the library with these albums instead of the fixture's
 // (and no playlists): album i is added i+1 days after the epoch.
 func Albums(a ...fixture.Album) Option {
 	return func(o *options) { o.albums, o.playlists = a, nil }
+}
+
+// Seeded runs f over the library's database once it is seeded (the fixture's
+// albums, or Albums'), to add rows the fixture has no word for.
+func Seeded(f func(context.Context, *db.DB) error) Option {
+	return func(o *options) { o.seeded = append(o.seeded, f) }
 }
 
 // Empty leaves the library empty: a signed-out library with nothing to show.
@@ -261,6 +268,11 @@ func (h *Harness) buildCore(t testing.TB, o *options) *artwork.Cache {
 	t.Cleanup(func() { _ = d.Close() })
 	if o.seed {
 		if err := fixture.Seed(ctx, d, o.albums, o.playlists); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, f := range o.seeded {
+		if err := f(ctx, d); err != nil {
 			t.Fatal(err)
 		}
 	}

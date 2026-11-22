@@ -96,6 +96,10 @@ type Syncer struct {
 	parallel int
 	now      func() time.Time
 
+	// Storefront is the catalogue storefront the credited artists of songs
+	// are asked in (syncCredits); nil or "" skips that pass.
+	Storefront func() string
+
 	mu      sync.Mutex
 	running bool
 	moves   map[string]pendingMove // playlist library ID → a folder move made here (playlists.go)
@@ -218,6 +222,16 @@ func (s *Syncer) Sync(ctx context.Context, mode Mode, progress func(Progress), d
 			errs = append(errs, err)
 		}
 		changed = changed || pruned
+	}
+	// The artists the catalogue credits songs to (credits.go) follow the
+	// songs domain, new songs included. A failure leaves them for the next
+	// sync: the songs are listed under their library artist meanwhile.
+	if synced[DomainSongs] && ctx.Err() == nil {
+		credited, err := s.syncCredits(ctx)
+		if err != nil {
+			s.log.Warn("library sync: song credits", "err", err)
+		}
+		changed = changed || credited
 	}
 	if changed {
 		if err := RebuildSearch(context.WithoutCancel(ctx), s.db); err != nil {

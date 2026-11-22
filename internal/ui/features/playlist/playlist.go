@@ -21,6 +21,10 @@ import (
 // playlistPath is the playlist page's route pattern.
 const playlistPath = "/playlist/{id}"
 
+// favouritesPath is Library → Favourite songs, the one place for the songs
+// Apple's Favourite Songs playlist (TreePlaylist.Favorited) also lists.
+const favouritesPath = "/library/favourites"
+
 // playlistsPath is the library's Playlists page, where deleting the open
 // playlist leaves to.
 const playlistsPath = "/library/playlists"
