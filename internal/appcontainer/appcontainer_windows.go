@@ -37,15 +37,15 @@ var (
 
 // setJobInfo is SetInformationJobObject for the info struct at info, size
 // bytes long.
-func setJobInfo(job windows.Handle, class int32, info unsafe.Pointer, size uintptr) error {
+func setJobInfo(job windows.Handle, class uint32, info unsafe.Pointer, size uintptr) error {
 	r, _, err := procSetInformationJobObject.Call(uintptr(job), uintptr(class), uintptr(info), size)
-	if r == 0 {
-		if err == nil || err == windows.ERROR_SUCCESS {
-			err = windows.ERROR_INVALID_PARAMETER
-		}
-		return err
+	if r != 0 {
+		return nil
 	}
-	return nil
+	if err == windows.ERROR_SUCCESS {
+		return syscall.EINVAL
+	}
+	return err
 }
 
 // hrAlreadyExists is HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS).
