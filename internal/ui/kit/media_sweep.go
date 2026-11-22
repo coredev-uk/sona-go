@@ -25,6 +25,7 @@ import (
 type SweepText struct {
 	words  []sweepWord
 	layout *ui.TextLayout
+	lines  []ui.TextLine
 	font   ui.Font
 	width  float32
 	h      float32
@@ -32,6 +33,10 @@ type SweepText struct {
 
 	begin  time.Duration // when the first word begins
 	empEnd time.Duration // when the last swell has run and settled
+
+	// The scratch of a frame: a word's stretches by colour (mediaSegments),
+	// and a row's or a moving letter's (mediaRow).
+	segs, row []mediaSeg
 }
 
 // sweepWord is one timed word: its boxes in the layout, wrapped words in
@@ -116,6 +121,7 @@ func newSweepText(words []lyrics.Word, lang string, size float32, weight int, it
 	s.layout = ui.ShapeRichTextWith(spans, font, ui.TextShape{Width: width})
 	_, s.h = s.layout.Size()
 	lines := s.layout.Lines()
+	s.lines = lines
 	at := 0
 	last := -1 // the last word with something to show
 	for i, w := range words {
@@ -138,7 +144,7 @@ func newSweepText(words []lyrics.Word, lang string, size float32, weight int, it
 		if w.Background {
 			sw.up = 2 * liftEm
 		}
-		sw.boxes = plainBoxes(s.layout.SelectionRects(ui.TextInputRange{Start: at, End: at + trimmed}))
+		sw.boxes = plainBoxes(s.layout.SelectionRects(ui.TextInputRange{Start: at, End: at + trimmed}), lines)
 		for k := range sw.boxes {
 			sw.boxes[k].above, sw.boxes[k].below = sw.up*size, sw.up*size
 			sw.total += sw.boxes[k].r.W
@@ -258,20 +264,17 @@ func (w *sweepWord) mark() {
 }
 
 // baselineAt is the baseline of the layout's line that starts at y.
-func baselineAt(lines []ui.TextLine, y float32) (baseline float32) {
-	best := float32(math.MaxFloat32)
-	for _, ln := range lines {
-		if d := float32(math.Abs(float64(ln.Rect.Y - y))); d < best {
-			best, baseline = d, ln.Baseline
-		}
+func baselineAt(lines []ui.TextLine, y float32) float32 {
+	if len(lines) == 0 {
+		return 0
 	}
-	return baseline
+	return lines[lineAt(lines, y)].Baseline
 }
 
 // padBoxes works out how far each box's ink may overhang it: 0.15 em either
-// side (an italic's slant), but no further than 60% of the way to the next
-// box on its line, so that words set close together (syllables of one word)
-// never draw each other's ink.
+// side (an italic's slant), but no further than half way to the next box on
+// its line, so that words set close together (syllables of one word) never
+// draw each other's ink, and two boxes' overhangs never cover one pixel.
 func (s *SweepText) padBoxes() {
 	over := s.size * 0.15
 	for i := range s.words {
@@ -286,9 +289,9 @@ func (s *SweepText) padBoxes() {
 					}
 					switch {
 					case o.X+o.W <= b.r.X+0.5:
-						b.left = min(b.left, max(b.r.X-(o.X+o.W), 0)*0.6)
+						b.left = min(b.left, max(b.r.X-(o.X+o.W), 0)*0.5)
 					case o.X >= b.r.X+b.r.W-0.5:
-						b.right = min(b.right, max(o.X-(b.r.X+b.r.W), 0)*0.6)
+						b.right = min(b.right, max(o.X-(b.r.X+b.r.W), 0)*0.5)
 					}
 				}
 			}
@@ -383,21 +386,24 @@ func (w *sweepWord) progress(t time.Duration) (float32, bool) {
 	return 1, false
 }
 
-// Paint draws the text at (x, y) in base, then each word sung by clock.T over
-// it in fill, a word being sung up to its soft edge; clock.Sung (0 to 1)
-// scales the fill's strength, which is how a line fades in and out. The
-// letters rise with the front of the fill, and a held word swells; the fill
-// moves with its letters. It reports whether anything is moving, which needs
-// the next frame (Painter.AnimationFrame): filling, rising, swelling or
-// settling. rtl fills from the right.
+// Paint draws the text at (x, y) in base, each word sung by clock.T in fill,
+// a word being sung up to its soft edge; clock.Sung (0 to 1) scales the
+// fill's strength, which is how a line fades in and out. Every pixel is
+// painted once, in the one colour of the stretch it is in (mediaSegments):
+// the fill is never drawn over the base, which would leave a rim of the base
+// round the fill's glyphs. The letters rise with the front of the fill, and a
+// held word swells; the fill moves with its letters. It reports whether
+// anything is moving, which needs the next frame (Painter.AnimationFrame):
+// filling, rising, swelling or settling. rtl fills from the right.
 func (s *SweepText) Paint(p *ui.Painter, x, y float32, base, fill ui.Color, clock SweepClock, rtl bool) (moving bool) {
 	hi := mediaAlpha(fill, clock.Sung)
 	edge := s.size * 0.5
 	if !s.lifts(clock) {
-		p.TextLayout(s.layout, x, y, base)
-		if clock.Sung <= 0 {
+		if clock.Sung <= 0 || clock.T < s.begin {
+			p.TextLayout(s.layout, x, y, base)
 			return false
 		}
+		segs := s.segs[:0]
 		for k := range s.words {
 			w := &s.words[k]
 			if clock.T < w.begin {
@@ -405,8 +411,10 @@ func (s *SweepText) Paint(p *ui.Painter, x, y float32, base, fill ui.Color, cloc
 			}
 			prog, sweeping := w.progress(clock.T)
 			moving = moving || sweeping
-			mediaPaintFill(p, s.layout, x, y, w.boxes, prog, edge, rtl, hi)
+			segs = mediaSegments(segs, w.boxes, x, y, prog, edge, rtl, base, hi)
 		}
+		s.segs = segs
+		s.row = mediaBands(p, s.layout, s.lines, segs, s.row, x, y, s.width, s.h, 2*s.size, base)
 		return moving
 	}
 	for k := range s.words {
@@ -428,8 +436,10 @@ func (s *SweepText) Paint(p *ui.Painter, x, y float32, base, fill ui.Color, cloc
 // risen or risen all the way, in runs of neighbours) with the layout's text,
 // clipped to the run and shifted, which keeps them as sharp as any text; the
 // letters on the move, one by one, from their own glyphs at the fractional
-// offset they have got to. It reports whether any is moving.
+// offset they have got to. Both are painted by the word's stretches of colour
+// at prog. It reports whether any is moving.
 func (s *SweepText) paintWord(p *ui.Painter, x, y float32, w *sweepWord, c SweepClock, base, hi ui.Color, prog, edge float32, rtl bool) (moving bool) {
+	s.segs = mediaSegments(s.segs[:0], w.boxes, x, y, prog, edge, rtl, base, hi)
 	f := c.T - w.begin
 	swelling := w.emp != nil && f >= 0 && f < w.emp.run
 	if swelling {
@@ -442,18 +452,18 @@ func (s *SweepText) paintWord(p *ui.Painter, x, y float32, w *sweepWord, c Sweep
 		moving = moving || mv
 		if l.glyphs != nil && (swelling || lift != 0 && lift != w.up) {
 			if from >= 0 {
-				s.paintRun(p, x, y, w, from, i, runLift, base, hi, prog, edge, rtl)
+				s.paintRun(p, x, y, w, from, i, runLift, base)
 				from = -1
 			}
 			pose := letterPose{scale: 1}
 			if swelling {
 				pose = w.emp.pose(i, f)
 			}
-			s.paintLetter(p, x, y, w, l, lift, pose, base, hi, prog, edge, rtl)
+			s.paintLetter(p, x, y, w, l, lift, pose, base, hi)
 			continue
 		}
 		if from >= 0 && (lift != runLift || l.box != w.letters[from].box) {
-			s.paintRun(p, x, y, w, from, i, runLift, base, hi, prog, edge, rtl)
+			s.paintRun(p, x, y, w, from, i, runLift, base)
 			from = -1
 		}
 		if from < 0 {
@@ -461,15 +471,15 @@ func (s *SweepText) paintWord(p *ui.Painter, x, y float32, w *sweepWord, c Sweep
 		}
 	}
 	if from >= 0 {
-		s.paintRun(p, x, y, w, from, len(w.letters), runLift, base, hi, prog, edge, rtl)
+		s.paintRun(p, x, y, w, from, len(w.letters), runLift, base)
 	}
 	return moving
 }
 
 // paintRun paints letters from to to-1 of word w, side by side in one box and
-// raised alike, with the layout's text: the base, then the fill where its
-// front has reached.
-func (s *SweepText) paintRun(p *ui.Painter, x, y float32, w *sweepWord, from, to int, lift float32, base, hi ui.Color, prog, edge float32, rtl bool) {
+// raised alike, with the layout's text, clipped to the run, in the colours of
+// the word's stretches (s.segs) there.
+func (s *SweepText) paintRun(p *ui.Painter, x, y float32, w *sweepWord, from, to int, lift float32, base ui.Color) {
 	a, b := &w.letters[from], &w.letters[to-1]
 	box := &w.boxes[a.box]
 	x0, x1 := x+a.x, x+b.x+b.w
@@ -479,18 +489,10 @@ func (s *SweepText) paintRun(p *ui.Painter, x, y float32, w *sweepWord, from, to
 	if b.last {
 		x1 += box.right
 	}
-	run := ui.Rect{X: x0, Y: y + box.r.Y - box.above, W: x1 - x0, H: box.r.H + box.above + box.below}
 	dy := -lift * s.size
-	draw := func(c ui.Color) { p.TextLayout(s.layout, x, y+dy, c) }
-	p.Clip(run, 0, func() { draw(base) })
-	if prog <= 0 || hi.A == 0 {
-		return
-	}
-	mediaFill(p, w.boxes, x, y, prog, edge, rtl, hi, draw, func(r ui.Rect) (ui.Rect, bool) {
-		lo, hi := max(r.X, run.X), min(r.X+r.W, run.X+run.W)
-		top, bot := max(r.Y, run.Y), min(r.Y+r.H, run.Y+run.H)
-		return ui.Rect{X: lo, Y: top, W: hi - lo, H: bot - top}, hi > lo && bot > top
-	})
+	top := y + box.r.Y - box.above
+	mediaRow(p, boxSegs(s.segs, a.box), x0, x1, top, top+box.r.H+box.above+box.below, base,
+		func(c ui.Color) { p.TextLayout(s.layout, x, y+dy, c) })
 }
 
 // paintLetter paints letter l of word w on the move from its own glyphs: raised
@@ -499,8 +501,9 @@ func (s *SweepText) paintRun(p *ui.Painter, x, y float32, w *sweepWord, from, to
 // by Painter.Glyphs lands on whole pixels, at the price of a softer edge
 // while it moves). A swelling letter is drawn at its size (the nearest step
 // of the swell, shaped once), about its own centre, spread from the word's, with a
-// glow of the fill's colour behind it, and the fill passing over it as it moves.
-func (s *SweepText) paintLetter(p *ui.Painter, x, y float32, w *sweepWord, l *sweepLetter, lift float32, pose letterPose, base, fill ui.Color, prog, edge float32, rtl bool) {
+// glow of the fill's colour behind it, and the word's stretches of colour
+// (s.segs) passing over it as it moves.
+func (s *SweepText) paintLetter(p *ui.Painter, x, y float32, w *sweepWord, l *sweepLetter, lift float32, pose letterPose, base, fill ui.Color) {
 	size := s.size
 	k := min(max(int((pose.scale-1)/swellStep+0.5), 0), len(l.glyphs)-1)
 	sq := 1 + swellStep*float32(k)
@@ -510,20 +513,20 @@ func (s *SweepText) paintLetter(p *ui.Painter, x, y float32, w *sweepWord, l *sw
 	cy := y + l.centre
 	by := cy + (y+l.baseline-cy)*sq // the baseline, scaled about the box's middle
 	glyphs := l.glyphs[k]
-	reach := 0.15 * size
+	// The stretches of its box, scaled about the letter's centre as it is.
+	row := s.row[:0]
+	for _, sg := range boxSegs(s.segs, l.box) {
+		sg.r = spanRect(cx+(sg.r.X-c0)*sq, cx+(sg.r.X+sg.r.W-c0)*sq, by-2*size, by+2*size)
+		row = append(row, sg)
+	}
+	s.row = row
 	p.Transform(ui.Translation(0, (pose.dy-lift)*size), 0, 0, func() {
 		if fill.A > 0 && pose.glow > 0.01 {
 			mediaGlow(p, glyphs, gx, by, w.emp.glowEm()*size, fill, pose.glow)
 		}
-		p.Glyphs(glyphs, gx, by, base)
-		mediaFill(p, w.boxes, x, y, prog, edge, rtl, fill, func(c ui.Color) { p.Glyphs(glyphs, gx, by, c) },
-			func(r ui.Rect) (ui.Rect, bool) {
-				left, right := cx+(r.X-c0)*sq, cx+(r.X+r.W-c0)*sq
-				if right < gx-reach || left > gx+l.w*sq+reach {
-					return ui.Rect{}, false
-				}
-				return ui.Rect{X: left, Y: by - 2*size, W: right - left, H: 4 * size}, true
-			})
+		// Wider than its ink by an em each side: what lies outside its box
+		// is base.
+		mediaRow(p, row, gx-size, gx+l.w*sq+size, by-2*size, by+2*size, base, func(c ui.Color) { p.Glyphs(glyphs, gx, by, c) })
 	})
 }
 
