@@ -342,7 +342,10 @@ Before merging a release PR, install the release candidate's files:
   the user can write; the uninstaller removes the app and the URL handlers and
   the sandboxes' AppContainer profiles (`%LOCALAPPDATA%\Packages\sona.cdmhost`
   and the add-ons' `sona.addon.<id>` folders are gone; `sona.exe --remove-sandbox` is the same step for the portable zip),
-  and keeps the user's data.
+  and keeps the user's data. A setup run while Sona runs (also from the
+  tray) says "Sona is running" with Retry and Cancel, and Retry after quitting
+  Sona goes on. A setup over an install where an update kept a previous
+  version leaves Settings → Diagnostics → Updates with no previous version.
 - **Updates (macOS and Windows):** install rc.N, publish rc.N+1 (dispatch on
   `main` with `nightly=true`), turn Test versions on, see the notice, "Install and
   restart", and check settings, sign-in and the queue survive. A deliberately
@@ -467,6 +470,7 @@ run, with the evidence for anything not obvious from the check itself.
 | 2026-11-22 | 0.7.0-rc.7 → rc.8 | macOS 27.2, Apple silicon | Updates (Test versions on, notice, Install and restart) | Pass | rc.8 was a nightly dispatched for the check. `update installed from 0.7.0-rc.7 to 0.7.0-rc.8` 21 s after the click; `Sona.app.previous` is rc.7; queue, status and `settings.json` unchanged, signed in, `codesign --verify --deep --strict` OK; a song played after the restart |
 | 2026-11-22 | 0.7.0-rc.8 → rc.7 | macOS 27.2, Apple silicon | Restoring the previous version ("Restore…"), then the rollback after 3 failed starts | Pass | Restore asked first ("Go back to 0.7.0-rc.7?"), restarted on rc.7 with the queue, settings and sign-in kept, though rc.8 had already run migration 00019 (no warning or error logged). The bell did not offer rc.8 again, Settings → General still said it was available, and Check now brought the notice back. `update-rollback.json` recorded `"manual": true`. No `Sona.app.previous` is kept after a restore. For the automatic path, rc.8 was installed again, quit, and an `update-pending` marker (rc.7 → rc.8, 3 starts) planted: rc.8 logged "the updated version never reached its first paint: restoring the previous version" and came back as rc.7, signed in, with the queue; `update-rollback.json` had no `manual`. The Mac was left on rc.8 |
 | 2026-11-22 | `main` (0.5.0 install copied to `%TEMP%`) | Windows 11 x64 (build 26200) | Renames under a running host; restore with a locked file (#314) | Pass | `playspike -preview -sink fakesink` from the copy: the AppContainer host had 24 plugins of `lib\gstreamer-1.0` loaded, and `lib\` and `libexec\` still renamed, from a third process; the guard's restore of `previous\` (0.5.0-rc.5) went through with the host playing. With `licenses\LICENSE.txt` opened without delete sharing the restore failed at `licenses` ("Access is denied"): `main` left 32 entries swapped and `previous\` with 5; the fix renamed them back (same hashes, `previous\` whole) and a retry after closing the file restored rc.5 |
+| 2026-11-22 | `installer.nsi` of #314's fix (built with makensis 3.13 over the 0.5.0 files) | Windows 11 x64 (build 26200), private profile in `%TEMP%` | Installer over a running Sona; over an install with `previous\` | Pass | With 0.5.0 running on that profile, `setup.exe /S` exited 2 and created nothing; interactively it showed "Sona is running. Quit it…, then choose Retry", and Retry after quitting Sona went on to the folder page. Over a folder with `previous\` and `previous.staging\`, `/S` exited 0 and left neither, nor `update-previous` and `update-pending`; over one without `previous\`, `update-previous` stayed. The uninstaller's check (the same macro) was not run here: its section would remove this machine's real sandbox profile |
 
 ## 4. Known issues
 
