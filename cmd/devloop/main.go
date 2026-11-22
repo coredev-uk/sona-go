@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -55,7 +56,7 @@ func main() {
 	var cfg config
 	flag.StringVar(&cfg.root, "root", ".", "module root (the build runs there, its internal/, cmd/ and build/ are watched)")
 	flag.StringVar(&cfg.target, "target", "./cmd/sona", "package to build and run")
-	flag.StringVar(&cfg.out, "out", "", "binary to build (default bin/<target>-dev under -root)")
+	flag.StringVar(&cfg.out, "out", "", "binary to build (default bin/<target>-dev under -root; .exe added on Windows)")
 	flag.StringVar(&cfg.tags, "tags", "dev,sqlite_fts5", "build tags")
 	flag.StringVar(&cfg.ldflags, "ldflags", "-w", "linker flags (-w drops DWARF, which speeds up the link; use \"\" for a debugger)")
 	flag.StringVar(&cfg.ready, "ready", "startup: first paint", "text the app prints when its window is painted (times the restart)")
@@ -76,6 +77,7 @@ func main() {
 	if cfg.out == "" {
 		cfg.out = filepath.Join("bin", filepath.Base(cfg.target)+"-dev")
 	}
+	cfg.out = exeName(cfg.out, runtime.GOOS)
 	if !filepath.IsAbs(cfg.out) {
 		cfg.out = filepath.Join(cfg.root, cfg.out)
 	}
@@ -88,6 +90,16 @@ func main() {
 func fatal(err error) {
 	fmt.Fprintln(os.Stderr, "devloop:", err)
 	os.Exit(1)
+}
+
+// exeName gives out the .exe Windows starts a program by: `go build -o`
+// writes exactly the name it is given, and exec.Command won't run a file
+// without an executable extension, so bin/sona-dev built but never started.
+func exeName(out, goos string) string {
+	if goos == "windows" && !strings.EqualFold(filepath.Ext(out), ".exe") {
+		return out + ".exe"
+	}
+	return out
 }
 
 func logf(format string, a ...any) { fmt.Fprintf(os.Stderr, "devloop: "+format+"\n", a...) }
