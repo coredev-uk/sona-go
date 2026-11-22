@@ -142,7 +142,9 @@ type Menu struct {
 	// its highlight this frame (aim), so the move is still to be taken when
 	// the grace ends.
 	aimHold bool
-	now     time.Time
+	// subs binds each level's panel, for the box of a sub-menu between builds.
+	subs []*ui.Handle
+	now  time.Time
 	// dismissed is set the frame the user closed the menu (Escape, a
 	// press outside, Tab): Dismissed reports it once.
 	dismissed bool
@@ -157,8 +159,6 @@ type menuLevel struct {
 	hi     string
 	byKey  bool
 	reveal bool
-	// box is the panel's rectangle in window DIPs as last built.
-	box ui.Rect
 	// last is where the pointer was over the panel as it last built, when
 	// lastOK; aimUntil, nonzero, is when the pointer heading for the
 	// sub-menu (aim) stops keeping it open.
@@ -228,6 +228,7 @@ func (m *Menu) start(anchored, keyboard bool) {
 	m.anchored, m.keyboard = anchored, keyboard
 	m.levels = []menuLevel{{}}
 	m.focus, m.age, m.typed, m.dismissed = 0, 0, "", false
+	m.moved, m.aimHold = false, false
 }
 
 // Close closes the menu (a trigger pressed again).
@@ -405,7 +406,10 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 	}
 	level().reveal = false
 
-	level().box = panel.Bounds()
+	for len(m.subs) <= lv {
+		m.subs = append(m.subs, new(ui.Handle))
+	}
+	panel.Bind(m.subs[lv])
 	// The pointer moving onto a row highlights it, opening its sub-menu and
 	// closing the others', unless it heads for an open sub-menu (aiming); the
 	// keys go on from there.
@@ -447,14 +451,11 @@ func (m *Menu) panel(c *ui.Context, o MenuOpts, tk *theme.Tokens, lv int, items 
 // where it was and the sub-menu's near edge. The sub-menu then stays open with
 // the highlight where it is, for menuAimGrace after the last such move; once
 // the pointer rests or goes elsewhere the row under it takes the highlight,
-// as the frame the grace ends in (Context.After) lets it. Panels with no
-// sub-menu open ask the pointer nothing.
+// as the frame the grace ends in (Context.After) lets it. Where the pointer is
+// is noted whenever it is over the panel, so the move right after a sub-menu
+// opens has a start; the sub-menu's box is its last laid-out one.
 func (m *Menu) aiming(c *ui.Context, panel ui.Element, lv int, hovered string) bool {
 	l := &m.levels[lv]
-	if lv+1 >= len(m.levels) {
-		l.lastOK, l.aimUntil = false, time.Time{}
-		return false
-	}
 	x, y, over := panel.PointerPosition()
 	if !over {
 		l.lastOK, l.aimUntil = false, time.Time{}
@@ -462,13 +463,19 @@ func (m *Menu) aiming(c *ui.Context, panel ui.Element, lv int, hovered string) b
 	}
 	wx, wy := panel.LocalToWindow(x, y)
 	at := [2]float32{wx, wy}
-	if l.lastOK && at != l.last {
+	moved := l.lastOK && at != l.last
+	last := l.last
+	l.last, l.lastOK = at, true
+	if lv+1 >= len(m.levels) || lv+1 >= len(m.subs) {
 		l.aimUntil = time.Time{}
-		if menuAimToward(m.levels[lv+1].box, l.last, at) {
+		return false
+	}
+	if moved {
+		l.aimUntil = time.Time{}
+		if menuAimToward(m.subs[lv+1].Bounds(c), last, at) {
 			l.aimUntil = m.now.Add(menuAimGrace)
 		}
 	}
-	l.last, l.lastOK = at, true
 	if hovered == "" || hovered == m.levels[lv+1].sub || l.aimUntil.IsZero() {
 		return false
 	}
@@ -477,15 +484,28 @@ func (m *Menu) aiming(c *ui.Context, panel ui.Element, lv int, hovered string) b
 		return false
 	}
 	c.After(l.aimUntil.Sub(m.now))
-	m.aimHold = true
+	if m.moved {
+		m.aimHold = true
+	}
 	return true
+}
+
+// dropAim ends the pointer's claim on the highlight: a key acts on the menu,
+// so a pointer move held back while it aimed at a sub-menu is not taken once
+// its grace ends.
+func (m *Menu) dropAim() {
+	m.moved, m.aimHold = false, false
+	for i := range m.levels {
+		m.levels[i].aimUntil = time.Time{}
+	}
 }
 
 // menuAimToward reports whether a pointer moving from one window point to
 // another heads for the sub-menu panel sub: it lies in the triangle from
-// where it was to the corners of the panel's edge facing it, the left one
-// where the sub-menu opened after its menu, the right one where it flipped
-// before it.
+// where it was to the corners of the panel's edge facing it: its left edge
+// where the pointer is to the left of the panel, its right edge where it is to
+// the right (a sub-menu that opened before its menu, flipped at the window's
+// edge or in a right-to-left layout).
 func menuAimToward(sub ui.Rect, from, to [2]float32) bool {
 	if sub.W <= 0 || sub.H <= 0 {
 		return false
@@ -609,6 +629,7 @@ func (m *Menu) keys(panel ui.Element, lv int, items []MenuItem, choices []string
 	// Space while typing ahead is part of the word, not a choice (Radix).
 	typing := m.typed != "" && m.now.Sub(m.typedAt) <= time.Second
 	move := func(i int) {
+		m.dropAim()
 		if n > 0 {
 			level().hi, level().byKey, level().reveal = choices[(i%n+n)%n], true, true
 			m.levels = m.levels[:lv+1]
@@ -621,6 +642,7 @@ func (m *Menu) keys(panel ui.Element, lv int, items []MenuItem, choices []string
 		return nil
 	}
 	enter := func() {
+		m.dropAim()
 		it := find(level().hi)
 		switch {
 		case it == nil || !it.choosable():
@@ -651,6 +673,7 @@ func (m *Menu) keys(panel ui.Element, lv int, items []MenuItem, choices []string
 		}
 	case panel.Shortcut(0, ui.KeyLeft):
 		if lv > 0 {
+			m.dropAim()
 			m.levels = m.levels[:lv]
 			m.focus = lv - 1
 		}
@@ -664,6 +687,7 @@ func (m *Menu) keys(panel ui.Element, lv int, items []MenuItem, choices []string
 		if lv == 0 {
 			m.dismiss()
 		} else {
+			m.dropAim()
 			m.levels = m.levels[:lv]
 			m.focus = lv - 1
 		}
@@ -706,6 +730,7 @@ func (m *Menu) typeAhead(lv int, items []MenuItem, text string, now time.Time) b
 		if strings.HasPrefix(strings.ToLower(choices[j].Label), q) {
 			level.hi, level.byKey, level.reveal = choices[j].Key, true, true
 			m.levels = m.levels[:lv+1]
+			m.dropAim()
 			break
 		}
 	}

@@ -15,9 +15,11 @@ type menuApp struct {
 	menu   Menu
 	items  []MenuItem
 	chosen []string
+	ctx    *ui.Context
 }
 
 func (a *menuApp) view(c *ui.Context) {
+	a.ctx = c
 	theme.Apply(c)
 	ui.Column(c).Padding(20).Gap(12).AlignItems(ui.Start).Children(func() {
 		trigger := ui.ButtonBase(c.Key("trigger")).Label("Open").Padding(8)
@@ -345,6 +347,15 @@ func TestMenuKeepOpenRunsAtOnceAndLeavesTheMenuOpen(t *testing.T) {
 // row's and the row after it's, and the panel's right edge.
 func aimMenu(t *testing.T) (a *menuApp, tt *ui.Tester, midX, moreY, nextY, right float32) {
 	t.Helper()
+	return aimMenuMotion(t, false)
+}
+
+// aimMenuMotion is aimMenu with the motion reduced or not: reduced, the panels
+// do not fade in, so no animation frames pass before the pointer moves on.
+func aimMenuMotion(t *testing.T, reduced bool) (a *menuApp, tt *ui.Tester, midX, moreY, nextY, right float32) {
+	t.Helper()
+	theme.SetReducedMotion(reduced)
+	t.Cleanup(func() { theme.SetReducedMotion(false) })
 	a, tt = newMenuApp(t)
 	a.items = []MenuItem{
 		{Key: "one", Label: "One", Run: a.pick("one")},
@@ -361,7 +372,7 @@ func aimMenu(t *testing.T) (a *menuApp, tt *ui.Tester, midX, moreY, nextY, right
 	a.menu.OpenAt(40, 60, false)
 	tt.Frame()
 	tt.Frame()
-	box := a.menu.levels[0].box
+	box := panelBox(a, 0)
 	more, ok := tt.Find("More")
 	if !ok {
 		t.Fatalf("no More row: %q", tt.Texts())
@@ -377,6 +388,9 @@ func aimMenu(t *testing.T) (a *menuApp, tt *ui.Tester, midX, moreY, nextY, right
 	}
 	return a, tt, midX, moreY, nextY, right
 }
+
+// panelBox is the box of the menu's panel at level lv, as last laid out.
+func panelBox(a *menuApp, lv int) ui.Rect { return a.menu.subs[lv].Bounds(a.ctx) }
 
 // menuHi is the highlighted row of the menu at level lv, "" when that level is
 // not open.
@@ -428,7 +442,7 @@ func TestMenuPointerHeadingOnKeepsTheSubmenuAndReachesIt(t *testing.T) {
 
 func TestMenuPointerMovingAwayFromTheSubmenuSwitchesAtOnce(t *testing.T) {
 	a, tt, _, _, nextY, _ := aimMenu(t)
-	tt.Move(a.menu.levels[0].box.X+10, nextY) // away from it, onto Three
+	tt.Move(panelBox(a, 0).X+10, nextY) // away from it, onto Three
 	if tt.HasText("Alpha") || menuHi(a, 0) != "three" {
 		t.Fatalf("moving away: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
 	}
@@ -437,6 +451,60 @@ func TestMenuPointerMovingAwayFromTheSubmenuSwitchesAtOnce(t *testing.T) {
 	tt.Move(midX, nextY) // straight down: outside the triangle
 	if tt.HasText("Alpha") || menuHi(a, 0) != "three" {
 		t.Fatalf("moving straight down: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+	}
+}
+
+// aimedAndResting is a pointer that crossed Three toward the sub-menu and
+// rests there, inside the grace.
+func aimedAndResting(t *testing.T) (*menuApp, *ui.Tester) {
+	t.Helper()
+	a, tt, _, _, nextY, right := aimMenu(t)
+	tt.Move(right-10, nextY)
+	tt.Advance(menuAimGrace / 2)
+	if !tt.HasText("Alpha") || menuHi(a, 0) != "more" {
+		t.Fatalf("aiming: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+	}
+	return a, tt
+}
+
+func TestMenuKeysDuringTheAimGraceAreNotOverriddenByThePointer(t *testing.T) {
+	t.Run("Right goes into the sub-menu", func(t *testing.T) {
+		a, tt := aimedAndResting(t)
+		tt.Key(0, ui.KeyRight)
+		tt.Advance(menuAimGrace + time.Millisecond)
+		if !tt.HasText("Alpha") || menuHi(a, 0) != "more" || menuHi(a, 1) != "a" {
+			t.Fatalf("Right: Alpha shown %v, highlighted %q and %q", tt.HasText("Alpha"), menuHi(a, 0), menuHi(a, 1))
+		}
+	})
+	t.Run("Up moves to the row above", func(t *testing.T) {
+		a, tt := aimedAndResting(t)
+		tt.Key(0, ui.KeyUp)
+		tt.Advance(menuAimGrace + time.Millisecond)
+		if tt.HasText("Alpha") || menuHi(a, 0) != "one" {
+			t.Fatalf("Up: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+		}
+	})
+	t.Run("type-ahead moves to the row typed", func(t *testing.T) {
+		a, tt := aimedAndResting(t)
+		tt.TypeKey(0, ui.KeyO, "o")
+		tt.Advance(menuAimGrace + time.Millisecond)
+		if tt.HasText("Alpha") || menuHi(a, 0) != "one" {
+			t.Fatalf("type-ahead: Alpha shown %v, highlighted %q", tt.HasText("Alpha"), menuHi(a, 0))
+		}
+	})
+}
+
+func TestMenuPointerHeadingRightAfterTheSubmenuOpensKeepsIt(t *testing.T) {
+	for _, reduced := range []bool{false, true} {
+		a, tt, _, _, nextY, right := aimMenuMotion(t, reduced)
+		tt.Move(right-10, nextY)
+		if !tt.HasText("Alpha") || menuHi(a, 0) != "more" {
+			t.Errorf("reduced motion %v: crossing Three right after the sub-menu opened: Alpha shown %v, highlighted %q", reduced, tt.HasText("Alpha"), menuHi(a, 0))
+		}
+		tt.Advance(menuAimGrace + time.Millisecond)
+		if tt.HasText("Alpha") || menuHi(a, 0) != "three" {
+			t.Errorf("reduced motion %v: resting on Three past the grace: Alpha shown %v, highlighted %q", reduced, tt.HasText("Alpha"), menuHi(a, 0))
+		}
 	}
 }
 
