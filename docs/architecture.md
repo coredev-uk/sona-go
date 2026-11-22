@@ -480,7 +480,7 @@ The output is rebuilt in place (no reload, position kept) when the device change
 
 - **PipeWire**: pipewiresink's "all buffers have been removed" error, raised when PipeWire relinks the stream, is not fatal. The output reconnects in place, and the old sink closes in the background.
 - **macOS**: osxaudiosink stays on the device it opened. The child watches Core Audio (the default output device and the device list, `gst/devices_darwin.c`) and rebuilds the output when the device it should play to changes. That is the default it follows (headphones plugged in, AirPods connected), or the chosen device (a Core Audio UID) going away, which plays to the default until it is back.
-- **Watchdog**: a watchdog rebuilds the output if it stands still for 3 s with audio queued or runs ahead of real time.
+- **Watchdog**: a watchdog rebuilds the output if it stands still for 3 s with audio queued or runs ahead of real time. Running ahead is measured between two known positions of the same output: a rebuilt output (a device change, a sink error) carries on from the end of the audio the old one had queued, ahead of the old one's last position (about half a second with wasapi2sink), and counting that jump would rebuild the output on every check until the rebuild budget (3 in 30 s) ran out.
 - **Preroll**: an output that has never played is held in READY rather than PAUSED, because pipewiresink 1.6 deadlocks its PipeWire loop when it prerolls without rendering.
 
 #### Library uploads (`i.` IDs)

@@ -351,6 +351,37 @@ func TestSetDeviceKeepsPlaying(t *testing.T) {
 	}
 }
 
+// Moving the output again and again while it plays is no failure: each new
+// output carries on past the audio the old one had queued, a jump the race
+// check must not take for a sink whose clock ran ahead (which rebuilds once
+// more, and is fatal the fourth time in rebuildWindow).
+func TestRebuildsAreNoRace(t *testing.T) {
+	p := newTest(t, 0)
+	frames := testFrames(t)
+	p.Load(Track{Gen: 1, Caps: testCaps})
+	if err := p.Play(); err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = push(t, p, 1, frames, 0, len(frames)) }()
+	time.Sleep(800 * time.Millisecond)
+	for range maxRebuilds + 1 {
+		if err := p.SetDevice("elsewhere"); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	for {
+		select {
+		case ev := <-p.Events():
+			if ev.Kind == EventError || ev.Kind == EventWarning {
+				t.Fatalf("after moving the output: %v", ev.Err)
+			}
+		default:
+			return
+		}
+	}
+}
+
 func TestEqualizerAndVolumeReachTheLiveOutput(t *testing.T) {
 	if !Have("equalizer-10bands") {
 		t.Skip("equalizer-10bands not installed")
