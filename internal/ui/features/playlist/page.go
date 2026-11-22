@@ -104,9 +104,16 @@ func (p *playlists) itemMenus() *kit.ActionMenus {
 // route's id. The whole page scrolls in one container, header included.
 func (p *playlists) playlistPage(c *ui.Context, r *ui.Route) {
 	id := r.Param("id")
-	if p.favourited(id) {
-		p.env.Nav.Replace(favouritesPath)
-		return
+	// A library playlist waits for the tree: it may be the Favourite Songs
+	// playlist, whose page is never drawn, and the sidebar loads the tree at
+	// start, so the wait is short.
+	waiting := false
+	if isLibraryID(id) {
+		t := p.tree()
+		if waiting = !t.HasData && t.Err == nil; !waiting && p.favourited(id) {
+			p.env.Nav.Replace(favouritesPath)
+			return
+		}
 	}
 	pg := &p.page
 	pg.enter(id)
@@ -118,6 +125,8 @@ func (p *playlists) playlistPage(c *ui.Context, r *ui.Route) {
 	ww, _ := c.Size()
 	kit.PageScroll(c, &pg.pos, kit.PageGutter(float32(ww)), func(pane *kit.Pane) {
 		switch {
+		case waiting:
+			p.pageSkeleton(c)
 		case !q.HasData && q.Err != nil:
 			p.loadError(c, id, q)
 		case !q.HasData:
@@ -129,8 +138,7 @@ func (p *playlists) playlistPage(c *ui.Context, r *ui.Route) {
 }
 
 // favourited reports whether id is Apple's Favourite Songs playlist, by the
-// tree (the sidebar has loaded it), so its page never shows before the
-// redirect.
+// loaded tree.
 func (p *playlists) favourited(id string) bool {
 	t := p.tree()
 	return t.HasData && slices.ContainsFunc(t.Data.Playlists, func(it services.TreePlaylist) bool {
