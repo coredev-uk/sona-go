@@ -9,7 +9,10 @@
 ; folder installed is package.sh's: sona.exe, the CDM host's shim DLL, the
 ; GStreamer DLLs, lib\gstreamer-1.0 (the plugins), libexec\gstreamer-1.0
 ; (the plugin scanner) and licenses\, never the Widevine CDM, which Sona
-; downloads into the user's data folder.
+; downloads into the user's data folder. Neither the installer nor the
+; uninstaller runs while Sona does, and an install over a folder where an
+; update kept the previous version drops that version (docs/architecture.md,
+; "Rollback guard").
 ;
 ; Defines (makensis -D): VERSION, VERSION_NUMERIC, SRCDIR (the portable
 ; folder), OUTFILE.
@@ -64,7 +67,77 @@ VIAddVersionKey "LegalCopyright" "Sona contributors"
     DeleteRegKey HKCU "Software\Classes\${scheme}"
 !macroend
 
+; Sona's state folder, as the app resolves it (config.ResolvePaths: the
+; LOCALAPPDATA variable, which $LOCALAPPDATA, the shell folder, need not be).
+!macro StateDir var
+  ReadEnvStr ${var} LOCALAPPDATA
+  StrCpy ${var} "${var}\Sona\State"
+!macroend
+
+; Sona runs while its single-instance lock is held: the first byte of
+; sona.lock in the state folder, locked with LockFileEx (internal/app,
+; socket_windows.go). Taking the same lock without waiting tells: $R9 is 1
+; when another process holds it. Any Sona of this user counts, the installed
+; one, a portable copy or one in the tray, since they share the state folder.
+; Labels are local to a function or section, and each inserts this once.
+!macro SonaRunning
+  StrCpy $R9 0
+  !insertmacro StateDir $R8
+  IfFileExists "$R8\sona.lock" 0 sonarunning_done
+  ; GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ|WRITE|DELETE, OPEN_EXISTING.
+  System::Call 'kernel32::CreateFileW(w "$R8\sona.lock", i 0xC0000000, i 7, p 0, i 3, i 0x80, p 0) p .R7'
+  IntPtrCmp $R7 -1 sonarunning_done
+  System::Alloc 32 ; a zeroed OVERLAPPED: the lock's offset is 0
+  Pop $R6
+  ; LOCKFILE_EXCLUSIVE_LOCK|LOCKFILE_FAIL_IMMEDIATELY, one byte, as tryLock.
+  System::Call 'kernel32::LockFileEx(p R7, i 3, i 0, i 1, i 0, p R6) i .R5'
+  IntCmp $R5 0 sonarunning_held
+  System::Call 'kernel32::UnlockFileEx(p R7, i 0, i 1, i 0, p R6)'
+  Goto sonarunning_close
+  sonarunning_held:
+  StrCpy $R9 1
+  sonarunning_close:
+  System::Free $R6
+  System::Call 'kernel32::CloseHandle(p R7)'
+  sonarunning_done:
+!macroend
+
+; Replacing or removing Sona's files under a running Sona would leave a mix
+; of versions (a file in use can't be overwritten): ask the user to quit it
+; first. A silent run doesn't wait: it stops (exit code 2) and changes
+; nothing.
+!macro WaitForSonaToQuit
+  sonaquit_retry:
+  !insertmacro SonaRunning
+  IntCmp $R9 0 sonaquit_done
+  MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "Sona is running. Quit it (Quit in its tray icon's menu, or in the app), then choose Retry." /SD IDCANCEL IDRETRY sonaquit_retry
+  Abort
+  sonaquit_done:
+!macroend
+
+Function .onInit
+  !insertmacro WaitForSonaToQuit
+FunctionEnd
+
+Function un.onInit
+  !insertmacro WaitForSonaToQuit
+FunctionEnd
+
 Section "Sona"
+  ; Sona may have been started since the installer was.
+  !insertmacro WaitForSonaToQuit
+  ; The version an update kept for Settings → Diagnostics → Previous version
+  ; (internal/update's guard) is the one the update replaced, and the
+  ; version installed here replaces both: restoring it would put older files
+  ; over these. Drop it with its number, and any update still on trial.
+  IfFileExists "$INSTDIR\previous\*.*" 0 previousdone
+  RMDir /r "$INSTDIR\previous"
+  !insertmacro StateDir $R8
+  Delete "$R8\update-previous"
+  Delete "$R8\update-pending"
+  previousdone:
+  RMDir /r "$INSTDIR\previous.staging"
+  RMDir /r "$INSTDIR\previous.old"
   SetOutPath "$INSTDIR"
   File /r "${SRCDIR}\*.*"
   File "sona.ico"
