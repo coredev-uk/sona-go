@@ -743,6 +743,12 @@ jobs:
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
+      # A UI package under -race beside the shard's other packages on a shared
+      # macOS runner can pass go test's 10 minutes (the player's did on the
+      # nightly of 2026-11-22): a hang guard, not a speed limit (docs/testing.md,
+      # "Timing in tests"), kept under the job's 30 minutes so a hang still
+      # dumps its goroutines.
+      TEST_FLAGS: -timeout 25m
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
