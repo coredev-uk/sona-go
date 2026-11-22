@@ -224,8 +224,9 @@ static gboolean has_prop(gpointer obj, const char* name) {
 }
 
 // configure_sink sets the sink's clocking, client name and stream
-// properties (which carry the PipeWire target.object). A sink behind the
-// closed gate does not preroll (async off; see gate_probe).
+// properties (which carry the PipeWire target.object; the device UID or ID
+// for osxaudiosink and wasapi2sink). A sink behind the closed gate does not
+// preroll (async off; see gate_probe).
 static void configure_sink(GstElement* snk, const char* client_name, const char* props, gboolean async) {
   if (has_prop(snk, "sync")) g_object_set(snk, "sync", TRUE, NULL);
   if (has_prop(snk, "async")) g_object_set(snk, "async", async, NULL);
@@ -238,6 +239,8 @@ static void configure_sink(GstElement* snk, const char* client_name, const char*
     }
   } else if (props && *props && has_prop(snk, "unique-id")) {
     g_object_set(snk, "unique-id", props, NULL);  // osxaudiosink: the Core Audio device UID
+  } else if (props && *props && has_prop(snk, "device")) {
+    g_object_set(snk, "device", props, NULL);  // wasapi2sink: the endpoint's device ID
   }
 }
 
