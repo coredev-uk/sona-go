@@ -24,7 +24,9 @@ smoke in headless sway, "E2E (headless sway)". macOS: a pull request that
 reaches the code, and a push to main, each run one job, "macOS build, vet, core
 and playback tests" (production build, go vet, core and playback tests with
 the real CDM and Seatbelt). The macOS UI shards run only in the nightly and on
-dispatch; the UI tests run on Linux on every push. GitHub runs at most five
+dispatch, with `-timeout 25m` a package (`TEST_FLAGS`: `go test`'s 10 minutes is a
+hang guard a UI package under `-race` on a shared runner can pass, docs/testing.md,
+"Timing in tests"); the UI tests run on Linux on every push. GitHub runs at most five
 macOS jobs at a time across all of the account's repositories, so one job a
 push leaves room for the rest. Main also runs
 "Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret (the step runs again, up to four attempts, when `playspike -preview` exits with status 75, "the network failed"; any other failure fails it), the motion artwork tests (`internal/ui/media`: a generated H.264 clip played through Media Foundation by MyGo's `ui/video`, which must become Ready and loop, with the open and loop-point timings in the log; a skipped one fails the step), the Discord pipe tests (`internal/discord` over named pipes, including one whose server is another user's), the CDM tests)),
