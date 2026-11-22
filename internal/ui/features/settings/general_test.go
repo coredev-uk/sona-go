@@ -652,7 +652,7 @@ func TestUpdateVerdicts(t *testing.T) {
 		{
 			"not writable",
 			services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.0.0", Checked: now.UnixMilli(), Disabled: services.UpdatesNotWritable},
-			[]string{"Sona can't write where it is installed"},
+			[]string{"Sona can't write", whyNotSelf(services.UpdateStatus{Disabled: services.UpdatesNotWritable})[:40]}, // worded per OS
 			[]string{"Install and restart"},
 		},
 		{

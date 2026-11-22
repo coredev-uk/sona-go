@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/appcontainer"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdm/cdmtest"
 	"github.com/coredev-uk/sona-go/internal/playback/widevine"
@@ -316,6 +317,23 @@ func TestSandboxGaps(t *testing.T) {
 	}
 	if got := (Sandbox{AppContainer: true}).Gaps(); !slices.Equal(got, []playback.SandboxGap{playback.SandboxGapNetwork, playback.SandboxGapUserFiles}) {
 		t.Errorf("AppContainer without self-checks: %v", got)
+	}
+}
+
+// A Sona run from a drive's root (a zip extracted to D:\) has no folder the
+// AppContainer can be granted: Diagnostics says so rather than that Windows
+// failed.
+func TestADriveRootIsItsOwnGap(t *testing.T) {
+	_, err := appcontainer.Grant(nil, `C:\`, appcontainer.AccessRead, false)
+	if got := unconfinedGap(fmt.Errorf("grant: %w", err)); got != playback.SandboxGapDriveRoot {
+		t.Errorf("drive root (%v): %q", err, got)
+	}
+	if got := unconfinedGap(errors.New("CreateAppContainerProfile: Access is denied.")); got != playback.SandboxGapNoAppContainer {
+		t.Errorf("another failure: %q", got)
+	}
+	got := (Sandbox{}).withParent(parentSandbox{gap: playback.SandboxGapDriveRoot})
+	if !slices.Equal(got.Gaps(), []playback.SandboxGap{playback.SandboxGapDriveRoot}) || got.loadsCDM() {
+		t.Errorf("from a drive root: gaps %v, loads the CDM %v", got.Gaps(), got.loadsCDM())
 	}
 }
 
