@@ -209,6 +209,18 @@ jobs:
       - name: Type-check macOS (cgo off)
         run: go run ./cmd/typecheck -os darwin -arch arm64 ./...
 
+      # Fails on a vulnerability the code can reach (govulncheck exits 3 only
+      # for those; `-show verbose` also lists the ones in imported or required
+      # code that is never called, which do not fail it). The tool is pinned in
+      # go.mod (`go tool`), and the Go release in go.mod is part of the scan: a
+      # standard-library finding is fixed by moving to the release it names.
+      # Not on a push to main: a new advisory would fail a merge that did
+      # nothing wrong, and Clarence would revert it; the nightly covers main.
+      # The policy is in docs/maintainers/ci-workflows.md, "Vulnerability scan".
+      - name: govulncheck
+        if: ${{ github.event_name != 'push' }}
+        run: go tool govulncheck -show verbose -tags sqlite_fts5 ./...
+
       - name: Save Go's caches
         if: ${{ always() && steps.setup.outputs.save == 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -743,6 +755,12 @@ jobs:
     env:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
+      # A UI package under -race beside the shard's other packages on a shared
+      # macOS runner can pass go test's 10 minutes (the player's did on the
+      # nightly of 2026-11-22): a hang guard, not a speed limit (docs/testing.md,
+      # "Timing in tests"), kept under the job's 30 minutes so a hang still
+      # dumps its goroutines.
+      TEST_FLAGS: -timeout 25m
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

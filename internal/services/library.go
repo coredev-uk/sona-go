@@ -1,6 +1,7 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -114,7 +115,7 @@ func (s *LibraryService) ArtistIndex(ctx context.Context) ([]ArtistEntry, error)
 	}
 	return mapSlice(artists, func(a library.ArtistSummary) ArtistEntry {
 		return ArtistEntry{
-			ID:        a.LibraryID,
+			ID:        cmp.Or(a.LibraryID, a.CatalogID),
 			CatalogID: a.CatalogID,
 			Name:      a.Name,
 			Art:       s.m.smallOf(a.ArtworkTemplate),
@@ -124,7 +125,7 @@ func (s *LibraryService) ArtistIndex(ctx context.Context) ([]ArtistEntry, error)
 	}), nil
 }
 
-// ArtistAlbums returns a library artist and their library albums, newest
+// ArtistAlbums returns an artist of the list (a library artist or a credit-only one) and their library albums, newest
 // release first, without their songs.
 func (s *LibraryService) ArtistAlbums(ctx context.Context, id string) (ArtistAlbums, error) {
 	a, albums, err := s.o.Library.ArtistAlbums(ctx, id)

@@ -39,6 +39,20 @@ func TestRebuilds(t *testing.T) {
 	}
 }
 
+func TestExeName(t *testing.T) {
+	for _, c := range []struct{ out, goos, want string }{
+		{"bin/sona-dev", "windows", "bin/sona-dev.exe"},
+		{"bin/sona-dev.exe", "windows", "bin/sona-dev.exe"},
+		{"bin/sona-dev.EXE", "windows", "bin/sona-dev.EXE"},
+		{"bin/sona-dev", "linux", "bin/sona-dev"},
+		{"bin/sona-dev", "darwin", "bin/sona-dev"},
+	} {
+		if got := exeName(c.out, c.goos); got != c.want {
+			t.Errorf("exeName(%q, %q) = %q, want %q", c.out, c.goos, got, c.want)
+		}
+	}
+}
+
 func TestAppEnv(t *testing.T) {
 	env := []string{"A=1", "SONA_SOURCE="}
 	has := func(env []string, kv string) bool { return slices.Contains(env, kv) }

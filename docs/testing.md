@@ -38,10 +38,11 @@ golangci-lint run --new-from-rev=origin/main ./...   # must be clean
 go tool mygo vet internal/ui   # build values kept past their frame
 go run ./cmd/i18ntool extract -check   # the catalogue; go test checks it too
 go run ./cmd/pathcase                  # no paths differing only by case
+go tool govulncheck -show verbose -tags sqlite_fts5 ./...   # reachable vulnerabilities; needs the network
 gofumpt -l $(git ls-files '*.go' | grep -v '^internal/db/dbq/')   # must print nothing; `fmt` fixes it
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same on every push and pull request, except `golangci-lint`, `go tool mygo vet internal/ui`, the catalogue check and the gofumpt check. Run those yourself.
+CI (`.github/workflows/ci.yml`) runs the same on every push and pull request, except `golangci-lint`, `go tool mygo vet internal/ui`, the catalogue check and the gofumpt check. Run those yourself. `govulncheck` is the reverse: CI runs it on pull requests, the nightly and releases (not on a push to main), and it needs the network and today's vulnerability database (policy: `maintainers/ci-workflows.md`).
 
 ### Real-CDM tests
 
@@ -68,8 +69,8 @@ CI runners are shared, run everything under `-race`, and so does `tests` on a bu
 
 - **Wait on what the test checks.** An event, a channel the fake closes, a post to the main thread (`uitest.MainThread.Wait` and `Drain`, `uitest.Session.Until`), the artwork loader's `Pending()` (the kit's `mainThread.settle`), a text on screen. Never `time.Sleep(20 * time.Millisecond)` to let a goroutine finish.
 - **Wait for the whole text of what you click.** `HasText` and `Shows` match parts of a text, so `Shows("Play")` holds on the bar's "Player" and "Open now playing" before the Play button is there, and the click that follows finds the old Pause. `ShowsExactly` matches a whole text or label, as `MustClick` does: wait with it for a control the test clicks next.
-- **Move a clock the test owns.** The `ui.Tester`'s clock stands still until `Advance`; the harness has `Clock`; stores and loaders take a `now`. Goroutines with timers of their own (the item states' 16 ms batch, the playback coordinator, the probe) run under `testing/synctest`: fake time moves only when every goroutine in the bubble waits, and `synctest.Wait` (`Session.Quiesce`) is the barrier for "everything that was going to happen has happened". A test that a thing did not happen ends in such a barrier, or in an operation ordered after what would have happened, not in a sleep.
-- **A deadline is a hang guard, not a speed limit.** It is `uitest.HangGuard` (30 s; `hangGuard` in a package that cannot import `uitest`, such as `kit`) and only turns a lost wake-up into a failure. A test never asserts that something took less than some milliseconds: it asserts what would make it slow (a request count, a plan with no table scanned per row). `Session.Settle` is bounded by frames and by progress, not by its own run time, and `devenv shell -- tests` gives each package 30 minutes (`-timeout 30m`, where `go test`'s default is 10) because a UI package under load takes several times its idle run.
+- **Move a clock the test owns.** The `ui.Tester`'s clock stands still until `Advance`; the harness has `Clock`; the services' clock is `uitest.ServiceClock(now)` (a test that crosses a release date moves it with the page's own); stores and loaders take a `now`. Goroutines with timers of their own (the item states' 16 ms batch, the playback coordinator, the probe) run under `testing/synctest`: fake time moves only when every goroutine in the bubble waits, and `synctest.Wait` (`Session.Quiesce`) is the barrier for "everything that was going to happen has happened". A test that a thing did not happen ends in such a barrier, or in an operation ordered after what would have happened, not in a sleep.
+- **A deadline is a hang guard, not a speed limit.** It is `uitest.HangGuard` (30 s; `hangGuard` in a package that cannot import `uitest`, such as `kit`) and only turns a lost wake-up into a failure. A test never asserts that something took less than some milliseconds: it asserts what would make it slow (a request count, a plan with no table scanned per row). `Session.Settle` is bounded by frames and by progress, not by its own run time, and `devenv shell -- tests` gives each package 30 minutes (`-timeout 30m`, where `go test`'s default is 10), the nightly's macOS UI shards 25, because a UI package under load takes several times its idle run.
 - **The tester's clock starts at the wall clock.** What is drawn from the clock modulo a period (the skeleton's pulse, the equaliser's bars) depends on when the test began. Line the clock up with `tt.Now()` and `Advance`, or pin the state, as `TestSkeletonPulsesUnlessMotionIsReduced` does.
 - **A timer in the code under test needs a seam.** Where a batch waits on a real timer (`SongArtists`), the test sets a wait too long to fire and calls the flush itself, or runs in a bubble.
 - **Settle after the data.** `Session.Settle` knows covers and posts only. `Until` the page's own text first, or the golden is a picture of the loading state.
@@ -192,8 +193,11 @@ The `TestInteraction…` tests (`interaction_test.go` in `kit`, `app` and each f
 ### Golden images
 
 Golden images are few: the shell with Albums, light and dark, at 1132×1253, and the marks contact sheet (below), all in `internal/ui/app/testdata/golden/`. `uitest.Golden` compares by the mean colour of 8×8-pixel blocks. Another machine's text antialiasing passes; a moved edge, a changed colour or a missing cover does not.
+Only Linux compares them. A test whose whole job is the picture starts with `if runtime.GOOS != "linux" { t.Skip(…) }` (`TestCollectionsGolden`, `TestFullScreenLyricsGoldens`), so a Mac or a Windows runner does not build and draw the view to skip at the end; `uitest.Golden` skips as well, for the tests that assert something before their picture.
 
 When a change moves the picture on purpose, review it and run `go test ./internal/ui/app -run Golden -update`. Commit the new PNGs and say in the pull request why. You can also ask a maintainer to regenerate them on your pull request.
+
+Pixel readings of a drawn glyph (the Play triangle's and the sidebar shuffle's centring) are Linux's too: they read Lucide's shape, where macOS draws the system's SF Symbol ([design.md](design.md#icons)). Such a test skips with "pixel readings are asserted on Linux only" (the allow-list in `.github/ci/skips-darwin.txt` takes that reason), after anything it asserts without pixels: the shuffle's button still lies on its artwork on every system.
 
 A failing run keeps the picture and a diff in the test's artifact directory:
 

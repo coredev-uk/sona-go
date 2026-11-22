@@ -48,11 +48,10 @@ type PlaylistDetail struct {
 	// FeaturedArtists and MoreByCurator: catalog playlists only.
 	FeaturedArtists []Artist   `json:"featuredArtists"`
 	MoreByCurator   []Playlist `json:"moreByCurator"`
-	// Library playlists: what the user may do, the Favourite Songs tag and
-	// the folder the playlist sits in ("" at the top).
+	// Library playlists: what the user may do and the folder the playlist
+	// sits in ("" at the top).
 	CanDelete bool   `json:"canDelete"`
 	IsPublic  bool   `json:"isPublic"`
-	Favorited bool   `json:"favorited"`
 	FolderID  string `json:"folderId"`
 	// URL is the playlist's music.apple.com page ("" for private library
 	// playlists).

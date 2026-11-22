@@ -109,7 +109,7 @@ Run each as `devenv shell -- <script>`, or bare under direnv.
 
 `dev` builds `cmd/devloop` into `bin/devloop` and runs it on `./cmd/sona` with your arguments after `--`. The loop:
 
-1. Builds the app with `-tags dev,sqlite_fts5` into `bin/sona-dev` and runs it.
+1. Builds the app with `-tags dev,sqlite_fts5` into `bin/sona-dev` (`bin\sona-dev.exe` on Windows) and runs it.
 2. Rebuilds and restarts it when a Go file of the app changes.
 3. Keeps the old app running during the build. A failed build prints its errors and leaves the old app.
 4. Restarts on the same screen, scroll and window.
@@ -117,6 +117,8 @@ Run each as `devenv shell -- <script>`, or bare under direnv.
 Keys: `r` rebuilds, `q` quits. A first argument `-background` (`dev -background -- <app args>`) starts the app without taking the focus (`MYGO_DEV_BACKGROUND=1`), so a restart on a save leaves it in your editor. Design tokens and `.po` files reload in the running app without a build. See [ui-architecture.md](ui-architecture.md), "The development loop".
 
 `gallery` is the same loop on `./cmd/uigallery`: the component gallery, with every kit component, light and dark, with knobs. It restarts like `dev`.
+
+On Windows, where devenv doesn't run, build and start the loop yourself with the cgo environment of [platforms.md](platforms.md), "Platform support": `go build -o bin\devloop.exe .\cmd\devloop`, then `bin\devloop.exe` with the same flags.
 
 ### build
 

@@ -27,9 +27,9 @@ Each table is one platform: the assistive technology, how it reaches Sona, and w
 
 | Assistive technology | How it reaches Sona | Heard and tested |
 | --- | --- | --- |
-| VoiceOver | NSAccessibility, from MyGo's AppKit backend | The tree only; nobody has listened |
+| VoiceOver | NSAccessibility, from MyGo's AppKit backend | The tree, read on a Mac with `e2e/axdump`; nobody has listened |
 
-The `uitest/access` and per-feature tests run on macOS in the nightly and on dispatch. Nobody has listened to VoiceOver speak Sona.
+The `uitest/access` and per-feature tests run on macOS in the nightly and on dispatch. On 2026-11-22 the NSAccessibility tree VoiceOver reads was walked on macOS 27 ([Reading the tree VoiceOver reads](#reading-the-tree-voiceover-reads)); VoiceOver's own words are still unheard.
 
 ### Windows
 
@@ -361,6 +361,34 @@ What it heard, with Orca 50.2:
 
 The same walk found, and the changes of the same pull request fixed, an account button read as "Account, button. Account Not signed in.", an artist link read twice, a focused setup title read as "heading 2" with no words, a Volume slider read as "80, 80 percent, 80%", and a focused Seek slider read four times a second as the song played on.
 
+Since then Seek's time is its value's text (aria-valuetext) rather than its description, for VoiceOver (below). Orca's words for it have not been heard since; `TestOrcaWalk` still expects "of 3:00".
+
+### Reading the tree VoiceOver reads
+
+VoiceOver can't be scripted on macOS 27 (`tell application "VoiceOver"` answers -1728 even with AppleScript allowed), so what it reads is checked in its source: the NSAccessibility tree. `e2e/axdump/axdump.swift` prints a running Sona's tree, one element per line with its role, title, description, value, value text and help, and flags what VoiceOver would say twice or stop on for nothing:
+
+```sh
+swiftc -O e2e/axdump/axdump.swift -o /tmp/axdump   # Apple's swiftc, not devenv's
+SONA_PRIVATE=1 SONA_PREVIEW=1 bin/sona &           # with a private HOME
+/tmp/axdump "$(pgrep -n sona)"
+```
+
+The terminal needs Accessibility (Privacy & Security). Endpoint security software may report a terminal that reads another app's accessibility tree; run it on a machine where that is expected. How VoiceOver uses the attributes: the title or description is the name, the value (or `AXValueDescription` for a slider) follows with the role, and `AXHelp` is the hint read after a pause.
+
+The walk of 2026-11-22 (#321) found no SF Symbol name anywhere and no unnamed image or group inside a button: the glyphs stay hidden. It found, and this change fixed:
+
+- **Hints that repeat the name**: Notifications had its tooltip as the hint ("Notifications, button … Notifications"), and icon buttons whose tip is in their name had it too ("Play Abbey Road, button … Play", "Favourite …", "Suggest less …"). `kit.Button` now describes with the tip only when the name doesn't already say it, and the bell uses `kit.TooltipDescribed`.
+- **Apple's audio labels** ("Lossless") had a hint starting with the label; the tip no longer names it.
+- **Seek** had its time as the hint after a raw number ("Seek, 4.229, slider … 0:04 of 0:30"); the time is now the value's text, in the bar and the mini player.
+- **The dot between the artist and the album** in the player bar was a text stop of its own; it is hidden.
+
+Left in MyGo: its `BackButton` and `ForwardButton` describe themselves by their tooltip, which is their name ("Back, button … Back"), and `Description("")` can't take a description back. It goes with the next MyGo bump or a report upstream.
+
+Left for a person with VoiceOver on:
+
+- Shuffle and Repeat are toggles whose names carry their state ("Shuffle off", value 0). Whether VoiceOver says the state twice ("Shuffle off, off, toggle button") is unheard; the names stay until it is.
+- A toggle's hint is its shortcut alone ("S", "Q", "L"), read after the pause.
+
 ### What a person checks
 
 Nothing here replaces listening. With each release candidate, in a desktop session with audio, work through this list:
@@ -368,7 +396,7 @@ Nothing here replaces listening. With each release candidate, in a desktop sessi
 - [ ] **Orca (Linux)**: the walk above covers the keys, the words and the focus headless. In a desktop session, with a synthesiser, sign in and walk Home, a library page, an album, the queue, Settings and the setup with Tab and the arrows.
 - [ ] Orca: listen for speech that is cut off or runs over the next key, and that a track change and a queue edit are read once.
 - [ ] Orca: "Not available while listening to a live station" is read once per key hold, and closing a dialog or menu puts the focus back.
-- [ ] **VoiceOver (macOS)**: the same walk. The rotor lists headings, links and controls, a cover tile's play and more buttons are reachable beside its link, and a sortable column header reads its direction.
+- [ ] **VoiceOver (macOS)**: the same walk. The rotor lists headings, links and controls, a cover tile's play and more buttons are reachable beside its link, and a sortable column header reads its direction. Listen for the two points left [above](#reading-the-tree-voiceover-reads).
 - [ ] **Narrator or NVDA (Windows)**: the same walk, and the announcements.
 - [ ] Both themes, with reduce-motion on and off.
 

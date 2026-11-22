@@ -89,10 +89,21 @@ nixpkgs), run `devenv update` and `nix flake update`, then `check`, `tests`,
 `play-spike`, `nix build .#sona-source` and the app, and commit
 `devenv.yaml`, `devenv.lock`, `flake.nix` and `flake.lock` together.
 
+Go is the one exception: `build/linux/nix/go.nix` builds Go 1.27.4 from its
+source tarball on the pinned nixpkgs, because nixos-unstable still ships 1.27.3
+(GO-2026-6859 needs 1.27.4; it is in staging-next only). `devenv.nix` and the
+Nix package both use it. When the nixpkgs you bump to has `go_1_27` at 1.27.4
+or newer, delete `go.nix` and go back to `pkgs.go_1_27`. A Go release bump
+changes `go.mod`, `build/ci/go.sha256`, `build/linux/release/Containerfile`
+(`GO_VERSION` and `GO_SHA256`), `go.nix`'s version and hash (all from
+https://go.dev/dl/?mode=json) and `docs/architecture.md`.
+
 ## Dependency updates
 
 Renovate opens pull requests for Go modules, GitHub
-Actions and the digests of the container base images (the `FROM` lines of
+Actions, the docs site's npm packages (`site/`, grouped into one weekly pull
+request; its `overrides` in `site/package.json` pin transitive packages past
+a vulnerable range, so drop one once the package that needs it has moved on) and the digests of the container base images (the `FROM` lines of
 `build/ci/Containerfile` and `build/linux/release/Containerfile`, the Flatpak
 workflow's `container:` image; a tag is never moved by Renovate). MyGo's are
 always left for review, and so is the release image's digest. A review bot

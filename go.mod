@@ -1,6 +1,6 @@
 module github.com/coredev-uk/sona-go
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/ebitengine/purego v0.11.3
@@ -39,10 +39,13 @@ require (
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/net v0.63.0 // indirect
+	golang.org/x/telemetry v0.0.0-20261116191925-e77a43154acb // indirect
+	golang.org/x/vuln v1.10.0 // indirect
 	gotest.tools/gotestsum v1.13.0 // indirect
 )
 
 tool (
 	github.com/egoist/mygo/cmd/mygo
+	golang.org/x/vuln/cmd/govulncheck
 	gotest.tools/gotestsum
 )

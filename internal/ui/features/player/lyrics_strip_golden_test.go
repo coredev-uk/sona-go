@@ -2,6 +2,7 @@ package player
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 
@@ -15,6 +16,11 @@ import (
 // narrow window, light and dark. The transport and the scrubber are one
 // cluster at the middle, the song at the left, the controls at the right.
 func TestFullScreenLyricsStripGoldens(t *testing.T) {
+	// A picture is all each case checks, and only Linux compares it: see
+	// TestFullScreenLyricsGoldens.
+	if runtime.GOOS != "linux" {
+		t.Skip("golden images are compared on Linux only: macOS and Windows draw text differently")
+	}
 	for _, size := range []struct {
 		name string
 		w, h int

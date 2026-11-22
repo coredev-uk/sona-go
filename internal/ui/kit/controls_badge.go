@@ -209,7 +209,9 @@ func Badges(c *ui.Context, o BadgesOpts) ui.Element {
 			Tag(c.Key("explicit"), i18n.T("Explicit"), "")
 		}
 		for _, label := range audio {
-			Tag(c.Key("trait-"+label), label, i18n.T("{label}: Apple's label for this release. Sona plays it as AAC.", "label", label))
+			// The tip sits on the label's own tag, so it doesn't name it again
+			// (assistive technology reads it after the label, as its description).
+			Tag(c.Key("trait-"+label), label, i18n.T("Apple's label for this release. Sona plays it as AAC."))
 		}
 		for _, l := range o.Extra {
 			Tag(c.Key("extra-"+l), l, "")

@@ -6,7 +6,7 @@ What each GitHub Actions workflow does, the CI image, and the rules for changing
 
 `.github/workflows/`: `ci.yml` (every push to main, every pull request and a
 nightly schedule: "Vet and type-check" (vet for the host, development and
-probe builds, and the macOS and Windows type-checks); the Linux tests, in
+probe builds, the macOS and Windows type-checks, and `govulncheck`); the Linux tests, in
 pools that `.github/ci/shard.sh` packs by measured time (`timings.txt`):
 core, playback, and the native UI's, split into `ui-race` (`ui/store`,
 `ui/kit`, `ui/lyricsync`, which start goroutines) and `ui` (the page and app
@@ -24,7 +24,9 @@ smoke in headless sway, "E2E (headless sway)". macOS: a pull request that
 reaches the code, and a push to main, each run one job, "macOS build, vet, core
 and playback tests" (production build, go vet, core and playback tests with
 the real CDM and Seatbelt). The macOS UI shards run only in the nightly and on
-dispatch; the UI tests run on Linux on every push. GitHub runs at most five
+dispatch, with `-timeout 25m` a package (`TEST_FLAGS`: `go test`'s 10 minutes is a
+hang guard a UI package under `-race` on a shared runner can pass, docs/testing.md,
+"Timing in tests"); the UI tests run on Linux on every push. GitHub runs at most five
 macOS jobs at a time across all of the account's repositories, so one job a
 push leaves room for the rest. Main also runs
 "Windows build" (windows-2025: the official GStreamer packages and the MSVC-built CDM shim DLL from `.github/actions/setup-windows`, `go vet` with cgo, `sona.exe`, `playspike.exe`, two preview songs played to `fakesink` with no secret (the step runs again, up to four attempts, when `playspike -preview` exits with status 75, "the network failed"; any other failure fails it), the motion artwork tests (`internal/ui/media`: a generated H.264 clip played through Media Foundation by MyGo's `ui/video`, which must become Ready and loop, with the open and loop-point timings in the log; a skipped one fails the step), the Discord pipe tests (`internal/discord` over named pipes, including one whose server is another user's), the CDM tests)),
@@ -83,6 +85,14 @@ one by hand, put the new digest of the same tag in the `FROM` line
 (`docker buildx imagetools inspect <image>:<tag> --format '{{.Manifest.Digest}}'`).
 `release.sh` pulls the digest the Containerfile's `FROM` line names and refuses
 a line without one.
+
+**Vulnerability scan.** The "Vet and type-check" job ends its checks with `go tool govulncheck -show verbose -tags sqlite_fts5 ./...`. The tool is a `tool` of `go.mod`, so Renovate moves it like any module. The policy:
+
+- A vulnerability the code can **reach** (govulncheck's symbol-level result, including the standard library of the Go release `go.mod` names) fails the job, and so the required "Go vet and test (-race)" check, which gathers it. One in an imported package or required module that the code never calls is listed (`-show verbose`) and doesn't fail it.
+- It runs on pull requests, the nightly, a release (through `release.yml`'s call) and a dispatch, but **not on a push to main**: the scan reads a database that changes daily, and an advisory published after a pull request passed would otherwise fail the merge and have Clarence revert a change that did nothing wrong. A new advisory therefore turns the next pull request, the nightly and the next release red until it is fixed.
+- The fix is the release the finding names: a Go release bump (`go.mod`, the CI and release images' Go, the Go archive hashes, `build/linux/nix/go.nix`) or a module bump. There is no allowlist; a finding that can't be fixed yet is stated in the pull request, not muted.
+- It scans the host build (`-tags sqlite_fts5`); the Windows and macOS-only files are type-checked by the vet job but not scanned.
+- Run it locally with `devenv shell -- go tool govulncheck -show verbose -tags sqlite_fts5 ./...`. The CI log of a public repository shows the findings and their call stacks, so nothing here is private: a finding in Sona's own code that is not yet public is the only one to handle through a private security advisory; one in the standard library or a dependency is already public (pkg.go.dev/vuln), and is fixed in a pull request.
 
 **What a release build downloads.** Every tool is fixed to a version and a
 checksum in the repository before it runs: linuxdeploy and its plugins

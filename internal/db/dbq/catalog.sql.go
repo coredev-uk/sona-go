@@ -111,7 +111,7 @@ func (q *Queries) GetCatalogAlbum(ctx context.Context, catalogID sql.NullString)
 }
 
 const getTrackByCatalogID = `-- name: GetTrackByCatalogID :one
-SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at, no_play_params FROM tracks WHERE catalog_id = ? ORDER BY library_id IS NULL, id LIMIT 1
+SELECT id, library_id, catalog_id, name, artist_name, album_name, album_library_id, album_catalog_id, artist_library_id, artist_catalog_id, artwork_template, duration_ms, track_number, disc_number, release_date, genre, content_rating, has_lyrics, isrc, composer, updated_at, no_play_params, credits_checked FROM tracks WHERE catalog_id = ? ORDER BY library_id IS NULL, id LIMIT 1
 `
 
 // Prefers the library row when the song is in the library.
@@ -141,6 +141,7 @@ func (q *Queries) GetTrackByCatalogID(ctx context.Context, catalogID sql.NullStr
 		&i.Composer,
 		&i.UpdatedAt,
 		&i.NoPlayParams,
+		&i.CreditsChecked,
 	)
 	return i, err
 }

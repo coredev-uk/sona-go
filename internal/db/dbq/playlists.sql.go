@@ -394,26 +394,20 @@ func (q *Queries) PlacePlaylist(ctx context.Context, arg PlacePlaylistParams) er
 }
 
 const playlistFlags = `-- name: PlaylistFlags :one
-SELECT p.can_delete, p.is_public, p.favorited, p.folder_id
+SELECT p.can_delete, p.is_public, p.folder_id
 FROM playlists p WHERE p.library_id = ?
 `
 
 type PlaylistFlagsRow struct {
 	CanDelete int64
 	IsPublic  int64
-	Favorited int64
 	FolderID  string
 }
 
 func (q *Queries) PlaylistFlags(ctx context.Context, libraryID sql.NullString) (PlaylistFlagsRow, error) {
 	row := q.db.QueryRowContext(ctx, playlistFlags, libraryID)
 	var i PlaylistFlagsRow
-	err := row.Scan(
-		&i.CanDelete,
-		&i.IsPublic,
-		&i.Favorited,
-		&i.FolderID,
-	)
+	err := row.Scan(&i.CanDelete, &i.IsPublic, &i.FolderID)
 	return i, err
 }
 

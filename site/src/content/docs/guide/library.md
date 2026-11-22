@@ -12,7 +12,8 @@ The Library section lists these pages:
 - **Recently added**: the newest items in your library.
 - **Songs**, **Albums** and **Artists**: everything you added, with sort and filter controls at the top of each page.
 - **Playlists**: your playlists and folders. The sidebar lists them too.
-- **Favourite songs** and **Music videos**. Sona copies your music videos too, so the page lists them with no connection; playing one needs a connection.
+- **Favourite songs**: every song you've favourited, newest first. Apple Music's own Favourite Songs playlist isn't listed anywhere else in Sona, and a link or pin to it opens this page.
+- **Music videos**. Sona copies your music videos too, so the page lists them with no connection; playing one needs a connection.
 - **History**: songs you played, grouped by day.
 
 Select an item to open it. Right-click it, or press Shift+F10 or the Menu key on a focused row, for its menu: Play next, Play last, Add to playlist, Create station and more.
