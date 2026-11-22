@@ -254,6 +254,11 @@ What leaves Sona's own window (the scrobbler, the Discord presence and add-ons) 
 | macOS (Apple silicon) and Windows (x64) | Sona installs the update in place (below). |
 | Linux | The check compares the latest GitHub release (the API) with `VERSION` and says a version is out. `.deb`, `.rpm`, Arch, Flatpak and Nix update through their package managers, and the AppImage through AppImageUpdate. |
 
+The portable Windows zip has two places where it does less, both measured on Windows 11 26200 (#314). Neither loosens the sandbox:
+
+- **A folder whose parent the user can't write.** MyGo unpacks an update beside the install folder, so `UpdaterModule.Enabled` probes the folder that holds it, not the install folder itself. A zip extracted into a folder the user can write, inside one they can't, finds updates but offers "View", not "Install and restart". Settings → General → Updates says why (`UpdatesNotWritable`, worded for Windows: move the Sona folder into a folder you own).
+- **A drive root** (a zip extracted to `D:\`, or a `subst` drive). `appcontainer.Grant` never changes a whole drive's access list (`ErrDriveRoot`), so the CDM host child starts unconfined and loads no CDM: previews play, full songs don't. Diagnostics' host sandbox row names the cause (`SandboxGapDriveRoot`: move the Sona folder into a folder) instead of the generic "Windows couldn't set up its AppContainer sandbox".
+
 #### The update feed and install
 
 - The request is `releases/latest/download/update-<target>.json` (`darwin-arm64`, `windows-amd64`). It is MyGo's manifest format: version, notes, date, archive URL and size, and an Ed25519 signature of the archive's SHA-256. `cmd/releasesign` writes it in the publish job.

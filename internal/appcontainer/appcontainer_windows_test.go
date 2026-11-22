@@ -97,7 +97,7 @@ func TestGrantAccess(t *testing.T) {
 	if aclAllows(dacl(), who, AccessModify, true) {
 		t.Error("the AppContainer was given more than read access")
 	}
-	if _, err := Grant(prof.SID, `C:\`, AccessRead, false); err == nil || !strings.Contains(err.Error(), "drive root") {
+	if _, err := Grant(prof.SID, `C:\`, AccessRead, false); !errors.Is(err, ErrDriveRoot) || !strings.Contains(err.Error(), "drive root") {
 		t.Errorf("grant on a drive root: %v", err)
 	}
 }

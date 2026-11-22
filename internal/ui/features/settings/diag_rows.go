@@ -70,6 +70,8 @@ func sandboxGap(gap playback.SandboxGap) string {
 		return i18n.T("Windows couldn't set up its AppContainer sandbox for it.")
 	case playback.SandboxGapUserFiles:
 		return i18n.T("It can list your app data folders.")
+	case playback.SandboxGapDriveRoot:
+		return i18n.T("Sona runs from the root of a drive, and it never changes a whole drive's permissions to give its sandbox access. Move the Sona folder into a folder, such as C:\\Tools\\Sona.")
 	}
 	return ""
 }
@@ -112,7 +114,7 @@ func sandboxRow(p services.DiagPlayback) diagRow {
 		words[i] = sandboxGap(g)
 		hasNamespaces = hasNamespaces || g == playback.SandboxGapNamespaces
 		hasSockets = hasSockets || g == playback.SandboxGapSockets
-		noAppContainer = noAppContainer || g == playback.SandboxGapNoAppContainer
+		noAppContainer = noAppContainer || g == playback.SandboxGapNoAppContainer || g == playback.SandboxGapDriveRoot
 	}
 	note := strings.Join(words, " ")
 	if p.CDMBlocked {

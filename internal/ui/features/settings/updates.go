@@ -2,6 +2,7 @@ package settings
 
 import (
 	"context"
+	"runtime"
 
 	"github.com/egoist/mygo/ui"
 
@@ -20,12 +21,18 @@ type updateState struct {
 }
 
 // whyNotSelf explains an install that can't update itself, on the
-// platforms that otherwise could (UpdateStatus.Disabled).
+// platforms that otherwise could (UpdateStatus.Disabled). On Windows the
+// update unpacks beside the Sona folder (MyGo's UpdaterModule.Enabled
+// probes the folder that holds it), so a folder the user can write but
+// whose parent they can't still can't update.
 func whyNotSelf(st services.UpdateStatus) string {
 	switch st.Disabled {
 	case services.UpdatesUnsigned:
 		return i18n.T("This build has no update signing key, so it can't update itself.")
 	case services.UpdatesNotWritable:
+		if runtime.GOOS == "windows" {
+			return i18n.T("Sona can't write in the folder that holds the Sona folder, where an update is unpacked, so it can't update itself. Move the Sona folder into a folder you own.")
+		}
 		return i18n.T("Sona can't write where it is installed, so it can't update itself. Move it to your Applications folder, or to a folder you own.")
 	}
 	return ""

@@ -118,6 +118,7 @@ const (
 	SandboxGapRefused        SandboxGap = "refused"         // sandbox-exec refused Sona's profile (macOS)
 	SandboxGapNoAppContainer SandboxGap = "no_appcontainer" // the AppContainer profile, its folder grants or its process couldn't be set up (Windows)
 	SandboxGapUserFiles      SandboxGap = "user_files"      // the host could list Sona's or the user's app data folders (Windows)
+	SandboxGapDriveRoot      SandboxGap = "drive_root"      // Sona runs from a drive's root, whose access list it never changes, so it has no AppContainer (Windows)
 )
 
 // RealtimeRefusal is why the host's audio threads didn't get realtime
