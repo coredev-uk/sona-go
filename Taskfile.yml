@@ -1,7 +1,7 @@
 version: '3'
 
-# Sona packaging tasks. Day-to-day building, testing and checking are devenv
-# scripts (devenv.nix: build, dev, tests, check); this Taskfile only packages
+# Sona packaging tasks. Day-to-day building, testing and checking are the
+# justfile's recipes (build, dev, tests, check); this Taskfile only packages
 # a release build. Linux, macOS and Windows all ship releases (docs/architecture.md §9);
 # on macOS `build` makes an unsigned development build
 # (build/darwin/Taskfile.yml).

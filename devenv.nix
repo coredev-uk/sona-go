@@ -67,6 +67,8 @@ in
       # Only build/darwin/dmg/render.sh, which draws the .dmg window's
       # background from its SVG.
       resvg
+      # Runs the developer commands (justfile); devenv's scripts call it.
+      just
     ]
     ++ gstPlugins
     ++ map lib.getDev [
@@ -113,100 +115,32 @@ in
     MACOSX_DEPLOYMENT_TARGET = darwinMinVersion;
   };
 
-  # Each script is described in docs/development.md ("devenv scripts").
-  scripts = {
-    # The documentation site (site/, Astro Starlight) with live reload.
-    docs.exec = ''cd "$DEVENV_ROOT/site" && npm ci && npm run dev -- "$@"'';
-    # The development loop (cmd/devloop): rebuilds the app with the dev tag
-    # on every save, restarts it where it was, reloads tokens and catalogues
-    # without a rebuild. `r` rebuilds, `q` quits. A first argument
-    # `-background` is devloop's: restarts don't take the focus.
-    dev.exec = ''
-      set -e
-      go build -o bin/devloop ./cmd/devloop
-      flags=()
-      if [ "''${1:-}" = "-background" ]; then flags=(-background); shift; fi
-      exec bin/devloop "''${flags[@]}" -- "$@"
-    '';
-    # Every kit component in light and dark, under the same loop.
-    gallery.exec = ''
-      set -e
-      go build -o bin/devloop ./cmd/devloop
-      flags=()
-      if [ "''${1:-}" = "-background" ]; then flags=(-background); shift; fi
-      exec bin/devloop -target ./cmd/uigallery "''${flags[@]}" -- "$@"
-    '';
-    # Production: no inspector (mygo_noinspector) and MyGo's production mode
-    # (build/ldflags.sh; without the Last.fm and Discord credentials: no
-    # -trimpath here, which would leave them in the build info).
-    build.exec = ''go build -tags mygo_noinspector,sqlite_fts5 -ldflags "$(bash build/ldflags.sh --no-credentials --goos "$(go env GOOS)")" -o bin/sona ./cmd/sona "$@"'';
-    # Release packages (.deb/.rpm/Arch/AppImage) built and smoke-tested in
-    # podman/docker on Ubuntu 24.04 (build/linux/release/release.sh).
-    release.exec = ''bash build/linux/release/release.sh "$@"'';
-    gen.exec = ''sqlc generate -f internal/db/sqlc.yaml'';
-    fmt.exec = ''gofumpt -w $(git ls-files '*.go' | grep -v '^internal/db/dbq/')'';
-    check.exec = ''
-      set -e
-      go vet ./...
-      # Development builds (devloop's restore, the instance names, probe
-      # builds) type-check too.
-      go vet -tags dev,sqlite_fts5 ./...
-      go vet -tags probe,sqlite_fts5 ./...
-      # Every package must still type-check on the other platforms
-      # (docs/platforms.md, "Type-check and cross-build").
-      GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
-      go run ./cmd/typecheck -os darwin -arch arm64 ./...
-      golangci-lint run --new-from-rev=origin/main ./...
-      # Build values kept past their frame (MyGo's lifetime check).
-      go tool mygo vet internal/ui
-      # Both message catalogues match the source (docs/translations.md,
-      # "Add or change a UI string").
-      go run ./cmd/i18ntool extract -check
-      go run ./cmd/pathcase
-      # Every tracked Go file is formatted the way `fmt` leaves it (#409).
-      unformatted=$(gofumpt -l $(git ls-files '*.go' | grep -v '^internal/db/dbq/'))
-      if [ -n "$unformatted" ]; then
-        echo "check: not gofumpt-formatted (run devenv shell -- fmt):" >&2
-        echo "$unformatted" >&2
-        exit 1
-      fi
-    '';
-    # Not `test`: the shell's `test` builtin would shadow it.
-    tests.exec = ''
-      set -e
-      # go test's 10 minute default is a wall-clock limit a busy machine can pass
-      # in the UI packages (docs/testing.md, "Timing in tests"): 30 minutes only
-      # guards against a hang. An argument of yours comes later and wins.
-      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -timeout 30m ./... "$@"
-      # The packages with dev-only code, in a development build.
-      ${lib.optionalString isLinux "dbus-run-session -- "}go test -race -timeout 30m -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/ui/features/discover ./internal/app ./internal/mpris
-    '';
-    auth-spike.exec = ''go run ./cmd/authspike "$@"'';
-    play-spike.exec = ''go run ./cmd/playspike "$@"'';
-    # A headless sway session with private XDG dirs, D-Bus, AT-SPI and stub
-    # portals around a command (docs/testing.md, "UI tests and the
-    # end-to-end smoke"); `e2e` runs the end-to-end smoke in it.
-    headless.exec = ''bash e2e/headless.sh "$@"'';
-    e2e.exec = ''headless -- go test -tags e2e -count=1 ./e2e/... "$@"'';
-    # A real Orca walked through the app in `headless` (site/src/content/docs/contributing/accessibility.md,
-    # "Listening with Orca"). Orca comes from the pinned nixpkgs and is built
-    # on first use, so it is not part of everyone's dev shell; what it said
-    # is kept in bin/orca-out (E2E_OUT).
-    orca-walk.exec = ''
-      set -e
-      rev=$(sed -n 's|.*nixpkgs/\([0-9a-f]\{40\}\)$|\1|p' devenv.yaml)
-      orca=$(nix build --no-link --print-out-paths "github:NixOS/nixpkgs/$rev#orca")/bin/orca
-      E2E_ORCA=1 E2E_ORCA_BIN=$orca E2E_OUT=''${E2E_OUT:-$PWD/bin/orca-out} headless -- go test -tags e2e -count=1 -v -run '^TestOrca' ./e2e/ "$@"
-    '';
-    # The Albums scroll probe in the app's own process (docs/performance.md,
-    # "Measure UI performance"), in `headless` on a profile whose covers
-    # are cached or reachable (the e2e fixture's are not, outside e2e).
-    probe.exec = ''
-      set -e
-      go build -tags probe,sqlite_fts5 -o bin/sona-probe ./cmd/sona
-      SONA_PRIVATE=1 exec bin/sona-probe -probe "$@"
-    '';
-  };
+  # Each script is the justfile recipe of its name, so `dev` here and
+  # `just dev` (Windows, or anywhere just is installed) run the same commands
+  # (docs/development.md, "Developer commands").
+  scripts =
+    lib.genAttrs
+      [
+        "auth-spike"
+        "build"
+        "check"
+        "dev"
+        "docs"
+        "e2e"
+        "fmt"
+        "gallery"
+        "gen"
+        "headless"
+        "orca-walk"
+        "play-spike"
+        "probe"
+        "release"
+        # Not `test`: the shell's `test` builtin would shadow it.
+        "tests"
+      ]
+      (name: {
+        exec = ''exec just --justfile "$DEVENV_ROOT/justfile" ${name} "$@"'';
+      });
 
   # .githooks refuse commits and pushes on main (AGENTS.md, "Workflow"). The
   # setting lives in the shared git config, so it covers every worktree.

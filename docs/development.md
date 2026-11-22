@@ -1,6 +1,6 @@
 # Development reference
 
-The recipes and reasons behind the [contributing pages](https://sona.coredev.uk/contributing/setup/): the environment, every devenv script, private mode, live playback, the Widevine CDM and debugging the UI. [AGENTS.md](../AGENTS.md) has the short rules.
+The recipes and reasons behind the [contributing pages](https://sona.coredev.uk/contributing/setup/): the environment, every developer command, private mode, live playback, the Widevine CDM and debugging the UI. [AGENTS.md](../AGENTS.md) has the short rules.
 
 ## Contents
 
@@ -9,8 +9,9 @@ The recipes and reasons behind the [contributing pages](https://sona.coredev.uk/
   - [Builds and generated code](#builds-and-generated-code)
   - [Local secrets](#local-secrets)
 - [Private mode](#private-mode)
-- [devenv scripts](#devenv-scripts)
-  - [Script summary](#script-summary)
+- [Developer commands](#developer-commands)
+  - [Command summary](#command-summary)
+  - [On Windows](#on-windows)
   - [dev and gallery](#dev-and-gallery)
   - [build](#build)
   - [check and tests](#check-and-tests)
@@ -38,7 +39,9 @@ devenv shell -- <command>        # one command
 nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv -- shell
 ```
 
-With [direnv](https://direnv.net), the checked-in `.envrc` loads the same environment whenever you `cd` into the checkout or a worktree. Run `direnv allow` once in each, and `go`, `dev`, `check` and the other scripts work without the `devenv shell --` prefix.
+With [direnv](https://direnv.net), the checked-in `.envrc` loads the same environment whenever you `cd` into the checkout or a worktree. Run `direnv allow` once in each, and `go`, `dev`, `check` and the other commands work without the `devenv shell --` prefix.
+
+devenv needs Nix, and Nix runs on Linux and macOS only ([supported platforms](https://nix.dev/manual/nix/latest/installation/supported-platforms)); devenv's and Nix's install pages offer Windows only through WSL2 ([devenv](https://devenv.sh/getting-started/), [Nix](https://nixos.org/download/)). A WSL2 shell builds the Linux app, not the Windows one, so on Windows you build natively and run the same commands with just (see [On Windows](#on-windows)).
 
 ### What devenv sets
 
@@ -81,13 +84,20 @@ Every test, smoke or live check that plays music runs in private mode. See also 
 - `cmd/playspike -activity` is private by default; `-private=false` reports the plays to the account.
 - The live tests refuse to run without `SONA_PRIVATE=1`.
 
-## devenv scripts
+## Developer commands
 
-### Script summary
+### Command summary
 
-Run each as `devenv shell -- <script>`, or bare under direnv.
+Each command is a recipe in the `justfile`, its one definition. Run it on any system:
 
-| Script | Does |
+- In devenv (Linux and macOS): `devenv shell -- <command>`, or bare under direnv. Each devenv script is `just <command>` (`devenv.nix`).
+- Anywhere [just](https://just.systems) is installed, Windows' PowerShell included: `just <command>`.
+
+Arguments follow the name and reach the command as you typed them: `just tests -run '^TestName$'`, or `tests -run '^TestName$'` in devenv. Commands run at the root of the checkout wherever you start them. `just` alone lists them.
+
+Every recipe runs in a POSIX shell, so it reads the same on every system: `sh` on Linux and macOS, Git for Windows' `sh` on Windows. What differs per system is spelled out in the `justfile`: the `.exe` suffix, `dbus-run-session` on Linux, and the recipes that need Linux.
+
+| Command | Does |
 | --- | --- |
 | `dev` | Builds and runs the app, and rebuilds it on every change. |
 | `gallery` | The same loop on the component gallery. |
@@ -97,7 +107,7 @@ Run each as `devenv shell -- <script>`, or bare under direnv.
 | `fmt` | gofumpt on every tracked Go file except `internal/db/dbq`. |
 | `check` | The static checks, gofumpt formatting included. |
 | `tests` | `go test -race ./...` and the tests of dev-only code. |
-| `release` | `build/linux/release/release.sh`, the same as Taskfile's `release`. |
+| `release` | `build/linux/release/release.sh`: every Linux package, built and smoke-tested in a container. |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`). `play-spike -preview` needs none. |
 | `auth-spike` | `go run ./cmd/authspike`: the Apple sign-in flow from the terminal. |
 | `headless` | Runs a command in a private headless session. |
@@ -105,9 +115,37 @@ Run each as `devenv shell -- <script>`, or bare under direnv.
 | `orca-walk` | Walks the app with a real Orca. |
 | `probe` | The Albums scroll probe in the app's own process. |
 
-`docs` needs Node, which is in the dev shell only for this script. The app's build and `check` don't use it. See [Writing Docs](https://sona.coredev.uk/contributing/documentation/).
+`docs` needs Node, which is in the dev shell only for this command. The app's build and `check` don't use it. See [Writing Docs](https://sona.coredev.uk/contributing/documentation/).
+
+`headless`, `e2e`, `orca-walk` and `release` need Linux. Elsewhere they stop at once and say so. `package` stays in `Taskfile.yml` (see [Packages](#packages)).
 
 `release` builds every Linux package (.deb, .rpm, Arch, AppImage) on Ubuntu 24.04 in podman or docker. It smoke-tests each on a clean distro container (Xvfb, `MYGO_GPU=0`).
+
+### On Windows
+
+devenv doesn't run on Windows, so you install the tools yourself (with [winget](https://learn.microsoft.com/windows/package-manager/winget/) where there is a package) and run the commands with just in PowerShell:
+
+- just: `winget install Casey.Just`.
+- Git for Windows: `winget install Git.Git`. The recipes run in its `sh` (`C:\Program Files\Git\bin\sh.exe`, the `justfile`'s `shell` setting), which also brings the `bash` that `build/ldflags.sh` needs, and `grep` and `xargs`. Git installed elsewhere: `just --shell <path to sh.exe> --shell-arg -cu <recipe>`.
+- golangci-lint: `winget install GolangCI.golangci-lint`.
+- gofumpt, the version devenv pins: `go install mvdan.cc/gofumpt@v0.12.0`.
+- sqlc, only for `gen`: there is no winget package; put `sqlc.exe` from the Windows zip of [sqlc's release](https://github.com/sqlc-dev/sqlc/releases) on `PATH` (1.31.1, the version in `internal/db/dbq`'s headers).
+- The cgo environment of [platforms.md](platforms.md), "Platform support" (`CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5`, MinGW, GStreamer, `SONA_CDM_SHIM`), in your user environment.
+
+```powershell
+just dev        # the dev loop: r⏎ rebuilds, q⏎ quits
+just check
+just tests
+just build      # bin\sona.exe
+```
+
+What differs from Linux:
+
+- `dev` and `gallery` build `bin\devloop.exe`, and devloop builds `bin\sona-dev.exe`. Its keys need Enter.
+- `build` writes `bin\sona.exe`, a GUI executable (`-H windowsgui`).
+- `tests` runs without `dbus-run-session`: there is no D-Bus.
+- `check` vets and lints the Windows build, plus the cgo-off Windows vet and the macOS type-check that Linux runs. The Linux-only files are checked by `check` on Linux and by CI.
+- just doesn't load `.env`, as devenv does; `dev` and `gallery` still get it, from devloop (see [dev and gallery](#dev-and-gallery)).
 
 ### dev and gallery
 
@@ -122,7 +160,7 @@ Keys: `r` rebuilds, `q` quits. A first argument `-background` (`dev -background 
 
 `gallery` is the same loop on `./cmd/uigallery`: the component gallery, with every kit component, light and dark, with knobs. It restarts like `dev`.
 
-On Windows, where devenv doesn't run, build and start the loop yourself with the cgo environment of [platforms.md](platforms.md), "Platform support": `go build -o bin\devloop.exe .\cmd\devloop`, then `bin\devloop.exe` with the same flags.
+On Windows `just dev` builds `bin\devloop.exe` and the loop builds `bin\sona-dev.exe` (see [On Windows](#on-windows)).
 
 Outside devenv (no `DEVENV_ROOT`), `devloop` also does devenv's `dotenv` job: each time it starts the app, it reads `.env` from the checkout, or in a worktree without one, from the main checkout. The app gets each variable its environment doesn't already set; a variable set in the environment, even to empty, wins. `go build` never gets them, so they can't be linked into a dev build. The loop logs the file and the names it passed, never a value. Under devenv it leaves `.env` to devenv.
 
@@ -133,6 +171,8 @@ Outside devenv (no `DEVENV_ROOT`), `devloop` also does devenv's `dotenv` job: ea
 ```sh
 go build -tags mygo_noinspector,sqlite_fts5 -ldflags "$(bash build/ldflags.sh --no-credentials --goos "$(go env GOOS)")" -o bin/sona ./cmd/sona
 ```
+
+On Windows the output is `bin\sona.exe` and the bash is Git for Windows'.
 
 There is no inspector in the binary and MyGo runs in production mode. `build/ldflags.sh` is the one place the link flags are assembled:
 
@@ -160,7 +200,7 @@ It then runs the tests of dev-only code:
 go test -race -tags dev,sqlite_fts5 ./internal/devinstance ./internal/ui/devstate ./internal/ui/app ./internal/ui/features/song ./internal/ui/features/discover ./internal/app ./internal/mpris
 ```
 
-The script is not named `test` because the shell's `test` builtin would shadow it.
+The command is not named `test` because the shell's `test` builtin would shadow the devenv script.
 
 ### headless, e2e and orca-walk
 

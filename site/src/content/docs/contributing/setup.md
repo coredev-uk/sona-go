@@ -3,7 +3,7 @@ title: Set Up Your Environment
 description: Install devenv, create a worktree and run commands in the project's toolchain.
 ---
 
-Everything runs through [devenv](https://devenv.sh), which pins Go, GStreamer and the system libraries Sona links. You need [Nix](https://nixos.org/download) and devenv 2.4 or newer on Linux, or on a Mac with Apple silicon.
+On Linux and macOS everything runs through [devenv](https://devenv.sh), which pins Go, GStreamer and the system libraries Sona links. You need [Nix](https://nixos.org/download) and devenv 2.4 or newer on Linux, or on a Mac with Apple silicon. Nix doesn't run on Windows; there you run the same commands with [just](https://just.systems) (see [On Windows](#on-windows)).
 
 ## Get the code
 
@@ -37,6 +37,21 @@ nix run github:NixOS/nixpkgs/nixpkgs-unstable#devenv -- shell
 
 With [direnv](https://direnv.net), the checked-in `.envrc` loads the same environment when you `cd` into a checkout or worktree. Run `direnv allow` once in each. After that `go`, `dev`, `check` and the other scripts work without the `devenv shell --` prefix.
 
+### On Windows
+
+Install [just](https://just.systems) and the tools devenv would otherwise provide, then run each command as `just <command>` in PowerShell:
+
+```powershell
+winget install Casey.Just Git.Git GolangCI.golangci-lint
+go install mvdan.cc/gofumpt@v0.12.0
+just dev      # build and run Sona, rebuilding on every change (r⏎ rebuilds, q⏎ quits)
+just check    # vet, type-checks, lint
+just tests    # go test -race
+just build    # bin\sona.exe
+```
+
+The recipes run in Git for Windows' `sh`, so they are the same text as on Linux. Sona builds with cgo on Windows, against MinGW and GStreamer; [docs/platforms.md](https://github.com/coredev-uk/sona-go/blob/main/docs/platforms.md) lists that environment, and [docs/development.md](https://github.com/coredev-uk/sona-go/blob/main/docs/development.md#on-windows) the rest (sqlc for `gen`, and what differs from Linux). Each command has one definition, in the `justfile`; devenv's scripts run the same recipes.
+
 ## Add your token
 
 Most work needs no account. For live checks (`playspike`, the live tests), put your Music User Token in `.env`, which git ignores:
@@ -53,4 +68,4 @@ Never print, log or commit `.env` or a token. `SONA_LASTFM_KEY`, `SONA_LASTFM_SE
 
 - [Build and Run](/contributing/build-and-run/) your change.
 - [Test Your Change](/contributing/test/) before you open a pull request.
-- Full reference, including every devenv script: [docs/development.md](https://github.com/coredev-uk/sona-go/blob/main/docs/development.md).
+- Full reference, including every developer command: [docs/development.md](https://github.com/coredev-uk/sona-go/blob/main/docs/development.md).
