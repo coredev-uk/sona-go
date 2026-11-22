@@ -788,17 +788,18 @@ nix run nixpkgs#gitleaks -- dir --config .gitleaks.toml --redact .
 
 ### Vulnerability scanning
 
-**What it does.** CI runs `govulncheck` (pinned in `go.mod` as a `tool`) over every package with `-tags sqlite_fts5`, in the "Vet and type-check" job (`.github/workflows/ci.yml`).
+**What it does.** CI runs `govulncheck` (pinned in `go.mod` as a `tool`) over every package with `-tags sqlite_fts5`, in the "Vet and type-check" job (`.github/workflows/ci.yml`), on pull requests, the nightly and releases.
 
 **Threats.** A known vulnerability in the Go standard library or a required module that Sona's code can reach.
 
 **Controls.**
 
-- Only a reachable vulnerability (a symbol the code calls, directly or through another package) fails the job; an imported but uncalled one is only listed. The standard library counts at the release `go.mod` names.
+- Only a reachable vulnerability (a symbol the code calls, directly or through another package) fails the job; `-show verbose` lists the imported but uncalled ones. The standard library counts at the release `go.mod` names.
+- It does not run on a push to main, so a newly published advisory can't fail a merge that already passed; the next pull request, the nightly and the next release turn red until the fix lands.
 - The fix is the release the finding names. There is no allowlist.
 - The scan is the host build; Windows- and macOS-only files are type-checked, not scanned. Dependabot alerts cover the `site/` npm tree.
 
-**Residual risks.** The database lists only known, reported vulnerabilities, and a reachable call through reflection or a plugin can be missed. A new advisory turns the nightly run red until the fix lands.
+**Residual risks.** The database lists only known, reported vulnerabilities, and a reachable call through reflection or a plugin can be missed. The CI log is public and shows each finding with its call stacks, as the advisory itself already is.
 
 ## Findings
 
