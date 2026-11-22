@@ -35,6 +35,25 @@ var symbolOf = map[string]string{
 	"chevron-right": "chevron.right",
 }
 
+// symbolTuning is what a symbol's ink needs, beyond symbolScale, to sit in
+// the glyph's box as the Lucide icon does there.
+type symbolTuning struct {
+	// shift moves the symbol right, as a fraction of the glyph's size.
+	shift float32
+	// scale multiplies the size the symbol is drawn at (0 is 1).
+	scale float32
+}
+
+// symbolTune holds the tunings of the symbols that need one. The play
+// triangle's mass sits left of its box's middle by a third of its width, more
+// than Lucide's glyph, which carries a little offset of its own: measured on
+// macOS 26 the mass lay 1.0 to 2.4 px left of the Play disc's middle, so the
+// triangle moves right, and is drawn a little smaller, which brings both the
+// middle of its box and its mass to where Lucide's lie.
+var symbolTune = map[string]symbolTuning{
+	"play.fill": {shift: 0.044, scale: 0.945},
+}
+
 // symbolWeight is the symbols' stroke: Regular is the 1.5 DIP stroke of the
 // 16 DIP Lucide icons beside them.
 const symbolWeight = sfsymbols.Regular
@@ -97,7 +116,11 @@ func Glyph(c *ui.Context, name string, size float32, o GlyphOpts) ui.Element {
 			// symbolScale of it, centred, so that its ink is as large.
 			box := ui.Box(c).Size(size, size).Shrink(0)
 			box.Children(func() {
+				tune := symbolTune[sym]
 				side := size * symbolScale
+				if tune.scale != 0 {
+					side *= tune.scale
+				}
 				s := sfsymbols.Symbol(c, sym).Size(side).Color(o.Color).Weight(symbolWeight).Natural().Fallback(svg)
 				if o.Filled {
 					s = s.Fill()
@@ -105,7 +128,7 @@ func Glyph(c *ui.Context, name string, size float32, o GlyphOpts) ui.Element {
 				// A symbol names itself ("play.fill") as an image, which a
 				// button with a label would read out with it ("plus Add"): it is
 				// cleared, so the symbol is the decoration a Lucide icon is.
-				s.Role(ui.RoleAuto).Label("").Absolute().Left((size - side) / 2).Top((size - side) / 2)
+				s.Role(ui.RoleAuto).Label("").Absolute().Left((size-side)/2 + size*tune.shift).Top((size - side) / 2)
 			})
 			return box
 		}
