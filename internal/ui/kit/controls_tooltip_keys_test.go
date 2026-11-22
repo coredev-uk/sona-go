@@ -86,3 +86,22 @@ func TestTooltipShowsAfterTheThemesDelay(t *testing.T) {
 		t.Errorf("no tip at 400 ms: %q", tt.Texts())
 	}
 }
+
+// VoiceOver reads a description after the name, as the hint: a tip the name
+// already says would be heard twice ("Play OK Computer, button … Play").
+func TestATipTheNameAlreadySaysIsNoDescription(t *testing.T) {
+	tt := controlsTester(t, 400, 120, func(c *ui.Context) {
+		Button(c.Key("play"), "", ButtonOpts{Icon: "play", Variant: Ghost, A11yLabel: "Play OK Computer", Tip: "Play"})
+		Button(c.Key("undo"), "", ButtonOpts{Icon: "star", Variant: Ghost, A11yLabel: "Undo favourite for OK Computer", Tip: "Undo favourite"})
+		Button(c.Key("more"), "", ButtonOpts{Icon: "plus", Variant: Ghost, A11yLabel: "Add", Tip: "Adds it to your library"})
+	})
+	tr := access.Read(t, tt)
+	for _, name := range []string{"Play OK Computer", "Undo favourite for OK Computer"} {
+		if n := tr.MustFind(t, ui.RoleButton, name); n.Description != "" {
+			t.Errorf("%q is described %q", name, n.Description)
+		}
+	}
+	if n := tr.MustFind(t, ui.RoleButton, "Add"); n.Description != "Adds it to your library" {
+		t.Errorf("a tip that says more is described %q", n.Description)
+	}
+}
