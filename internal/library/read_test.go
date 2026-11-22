@@ -162,6 +162,18 @@ func TestLargeLibraryListsFast(t *testing.T) {
 	}
 	t.Logf("synced 12000 songs, 1200 albums in %v", time.Since(start).Round(time.Millisecond))
 	ctx := context.Background()
+	// A quarter of the songs credited to two artists, as the sync stores them:
+	// 500 credit-only artists, and the library artists of the others.
+	for _, q := range []string{
+		`INSERT INTO track_artists (track_id, artist_catalog_id, name, position)
+			SELECT id, 'k' || (id % 500), 'Credit ' || (id % 500), 0 FROM tracks WHERE id % 4 = 0`,
+		`INSERT INTO track_artists (track_id, artist_catalog_id, name, position)
+			SELECT id, 'cr.' || (id % 7), 'Second', 1 FROM tracks WHERE id % 4 = 0`,
+	} {
+		if _, err := e.db.W.ExecContext(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
 	lib, reads := recordReads(t, e)
 	// check runs f, which must return want results from statements
 	// statements reading at most rows rows in all.
@@ -208,7 +220,7 @@ func TestLargeLibraryListsFast(t *testing.T) {
 	check("artist index", func() (int, error) {
 		r, err := lib.ArtistIndex(ctx)
 		return len(r), err
-	}, 3005, 1, 3005)
+	}, 3132, 1, 3132) // 3005 artists less those whose songs were all credited elsewhere, plus the credit-only ones
 	check("artist albums", func() (int, error) {
 		_, r, err := lib.ArtistAlbums(ctx, "r.1")
 		return len(r), err

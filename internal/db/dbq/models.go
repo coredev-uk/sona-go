@@ -297,6 +297,21 @@ type Track struct {
 	Composer        string
 	UpdatedAt       int64
 	NoPlayParams    int64
+	CreditsChecked  int64
+}
+
+type TrackArtist struct {
+	TrackID         int64
+	ArtistCatalogID string
+	Name            string
+	Position        int64
+}
+
+type TrackCreditKey struct {
+	TrackID           int64
+	ArtistKey         string
+	CreditedCatalogID string
+	CreditedName      string
 }
 
 type TrackedArtist struct {

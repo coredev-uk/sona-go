@@ -246,6 +246,7 @@ func run(started time.Time) error {
 	cat := catalog.New(d, api, storefront, log)
 	lib := library.New(d, api)
 	syncer := library.NewSyncer(d, api, log, 0)
+	syncer.Storefront = storefront
 
 	// Artwork comes from Apple's public CDN without credentials: a separate
 	// client, held by the same gate (cached artwork still serves at once).

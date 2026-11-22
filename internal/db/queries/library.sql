@@ -27,8 +27,27 @@ ON CONFLICT (library_id) DO UPDATE SET
     isrc = excluded.isrc,
     composer = excluded.composer,
     no_play_params = excluded.no_play_params,
+    credits_checked = CASE WHEN excluded.artist_name <> tracks.artist_name OR excluded.catalog_id IS NOT tracks.catalog_id THEN 0 ELSE tracks.credits_checked END,
     updated_at = excluded.updated_at
 RETURNING id;
+
+-- name: ListTracksToCredit :many
+-- The library songs the catalogue was not asked about yet (see 00019): the
+-- sync keeps those whose artist string may name several.
+SELECT t.id, t.catalog_id, t.artist_name
+FROM tracks t JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
+WHERE t.catalog_id IS NOT NULL AND t.catalog_id <> '' AND t.credits_checked = 0
+ORDER BY t.id;
+
+-- name: DeleteTrackArtists :execrows
+DELETE FROM track_artists WHERE track_id = ?;
+
+-- name: InsertTrackArtist :exec
+INSERT INTO track_artists (track_id, artist_catalog_id, name, position) VALUES (?, ?, ?, ?)
+ON CONFLICT (track_id, artist_catalog_id) DO NOTHING;
+
+-- name: MarkTrackCredited :exec
+UPDATE tracks SET credits_checked = ? WHERE id = ?;
 
 -- name: UpsertLibraryAlbum :one
 INSERT INTO albums (
@@ -212,10 +231,28 @@ FROM library_items li JOIN albums a ON a.id = li.ref
 WHERE li.kind = 'album';
 
 -- name: RebuildSearchArtists :exec
+-- The Artists list's entries (Library.ArtistIndex): a library artist unless
+-- its songs were all credited elsewhere and it has no album, and each
+-- credited artist the library holds no artist row for (keyed by its
+-- catalogue ID).
 INSERT INTO search_fts (kind, ref, artwork, name, artist, album)
 SELECT 'artist', r.library_id, r.artwork_template, r.name, '', ''
 FROM library_items li JOIN artists r ON r.id = li.ref
-WHERE li.kind = 'artist';
+WHERE li.kind = 'artist'
+  AND NOT (
+    r.library_id IN (SELECT t.artist_library_id FROM track_artists ta JOIN tracks t ON t.id = ta.track_id
+                     WHERE t.artist_library_id IS NOT NULL)
+    AND r.library_id NOT IN (SELECT a.artist_library_id FROM albums a JOIN library_items x ON x.kind = 'album' AND x.ref = a.id
+                             WHERE a.artist_library_id IS NOT NULL)
+    AND r.library_id NOT IN (SELECT k.artist_key FROM track_credit_keys k JOIN library_items x ON x.kind = 'song' AND x.ref = k.track_id
+                             WHERE k.artist_key IS NOT NULL))
+UNION ALL
+SELECT 'artist', k.artist_key,
+       coalesce((SELECT c.artwork_template FROM artists c WHERE c.catalog_id = k.artist_key AND c.library_id IS NULL LIMIT 1), ''),
+       min(k.credited_name), '', ''
+FROM track_credit_keys k JOIN library_items x ON x.kind = 'song' AND x.ref = k.track_id
+WHERE k.credited_catalog_id = k.artist_key
+GROUP BY k.artist_key;
 
 -- name: RebuildSearchPlaylists :exec
 INSERT INTO search_fts (kind, ref, artwork, name, artist, album)

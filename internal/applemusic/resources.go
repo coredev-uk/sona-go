@@ -220,6 +220,14 @@ func (s Song) FirstArtistID() string {
 	return ""
 }
 
+// MayNameSeveral reports whether Apple's artist string may name more than one
+// artist: Apple joins them with ", " and " & " ("A, B & C"), so a name with
+// neither names one. Only such a name is worth a catalogue lookup of the
+// song's credited artists.
+func MayNameSeveral(artist string) bool {
+	return strings.Contains(artist, " & ") || strings.Contains(artist, ", ")
+}
+
 // Album is a catalog album ("albums") or library album ("library-albums").
 type Album struct {
 	Resource[AlbumAttributes]
