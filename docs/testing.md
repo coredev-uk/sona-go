@@ -38,10 +38,11 @@ golangci-lint run --new-from-rev=origin/main ./...   # must be clean
 go tool mygo vet internal/ui   # build values kept past their frame
 go run ./cmd/i18ntool extract -check   # the catalogue; go test checks it too
 go run ./cmd/pathcase                  # no paths differing only by case
+go tool govulncheck -show verbose -tags sqlite_fts5 ./...   # reachable vulnerabilities; needs the network
 gofumpt -l $(git ls-files '*.go' | grep -v '^internal/db/dbq/')   # must print nothing; `fmt` fixes it
 ```
 
-CI (`.github/workflows/ci.yml`) runs the same on every push and pull request, except `golangci-lint`, `go tool mygo vet internal/ui`, the catalogue check and the gofumpt check. Run those yourself.
+CI (`.github/workflows/ci.yml`) runs the same on every push and pull request, except `golangci-lint`, `go tool mygo vet internal/ui`, the catalogue check and the gofumpt check. Run those yourself. `govulncheck` is the reverse: CI runs it on pull requests, the nightly and releases (not on a push to main), and it needs the network and today's vulnerability database (policy: `maintainers/ci-workflows.md`).
 
 ### Real-CDM tests
 

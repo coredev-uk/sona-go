@@ -44,7 +44,7 @@ in
 {
   languages.go = {
     enable = true;
-    package = pkgs.go_1_27;
+    package = pkgs.callPackage ./build/linux/nix/go.nix { };
     # devenv builds Delve with go_1_27, so from source rather than the cache. Its tests attach
     # with ptrace, which hosts with kernel.yama.ptrace_scope 2 or 3 refuse (Talos, so the
     # Kandev agent pods), and the shell would fail to build.

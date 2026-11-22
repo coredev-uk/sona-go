@@ -16,7 +16,7 @@ FROM docker.io/library/ubuntu:24.04@sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120
 
 LABEL org.opencontainers.image.source="https://github.com/coredev-uk/sona-go"
 
-ARG GO_VERSION=1.27.3
+ARG GO_VERSION=1.27.4
 
 # zsync: zsyncmake, which the pinned linuxdeploy AppImage plugin calls for the
 # .zsync file but (unlike its rolling `continuous` build) does not bundle.
@@ -37,7 +37,7 @@ ARG TASK_VERSION=v3.44.1
 # The SHA-256 of go${GO_VERSION}.linux-amd64.tar.gz (https://go.dev/dl/?mode=json):
 # change it with GO_VERSION. task is built from source, and the go command
 # checks the module against the Go checksum database.
-ARG GO_SHA256=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
+ARG GO_SHA256=7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840
 
 RUN curl -fsSL -o /tmp/go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
  && echo "${GO_SHA256}  /tmp/go.tar.gz" | sha256sum --check --strict \
