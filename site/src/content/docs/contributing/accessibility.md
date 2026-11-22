@@ -29,7 +29,7 @@ Each table is one platform: the assistive technology, how it reaches Sona, and w
 | --- | --- | --- |
 | VoiceOver | NSAccessibility, from MyGo's AppKit backend | The tree, read on a Mac with `e2e/axdump`; nobody has listened |
 
-The `uitest/access` and per-feature tests run on macOS in the nightly and on dispatch. On 2026-11-22 the NSAccessibility tree VoiceOver reads was walked on macOS 27 ([Reading the tree VoiceOver reads](#reading-the-tree-voiceover-reads)); VoiceOver's own words are still unheard.
+The `uitest/access` and per-feature tests run on macOS in the nightly and on dispatch. On 2026-11-22 the NSAccessibility tree VoiceOver reads was walked on macOS 27 ([Reading the tree VoiceOver reads](#reading-the-tree-voiceover-reads)); VoiceOver was then listened to on 2026-11-22.
 
 ### Windows
 
@@ -386,8 +386,8 @@ Left in MyGo: its `BackButton` and `ForwardButton` describe themselves by their 
 
 Left for a person with VoiceOver on:
 
-- Shuffle and Repeat are toggles whose names carry their state ("Shuffle off", value 0). Whether VoiceOver says the state twice ("Shuffle off, off, toggle button") is unheard; the names stay until it is.
-- A toggle's hint is its shortcut alone ("S", "Q", "L"), read after the pause.
+- The maintainer listened with VoiceOver on 2026-11-22. Shuffle reads its state once ("Shuffle off"). Repeat's all→one was silent: VoiceOver hears a focused control's change through the value-changed notification, which MyGo posts only when the checked state changes, and all→one changes only the name. Cycling Repeat from all to one is now announced ("Repeat one"), from the bar and from R. Off→all and one→off change the state and are read, so they are not announced. Changes from MPRIS, the CLI or another device are not announced.
+- The toggles' shortcut hints ("S", "R", "Q", "L") were not read out at all, so nothing changes there.
 
 ### What a person checks
 

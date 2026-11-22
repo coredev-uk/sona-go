@@ -786,3 +786,22 @@ func TestQueueLinksAreNamedAndOnlyThePlayingFromLinkIsATabStop(t *testing.T) {
 	iaTab(t, r.tt.Tester, "Chill")
 	access.NoNestedControls(t, r.tt.Tester)
 }
+
+func TestRepeatOneIsAnnouncedOnlyWhenItIsCycledFromAll(t *testing.T) {
+	for _, tc := range []struct {
+		from string
+		want []string
+	}{{"off", nil}, {"all", []string{"Repeat one"}}, {"one", nil}} {
+		r := newRig(t, true)
+		r.tt.UseScreenReader()
+		r.seed(func(s *services.PlaybackState) { s.Repeat = tc.from })
+		r.tt.Announcements()
+		tabTo(t, r.tt.Tester, "Repeat "+tc.from)
+		r.tt.Key(0, ui.KeyEnter)
+		r.tt.Frame()
+		r.tt.Frame()
+		if got := r.tt.Announcements(); !slices.Equal(got, tc.want) {
+			t.Errorf("from %s: announced %q, want %q", tc.from, got, tc.want)
+		}
+	}
+}
