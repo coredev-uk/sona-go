@@ -623,6 +623,10 @@ msgstr "Apple stopped accepting Sona's sign-in"
 msgid "Apple wants you to review your account (new terms or a security update) before it can sign in. Do that at account.apple.com, then try again here."
 msgstr "Apple wants you to review your account (new terms or a security update) before it can sign in. Do that at account.apple.com, then try again here."
 
+#: internal/ui/kit/controls_badge.go
+msgid "Apple's label for this release. Sona plays it as AAC."
+msgstr "Apple's label for this release. Sona plays it as AAC."
+
 #: internal/ui/features/inspect/panel.go
 msgid "Apple's resource"
 msgstr "Apple's resource"
@@ -9516,10 +9520,6 @@ msgstr "{label} · {addon}"
 #: internal/ui/kit/controls_badge.go
 msgid "{label}, uploaded"
 msgstr "{label}, uploaded"
-
-#: internal/ui/kit/controls_badge.go
-msgid "{label}: Apple's label for this release. Sona plays it as AAC."
-msgstr "{label}: Apple's label for this release. Sona plays it as AAC."
 
 #: internal/ui/features/radio/guide.go
 #: internal/ui/features/radio/station.go
