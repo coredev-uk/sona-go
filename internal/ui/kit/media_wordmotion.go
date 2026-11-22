@@ -76,9 +76,9 @@ func (b bezier) at(x float32) float32 {
 }
 
 var (
-	riseEase = bezier{0.16, 1, 0.3, 1} // expo out: most of the move at once, a soft landing (rise and settle)
-	empIn   = bezier{0.2, 0.4, 0.58, 1} // the swell's way up
-	empOut  = bezier{0.3, 0, 0.58, 1}   // and, reversed, down
+	riseEase = bezier{0.16, 1, 0.3, 1}   // expo out: most of the move at once, a soft landing (rise and settle)
+	empIn    = bezier{0.2, 0.4, 0.58, 1} // the swell's way up
+	empOut   = bezier{0.3, 0, 0.58, 1}   // and, reversed, down
 )
 
 // empEasing is the swell's envelope over progress x of its length: up to 1
