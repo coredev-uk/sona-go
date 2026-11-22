@@ -2,10 +2,10 @@ package kit
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
@@ -23,18 +23,11 @@ const (
 	songArtistsRetry = time.Minute
 )
 
-// MayNameSeveral reports whether Apple's artist string may name more than one
-// artist: Apple joins them with ", " and " & " ("A, B & C"), so a name with
-// neither names one. Only such a name is worth a catalogue lookup.
-func MayNameSeveral(artist string) bool {
-	return strings.Contains(artist, " & ") || strings.Contains(artist, ", ")
-}
-
 // SongArtists is the artists of the songs a page shows that only know their
 // first: a library song (its library artist is one), a queue slot played from
 // a stored row. It asks the catalogue copy lazily, as a row or the player is
 // built, never during sync: a song whose artist string may name several
-// (MayNameSeveral) and that has a catalogue ID is looked up, with every
+// (applemusic.MayNameSeveral) and that has a catalogue ID is looked up, with every
 // other one drawn in the same frames, in one batched CatalogService.SongArtists
 // call; the answer is kept for the session (the catalogue cache keeps the
 // songs a week), so a song is asked about once. Nothing is stored in the
@@ -78,7 +71,7 @@ func (s *SongArtists) Of(catalogID, artist, firstID string, own []services.Artis
 	if len(own) > 0 {
 		return own
 	}
-	if s != nil && catalogID != "" && MayNameSeveral(artist) {
+	if s != nil && catalogID != "" && applemusic.MayNameSeveral(artist) {
 		if got := s.lookup(catalogID); len(got) > 1 {
 			return got
 		}

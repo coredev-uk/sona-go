@@ -757,6 +757,7 @@ SQLite, libSQL-compatible, with migrations in `internal/db/migrations` numbered 
 ### Tables
 
 - `artists`, `albums`, `tracks`, `playlists`, `playlist_tracks`: Apple catalogue and library IDs stored separately, `artwork_template` (the raw `{w}x{h}` URL), `updated_at`.
+- `track_artists`: the artists the catalogue credits a library song to (catalogue artist ID, name, `position` in Apple's order), deleted with the song (`ON DELETE CASCADE`). `tracks.credits_checked` says the catalogue was asked about the song, so an answer of one artist, none or no answer is not asked again. The view `track_credit_keys` is the grouping the Artists list reads: each credit under the library artist with that catalogue ID, else under the catalogue ID; a song with no credits under its library artist.
 - `library_items`, `playback_history`, `favorites` (mirrors `/v1/me/ratings`), `pins`.
 - `library_music_videos`: the library's music videos (user data, wiped on sign-out): library and catalogue IDs, title, artist, album, length, release date, genre, flags, Apple's 16:9 artwork URL with its width and height, `position` (Apple's order) and `generation` (the run that last saw it). It has no `library_items` rows: its own `generation` removes what a run did not see.
 - `sync_state`: domain, offset or cursor, total, last success, last full run, last error.
@@ -812,6 +813,14 @@ Apple has no change feed and no cheap change signal (`docs/apple-music-reference
 - Whether a library song is **out** is one rule, in SQL (`internal/library/release.go`): its own date, else its `playParams`, else its album's date as the catalogue gave it, by the library's clock (`Library.SetClock`; `services` gives it `Deps.Now`). The query applies it, not a stored flag, because it changes with the clock: Songs, its count, an artist's songs, the favourites and the library search (the index holds the placeholders; the query filters them) leave a song not out out, `Library.Album` lists all of an album's songs with `Song.Unreleased` set, and `library.SongUnreleased` answers playback. Migration 00013's indexes let SQLite find the songs not out without reading every song.
 - Apple credits the placeholders to an artist named "unknown": the mappers (`shownArtist`) show them no artist.
 - The shapes: `docs/apple-music-reference.md` §3.1.
+
+### Artists of a song, stored
+
+- Apple's library song names its first artist only, so "A & B" is a library artist of its own. The catalogue copy lists each credited artist (`docs/apple-music-reference.md` §4.4).
+- After the songs domain, `Syncer.syncCredits` (`internal/library/credits.go`) asks the catalogue, with `applemusic.Client.Songs` (`include=artists`, 100 IDs per request, four requests at a time), about the library songs not asked about yet that have a catalogue ID and an artist string that may name several (`applemusic.MayNameSeveral`). Never one request per song: 250 such songs cost three. Only songs added since are asked afterwards (`tracks.credits_checked`; a song whose artist string changes is asked again). A song without a catalogue ID (an upload) keeps its artist string. The pass needs a storefront (`Syncer.Storefront`) and skips without one; a failure is logged and the songs stay under their library artist until the next sync. The cold start reads SQLite only.
+- Reads: `Library.ArtistIndex` groups songs by credited artist (counts include a collaboration for each of them), falling back to the library artist for a song with no credits. An artist with no library row is listed from its credits, keyed by its catalogue ID, with the catalogue cache's artwork when it has one. `Library.Artist`, `ArtistAlbums` and the search index follow the same grouping. A library artist whose songs were all credited elsewhere and that has no album leaves the list.
+- Albums are not attributed by credit yet: they stay under their first artist, so a combined library artist with an album stays listed (with its album and no songs). Compilations credited to "Various Artists" have no credits to store and stay under their library artist.
+- Migration 00019. It does not force a full sync: the credits pass reads what the songs table holds, so an upgrade asks about every library song that may name several, once, on the next sync.
 
 ### How stale a delete made elsewhere can be
 

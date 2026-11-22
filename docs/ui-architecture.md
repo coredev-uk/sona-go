@@ -571,10 +571,11 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 **Library songs**
 
-- Library songs know their library artist alone, and a queue slot played from a stored row only its first artist's ID. `CatalogService.SongArtists(ids)` (catalogue IDs → artists) is the lookup. It uses `catalog.Songs`'s batching (#284: one request per hundred, the rest read from `catalog_cache`, a week), so nothing is asked per song.
-- It runs lazily, never during sync. `kit.SongArtists` (`Env.SongArtists`) is asked as a row, the player or a menu is built. It queues the song's catalogue ID and answers one batched call per frame's worth of asks. The answer is kept for the session and a failure is tried again a minute later.
-- Only a song with a catalogue ID whose artist string may name several (`kit.MayNameSeveral`: it holds `" & "` or `", "`, as Apple joins them) is asked about. An answer of one artist leaves the song's first artist as it was. Until the answer comes the song reads as one artist.
-- **Not persisted.** The catalogue cache already keeps the copy for a week, a migration would put a second one in `tracks`, and a stored copy would age without Apple's artists changing it.
+- Apple's library song knows its library artist alone, and a queue slot played from a stored row only its first artist's ID. `CatalogService.SongArtists(ids)` (catalogue IDs → artists) is the lookup. It uses `catalog.Songs`'s batching (#284: one request per hundred, the rest read from `catalog_cache`, a week), so nothing is asked per song.
+- **Stored for library songs (#357).** The library sync keeps the credits of its songs in `track_artists`, so the Artists list can group by them (`docs/architecture.md`, "Artists of a song, stored"). `kit.SongArtists` is still what a row, the player or a menu asks for a song without them: a queue slot of the catalogue, a song the sync has not reached yet.
+- `kit.SongArtists` (`Env.SongArtists`) runs lazily, as a row, the player or a menu is built. It queues the song's catalogue ID and answers one batched call per frame's worth of asks. The answer is kept for the session and a failure is tried again a minute later.
+- Only a song with a catalogue ID whose artist string may name several (`applemusic.MayNameSeveral`: it holds `" & "` or `", "`, as Apple joins them; the sync asks with the same rule) is asked about. An answer of one artist leaves the song's first artist as it was. Until the answer comes the song reads as one artist.
+- **Artists page.** `LibraryService.ArtistIndex` lists a collaboration under each credited artist, with counts that include it. An artist the library holds only through such credits has no library ID: its entry is keyed by its catalogue ID, and `ArtistAlbums`, `Artist` and the search take either key. Albums are still attributed to their first artist alone, so an artist carrying only songs of "A & B" leaves the list, and one with an album stays.
 
 **`ArtistLinks(c, artists, text, colour, ArtistLinksOpts)`**
 

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -114,7 +115,7 @@ func (s *LibraryService) ArtistIndex(ctx context.Context) ([]ArtistEntry, error)
 	}
 	return mapSlice(artists, func(a library.ArtistSummary) ArtistEntry {
 		return ArtistEntry{
-			ID:        a.LibraryID,
+			ID:        cmp.Or(a.LibraryID, a.CatalogID),
 			CatalogID: a.CatalogID,
 			Name:      a.Name,
 			Art:       s.m.smallOf(a.ArtworkTemplate),

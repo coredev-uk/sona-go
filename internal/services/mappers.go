@@ -217,9 +217,12 @@ func (m mapper) libAlbum(a library.Album) Album {
 	return out
 }
 
+// libArtist is a library artist, or one the library holds only through the
+// credits of its songs: that one has no library ID and is keyed by its
+// catalogue ID.
 func (m mapper) libArtist(a library.Artist) Artist {
 	return Artist{
-		ID:        a.LibraryID,
+		ID:        cmp.Or(a.LibraryID, a.CatalogID),
 		Source:    SourceLibrary,
 		CatalogID: a.CatalogID,
 		LibraryID: a.LibraryID,

@@ -37,6 +37,10 @@ type fakeApple struct {
 	ratings   map[string]map[string]int   // type → id → value
 	folders   map[string][]map[string]any // folder id (applemusic.PlaylistsRoot at the top) → children
 
+	// credits is the catalogue's artists of a catalogue song ID, served at
+	// /v1/catalog/{sf}/songs?ids=...&include=artists as [id, name] pairs.
+	credits map[string][][2]string
+
 	failPath   string // path answering 400 ...
 	failOffset int    // ... for this page offset
 	pageReqs   map[string][]int
@@ -148,6 +152,25 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if path == f.failPath && off == f.failOffset && limit > 1 {
 		http.Error(w, `{"errors":[{"title":"injected"}]}`, http.StatusBadRequest)
+		return
+	}
+	if strings.HasPrefix(path, "/v1/catalog/") && strings.HasSuffix(path, "/songs") {
+		data := []map[string]any{}
+		for _, id := range strings.Split(q.Get("ids"), ",") {
+			cr, ok := f.credits[id]
+			if !ok {
+				continue
+			}
+			artists := []any{}
+			for _, a := range cr {
+				artists = append(artists, map[string]any{"id": a[0], "type": "artists", "attributes": map[string]any{"name": a[1]}})
+			}
+			data = append(data, map[string]any{
+				"id": id, "type": "songs",
+				"relationships": map[string]any{"artists": map[string]any{"data": artists}},
+			})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
 		return
 	}
 	var items []map[string]any

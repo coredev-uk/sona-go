@@ -349,6 +349,7 @@ A song's or album's `relationships.artists` lists the artists Apple credits, in 
 - A compilation credited to `Various Artists` has no artist relationship at all, so there is no artist page to link: its credit is plain text.
 - The relationship's `data` items are `{id, type: "artists", href}` and carry `attributes.name` **only** when the request includes the artists (`include=artists`, or `include[songs]=artists` on a page). A plain `GET /v1/catalog/{sf}/songs/{id}` or `?ids=…` returned the IDs with no names, so Sona's song lookups (`Client.Song`, the batched `Client.Songs` of #284) send `include=artists`; every list and page request in this document that includes `artists` is enough. A library song's `relationships.artists` (`relate=albums,artists`) are library artists (`r.…`), also nameless.
 - Sona keeps `Song.Artists` and `Album.Artists` (ID and name, Apple's order) from this; the first stays `ArtistID`. See `docs/ui-architecture.md`, "Artists of a song".
+- Library songs: the sync stores each credited artist of a library song whose `artistName` may name several (`track_artists`, from the batched `Client.Songs`: 100 IDs, `include=artists`), so the Artists list shows a collaboration under each artist. A library song's own relationship holds the first artist alone. Albums are not stored by credit yet (`docs/architecture.md`, "Artists of a song, stored").
 
 ### 4.5 Music video (`/{sf}/music-video/{slug}/{id}`)
 

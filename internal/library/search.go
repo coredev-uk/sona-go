@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"errors"
 )
 
 // Results are library search matches resolved to full rows, best match
@@ -60,8 +61,7 @@ func (l *Library) SearchAll(ctx context.Context, term string, perKind int) (Resu
 	if r.Albums, err = byIDs(ctx, l, albumsByID, albumIDs, scanAlbum, func(a Album) string { return a.LibraryID }); err != nil {
 		return r, err
 	}
-	if r.Artists, err = byIDs(ctx, l, `SELECT r.library_id, r.catalog_id, r.name, r.artwork_template FROM artists r
-		WHERE r.library_id IN `, artistIDs, scanArtist, func(a Artist) string { return a.LibraryID }); err != nil {
+	if r.Artists, err = l.artistsByKey(ctx, artistIDs); err != nil {
 		return r, err
 	}
 	if r.Playlists, err = byIDs(ctx, l, playlistsByID, playlistIDs, scanPlaylist, func(p Playlist) string { return p.LibraryID }); err != nil {
@@ -105,6 +105,24 @@ func byIDs[T any](ctx context.Context, l *Library, q string, ids []string,
 		if r, ok := at[v]; ok {
 			out = append(out, r)
 		}
+	}
+	return out, nil
+}
+
+// artistsByKey is the artists under keys (a library ID, or the catalogue ID
+// of a credit-only artist, see artistRow) in the order of keys, skipping keys
+// without an artist.
+func (l *Library) artistsByKey(ctx context.Context, keys []string) ([]Artist, error) {
+	out := make([]Artist, 0, len(keys))
+	for _, k := range keys {
+		a, err := l.artistRow(ctx, k)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
 	}
 	return out, nil
 }
