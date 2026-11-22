@@ -195,6 +195,8 @@ Run it as `headless -- probe` on a profile you copied into the private directori
 
 The macOS and Windows release builds are `build/darwin/bundle.sh` and `build/windows/package.sh`, run by `release.yml` (see [maintainers/repository.md](maintainers/repository.md), "Release automation").
 
+The macOS `.dmg` opens as a designed drag-to-Applications window: `build/darwin/dmg.sh` makes it with a pinned `dmgbuild` (`build/darwin/install-dmgbuild.sh`, which `bundle.sh` runs first), from the art in `build/darwin/dmg`. To change the art, edit `background.svg` and run `devenv shell -- build/darwin/dmg/render.sh` (resvg, which devenv provides); [maintainers/release.md](maintainers/release.md), "Platforms in a release", has the rest.
+
 ## Live playback and the session bus
 
 ### Use a null sink

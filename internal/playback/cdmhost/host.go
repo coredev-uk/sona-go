@@ -39,8 +39,8 @@ type Options struct {
 	// Sink overrides the GStreamer sink (e.g. "fakesink" in tests).
 	Sink string
 	// Device is the output to play to: a PipeWire sink's node.name on
-	// Linux, a Core Audio device UID on macOS; "" follows the system
-	// default.
+	// Linux, a Core Audio device UID on macOS, a WASAPI endpoint ID on
+	// Windows; "" follows the system default (gst.Options.Device).
 	Device string
 	// Equalizer is applied from the first pipeline on.
 	Equalizer equalizer.Curve

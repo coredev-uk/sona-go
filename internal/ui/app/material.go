@@ -7,14 +7,14 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// materialSamples are what the window's material shows behind the sidebar
+// glassSamples are what macOS's window material shows behind the sidebar
 // with no tint, by the app's appearance (light, then dark): Liquid Glass and
 // the sidebar material, active and inactive, over black, white, grey, red,
 // orange, yellow, green, cyan, blue, purple and magenta desktops, measured
 // on Apple silicon with macOS 27.2 (#317). Only the worst are kept: a sample
 // no worse in every channel than another (lighter for dark text, darker for
 // light text) is left out.
-var materialSamples = [2][]ui.Color{
+var glassSamples = [2][]ui.Color{
 	{
 		ui.RGB(124, 124, 255), ui.RGB(136, 255, 98), ui.RGB(215, 123, 255), ui.RGB(255, 255, 85),
 		ui.RGB(247, 247, 89), ui.RGB(133, 133, 133), ui.RGB(255, 136, 121), ui.RGB(255, 183, 104),
@@ -25,17 +25,45 @@ var materialSamples = [2][]ui.Color{
 	},
 }
 
+// micaSamples are what Windows 11's Mica shows with no tint, light and dark,
+// over the same desktops, measured on Windows 11 build 26200: Mica tints its
+// light or dark base with the wallpaper's colour in an active window and is
+// the plain base (243 or 32 grey) in an inactive one, which the first sample
+// of each is. None is no worse than another in every channel, so all are
+// kept.
+var micaSamples = [2][]ui.Color{
+	{
+		ui.RGB(243, 243, 243), ui.RGB(249, 240, 240), ui.RGB(249, 242, 234), ui.RGB(249, 249, 194),
+		ui.RGB(234, 249, 234), ui.RGB(229, 249, 249), ui.RGB(242, 242, 249), ui.RGB(245, 241, 249),
+		ui.RGB(249, 239, 249),
+	},
+	{
+		ui.RGB(32, 32, 32), ui.RGB(47, 26, 26), ui.RGB(36, 31, 26), ui.RGB(33, 33, 26),
+		ui.RGB(26, 36, 26), ui.RGB(26, 35, 35), ui.RGB(26, 26, 77), ui.RGB(38, 26, 50),
+		ui.RGB(41, 26, 41),
+	},
+}
+
+// materialSamples are the samples of material m: Mica's on Windows, the
+// glass ones for macOS's materials.
+func materialSamples(m mygo.Vibrancy) [2][]ui.Color {
+	if m == mygo.VibrancyMica {
+		return micaSamples
+	}
+	return glassSamples
+}
+
 // tintSteps is how finely sidebarTint searches: in steps of 5%.
 const tintSteps = 20
 
 // sidebarTint is the opacity of the surface tone the sidebar lays over the
-// window's material: the least, in steps of 5%, at which the sidebar's text
-// (ink, ink-muted, ink-faint) keeps theme.TextFloor over every sample of the
-// material; 1 where only a solid sidebar does.
-func sidebarTint(tk *theme.Tokens) float32 {
-	samples := materialSamples[0]
+// window's material m: the least, in steps of 5%, at which the sidebar's
+// text (ink, ink-muted, ink-faint) keeps theme.TextFloor over every sample
+// of the material; 1 where only a solid sidebar does.
+func sidebarTint(tk *theme.Tokens, m mygo.Vibrancy) float32 {
+	samples := materialSamples(m)[0]
 	if tk.Dark {
-		samples = materialSamples[1]
+		samples = materialSamples(m)[1]
 	}
 	surface := tk.Color["surface"]
 	for i := range tintSteps {
@@ -59,11 +87,11 @@ func tintHolds(tk *theme.Tokens, tinted ui.Color, samples []ui.Color) bool {
 	return true
 }
 
-// tintFor is the sidebar's tint for the tokens on screen, worked out again
-// only when they change (a theme, a mode).
+// tintFor is the sidebar's tint for the tokens on screen over the window's
+// material, worked out again only when they change (a theme, a mode).
 func (a *App) tintFor(tk *theme.Tokens) float32 {
 	if tk != a.tintTokens {
-		a.tintTokens, a.tint = tk, sidebarTint(tk)
+		a.tintTokens, a.tint = tk, sidebarTint(tk, a.material)
 	}
 	return a.tint
 }
@@ -97,7 +125,7 @@ func (a *App) followMaterial(c *ui.Context) float32 {
 // followAppearance has the system draw what it draws of the windows (the
 // material, the window buttons) light or dark as Sona draws: the app's
 // appearance is the polarity a theme or the mode setting fixes, else the
-// desktop's. Only where the window has a material (macOS).
+// desktop's. Only where the window has a material (macOS, Windows 11).
 func (a *App) followAppearance() {
 	if a.material == mygo.VibrancyNone {
 		return

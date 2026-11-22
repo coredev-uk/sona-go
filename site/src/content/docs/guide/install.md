@@ -39,8 +39,8 @@ The flake has three packages:
 
 ## Install on macOS
 
-1. Download `Sona-<version>-macos-arm64.dmg`, open it and drag Sona to Applications.
-2. Open Sona. On macOS 15 and later, macOS blocks the first open because the app is not notarised. Open System Settings → Privacy & Security and choose "Open Anyway", or run this once:
+1. Download `Sona-<version>-macos-arm64.dmg` and open it. A window shows the Sona icon and an Applications folder with an arrow between them: drag Sona onto Applications. Then eject the disk image.
+2. Open Sona from Applications. On macOS 15 and later, macOS blocks the first open because the app is not notarised. Open System Settings → Privacy & Security and choose "Open Anyway" (the window says "First open: System Settings → Privacy & Security → “Open Anyway”" as a reminder), or run this once:
 
    ```sh
    xattr -dr com.apple.quarantine /Applications/Sona.app

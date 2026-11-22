@@ -158,8 +158,8 @@ type App struct {
 	banner banner
 	// menubar is the macOS menu bar (nil elsewhere). Main thread.
 	menubar *menuBar
-	// material is the main window's material (windowMaterial; none off
-	// macOS), and materialSet the one the window has now, which
+	// material is the main window's material (windowMaterial; none on
+	// Linux), and materialSet the one the window has now, which
 	// followMaterial switches off for Reduce effects and Reduce
 	// Transparency; appearance is the app's appearance followAppearance
 	// set; tint is the sidebar's tint over the material for tintTokens.

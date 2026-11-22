@@ -110,6 +110,6 @@ always left for review, and so is the release image's digest. A review bot
 checks and merges them; the pinned devenv inputs
 are bumped by hand (see "Pinned inputs" above), and so are the downloaded
 tools' hashes (`build/linux/appimage-tools.sha256`, `build/windows/*.sha256`,
-the Go archive hashes): Renovate cannot compute a hash. You
+`build/darwin/dmgbuild.sha256`, the Go archive hashes): Renovate cannot compute a hash. You
 don't need to update dependencies yourself; a change that needs a newer
 dependency bumps it in the same PR.
