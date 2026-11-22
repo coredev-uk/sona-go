@@ -81,7 +81,7 @@ const (
 		WHERE a.library_id IN `
 	playlistsByID = `SELECT ` + playlistColumns + ` FROM playlists p
 		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
-		WHERE p.library_id IN `
+		WHERE p.favorited = 0 AND p.library_id IN `
 )
 
 // byIDs runs q (ending in "IN ") for ids and returns the rows in the order

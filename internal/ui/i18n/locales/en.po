@@ -8835,10 +8835,6 @@ msgstr "Your curve"
 msgid "Your desktop asks apps to reduce motion (GTK's gtk-enable-animations is off)."
 msgstr "Your desktop asks apps to reduce motion (GTK's gtk-enable-animations is off)."
 
-#: internal/ui/features/playlist/header.go
-msgid "Your favourites"
-msgstr "Your favourites"
-
 #. A choice of playlist cover: the picture the user chose from a file.
 #: internal/ui/features/playlist/covers.go
 msgid "Your image"

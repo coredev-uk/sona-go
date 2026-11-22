@@ -72,7 +72,6 @@ func TestPageLedgerKinds(t *testing.T) {
 		{"plain", func(*services.PlaylistDetail) {}, "Playlist | 3 songs | 10 min"},
 		{"mix", func(d *services.PlaylistDetail) { d.Kind = "personal-mix" }, "Made for you | 3 songs | 10 min"},
 		{"chart", func(d *services.PlaylistDetail) { d.IsChart = true }, "Chart | 3 songs | 10 min"},
-		{"favourites", func(d *services.PlaylistDetail) { d.Favorited = true }, "Your favourites | 3 songs | 10 min"},
 		{"empty", func(d *services.PlaylistDetail) { d.Tracks, d.DurationMs = nil, 0 }, "Playlist"},
 	} {
 		dd := d

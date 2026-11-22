@@ -494,7 +494,7 @@ The current web has **no Love/Dislike wording**. The actions are **Favourite / U
 | Read state | `GET amp-api /v1/me/ratings/{type}?ids=a,b,…` (also `fields[…]=personalRating` in library-state hydration) | 200 → `ratings{value: 1|-1}`; `{"data":[]}` when unrated |
 | Legacy "love" | `PUT …/ratings/{type}/{id}` with `value: 1` | 200. Shows as Favourite on the web, but **does not** add to the library. |
 
-Sona has `SetRating`/`DeleteRating`/`Ratings` (`/v1/me/ratings`). It lacks `/v1/me/favorites` and its add-to-library side effect, which Favourite needs to match the web. The **Favourite Songs** playlist is a library playlist tagged `favorited`.
+Sona has `SetRating`/`DeleteRating`/`Ratings` (`/v1/me/ratings`). It lacks `/v1/me/favorites` and its add-to-library side effect, which Favourite needs to match the web. The **Favourite Songs** playlist is a library playlist tagged `favorited`. Sona maps Apple's two entry points to one: Library → Favourite songs (`/library/favourites`, built from the stored ratings, so a Favourite shows at once) is the page; the playlist is still synced and flagged (`playlists.favorited`) but hidden from the sidebar, Library → Playlists, Home, search, the command palette and pins, and `/playlist/{id}` or an Apple Music link to it redirects to `/library/favourites`.
 
 ### 5.6 Context menus (item type → actions, observed)
 

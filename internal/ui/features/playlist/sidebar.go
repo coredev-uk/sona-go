@@ -77,6 +77,9 @@ type derived struct {
 	lists    sidebarLists
 	editable map[string]bool
 	anyEdit  bool
+	// favourites are the library IDs of Apple's Favourite Songs playlist
+	// (pinPath sends a pin of one to Library → Favourite songs).
+	favourites map[string]bool
 }
 
 func firstOf[T any](s []T) *T {
@@ -100,9 +103,12 @@ func (s *sidebar) derive(tree services.PlaylistTree, pins []services.Pin, ready 
 		folders: firstOf(tree.Folders), nFolders: len(tree.Folders),
 		playlists: firstOf(tree.Playlists), nLists: len(tree.Playlists),
 		pins: firstOf(pins), nPins: len(pins),
-		editable: map[string]bool{},
+		editable: map[string]bool{}, favourites: map[string]bool{},
 	}
 	for _, it := range tree.Playlists {
+		if it.Favorited {
+			d.favourites[it.Playlist.ID] = true
+		}
 		if it.Playlist.CanEdit {
 			d.editable[it.Playlist.ID] = true
 			d.anyEdit = true
@@ -260,6 +266,9 @@ func (p *playlists) moreMenu(c *ui.Context, row ui.Element, key, label string, h
 func (p *playlists) pinPath(pin services.Pin) string {
 	switch pin.Kind {
 	case "playlist":
+		if p.side.derived.favourites[pin.ID] {
+			return favouritesPath
+		}
 		return "/playlist/" + pin.ID
 	case "album":
 		return p.routeOr("/album/" + pin.ID)

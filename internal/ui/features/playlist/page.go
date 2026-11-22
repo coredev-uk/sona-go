@@ -1,6 +1,7 @@
 package playlist
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -103,6 +104,10 @@ func (p *playlists) itemMenus() *kit.ActionMenus {
 // route's id. The whole page scrolls in one container, header included.
 func (p *playlists) playlistPage(c *ui.Context, r *ui.Route) {
 	id := r.Param("id")
+	if p.favourited(id) {
+		p.env.Nav.Replace(favouritesPath)
+		return
+	}
 	pg := &p.page
 	pg.enter(id)
 	q := p.detail(id)
@@ -120,6 +125,16 @@ func (p *playlists) playlistPage(c *ui.Context, r *ui.Route) {
 		default:
 			p.playlistBody(c, id, q.Data, pane)
 		}
+	})
+}
+
+// favourited reports whether id is Apple's Favourite Songs playlist, by the
+// tree (the sidebar has loaded it), so its page never shows before the
+// redirect.
+func (p *playlists) favourited(id string) bool {
+	t := p.tree()
+	return t.HasData && slices.ContainsFunc(t.Data.Playlists, func(it services.TreePlaylist) bool {
+		return it.Favorited && it.Playlist.ID == id
 	})
 }
 

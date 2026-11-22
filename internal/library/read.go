@@ -361,7 +361,8 @@ func scanPlaylist(sc scanner) (Playlist, error) {
 	return p, err
 }
 
-// Playlists lists library playlists.
+// Playlists lists library playlists, except Apple's Favourite Songs playlist
+// (Favorited): Sona shows those songs once, on Library → Favourite songs.
 func (l *Library) Playlists(ctx context.Context, o ListOptions) ([]Playlist, error) {
 	d := dir(o.Desc)
 	var order string
@@ -376,6 +377,7 @@ func (l *Library) Playlists(ctx context.Context, o ListOptions) ([]Playlist, err
 	limit, offset := o.page()
 	pls, err := query(ctx, l, `SELECT `+playlistColumns+` FROM playlists p
 		JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
+		WHERE p.favorited = 0
 		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanPlaylist, limit, offset)
 	if err != nil {
 		return nil, err
@@ -586,11 +588,14 @@ func (l *Library) Song(ctx context.Context, id string) (Song, error) {
 // playlists.
 func (l *Library) Counts(ctx context.Context) (Counts, error) {
 	// One statement: a row per kind, the songs less those not out yet
-	// (release.go; found by index, not by reading every song).
+	// (release.go; found by index, not by reading every song) and the
+	// playlists less the Favourite Songs one (Playlists leaves it out).
 	rows, err := query(ctx, l, `SELECT li.kind, count(*) - CASE li.kind WHEN 'song' THEN (
 			SELECT count(*) FROM tracks t
 			JOIN library_items x ON x.kind = 'song' AND x.ref = t.id`+withAlbum+`
-			WHERE `+unreleased(l.today())+`) ELSE 0 END
+			WHERE `+unreleased(l.today())+`) WHEN 'playlist' THEN (
+			SELECT count(*) FROM playlists p
+			JOIN library_items x ON x.kind = 'playlist' AND x.ref = p.id WHERE p.favorited <> 0) ELSE 0 END
 		FROM library_items li GROUP BY li.kind`, func(sc scanner) (kindCount, error) {
 		var k kindCount
 		err := sc.Scan(&k.kind, &k.n)
@@ -640,6 +645,10 @@ func (l *Library) Search(ctx context.Context, term string, limit int, kinds ...s
 	today := l.today()
 	q += ` AND (kind <> 'song' OR EXISTS (SELECT 1 FROM tracks t` + withAlbum + `
 		WHERE t.library_id = search_fts.ref AND ` + out(today) + `))`
+	// The Favourite Songs playlist is not a hit: Library → Favourite songs
+	// is where those songs are.
+	q += ` AND (kind <> 'playlist' OR NOT EXISTS (SELECT 1 FROM playlists p
+		WHERE p.library_id = search_fts.ref AND p.favorited <> 0))`
 	if len(kinds) > 0 {
 		q += ` AND kind IN (` + placeholders(len(kinds)) + `)`
 		args = append(args, anys(kinds)...)
