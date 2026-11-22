@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400">
+  <!--
+    The background of Sona's .dmg window, 640 x 400 points. render.sh makes the
+    1x and 2x PNGs from this file; settings.py sets the window around them.
+    Finder draws the two icons over the picture at 128 pt, centred on (165, 180)
+    and (475, 180), and its labels under them in black (on any picture, in light
+    and in dark mode), so the board is light. The window's last 4 points are
+    cropped on macOS 26 and later (settings.py), so nothing sits there.
+    The board, ink and rules are the tokens of docs/design.md; the type is
+    Schibsted Grotesk at the page-title and secondary sizes.
+  -->
+  <defs>
+    <!-- The arrow is the record's groove, leaving it and gaining ink as it goes. -->
+    <linearGradient id="emerge" x1="228" y1="0" x2="392" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#181818" stop-opacity="0"/>
+      <stop offset=".55" stop-color="#181818" stop-opacity="1"/>
+    </linearGradient>
+    <!-- The grooves leave room for the title... -->
+    <linearGradient id="clear" x1="0" y1="84" x2="0" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="1"/>
+    </linearGradient>
+    <!-- ...and for Finder's label under the icon. -->
+    <filter id="soft" x="-50%" y="-100%" width="200%" height="300%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <mask id="below-title" maskUnits="userSpaceOnUse" x="0" y="0" width="640" height="400">
+      <rect width="640" height="400" fill="url(#clear)"/>
+      <rect x="113" y="243" width="104" height="26" rx="8" fill="#000" filter="url(#soft)"/>
+    </mask>
+  </defs>
+
+  <rect width="640" height="400" fill="#f5f5f5"/>
+
+  <!-- The grooves of the record in Sona's icon, carried on past it at the same pitch and fading out. -->
+  <g mask="url(#below-title)">
+    <g transform="translate(165 180)" fill="none" stroke="#181818" stroke-width="1">
+      <circle r="63.0" stroke-opacity="0.240"/>
+      <circle r="68.4" stroke-opacity="0.213"/>
+      <circle r="73.8" stroke-opacity="0.187"/>
+      <circle r="79.2" stroke-opacity="0.162"/>
+      <circle r="84.6" stroke-opacity="0.138"/>
+      <circle r="90.0" stroke-opacity="0.116"/>
+      <circle r="95.4" stroke-opacity="0.095"/>
+      <circle r="100.8" stroke-opacity="0.075"/>
+      <circle r="106.2" stroke-opacity="0.057"/>
+      <circle r="111.6" stroke-opacity="0.041"/>
+      <circle r="117.0" stroke-opacity="0.027"/>
+      <circle r="122.4" stroke-opacity="0.014"/>
+      <circle r="127.8" stroke-opacity="0.005"/>
+      <circle r="133.2" stroke-opacity="0.000"/>
+    </g>
+  </g>
+
+  <!-- The catalogue card's two rules. -->
+  <path d="M40 36.5H600M40 332.5H600" fill="none" stroke="#dbdbdb" stroke-width="1"/>
+
+  <g fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M228 180H392" stroke="url(#emerge)"/>
+    <path d="M379 167L392 180L379 193" stroke="#181818"/>
+  </g>
+
+  <g font-family="Schibsted Grotesk">
+    <text x="40" y="72" font-size="24" font-weight="600" letter-spacing="-0.36" fill="#181818">Drag Sona to Applications</text>
+    <text x="40" y="358" font-size="13" font-weight="400" fill="#585858">First open: System Settings → Privacy &amp; Security → “Open Anyway”</text>
+  </g>
+</svg>

@@ -97,7 +97,8 @@ a line without one.
 **What a release build downloads.** Every tool is fixed to a version and a
 checksum in the repository before it runs: linuxdeploy and its plugins
 (`build/linux/appimage-tools.sha256`), NSIS and pkg-config-lite
-(`build/windows/tools.sha256`), GStreamer (`build/*/gstreamer.sha256`), and the
+(`build/windows/tools.sha256`), dmgbuild and its two dependencies
+(`build/darwin/dmgbuild.sha256`), GStreamer (`build/*/gstreamer.sha256`), and the
 Go toolchain of both images (`ARG GO_SHA256` in the release Containerfile,
 `build/ci/go.sha256` for the CI image; a Go bump changes the version and the
 hash together). Renovate does not move these: it cannot compute a hash, and a
