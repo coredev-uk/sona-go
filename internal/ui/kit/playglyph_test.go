@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"runtime"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -56,14 +55,9 @@ func playMarks(im *image.RGBA, sc float32, r ui.Rect) (box, mass [2]float64) {
 // The Play disc's triangle is optically centred: Lucide's play glyph sits
 // right in its viewBox, so its box is a little right of the disc's middle
 // and its mass a little left, by the same amount (1/24 of the glyph), and
-// no nudge is added to either.
+// no nudge is added to either. macOS draws the SF Symbol play.fill, which
+// theme.symbolTune moves and trims to the same place.
 func TestPlayButtonsTriangleIsOpticallyCentred(t *testing.T) {
-	// The triangle is read in Lucide's glyph, which Linux and Windows draw;
-	// macOS draws the SF Symbol play.fill, whose box sits in the middle and
-	// whose shape the system sets (docs/design.md, "Icons").
-	if runtime.GOOS != "linux" {
-		t.Skip("pixel readings are asserted on Linux only: macOS draws an SF Symbol here")
-	}
 	for _, size := range []float32{26, 40, 56} {
 		for _, sc := range []float32{2, 1} {
 			im, r := playDisc(t, size, sc)
