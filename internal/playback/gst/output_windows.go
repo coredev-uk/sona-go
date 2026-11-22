@@ -21,17 +21,16 @@ import (
 // itself (automatic stream routing).
 func routeEpoch() uint64 { return uint64(C.sona_route_epoch()) }
 
-// AudioSinks lists the WASAPI render endpoints (wasapi2's device provider). A
-// Device's Name is the endpoint ID wasapi2sink takes as its device. It needs
-// no running pipeline. The list is empty when the wasapi2 plugin is missing.
+// AudioSinks lists the active WASAPI render endpoints, as wasapi2's device
+// provider does, from Core Audio directly (devices_windows.c). A Device's
+// Name is the endpoint ID wasapi2sink takes as its device. It neither
+// initialises GStreamer nor loads a plugin: it runs in the UI process, and a
+// plugin loaded from the install's lib\ keeps an update from renaming it.
 func AudioSinks() ([]Device, error) {
-	if err := Init(); err != nil {
-		return nil, err
-	}
 	var list *C.sona_device
 	var n C.int
 	if C.sona_gst_audio_sinks(&list, &n) != 0 {
-		return nil, errors.New("gst: WASAPI device provider failed")
+		return nil, errors.New("gst: listing the WASAPI render endpoints failed")
 	}
 	defer C.sona_gst_free_devices(list, n)
 	out := make([]Device, 0, int(n))
