@@ -86,6 +86,13 @@ one by hand, put the new digest of the same tag in the `FROM` line
 `release.sh` pulls the digest the Containerfile's `FROM` line names and refuses
 a line without one.
 
+**Vulnerability scan.** The "Vet and type-check" job ends its checks with `go tool govulncheck -tags sqlite_fts5 ./...`. The tool is a `tool` of `go.mod` (`golang.org/x/vuln` v1.10.0), so Renovate moves it like any module. The policy:
+
+- A vulnerability the code can **reach** (govulncheck's symbol-level result, including the standard library of the Go release `go.mod` names) fails the job, and so the required "Go vet and test (-race)" check, which gathers it. One in an imported package or required module that the code never calls is listed and doesn't fail it.
+- The fix is the release the finding names: a Go release bump (`go.mod`, the CI and release images' Go, the Go archive hashes) or a module bump. There is no allowlist; a finding that can't be fixed yet is stated in the pull request, not muted.
+- It scans the host build (`-tags sqlite_fts5`); the Windows and macOS-only files are type-checked by the vet job but not scanned.
+- Run it locally with `devenv shell -- go tool govulncheck -tags sqlite_fts5 ./...`. A reachable finding is reported through a private security advisory, not a public issue, until it is fixed.
+
 **What a release build downloads.** Every tool is fixed to a version and a
 checksum in the repository before it runs: linuxdeploy and its plugins
 (`build/linux/appimage-tools.sha256`), NSIS and pkg-config-lite
