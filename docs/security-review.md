@@ -22,6 +22,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [The item inspector](#the-item-inspector)
   - [Sona's own add-ons](#sonas-own-add-ons)
   - [Secret scanning](#secret-scanning)
+  - [Vulnerability scanning](#vulnerability-scanning)
 - [Findings](#findings)
   - [Summary](#summary)
   - [F1. Settings import could set the CDM path](#f1-settings-import-could-set-the-cdm-path)
@@ -784,6 +785,21 @@ nix run nixpkgs#gitleaks -- dir --config .gitleaks.toml --redact .
 - Pull-request and issue text and Actions logs can't be rewritten with the history. The workflow scans titles and bodies; comments are not scanned.
 - A pull request can change `.gitleaks.toml` itself; changes to it need the maintainer's review.
 - Shapes the rules can't recognise (a token split into short pieces, encoded differently, or under an unrelated name) pass.
+
+### Vulnerability scanning
+
+**What it does.** CI runs `govulncheck` (pinned in `go.mod` as a `tool`) over every package with `-tags sqlite_fts5`, in the "Vet and type-check" job (`.github/workflows/ci.yml`), on pull requests, the nightly and releases.
+
+**Threats.** A known vulnerability in the Go standard library or a required module that Sona's code can reach.
+
+**Controls.**
+
+- Only a reachable vulnerability (a symbol the code calls, directly or through another package) fails the job; `-show verbose` lists the imported but uncalled ones. The standard library counts at the release `go.mod` names.
+- It does not run on a push to main, so a newly published advisory can't fail a merge that already passed; the next pull request, the nightly and the next release turn red until the fix lands.
+- The fix is the release the finding names. There is no allowlist.
+- The scan is the host build; Windows- and macOS-only files are type-checked, not scanned. Dependabot alerts cover the `site/` npm tree.
+
+**Residual risks.** The database lists only known, reported vulnerabilities, and a reachable call through reflection or a plugin can be missed. The CI log is public and shows each finding with its call stacks, as the advisory itself already is.
 
 ## Findings
 
