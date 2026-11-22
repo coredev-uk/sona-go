@@ -3,6 +3,7 @@ package update
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -174,5 +175,59 @@ func TestTheGuardsRollbackIsNotManual(t *testing.T) {
 	}
 	if r := g.LastRollback(); r == nil || r.Manual || r.From != "0.3.0-rc.4" || r.To != "0.2.0" {
 		t.Fatalf("report = %+v", r)
+	}
+}
+
+// A Windows restore renames the install's entries one by one; one that can't
+// be renamed (a file in it opened without FILE_SHARE_DELETE) puts back those
+// already swapped: the running version stays whole and the previous one kept.
+func TestAWindowsRestoreThatFailsHalfwayPutsBackWhatItSwapped(t *testing.T) {
+	g := layout(t, "windows", "0.2.0")
+	lib := filepath.Join(g.Root, "lib", "gstreamer-1.0", "libgstaiff.dll")
+	write := func(p, s string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		_ = os.Remove(p)
+		if err := os.WriteFile(p, []byte(s), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(lib, "0.2.0")
+	install(t, g, "0.3.0")
+	write(lib, "0.3.0")
+	// lib is swapped first, then sona.exe can't be set aside: the name it
+	// would take is a folder in the way.
+	blocker := filepath.Join(g.Root, ".sona.exe.old-"+strconv.Itoa(os.Getpid()), "x")
+	write(blocker, "")
+	if err := g.RestorePrevious("0.3.0"); err == nil {
+		t.Fatal("the restore went through")
+	}
+	if read(t, exeOf(g)) != "0.3.0" || read(t, lib) != "0.3.0" {
+		t.Fatalf("the running version was left half restored: exe %q, lib %q", read(t, exeOf(g)), read(t, lib))
+	}
+	if read(t, filepath.Join(g.Previous, "lib", "gstreamer-1.0", "libgstaiff.dll")) != "0.2.0" ||
+		read(t, filepath.Join(g.Previous, "sona.exe")) != "0.2.0" {
+		t.Fatal("the previous version lost files")
+	}
+	if v, ok := g.HasPrevious(); !ok || v != "0.2.0" {
+		t.Fatalf("previous = %q, %v", v, ok)
+	}
+	if _, err := os.Stat(filepath.Join(g.Root, ".lib.old-"+strconv.Itoa(os.Getpid()))); !os.IsNotExist(err) {
+		t.Fatalf("lib's aside copy stays: %v", err)
+	}
+	if r := g.LastRollback(); r == nil || !r.Manual || r.Error == "" {
+		t.Fatalf("report = %+v", r)
+	}
+	// Out of the way, it goes.
+	if err := os.RemoveAll(filepath.Dir(blocker)); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.RestorePrevious("0.3.0"); err != nil {
+		t.Fatal(err)
+	}
+	if read(t, exeOf(g)) != "0.2.0" || read(t, lib) != "0.2.0" {
+		t.Fatal("the previous version isn't back")
 	}
 }

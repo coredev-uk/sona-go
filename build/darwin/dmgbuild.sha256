@@ -1,0 +1,11 @@
+# The Python packages build/darwin/dmg.sh builds the .dmg window with
+# (install-dmgbuild.sh), each a pure-Python wheel from PyPI at a fixed version.
+# Columns: package, version, SHA-256 of the wheel (<package>-<version>-py3-none-any.whl).
+# dmgbuild writes the window's .DS_Store and the background's alias record
+# without Finder; ds_store and mac_alias are its only dependencies. To move to a
+# newer version, change the version and the hash together (the script prints the
+# hash it computed when it differs) and check the dependencies listed in the new
+# wheel's METADATA (`Requires-Dist`): any new one is pinned here too.
+dmgbuild 2.0.0 3d4f33f3a0def7ae2a43701a40aa6ae341f90445433694abd4bc67aab779d2f8
+ds_store 1.3.4 6d8ae662921846c96b03c244a92aab19a5b4fb3d9cada118fc83cace9250f049
+mac_alias 2.2.4 c20f95f75d7f966dd8ea2f84c317d4ff4abee0db9cc8a13b454891c15aa04226

@@ -394,17 +394,37 @@ func restore(goos, root, previous string) error {
 		return err
 	}
 	// The running executable is renamed away, which Windows allows; MyGo's
-	// start removes the ".<name>.old-<pid>" files it finds next time.
+	// start removes the ".<name>.old-<pid>" files it finds next time. A
+	// rename that fails (a file in the entry opened without
+	// FILE_SHARE_DELETE) puts back the ones done before it, so a failed
+	// restore leaves the running version whole and the previous one kept, as
+	// MyGo's swap does.
 	suffix := ".old-" + strconv.Itoa(os.Getpid())
+	var done [][2]string // renames made, undone in reverse on failure
+	mv := func(from, to string) error {
+		if err := os.Rename(from, to); err != nil {
+			return err
+		}
+		done = append(done, [2]string{from, to})
+		return nil
+	}
+	undo := func(err error) error {
+		for i := len(done) - 1; i >= 0; i-- {
+			if uerr := os.Rename(done[i][1], done[i][0]); uerr != nil {
+				return fmt.Errorf("%w (and putting %s back failed: %v)", err, done[i][0], uerr)
+			}
+		}
+		return err
+	}
 	for _, e := range entries {
 		dst := filepath.Join(root, e.Name())
 		if _, err := os.Lstat(dst); err == nil {
-			if err := os.Rename(dst, filepath.Join(root, "."+e.Name()+suffix)); err != nil {
-				return err
+			if err := mv(dst, filepath.Join(root, "."+e.Name()+suffix)); err != nil {
+				return undo(err)
 			}
 		}
-		if err := os.Rename(filepath.Join(previous, e.Name()), dst); err != nil {
-			return err
+		if err := mv(filepath.Join(previous, e.Name()), dst); err != nil {
+			return undo(err)
 		}
 	}
 	return os.RemoveAll(previous)
