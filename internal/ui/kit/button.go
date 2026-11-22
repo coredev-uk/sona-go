@@ -6,6 +6,8 @@
 package kit
 
 import (
+	"strings"
+
 	"github.com/egoist/mygo/ui"
 
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
@@ -198,7 +200,9 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 		controlsTooltip(c, e, name+"\n"+o.Reason, false)
 		return e
 	}
-	controlsTooltipKeys(c, e, tip, tip != name, o.Keys)
+	// A tip the name already says ("Play" for "Play OK Computer") is no
+	// description: VoiceOver would read it again as the hint.
+	controlsTooltipKeys(c, e, tip, !strings.Contains(name, tip), o.Keys)
 	return e
 }
 
