@@ -194,8 +194,11 @@ type Pipeline struct {
 	// (watch goroutine only).
 	stallPos time.Duration
 	stallAt  time.Time
-	lastPos  time.Duration
-	lastAt   time.Time
+	// The race check's last output position, when it was read (zero when
+	// unknown) and the output build it came from (watch goroutine only).
+	lastPos   time.Duration
+	lastAt    time.Time
+	lastBuild uint64
 	// route is what the output was built for (streamProps); routeSeen the
 	// routeEpoch it saw last (watch goroutine only).
 	route     string
@@ -483,21 +486,36 @@ func (p *Pipeline) outputFailed(cause error) {
 // checkStall rebuilds the output when it should play and has audio
 // queued but its position has not moved for stallAfter (a sink that lost
 // its device and never got one back), or when it races ahead of real time
-// (a sink whose clock jumped, dropping audio). Called from watch, at least
-// every 200 ms.
+// (a sink whose clock jumped, dropping audio). The race is measured
+// between two known positions of the same output build: a rebuilt output
+// starts past the audio the old one still held. Called from watch, at
+// least every 200 ms.
 func (p *Pipeline) checkStall() {
 	p.mu.Lock()
 	want := p.want
 	p.mu.Unlock()
 	now := time.Now()
+	build := p.build.Load()
 	pos, ok := p.outPosition()
+	if p.build.Load() != build {
+		ok = false // rebuilt meanwhile: the position may be either output's
+	}
 	queued := time.Duration(0)
 	if p.use() {
 		queued = time.Duration(C.sona_gst_out_queued_ns(p.p))
 		p.life.RUnlock()
 	}
 	prevPos, prevAt := p.lastPos, p.lastAt
+	if build != p.lastBuild {
+		// A rebuilt output carries on from the end of the audio the old
+		// one had queued, ahead of the position the old one last
+		// reported: that jump is no race.
+		p.lastBuild, prevAt = build, time.Time{}
+	}
 	p.lastPos, p.lastAt = pos, now
+	if !ok {
+		p.lastAt = time.Time{} // nothing to measure the next position from
+	}
 	if want == StatePlaying && ok && !prevAt.IsZero() && pos-prevPos > now.Sub(prevAt)+raceSlack {
 		p.stallPos, p.stallAt = pos, now
 		p.outputFailed(fmt.Errorf("gst: the output skipped %v", (pos - prevPos - now.Sub(prevAt)).Round(time.Millisecond)))
