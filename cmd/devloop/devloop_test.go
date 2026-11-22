@@ -2,8 +2,10 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -51,6 +53,29 @@ func TestExeName(t *testing.T) {
 		if got := exeName(c.out, c.goos); got != c.want {
 			t.Errorf("exeName(%q, %q) = %q, want %q", c.out, c.goos, got, c.want)
 		}
+	}
+}
+
+// devloop links a target with the compiler go build would: C++ only when the
+// target has C++ files (testdata/cxx), C otherwise (testdata/c), as cmd/sona
+// on Windows, which g++ linked into a window without its caption buttons.
+func TestTargetLinker(t *testing.T) {
+	goenv := func(name string) string {
+		out, err := exec.Command("go", "env", name).Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	if goenv("CGO_ENABLED") != "1" {
+		t.Skip("cgo is off: go list sees no C or C++ files")
+	}
+	first := func(s string) string { return strings.Fields(s)[0] }
+	if got, want := targetLinker(".", "", "./testdata/c"), first(goenv("CC")); got != want {
+		t.Errorf("a C-only target links with %q, want the C compiler %q", got, want)
+	}
+	if got, want := targetLinker(".", "", "./testdata/cxx"), first(goenv("CXX")); got != want {
+		t.Errorf("a target with C++ links with %q, want the C++ compiler %q", got, want)
 	}
 }
 

@@ -47,6 +47,9 @@ type config struct {
 	background bool
 	grace      time.Duration
 	args       []string
+	// linker is the compiler that links the target (targetLinker), which
+	// devloop passes each link on to.
+	linker string
 }
 
 func main() {
@@ -84,6 +87,7 @@ func main() {
 	if err := os.MkdirAll(filepath.Dir(cfg.out), 0o755); err != nil {
 		fatal(err)
 	}
+	cfg.linker = targetLinker(cfg.root, cfg.tags, cfg.target)
 	os.Exit(newLoop(cfg).run())
 }
 
@@ -285,16 +289,12 @@ func (l *loop) build() built {
 	t := time.Now()
 	ldflags := l.cfg.ldflags
 	self, err := os.Executable()
-	real := os.Getenv("CXX")
-	if real == "" {
-		real = "g++"
-	}
 	if err == nil {
 		ldflags = strings.TrimSpace(ldflags + " -extld=" + self)
 	}
 	cmd := exec.Command("go", "build", "-tags", l.cfg.tags, "-ldflags", ldflags, "-o", l.cfg.out+".new", l.cfg.target)
 	cmd.Dir = l.cfg.root
-	cmd.Env = append(os.Environ(), extldEnv+"="+real)
+	cmd.Env = append(os.Environ(), extldEnv+"="+l.cfg.linker)
 	out, err := cmd.CombinedOutput()
 	return built{out: out, err: err, took: time.Since(t)}
 }
