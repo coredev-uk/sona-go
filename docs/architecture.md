@@ -287,6 +287,7 @@ Before swapping, Sona stages a copy of the running version and writes `update-pe
 - An install that fails drops the staged copy and leaves the version kept before untouched (`Guard.Abandon`), so a failed attempt never passes for the version it was meant to replace.
 - A start that finds a staged copy left by a process that died settles it by which version runs.
 - The new version clears the marker at its first paint. A start that finds it already counted 3 times (`update.MaxStarts`) restores the previous version, starts it, and reports the restore in the Diagnostics bundle.
+- **The Windows installer** (`build/windows/installer.nsi`) is part of the guard. A setup run over an install that has `previous\` deletes it, `update-previous` and `update-pending`, as well as any `previous.staging\` or `previous.old\`. The version it installs replaces both the running one and the kept one, and restoring the kept one would put older files over newer. Settings → Diagnostics then offers no previous version until the next update. The installer and the uninstaller also refuse to run while Sona runs, since a file in use can't be overwritten and the install would be left a mix of versions. They tell by taking Sona's single-instance lock (`sona.lock` in the state folder, `LockFileEx` without waiting, as `internal/app` does). Interactively they ask the user to quit Sona and offer Retry; a silent run (`/S`) stops with exit code 2 and changes nothing.
 
 #### A failed install
 
@@ -1067,7 +1068,7 @@ Every package, tests included, type-checks for `windows/amd64` and `darwin/arm64
 
 - `task package` builds the `.deb`, `.rpm`, Arch package (nfpm; GTK3, the tray's `libayatana-appindicator3` and GStreamer as dependencies) and the AppImage of the local build.
 - `build/linux/release/release.sh` builds them on Ubuntu 24.04 and smoke-tests them: `.deb` on Ubuntu, `.rpm` and the AppImage on Fedora, Arch package on Arch. The smoke checks `sona --version`, first paint under Xvfb, the GStreamer plugins, and no WebKitGTK or GTK4 linked. On Arch it also runs `namcap` on the PKGBUILD and the built package and fails on anything but the run-time dependencies namcap can't see (`smoke.sh`, `namcap_allowed`).
-- `build/darwin/smoke.sh` and `build/windows/smoke.sh` do the same for the macOS app and the Windows zip and installer. The Windows one also silently uninstalls the installer and checks that the sandbox's AppContainer profile is gone, and runs the zip's `sona.exe --remove-sandbox`.
+- `build/darwin/smoke.sh` and `build/windows/smoke.sh` do the same for the macOS app and the Windows zip and installer. The Windows one also checks that a silent setup refuses to run while the zip's Sona runs (exit code 2, nothing installed) and that an install over a folder with `previous\` drops it, `update-previous` and `update-pending`. It silently uninstalls the installer, checks that the sandbox's AppContainer profile is gone, and runs the zip's `sona.exe --remove-sandbox`.
 
 ### Manual release checks
 

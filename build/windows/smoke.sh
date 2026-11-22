@@ -14,9 +14,11 @@
 #     SONA_SMOKE_TOOLS=1), run beside that sona.exe, plays two 30-second
 #     previews to fakesink: no Music User Token, no CDM;
 #   - the update archive holds the same files;
-#   - the installer installs silently with the same files and the music:/itms:
-#     URL keys, and uninstalls them again, with the CDM host's AppContainer
-#     profile (the earlier runs made it); the zip's `sona.exe
+#   - the installer refuses to run over a running Sona (silently: exit code
+#     2, nothing installed), drops the version an update kept (previous\ and
+#     its number in the state folder), installs silently with the same files
+#     and the music:/itms: URL keys, and uninstalls them again, with the CDM
+#     host's AppContainer profile (the earlier runs made it); the zip's `sona.exe
 #     --remove-sandbox` then takes the sandbox's access entry off its folder.
 # All of it runs with the installed GStreamer's bin\ taken off PATH and no
 # GST_* variable set: the package must stand alone. Uses a private profile and
@@ -179,7 +181,34 @@ echo "smoke(windows): the update archive holds the zip's files"
 # 4. The installer, silently, into a folder of the test's own.
 setup=$out/Sona-$version-windows-x64-setup.exe
 dest=$work/installed
+# While Sona runs (its single-instance lock is held) a silent setup stops
+# with exit code 2 and installs nothing.
+: >"$log" # the first paint below is this run's
+"$exe" >"$work/sona-running.out" 2>&1 &
+pid=$!
+if ! wait_for_log "$log" '"startup: first paint"' 60 "$pid"; then
+  stop_app "$pid"
+  cat "$work/sona-running.out" "$log" 2>/dev/null || true
+  fail "sona.exe never painted before the installer's running check"
+fi
+rc=0
+"$setup" /S "/D=$(cygpath -w "$dest")" || rc=$?
+stop_app "$pid"
+[[ $rc == 2 && ! -e $dest ]] || fail "the installer ran over a running Sona (exit $rc)"
+echo "smoke(windows): the installer refuses while Sona runs (exit 2, nothing installed)"
+# Over an install where an update kept a previous version, it drops that
+# version, its number and any update on trial: restoring them would put
+# older files over the ones it installs.
+state=$profile/Local/Sona/State
+mkdir -p "$dest/previous" "$state"
+printf 'old' >"$dest/previous/sona.exe"
+printf '0.0.1' >"$state/update-previous"
+printf '{"from":"0.0.1","to":"%s","starts":1}' "$version" >"$state/update-pending"
 "$setup" /S "/D=$(cygpath -w "$dest")"
+for f in "$dest/previous" "$state/update-previous" "$state/update-pending"; do
+  [[ ! -e $f ]] || fail "the installer left $f"
+done
+echo "smoke(windows): the installer dropped the version an update kept"
 for f in sona.exe sona.ico uninstall.exe; do
   [[ -f $dest/$f ]] || fail "installer left no $f"
 done
