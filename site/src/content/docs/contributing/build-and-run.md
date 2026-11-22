@@ -3,7 +3,7 @@ title: Build and Run
 description: Run Sona from a checkout, with live reload, the component gallery, previews and private mode.
 ---
 
-Run these in the [devenv environment](/contributing/setup/): prefix each command with `devenv shell --`, or use direnv.
+Run these in the [devenv environment](/contributing/setup/): prefix each command with `devenv shell --`, or use direnv. On Windows, run each as `task <command>` (`task dev`, `task build`; see [On Windows](/contributing/setup/#on-windows)).
 
 ## Run with live reload
 
@@ -77,4 +77,4 @@ To run two development builds on one session bus, give each a name with `SONA_DE
 
 ## Go further
 
-[docs/development.md](https://github.com/coredev-uk/sona-go/blob/main/docs/development.md) lists every devenv script (`probe`, `release`, spikes) and describes the Widevine CDM. [docs/platforms.md](https://github.com/coredev-uk/sona-go/blob/main/docs/platforms.md) covers macOS and Windows.
+[docs/development.md](https://github.com/coredev-uk/sona-go/blob/main/docs/development.md) lists every developer command (`probe`, `release`, spikes) and describes the Widevine CDM. [docs/platforms.md](https://github.com/coredev-uk/sona-go/blob/main/docs/platforms.md) covers macOS and Windows.

@@ -254,7 +254,7 @@ go vet ./... && go test ./...
 SONA_PRIVATE=1 dev                   # a development build, started
 ```
 
-`build` writes `bin/sona` for macOS; Taskfile's `build` does the same through `build/darwin/Taskfile.yml`. `SONA_PRIVATE=1 ./bin/sona` runs it.
+`build` writes `bin/sona` for macOS; `task darwin:build` makes the `-trimpath` build the packages use (`build/darwin/Taskfile.yml`). `SONA_PRIVATE=1 ./bin/sona` runs it.
 
 Expect:
 
