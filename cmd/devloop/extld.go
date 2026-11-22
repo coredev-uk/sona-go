@@ -13,16 +13,42 @@ import (
 	"github.com/coredev-uk/sona-go/internal/fsutil"
 )
 
-// A Go program with cgo (SQLite, the playback host's C++ shim) is linked by
-// the system's C++ compiler, and before it links, the Go linker asks that
-// compiler half a dozen times whether it knows a flag (--build-id,
-// -no-pie…) by linking a trivial program: with nix's compiler wrapper that is
-// about 0.3 s each, more than half of a restart's link. The answers never
-// change for one compiler, so devloop makes `go build` link through itself
-// (-extld=devloop, DEVLOOP_EXTLD naming the real linker): a probe is
-// answered from a file after the first time, the real link is passed on.
+// A Go program with cgo (SQLite, and on Linux and macOS the playback host's
+// C++ shim) is linked by the system's C or C++ compiler, and before it
+// links, the Go linker asks that compiler half a dozen times whether it knows
+// a flag (--build-id, -no-pie…) by linking a trivial program: with nix's
+// compiler wrapper that is about 0.3 s each, more than half of a restart's
+// link. The answers never change for one compiler, so devloop makes `go
+// build` link through itself (-extld=devloop, DEVLOOP_EXTLD naming the real
+// linker, targetLinker's): a probe is answered from a file after the first
+// time, the real link is passed on.
 
 const extldEnv = "DEVLOOP_EXTLD"
+
+// targetLinker is the compiler `go build` links target with: the C++
+// compiler ($CXX) when one of its packages has C++ files, the C compiler
+// ($CC) otherwise, as `go env` names them. It has to be the same one: a
+// C-only program linked by the C++ compiler is a different program, and on
+// Windows (where the shim is a DLL of its own and cmd/sona has no C++) the
+// dev build linked by g++ opened a window without its caption buttons.
+// When go list fails the build will say why; the C++ compiler is kept.
+func targetLinker(root, tags, target string) string {
+	list := exec.Command("go", "list", "-deps", "-tags", tags, "-f", "{{if or .CXXFiles .SwigCXXFiles}}c++{{end}}", target)
+	list.Dir = root
+	out, err := list.Output()
+	name, fallback := "CC", "gcc"
+	if err != nil || bytes.Contains(out, []byte("c++")) {
+		name, fallback = "CXX", "g++"
+	}
+	env := exec.Command("go", "env", name)
+	env.Dir = root
+	if v, err := env.Output(); err == nil {
+		if f := strings.Fields(string(v)); len(f) > 0 {
+			return f[0]
+		}
+	}
+	return fallback
+}
 
 // extld is devloop acting as the external linker; args are the compiler's.
 func extld(real string, args []string) int {
