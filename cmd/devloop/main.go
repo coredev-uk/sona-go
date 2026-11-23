@@ -255,7 +255,7 @@ func (l *loop) run() int {
 			}
 			t0 := l.since
 			stopTook := l.stop()
-			if err := os.Rename(l.cfg.out+".new", l.cfg.out); err != nil {
+			if err := install(l.cfg.out+".new", l.cfg.out); err != nil {
 				logf("install: %v", err)
 				continue
 			}
