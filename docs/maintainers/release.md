@@ -43,7 +43,9 @@ line, put `BEGIN_COMMIT_OVERRIDE`, the new Conventional Commits line(s) and
 
 Merging a release:
 
-1. Run §1 and §2 against the release PR's head.
+1. Run §1 and §2 against the release PR's head. The release's milestone
+   (`X.Y.Z`, which the release PR is in) has no other open issue or PR:
+   move what will not make it to the next one.
 2. release-please pushes the release PR as the bot-cecil GitHub App
    ([permissions](ci-and-secrets.md#bot-cecil-app-permissions)), so CI
    and the PR title check start on it like on any other PR, and re-run on
