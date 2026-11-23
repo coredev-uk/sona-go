@@ -937,14 +937,16 @@ jobs:
       # The CDM host child's AppContainer sandbox (docs/security-review.md,
       # "Windows sandbox"): a probe child and the host run in it. With
       # SONA_CDMHOST_REQUIRE_SANDBOX set, a runner that refuses AppContainers
-      # fails these instead of skipping them, and a skip fails the step.
+      # fails these instead of skipping them, and a skip fails the step, but
+      # for TestSandboxedHostReportsMMCSS: it plays to a real render endpoint,
+      # and windows-2025 runners have none (#313; it runs on a PC).
       - name: Sandbox tests
         env:
           SONA_CDM_REQUIRE: "1"
           SONA_CDMHOST_REQUIRE_SANDBOX: "1"
           SONA_APPCONTAINER_REQUIRE: "1"
         run: |
-          .github/ci/strict-test.sh "$RUNNER_TEMP/sandbox.log" --skips \
+          .github/ci/strict-test.sh "$RUNNER_TEMP/sandbox.log" --allow-skip 'TestSandboxedHostReportsMMCSS ' \
             -- go test -count=1 -timeout 15m -v -run 'AppContainer|SandboxedHost|SandboxLoadsCDM|SandboxGaps|GrantAccess|RemoveSandbox|RemoveProfiles|ReadFolders|EnvHelpers' \
             ./internal/playback/cdmhost/ ./internal/appcontainer/ ./internal/addons/sandbox/
 
