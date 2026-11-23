@@ -18,6 +18,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
+	"github.com/coredev-uk/sona-go/internal/appcontainer"
 	"github.com/coredev-uk/sona-go/internal/playback"
 )
 
@@ -120,10 +121,22 @@ func startSandboxed(exe string, env []string, log *slog.Logger) (proc, parentSan
 			return p, parentSandbox{}, nil
 		}
 	}
-	ps := parentSandbox{gap: playback.SandboxGapNoAppContainer, reason: "no Windows sandbox: " + err.Error()}
+	ps := parentSandbox{gap: unconfinedGap(err), reason: "no Windows sandbox: " + err.Error()}
 	log.Warn("cdmhost: starting the playback host without the Windows sandbox", "reason", ps.reason)
 	p, err := startChild([]string{exe}, env, nil)
 	return p, ps, err
+}
+
+// unconfinedGap is why the child runs outside the AppContainer, from the
+// error that kept it out: SandboxGapDriveRoot when Sona runs from a drive's
+// root (a zip extracted to D:\, a subst drive), whose access list Sona never
+// changes and the user can fix by moving the folder;
+// SandboxGapNoAppContainer for anything else.
+func unconfinedGap(err error) playback.SandboxGap {
+	if errors.Is(err, appcontainer.ErrDriveRoot) {
+		return playback.SandboxGapDriveRoot
+	}
+	return playback.SandboxGapNoAppContainer
 }
 
 // withParent adds the parent's reason for an unconfined child.

@@ -1,4 +1,4 @@
-//go:build !darwin
+//go:build !darwin && !windows
 
 package app
 
@@ -8,5 +8,5 @@ import "github.com/egoist/mygo"
 // corners.
 const miniCornerRadius = 0
 
-// windowMaterial is none off macOS: every surface is solid.
+// windowMaterial is none on Linux: every surface is solid.
 func windowMaterial() mygo.Vibrancy { return mygo.VibrancyNone }

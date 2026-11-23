@@ -51,6 +51,9 @@ type player struct {
 	svc transport
 	// tr is the playback commands the bar, the keys and the lyrics share.
 	tr kit.Transport
+	// repeatSaid is set when the user cycled Repeat from all to one; the next
+	// bar frame announces "Repeat one".
+	repeatSaid bool
 	// volume reports whether Sona sets the playback volume here
 	// (PlatformService capabilities).
 	volume func() bool
@@ -198,6 +201,11 @@ func (p *player) cycleRepeat() {
 		return
 	}
 	mode := nextRepeat(s.Repeat)
+	if s.Repeat == "all" {
+		// all→one changes the name but not the checked state, which is all
+		// VoiceOver hears of a toggle; the bar says it (flushRepeatSaid).
+		p.repeatSaid = true
+	}
 	p.env.Play.Patch(func(s *services.PlaybackState) { s.Repeat = mode })
 	p.run(func() string { return i18n.T("Couldn't change repeat") }, func(context.Context) error { return p.svc.SetRepeat(mode) })
 }

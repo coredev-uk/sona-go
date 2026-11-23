@@ -19,13 +19,13 @@ type process struct {
 	err  error         // how it exited, valid after done
 }
 
-// startProcess runs the built binary with the loop's arguments and the
-// environment of the loop (see appEnv). onReady is called with the time the
-// app first printed cfg.ready.
-func startProcess(cfg config, onReady func(time.Time)) (*process, error) {
+// startProcess runs the built binary with the loop's arguments in env (see
+// loop.env). onReady is called with the time the app first printed
+// cfg.ready.
+func startProcess(cfg config, env []string, onReady func(time.Time)) (*process, error) {
 	cmd := exec.Command(cfg.out, cfg.args...)
 	cmd.Dir = cfg.root
-	cmd.Env = appEnv(cfg, os.Environ())
+	cmd.Env = env
 	ownGroup(cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = &tap{w: os.Stderr, needle: []byte(cfg.ready), hit: onReady}
@@ -40,12 +40,13 @@ func startProcess(cfg config, onReady func(time.Time)) (*process, error) {
 	return p, nil
 }
 
-// appEnv is the environment the app starts in: env (the loop's), plus
-// SONA_SOURCE, where the dev build finds the token and catalogue files to
-// reload, and with cfg.background MYGO_DEV_BACKGROUND=1, which MyGo's dev
-// builds read to start without coming to the front and to show their windows
-// without the focus (what `mygo dev -background` sets), so that a restart on
-// a save leaves the focus where the editor has it.
+// appEnv is the environment the app starts in: env (the loop's, with .env's
+// variables, see loop.env), plus SONA_SOURCE, where the dev build finds the
+// token and catalogue files to reload, and with cfg.background
+// MYGO_DEV_BACKGROUND=1, which MyGo's dev builds read to start without coming
+// to the front and to show their windows without the focus (what `mygo dev
+// -background` sets), so that a restart on a save leaves the focus where the
+// editor has it.
 func appEnv(cfg config, env []string) []string {
 	out := slices.Clone(env)
 	if !slices.ContainsFunc(out, func(kv string) bool { return strings.HasPrefix(kv, "SONA_SOURCE=") && kv != "SONA_SOURCE=" }) {

@@ -203,9 +203,9 @@ type Engine interface {
 }
 
 // HostHolder is an Engine that plays in a process of its own (the CDM host)
-// and can be made to let go of it. Sona holds the host while an update
-// replaces the install's files: on Windows a folder with a loaded DLL in it
-// (GStreamer's plugins in lib\) can't be renamed.
+// and can be made to let go of it. Sona holds the host while an update or a
+// restore replaces the install's files on Windows: a host that outlived the
+// swap would load the other version's plugins from lib\ as it needs them.
 type HostHolder interface {
 	// HoldHost pauses the current item and ends the host process, and any
 	// other child the engine runs, now rather than after the idle timeout,

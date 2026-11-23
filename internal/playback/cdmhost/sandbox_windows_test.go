@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredev-uk/sona-go/internal/appcontainer"
 	"github.com/coredev-uk/sona-go/internal/playback"
 	"github.com/coredev-uk/sona-go/internal/playback/cdm/cdmtest"
 	"github.com/coredev-uk/sona-go/internal/playback/widevine"
@@ -129,6 +130,7 @@ func probeChild() {
 	ps := exec.Command(filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe"), "/c", "exit")
 	ps.Stdin, ps.Stdout, ps.Stderr = os.Stdin, os.Stderr, os.Stderr
 	outcome("start a process", ps.Run())
+	outcome("register a thread with MMCSS", registerMMCSS())
 	_ = json.NewEncoder(os.Stdout).Encode(res)
 	os.Exit(0)
 }
@@ -167,8 +169,9 @@ func sandboxedChild(t *testing.T, mode string, extra ...string) proc {
 // TestAppContainerConfinesChild starts a probe child in the AppContainer
 // and checks what it could and could not do: no network, not even to a
 // listener on the loopback; no reading outside the folders granted to it, no
-// writing to the user's profile, no new process; but loading the CDM and
-// writing its own folders.
+// writing to the user's profile, no new process; but loading the CDM,
+// writing its own folders and registering a thread with MMCSS's "Pro Audio"
+// task, as wasapi2sink's render thread does.
 func TestAppContainerConfinesChild(t *testing.T) {
 	lib := cdmtest.Library(t)
 	outside := filepath.Join(t.TempDir(), "outside.txt")
@@ -241,6 +244,7 @@ func TestAppContainerConfinesChild(t *testing.T) {
 	allowed("load the CDM")
 	allowed("write in the temp folder")
 	allowed("write beside the GStreamer registry")
+	allowed("register a thread with MMCSS")
 	if _, err := os.Stat(filepath.Join(os.Getenv("USERPROFILE"), "sona-sandbox-probe.tmp")); err == nil {
 		t.Error("the child created a file in the user profile")
 		_ = os.Remove(filepath.Join(os.Getenv("USERPROFILE"), "sona-sandbox-probe.tmp"))
@@ -313,6 +317,23 @@ func TestSandboxGaps(t *testing.T) {
 	}
 	if got := (Sandbox{AppContainer: true}).Gaps(); !slices.Equal(got, []playback.SandboxGap{playback.SandboxGapNetwork, playback.SandboxGapUserFiles}) {
 		t.Errorf("AppContainer without self-checks: %v", got)
+	}
+}
+
+// A Sona run from a drive's root (a zip extracted to D:\) has no folder the
+// AppContainer can be granted: Diagnostics says so rather than that Windows
+// failed.
+func TestADriveRootIsItsOwnGap(t *testing.T) {
+	_, err := appcontainer.Grant(nil, `C:\`, appcontainer.AccessRead, false)
+	if got := unconfinedGap(fmt.Errorf("grant: %w", err)); got != playback.SandboxGapDriveRoot {
+		t.Errorf("drive root (%v): %q", err, got)
+	}
+	if got := unconfinedGap(errors.New("CreateAppContainerProfile: Access is denied.")); got != playback.SandboxGapNoAppContainer {
+		t.Errorf("another failure: %q", got)
+	}
+	got := (Sandbox{}).withParent(parentSandbox{gap: playback.SandboxGapDriveRoot})
+	if !slices.Equal(got.Gaps(), []playback.SandboxGap{playback.SandboxGapDriveRoot}) || got.loadsCDM() {
+		t.Errorf("from a drive root: gaps %v, loads the CDM %v", got.Gaps(), got.loadsCDM())
 	}
 }
 

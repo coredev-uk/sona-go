@@ -155,9 +155,10 @@ func (s *server) reply(r reply) { s.send(frame{Reply: &r}) }
 func (s *server) emit(ev Event) { s.send(frame{Event: &ev}) }
 
 // reportAudioThreads sends the parent the audio threads (audioThreadIDs)
-// not reported before, so it can ask for realtime scheduling for them:
-// called whenever an output starts playing, which a rebuilt output may do
-// with new threads.
+// not reported before, so it can ask for realtime scheduling for them (or,
+// on Windows, read the scheduling they got), with the outcome of the
+// child's own attempt (schedProbe): called whenever an output starts
+// playing, which a rebuilt output may do with new threads.
 func (s *server) reportAudioThreads() {
 	tids := audioThreadIDs()
 	s.rtMu.Lock()
@@ -170,7 +171,7 @@ func (s *server) reportAudioThreads() {
 	}
 	s.rtMu.Unlock()
 	if len(fresh) > 0 {
-		s.send(frame{Threads: &threadReport{TIDs: fresh}})
+		s.send(frame{Threads: &threadReport{TIDs: fresh, Probe: schedProbe()}})
 	}
 }
 

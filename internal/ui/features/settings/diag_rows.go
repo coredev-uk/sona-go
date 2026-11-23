@@ -70,6 +70,8 @@ func sandboxGap(gap playback.SandboxGap) string {
 		return i18n.T("Windows couldn't set up its AppContainer sandbox for it.")
 	case playback.SandboxGapUserFiles:
 		return i18n.T("It can list your app data folders.")
+	case playback.SandboxGapDriveRoot:
+		return i18n.T("Sona runs from the root of a drive, and it never changes a whole drive's permissions to give its sandbox access. Move the Sona folder into a folder, such as C:\\Tools\\Sona.")
 	}
 	return ""
 }
@@ -112,7 +114,7 @@ func sandboxRow(p services.DiagPlayback) diagRow {
 		words[i] = sandboxGap(g)
 		hasNamespaces = hasNamespaces || g == playback.SandboxGapNamespaces
 		hasSockets = hasSockets || g == playback.SandboxGapSockets
-		noAppContainer = noAppContainer || g == playback.SandboxGapNoAppContainer
+		noAppContainer = noAppContainer || g == playback.SandboxGapNoAppContainer || g == playback.SandboxGapDriveRoot
 	}
 	note := strings.Join(words, " ")
 	if p.CDMBlocked {
@@ -142,7 +144,10 @@ func sandboxRow(p services.DiagPlayback) diagRow {
 
 // realtimeRow is the scheduling the playing host's audio thread got
 // (cdmhost.Realtime). The sandboxed host has no D-Bus, so on Linux Sona asks
-// RTKit or the Realtime portal for it on the host's behalf.
+// RTKit or the Realtime portal for it on the host's behalf. On Windows the
+// render thread registers with MMCSS itself and Sona reads the priority it
+// got ("Realtime · priority 24 (MMCSS)", or "Normal" with "MMCSS refused
+// it." when the host's own registration failed).
 func realtimeRow(p services.DiagPlayback) diagRow {
 	label := i18n.T("Audio priority")
 	priority := strconv.Itoa(p.RealtimePriority)

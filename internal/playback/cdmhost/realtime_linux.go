@@ -50,6 +50,10 @@ func audioThreadIDs() []int {
 	return tids
 }
 
+// schedProbe: the child cannot ask RTKit itself (no D-Bus in its sandbox),
+// so it tries nothing.
+func schedProbe() string { return "" }
+
 // ownsThread reports whether tid is one of process pid's threads. The
 // child shares the parent's PID namespace, so its thread IDs are valid
 // here and RTKit's.

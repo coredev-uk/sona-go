@@ -28,6 +28,10 @@ func (p *player) bar(c *ui.Context) {
 	s := p.env.Play.State()
 	p.announce.Announce(c, s)
 	p.announce.AnnounceFailure(c, s)
+	if p.repeatSaid {
+		p.repeatSaid = false
+		c.Announce(i18n.T("Repeat one"))
+	}
 	p.returnFocus(c)
 	tk := theme.Current()
 	backdrop := ""

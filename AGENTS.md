@@ -9,7 +9,7 @@ The main checkout is read-only: it stays on `main` and you never edit, build or 
 1. From the main checkout's root, create a worktree beside it: `git worktree add ../sona-go-<slug> -b <type>/<slug> origin/main` (`<type>` is the Conventional Commit type, e.g. `feat/queue-autoplay`).
 2. `cd` into it, then run `pwd` and `git branch --show-current`: the path must be `…/sona-go-<slug>` and the branch must not be `main`.
 3. Use absolute paths into the worktree for every file tool (read, edit, write). File tools resolve relative paths against the session's starting directory, which is often the main checkout.
-4. Implement, with the docs and tests that describe the change in the same PR. A new worktree has no `.env`; symlink it from the main checkout only when a live token is needed.
+4. Implement, with the docs and tests that describe the change in the same PR. A new worktree has no `.env`; symlink it from the main checkout only when a live token is needed (on Windows, `devloop` reads the main checkout's itself).
 5. Run `devenv shell -- check` and `devenv shell -- tests`. After rebasing onto `main`, also run `gen` and `go run ./cmd/i18ntool extract`, and commit the results.
 6. Push and open the PR with a Conventional Commit title and the template (`.github/pull_request_template.md`): What, Why, Evidence (commands with their output; light and dark screenshots for UI, no personal account data), Tests, Docs, Left.
 7. When CI is green and the work is done, comment `@bot-clarence merge`.
@@ -23,12 +23,12 @@ The main checkout is read-only: it stays on `main` and you never edit, build or 
 
 ## Commands
 
-Run everything as `devenv shell -- <cmd>` (devenv 2.4+; it sets `CGO_ENABLED`, `GOFLAGS=-tags=sqlite_fts5`, GStreamer paths, `.env`). Without it, `-tags` replaces `GOFLAGS`: name `sqlite_fts5` too.
+Run everything as `devenv shell -- <cmd>` (devenv 2.4+; it sets `CGO_ENABLED`, `GOFLAGS=-tags=sqlite_fts5`, GStreamer paths, `.env`). Without it, `-tags` replaces `GOFLAGS`: name `sqlite_fts5` too. Each command is a recipe in the `justfile` (the devenv scripts run `just <cmd>`); on Windows, where Nix doesn't run, run `just <cmd>` with the cgo environment (`docs/development.md`, "On Windows").
 
 - `check`: vet (also `dev` and `probe` tags), Windows and macOS type-checks, golangci-lint on new code, `mygo vet internal/ui`, i18n extract check, path case. `tests`: `go test -race` in `dbus-run-session`, `ui.Tester` and golden images included.
 - `fmt` (gofumpt), `gen` (sqlc into `internal/db/dbq`), `go run ./cmd/i18ntool extract` (English `.po` catalogues; a test fails when stale).
 - One test: `devenv shell -- go test -race ./internal/<pkg> -run '^TestName$'`.
-- The rest (`dev`, `build`, `headless`, `e2e`, `probe`, `release`, spikes): `docs/development.md`, "devenv scripts". DRM regression after CDM, playback or Apple changes: `go run ./cmd/playspike -seek 90`.
+- The rest (`dev`, `build`, `headless`, `e2e`, `probe`, `release`, spikes): `docs/development.md`, "Developer commands". DRM regression after CDM, playback or Apple changes: `go run ./cmd/playspike -seek 90`.
 
 ## Repo map and where to look
 

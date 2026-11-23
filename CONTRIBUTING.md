@@ -14,7 +14,7 @@ Thanks for taking the time to contribute. Everyone taking part follows the [Code
 
 ## Quick start
 
-You need [Nix](https://nixos.org/download) and [devenv](https://devenv.sh) 2.4 or newer. [direnv](https://direnv.net) is optional.
+On Linux and macOS you need [Nix](https://nixos.org/download) and [devenv](https://devenv.sh) 2.4 or newer. [direnv](https://direnv.net) is optional.
 
 ```sh
 git clone https://github.com/coredev-uk/sona-go.git
@@ -26,6 +26,8 @@ tests               # go test -race
 ```
 
 Outside the shell, run any of these as `devenv shell -- <command>`. Everything runs in devenv's pinned toolchain.
+
+On Windows, where Nix doesn't run, install [just](https://just.systems) (`winget install Casey.Just`) and the tools in [docs/development.md](docs/development.md#on-windows), "On Windows", then run the same commands in PowerShell as `just dev`, `just check`, `just tests`. Each command has one definition, in the `justfile`, which devenv's scripts run too.
 
 Development tools: **Inspect** is in every item's right-click menu and shows the item's IDs, artwork, what Apple sent (from Go's cache) and what an add-on receives for it (see [Debugging the UI](docs/development.md#debugging-the-ui)). A development build (`dev` makes one) always has it; a release build has it while Settings → Diagnostics → Developer tools is on. `SONA_INSPECTOR=1 dev` opens MyGo's element inspector, which release builds never carry.
 
@@ -85,7 +87,7 @@ You may use AI tools. A human reviews every change and can explain it, and you o
 | [docs/architecture.md](docs/architecture.md) | How Sona is built, and why |
 | [docs/ui-architecture.md](docs/ui-architecture.md) | The UI's modules, store, kit and tokens |
 | [docs/design.md](docs/design.md) | The visual direction |
-| [docs/development.md](docs/development.md) | The environment, every devenv script, live playback, the Widevine CDM |
+| [docs/development.md](docs/development.md) | The environment, every developer command, live playback, the Widevine CDM |
 | [docs/testing.md](docs/testing.md) | Checks, preview playback, sandbox and packaging tests, goldens, end-to-end, VM tests |
 | [docs/performance.md](docs/performance.md) | Measuring frame cost, start-up and memory |
 | [docs/platforms.md](docs/platforms.md) | Linux, macOS and Windows: seams, build tags, the title bar, macOS setup |

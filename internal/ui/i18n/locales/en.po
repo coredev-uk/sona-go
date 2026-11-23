@@ -6928,6 +6928,10 @@ msgid "Sona can't use that image. It must be a JPEG or PNG within the size limit
 msgstr "Sona can't use that image. It must be a JPEG or PNG within the size limits."
 
 #: internal/ui/features/settings/updates.go
+msgid "Sona can't write in the folder that holds the Sona folder, where an update is unpacked, so it can't update itself. Move the Sona folder into a folder you own."
+msgstr "Sona can't write in the folder that holds the Sona folder, where an update is unpacked, so it can't update itself. Move the Sona folder into a folder you own."
+
+#: internal/ui/features/settings/updates.go
 msgid "Sona can't write where it is installed, so it can't update itself. Move it to your Applications folder, or to a folder you own."
 msgstr "Sona can't write where it is installed, so it can't update itself. Move it to your Applications folder, or to a folder you own."
 
@@ -7142,6 +7146,10 @@ msgstr "Sona restarts on the previous version. Your settings, sign-in and librar
 #: internal/ui/features/settings/previous.go
 msgid "Sona restarts on {version}. Your settings, sign-in and library are kept."
 msgstr "Sona restarts on {version}. Your settings, sign-in and library are kept."
+
+#: internal/ui/features/settings/diag_rows.go
+msgid "Sona runs from the root of a drive, and it never changes a whole drive's permissions to give its sandbox access. Move the Sona folder into a folder, such as C:\\Tools\\Sona."
+msgstr "Sona runs from the root of a drive, and it never changes a whole drive's permissions to give its sandbox access. Move the Sona folder into a folder, such as C:\\Tools\\Sona."
 
 #: internal/ui/i18n/errors.go
 msgid "Sona signed out, but couldn't remove everything it saved. Unlock your keyring, then sign out again."

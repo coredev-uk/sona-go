@@ -132,7 +132,7 @@ and Windows development builds in ci.yml never hold a release up), then the
 | Job       | Runner        | Builds                                                             | Smoke test in the job                                                                 |
 | --------- | ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `linux`   | ubuntu-26.04  | the Linux packages (`build/linux/release/release.sh`)              | each package on clean Ubuntu, Fedora and Arch containers                              |
-| `macos`   | macos-15      | `Sona-<v>-macos-arm64.dmg`, `sona-<v>-darwin-arm64.tar.gz` (`build/darwin/bundle.sh`) | `build/darwin/smoke.sh`: `--version`, first paint, no video plugin in the bundle and a preview played from the bundle's GStreamer (`avdec_aac`), no `/nix`, `/opt/homebrew` or `/Library/Frameworks` paths, `codesign --verify` |
+| `macos`   | macos-26      | `Sona-<v>-macos-arm64.dmg`, `sona-<v>-darwin-arm64.tar.gz` (`build/darwin/bundle.sh`, the window by `build/darwin/dmg.sh`) | `build/darwin/smoke.sh`: the `.dmg`'s window layout (`.DS_Store`, background, icons, hidden chrome), `--version`, first paint, no video plugin in the bundle and a preview played from the bundle's GStreamer (`avdec_aac`), no `/nix`, `/opt/homebrew` or `/Library/Frameworks` paths, `codesign --verify` |
 | `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh` with GStreamer off `PATH`: layout (shim, GStreamer runtime and plugins, no CDM), the zip's `--version`, first paint and audio stack from the bundle, two previews played to `fakesink`, the update archive's files and that the updater could unpack it (`releasesign -check`: no `./` entry), silent install, files and `music:`/`itms:` keys; silent uninstall, which also removes the playback sandbox's AppContainer profile and package folder (checked gone); the zip's `sona.exe --remove-sandbox` takes the sandbox's entry off its folder |
 | `publish` | ubuntu-26.04  | `update-darwin-arm64.json`, `update-windows-amd64.json`, `SHA256SUMS` | checks the Linux checksums; attests the manifests and the combined `SHA256SUMS`       |
 
@@ -156,6 +156,55 @@ and Windows development builds in ci.yml never hold a release up), then the
   whose Xcode tools cannot link, build inside devenv with `SONA_DEVENV_BUILD=1`
   (it points devenv's copies of macOS's own libraries back at `/usr/lib`;
   CI never sets it).
+- **The `.dmg` window:** `build/darwin/dmg.sh` makes the image: Sona.app and
+  an `Applications` alias on the volume `Sona`, compressed as ULMO (LZMA: a
+  quarter smaller than UDZO; macOS 10.15 and later open it), and the Sona icon
+  as the volume's. The window is the art in `build/darwin/dmg`: a 640 × 400 pt
+  board set like a record label's catalogue card (`background.svg`, its
+  `background.png` and `background@2x.png` rendered from it, joined into one
+  1x/2x TIFF with `tiffutil -cathidpicheck`) with "Drag Sona to Applications"
+  and the first-open line (the wording of `.github/release-notes/install.md`
+  and the site's install page: change them together). Finder draws the icons
+  (128 pt, centred on `(165, 180)` and `(475, 180)`) and its labels, which it
+  paints black over any picture in light and dark mode, so the board is
+  light. `build/darwin/dmg/settings.py` holds every number (window, icon size,
+  positions, hidden toolbar, sidebar, path bar and status bar); the window's
+  height adds the title bar (28 pt; macOS 26 draws 32 and crops the art's last
+  4 pt, which it leaves empty). `Sona.app` is copied into the image untouched,
+  so its label reads "Sona.app" (or "Sona" where a user hides extensions). Do
+  not hide its extension in the image: dmgbuild's `hide_extensions` sets a
+  Finder flag on the bundle root, `codesign --verify --strict` then fails
+  ("detritus not allowed"), and Gatekeeper may report the app as damaged after
+  a drag install instead of offering "Open Anyway". `smoke.sh` fails on it.
+  - **No Finder, no AppleScript:** `dmgbuild` writes the `.DS_Store` and the
+    background's alias record itself, so the build is the same on the CI
+    runner (no GUI session) as on a Mac. It is pinned to exact versions and
+    wheel hashes in `build/darwin/dmgbuild.sha256` (dmgbuild, ds_store and
+    mac_alias; `build/darwin/install-dmgbuild.sh` downloads, checks and
+    unpacks them into `bin/dmgbuild`, no pip, needs Python 3.11 or later and
+    PyPI; `bundle.sh` runs it first, and `smoke.sh` reads from the same place). To move to a newer
+    version, change the version and the hash together (the script prints the
+    one it computed) and any dependency the new wheel's `METADATA` adds.
+    `bundle.sh` runs it before the update archive exists, with only `PATH`
+    and `HOME` in its environment, and fails if `Sona.app` hashes differently
+    afterwards; the image goes into `OUTDIR` last.
+  - **To change the art:** edit `background.svg` and run
+    `devenv shell -- build/darwin/dmg/render.sh` (resvg and the embedded
+    Schibsted Grotesk, then `sips` to mark the 2x PNG 144 dpi); commit all
+    three files. To look at it, build a `.dmg` from any `Sona.app`
+    (`build/darwin/install-dmgbuild.sh`, then
+    `build/darwin/dmg.sh Sona.app /tmp/Sona.dmg`) and open it.
+  - **`smoke.sh` reads the layout back:** the image is ULMO and mounts
+    read-only as `Sona`; `dmgcheck.py` reads the `.DS_Store` with dmgbuild's
+    reader and compares it with `settings.py` (window bounds, icon view and
+    size, both icon positions on one line, the toolbar, sidebar, path bar,
+    status bar and tab view hidden, the background's alias, the TIFF's 1x and
+    2x pictures at 72 and 144 dpi, the volume icon, exactly Sona.app and the
+    `Applications` alias, and no Finder information on `Sona.app`); `Sona.app`
+    in the image passes `codesign --verify --deep --strict` and matches the
+    update archive's files.
+    Finder's own look (light, dark, icons on the art) is a manual check, under
+    "Platform checks on real machines".
 - **Windows:** Go, the runner's MinGW-w64 gcc (cgo links GStreamer and
   `go-sqlite3`; MinGW's `objdump` finds the DLLs to copy), NSIS from
   Chocolatey (version and installed-file hash pinned in
@@ -275,7 +324,10 @@ and Windows development builds in ci.yml never hold a release up), then the
 
 Before merging a release PR, install the release candidate's files:
 
-- **macOS 14+ on Apple silicon:** the `.dmg` opens; Sona drags to
+- **macOS 14+ on Apple silicon:** the `.dmg` opens at 640 × 400 on the Sona
+  background in light and in dark mode (no toolbar, sidebar, path bar or
+  status bar; the Sona icon left and Applications right, level with the
+  arrow; no icon label cut off); Sona drags to
   Applications; the first open is blocked, then works through "Open Anyway" or
   `xattr -dr com.apple.quarantine /Applications/Sona.app`; `music://` and
   `itms://` links open Music.app until Settings → General → Open Apple Music
@@ -290,26 +342,35 @@ Before merging a release PR, install the release candidate's files:
   the user can write; the uninstaller removes the app and the URL handlers and
   the sandboxes' AppContainer profiles (`%LOCALAPPDATA%\Packages\sona.cdmhost`
   and the add-ons' `sona.addon.<id>` folders are gone; `sona.exe --remove-sandbox` is the same step for the portable zip),
-  and keeps the user's data.
+  and keeps the user's data. A setup run while Sona runs (also from the
+  tray) says "Sona is running" with Retry and Cancel, and Retry after quitting
+  Sona goes on. A setup over an install where an update kept a previous
+  version leaves Settings → Diagnostics → Updates with no previous version.
 - **Updates (macOS and Windows):** install rc.N, publish rc.N+1 (dispatch on
   `main` with `nightly=true`), turn Test versions on, see the notice, "Install and
   restart", and check settings, sign-in and the queue survive. A deliberately
   broken build rolls back. On Windows do it with a track playing (it pauses
-  when the download ends and the host child exits: that is what lets the swap
-  rename `lib\`), then play a song after the restart: the host starts in the
+  when the download ends and the host child exits, so no host outlives the
+  swap), then play a song after the restart: the host starts in the
   AppContainer (the log has `cdmhost: granted the sandbox read access to a
   folder` if the update's files lacked the entry), and Diagnostics' Updates
   section shows `previous` rc.N. Also make one install fail (a file in `lib\`
-  held open by another program) and check the slip offers "Try again" and
-  "View release", Diagnostics' `installError.detail` names the cause, and
-  playing works again without restarting Sona.
+  held open by another program without delete sharing, e.g. PowerShell's
+  `[IO.File]::Open($path,'Open','Read','None')`) and check the slip offers
+  "Try again" and "View release", Diagnostics' `installError.detail` names
+  the cause, and playing works again without restarting Sona.
 - **Restoring the previous version (macOS and Windows):** after that update,
   Settings → Diagnostics → Updates → Previous version names rc.N. "Restore…"
   asks first, then Sona quits and starts rc.N with settings, sign-in and the
   queue kept. The sidebar does not offer rc.N+1 again, Settings → General
   still says it is available, and "Check now" brings the notice back. Copy
   diagnostics shows `lastRollback` with `"manual": true`. There is no row on
-  Linux or in a development build.
+  Linux or in a development build. On Windows restore once within 5 minutes
+  of playing (the log has `ending the playback host: Sona is replacing its
+  files` first), and once with a file in `lib\` held open as above: the
+  restore fails, `sona.exe --version` still says rc.N+1, no `.*.old-*` entry
+  is left in the folder and `previous\` is whole, so a retry after closing
+  the file works.
 
 ### Repository settings release-please needs
 
@@ -402,8 +463,14 @@ run, with the evidence for anything not obvious from the check itself.
 | 2026-11-08 | 0.3.0-rc.5 | macOS, Apple silicon | `music://` links after "Make Sona the default" (#198) | Pass | Maintainer's run |
 | 2026-11-08 | 0.3.0-rc.5 → rc.4 | macOS, Apple silicon | Rollback after 3 failed starts | Pass | An `update-pending` marker (rc.4 → rc.5, 3 starts) on the maintainer's Mac: rc.5 logged "never reached its first paint: restoring the previous version", put `Sona.app.previous` (rc.4) back, relaunched it, and rc.4 reached first paint signed in 1.2 s later; `update-rollback.json` recorded it and `update-pending` was cleared. The counting of failed starts is `internal/update`'s tests. rc.5 was put back by hand afterwards |
 | 2026-11-14 | 0.3.1 → 0.4.0 → 0.5.0-rc.3 | Windows 11 Home (build 26300), per-user install in `%LOCALAPPDATA%\Programs\Sona` | Updates (Test versions on, Install and restart) | Fail | A tester's diagnostics bundle: each install, from the slip, logged `update install failed … mygo: installing the update: invalid path in update archive: "./"`, twice for 0.3.1 → 0.4.0 (the notice kept offering "Install and restart"). The extraction fails before anything is swapped, so the versions advanced some other way: the 9–11 s between `shutdown complete` and the next `process start` fit the installer being run by hand (inferred; nothing in the log says it). Cause: the `./` first entry of the Windows update archive, in every release; fixed in `update-archive.sh`, checked by `releasesign -check`. The Windows update run itself (install, relaunch, rollback) is still to do on a real machine |
+| 2026-11-15 | 0.5.0-rc.5 → 0.5.0 → rc.5 → 0.5.0 | Windows 11 x64 (build 26200), per-user install | Updates and restore by choice, with a host running | Pass | From the log of that install, read on 2026-11-22 (#314): `update installed` rc.5 → 0.5.0 twice; between them, `restored the previous version` 63 s after `playback host started` with no host exit logged (inferred: the host was still up, with `lib\`'s plugins loaded), `update-rollback.json` `"manual": true`, and the second update logged `ending the playback host: Sona is replacing its files` 0.9 s before `update installed` |
 | 2026-11-16 | 0.6.0 (release PR head `97ea05e0`) | NixOS workstation, devenv | §1: real-CDM `go test -race ./internal/playback/...` (`SONA_CDM_REQUIRE=1`) and `playspike -seek 90` (private mode, own null sink) | Pass | 16 packages ok; full track past 1:30, licences granted, sandbox on, 59 ms track gap |
 | 2026-11-16 | 0.6.0 | GitHub Actions | §1: `release.yml` dry run on the release branch (`-f checks=true`, `release.sh` included), then the release run | Pass | Dry run 43809146801; release run 43810690674. `sha256sum -c SHA256SUMS` OK for all 13 files; `gh attestation verify` OK for the `.deb`; `sona-bin` 0.6.0-1 first uploaded to the AUR (#316). `release.sh` not run locally (no podman or docker on the workstation). §2's desktop matrix not run |
+| 2026-11-22 | 0.7.0-rc.7 | macOS 27.2, Apple silicon, over a 0.6.0 install | Platform checks: `.dmg` downloaded in the browser (quarantined), dragged to Applications, Gatekeeper, sign-in, full-track playback, motion artwork, `music://`, `itms://`, `musics://`, `itmss://` links, the links row, restart | Pass | Blocked on first open, opened through "Open Anyway". Signed in from 0.6.0's keychain item with no prompt (the item moved to Sona's own, #613). Full tracks played (`28:ctrp256`, private listening on), a motion clip played. The four schemes opened Abbey Road, OK Computer, Kind of Blue and Rumours in Sona with Music.app never starting; the row says "Sona opens them". "Music.app until Make Sona the default" not checked: Sona was already the default from 0.6.0. Quit and relaunch kept the queue, shuffle, repeat, volume and a byte-identical `settings.json` |
+| 2026-11-22 | 0.7.0-rc.7 → rc.8 | macOS 27.2, Apple silicon | Updates (Test versions on, notice, Install and restart) | Pass | rc.8 was a nightly dispatched for the check. `update installed from 0.7.0-rc.7 to 0.7.0-rc.8` 21 s after the click; `Sona.app.previous` is rc.7; queue, status and `settings.json` unchanged, signed in, `codesign --verify --deep --strict` OK; a song played after the restart |
+| 2026-11-22 | 0.7.0-rc.8 → rc.7 | macOS 27.2, Apple silicon | Restoring the previous version ("Restore…"), then the rollback after 3 failed starts | Pass | Restore asked first ("Go back to 0.7.0-rc.7?"), restarted on rc.7 with the queue, settings and sign-in kept, though rc.8 had already run migration 00019 (no warning or error logged). The bell did not offer rc.8 again, Settings → General still said it was available, and Check now brought the notice back. `update-rollback.json` recorded `"manual": true`. No `Sona.app.previous` is kept after a restore. For the automatic path, rc.8 was installed again, quit, and an `update-pending` marker (rc.7 → rc.8, 3 starts) planted: rc.8 logged "the updated version never reached its first paint: restoring the previous version" and came back as rc.7, signed in, with the queue; `update-rollback.json` had no `manual`. The Mac was left on rc.8 |
+| 2026-11-22 | `main` (0.5.0 install copied to `%TEMP%`) | Windows 11 x64 (build 26200) | Renames under a running host; restore with a locked file (#314) | Pass | `playspike -preview -sink fakesink` from the copy: the AppContainer host had 24 plugins of `lib\gstreamer-1.0` loaded, and `lib\` and `libexec\` still renamed, from a third process; the guard's restore of `previous\` (0.5.0-rc.5) went through with the host playing. With `licenses\LICENSE.txt` opened without delete sharing the restore failed at `licenses` ("Access is denied"): `main` left 32 entries swapped and `previous\` with 5; the fix renamed them back (same hashes, `previous\` whole) and a retry after closing the file restored rc.5 |
+| 2026-11-22 | `installer.nsi` of #314's fix (built with makensis 3.13 over the 0.5.0 files) | Windows 11 x64 (build 26200), private profile in `%TEMP%` | Installer over a running Sona; over an install with `previous\` | Pass | With 0.5.0 running on that profile, `setup.exe /S` exited 2 and created nothing; interactively it showed "Sona is running. Quit it…, then choose Retry", and Retry after quitting Sona went on to the folder page. Over a folder with `previous\` and `previous.staging\`, `/S` exited 0 and left neither, nor `update-previous` and `update-pending`; over one without `previous\`, `update-previous` stayed. The uninstaller's check (the same macro) was not run here: its section would remove this machine's real sandbox profile |
 
 ## 4. Known issues
 

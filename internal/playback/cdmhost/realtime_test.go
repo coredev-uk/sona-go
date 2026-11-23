@@ -265,9 +265,9 @@ func TestAudioThreadsBounded(t *testing.T) {
 	for tid := 1; tid <= 3*maxRealtimeThreads; tid++ {
 		tids = append(tids, tid)
 	}
-	h.audioThreads([]int{1, 1, 0, -5})
-	h.audioThreads(tids)
-	h.audioThreads(tids)
+	h.audioThreads(threadReport{TIDs: []int{1, 1, 0, -5}})
+	h.audioThreads(threadReport{TIDs: tids})
+	h.audioThreads(threadReport{TIDs: tids})
 	waitRealtime(t, h, func(rt Realtime) bool { return rt.Threads == maxRealtimeThreads })
 	h.rtReq.Lock() // every request has finished
 	defer h.rtReq.Unlock()

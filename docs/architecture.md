@@ -254,6 +254,11 @@ What leaves Sona's own window (the scrobbler, the Discord presence and add-ons) 
 | macOS (Apple silicon) and Windows (x64) | Sona installs the update in place (below). |
 | Linux | The check compares the latest GitHub release (the API) with `VERSION` and says a version is out. `.deb`, `.rpm`, Arch, Flatpak and Nix update through their package managers, and the AppImage through AppImageUpdate. |
 
+The portable Windows zip has two places where it does less, both measured on Windows 11 26200 (#314). Neither loosens the sandbox:
+
+- **A folder whose parent the user can't write.** MyGo unpacks an update beside the install folder, so `UpdaterModule.Enabled` probes the folder that holds it, not the install folder itself. A zip extracted into a folder the user can write, inside one they can't, finds updates but offers "View", not "Install and restart". Settings → General → Updates says why (`UpdatesNotWritable`, worded for Windows: move the Sona folder into a folder you own).
+- **A drive root** (a zip extracted to `D:\`, or a `subst` drive). `appcontainer.Grant` never changes a whole drive's access list (`ErrDriveRoot`), so the CDM host child starts unconfined and loads no CDM: previews play, full songs don't. Diagnostics' host sandbox row names the cause (`SandboxGapDriveRoot`: move the Sona folder into a folder) instead of the generic "Windows couldn't set up its AppContainer sandbox".
+
 #### The update feed and install
 
 - The request is `releases/latest/download/update-<target>.json` (`darwin-arm64`, `windows-amd64`). It is MyGo's manifest format: version, notes, date, archive URL and size, and an Ed25519 signature of the archive's SHA-256. `cmd/releasesign` writes it in the publish job.
@@ -287,6 +292,7 @@ Before swapping, Sona stages a copy of the running version and writes `update-pe
 - An install that fails drops the staged copy and leaves the version kept before untouched (`Guard.Abandon`), so a failed attempt never passes for the version it was meant to replace.
 - A start that finds a staged copy left by a process that died settles it by which version runs.
 - The new version clears the marker at its first paint. A start that finds it already counted 3 times (`update.MaxStarts`) restores the previous version, starts it, and reports the restore in the Diagnostics bundle.
+- **The Windows installer** (`build/windows/installer.nsi`) is part of the guard. A setup run over an install that has `previous\` deletes it, `update-previous` and `update-pending`, as well as any `previous.staging\` or `previous.old\`. The version it installs replaces both the running one and the kept one, and restoring the kept one would put older files over newer. Settings → Diagnostics then offers no previous version until the next update. The installer and the uninstaller also refuse to run while Sona runs, since a file in use can't be overwritten and the install would be left a mix of versions. They tell by taking Sona's single-instance lock (`sona.lock` in the state folder, `LockFileEx` without waiting, as `internal/app` does). Interactively they ask the user to quit Sona and offer Retry; a silent run (`/S`) stops with exit code 2 and changes nothing.
 
 #### A failed install
 
@@ -298,14 +304,17 @@ A failed install leaves Sona as it was. MyGo unpacks beside the install, validat
 
 #### Playback while the files are swapped (Windows)
 
-MyGo renames the install's entries (`lib\`, the DLLs, `sona.exe`) while Sona runs. The running executable and the DLLs the process loaded can be renamed, but a folder with a loaded DLL in it can't. The CDM host child (the same executable) has GStreamer's plugins in `lib\gstreamer-1.0` mapped while it lives, which it does for the idle timeout after the last play.
+MyGo renames the install's entries (`lib\`, the DLLs, `sona.exe`) while Sona runs; a manual restore (below) does the same the other way. The CDM host child (the same executable) has GStreamer's plugins in `lib\gstreamer-1.0` mapped while it lives, which it does for the idle timeout after the last play, and it loads more of them, and the DLLs they import, as it needs them.
 
-So once the archive is downloaded and verified (`update.Source.Ready`, just before MyGo unpacks it), `UpdatesService` has the coordinator hold the host (`Coordinator.HoldHost`, `playback.HostHolder`, `native.Engine.HoldHost`):
+- **What a rename survives** (measured on Windows 11 26200, issue #314): the running executable, the DLLs a process loaded, and a folder whose DLLs other processes have loaded, the AppContainer host's 11 to 24 plugins and the UI process's included, all rename. What stops one is a file in the folder that something opened without `FILE_SHARE_DELETE` (an indexer, an antivirus scan, a tool holding it), or a process whose current folder is inside it. Then the rename fails with "Access is denied".
+- **Why the host is let go of all the same**: a host that outlives the swap would load the other version's plugins into a process built against this one's, and a play while the files move would start a host from a half-swapped folder.
+
+So once the archive is downloaded and verified (`update.Source.Ready`, just before MyGo unpacks it), and before a manual restore renames anything, `UpdatesService` has the coordinator hold the host (`Coordinator.HoldHost`, `playback.HostHolder`, `native.Engine.HoldHost`):
 
 - The item is paused where it is. The host child is ended now and waited for, and so are the probe children (`cdmhost.WaitIdle`, 10 s at most).
 - No host starts until the hold is released. A play meanwhile fails with `native.ErrHostHeld`. Starting playback is the user's act, so a track that is playing stops there, with the download's bar still showing.
-- A failed install releases the hold: playback stays paused where it was and the next play starts a new host, as after an idle shutdown. A good install keeps it, because Sona restarts.
-- A host that can't be ended is logged and the install goes on (the swap then fails and says so).
+- A failed install or restore releases the hold: playback stays paused where it was and the next play starts a new host, as after an idle shutdown. A good one keeps it, because Sona restarts.
+- A host that can't be ended is logged and the install or restore goes on (the swap then fails and says so if it can't).
 - macOS replaces the bundle after the quit and holds nothing (`Guard.SwapsInPlace`).
 
 #### The sandbox after an update (Windows)
@@ -335,8 +344,8 @@ Settings → Diagnostics → Updates → Previous version shows the version the 
 
 - **Where it exists**: only where Sona updates itself (macOS and Windows installs that can write where they are installed) and a previous version is kept, and not while an update installs or a restore runs. Elsewhere (Linux, development builds) the row is absent, not a stub.
 - **The version's number**: `CFBundleShortVersionString` in the kept bundle's `Info.plist` on macOS and, on Windows, `update-previous` in the state folder, which `Guard.Commit` writes. A snapshot made by a Sona that wrote none is offered without a number.
-- **The restore**: Sona asks first, then runs the guard's `restore` on the running install (both systems allow renaming a running app). It records the restore in `update-rollback.json` with `manual: true`, so the Diagnostics bundle tells "you restored" from "the failed update was rolled back". It drops `update-pending` and has MyGo's `Relaunch` quit Sona through its normal quit (settings and the queue are saved, the single-instance lock is released) and start what is now installed.
-- **A failure** leaves Sona running and the row says why (`restore_failed`).
+- **The restore**: Sona asks first, lets go of the playback host on Windows (above), then runs the guard's `restore` on the running install (both systems allow renaming a running app). It records the restore in `update-rollback.json` with `manual: true`, so the Diagnostics bundle tells "you restored" from "the failed update was rolled back". It drops `update-pending` and has MyGo's `Relaunch` quit Sona through its normal quit (settings and the queue are saved, the single-instance lock is released) and start what is now installed.
+- **A failure** leaves Sona running and the row says why (`restore_failed`). On Windows the entries are renamed one by one; one that can't be (a locked file in it) has the guard rename back those it already swapped, so the running version stays whole and `previous\` stays complete for another try, as MyGo's own swap does.
 - **After the restart**: the version just left is not offered again in the notification centre (`UpdateStatus.Declined`, read from the manual record when it names this run's version), because the row would otherwise invite the user straight back. Settings → General still says it is available, "Check now" (or installing it) ends the hold, and a newer release is offered as usual.
 - **One way**: the version left isn't kept, so going forward again is an ordinary update.
 
@@ -480,7 +489,8 @@ The output is rebuilt in place (no reload, position kept) when the device change
 
 - **PipeWire**: pipewiresink's "all buffers have been removed" error, raised when PipeWire relinks the stream, is not fatal. The output reconnects in place, and the old sink closes in the background.
 - **macOS**: osxaudiosink stays on the device it opened. The child watches Core Audio (the default output device and the device list, `gst/devices_darwin.c`) and rebuilds the output when the device it should play to changes. That is the default it follows (headphones plugged in, AirPods connected), or the chosen device (a Core Audio UID) going away, which plays to the default until it is back.
-- **Watchdog**: a watchdog rebuilds the output if it stands still for 3 s with audio queued or runs ahead of real time.
+- **Windows**: wasapi2sink with no device plays to the default endpoint and Windows moves the stream when the default changes (automatic stream routing). A chosen endpoint (its ID) is handed to wasapi2sink only while it is active (`IMMDevice::GetState`); while it is gone (unplugged, switched off, disabled) the output plays to the default, also at launch, so `wasapisink` is never picked for a missing endpoint. The child registers an `IMMNotificationClient` (`gst/route_windows.c`; the MMDevice API works inside the AppContainer) and rebuilds the output when an endpoint is added, removed or changes state and the device to play to differs: the chosen endpoint leaving or coming back.
+- **Watchdog**: a watchdog rebuilds the output if it stands still for 3 s with audio queued or runs ahead of real time. Running ahead is measured between two known positions of the same output: a rebuilt output (a device change, a sink error) carries on from the end of the audio the old one had queued, ahead of the old one's last position (about half a second with wasapi2sink), and counting that jump would rebuild the output on every check until the rebuild budget (3 in 30 s) ran out.
 - **Preroll**: an output that has never played is held in READY rather than PAUSED, because pipewiresink 1.6 deadlocks its PipeWire loop when it prerolls without rendering.
 
 #### Library uploads (`i.` IDs)
@@ -536,7 +546,7 @@ The thread that exchanges buffers with PipeWire's graph (pipewiresink's `pipewir
 4. It calls RTKit's `MakeThreadRealtimeWithPID` on the system bus at PipeWire's client priority (83) capped by `MaxRealtimePriority` (RTKit's default 20). In Flatpak, or without RTKit, it uses the Realtime portal (`org.freedesktop.portal.Realtime`, same methods).
 5. Refused, it asks for a raised nice level (`MakeThreadHighPriorityWithPID`, `MinNiceLevel`).
 
-At most 8 threads per child, each asked for once. Failure is not fatal, and Diagnostics → Audio priority shows the outcome (granted, raised, denied or unavailable, and why). macOS asks nothing (Core Audio runs its own I/O thread at realtime priority) and reports it unsupported.
+At most 8 threads per child, each asked for once. Failure is not fatal, and Diagnostics → Audio priority shows the outcome (granted, raised, denied or unavailable, and why). macOS asks nothing (Core Audio runs its own I/O thread at realtime priority) and reports it unsupported. Windows asks nothing either but measures the outcome (`cdmhost/realtime_windows.go`, §9 "Playback").
 
 #### Licence renewal
 
@@ -1002,7 +1012,12 @@ The CDM host child inherits all of it.
 
 #### Playback
 
-- Playback goes through the same CDM host child with the Windows CDM Google ships (`win_x64`, `widevinecdm.dll`) and GStreamer's WASAPI output. `wasapi2sink` follows the default device through Windows' automatic stream routing. The output list comes from the wasapi2 device provider, and the sink's render thread registers with MMCSS itself.
+- Playback goes through the same CDM host child with the Windows CDM Google ships (`win_x64`, `widevinecdm.dll`) and GStreamer's WASAPI output. `wasapi2sink` follows the default device through Windows' automatic stream routing; a chosen endpoint plays while it is active and falls back to the default while it is gone ("Output resilience"). The output list comes from Core Audio in the UI process (`IMMDeviceEnumerator`: the active render endpoints, whose IDs are wasapi2's `device.id`, and the default console endpoint), so the UI process loads no GStreamer plugin.
+- **Audio priority (MMCSS).** The sink's render thread (`GstWasapi2Rbuf`) registers itself with the Multimedia Class Scheduler's "Pro Audio" task (`AvSetMmThreadCharacteristicsW`) before it opens the device, and ignores a failure. The AppContainer allows it: the capability-less token registers (`TestAppContainerConfinesChild`), and on a Windows 11 PC (build 26200) the playing host's render threads ran at base priority 24 (issue #313). Sona measures rather than assumes it (`cdmhost/realtime_windows.go`):
+  1. Once an output plays, the child reports its threads named `GstWasapi2Rbuf`, with the outcome of one registration of its own (register, then revert, once per child): the Win32 error wasapi2 drops.
+  2. The parent reads those threads' base priority from a Toolhelp snapshot, which also proves they are the child's.
+  3. A thread at 16 or above is MMCSS's: a thread of a normal-priority-class process tops out at 15 without it, and "Pro Audio" gives 23–26. Diagnostics → Audio priority then reads "Realtime · priority 24 (MMCSS)". Below 16 it says "Normal", as refused by MMCSS when the child's own registration failed (its error in the log); otherwise the log gives the thread's priority.
+  - What is measured is the priority at the moment the output starts playing, not over time (MMCSS may lower a task that overruns its share). Another sink (`wasapisink`, `directsoundsink`) is not looked at, and the row stays at "Requested when audio starts".
 - Google's CDM is built with the MSVC C++ ABI, which cgo's MinGW cannot speak. The shim (`internal/playback/widevine/shim.cc`) is therefore built with MSVC into `sona_cdm_shim.dll` (`build/windows/build-shim.sh`, static CRT) beside `sona.exe`. `shim_windows.c` gives cgo the same C API as thunks over its exports.
 - Apple's licence server licenses this host (checked on windows-2025 with `windows-playback.yml`, weekly and on dispatch).
 - The UI, media keys and Now Playing run, and so does motion artwork, played by Media Foundation through MyGo's `ui/video` in the UI process with no GStreamer involved (§8, "Motion artwork"). The windows job of `ci.yml` plays a generated clip through it, since a package has nothing of it to smoke-test.
@@ -1063,7 +1078,7 @@ Every package, tests included, type-checks for `windows/amd64` and `darwin/arm64
 
 - `task package` builds the `.deb`, `.rpm`, Arch package (nfpm; GTK3, the tray's `libayatana-appindicator3` and GStreamer as dependencies) and the AppImage of the local build.
 - `build/linux/release/release.sh` builds them on Ubuntu 24.04 and smoke-tests them: `.deb` on Ubuntu, `.rpm` and the AppImage on Fedora, Arch package on Arch. The smoke checks `sona --version`, first paint under Xvfb, the GStreamer plugins, and no WebKitGTK or GTK4 linked. On Arch it also runs `namcap` on the PKGBUILD and the built package and fails on anything but the run-time dependencies namcap can't see (`smoke.sh`, `namcap_allowed`).
-- `build/darwin/smoke.sh` and `build/windows/smoke.sh` do the same for the macOS app and the Windows zip and installer. The Windows one also silently uninstalls the installer and checks that the sandbox's AppContainer profile is gone, and runs the zip's `sona.exe --remove-sandbox`.
+- `build/darwin/smoke.sh` and `build/windows/smoke.sh` do the same for the macOS app and the Windows zip and installer. The Windows one also checks that a silent setup refuses to run while the zip's Sona runs (exit code 2, nothing installed) and that an install over a folder with `previous\` drops it, `update-previous` and `update-pending`. It silently uninstalls the installer, checks that the sandbox's AppContainer profile is gone, and runs the zip's `sona.exe --remove-sandbox`.
 
 ### Manual release checks
 

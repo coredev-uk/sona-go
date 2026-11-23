@@ -3,7 +3,7 @@ title: Test Your Change
 description: Run the checks and tests, update golden images, and run the end-to-end and live-playback checks.
 ---
 
-Run these in the [devenv environment](/contributing/setup/). Run `check` and `tests` before every pull request.
+Run these in the [devenv environment](/contributing/setup/), or as `just <command>` on Windows (`just check`, `just tests`). Run `check` and `tests` before every pull request.
 
 ## Run the checks
 

@@ -6,13 +6,35 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
 )
 
+// cacheDir is these tests' XDG cache: one per user, kept between runs, as
+// uitest keeps its own (internal/ui/uitest/hermetic.go, processCache; kit
+// imports devstate, so these tests can't import uitest). A Tester's Pango
+// loads fonts on a thread of its own, and fontconfig writes its cache under
+// XDG_CACHE_HOME (else $HOME/.cache) whenever that thread gets to it: under
+// a test's t.TempDir it could still be writing as the test's cleanup removed
+// the directory, and TestSaveLoad failed with "directory not empty".
+var cacheDir = sync.OnceValues(func() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(base, "sona-tests", "devstate")
+	return dir, os.MkdirAll(dir, 0o700)
+})
+
 func isolate(t *testing.T) {
 	t.Helper()
+	cache, err := cacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_CACHE_HOME", cache)
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("SONA_DEV_INSTANCE", "")

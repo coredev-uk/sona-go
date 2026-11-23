@@ -156,6 +156,11 @@ var allApplicationPackages = sync.OnceValue(func() *windows.SID {
 // at once do not overwrite each other's change.
 var grantMu sync.Mutex
 
+// ErrDriveRoot is what Grant and Remove return for a drive root (C:\, or a
+// drive subst or a share maps to a folder): they never change a whole
+// drive's access list. A program run from one has no folder to grant.
+var ErrDriveRoot = errors.New("a drive root")
+
 // Grant gives sid the rights in mask on path, and for a directory on
 // everything under it, unless it has them already: by an entry of its own
 // or, for a read, by ALL APPLICATION PACKAGES (Program Files, the Windows
@@ -170,7 +175,7 @@ var grantMu sync.Mutex
 // a list was set.
 func Grant(sid *windows.SID, path string, mask windows.ACCESS_MASK, own bool, sentinels ...string) (refreshed bool, err error) {
 	if filepath.Dir(path) == path {
-		return false, fmt.Errorf("refusing to change the access list of %s, a drive root", path)
+		return false, fmt.Errorf("refusing to change the access list of %s, %w", path, ErrDriveRoot)
 	}
 	st, err := os.Stat(path)
 	if err != nil {
@@ -756,7 +761,7 @@ func Remove(profileName string, folders, trees []string) error {
 // entry for sid is left alone.
 func revoke(sid *windows.SID, path string) error {
 	if filepath.Dir(path) == path {
-		return fmt.Errorf("refusing to change the access list of %s, a drive root", path)
+		return fmt.Errorf("refusing to change the access list of %s, %w", path, ErrDriveRoot)
 	}
 	grantMu.Lock()
 	defer grantMu.Unlock()

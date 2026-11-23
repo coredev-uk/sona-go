@@ -7,8 +7,8 @@
 //	mixer:   joins the lanes' decoded tracks gaplessly or with a crossfade
 //	output:  appsrc (PCM) ! tail (equaliser, volume; tail.c) ! sink
 //
-// The sink is pipewiresink on Linux and osxaudiosink on macOS (Sinks,
-// output_<os>.go).
+// The sink is pipewiresink on Linux, osxaudiosink on macOS and wasapi2sink
+// on Windows (Sinks, output_<os>.go).
 //
 // A track is loaded into a lane with Load (which flushes everything: play,
 // seek) or Queue (which follows the current track without a gap). Each
@@ -17,9 +17,10 @@
 // consecutive tracks join sample-exact. Pushes block while a lane's queue is
 // full (backpressure); a generation number per track makes superseded data
 // harmless. The output is rebuilt in place when its sink fails or the device
-// changes, and on macOS when the device it should play to does (the system
-// default output, or the chosen one plugged in or removed: routeEpoch);
-// PipeWire relinking the stream is not a failure.
+// changes, and on macOS and Windows when the device it should play to does
+// (routeEpoch: on macOS the system default output, or the chosen one plugged
+// in or removed; on Windows the chosen one plugged in or removed); PipeWire
+// relinking the stream is not a failure.
 package gst
 
 /*
@@ -97,15 +98,15 @@ type Options struct {
 	AppName  string        // client/application name, default "Sona"
 	MaxQueue time.Duration // per-lane queue of access units before Push blocks, default 12s
 	// Device is the output to play to; "" follows the default. A
-	// PipeWire node.name (pipewiresink) or a Core Audio device UID
-	// (osxaudiosink); one that is gone plays to the default until it is
-	// back.
+	// PipeWire node.name (pipewiresink), a Core Audio device UID
+	// (osxaudiosink) or a WASAPI endpoint ID (wasapi2sink); one that is
+	// gone plays to the default until it is back.
 	Device string
 }
 
 // Device is an audio output.
 type Device struct {
-	Name        string // PipeWire node.name; Core Audio device UID (Options.Device)
+	Name        string // PipeWire node.name; Core Audio device UID; WASAPI endpoint ID (Options.Device)
 	Description string // human-readable name
 	Default     bool   // the system's default output
 }
@@ -194,8 +195,11 @@ type Pipeline struct {
 	// (watch goroutine only).
 	stallPos time.Duration
 	stallAt  time.Time
-	lastPos  time.Duration
-	lastAt   time.Time
+	// The race check's last output position, when it was read (zero when
+	// unknown) and the output build it came from (watch goroutine only).
+	lastPos   time.Duration
+	lastAt    time.Time
+	lastBuild uint64
 	// route is what the output was built for (streamProps); routeSeen the
 	// routeEpoch it saw last (watch goroutine only).
 	route     string
@@ -483,21 +487,36 @@ func (p *Pipeline) outputFailed(cause error) {
 // checkStall rebuilds the output when it should play and has audio
 // queued but its position has not moved for stallAfter (a sink that lost
 // its device and never got one back), or when it races ahead of real time
-// (a sink whose clock jumped, dropping audio). Called from watch, at least
-// every 200 ms.
+// (a sink whose clock jumped, dropping audio). The race is measured
+// between two known positions of the same output build: a rebuilt output
+// starts past the audio the old one still held. Called from watch, at
+// least every 200 ms.
 func (p *Pipeline) checkStall() {
 	p.mu.Lock()
 	want := p.want
 	p.mu.Unlock()
 	now := time.Now()
+	build := p.build.Load()
 	pos, ok := p.outPosition()
+	if p.build.Load() != build {
+		ok = false // rebuilt meanwhile: the position may be either output's
+	}
 	queued := time.Duration(0)
 	if p.use() {
 		queued = time.Duration(C.sona_gst_out_queued_ns(p.p))
 		p.life.RUnlock()
 	}
 	prevPos, prevAt := p.lastPos, p.lastAt
+	if build != p.lastBuild {
+		// A rebuilt output carries on from the end of the audio the old
+		// one had queued, ahead of the position the old one last
+		// reported: that jump is no race.
+		p.lastBuild, prevAt = build, time.Time{}
+	}
 	p.lastPos, p.lastAt = pos, now
+	if !ok {
+		p.lastAt = time.Time{} // nothing to measure the next position from
+	}
 	if want == StatePlaying && ok && !prevAt.IsZero() && pos-prevPos > now.Sub(prevAt)+raceSlack {
 		p.stallPos, p.stallAt = pos, now
 		p.outputFailed(fmt.Errorf("gst: the output skipped %v", (pos - prevPos - now.Sub(prevAt)).Round(time.Millisecond)))
@@ -515,7 +534,8 @@ func (p *Pipeline) checkStall() {
 
 // followRoute rebuilds the output when the device it should play to is not
 // the one it was built for: on macOS the default output changed while it
-// is followed, or the chosen device was plugged in or removed.
+// is followed, or (macOS, Windows) the chosen device was plugged in or
+// removed.
 func (p *Pipeline) followRoute() {
 	p.mu.Lock()
 	moved := streamProps(p.sink, p.opts.AppName, p.opts.Device) != p.route

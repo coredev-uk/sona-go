@@ -1,8 +1,11 @@
 package main
 
 import (
+	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -53,6 +56,29 @@ func TestExeName(t *testing.T) {
 	}
 }
 
+// devloop links a target with the compiler go build would: C++ only when the
+// target has C++ files (testdata/cxx), C otherwise (testdata/c), as cmd/sona
+// on Windows, which g++ linked into a window without its caption buttons.
+func TestTargetLinker(t *testing.T) {
+	goenv := func(name string) string {
+		out, err := exec.Command("go", "env", name).Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	if goenv("CGO_ENABLED") != "1" {
+		t.Skip("cgo is off: go list sees no C or C++ files")
+	}
+	first := func(s string) string { return strings.Fields(s)[0] }
+	if got, want := targetLinker(".", "", "./testdata/c"), first(goenv("CC")); got != want {
+		t.Errorf("a C-only target links with %q, want the C compiler %q", got, want)
+	}
+	if got, want := targetLinker(".", "", "./testdata/cxx"), first(goenv("CXX")); got != want {
+		t.Errorf("a target with C++ links with %q, want the C++ compiler %q", got, want)
+	}
+}
+
 func TestAppEnv(t *testing.T) {
 	env := []string{"A=1", "SONA_SOURCE="}
 	has := func(env []string, kv string) bool { return slices.Contains(env, kv) }
@@ -71,20 +97,51 @@ func TestAppEnv(t *testing.T) {
 	}
 }
 
+func TestLoopEnvDotenv(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".env"), []byte("export DEVLOOP_TEST_NEW='from file'\nDEVLOOP_TEST_SET=file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DEVLOOP_TEST_SET", "mine")
+
+	// Only the test's own names in a failure: the environment may hold
+	// secrets (devenv loads .env).
+	mine := func(env []string) []string {
+		return slices.DeleteFunc(slices.Clone(env), func(kv string) bool { return !strings.HasPrefix(kv, "DEVLOOP_TEST_") })
+	}
+	got := mine(newLoop(config{root: root, dotenv: true}).env())
+	if want := []string{"DEVLOOP_TEST_SET=mine", "DEVLOOP_TEST_NEW=from file"}; !slices.Equal(got, want) {
+		t.Errorf("dotenv: %q, want %q", got, want)
+	}
+
+	// Under devenv, whose dotenv has loaded .env already.
+	if got := mine(newLoop(config{root: root}).env()); !slices.Equal(got, []string{"DEVLOOP_TEST_SET=mine"}) {
+		t.Errorf("dotenv off: %q", got)
+	}
+}
+
 func TestExtldProbeCache(t *testing.T) {
+	// os.UserCacheDir: XDG_CACHE_HOME on Linux, HOME on macOS, LocalAppData on Windows.
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("LocalAppData", t.TempDir())
+	// The "linker" is the test binary itself: a program probeKey can find on every system
+	// (there is no sh on Windows' PATH).
+	real, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
 	probe := func(tmp string) []string {
 		return []string{"-m64", "-o", filepath.Join(tmp, "a.out"), "-Wl,--build-id=0x1234567890abcdef", filepath.Join(tmp, "trivial.c")}
 	}
-	k1, k2 := probeKey("sh", probe("/tmp/go-link-1")), probeKey("sh", probe("/tmp/go-link-2"))
+	k1, k2 := probeKey(real, probe("/tmp/go-link-1")), probeKey(real, probe("/tmp/go-link-2"))
 	if k1 == "" || k1 != k2 {
 		t.Fatalf("one probe in two temporary directories must share a key: %q %q", k1, k2)
 	}
-	if k := probeKey("sh", []string{"-m64", "-o", "/tmp/x/a.out", "obj.o"}); k != "" {
+	if k := probeKey(real, []string{"-m64", "-o", "/tmp/x/a.out", "obj.o"}); k != "" {
 		t.Fatalf("a real link is not a probe: %q", k)
 	}
-	if k := probeKey("sh", append(probe("/tmp/go-link-1"), "-Wl,-z,relro")); k == k1 {
+	if k := probeKey(real, append(probe("/tmp/go-link-1"), "-Wl,-z,relro")); k == k1 {
 		t.Fatal("another flag, another key")
 	}
 
