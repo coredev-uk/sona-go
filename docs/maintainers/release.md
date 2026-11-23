@@ -90,8 +90,13 @@ Merging a release:
      commit and `git push`.
    - Later releases: copy `PKGBUILD` and `.SRCINFO` over the clone's, commit
      (`Update to <v>`) and push.
-   The package passed namcap in the release's Arch smoke test; the
-   "may not be needed" notes it leaves are explained in the PKGBUILD.
+   Both files are generated (`build/linux/arch/update.sh`; never edit them
+   by hand): `depends` comes from the built Arch package, which takes it from
+   the `archlinux` override in `build/linux/nfpm/nfpm.yaml`, and the optional
+   features are the script's `optdepends`. The release's Arch smoke test ran
+   `makepkg --printsrcinfo` (it must equal `.SRCINFO`), `makepkg` and namcap
+   on the PKGBUILD and the package; the "may not be needed" notes namcap
+   leaves for `gtk3` and the `gst-*` plugins are explained in the PKGBUILD.
 7. Nothing to do for Nix: `nix-branch.yml` moves the flake's `nix` branch
    (`build/linux/nix/pins.json`) to this release once its Arch package
    matched `SHA256SUMS` and its attestation and the flake built with it, and

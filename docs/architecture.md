@@ -955,7 +955,7 @@ Other per-OS conventions are the Discord IPC socket and the CDM library name abo
 
 ### Linux
 
-- **Packages**: `task package` packages the local build. The Linux release binary is a PIE with full RELRO (`-buildmode=pie`, `-Wl,-z,relro,-z,now`; `build/linux/Taskfile.yml`). The AUR `sona-bin` PKGBUILD is `build/linux/arch/update.sh`, shipped with a 0BSD `LICENSE`; the Arch dependencies there and in `nfpm.yaml` are kept in step. Flatpak is documented in `docs/maintainers/flatpak.md`.
+- **Packages**: `task package` packages the local build. The Linux release binary is a PIE with full RELRO (`-buildmode=pie`, `-Wl,-z,relro,-z,now`; `build/linux/Taskfile.yml`). The AUR `sona-bin` PKGBUILD is `build/linux/arch/update.sh`, shipped with a 0BSD `LICENSE`; its `depends` are read from the Arch package, which takes them from the `archlinux` override in `nfpm.yaml`. Flatpak is documented in `docs/maintainers/flatpak.md`.
 - **Apple Music links**: the desktop file claims `music`, `musics`, `itms` and `itmss`. Settings → General → **Open Apple Music links in Sona** makes Sona their default with `xdg-mime default dev.coredev.Sona.desktop x-scheme-handler/<scheme>` (read with `xdg-mime query default`; `app.XDGLinkHandler`). It says it can't where the desktop file isn't installed (an AppImage that isn't integrated, a source build) or inside a Flatpak.
 
 ### macOS

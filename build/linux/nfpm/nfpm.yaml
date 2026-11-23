@@ -127,10 +127,17 @@ overrides:
     recommends:
       - pipewire-gstreamer
   archlinux:
-    # nfpm's Arch packager writes depends only (no optdepends), so the
-    # gst-plugin-pipewire recommendation does not carry over.
-    # Keep in step with build/linux/arch/update.sh: the first five are what
-    # namcap sees linked or used; the rest are loaded by soname at run time.
+    # nfpm's Arch packager writes depends only (no optdepends); the AUR
+    # PKGBUILD (build/linux/arch/update.sh) takes these depends from the built
+    # package and declares the optional ones itself. The first five are what
+    # namcap sees linked or used; the rest are loaded at run time: gtk3 by
+    # MyGo, with its own requirements (libepoxy, libegl/libgl for GL,
+    # at-spi2-core for AT-SPI), which are therefore not listed again; the
+    # gst-* packages by GStreamer's plugin registry. Left out, as features
+    # Sona works without: gst-plugins-bad (motion artwork), the tray's
+    # libayatana-appindicator, gst-plugin-pipewire. libsecret and libxtst are
+    # no dependency here at all: Sona's keyring is go-keyring over D-Bus, and
+    # MyGo uses XTest only in its GUI tests.
     depends:
       - glibc
       - glib2
@@ -138,16 +145,9 @@ overrides:
       - libstdc++
       - hicolor-icon-theme
       - gtk3
-      - libepoxy
-      - libglvnd
-      - libayatana-appindicator
-      - at-spi2-core
-      - libsecret
-      - libxtst
       - gstreamer
       - gst-plugins-base
       - gst-plugins-good
-      - gst-plugins-bad
       - gst-libav
 
 scripts:
