@@ -246,7 +246,9 @@ jobs:
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
     # The full race pass (the ui pool's four shards) gets 20 min; every other
-    # shard keeps 10.
+    # shard keeps 10. Its packages get 18 of them (TEST_FLAGS), not go test's
+    # 10: features/player alone took 9m40s in v0.7.0-rc.9's run and was cut
+    # at 10 in rc.10's (docs/testing.md, "Timing in tests").
     timeout-minutes: ${{ matrix.pool == 'ui' && matrix.race == '1' && 20 || 10 }}
     permissions:
       contents: read
@@ -265,7 +267,7 @@ jobs:
       CGO_ENABLED: "1"
       GOFLAGS: -tags=sqlite_fts5
       MYGO_GPU: "0"
-      TEST_FLAGS: ${{ github.event_name == 'schedule' && '-count=1' || '' }}
+      TEST_FLAGS: ${{ github.event_name == 'schedule' && '-count=1' || '' }} ${{ matrix.pool == 'ui' && matrix.race == '1' && '-timeout 18m' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
