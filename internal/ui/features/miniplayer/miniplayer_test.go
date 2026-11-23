@@ -3,6 +3,7 @@ package miniplayer
 import (
 	"context"
 	"errors"
+	"math"
 	"slices"
 	"sync"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
@@ -632,5 +634,61 @@ func TestTheMiniPlayerPlaysPausesAndSkipsThroughTheCoordinator(t *testing.T) {
 func TestTheButtonComesAfterTheQueueButton(t *testing.T) {
 	if controlOrder < module.ControlsAfterQueue {
 		t.Errorf("order %d puts the Mini player button before the queue's", controlOrder)
+	}
+}
+
+// The line along the window's foot follows the clock a fraction of a pixel
+// at a time, in every frame, between the views the seconds build; it asks
+// for nothing while the song is paused.
+func TestTheMiniPlayersLineFollowsTheClockFrameByFrame(t *testing.T) {
+	theme.SetMode(theme.ModeLight)
+	defer theme.SetMode(theme.ModeSystem)
+	r := newRig(t)
+	r.show(30_000)
+	r.advance(time.Second) // what the first frames set going has run out
+	r.show(30_000)
+	amber := theme.C("amber")
+	satAmber := float64(max(amber.R, amber.G, amber.B) - min(amber.R, amber.G, amber.B))
+	line := func() float64 { // the amber of the window's last row, in pixels
+		img := r.tt.Image()
+		y := img.Bounds().Dy() - 1
+		var sum float64
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			c := img.RGBAAt(x, y)
+			sum += min(float64(max(c.R, c.G, c.B)-min(c.R, c.G, c.B))/satAmber, 1)
+		}
+		return sum
+	}
+	const frame = time.Second / 60
+	prev := line()
+	first, changed, widest := prev, 0, 0.0
+	for range 60 {
+		r.h.Clock.Advance(frame)
+		r.tt.Advance(frame)
+		if l := line(); l > prev+0.001 {
+			changed++
+			widest = max(widest, l-prev)
+			prev = l
+		}
+	}
+	// 420 px in 180 s. The CPU rasteriser takes a quarter of a pixel of edge
+	// as a step, so the line changes in some frames and not in all: nine times
+	// in a second, by a quarter of a pixel each, where the 250 ms tick moved
+	// it four times by more than half of one.
+	if want := 420.0 / 180; math.Abs(prev-first-want) > 0.25*want {
+		t.Errorf("the line grew %.2f px in a second, want about %.2f", prev-first, want)
+	}
+	if changed < 7 || widest > 0.4 {
+		t.Errorf("the line changed in %d of 60 frames, by %.2f px at most: it steps", changed, widest)
+	}
+
+	r.show(30_000, func(s *services.PlaybackState) { s.State = store.StatePaused })
+	r.advance(time.Second)
+	for range 20 {
+		r.h.Clock.Advance(50 * time.Millisecond)
+		r.tt.Advance(50 * time.Millisecond)
+		if r.tt.FramePending() {
+			t.Fatal("a paused mini player asks for frames")
+		}
 	}
 }

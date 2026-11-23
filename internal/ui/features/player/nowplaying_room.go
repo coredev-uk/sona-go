@@ -287,7 +287,7 @@ func (p *player) stageStrip(c *ui.Context, st *stage, cur *services.QueueItem, g
 	pos := p.stageSeek.Pos(min(p.env.Play.Position(), dur))
 	can := !live && dur > 0 && s.Controls.Seek
 	if !live {
-		p.stageSeek.Tick(c, playing) // the time and the bar move
+		p.stageSeek.Tick(c, playing, pos, dur) // the time moves
 	}
 	text := func(key, s string, size, h float32, weight int, tone string) ui.Element {
 		return lineText(c.Key(key), s, round32(size*ss), round32(h*ss), weight, theme.C(tone)).SingleLine()
@@ -335,7 +335,7 @@ func (p *player) stageStrip(c *ui.Context, st *stage, cur *services.QueueItem, g
 					}
 					w := round32(60 * ss)
 					text("elapsed", elapsed, 15, 20, 400, "ink-muted").FontFeatures("tnum").Width(w).Shrink(0).TextAlign(ui.End)
-					p.stageSeek.slider(c, "seek", pos, dur, can, seekLook{fill: "amber-ink", centered: true}, p.seekTo).
+					p.stageSeek.slider(c, "seek", pos, dur, can, seekLook{fill: "amber-ink", centered: true, playing: playing, live: p.env.Play.Position}, p.seekTo).
 						Grow(1).MinWidth(0).Height(round32(20 * ss))
 					text("left", left, 15, 20, 400, "ink-muted").FontFeatures("tnum").Width(w).Shrink(0)
 				})

@@ -75,6 +75,11 @@ type SliderOpts struct {
 	Vertical bool
 	// Width fixes a horizontal slider's width; 0 fills the parent.
 	Width float32
+	// Playhead moves a horizontal slider's fill and thumb with the clock, as
+	// a song's seek bar does: the value is where the view was built, the
+	// drawing is the playhead's in every frame. The zero value does not
+	// move.
+	Playhead Playhead
 }
 
 // Slider sets *value between lo and hi: dragging the thumb or pressing the
@@ -113,44 +118,43 @@ func Slider(c *ui.Context, value *float64, lo, hi float64, o SliderOpts) ui.Elem
 	}
 	at = min(max(at, 0), 1)
 	rtl := c.Direction() == ui.RightToLeft && !o.Vertical
-	if rtl {
-		at = 1 - at
-	}
 	track, ink, ring := theme.C("ink-faint").Alpha(0.4), theme.C("ink"), theme.C("ring")
 	rng := o.Range
 	if rng == (ui.Color{}) {
 		rng = theme.C("primary")
 	}
-	focus, vertical := s.FocusVisible(), o.Vertical
+	focus, vertical, head := s.FocusVisible(), o.Vertical, o.Playhead
 	s.Draw(func(p *ui.Painter, r ui.Rect) {
-		var tr, fill, k ui.Rect
 		if vertical {
 			x := r.X + (r.W-4)/2
 			y0, hgt := r.Y+thumb/2, r.H-thumb
-			tr = ui.Rect{X: x, Y: y0, W: 4, H: hgt}
+			p.Fill(ui.Rect{X: x, Y: y0, W: 4, H: hgt}, track, 2)
 			fh := hgt * at
-			fill = ui.Rect{X: x, Y: y0 + hgt - fh, W: 4, H: fh}
-			k = ui.Rect{X: r.X + (r.W-thumb)/2, Y: y0 + hgt - fh - thumb/2, W: thumb, H: thumb}
-		} else {
-			y := r.Y + (r.H-4)/2
-			x0, w := r.X+thumb/2, r.W-thumb
-			tr = ui.Rect{X: x0, Y: y, W: w, H: 4}
-			if rtl {
-				fw := w * (1 - at)
-				fill = ui.Rect{X: x0 + w - fw, Y: y, W: fw, H: 4}
-			} else {
-				fill = ui.Rect{X: x0, Y: y, W: w * at, H: 4}
+			if fh > 0 {
+				p.Fill(ui.Rect{X: x, Y: y0 + hgt - fh, W: 4, H: fh}, rng, 2)
 			}
-			k = ui.Rect{X: x0 + w*at - thumb/2, Y: r.Y + (r.H-thumb)/2, W: thumb, H: thumb}
+			k := ui.Rect{X: r.X + (r.W-thumb)/2, Y: y0 + hgt - fh - thumb/2, W: thumb, H: thumb}
+			if focus {
+				p.Fill(ui.Rect{X: k.X - 4, Y: k.Y - 4, W: k.W + 8, H: k.H + 8}, ring, thumb/2+4)
+			}
+			p.Fill(k, ink, thumb/2)
+			return
 		}
-		p.Fill(tr, track, 2)
-		if fill.W > 0 && fill.H > 0 {
-			p.Fill(fill, rng, 2)
+		f := head.Frac(p, at) // how far along: the playhead's, or the value's
+		y := r.Y + (r.H-4)/2
+		x0, w := r.X+thumb/2, r.W-thumb
+		p.Fill(ui.Rect{X: x0, Y: y, W: w, H: 4}, track, 2)
+		head.Fill(p, ui.Rect{X: x0, Y: y, W: w, H: 4}, f, rtl, rng, 2)
+		if rtl {
+			f = 1 - f
 		}
-		if focus {
-			p.Fill(ui.Rect{X: k.X - 4, Y: k.Y - 4, W: k.W + 8, H: k.H + 8}, ring, thumb/2+4)
-		}
-		p.Fill(k, ink, thumb/2)
+		head.Travel(p, w*f, func(off float32) {
+			k := ui.Rect{X: x0 - thumb/2 + off, Y: r.Y + (r.H-thumb)/2, W: thumb, H: thumb}
+			if focus {
+				p.Fill(ui.Rect{X: k.X - 4, Y: k.Y - 4, W: k.W + 8, H: k.H + 8}, ring, thumb/2+4)
+			}
+			p.Fill(k, ink, thumb/2)
+		})
 	})
 	return s
 }
