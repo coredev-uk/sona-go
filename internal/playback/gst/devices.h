@@ -40,8 +40,13 @@ enum { SONA_ENDPOINT_UNKNOWN = -1, SONA_ENDPOINT_GONE = 0, SONA_ENDPOINT_ACTIVE 
 // endpoint API itself fails. The first call starts the watch
 // sona_route_epoch counts.
 int sona_endpoint_state(const char* id);
+// sona_default_endpoint returns the endpoint ID of the default console
+// render endpoint, malloc'd; NULL without one or when the endpoint API
+// fails. The first call starts the watch sona_route_epoch counts.
+char* sona_default_endpoint(void);
 // sona_route_epoch counts endpoints added, removed or changing state
-// (plugged in, unplugged, enabled, disabled) since the watch started.
+// (plugged in, unplugged, enabled, disabled) and changes of the default
+// console render endpoint since the watch started.
 uint64_t sona_route_epoch(void);
 #endif
 

@@ -1,6 +1,6 @@
-// The chosen output's state and the endpoint watch on Windows (Core
-// Audio's MMDevice API): what streamProps and routeEpoch read in
-// output_windows.go.
+// The chosen output's state, the default endpoint and the endpoint watch on
+// Windows (Core Audio's MMDevice API): what streamProps and routeEpoch read
+// in output_windows.go.
 #define _WIN32_WINNT 0x0A00
 #define COBJMACROS
 #include <initguid.h>
@@ -50,10 +50,15 @@ static HRESULT STDMETHODCALLTYPE nc_removed(IMMNotificationClient* self, LPCWSTR
   bump();
   return S_OK;
 }
-// A default change needs no move: wasapi2sink on the default follows it
-// itself (automatic stream routing).
+// A change of the default console render endpoint moves the output when it
+// follows the default: wasapi2sink stays on the endpoint it opened (no
+// automatic stream routing for its stream, observed on Windows 11, #312), so
+// streamProps hands it the default's ID and the output is rebuilt when that
+// changes. Windows' "default device" sets eConsole and eMultimedia together;
+// eCommunications is the call device, which Sona never plays to.
 static HRESULT STDMETHODCALLTYPE nc_default(IMMNotificationClient* self, EDataFlow flow, ERole role, LPCWSTR id) {
-  (void)self, (void)flow, (void)role, (void)id;
+  (void)self, (void)id;
+  if (flow == eRender && role == eConsole) bump();
   return S_OK;
 }
 static HRESULT STDMETHODCALLTYPE nc_property(IMMNotificationClient* self, LPCWSTR id, const PROPERTYKEY key) {
@@ -121,5 +126,30 @@ int sona_endpoint_state(const char* id) {
   }
   if (SUCCEEDED(init)) CoUninitialize();
   free(wid);
+  return res;
+}
+
+char* sona_default_endpoint(void) {
+  InitOnceExecuteOnce(&watch_once, start_watch, NULL, NULL);
+  HRESULT init = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+  char* res = NULL;
+  IMMDeviceEnumerator* e = NULL;
+  if (SUCCEEDED(CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &IID_IMMDeviceEnumerator, (void**)&e))) {
+    IMMDevice* d = NULL;
+    LPWSTR wid = NULL;
+    if (SUCCEEDED(IMMDeviceEnumerator_GetDefaultAudioEndpoint(e, eRender, eConsole, &d))) {
+      if (SUCCEEDED(IMMDevice_GetId(d, &wid))) {
+        int n = WideCharToMultiByte(CP_UTF8, 0, wid, -1, NULL, 0, NULL, NULL);
+        if (n > 0 && (res = malloc(n)) && WideCharToMultiByte(CP_UTF8, 0, wid, -1, res, n, NULL, NULL) != n) {
+          free(res);
+          res = NULL;
+        }
+        CoTaskMemFree(wid);
+      }
+      IMMDevice_Release(d);
+    }
+    IMMDeviceEnumerator_Release(e);
+  }
+  if (SUCCEEDED(init)) CoUninitialize();
   return res;
 }

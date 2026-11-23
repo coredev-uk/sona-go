@@ -18,9 +18,9 @@
 // full (backpressure); a generation number per track makes superseded data
 // harmless. The output is rebuilt in place when its sink fails or the device
 // changes, and on macOS and Windows when the device it should play to does
-// (routeEpoch: on macOS the system default output, or the chosen one plugged
-// in or removed; on Windows the chosen one plugged in or removed); PipeWire
-// relinking the stream is not a failure.
+// (routeEpoch: the system default output while it is followed, or the chosen
+// one plugged in or removed); PipeWire relinking the stream is not a
+// failure.
 package gst
 
 /*
@@ -533,9 +533,8 @@ func (p *Pipeline) checkStall() {
 }
 
 // followRoute rebuilds the output when the device it should play to is not
-// the one it was built for: on macOS the default output changed while it
-// is followed, or (macOS, Windows) the chosen device was plugged in or
-// removed.
+// the one it was built for (macOS, Windows): the default output changed
+// while it is followed, or the chosen device was plugged in or removed.
 func (p *Pipeline) followRoute() {
 	p.mu.Lock()
 	moved := streamProps(p.sink, p.opts.AppName, p.opts.Device) != p.route
