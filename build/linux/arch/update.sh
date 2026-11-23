@@ -54,7 +54,10 @@ url=https://github.com/coredev-uk/sona-go
 # The upstream package is saved as .tar.zst, not .pkg.tar.zst: a build
 # directory that doubles as a local repository (makepkg's PKGDEST, repo-add's
 # *.pkg.tar.* glob) must not mistake the download for a package of its own.
+# In the PKGBUILD the name is written with ${_ver} and ${CARCH} (namcap warns at
+# a literal x86_64); .SRCINFO holds it expanded, as makepkg --printsrcinfo does.
 upstream="sona-$ver-x86_64.tar.zst"
+upstream_pkgbuild="sona-\${_ver}-\${CARCH}.tar.zst"
 source_url="$url/releases/download/v$ver/sona-$ver-1-x86_64.pkg.tar.zst"
 
 q() { printf "'%s' " "$@"; }
@@ -91,12 +94,12 @@ provides=("sona=\$pkgver")
 conflicts=('sona')
 # The release binary is already stripped; there is nothing to split out.
 options=('!strip' '!debug')
-source_x86_64=("$upstream::$url/releases/download/v\${_ver}/sona-\${_ver}-1-\${CARCH}.pkg.tar.zst")
-noextract=("$upstream")
+source_x86_64=("$upstream_pkgbuild::$url/releases/download/v\${_ver}/sona-\${_ver}-1-\${CARCH}.pkg.tar.zst")
+noextract=("$upstream_pkgbuild")
 sha256sums_x86_64=('$sha')
 
 package() {
-  bsdtar -xf "$upstream" -C "\$pkgdir" usr
+  bsdtar -xf "$upstream_pkgbuild" -C "\$pkgdir" usr
   # BSD-3-Clause names its copyright holder, so its text goes with the
   # package; the AGPL's is in the licenses package.
   install -d "\$pkgdir/usr/share/licenses/\$pkgname"
