@@ -44,7 +44,7 @@ Install [just](https://just.systems) and the tools devenv would otherwise provid
 ```powershell
 winget install Casey.Just Git.Git GolangCI.golangci-lint
 go install mvdan.cc/gofumpt@v0.12.0
-just dev      # build and run Sona, rebuilding on every change (r⏎ rebuilds, q⏎ quits)
+just dev      # build and run Sona, rebuilding on every change (r rebuilds, q quits)
 just check    # vet, type-checks, lint
 just tests    # go test -race
 just build    # bin\sona.exe

@@ -36,9 +36,9 @@ default:
 
 # The development loop (cmd/devloop): rebuilds the app with the dev tag on
 # every save, restarts it where it was, reloads tokens and catalogues without a
-# rebuild. `r` rebuilds, `q` quits (with Enter on Windows). A first argument
+# rebuild. `r` rebuilds, `q` quits. A first argument
 # `-background` is devloop's: restarts don't take the focus.
-[doc("Runs the app, rebuilding it on every change: r rebuilds, q quits (r⏎ and q⏎ on Windows)")]
+[doc("Runs the app, rebuilding it on every change: r rebuilds, q quits")]
 [script]
 dev *args:
     go build -o bin/devloop{{ exe }} ./cmd/devloop
