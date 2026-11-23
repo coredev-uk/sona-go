@@ -438,7 +438,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 
 - `kit.Transport` is the playback command set that the bar, the mini player and the video view share: `Toggle`, `Next`, `Prev`, `SeekTo`, `SeekBy`, `SetVolume`, `ToggleMute`. The mirror shows a seek or a volume at once, the service runs off the main thread, and a failure goes to `Transport.Fail` (a notice in the mini player, a queued toast in the bar; nil is `kit.ToastFailure`). Each caller keeps its own guards (the bar's `refuse`, the video's `Controls.Seek`).
 - The mute button and the M key share `store.Playback.Unmuted` everywhere.
-- `kit.SeekDrag` is the seek bar while dragged (`Pos`, `Update`, `Tick`). `kit.PlayPauseIcon`, `kit.VolumeIcon`, `kit.LiveMarker` and `(*ActionMenus).PopupFor` are the bar widgets the three share. `kit.AlertLine` is the sentence with a danger icon, and `kit.InfoLine` the one with an info icon on a quiet wash (a status, for a limit the user should know before they act); `kit.ListenBrainzTokenHint` is the token field's hint.
+- `kit.SeekDrag` is the seek bar while dragged (`Pos`, `Update`, `Tick`, `Playhead`). `Tick` builds the view again at each whole second of the position, for the time labels; `Playhead` moves the fill and the thumb with the clock in every frame, painting alone from the slider's `Draw` (`AnimationFrames`: the display's rate on a GPU, 30 fps on a CPU rasteriser; a transform instead of a snapped `Fill`; none while paused, dragged, covered, under reduced motion or for a live station). `kit.PlayPauseIcon`, `kit.VolumeIcon`, `kit.LiveMarker` and `(*ActionMenus).PopupFor` are the bar widgets the three share. `kit.AlertLine` is the sentence with a danger icon, and `kit.InfoLine` the one with an info icon on a quiet wash (a status, for a limit the user should know before they act); `kit.ListenBrainzTokenHint` is the token field's hint.
 - `store.Latest[T]` sends values one at a time, the newest last (the equaliser's preview and saves, the lyrics choices). `store.Mirror` and `store.Seed` keep a query in step with an event and a one-off snapshot.
 - `module.ShortcutGroups` and `module.GroupTitle` order and name the shortcut groups of the palette, the help and Settings. `lyricsync.SpanCache` and `lyricsync.Dur` serve the sung line and the lyrics sheet.
 
@@ -1043,7 +1043,7 @@ The bar is a `Bottom` slot: 72 DIP, `surface`, over a wash of the cover, the tra
 
 **Behaviour**
 
-- The position is `Position()` and ticks every 250 ms while playing. A drag shows where it will go and seeks once, when the pointer lets go.
+- The position is `Position()`, a function of the clock. The seek bar's fill and thumb follow it in every frame while the song plays (`kit.SeekDrag.Playhead`, painted alone: the view is not built for it); the elapsed time and the time left are built again at each whole second (`SeekDrag.Tick`). A drag shows where it will go and seeks once, when the pointer lets go.
 - Every command is a goroutine over `services.PlaybackService` (through the small `transport` interface the tests fake). A failure comes back through `Env.Post` and shows as a toast titled by the command and worded by `i18n.ErrorText` of its code.
 - Controls Go says do not apply (the snapshot's `Controls`) are disabled, with the reason (a live station, a station) in the tooltip.
 

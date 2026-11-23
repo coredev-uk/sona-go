@@ -618,6 +618,7 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 			Disabled:  dur <= 0,
 			Step:      1,
 			Range:     theme.C("amber"),
+			Playhead:  st.seek.Playhead(playing, dur, v.env.Play.Position, nil),
 		})
 		control(v.owns(sl), focusVisible)
 		if to, ok := st.seek.Update(sl, secs); ok {
@@ -627,7 +628,7 @@ func (v *video) seekBar(c *ui.Context, s services.PlaybackState, playing bool, f
 		text(c, "−"+left, "meta").Width(48).TextAlign(ui.End).Shrink(0).TextColor(theme.C("ink-muted")).FontFeatures("tnum").
 			Label(i18n.T("{left} left", "left", left))
 	})
-	st.seek.Tick(c, playing)
+	st.seek.Tick(c, playing, pos, dur)
 }
 
 // volume is the mute button and the volume slider; the wheel and a

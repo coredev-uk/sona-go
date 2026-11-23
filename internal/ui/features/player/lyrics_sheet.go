@@ -720,7 +720,7 @@ func (p *player) sweepDraw(sw *kit.SweepText, songID string, spans []lyricsync.S
 			return
 		}
 		if moving {
-			sweepFrames(pt)
+			kit.AnimationFrames(pt)
 		} else if next := nextSweepEdge(spans, i, t.Words, ms); next != lyricsync.Never {
 			pt.After(lyricsync.Dur(next - ms + 1))
 		}

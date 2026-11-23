@@ -326,7 +326,7 @@ func (p *player) transport(c *ui.Context, s services.PlaybackState) {
 		}
 	})
 	if !live {
-		p.seek.Tick(c, s.State == store.StatePlaying)
+		p.seek.Tick(c, s.State == store.StatePlaying, pos, dur)
 	}
 }
 
@@ -449,7 +449,8 @@ func (p *player) seekStrip(c *ui.Context, s services.PlaybackState) {
 	idle := s.Current == nil
 	pos, dur := p.position(s, idle)
 	can := !idle && dur > 0 && s.Controls.Seek
-	p.seek.slider(c, "seek", pos, dur, can, seekLook{fill: "amber"}, p.seekTo).Absolute().Left(0).Right(0).Top(0).Height(seekHit)
+	look := seekLook{fill: "amber", playing: s.State == store.StatePlaying, live: p.env.Play.Position, motion: p.env.Motion}
+	p.seek.slider(c, "seek", pos, dur, can, look, p.seekTo).Absolute().Left(0).Right(0).Top(0).Height(seekHit)
 }
 
 // seekTo seeks the song to at.
@@ -471,12 +472,17 @@ type seekPad struct {
 	held    float64
 }
 
-// seekLook is how a seek slider is painted: the fill's colour token, and
-// whether the track sits in the middle of the hit area (the bar's hangs from
-// its top edge).
+// seekLook is how a seek slider is painted and moved: the fill's colour
+// token, whether the track sits in the middle of the hit area (the bar's hangs
+// from its top edge), and what moves the fill while the song plays: live is
+// the playback position now, read in every frame the fill is painted, and
+// motion says whether the page is covered (nil: never; see kit.Playhead).
 type seekLook struct {
 	fill     string
 	centered bool
+	playing  bool
+	live     func() time.Duration
+	motion   *kit.MotionPolicy
 }
 
 // slider builds a seek slider for a song pos in of dur, which seeks once
@@ -508,36 +514,40 @@ func (s *seekPad) slider(c *ui.Context, key string, pos, dur time.Duration, can 
 	if at, ok := s.Update(sl, v); ok {
 		to(at)
 	}
-	drawSeek(sl, v, 0, hi, sl.Hovered() || sl.Focused() || s.Active(), look)
+	drawSeek(sl, v, 0, hi, sl.Hovered() || sl.Focused() || s.Active(), look, s.Playhead(look.playing, dur, look.live, look.motion))
 	return sl
 }
 
 // drawSeek paints the seek bar: the track edge to edge, the fill up to the
 // thumb, which is always shown (the thumb, not the fill's colour, marks the
-// value).
-func drawSeek(sl ui.Element, v, lo, hi float64, on bool, look seekLook) {
-	at := float32(0)
+// value). The value v is where the bar was built; while head follows the
+// clock the fill and the thumb are painted at its position in every frame.
+func drawSeek(sl ui.Element, v, lo, hi float64, on bool, look seekLook, head kit.Playhead) {
+	built := float32(0)
 	if hi > lo {
-		at = float32((v - lo) / (hi - lo))
+		built = float32((v - lo) / (hi - lo))
 	}
-	at = min(max(at, 0), 1)
+	built = min(max(built, 0), 1)
 	track, fill, ink := theme.C("ink-faint").Alpha(0.4), theme.C(look.fill), theme.C("ink")
 	h := float32(3)
 	if on {
 		h = 5
 	}
 	sl.Draw(func(p *ui.Painter, r ui.Rect) {
+		at := head.Frac(p, built)
 		x0, w := r.X+seekThumb/2, r.W-seekThumb
 		cy := r.Y + seekThumb/2
 		if look.centered {
 			cy = r.Y + r.H/2
 		}
 		p.Fill(ui.Rect{X: r.X, Y: cy - h/2, W: r.W, H: h}, track, 0)
-		thumbX := x0 + w*at
-		if thumbX > r.X {
-			p.Fill(ui.Rect{X: r.X, Y: cy - h/2, W: thumbX - r.X, H: h}, fill, 0)
-		}
-		p.Fill(ui.Rect{X: thumbX - seekThumb/2, Y: cy - seekThumb/2, W: seekThumb, H: seekThumb}, ink, seekThumb/2)
+		// The fill runs from the bar's edge to the thumb's centre: at its
+		// longest, to the other end's thumb.
+		longest := ui.Rect{X: r.X, Y: cy - h/2, W: r.W - seekThumb/2, H: h}
+		head.Fill(p, longest, min((seekThumb/2+w*at)/longest.W, 1), false, fill, 0)
+		head.Travel(p, w*at, func(off float32) {
+			p.Fill(ui.Rect{X: x0 - seekThumb/2 + off, Y: cy - seekThumb/2, W: seekThumb, H: seekThumb}, ink, seekThumb/2)
+		})
 	})
 }
 
