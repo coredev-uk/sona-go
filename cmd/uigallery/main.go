@@ -167,16 +167,18 @@ func (g *gallery) toolbar(c *ui.Context) {
 	})
 }
 
-// sidebar lists the sections.
+// sidebar lists the sections, scrolling when they don't fit (a short window,
+// or a larger scale).
 func (g *gallery) sidebar(c *ui.Context) {
-	ui.Column(c).Width(theme.Current().Metric["sidebar"]).FillHeight().Background(theme.C("surface")).Padding(12).Gap(2).
-		Role(ui.RoleGroup).Label("Sections").Children(func() {
-		for _, s := range sections {
-			active := s.name == g.selected
-			if kit.Button(c.Key("section:"+s.name), s.name, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Pressed: &active}).FillWidth().Justify(ui.Start).Clicked() {
-				g.selected = s.name
+	ui.Scroll(c).Width(theme.Current().Metric["sidebar"]).FillHeight().MinHeight(0).Background(theme.C("surface")).Children(func() {
+		ui.Column(c).FillWidth().Padding(12).Gap(2).Role(ui.RoleGroup).Label("Sections").Children(func() {
+			for _, s := range sections {
+				active := s.name == g.selected
+				if kit.Button(c.Key("section:"+s.name), s.name, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Pressed: &active}).FillWidth().Justify(ui.Start).Clicked() {
+					g.selected = s.name
+				}
 			}
-		}
+		})
 	})
 }
 
