@@ -133,7 +133,7 @@ devenv doesn't run on Windows, so you install the tools yourself (with [winget](
 - The cgo environment of [platforms.md](platforms.md), "Platform support" (`CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5`, MinGW, GStreamer, `SONA_CDM_SHIM`), in your user environment.
 
 ```powershell
-just dev        # the dev loop: r⏎ rebuilds, q⏎ quits
+just dev        # the dev loop: r rebuilds, q quits
 just check
 just tests
 just build      # bin\sona.exe
@@ -141,7 +141,7 @@ just build      # bin\sona.exe
 
 What differs from Linux:
 
-- `dev` and `gallery` build `bin\devloop.exe`, and devloop builds `bin\sona-dev.exe`. Its keys need Enter.
+- `dev` and `gallery` build `bin\devloop.exe`, and devloop builds `bin\sona-dev.exe`.
 - `build` writes `bin\sona.exe`, a GUI executable (`-H windowsgui`).
 - `tests` runs without `dbus-run-session`: there is no D-Bus.
 - `check` vets and lints the Windows build, plus the cgo-off Windows vet and the macOS type-check that Linux runs. The Linux-only files are checked by `check` on Linux and by CI.
