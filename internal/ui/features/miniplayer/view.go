@@ -257,8 +257,9 @@ func (m *mini) timeLeft(c *ui.Context, s services.PlaybackState, idle bool) {
 // is hitH high. Dragging shows where it will go and seeks once, when the
 // pointer lets go (or a key moved it). It grows to 4px under the pointer and
 // while focused, which also draws its thumb. A live station has no seek bar
-// (its marker is in the controls); the line is then not drawn. It is the
-// only part that ticks.
+// (its marker is in the controls); the line is then not drawn. While the
+// song plays the line follows the clock a frame at a time (kit.Playhead); the
+// view is built again each second, for the time.
 func (m *mini) seekLine(c *ui.Context, s services.PlaybackState) {
 	if s.Current != nil && s.Current.Live {
 		return
@@ -278,43 +279,47 @@ func (m *mini) seekLine(c *ui.Context, s services.PlaybackState) {
 	if to, ok := m.seek.Update(sl, v); ok {
 		m.tr.SeekTo(to, m.now())
 	}
-	at := float32(0)
+	built := float32(0)
 	if !idle && dur > 0 {
-		at = float32(min(max(v/hi, 0), 1))
+		built = float32(min(max(v/hi, 0), 1))
 	}
+	head := m.seek.Playhead(s.State == store.StatePlaying, dur, m.env.Play.Position, nil)
 	track, rng, ink, ring := theme.C("ink").Alpha(0.12), theme.C("amber"), theme.C("ink"), theme.C("ring")
 	rtl := c.Direction() == ui.RightToLeft
 	focus := sl.FocusVisible()
 	_, _, held := sl.Dragged()
 	grown := can && (focus || held || sl.Hovered())
 	sl.Draw(func(p *ui.Painter, r ui.Rect) {
+		at := head.Frac(p, built)
 		h := float32(2)
 		if grown {
 			h = 4
 		}
 		y := r.Y + r.H - h
 		p.Fill(ui.Rect{X: r.X, Y: y, W: r.W, H: h}, track, 0)
-		edge := r.X + r.W*at // where the filled part ends
-		if rtl {
-			edge = r.X + r.W*(1-at)
-		}
-		if at > 0 {
-			fill := ui.Rect{X: r.X, Y: y, W: edge - r.X, H: h}
-			if rtl {
-				fill = ui.Rect{X: edge, Y: y, W: r.X + r.W - edge, H: h}
-			}
-			p.Fill(fill, rng, 0)
-		}
+		// The line grows from the window's leading edge (the right one in
+		// right-to-left): whole while the bar moves, scaled by how far along.
+		head.Fill(p, ui.Rect{X: r.X, Y: y, W: r.W, H: h}, at, rtl, rng, 0)
 		if grown {
 			const d = 10
-			k := ui.Rect{X: min(max(edge-d/2, r.X), r.X+r.W-d), Y: y + h/2 - d/2, W: d, H: d}
-			if focus {
-				p.Fill(ui.Rect{X: k.X - 3, Y: k.Y - 3, W: d + 6, H: d + 6}, ring, d/2+3)
+			// The thumb's centre is at the fill's edge, kept inside the line.
+			thumb := func(at float32) float32 {
+				edge := r.X + r.W*at
+				if rtl {
+					edge = r.X + r.W*(1-at)
+				}
+				return min(max(edge-d/2, r.X), r.X+r.W-d)
 			}
-			p.Fill(k, ink, d/2)
+			head.Travel(p, thumb(at)-thumb(0), func(off float32) {
+				k := ui.Rect{X: thumb(0) + off, Y: y + h/2 - d/2, W: d, H: d}
+				if focus {
+					p.Fill(ui.Rect{X: k.X - 3, Y: k.Y - 3, W: d + 6, H: d + 6}, ring, d/2+3)
+				}
+				p.Fill(k, ink, d/2)
+			})
 		}
 	})
-	m.seek.Tick(c, s.State == store.StatePlaying)
+	m.seek.Tick(c, s.State == store.StatePlaying, pos, dur)
 }
 
 // text is a single line of text in one of the theme's type styles.
