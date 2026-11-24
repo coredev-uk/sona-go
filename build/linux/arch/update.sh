@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Writes the AUR `sona-bin` PKGBUILD and .SRCINFO for a release: pkgver from
 # VERSION, the checksum of that release's Arch package (the asset the
-# PKGBUILD downloads).
+# PKGBUILD downloads) and its depends, read from the package's own .PKGINFO
+# (the archlinux override in build/linux/nfpm/nfpm.yaml), so the two cannot
+# drift.
 #
 #   build/linux/arch/update.sh <sona-<ver>-1-x86_64.pkg.tar.zst> [out-dir]
 #
@@ -24,19 +26,39 @@ pkgrel=1
 [[ $(basename "$pkg") == "sona-$ver-1-x86_64.pkg.tar.zst" ]] ||
   { echo "update.sh: $pkg is not the $ver Arch package" >&2; exit 1; }
 sha=$(sha256sum "$pkg" | cut -d' ' -f1)
+
+# depends: what nfpm wrote into the package. The nfpm override lists only what
+# Sona links or loads by soname and no package that one of the others already
+# requires (gtk3 brings libepoxy, libegl/libgl and at-spi2-core).
+pkginfo=$(tar --zstd -xOf "$pkg" .PKGINFO)
+mapfile -t depends < <(sed -n 's/^depend = //p' <<<"$pkginfo")
+((${#depends[@]} > 0)) || { echo "update.sh: $pkg's .PKGINFO has no depend lines" >&2; exit 1; }
+
+# optdepends: features that degrade without the package (nfpm's Arch packager
+# writes no optdepend lines, so the AUR package is where they are declared).
+# Each is a feature Sona detects at run time and works without.
+optdepends=(
+  "gst-plugin-pipewire: native PipeWire audio output (PulseAudio's pulsesink otherwise)"
+  "gst-plugins-bad: motion artwork (the H.264 parsers)"
+  "libayatana-appindicator: tray icon (Sona quits when its window closes without one)"
+  "xdg-utils: handle music:// and other Apple Music links (xdg-mime)"
+  "xdg-desktop-portal: file chooser for settings export and import"
+  "gnome-keyring: keep the sign-in in the Secret Service (a file in the config directory otherwise)"
+)
+
 mkdir -p "$out"
 # The AUR repo's licence (0BSD, as the AUR submission guidelines ask).
 cp "$root/build/linux/arch/LICENSE" "$out/LICENSE"
 
-# Keep depends in step with the archlinux override in build/linux/nfpm/nfpm.yaml.
-# The first five are what namcap sees the binary link or use (glibc, glib2,
-# gst-plugins-base-libs, libstdc++ (gcc-libs), hicolor-icon-theme for the
-# icons); the rest MyGo and GStreamer load by soname at run time.
-depends=(glibc glib2 gst-plugins-base-libs libstdc++ hicolor-icon-theme gtk3 libepoxy libglvnd libayatana-appindicator at-spi2-core libsecret libxtst gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav)
-optdepends=(
-  "gst-plugin-pipewire: native PipeWire audio output (pulsesink otherwise)"
-)
-source_url="https://github.com/coredev-uk/sona-go/releases/download/v\${_ver}/sona-\${_ver}-1-\${CARCH}.pkg.tar.zst"
+url=https://github.com/coredev-uk/sona-go
+# The upstream package is saved as .tar.zst, not .pkg.tar.zst: a build
+# directory that doubles as a local repository (makepkg's PKGDEST, repo-add's
+# *.pkg.tar.* glob) must not mistake the download for a package of its own.
+# In the PKGBUILD the name is written with ${_ver} and ${CARCH} (namcap warns at
+# a literal x86_64); .SRCINFO holds it expanded, as makepkg --printsrcinfo does.
+upstream="sona-$ver-x86_64.tar.zst"
+upstream_pkgbuild="sona-\${_ver}-\${CARCH}.tar.zst"
+source_url="$url/releases/download/v$ver/sona-$ver-1-x86_64.pkg.tar.zst"
 
 q() { printf "'%s' " "$@"; }
 
@@ -50,10 +72,11 @@ cat >"$out/PKGBUILD" <<EOF
 # contains a Widevine CDM: Sona downloads Google's CDM from Google's servers
 # itself on first start and verifies it.
 #
-# depends: namcap reports gtk3, libepoxy, libglvnd, libayatana-appindicator,
-# at-spi2-core, libsecret, libxtst and the gst-* plugins as "may not be
-# needed". That is a false positive: MyGo and GStreamer load them by soname
-# at run time, so they never appear in the binary's link list. Keep them.
+# depends: namcap reports gtk3 and the gst-* plugins as "may not be needed".
+# That is a false positive: MyGo loads GTK by soname and GStreamer loads its
+# plugins at run time, so they never appear in the binary's link list. Keep
+# them. gtk3 also provides libepoxy, libegl, libgl and at-spi2-core, which
+# MyGo loads too, so they are not listed again.
 
 pkgname=sona-bin
 pkgver=$pkgver
@@ -61,23 +84,26 @@ _ver=$ver
 pkgrel=$pkgrel
 pkgdesc='Native Apple Music client'
 arch=('x86_64')
-url='https://github.com/coredev-uk/sona-go'
+url='$url'
 license=('AGPL-3.0-only' 'BSD-3-Clause')
 depends=($(q "${depends[@]}" | sed 's/ $//'))
 optdepends=(
-$(printf "  '%s'\n" "${optdepends[@]}")
+$(printf '  "%s"\n' "${optdepends[@]}")
 )
-provides=('sona')
+provides=("sona=\$pkgver")
 conflicts=('sona')
 # The release binary is already stripped; there is nothing to split out.
 options=('!strip' '!debug')
-source_x86_64=("$source_url")
-noextract=("sona-\${_ver}-1-\${CARCH}.pkg.tar.zst")
+source_x86_64=("$upstream_pkgbuild::$url/releases/download/v\${_ver}/sona-\${_ver}-1-\${CARCH}.pkg.tar.zst")
+noextract=("$upstream_pkgbuild")
 sha256sums_x86_64=('$sha')
 
 package() {
-  bsdtar -xf "sona-\${_ver}-1-\${CARCH}.pkg.tar.zst" -C "\$pkgdir" usr
-  install -Dm644 "\$pkgdir/usr/share/doc/sona/LICENSE.chromium" "\$pkgdir/usr/share/licenses/\$pkgname/LICENSE.chromium"
+  bsdtar -xf "$upstream_pkgbuild" -C "\$pkgdir" usr
+  # BSD-3-Clause names its copyright holder, so its text goes with the
+  # package; the AGPL's is in the licenses package.
+  install -d "\$pkgdir/usr/share/licenses/\$pkgname"
+  mv "\$pkgdir/usr/share/doc/sona/LICENSE.chromium" "\$pkgdir/usr/share/licenses/\$pkgname/"
 }
 EOF
 
@@ -86,16 +112,16 @@ EOF
   printf '\tpkgdesc = %s\n' 'Native Apple Music client'
   printf '\tpkgver = %s\n' "$pkgver"
   printf '\tpkgrel = %s\n' "$pkgrel"
-  printf '\turl = %s\n' 'https://github.com/coredev-uk/sona-go'
+  printf '\turl = %s\n' "$url"
   printf '\tarch = x86_64\n'
   printf '\tlicense = %s\n' AGPL-3.0-only BSD-3-Clause
   printf '\tdepends = %s\n' "${depends[@]}"
   printf '\toptdepends = %s\n' "${optdepends[@]}"
-  printf '\tprovides = sona\n'
+  printf '\tprovides = sona=%s\n' "$pkgver"
   printf '\tconflicts = sona\n'
-  printf '\tnoextract = sona-%s-1-x86_64.pkg.tar.zst\n' "$ver"
+  printf '\tnoextract = %s\n' "$upstream"
   printf '\toptions = %s\n' '!strip' '!debug'
-  printf '\tsource_x86_64 = %s\n' "https://github.com/coredev-uk/sona-go/releases/download/v$ver/sona-$ver-1-x86_64.pkg.tar.zst"
+  printf '\tsource_x86_64 = %s::%s\n' "$upstream" "$source_url"
   printf '\tsha256sums_x86_64 = %s\n' "$sha"
   echo
   echo "pkgname = sona-bin"

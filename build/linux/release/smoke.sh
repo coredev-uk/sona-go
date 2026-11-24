@@ -56,13 +56,17 @@ appimage)
   ;;
 arch)
   pacman -Syu --noconfirm --noprogressbar >/dev/null
-  pacman -S --noconfirm --noprogressbar --needed base-devel namcap xorg-server-xvfb xorg-xauth dbus which >/dev/null
+  # gst-plugins-bad stands in for a user who took the optdepends for motion
+  # artwork: its h264parse is checked below.
+  pacman -S --noconfirm --noprogressbar --needed base-devel namcap xorg-server-xvfb xorg-xauth dbus which gst-plugins-bad >/dev/null
   if [[ -f /pkg/aur/PKGBUILD ]]; then
     # The AUR sona-bin route: makepkg (as a user) repackages the release's
     # Arch package, with the release file standing in for the download.
     useradd -m builder
     install -d -o builder /tmp/aur
-    install -o builder /pkg/aur/PKGBUILD /pkg/aur/.SRCINFO /pkg/aur/LICENSE /pkg/sona-*.pkg.tar.zst /tmp/aur/
+    install -o builder /pkg/aur/PKGBUILD /pkg/aur/.SRCINFO /pkg/aur/LICENSE /tmp/aur/
+    # The PKGBUILD saves the download under the name its noextract gives.
+    install -o builder /pkg/sona-*.pkg.tar.zst "/tmp/aur/$(sed -n 's/^\tnoextract = //p' /pkg/aur/.SRCINFO)"
     cd /tmp/aur
     runuser -u builder -- makepkg --printsrcinfo | diff -u .SRCINFO - || fail ".SRCINFO is not makepkg's"
     # --nodeps: the builder cannot install packages; repackaging needs none
@@ -70,12 +74,10 @@ arch)
     runuser -u builder -- makepkg --nodeps --noconfirm >/dev/null || fail "makepkg"
     pkgfile=$(echo /tmp/aur/sona-bin-*.pkg.tar.zst)
     # namcap on the PKGBUILD and the built package: any error or warning
-    # fails, except the run-time dependencies it cannot see. MyGo loads GTK,
-    # epoxy, EGL, the tray, AT-SPI, libsecret and XTest by soname (purego),
-    # and GStreamer loads its plugins, so namcap calls them "may not be
-    # needed"; they are needed, and listed by name here.
-    namcap_allowed=(gtk3 libepoxy libglvnd libayatana-appindicator at-spi2-core libsecret libxtst
-      gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav)
+    # fails, except the run-time dependencies it cannot see. MyGo loads GTK
+    # by soname (purego) and GStreamer loads its plugins, so namcap calls
+    # them "may not be needed"; they are needed, and listed by name here.
+    namcap_allowed=(gtk3 gst-plugins-base gst-plugins-good gst-libav)
     check_namcap() { # file...: namcap's output, minus the documented false positives
       local out line dep allowed re
       out=$(runuser -u builder -- namcap "$@" 2>&1) || fail "namcap failed: $out"
@@ -153,6 +155,11 @@ else
   # SIGPIPE, which pipefail reports as a missing library.
   cache=$(ldconfig -p)
   for so in "${sonames[@]}"; do
+    # The Arch package leaves the tray (an optdepends) and libsecret (never
+    # loaded: Sona's keyring is go-keyring over D-Bus) out of its depends.
+    if [[ $kind == arch ]]; then
+      case $so in libayatana-appindicator3.so.1 | libsecret-1.so.0) continue ;; esac
+    fi
     grep -qF "$so" <<<"$cache" || fail "$so not installed by the package's dependencies"
   done
   # The package has no GTK4, WebKitGTK or libsoup 3 dependency.
