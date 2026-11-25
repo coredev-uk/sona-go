@@ -13,6 +13,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
@@ -157,9 +158,9 @@ func TestTheDotsAreTheSungLineOfFullScreenLyricsWhileAGapRuns(t *testing.T) {
 	}
 }
 
-// The dots' fill is stepped by timers: the view is not built while it runs,
-// and it steps about twelve times a second.
-func TestTheDotsFillInStepsByTimersAndNotByBuildingTheView(t *testing.T) {
+// The dots fill and ride their wave by painting: the view is not built while
+// they run, and the fill steps about twelve times a second.
+func TestTheDotsMoveByPaintingNotByBuildingTheView(t *testing.T) {
 	builds := 0
 	r := stageRig(t, gapLines(), 500, nil, func(r *npRig) { r.inspect = func(*ui.Context) { builds++ } })
 	r.settle()
@@ -312,9 +313,8 @@ func TestTheSheetSetsTheDotsWhereALineWouldBeAndTurnsToThem(t *testing.T) {
 	}
 }
 
-// The sheet's dots step by timers, not by building the view, and not in a
-// loop of frames: nothing is asked of the window between steps.
-func TestTheSheetsDotsStepByTimers(t *testing.T) {
+// The sheet's dots move by painting, not by building the view.
+func TestTheSheetsDotsMoveByPainting(t *testing.T) {
 	builds := 0
 	r := newNPRig(t, func(r *npRig) { r.inspect = func(*ui.Context) { builds++ } })
 	lines := timedLines(3, false)
@@ -345,6 +345,97 @@ func TestTheSheetsDotsStepByTimers(t *testing.T) {
 	// A dot 10 DIP across fills over 3.7 s: a pixel every few steps.
 	if changes < 4 {
 		t.Errorf("the dots changed in %d of 20 tenths of a second: they are not filling", changes)
+	}
+}
+
+// While a gap runs the dots ride a wave that grows in from rest, stays within
+// gapBob of a dot's width, and travels in the reading direction: each dot
+// does what the dot before it did a sixth of a period earlier.
+func TestTheDotsRideAWaveThatTravelsInTheReadingDirection(t *testing.T) {
+	gap := lyricsync.Span{BeginMs: 10_000, EndMs: 30_000}
+	if p, moves := gapPose(gap, gap.BeginMs, 0, false); !moves || p.dy != 0 || p.scale != 1 {
+		t.Errorf("at the gap's start the first dot is %+v (moving %v): want at rest, starting to move", p, moves)
+	}
+	sixth := int64(gapWaveMs / 6)
+	peak := float32(0)
+	for ms := gap.BeginMs + gapWaveInMs + sixth; ms < gap.EndMs-gapExitMs; ms += 37 {
+		for k := range lyricsync.GapDots {
+			p, _ := gapPose(gap, ms, k, false)
+			if math.Abs(float64(p.dy)) > gapBob+1e-6 || p.scale != 1 || p.gather != 0 {
+				t.Fatalf("dot %d at %d ms is %+v: want a bob within %v at full size", k, ms, p, gapBob)
+			}
+			peak = max(peak, p.dy)
+			if k > 0 {
+				prev, _ := gapPose(gap, ms-sixth, k-1, false)
+				if math.Abs(float64(p.dy-prev.dy)) > 1e-3 {
+					t.Fatalf("dot %d at %d ms is at %v, dot %d a sixth of a period earlier at %v: the wave does not travel", k, ms, p.dy, k-1, prev.dy)
+				}
+			}
+		}
+	}
+	if peak < gapBob*0.95 {
+		t.Errorf("the dots rose %v of their width at most, want %v", peak, gapBob)
+	}
+}
+
+// Before the next line the wave settles while the dots swell, then they
+// gather into the middle and shrink away, gone as the line begins; a gap
+// still to come stands still, and reduced motion keeps them still throughout.
+func TestTheDotsSwellThenGatherAndAreGoneAsTheLineBegins(t *testing.T) {
+	gap := lyricsync.Span{BeginMs: 10_000, EndMs: 30_000}
+	swell, _ := gapPose(gap, gap.EndMs-gapExitMs+gapSwellMs, 0, false)
+	if swell.scale < 1+gapSwell*0.95 || swell.gather != 0 || math.Abs(float64(swell.dy)) > 1e-6 {
+		t.Errorf("at the swell's height the first dot is %+v: want %v larger, still and in place", swell, 1+gapSwell)
+	}
+	last := float32(math.Inf(1))
+	for ms := gap.EndMs - gapExitMs + gapSwellMs; ms < gap.EndMs; ms += 10 {
+		p, moves := gapPose(gap, ms, 2, false)
+		if !moves || p.scale > last {
+			t.Fatalf("at %d ms the last dot is %+v (moving %v): want it shrinking, after %v", ms, p, moves, last)
+		}
+		last = p.scale
+	}
+	if end, _ := gapPose(gap, gap.EndMs-1, 2, false); end.scale > 0.05 || end.gather < 0.95 {
+		t.Errorf("a millisecond before the line the last dot is %+v: want it gathered and all but gone", end)
+	}
+	for _, reduced := range []bool{false, true} {
+		if p, moves := gapPose(gap, gap.EndMs, 1, reduced); moves || p.scale != 0 {
+			t.Errorf("reduced %v: as the line begins the dots are %+v (moving %v): want gone", reduced, p, moves)
+		}
+		if p, moves := gapPose(gap, gap.BeginMs-1, 1, reduced); moves || p != (dotPose{scale: 1}) {
+			t.Errorf("reduced %v: a gap still to come is %+v (moving %v): want still at full size", reduced, p, moves)
+		}
+	}
+	for ms := gap.BeginMs; ms < gap.EndMs; ms += 250 {
+		if p, moves := gapPose(gap, ms, 1, true); moves || p != (dotPose{scale: 1}) {
+			t.Fatalf("under reduced motion the dots are %+v at %d ms (moving %v): want still", p, ms, moves)
+		}
+	}
+}
+
+// While a song plays in a gap the dots ask for the next frame and move
+// between them; paused, they hold still and ask for nothing.
+func TestTheDotsMoveWhilePlayingAndHoldStillPaused(t *testing.T) {
+	r := stageRig(t, gapLines(), 3000, nil)
+	r.tt.Frame()
+	if !r.tt.FramePending() {
+		t.Fatal("a gap that is playing asks for no next frame: its dots cannot move")
+	}
+	before := r.tt.Image()
+	r.advance(80 * time.Millisecond)
+	if sameImage(before, r.tt.Image()) {
+		t.Error("the dots did not move in 80 ms of a gap")
+	}
+	r.play(3500, func(s *services.PlaybackState) { s.State = store.StatePaused })
+	r.settle()
+	if r.tt.FramePending() {
+		t.Error("paused in a gap, the dots still ask for frames")
+	}
+	before = r.tt.Image()
+	r.tick(500 * time.Millisecond)
+	r.tt.Frame()
+	if !sameImage(before, r.tt.Image()) {
+		t.Error("paused in a gap, the dots moved")
 	}
 }
 
