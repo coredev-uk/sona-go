@@ -312,14 +312,17 @@ type mediaCoverApp struct {
 	size   float32
 	top    float32 // padding above the cover: far enough, it is out of the window
 	opts   MotionOpts
-	builds int // how many times the view was built
+	builds int  // how many times the view was built
+	gone   bool // drops the cover's view altogether
 }
 
 func (a *mediaCoverApp) view(c *ui.Context) {
 	a.builds++
 	theme.Apply(c)
 	ui.Column(c).Padding(10).PaddingY(10 + a.top).Children(func() {
-		MotionCover(c.Key("m"), a.e.p, a.l, "/art/k1/300x300.jpg", a.motion, a.size, a.opts)
+		if !a.gone {
+			MotionCover(c.Key("m"), a.e.p, a.l, "/art/k1/300x300.jpg", a.motion, a.size, a.opts)
+		}
 	})
 }
 
@@ -552,24 +555,8 @@ func TestMotionCoverDropsItsDecoderWhenMotionStopsOrTheViewIsGone(t *testing.T) 
 	e.setting.Store(true)
 	mediaSettle(t, tt, e, 2)
 	s := mediaSlotOf(t, e.p)
-
-	// A view that is gone builds nothing, so the sweep closes the decoder.
-	later := time.Now().Add(idleAfter + time.Second)
-	mediaSetClock(e.p, func() time.Time { return later })
-	stale, _ := e.p.stale()
-	e.p.release(stale)
-	e.f.waitClosed(t, 2)
-	if s.state != slotIdle || s.player != nil {
-		t.Errorf("the swept slot is %v with a player %v", s.state, s.player)
-	}
-	// While the window is hidden nothing is swept.
-	mediaSettle(t, tt, e, 3)
-	e.p.SetVisible(false)
-	mediaSetClock(e.p, func() time.Time { return later.Add(time.Hour) })
-	stale, _ = e.p.stale()
-	e.p.release(stale)
-	if e.f.closed.Load() != 2 {
-		t.Errorf("a hidden window's decoder was swept")
+	if s.state != slotReady {
+		t.Errorf("the reopened slot is %v", s.state)
 	}
 }
 
@@ -709,48 +696,6 @@ func TestMotionPolicyProbedIsFalseUntilTheProbeAnswers(t *testing.T) {
 	if n.Probed() {
 		t.Error("a nil policy is probed")
 	}
-}
-
-func TestMotionPolicySweepEndsWithTheLastSlotAndSleepsWhileHidden(t *testing.T) {
-	sweeping := func(p *MotionPolicy) bool {
-		p.mu.Lock()
-		defer p.mu.Unlock()
-		return p.sweeping
-	}
-	e := newMediaMotionEnv(t)
-	_, tt := newMediaCoverApp(t, e, "/motion/k1/720.mp4")
-	mediaSettle(t, tt, e, 1)
-	if !sweeping(e.p) {
-		t.Fatal("no sweep while a slot is registered")
-	}
-	s := mediaSlotOf(t, e.p)
-
-	// Hidden window: a slot nothing builds is not swept, and nothing is
-	// posted, however many ticks pass.
-	e.p.SetVisible(false)
-	later := time.Now().Add(idleAfter + time.Second)
-	mediaSetClock(e.p, func() time.Time { return later })
-	e.mt.run(t, 0) // what was already posted
-	time.Sleep(sweepEvery + 200*time.Millisecond)
-	if n := len(e.mt.q); n != 0 {
-		t.Errorf("%d funcs posted while the window was hidden", n)
-	}
-	if s.state != slotReady {
-		t.Error("a hidden window's decoder was swept")
-	}
-	// Shown again: the next tick finds the stale slot and posts its release.
-	e.p.SetVisible(true)
-	deadline := time.Now().Add(hangGuard)
-	for s.state == slotReady {
-		e.mt.run(t, 0)
-		if time.Now().After(deadline) {
-			t.Fatal("the stale slot was never swept")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	// With no slot left the sweep ends by itself on a tick; no call of ours.
-	waitFor(t, "the sweep to end with no slots", func() bool { return !sweeping(e.p) })
 }
 
 type mediaTilesApp struct {
@@ -905,10 +850,9 @@ func TestTileMotionOwnerThatFailedOrVanishedDoesNotBlockOthers(t *testing.T) {
 	}
 }
 
-func TestTileMotionOwnerThatVanishedIsReplacedAfterTheStaleTime(t *testing.T) {
+func TestTileMotionOwnerThatVanishedIsReplacedWhenItsViewIsDropped(t *testing.T) {
 	e := newMediaMotionEnv(t)
 	a, tt := newMediaTilesApp(t, e)
-	mediaSetClock(e.p, tt.Now) // the policy ages owners by the window's clock
 	mediaFrames(t, tt, e.mt)
 	a.hot[0] = true
 	tt.Frame()
@@ -916,22 +860,17 @@ func TestTileMotionOwnerThatVanishedIsReplacedAfterTheStaleTime(t *testing.T) {
 	mediaSettle(t, tt, e, 1)
 
 	// The first tile's view is dropped (a page change, a scrolled-away row):
-	// it is never built again and releases nothing. The second is hovered.
+	// its unmount closes its decoder, which wakes the second, now hovered.
 	a.gone[0] = true
 	a.hot[1] = true
 	tt.Frame()
-	tt.Advance(450 * time.Millisecond) // its dwell: the owner is not stale yet
+	tt.Advance(450 * time.Millisecond) // its dwell
 	tt.Frame()
-	if n := len(e.f.opened()); n != 1 {
-		t.Fatalf("%d decoders open: the second tile took a live owner's place", n)
-	}
-	// It asked to be built again after the stale time, with no other event.
-	// (Advance builds the view only if something asked for it: no Frame here.)
-	tt.Advance(ownerStale + 50*time.Millisecond)
 	for deadline := time.Now().Add(hangGuard); len(e.f.opened()) < 2; time.Sleep(time.Millisecond) {
 		if time.Now().After(deadline) {
-			t.Fatal("the second tile never took over: nothing woke it after the stale time")
+			t.Fatal("the second tile never took over")
 		}
+		tt.Frame()
 	}
 	e.f.waitClosed(t, 1)
 	if calls := e.f.opened(); calls[1].url != "/motion/k2/720.mp4" {
@@ -1058,12 +997,13 @@ func TestMotionReportSaysWhenTheLastVideoWent(t *testing.T) {
 	}
 }
 
-// A motion cover's frames paint without building the view, so the slot is not
-// built for as long as the video plays. The sweep that closes the decoders of
-// views that are gone must not take it for one: it closed the decoder every
-// 2 s, and the build its release asked for opened it again and faded it in
-// again, a build per frame for 300 ms each time.
-func TestMotionCoverThatPlaysIsNotSweptAsGoneAndBuildsNothing(t *testing.T) {
+// A motion cover that shows is never closed for want of a build: a clip's
+// frames paint without building the view, and a paused one paints nothing, so
+// neither is built for as long as it shows. A sweep that closed the decoders
+// of slots nothing had built for 1.5 s closed such a cover every 2 s, and the
+// build its release asked for opened it again and faded it in again, a build
+// per frame for 300 ms each time. Only the element's unmount closes it now.
+func TestMotionCoverThatShowsIsKeptOpenWhetherItPlaysOrIsPaused(t *testing.T) {
 	e := newMediaMotionEnv(t)
 	a, tt := newMediaCoverApp(t, e, "")
 	a.opts.VideoSize = 0
@@ -1071,28 +1011,43 @@ func TestMotionCoverThatPlaysIsNotSweptAsGoneAndBuildsNothing(t *testing.T) {
 	mediaFrames(t, tt, e.mt)
 	a.motion = "/motion/k1/720.mp4"
 	mediaSettle(t, tt, e, 1)
-	// The sweep goroutine reads the policy's clock: it follows the Tester's
-	// through an atomic.
-	var now atomic.Int64
-	now.Store(tt.Now().UnixNano())
-	mediaSetClock(e.p, func() time.Time { return time.Unix(0, now.Load()) })
-	step := func(d time.Duration) {
-		tt.Advance(d)
-		now.Store(tt.Now().UnixNano())
-	}
 	tt.Frame()
-	step(motionFade + 50*time.Millisecond)
-	built := a.builds
-	for range 180 { // 3 s: twice the sweep's idle time
-		step(16700 * time.Microsecond)
+	tt.Advance(motionFade + 50*time.Millisecond)
+	idle := func(what string) {
+		t.Helper()
+		built := a.builds
+		for range 180 { // 3 s
+			tt.Advance(16700 * time.Microsecond)
+		}
+		time.Sleep(2200 * time.Millisecond) // longer than the old sweep's idle time and tick, in real time
+		e.mt.run(t, 0)
+		if n := e.f.closed.Load(); n != 0 || len(e.f.opened()) != 1 {
+			t.Errorf("%s: %d decoders closed, %d opened: the cover was closed and opened again", what, n, len(e.f.opened()))
+		}
+		if n := a.builds - built; n > 2 {
+			t.Errorf("%s: the view was built %d times in 3 s", what, n)
+		}
 	}
-	if stale, _ := e.p.stale(); len(stale) != 0 {
-		t.Errorf("the sweep takes the playing cover for gone after 3 s of painting")
-	}
-	if n := a.builds - built; n > 2 {
-		t.Errorf("the view was built %d times in 3 s of a playing cover", n)
-	}
+	idle("playing")
 	if !mediaIsMoving(tt) {
 		t.Errorf("the video does not move")
+	}
+	uncover := e.p.Cover() // under Now Playing the cover is paused, and still shows
+	defer uncover()
+	tt.Frame()
+	idle("paused")
+}
+
+// The unmount of the element closes the decoder: a view that is gone does not
+// tell, but MyGo closes the slot's Local once a frame no longer builds it.
+func TestMotionCoverClosesItsDecoderWhenItsElementIsGone(t *testing.T) {
+	e := newMediaMotionEnv(t)
+	a, tt := newMediaCoverApp(t, e, "/motion/k1/720.mp4")
+	mediaSettle(t, tt, e, 1)
+	a.gone = true
+	tt.Frame()
+	e.f.waitClosed(t, 1)
+	if n := len(e.p.slots); n != 0 {
+		t.Errorf("%d slots registered after the unmount", n)
 	}
 }

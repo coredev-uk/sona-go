@@ -3,7 +3,6 @@ package kit
 import (
 	"context"
 	"errors"
-	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -45,11 +44,13 @@ const (
 const openPoll = 50 * time.Millisecond
 
 // motionSlot is one cover's or tile's motion: its decoder from open to
-// close. It lives in the element's Local state; the policy's registry lets
-// the sweep close it when its view is no longer built.
+// close. It lives in the element's Local state, which closes it (Close) once
+// a frame no longer builds the element: nothing needs to be built, painted
+// or polled for a visible slot to stay open, as a paused video or a playing
+// one that paints without building shows.
 type motionSlot struct {
-	p     *MotionPolicy
-	built atomic.Int64 // when a view last built it (unix ns), for the sweep
+	p          *MotionPolicy
+	registered bool // in the policy's registry (main thread only)
 
 	url     string
 	px      int
@@ -67,26 +68,23 @@ type motionSlot struct {
 
 func newMotionSlot(p *MotionPolicy) *motionSlot { return &motionSlot{p: p} }
 
-// touch marks the slot as built now.
+// touch registers the slot with the policy while it holds a file or asks for
+// one.
 func (s *motionSlot) touch() {
-	first := s.built.Load() == 0
-	s.built.Store(s.p.clock().UnixNano())
-	if first {
+	if !s.registered {
+		s.registered = true
 		s.p.register(s)
 	}
 }
 
-// painted marks a slot that is still shown, from its Draw callback: a clip's
-// frames paint without building the view, so the build that touch records
-// goes stale while the video plays, and the sweep would close the decoder of
-// a cover that is on screen (to open it again, and fade it in again, on the
-// build its release asks for). A slot already released stays released.
-func (s *motionSlot) painted() {
-	// Swap, not load-then-store: a release between the two would otherwise
-	// be undone, and the released slot taken for one still shown.
-	if old := s.built.Load(); old != 0 {
-		s.built.CompareAndSwap(old, s.p.clock().UnixNano())
+// Close is the element's unmount (ui.Local closes a state that is an
+// io.Closer once a frame no longer builds its element): the decoder goes.
+func (s *motionSlot) Close() error {
+	if s.p == nil { // no policy: nothing is ever opened
+		return nil
 	}
+	s.release()
+	return nil
 }
 
 // release closes the decoder and forgets the file: nothing wants this
@@ -109,7 +107,7 @@ func (s *motionSlot) release() {
 		s.p.post(func() {})
 	}
 	s.p.unregister(s)
-	s.built.Store(0)
+	s.registered = false
 }
 
 // sync brings the slot to what the view wants: url at px when want, nothing
@@ -248,10 +246,7 @@ func (s *motionSlot) fill(c *ui.Context, host ui.Element, size float32, round bo
 	host.Children(func() {
 		if clip, ok := player.(*media.Clip); ok {
 			video = ui.Box(c).Size(size, size)
-			video.Draw(func(pt *ui.Painter, r ui.Rect) {
-				s.painted()
-				clip.Paint(pt, r)
-			})
+			video.Draw(func(pt *ui.Painter, r ui.Rect) { clip.Paint(pt, r) })
 			return
 		}
 		video = ui.Video(c, player.(*ui.VideoPlayer)).Size(size, size).Fit(ui.Cover)
@@ -375,10 +370,8 @@ func TileMotion(c *ui.Context, p *MotionPolicy, motion string, size float32, o T
 		return host
 	}
 	if !p.claim(slot, !o.Focus) {
-		// The owner's release wakes this tile. An owner that vanished
-		// without one (its view was dropped) is gone once ownerStale has
-		// passed: look again then.
-		c.After(ownerStale)
+		// The owner's release wakes this tile, as does the close of an owner
+		// whose view was dropped (motionSlot.Close).
 		return host
 	}
 	slot.sync(motion, motionPx(size, scale), true)

@@ -246,25 +246,11 @@ func (p *MotionPolicy) outcome(kind string, err error) {
 	}
 }
 
-// sweepEvery is how often decoders nothing builds are looked for, and
-// idleAfter how long a slot may go unbuilt before its decoder is closed (a
-// view that is gone does not tell: React unmounted it).
-const (
-	sweepEvery = 500 * time.Millisecond
-	idleAfter  = 1500 * time.Millisecond
-)
-
-// register adds a slot to the registry and starts the sweep if it is not
-// running.
+// register adds a slot to the registry.
 func (p *MotionPolicy) register(s *motionSlot) {
 	p.mu.Lock()
 	p.slots[s] = struct{}{}
-	start := !p.sweeping
-	p.sweeping = true
 	p.mu.Unlock()
-	if start {
-		go p.sweep()
-	}
 }
 
 func (p *MotionPolicy) unregister(s *motionSlot) {
@@ -281,72 +267,11 @@ func (p *MotionPolicy) clock() time.Time {
 	return f()
 }
 
-// sweep closes the decoders of slots that stopped being built, on the main
-// thread. It runs while there are slots and ends with the last; while the
-// window is hidden (SetVisible) it does nothing and wakes nobody: nothing
-// builds then, and the decoders only wait.
-func (p *MotionPolicy) sweep() {
-	t := time.NewTicker(sweepEvery)
-	defer t.Stop()
-	for {
-		select {
-		case <-p.quit:
-			return
-		case <-t.C:
-		}
-		if p.hidden.Load() {
-			continue
-		}
-		stale, empty := p.stale()
-		if empty {
-			return
-		}
-		if len(stale) > 0 {
-			p.post(func() { p.release(stale) })
-		}
-	}
-}
-
-// stale are the slots nothing has built for idleAfter; empty reports that
-// there are no slots at all, which also ends the sweep (register starts it
-// again).
-func (p *MotionPolicy) stale() (out []*motionSlot, empty bool) {
-	now := p.clock()
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if len(p.slots) == 0 {
-		p.sweeping = false
-		return nil, true
-	}
-	for s := range p.slots {
-		if now.Sub(time.Unix(0, s.built.Load())) > idleAfter {
-			out = append(out, s)
-		}
-	}
-	return out, false
-}
-
-// release closes the decoders of the slots still unbuilt, on the main
-// thread; while the window is hidden (SetVisible) they stay, waiting.
-func (p *MotionPolicy) release(slots []*motionSlot) {
-	if p.hidden.Load() {
-		return
-	}
-	for _, s := range slots {
-		if p.clock().Sub(time.Unix(0, s.built.Load())) > idleAfter {
-			s.release()
-		}
-	}
-}
-
-// ownerStale is how long a tile that plays may go unbuilt before another may
-// take over (it scrolled away, or its page went).
-const ownerStale = 600 * time.Millisecond
-
 // claim says whether tile s may play: one tile's motion plays at a time, the
 // hovered one before one that only has the keyboard focus (lib/motion.ts's
 // hovered ?? focused). A hovered tile takes over from a focused one at once;
-// an owner that failed, or was not built lately, is gone. A tile that cannot
+// an owner that failed is gone (one whose view was dropped has been closed
+// by its unmount). A tile that cannot
 // play now is woken by the owner's release (see motionSlot.release), so it
 // polls nothing.
 func (p *MotionPolicy) claim(s *motionSlot, hover bool) bool {
@@ -355,7 +280,7 @@ func (p *MotionPolicy) claim(s *motionSlot, hover bool) bool {
 		rank = 2
 	}
 	if o := p.owner; o != nil && o != s {
-		gone := o.state == slotFailed || p.clock().Sub(time.Unix(0, o.built.Load())) > ownerStale
+		gone := o.state == slotFailed
 		if !gone && o.rank >= rank {
 			return false
 		}
