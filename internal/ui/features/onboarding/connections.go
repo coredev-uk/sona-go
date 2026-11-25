@@ -222,8 +222,7 @@ func (o *onboarding) lastFMWaiting(c *ui.Context) {
 	msg := i18n.T("Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself.")
 	ui.Row(c.Key("waiting")).FillWidth().Gap(12).Padding(12, 16).AlignItems(ui.Center).Radius(theme.Current().Radius["md"]).
 		Background(theme.C("hover")).Role(ui.RoleStatus).Label(msg).Children(func() {
-		ic := statusIcon(c, "loader-circle", "ink-muted")
-		theme.Spin(ic, true)
+		kit.SpinIcon(c.Key("icon"), theme.Icon("loader-circle"), 16, theme.C("ink-muted"), true)
 		theme.Text(c, msg, "sub").TextColor(theme.C("ink")).Grow(1).Shrink(1).MinWidth(0)
 		if kit.Button(c.Key("cancel"), i18n.T("Cancel"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}).Clicked() {
 			api := o.scrobbler

@@ -186,8 +186,7 @@ func (h *home) refreshButton(c *ui.Context) {
 	}
 	theme.Fade(b, "feedback")
 	b.Children(func() {
-		ic := ui.Icon(c.Key("icon"), theme.Icon("rotate-cw")).FontSize(16)
-		theme.Spin(ic, h.refreshing)
+		kit.SpinIcon(c.Key("icon"), theme.Icon("rotate-cw"), 16, theme.C("ink"), h.refreshing)
 		theme.Text(c, label, "label").SingleLine()
 	})
 	if b.Clicked() && !h.refreshing {

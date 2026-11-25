@@ -219,6 +219,5 @@ func toastIcon(c *ui.Context, k ToastKind) {
 	if name == "" {
 		return
 	}
-	ic := ui.Icon(c.Key("icon"), theme.Icon(name)).FontSize(16).Margin(2, 0, 0, 0).Shrink(0)
-	theme.Spin(ic, k == ToastLoading)
+	SpinIcon(c.Key("icon"), theme.Icon(name), 16, theme.C("popover-foreground"), k == ToastLoading).Margin(2, 0, 0, 0)
 }

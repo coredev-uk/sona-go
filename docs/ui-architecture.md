@@ -398,7 +398,8 @@ Go sends codes, never text. `i18n.ErrorText(code)` words a `services.ErrorCode` 
 **Shared builders** (`text.go`)
 
 - `theme.Text(c, s, style)` is a `ui.Text` in a type token's size, line height, weight and tracking. `theme.StyleText` does the same to a text built another way.
-- `theme.Fade(e, "feedback"|"press")` eases an element's colours over a motion token unless motion is reduced. `theme.Spin(icon, on)` turns a loading icon once a second unless it is.
+- `theme.Fade(e, "feedback"|"press")` eases an element's colours over a motion token unless motion is reduced.
+- `kit.SpinIcon(c, svg, size, color, on)` is the loading spinner: a box built once whose Draw callback paints the icon rotated by the frame's clock (once a second) and asks for the next paint with `kit.AnimationFrames`, so it costs no build or layout per frame (an element's `Loop` asks for a built frame every time). It stands still as a plain icon when `on` is false or motion is reduced. `kit.ButtonOpts.Spin`, the toast's loading icon and the status icons all use it.
 - `theme.Hairline(c)` is the 1 px `--line` rule.
 - A feature that needs a text with more modifiers wraps `theme.Text` in a one-line helper; it does not copy the chain.
 

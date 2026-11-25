@@ -1,10 +1,6 @@
 package theme
 
-import (
-	"time"
-
-	"github.com/egoist/mygo/ui"
-)
+import "github.com/egoist/mygo/ui"
 
 // Text is a Text in one of the type styles of the current theme ("body",
 // "meta", …): its size, line height, weight and tracking.
@@ -27,14 +23,6 @@ func Fade(e ui.Element, token string) {
 	}
 	m := Current().Motion[token]
 	e.Transition(ui.ElementTransition{Colors: true, Duration: m.Duration, Ease: m.Ease})
-}
-
-// Spin turns icon once a second while on, unless motion is reduced. The loop
-// is keyed on the element, so one icon spins once.
-func Spin(icon ui.Element, on bool) {
-	if on && !ReducedMotion() {
-		icon.Rotate(icon.Loop("spin", time.Second, ui.Linear) * 360)
-	}
 }
 
 // Hairline is a 1px rule across its parent in the line colour.
