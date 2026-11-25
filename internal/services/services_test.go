@@ -371,6 +371,56 @@ func TestMPRISSnapshot(t *testing.T) {
 	}
 }
 
+// A state the engine clears from loading (audio is playing) reaches what the
+// services publish: the coordinator's snapshot, MPRIS and the integrations
+// that wait for playing (Discord presence, withheld while loading).
+func TestEngineClearingLoadingReachesMPRISAndIntegrations(t *testing.T) {
+	eng := &playEngine{events: make(chan playback.Event, 1)}
+	coord, err := coordinator.New(coordinator.Options{Engine: eng})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = coord.Close() })
+	item := coordinator.Item{ID: "1440", Title: "T", Duration: 3 * time.Minute}
+	if err := coord.SetQueue(t.Context(), []coordinator.Item{item}, 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	engineState := func(s playback.State) {
+		eng.mu.Lock()
+		eng.st.State, eng.st.UpdatedAt = s, time.Now()
+		st := eng.st
+		eng.mu.Unlock()
+		playback.SendLatest(eng.events, playback.Event{Kind: playback.EventState, Status: st})
+	}
+	waitState := func(want playback.State) coordinator.Snapshot {
+		t.Helper()
+		for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
+			if snap := coord.Snapshot(); snap.State == want {
+				return snap
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("state is %q, want %q", coord.Snapshot().State, want)
+			}
+		}
+	}
+
+	set := config.Integrations{DiscordPresence: true}
+	var st integrationsState
+	engineState(playback.StateLoading) // a seek
+	snap := waitState(playback.StateLoading)
+	if p := st.plan(snap, set, nil, time.Time{}); p.presence != nil {
+		t.Fatalf("presence changed while loading: %+v", p.presence)
+	}
+	engineState(playback.StatePlaying) // the engine saw audio advance
+	snap = waitState(playback.StatePlaying)
+	if m := mprisSnapshot(snap, ""); m.Status != mpris.StatusPlaying {
+		t.Errorf("MPRIS status = %v, want playing", m.Status)
+	}
+	if p := st.plan(snap, set, nil, time.Time{}); p.presence == nil || p.presence.Activity == nil || p.presence.Activity.Title != "T" {
+		t.Errorf("presence = %+v, want the track", p.presence)
+	}
+}
+
 // A live station has nothing to skip to, seek in, shuffle or repeat: MPRIS
 // reports it, and clients that write the modes anyway are refused.
 func TestMPRISLiveStation(t *testing.T) {

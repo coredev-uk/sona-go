@@ -1078,6 +1078,16 @@ func (e *Engine) handle(h host, gen int, ev cdmhost.Event) {
 		}
 		it.signal(nil)
 	case cdmhost.EventPosition:
+		if e.st.State == playback.StateLoading && it.wantPlay && ev.Position > e.st.Position {
+			// The host reports a position only while audio is heard, so one
+			// past where loading began (a seek's target, an underrun's stall)
+			// is audio playing that its EventStarted has not announced:
+			// loading is over. One that did not move is a stall, and stays
+			// loading.
+			e.setState(playback.StatePlaying, ev.Position, ev.At)
+			it.signal(nil)
+			return
+		}
 		if e.st.State != playback.StatePlaying {
 			return
 		}
@@ -1087,10 +1097,14 @@ func (e *Engine) handle(h host, gen int, ev cdmhost.Event) {
 			e.emit(playback.EventState)
 		}
 	case cdmhost.EventBuffering:
-		if ev.Buffering {
-			e.setState(playback.StateLoading, ev.Position, ev.At)
-		} else if it.wantPlay {
-			e.setState(playback.StatePlaying, ev.Position, ev.At)
+		// A pause has been asked for: an underrun the host reported just
+		// before it must not show loading over a paused item.
+		if it.wantPlay {
+			state := playback.StatePlaying
+			if ev.Buffering {
+				state = playback.StateLoading
+			}
+			e.setState(state, ev.Position, ev.At)
 		}
 	case cdmhost.EventEnded:
 		e.setState(playback.StateEnded, e.st.Duration, ev.At)
