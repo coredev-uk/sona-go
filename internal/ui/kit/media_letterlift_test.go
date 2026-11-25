@@ -25,6 +25,13 @@ func eightLetters(t *testing.T, begin, end time.Duration, bg bool) *SweepText {
 	return NewSweepText([]lyrics.Word{{Begin: begin, End: end, Text: "HHHHHHHH", Background: bg}}, "", 40, 700, 48, 400)
 }
 
+func b2f(b bool) float32 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 func fourLetters(t *testing.T, begin, end time.Duration, bg bool) *SweepText {
 	t.Helper()
 	useAppFont(t)
@@ -51,7 +58,7 @@ func TestALetterRisesAsTheColourReachesItAndComesStraightBackDown(t *testing.T) 
 		if v, mv := liftOf(s, 0, i, reach-5*ms); v != 0 || mv {
 			t.Errorf("letter %d is %v em up (moving %v) before the colour reaches it", i, v, mv)
 		}
-		if v, _ := liftOf(s, 0, i, reach+riseDur/4); v < liftEm/2 {
+		if v, _ := liftOf(s, 0, i, reach+riseDur/4); v < liftEm/4 {
 			t.Errorf("letter %d is only %v of %v up a quarter into its rise: too slow", i, v, liftEm)
 		}
 		if v, mv := liftOf(s, 0, i, lit); !withinTol(v, liftEm, 1e-6) || !mv {
@@ -60,8 +67,14 @@ func TestALetterRisesAsTheColourReachesItAndComesStraightBackDown(t *testing.T) 
 		if v, mv := liftOf(s, 0, i, lit+fallDur); v != 0 || mv {
 			t.Errorf("letter %d is %v em up (moving %v) fallDur after it is lit", i, v, mv)
 		}
-		if v, _ := liftOf(s, 0, i, lit+fallDur/3); v <= 0 || v >= liftEm/2 {
+		if v, _ := liftOf(s, 0, i, lit+fallDur/3); v <= 0 || v >= liftEm*0.9 {
 			t.Errorf("letter %d is %v em up a third into its fall: not on its way down", i, v)
+		}
+		// Neither way is a jump: no more than a fifth of the lift in 1/60 s.
+		for _, at := range []time.Duration{reach, lit} {
+			if v, _ := liftOf(s, 0, i, at+17*ms); math.Abs(float64(v-liftEm*b2f(at == lit))) > liftEm/5 {
+				t.Errorf("letter %d is %v em up 17 ms after %v: a jump", i, v, at)
+			}
 		}
 		if lit+fallDur >= 3*time.Second+fallDur+ms {
 			t.Errorf("letter %d is down at %v, after the word's end plus a fall", i, lit+fallDur)

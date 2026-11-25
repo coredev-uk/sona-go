@@ -28,7 +28,7 @@ const (
 	// instead of trailing a slow word's fill. riseEase shapes it.
 	riseDur = 180 * time.Millisecond
 	// fallDur is how long a letter takes to come back down once the colour
-	// has lit it whole, shaped by riseEase too.
+	// has lit it whole, shaped by fallEase.
 	fallDur = 220 * time.Millisecond
 	// empMin is how long a word is held to swell, and empMaxChars the longest
 	// (CJK: no longest) it may be, trimmed.
@@ -72,7 +72,13 @@ func (b bezier) at(x float32) float32 {
 }
 
 var (
-	riseEase = bezier{0.16, 1, 0.3, 1}   // expo out: most of the move at once, a soft landing (rise and fall)
+	// riseEase is the way up: a sine out, quick at first and landing softly,
+	// but with no more than a seventh of the lift in any frame at 60 fps (an
+	// expo out has half of it in the first, which shows as a jump).
+	riseEase = bezier{0.39, 0.575, 0.565, 1}
+	// fallEase is the way down: slow off the peak and into rest, so the letter
+	// turns at the top instead of with a kink.
+	fallEase = bezier{0.4, 0, 0.6, 1}
 	empIn    = bezier{0.2, 0.4, 0.58, 1} // the swell's way up
 	empOut   = bezier{0.3, 0, 0.58, 1}   // and, reversed, down
 )

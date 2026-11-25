@@ -348,7 +348,7 @@ func TestLiftedInkStandsHigher(t *testing.T) {
 		t.Errorf("the unsung word moved: %v then %v", s0, s1)
 	}
 	// Partway up, between.
-	f2, _, _ := frame(8 * ms)
+	f2, _, _ := frame(30 * ms)
 	if f2[0] >= f0[0] || f2[0] <= f1[0] {
 		t.Errorf("mid-lift top %d not between %d and %d", f2[0], f1[0], f0[0])
 	}

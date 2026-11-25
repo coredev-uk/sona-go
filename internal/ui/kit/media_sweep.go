@@ -13,6 +13,11 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
+// sweepFeatures turns ligatures off: a letter is painted from its own glyph
+// while it moves, and a ligature ("ffi") of the layout's text would come
+// apart into its letters as the first of them lifts.
+const sweepFeatures = "liga=0, clig=0"
+
 // SweepText is one word-timed text of a lyric line (its lead or its
 // background vocals), shaped once for the sheet's width: each word fills
 // with the sweep colour from its start to its end as it is sung, short
@@ -106,9 +111,9 @@ func NewSweepTextItalic(words []lyrics.Word, lang string, size float32, weight i
 func newSweepText(words []lyrics.Word, lang string, size float32, weight int, italic bool, lineHeight, width float32) *SweepText {
 	spans := make([]ui.Span, len(words))
 	for i, w := range words {
-		spans[i] = ui.Span{Text: w.Text}
+		spans[i] = ui.Span{Text: w.Text, Features: sweepFeatures}
 	}
-	font := ui.Font{Family: theme.FontFamily, Size: size, Weight: weight, Italic: italic, Lang: lang, LineHeight: lineHeight / size}
+	font := ui.Font{Family: theme.FontFamily, Size: size, Weight: weight, Italic: italic, Lang: lang, LineHeight: lineHeight / size, Features: sweepFeatures}
 	s := &SweepText{words: make([]sweepWord, len(words)), width: width, size: size, font: font}
 	s.layout = ui.ShapeRichTextWith(spans, font, ui.TextShape{Width: width})
 	_, s.h = s.layout.Size()
@@ -263,8 +268,8 @@ func baselineAt(lines []ui.TextLine, y float32) float32 {
 
 // padBoxes works out how far each box's ink may overhang it: 0.15 em either
 // side (an italic's slant), but no further than half way to the next box on
-// its line, so that words set close together (syllables of one word) never
-// draw each other's ink, and two boxes' overhangs never cover one pixel.
+// its line (seam), so that words set close together (syllables of one word)
+// never draw each other's ink.
 func (s *SweepText) padBoxes() {
 	over := s.size * 0.15
 	for i := range s.words {
@@ -279,14 +284,29 @@ func (s *SweepText) padBoxes() {
 					}
 					switch {
 					case o.X+o.W <= b.r.X+0.5:
-						b.left = min(b.left, max(b.r.X-(o.X+o.W), 0)*0.5)
+						b.left = min(b.left, seam(b.r.X-(o.X+o.W)))
 					case o.X >= b.r.X+b.r.W-0.5:
-						b.right = min(b.right, max(o.X-(b.r.X+b.r.W), 0)*0.5)
+						b.right = min(b.right, seam(o.X-(b.r.X+b.r.W)))
 					}
 				}
 			}
 		}
 	}
+}
+
+// seam is how far into a gap between two boxes (of two words on a line) a
+// box may reach: half way and a DIP more, so that the two overlap by a device
+// pixel at least. The text system draws the glyphs whose boxes meet a clip,
+// not those whose ink does, and snaps a clip to pixels: two clips that only
+// meet at a seam lose the column of ink that a glyph of one overhangs into
+// the other's side at it (#662: an italic long s under a descender). The
+// glyphs of a box are in no other's, so nothing is painted twice. Boxes that
+// touch have no gap and no overhang.
+func seam(gap float32) float32 {
+	if gap <= 0 {
+		return 0
+	}
+	return min(gap*0.5+1, gap)
 }
 
 // hasRTL reports a letter of a script read right to left, whose letters join
@@ -344,7 +364,7 @@ func (w *sweepWord) lift(l *sweepLetter, t time.Duration, edge float32, rtl bool
 		return 0, false
 	}
 	up := riseEase.at(clamp01(float32(s-r) / float32(riseDur)))
-	down := 1 - riseEase.at(clamp01(float32(s-e)/float32(fallDur)))
+	down := 1 - fallEase.at(clamp01(float32(s-e)/float32(fallDur)))
 	return w.up * up * down, s >= r
 }
 
@@ -410,12 +430,17 @@ func (s *SweepText) Paint(p *ui.Painter, x, y float32, base, fill ui.Color, cloc
 	return moving
 }
 
-// paintWord paints word w letter by letter: the letters at rest (not yet
-// risen or down again, in runs of neighbours) with the layout's text,
-// clipped to the run and shifted, which keeps them as sharp as any text; the
-// letters on the move, one by one, from their own glyphs at the fractional
-// offset they have got to. Both are painted by the word's stretches of colour
-// at prog. It reports whether any is moving.
+// paintWord paints word w. A word none of whose letters is away from its
+// place (before it is sung and after its letters are down) is painted as the
+// layout's text, in one run to a box, which keeps it as sharp as any text.
+// While it is sung and its letters come up and go down, every letter of it
+// is painted on its own, from its own glyphs (at rest too, where they are
+// the layout's pixel for pixel), at the fractional offset it has got to: a
+// run clipped to its letters' boxes would cut off the ink of a letter at
+// rest that overhangs a box of a letter on the move (a kerned pair, an
+// italic) and paint that of the letter on the move twice. Both are painted
+// by the word's stretches of colour at prog. It reports whether any is
+// moving.
 func (s *SweepText) paintWord(p *ui.Painter, x, y float32, w *sweepWord, c SweepClock, base, hi ui.Color, prog, edge float32, rtl bool) (moving bool) {
 	s.segs = mediaSegments(s.segs[:0], w.boxes, x, y, prog, edge, rtl, base, hi)
 	f := c.T - w.begin
@@ -423,12 +448,15 @@ func (s *SweepText) paintWord(p *ui.Painter, x, y float32, w *sweepWord, c Sweep
 	if swelling {
 		moving = true
 	}
+	// A swollen word is on the move for its swell; any other from its begin
+	// until its last letter is down (lift).
+	onTheMove := swelling || w.emp == nil && f >= 0 && f < w.d+fallDur
 	from, runLift := -1, float32(0)
 	for i := range w.letters {
 		l := &w.letters[i]
 		lift, mv := w.lift(l, c.T, edge, rtl)
 		moving = moving || mv
-		if l.glyphs != nil && (swelling || lift != 0) {
+		if l.glyphs != nil && onTheMove {
 			if from >= 0 {
 				s.paintRun(p, x, y, w, from, i, runLift, base)
 				from = -1
