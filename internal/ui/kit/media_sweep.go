@@ -506,33 +506,42 @@ func (s *SweepText) paintRun(p *ui.Painter, x, y float32, w *sweepWord, from, to
 // transform is cut with a coverage mask that the renderers rasterise on the
 // CPU and upload again in every frame the scale moves (stagePose), where a
 // clip outside it is cut in the shader like any other. The spread from the
-// word's centre and the rise are translations, folded into the clips. A glow
-// of the fill's colour is behind it.
+// word's centre (dx) is in the clips' own coordinates and in the glyphs'
+// transform, never in a translation round the clips: a clip's edges are
+// snapped to whole device pixels where it is made (Painter.pushClip), and a
+// fractional translation after that moves two neighbouring clips' shared edge
+// into the middle of a pixel, which both cover in part, so that the glyph
+// painted by each at partial coverage leaves a thin line of the ground
+// through it (the seams of a held word, in its fill's soft edge). Only the
+// rise, vertical, is a translation round the clips. A glow of the fill's
+// colour is behind it.
 func (s *SweepText) paintLetter(p *ui.Painter, x, y float32, w *sweepWord, l *sweepLetter, lift float32, pose letterPose, base, fill ui.Color) {
 	size := s.size
 	c0, cy := x+l.x+l.w/2, y+l.centre // the letter's centre, where it is laid out
+	cx := c0 + pose.dx*size           // and where the swell has spread it to
 	by := y + l.baseline
 	scaled := func(fn func()) {
-		if pose.scale == 1 {
+		if pose.scale == 1 && pose.dx == 0 {
 			fn()
 			return
 		}
-		p.Transform(ui.Scaling(pose.scale, pose.scale), c0, cy, fn)
+		p.Transform(ui.Scaling(pose.scale, pose.scale).Then(ui.Translation(pose.dx*size, 0)), c0, cy, fn)
 	}
-	// The stretches of its box, scaled about the letter's centre as it is.
+	// The stretches of its box, scaled about the letter's centre as it is and
+	// spread with it.
 	row := s.row[:0]
 	for _, sg := range boxSegs(s.segs, l.box) {
-		sg.r = spanRect(c0+(sg.r.X-c0)*pose.scale, c0+(sg.r.X+sg.r.W-c0)*pose.scale, by-2*size, by+2*size)
+		sg.r = spanRect(cx+(sg.r.X-c0)*pose.scale, cx+(sg.r.X+sg.r.W-c0)*pose.scale, by-2*size, by+2*size)
 		row = append(row, sg)
 	}
 	s.row = row
-	p.Transform(ui.Translation(pose.dx*size, (pose.dy-lift)*size), 0, 0, func() {
+	p.Transform(ui.Translation(0, (pose.dy-lift)*size), 0, 0, func() {
 		if fill.A > 0 && pose.glow > 0.01 {
 			scaled(func() { mediaGlow(p, l.glyphs, x+l.x, by, w.emp.glowEm()*size, fill, pose.glow) })
 		}
 		// Wider than its ink by an em each side: what lies outside its box
 		// is base.
-		mediaRow(p, row, x+l.x-size, x+l.x+l.w+size, by-2*size, by+2*size, base, func(c ui.Color) {
+		mediaRow(p, row, cx-l.w*pose.scale/2-size, cx+l.w*pose.scale/2+size, by-2*size, by+2*size, base, func(c ui.Color) {
 			scaled(func() { p.Glyphs(l.glyphs, x+l.x, by, c) })
 		})
 	})

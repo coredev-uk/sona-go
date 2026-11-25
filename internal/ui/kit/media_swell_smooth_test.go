@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"image"
 	"math"
 	"slices"
 	"testing"
@@ -150,6 +151,118 @@ func TestTheFillFrontMovesByPartsOfAPixel(t *testing.T) {
 		t.Logf("%v×: %d steps of 4 ms, the red ink grows %.3f px of coverage in a step at the median, from %.3f to %.3f", scale, len(steps), median, sorted[0], sorted[len(sorted)-1])
 		if stalled > 0 || jumped > 0 {
 			t.Errorf("%v×: of %d steps %d stood still and %d jumped (the median step is %.3f px of coverage): the front moves by whole pixels", scale, len(steps), stalled, jumped, median)
+		}
+	}
+}
+
+// A column of ink that is not the glyph's: the stretches of colour are clips,
+// each painting the same glyphs, and two clips whose shared edge is not on a
+// whole device pixel both cover that pixel in part: the glyph is painted twice
+// at partial coverage, one over the other, and a thin line of the ground shows
+// through it (conflation). The soft edge's slices meet every edge/8 DIPs along
+// a word, so a word mid-sweep shows a row of such lines, through letters lit
+// and unlit alike. The test paints a word with a fill one shade from its base
+// (so that the colours of the slices cannot show) and compares it with the
+// same letters painted once, unclipped, in the colour between them: the
+// difference of the two, column by column over the rows of ink, is smooth
+// (the glow's halo, a few shades), and a seam is a column that stands out of
+// it against both neighbours.
+func TestTheFillsSlicesLeaveNoSeamsInTheLetters(t *testing.T) {
+	useAppFont(t)
+	base, fill, mid := ui.RGB(0, 0, 0), ui.RGB(10, 10, 10), ui.RGB(5, 5, 5)
+	for _, c := range []struct {
+		name  string
+		text  string
+		held  time.Duration
+		at    time.Duration
+		still bool
+	}{
+		{"still word", "breakwater", 4 * time.Second, 2400 * ms, true},
+		{"lifted letters", "breakwater", 4 * time.Second, 2400 * ms, false},
+		{"swelling letters", "you", 3 * time.Second, 1500 * ms, false},
+		{"swelling letters, early", "you", 3 * time.Second, 700 * ms, false},
+	} {
+		s := NewSweepText([]lyrics.Word{{Begin: 0, End: c.held, Text: c.text}}, "", 72, 700, 90, 700)
+		for _, scale := range []float32{1, 2} {
+			at := c.at
+			tt := smoothShot(s, base, fill, scale, &at)
+			if c.still {
+				tt = ui.NewTester(func(ctx *ui.Context) {
+					ui.Box(ctx).Background(ui.RGB(255, 255, 255)).Padding(smoothPad).Children(func() {
+						ui.Box(ctx.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
+							s.Paint(p, r.X, r.Y, base, fill, SweepClock{T: c.at, Sung: 1, Still: true}, false)
+						})
+					})
+				}, int(s.Width())+2*smoothPad, int(math.Ceil(float64(s.Height())))+2*smoothPad)
+				tt.SetScale(scale)
+			}
+			tt.Frame()
+			got := tt.Image()
+			var want *image.RGBA
+			if c.still {
+				want = smoothRef(s, scale, func(p *ui.Painter, x, y float32) { p.TextLayout(s.layout, x, y, mid) })
+			} else {
+				want = smoothRef(s, scale, func(p *ui.Painter, x, y float32) { glyphPass(s, p, x, y, mid, fill, c.at) })
+			}
+			w, h := got.Bounds().Dx(), got.Bounds().Dy()
+			diff := make([]float64, w)
+			for x := range w {
+				for y := range h {
+					diff[x] += float64(int(want.RGBAAt(x, y).R)-int(got.RGBAAt(x, y).R)) / 255
+				}
+			}
+			worst, at0 := 0.0, 0
+			for x := 1; x < w-1; x++ {
+				if d := math.Abs(diff[x] - (diff[x-1]+diff[x+1])/2); d > worst {
+					worst, at0 = d, x
+				}
+			}
+			t.Logf("%s at %v×: the worst column (%d) stands %.2f px of coverage out of its neighbours", c.name, scale, at0, worst)
+			if worst > 1.5*float64(scale) {
+				t.Errorf("%s at %v×: column %d of the word stands %.2f px of coverage out of its neighbours: a seam between two clips", c.name, scale, at0, worst)
+			}
+		}
+	}
+}
+
+// smoothRef is a frame of s's window with draw's painting, over a white ground.
+func smoothRef(s *SweepText, scale float32, draw func(p *ui.Painter, x, y float32)) *image.RGBA {
+	tt := ui.NewTester(func(c *ui.Context) {
+		ui.Box(c).Background(ui.RGB(255, 255, 255)).Padding(smoothPad).Children(func() {
+			ui.Box(c.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) { draw(p, r.X, r.Y) })
+		})
+	}, int(s.Width())+2*smoothPad, int(math.Ceil(float64(s.Height())))+2*smoothPad)
+	tt.SetScale(scale)
+	tt.Frame()
+	img := tt.Image()
+	out := image.NewRGBA(img.Rect)
+	copy(out.Pix, img.Pix)
+	return out
+}
+
+// glyphPass paints every letter of s once, unclipped, in ink, as the sweep
+// poses it at t, with the glow in fill.
+func glyphPass(s *SweepText, p *ui.Painter, x, y float32, ink, fill ui.Color, t time.Duration) {
+	size, edge := s.size, s.size*0.5
+	for k := range s.words {
+		w := &s.words[k]
+		f := t - w.begin
+		for i := range w.letters {
+			l := &w.letters[i]
+			lift, _ := w.lift(l, t, edge, false)
+			pose := letterPose{scale: 1}
+			if w.emp != nil && f >= 0 && f < w.emp.run {
+				pose = w.emp.pose(i, f)
+			}
+			c0, cy := x+l.x+l.w/2, y+l.centre
+			p.Transform(ui.Translation(0, (pose.dy-lift)*size), 0, 0, func() {
+				p.Transform(ui.Scaling(pose.scale, pose.scale).Then(ui.Translation(pose.dx*size, 0)), c0, cy, func() {
+					if pose.glow > 0.01 {
+						mediaGlow(p, l.glyphs, x+l.x, y+l.baseline, w.emp.glowEm()*size, fill, pose.glow)
+					}
+					p.Glyphs(l.glyphs, x+l.x, y+l.baseline, ink)
+				})
+			})
 		}
 	}
 }
