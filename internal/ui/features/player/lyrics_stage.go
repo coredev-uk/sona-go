@@ -354,10 +354,17 @@ func (in stageIn) pose(rank int) ui.Pose {
 func (in stageIn) anim(rank int) ui.Animation { return cascadeAnim(rank, in.up, in.instant) }
 
 // stagePose is where a line stands by its rank (how many lines it is from
-// the one in the middle): the sung line at full size, the others a little
-// smaller and fainter by the distance, the lines beyond the two shown each
-// way gone. The ink says which are past and which are coming; this only
-// thins the far ones.
+// the one in the middle): the sung line whole, the others fainter by the
+// distance, the lines beyond the two shown each way gone. The ink says which
+// are past and which are coming; this only thins the far ones.
+//
+// A pose never carries a Scale, on purpose. The sung line paints its fill
+// through clips (kit.SweepText), and MyGo cuts a clip inside a scaled element
+// with a coverage mask that the CPU rasterises and uploads anew in every
+// frame the scale moves: 15 to 45 masks and 60 ms a frame at each line change
+// on a real GPU (#690), where a translation and a fade cost nothing. The
+// rank is told by the ink, the fade and the place; every line is one size.
+// TestTheGlideNeverScalesALine keeps it so.
 func stagePose(rank int) ui.Pose {
 	r := min(abs(rank), stageReach)
 	var fade float32
@@ -369,7 +376,7 @@ func stagePose(rank int) ui.Pose {
 	case rank == 2:
 		fade = 0.3
 	}
-	return ui.Pose{Scale: 1 - 0.04*float32(r), Fade: fade}
+	return ui.Pose{Fade: fade}
 }
 
 func abs(v int) int {
@@ -428,9 +435,9 @@ func (st *stage) ranks(anchor int, dotsSung bool, lo, hi int) (lines, dots []int
 // cascade builds the column: the sung line in the middle and the lines
 // around it, all in one size. The lines stand where they stand in the
 // column; each is posed to shift by what puts the sung line (or, in an
-// instrumental gap, its dots) in the middle, with its own rank's scale and
-// fade, and a new pose glides there line by line (cascadeAnim): the sung
-// line first, the lines trailing it after a delay that grows with the
+// instrumental gap, its dots) in the middle, with its own rank's fade, and a
+// new pose glides there line by line (cascadeAnim): the sung line
+// first, the lines trailing it after a delay that grows with the
 // distance. The glide is a pose, frames that only paint; the view is built
 // once per line, not once per frame.
 func (p *player) cascade(c *ui.Context, st *stage, in stageIn) {
@@ -513,7 +520,6 @@ func (p *player) stageLine(c *ui.Context, st *stage, in stageIn, i int) {
 	}
 	col := ui.Column(c.Key("line:" + strconv.Itoa(i))).Absolute().Left(g.left + b.indent).Top(st.top(i) - b.headH - b.headGap).
 		Width(g.colW - b.indent).Height(b.headH + b.headGap + b.h).IgnoreInput(true)
-	col.TransformOrigin(0, 0.5)
 	col.AnimatePose(in.pose(in.lineRank[i-in.lo]), in.anim(in.lineRank[i-in.lo]))
 	col.Children(func() {
 		if b.headed {
@@ -549,13 +555,13 @@ func (p *player) stageLine(c *ui.Context, st *stage, in stageIn, i int) {
 
 // stageGap is the dots of the instrumental gap before line i, above the line
 // and its heading. They take the pose of the place they hold: the sung one
-// while the gap runs, a place of their own before it, and gone (small and
-// faded, glided away with the lines) once the line has begun. Their fill is
+// while the gap runs, a place of their own before it, and gone (faded,
+// glided away with the lines) once the line has begun. Their fill is
 // painted from the clock in steps, by timers (gapDraw).
 func (p *player) stageGap(c *ui.Context, st *stage, in stageIn, i int, b *stageBlock) {
 	g := in.g
 	state := gapStateOf(i, in.active, in.anchor)
-	rank, pose := in.dotsRank[i-in.lo], ui.Pose{Scale: 0.6, Fade: 1, Y: in.shift}
+	rank, pose := in.dotsRank[i-in.lo], ui.Pose{Fade: 1, Y: in.shift}
 	switch state {
 	case gapSung:
 		rank, pose = 0, in.pose(0)
@@ -565,7 +571,6 @@ func (p *player) stageGap(c *ui.Context, st *stage, in stageIn, i int, b *stageB
 		rank = in.lineRank[i-in.lo] // gone with its line: after it
 	}
 	e := ui.Box(c.Key("gap:" + strconv.Itoa(i))).Absolute().Left(g.left).Top(st.top(i) - b.above()).Width(g.colW).Height(b.dotsH).IgnoreInput(true)
-	e.TransformOrigin(0, 0.5)
 	e.AnimatePose(pose, in.anim(rank))
 	if state != gapPast {
 		e.Role(ui.RoleImage).Label(gapLabel()).
