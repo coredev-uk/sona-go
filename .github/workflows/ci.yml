@@ -148,18 +148,22 @@ jobs:
           ACTOR: ${{ github.actor }}
         run: build/ci/find-image.sh
 
-  # go vet for the host, the development build (-tags dev) and the probe build
-  # (-tags probe), then the macOS and Windows seams (docs/platforms.md,
-  # "Type-check and cross-build"): every package must type-check there with cgo off, which needs
-  # no system packages, and paths that differ only by case break macOS and
-  # Windows checkouts. The steps share compiled dependencies, so one job beats
-  # several that each compile them.
+  # What `check` runs (justfile; devenv shell -- check), so a change that
+  # fails it can't merge green: go vet for the host, the development build
+  # (-tags dev) and the probe build (-tags probe), then the macOS and Windows
+  # seams (docs/platforms.md, "Type-check and cross-build"): every package must
+  # type-check there with cgo off, which needs no system packages, and paths
+  # that differ only by case break macOS and Windows checkouts. Then the lint
+  # (golangci-lint on what a pull request changes, MyGo's lifetime check), the
+  # message catalogue and gofumpt formatting. The steps share compiled
+  # dependencies, so one job beats several that each compile them. A step added
+  # to `check` is added here, and the other way round.
   vet:
     name: Vet and type-check
     needs: [changes, image]
     if: ${{ needs.changes.outputs.heavy == 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: read # pull the image
@@ -208,6 +212,36 @@ jobs:
       # is off (MyGo is pure Go there).
       - name: Type-check macOS (cgo off)
         run: go run ./cmd/typecheck -os darwin -arch arm64 ./...
+
+      # Only the lines a pull request changes: the tree still has findings
+      # from before the linter ran in CI, so a full run (a push to main, the
+      # nightly, a release) would fail on code nobody touched. A push to main
+      # carries what its pull request already passed. The base is fetched
+      # (the checkout is the merge commit, one commit deep) and named as
+      # `check` names it, origin/main. The binary is in the CI image, at the
+      # version devenv pins (build/ci/golangci-lint.sha256).
+      - name: golangci-lint (new code)
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          golangci-lint run --new-from-rev="origin/$BASE_REF" ./...
+
+      # Build values kept past their frame (MyGo's lifetime check).
+      - name: MyGo vet (internal/ui)
+        run: go tool mygo vet internal/ui
+
+      # Both message catalogues match the source (docs/translations.md,
+      # "Add or change a UI string").
+      - name: Check the message catalogues
+        run: go run ./cmd/i18ntool extract -check
+
+      # Lists the files that gofumpt would change, and fails. The same script
+      # as `check` and `fmt` (go.mod's gofumpt; every tracked Go file but
+      # internal/db/dbq).
+      - name: gofumpt
+        run: sh build/gofumpt.sh
 
       # Fails on a vulnerability the code can reach (govulncheck exits 3 only
       # for those; `-show verbose` also lists the ones in imported or required

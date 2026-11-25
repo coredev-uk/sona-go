@@ -54,8 +54,9 @@ in
     with pkgs;
     [
       gopls
+      # The version CI installs (build/ci/golangci-lint.sha256) is this one:
+      # a nixpkgs bump that moves it moves that file too.
       golangci-lint
-      gofumpt
       sqlc
       pkg-config
       # Only the documentation site (site/, the `docs` script); the app's

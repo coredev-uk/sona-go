@@ -35,6 +35,7 @@ UI changes: screenshots in light AND dark themes, with no personal account data,
 - [ ] `go vet ./...` and `go test -race ./...` pass
 - [ ] `golangci-lint run --new-from-rev=origin/main ./...` is clean
 - [ ] `go tool mygo vet internal/ui`, `go run ./cmd/i18ntool extract -check` and `go run ./cmd/pathcase` pass
+- [ ] `sh build/gofumpt.sh` prints nothing (`fmt` formats the files)
 - [ ] Generated files (the catalogue, `internal/db/dbq`) regenerated, not hand-edited
 - [ ] Every playback run (tests, smokes, live checks) used private mode (`SONA_PRIVATE=1`), or there was none
 - [ ] No secrets, tokens or personal data in code, logs or screenshots

@@ -502,5 +502,19 @@
     "sha256": "2d9d175453e5f00a3677d1ccb7bfeafeec4230fb88b70b8791c5de8feb1ed1a9",
     "dest": "go-proxy/gotest.tools/gotestsum/@v",
     "dest-filename": "v1.13.0.zip"
+  },
+  {
+    "type": "file",
+    "url": "https://proxy.golang.org/mvdan.cc/gofumpt/@v/v0.12.0.mod",
+    "sha256": "a9ac945e5f89b25ed749125b5b0ffbe5bdd0235a9804020c627288361daeb6a1",
+    "dest": "go-proxy/mvdan.cc/gofumpt/@v",
+    "dest-filename": "v0.12.0.mod"
+  },
+  {
+    "type": "file",
+    "url": "https://proxy.golang.org/mvdan.cc/gofumpt/@v/v0.12.0.zip",
+    "sha256": "77ec4815a16d5bde8aceda3ce217664422e1ee734fdda25c411cdf5507997942",
+    "dest": "go-proxy/mvdan.cc/gofumpt/@v",
+    "dest-filename": "v0.12.0.zip"
   }
 ]

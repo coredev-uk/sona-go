@@ -1,0 +1,13 @@
+# SHA-256 of the golangci-lint release archives the CI image downloads
+# (build/ci/Containerfile checks the one for its architecture before it
+# unpacks it, as it does the Go archives of go.sha256). The version is the one
+# in the file names, and it is the version devenv.nix's pinned nixpkgs ships
+# (`devenv shell -- golangci-lint --version`): `check` and the CI job that runs
+# `golangci-lint run` must not disagree, so a nixpkgs bump that moves it moves
+# this file in the same change (docs/maintainers/repository.md, "Pinned
+# inputs"). Keep one version here: both lines, as the release's
+# https://github.com/golangci/golangci-lint/releases/download/v<version>/golangci-lint-<version>-checksums.txt
+# lists them. golangci-lint is not a `tool` of go.mod: its dependency tree is
+# large, and its maintainers advise installing the binary instead.
+9b7fe6a6bf6334b98decf8d86b11415ea7889afdabdd1959fdce23af2a9ebcea  golangci-lint-2.15.0-linux-amd64.tar.gz
+b4d8f17068b35ee6060cc2f69a16fb48740d706fbba81661c318649c114a6998  golangci-lint-2.15.0-linux-arm64.tar.gz
