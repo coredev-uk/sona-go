@@ -624,6 +624,16 @@ The child runs in an AppContainer (the profile `sona.cdmhost`, no capabilities, 
 - Implemented by `internal/playback/native` over `internal/playback/cdmhost` on Linux, macOS and Windows (cgo builds), and by `playback.Unsupported` elsewhere.
 - Plays are reported to Apple's play-activity service the way MusicKit JS does (`internal/playback/activity`), so they appear in Apple's Recently Played.
 
+#### When loading ends
+
+`Status.State` is `loading` from a `Play`, a restart on a new host, a seek, a Spatial Audio reload or an underrun until the host reports audio playing, and the player bar's spinner turns while it is. Events of a track other than the current one are dropped (each seek, restart and reload takes a new track number). For the current track, three events end it:
+
+- `started`: the host measured the output position advance across two ticks.
+- `buffering` off: an underrun is over.
+- A `position` past the position loading began at. The host reports a position only while audio is being heard, so this ends a loading whose `started` never came. A position that did not move (a stalled output) leaves it loading, so a real underrun still shows.
+
+A `buffering` on after a pause was asked for is ignored: nothing would end that loading.
+
 #### Commands supersede earlier work
 
 Engine calls are serialised. A command that changes what plays (play, skip, jump, previous, stop, undo) supersedes the playback work before it rather than queueing behind it.
