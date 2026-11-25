@@ -290,5 +290,7 @@ func clipDuration(d time.Duration) time.Duration {
 	return d
 }
 
-var _ Motion = (*Clip)(nil)
-var _ Motion = (*ui.VideoPlayer)(nil)
+var (
+	_ Motion = (*Clip)(nil)
+	_ Motion = (*ui.VideoPlayer)(nil)
+)

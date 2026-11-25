@@ -423,6 +423,7 @@ type harness struct {
 	libs    []string // the CDM library each host was started with
 	autoEnd bool
 	endGate chan struct{} // see holdEnds
+	starve  bool          // hosts started from now on never report first audio (under mu)
 }
 
 // testCDM is the CDM library the harness's source names.
@@ -466,7 +467,7 @@ func newHarness(t *testing.T, idle time.Duration, autoEnd bool) *harness {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		f := newFake(100 + len(h.hosts))
-		f.autoEnd, f.endGate = h.autoEnd, h.endGate
+		f.autoEnd, f.endGate, f.starve = h.autoEnd, h.endGate, h.starve
 		h.hosts = append(h.hosts, f)
 		h.libs = append(h.libs, lib)
 		return f, nil
