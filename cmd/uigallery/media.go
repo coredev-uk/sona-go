@@ -142,7 +142,7 @@ func init() {
 		s := kit.NewSweepText(words, "", 28, 700, 36, 300)
 		ui.Box(c.Key("sweep")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
 			t := time.Duration(p.Now().UnixNano()) % (4 * time.Second)
-			clock := kit.SweepClock{T: t, Sung: 1, Until: 3500 * time.Millisecond} // the line stops being sung at 3.5 s and its words settle
+			clock := kit.SweepClock{T: t, Sung: 1}
 			if s.Paint(p, r.X, r.Y, theme.C("ink-muted"), theme.C("amber-ink"), clock, false) {
 				p.AnimationFrame()
 			}

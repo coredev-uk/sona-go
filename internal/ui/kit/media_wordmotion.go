@@ -20,31 +20,21 @@ import (
 
 const (
 	// liftEm is how far a letter rises as it is sung (-0.05em; background
-	// vocals 0.10em), held while the line is sung.
+	// vocals 0.10em), at the most: a letter that is lit before it has quite
+	// come up falls from where it got to.
 	liftEm = 0.05
 	// riseDur is how long a letter takes to come up once the colour reaches
 	// it, whatever the word's length: the letter answers the voice at once
 	// instead of trailing a slow word's fill. riseEase shapes it.
 	riseDur = 180 * time.Millisecond
-	// settleDur is how long a letter takes to settle back once its line has
-	// stopped, settleStagger how much later each letter of the text than the
-	// one before starts (from the left), at most settleStaggerMax, so that
-	// the line settles in a wave in at most maxSettle.
-	settleDur        = 220 * time.Millisecond
-	settleStagger    = 8 * time.Millisecond
-	settleStaggerMax = 120 * time.Millisecond
-	maxSettle        = settleStaggerMax + settleDur
+	// fallDur is how long a letter takes to come back down once the colour
+	// has lit it whole, shaped by fallEase.
+	fallDur = 220 * time.Millisecond
 	// empMin is how long a word is held to swell, and empMaxChars the longest
 	// (CJK: no longest) it may be, trimmed.
 	empMin      = time.Second
 	empMinChars = 2
 	empMaxChars = 7
-	// swellStep is the steps the swell's scale is quantised to, and
-	// swellSteps how many: the letters are shaped at each of them, so that a
-	// swollen letter is drawn at its size and stays sharp (MyGo v0.9.0
-	// rasterises text before it transforms it, and a scaled glyph blurs).
-	swellStep  = 0.02
-	swellSteps = 6
 )
 
 // bezier is a CSS cubic-bezier(x1, y1, x2, y2) easing: the value at progress x.
@@ -76,7 +66,13 @@ func (b bezier) at(x float32) float32 {
 }
 
 var (
-	riseEase = bezier{0.16, 1, 0.3, 1}   // expo out: most of the move at once, a soft landing (rise and settle)
+	// riseEase is the way up: a sine out, quick at first and landing softly,
+	// but with no more than a seventh of the lift in any frame at 60 fps (an
+	// expo out has half of it in the first, which shows as a jump).
+	riseEase = bezier{0.39, 0.575, 0.565, 1}
+	// fallEase is the way down: slow off the peak and into rest, so the letter
+	// turns at the top instead of with a kink.
+	fallEase = bezier{0.4, 0, 0.6, 1}
 	empIn    = bezier{0.2, 0.4, 0.58, 1} // the swell's way up
 	empOut   = bezier{0.3, 0, 0.58, 1}   // and, reversed, down
 )
@@ -176,8 +172,8 @@ func (w swell) pose(i int, s time.Duration) letterPose {
 	}
 	e := empEasing(clamp01(float32(local) / float32(w.du)))
 	// The float's bump: 0.05em on the way (twice for a background voice)
-	// over 1.4 du, which ends where it began. Its rise is the fill front's,
-	// not a clock's (the lift in media_sweep.go).
+	// over 1.4 du, which ends where it began: a swelling letter has no
+	// other lift (the lift in media_sweep.go is for the plain words).
 	x := float64(clamp01(float32(local) / (1.4 * float32(w.du))))
 	k := float32(1)
 	if w.bg {

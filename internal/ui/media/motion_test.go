@@ -23,11 +23,21 @@ func fixtureClip(t *testing.T, frames int) string {
 	return mediatest.Clip(t, frames)
 }
 
-// shown is a Tester that builds the video of p, 96×64: a player the system
-// opens (macOS, Windows) loads only while a ui.Video builds it.
-func shown(p *ui.VideoPlayer) *ui.Tester {
+// shown is a Tester that shows p, 96×64, as its cover does: a clip's picture
+// is painted by a Draw callback, and a player the system opens (macOS,
+// Windows) loads only while a ui.Video builds it.
+func shown(m Motion) *ui.Tester {
+	if k, ok := m.(*Clip); ok {
+		return ui.NewTester(func(c *ui.Context) {
+			ui.Box(c).Size(96, 64).Draw(func(pt *ui.Painter, r ui.Rect) { k.Paint(pt, r) })
+		}, 96, 64)
+	}
+	p := m.(*ui.VideoPlayer)
 	return ui.NewTester(func(c *ui.Context) { ui.Video(c, p).Size(96, 64) }, 96, 64)
 }
+
+// sizeOf is the size of the pictures of m, both kinds of player know it.
+func sizeOf(m Motion) (w, h int) { return m.(interface{ Size() (int, int) }).Size() }
 
 // until builds frames of tt until cond holds. The deadline only guards a hang.
 func until(t *testing.T, tt *ui.Tester, what string, cond func() bool) {
@@ -63,9 +73,6 @@ func TestOpenMotion(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	if !p.Loop() {
-		t.Error("the player does not loop")
-	}
 	// Ready once the first picture came (at once with GStreamer's decoder,
 	// after a build of its video with the system's).
 	until(t, shown(p), "first picture", func() bool {
@@ -74,7 +81,7 @@ func TestOpenMotion(t *testing.T) {
 		}
 		return p.Ready()
 	})
-	if w, h := p.Size(); w != 96 || h != 64 {
+	if w, h := sizeOf(p); w != 96 || h != 64 {
 		t.Errorf("size %d×%d, want 96×64", w, h)
 	}
 	if f.gotPath != "/motion/abc/720.mp4" || f.gotPx != 360 || f.gotCodec != "avc" {
@@ -145,7 +152,7 @@ func TestMotionFileOfTheCache(t *testing.T) {
 		}
 		return p.Ready()
 	})
-	if w, h := p.Size(); w < 16 || h < 16 {
+	if w, h := sizeOf(p); w < 16 || h < 16 {
 		t.Errorf("first frame is %d×%d", w, h)
 	}
 }

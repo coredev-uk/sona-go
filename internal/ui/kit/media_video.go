@@ -15,6 +15,11 @@ import (
 // still counts as drawn: pictures are shown only while it is.
 const drawnFor = 500 * time.Millisecond
 
+// videoRate is the most frames a second VideoSurface asks the window to paint
+// to show pictures: a display's refresh shows them evenly at 60 or at a
+// whole division of it (Painter.AnimationFrameRate).
+const videoRate = 60
+
 // VideoFeed keeps the picture on show of the playing music video as a bitmap
 // for VideoSurface: the latest picture only, in memory only. The CDM host
 // child decodes and times the pictures (internal/playback/video.Surface holds
@@ -23,11 +28,15 @@ const drawnFor = 500 * time.Millisecond
 // child sent them, 1.5 bytes a pixel, converted by the GPU as it samples
 // them), so the GPU keeps its texture and uploads the new planes. No CPU
 // converts the picture: only the chroma planes are interleaved, on the main
-// thread, as the GPU takes them. While the video is not being drawn (the view
-// is closed, the window hidden or covered) pictures are not handed over at
-// all.
+// thread, as the GPU takes them. VideoSurface takes each picture as it paints
+// (Feed.Poll), so a picture is a frame that paints the video and does not
+// build the view; the poster, which builds the view, delivers only the first
+// picture and those after a pause. While the video is not being drawn (the
+// view is closed, the window hidden or covered) pictures are not handed over
+// at all.
 type VideoFeed struct {
 	feed *media.Feed
+	post store.Poster
 
 	// The main thread only.
 	bmp     *ui.Bitmap
@@ -42,10 +51,10 @@ type VideoFeed struct {
 // NewVideoFeed returns a feed of src (*video.Surface) that publishes through
 // post (the app's Poster). It takes nothing until Start.
 func NewVideoFeed(src media.FrameSource, post store.Poster) *VideoFeed {
-	v := &VideoFeed{}
 	if post == nil {
 		post = func(fn func()) { fn() }
 	}
+	v := &VideoFeed{post: post}
 	v.feed = media.NewFeed(src, post, v.show, v.clear, v.active)
 	return v
 }
@@ -106,6 +115,17 @@ func (v *VideoFeed) show(p media.Picture) {
 	v.shown++
 }
 
+// polled shows a picture that painting took, which no build follows: the view
+// is built for one that is the first or of another size (PictureSize is what
+// it lays the video out by).
+func (v *VideoFeed) polled(p media.Picture) {
+	resized := !v.picture || p.Width != v.w || p.Height != v.h
+	v.show(p)
+	if resized {
+		v.post(func() {})
+	}
+}
+
 // clear is the main thread's: the video ended, the picture comes down.
 func (v *VideoFeed) clear() { v.picture, v.bmp, v.w, v.h = false, nil, 0, 0 }
 
@@ -117,9 +137,13 @@ type VideoOpts struct {
 
 // VideoSurface shows the playing music video's picture, as large as fits the
 // box it is built in with its own shape (letterboxed, never cropped or
-// stretched). Nothing shows until the first picture arrives. Frames reach it
-// through the feed; building it marks the video as drawn, which is what lets
-// the feed show pictures at all. The box fills its parent: size the parent.
+// stretched). Nothing shows until the first picture arrives. Painting it marks
+// the video as drawn, which is what lets the feed show pictures at all, and
+// takes the picture waiting (Feed.Poll): while pictures keep coming it asks
+// to be painted again at up to 60 a second, so each picture is a frame that
+// paints the video and builds nothing. The first picture, one after a pause,
+// and one of another size wake the window through the poster, and the view
+// builds for them. The box fills its parent: size the parent.
 func VideoSurface(c *ui.Context, v *VideoFeed, o VideoOpts) ui.Element {
 	box := ui.Box(c).Fill()
 	if o.A11yLabel != "" {
@@ -133,8 +157,15 @@ func VideoSurface(c *ui.Context, v *VideoFeed, o VideoOpts) ui.Element {
 		if resumed {
 			v.feed.Refresh()
 		}
+		pic, ok, again := v.feed.Poll()
+		if ok {
+			v.polled(pic)
+		}
 		if v.picture && v.bmp != nil {
 			p.Image(v.bmp, r, ui.Contain)
+		}
+		if again {
+			p.AnimationFrameRate(videoRate)
 		}
 	})
 	return box

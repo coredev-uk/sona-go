@@ -624,6 +624,16 @@ The child runs in an AppContainer (the profile `sona.cdmhost`, no capabilities, 
 - Implemented by `internal/playback/native` over `internal/playback/cdmhost` on Linux, macOS and Windows (cgo builds), and by `playback.Unsupported` elsewhere.
 - Plays are reported to Apple's play-activity service the way MusicKit JS does (`internal/playback/activity`), so they appear in Apple's Recently Played.
 
+#### When loading ends
+
+`Status.State` is `loading` from a `Play`, a restart on a new host, a seek, a Spatial Audio reload or an underrun until the host reports audio playing, and the player bar's spinner turns while it is. Events of a track other than the current one are dropped (each seek, restart and reload takes a new track number). For the current track, three events end it:
+
+- `started`: the host measured the output position advance across two ticks.
+- `buffering` off: an underrun is over.
+- A `position` past the position loading began at. The host reports a position only while audio is being heard, so this ends a loading whose `started` never came. A position that did not move (a stalled output) leaves it loading, so a real underrun still shows.
+
+A `buffering` on after a pause was asked for is ignored: nothing would end that loading.
+
 #### Commands supersede earlier work
 
 Engine calls are serialised. A command that changes what plays (play, skip, jump, previous, stop, undo) supersedes the playback work before it rather than queueing behind it.
@@ -900,6 +910,7 @@ On macOS and Windows the player is muted and looping, with no cgo and no GStream
 #### System players
 
 - **Opening**: a system's player opens at once and loads in the background. The slot is not ready, and the video does not fade in, until the player is `Ready` (it has its first picture, which it gets only while a `ui.Video` builds it: the cover builds it transparent meanwhile). The still stays if the player's `Err` says it failed, which Diagnostics' "Last video" row shows.
+- **Frames**: MyGo's engine players hand their pictures to the build of a `ui.Video` only (`VideoPlayer` has no accessor for the picture, and the `ui.Video` re-arms itself with `After`, a frame built and laid out anew), so on macOS and Windows a motion cover is a build and a layout per video frame (about 30 a second for Apple's loops). That breaks the rule of no build or layout per frame, and Sona cannot avoid it there without MyGo. Linux decodes in Sona's own `media.Clip`, whose frames paint only.
 - **Codec**: `ui/video` cannot be asked what the system decodes, so macOS and Windows ask the motion cache for H.264 (`media.Codec` is "avc"; HEVC is never requested there).
 - **No decoder**: a system with no video framework (a Windows N edition without the Media Feature Pack) fails at open with `media.ErrNoDecoder`, which ends motion for the session and says so in Diagnostics.
 - **Window and loop**: MyGo holds a muted player while the window is not visible, and AVFoundation loops by seeking back at the end. The measured open time and loop gap are in PR #264.

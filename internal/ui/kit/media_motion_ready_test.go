@@ -24,9 +24,9 @@ import (
 // its first picture (MyGo's engine players are the only ones that behave so;
 // a decoder's are Ready from the start). It skips where the system has no
 // engine.
-func systemOpen(t *testing.T, path string) func(context.Context, string, int) (*ui.VideoPlayer, error) {
+func systemOpen(t *testing.T, path string) func(context.Context, string, int) (media.Motion, error) {
 	t.Helper()
-	return func(context.Context, string, int) (*ui.VideoPlayer, error) {
+	return func(context.Context, string, int) (media.Motion, error) {
 		p, err := video.Open(path)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", media.ErrDecode, err)

@@ -84,8 +84,7 @@ func (o *onboarding) widevineBlock(c *ui.Context) {
 			}
 			out.Children(func() {
 				if icon != "" {
-					ic := statusIcon(c, icon, colour)
-					theme.Spin(ic, spin)
+					kit.SpinIcon(c.Key("icon"), theme.Icon(icon), 16, theme.C(colour), spin)
 				}
 				if state == "" {
 					kit.Skeleton(c, 160, 12)

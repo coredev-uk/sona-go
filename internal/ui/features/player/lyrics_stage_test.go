@@ -767,6 +767,118 @@ func TestTheCascadeBuildsTheStageOnceForALineNotPerFrame(t *testing.T) {
 	}
 }
 
+// glideCase is a song whose sung line changes while Full-Screen Lyrics is open.
+type glideCase struct {
+	name   string
+	timing string
+	lines  []services.LyricLine
+	at     int64    // where the song is when the room opens
+	labels []string // lines on the stage, the dots' label first where they show
+}
+
+var glideCases = []glideCase{
+	// A word-timed line ends and the next begins, which fills through clips
+	// while the column still glides.
+	{"lines", "Word", sketchLines(), 3_000, []string{"Out past the breakwater", "the radio was low", "We left the lights on", "for the tide"}},
+	// The dots of a gap are the sung line, then the lines climb.
+	{"dots", "Line", gapLines(), 6_000, []string{"Instrumental break", "Gap line 0", "Gap line 1"}},
+}
+
+// glideRig opens Full-Screen Lyrics over the case, 1280×720 with animations
+// on, and lets it settle: the first column is built and at rest.
+func glideRig(t *testing.T, c glideCase, onBuild func()) *npRig {
+	t.Helper()
+	r := newNPRigWith(t, nil, func(r *npRig) {
+		r.width, r.height = 1280, 720
+		r.animate = true
+		r.inspect = func(*ui.Context) { onBuild() }
+	})
+	r.lyr.set(services.Lyrics{Timing: c.timing, Lines: c.lines}, nil)
+	r.play(c.at)
+	r.p.ui.openRoom()
+	r.tt.Until("the room and its lines", r.tt.Shows("Full-Screen Lyrics", c.labels[1]))
+	r.settle()
+	r.advance(600 * time.Millisecond)
+	return r
+}
+
+// A glide moves and fades the lines; it never scales one. The sung line paints
+// its fill through clips (kit.SweepText), and MyGo cuts a clip inside a scaled
+// element with a coverage mask that the CPU rasterises and uploads again in
+// every frame the scale moves: on a real GPU, 12 to 45 masks and up to 80 ms a
+// frame at each line change, with build, layout and paint all under 1 ms
+// (#690). A translation or a fade costs none of it. A label's box is its
+// element's laid out, moved and scaled by its pose, so a box that keeps its
+// size from before the change until the cascade is done has only been moved.
+func TestTheGlideNeverScalesALine(t *testing.T) {
+	for _, c := range glideCases {
+		t.Run(c.name, func(t *testing.T) {
+			r := glideRig(t, c, func() {})
+			rest, top := map[string]ui.Rect{}, map[string]float32{}
+			for _, l := range c.labels {
+				if box, ok := r.tt.Find(l); ok {
+					rest[l], top[l] = box, box.Y
+				}
+			}
+			if len(rest) < 2 {
+				t.Fatalf("only %d of the labels are on the stage: %q", len(rest), r.tt.Texts())
+			}
+			anchor, changed, moved := r.p.np.stage.anchor, -1, float32(0)
+			for i := 0; i < 400 && (changed < 0 || i < changed+70); i++ {
+				r.advance(16 * time.Millisecond)
+				if changed < 0 && r.p.np.stage.anchor != anchor {
+					changed = i
+				}
+				for l, was := range rest {
+					box, ok := r.tt.Find(l)
+					if !ok {
+						continue // the dots are gone once the line has begun
+					}
+					if math.Abs(float64(box.W-was.W)) > 0.05 || math.Abs(float64(box.H-was.H)) > 0.05 {
+						t.Errorf("frame %d: %q is %.2f×%.2f, it was %.2f×%.2f at rest: the glide scaled it", i, l, box.W, box.H, was.W, was.H)
+					}
+					moved = max(moved, float32(math.Abs(float64(box.Y-top[l]))))
+				}
+			}
+			if changed < 0 {
+				t.Fatal("the sung line never changed")
+			}
+			if moved < 20 {
+				t.Errorf("the lines moved %.1f DIP at the most: no glide ran", moved)
+			}
+		})
+	}
+}
+
+// The glide, with the next line filling through it, is frames that only paint:
+// the stage is built when the sung line changes (and when a timer says so) and
+// not once a frame, through 100 frames from before the change to after it.
+func TestTheGlideOfASweptLinePaintsOnly(t *testing.T) {
+	for _, c := range glideCases {
+		t.Run(c.name, func(t *testing.T) {
+			builds := 0
+			r := glideRig(t, c, func() { builds++ })
+			anchor, before := r.p.np.stage.anchor, builds
+			var frames int
+			for frames = 0; frames < 600 && r.p.np.stage.anchor == anchor; frames++ {
+				r.h.Clock.Advance(16 * time.Millisecond)
+				r.tt.Advance(16 * time.Millisecond)
+			}
+			if r.p.np.stage.anchor == anchor {
+				t.Fatal("the sung line never changed")
+			}
+			for range 100 {
+				r.h.Clock.Advance(16 * time.Millisecond)
+				r.tt.Advance(16 * time.Millisecond)
+			}
+			t.Logf("%s: %d frames to the change and 100 after it built the stage %d times", c.name, frames, builds-before)
+			if got := builds - before; got > 6 {
+				t.Errorf("the stage was built %d times over %d frames of glide and sweep", got, frames+100)
+			}
+		})
+	}
+}
+
 // A verse break is a gap of 0.9em where lines are a tenth of an em apart,
 // the sheet's rule at the stage's sizes.
 func TestVerseGapsFollowTheSheetsRule(t *testing.T) {

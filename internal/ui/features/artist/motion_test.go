@@ -8,9 +8,8 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/egoist/mygo/ui"
-
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -26,7 +25,7 @@ type motionAsk struct {
 	px  int
 }
 
-func (f *fakeMotion) open(_ context.Context, url string, px int) (*ui.VideoPlayer, error) {
+func (f *fakeMotion) open(_ context.Context, url string, px int) (media.Motion, error) {
 	f.mu.Lock()
 	f.calls = append(f.calls, motionAsk{url, px})
 	f.mu.Unlock()

@@ -53,7 +53,7 @@ func benchSweep(b *testing.B, s *SweepText, clock SweepClock) {
 // drawing nothing: the Tester's own cost, to take off.
 func BenchmarkSweepPaint(b *testing.B) {
 	s := NewSweepText(fortyLetters(), "", 40, 650, 50, 900)
-	benchSweep(b, s, SweepClock{T: 1300 * time.Millisecond, Sung: 1, Until: NoUntil})
+	benchSweep(b, s, SweepClock{T: 1300 * time.Millisecond, Sung: 1})
 }
 
 func BenchmarkSweepPaintBaseline(b *testing.B) {
@@ -63,10 +63,10 @@ func BenchmarkSweepPaintBaseline(b *testing.B) {
 // An idle line, painted whole, and one at rest all raised.
 func BenchmarkSweepPaintIdle(b *testing.B) {
 	s := NewSweepText(fortyLetters(), "", 40, 650, 50, 900)
-	benchSweep(b, s, SweepClock{T: -time.Second, Until: NoUntil})
+	benchSweep(b, s, SweepClock{T: -time.Second})
 }
 
 func BenchmarkSweepPaintAtRest(b *testing.B) {
 	s := NewSweepText(fortyLetters(), "", 40, 650, 50, 900)
-	benchSweep(b, s, SweepClock{T: 5 * time.Second, Sung: 1, Until: NoUntil})
+	benchSweep(b, s, SweepClock{T: 5 * time.Second, Sung: 1})
 }

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/egoist/mygo/ui"
 )
 
 // ErrNoDecoder is returned where nothing plays motion artwork: the platform
@@ -25,14 +23,17 @@ var ErrDecode = errors.New("media: motion artwork did not decode")
 // It fetches the file from the motion cache (downloading it when it is not
 // there) and opens a player on it, so it blocks: call it off the main thread.
 //
-// On Linux the player decodes with GStreamer in this process and has its
-// first frame when it returns. On macOS and Windows the system's own video
-// framework plays the file (ui/video, muted): the player returns at once,
-// loads in the background, and is not Ready, with no Size, until its first
-// picture came, which only a ui.Video that shows it builds. Its Err says what
-// stopped it. The player belongs to the main thread from then on (ui.Video
-// shows it; Close releases the decoder).
-func OpenMotion(ctx context.Context, files MotionFiles, urlPath string, px int) (*ui.VideoPlayer, error) {
+// On Linux the player is a Clip: GStreamer decodes in this process, its first
+// frame is decoded when it returns, and the cover paints it (Clip.Paint),
+// without a build of the view for each frame. On macOS and Windows the
+// system's own video framework plays the file (ui/video, muted, a
+// *ui.VideoPlayer): the player returns at once, loads in the background, and
+// is not Ready, with no Size, until its first picture came, which only a
+// ui.Video that shows it builds, as it builds for each frame after it (MyGo's
+// engine players hand their pictures to a build only). Its Err says what
+// stopped it. The player belongs to the main thread from then on (Close
+// releases the decoder).
+func OpenMotion(ctx context.Context, files MotionFiles, urlPath string, px int) (Motion, error) {
 	codec := Codec()
 	if codec == "" {
 		return nil, ErrNoDecoder

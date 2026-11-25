@@ -823,7 +823,7 @@ Each finding has an issue, its impact, the fix and the test that keeps it fixed.
 | F12 | On Ubuntu the CDM host child could reach the session bus | Medium | Fixed for the `.deb` and `.rpm` (residual risk for the AppImage listed) | `build/linux/apparmor/sona`, `build/linux/nfpm/`, `Sandbox.ReachesSockets` |
 | F13 | Release builds ran third-party tools (linuxdeploy and its plugins, the Chocolatey packages `nsis` and `pkgconfiglite`, the Go toolchain) without a pin or a checksum, next to the artefacts they could change, and kept a Go cache that outlived the run | Medium | Fixed | `build/linux/appimage-tools.sha256`, `build/windows/tools.sha256`, `build/windows/install-tool.sh`, `build/windows/package.sh`, `build/linux/release/Containerfile`, `build/ci/go.sha256`, `.github/workflows/release.yml` |
 | F14 | CI and release images were trusted by a tag any branch could overwrite, and the images they build on were named by tag | Medium | Fixed (residual risks listed) | `.github/workflows/images.yml`, `build/ci/find-image.sh`, `build/ci/Containerfile`, `build/linux/release/Containerfile`, `build/linux/release/release.sh`, `.github/workflows/flatpak.yml`, `.renovaterc.json5` |
-| F15 | The bot-cecil App key was a repository-level secret, readable by any `pull_request` run from a branch of this repository | Medium | Fixed (key rotation pending) | Repository settings: environments `bot-cecil`, `release`, `golden-update`, `nix-vendor-hash`; ruleset "release tags"; `docs/maintainers/ci-and-secrets.md` |
+| F15 | The bot-cecil App key was a repository-level secret, readable by any `pull_request` run from a branch of this repository | Medium | Fixed (the exposed key rotated; since #608 the key is held by octo-sts, not GitHub) | octo-sts and `.github/chainguard/*.sts.yaml`; ruleset "release tags"; `docs/maintainers/ci-and-secrets.md` |
 | F16 | A NUL byte or invalid UTF-8 in on-air metadata broke MPRIS | Low | Fixed | `internal/mpris/server.go` |
 | F17 | The `sona` command printed other people's text to the terminal unfiltered | Low | Fixed | `internal/cli/plain.go`, `internal/cli/run.go`, `internal/cli/lyrics.go` |
 | F18 | The diagnostics bundle carried the person's city and device names | Low | Fixed | `internal/config/diagnostics.go`, `internal/services/system_bundle.go` |
@@ -1208,9 +1208,8 @@ Severity: Medium. Status: fixed; since #608 the key is not in GitHub at all, and
 
 **Fix** (repository settings, 2026-11-21):
 
-- The App's credentials are environment secrets only: `bot-cecil` (deploys from `main` and `v*` tags), `release` (from `main`), and `golden-update` and `nix-vendor-hash` (required reviewers, because their jobs run on a pull request's ref, which no branch policy admits). The repository-level copies are deleted. The master copy is the 1Password item "bot-cecil"; `docs/maintainers/ci-and-secrets.md` has the rotation steps.
+- The fix first made the App's credentials environment secrets only and deleted the repository-level copies. Since #608 no environment holds them either: octo-sts holds the key and hands a job an installation token for its OIDC identity (`docs/maintainers/ci-and-secrets.md`, which also has the rotation steps).
 - The "release tags" ruleset now also restricts creating `v*` tags (it already blocked updating and deleting them). Only repository admins and the bot-cecil App bypass it, so a write collaborator can no longer make a tag that satisfies the `bot-cecil` environment's policy.
-- To rotate: generate a new private key in the App's settings, update the 1Password item, set it in the four environments, and delete the old key from the App.
 
 **Test.**
 

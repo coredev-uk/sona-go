@@ -102,6 +102,14 @@ Merging a release:
    matched `SHA256SUMS` and its attestation and the flake built with it, and
    does the same for each nightly rc (`sona-nightly`). If the release's run
    failed, dispatch "Nix branch" after fixing the cause.
+8. Only for a stable release, publish the repository security advisories
+   whose fix it carries (Security → Advisories, or
+   `gh api -X PATCH repos/coredev-uk/sona-go/security-advisories/<GHSA> -f state=published`),
+   as `SECURITY.md` promises. Check first that each fix is in the tag
+   (`git log vPREV..vX.Y.Z`) and that the patched version reads `X.Y.Z`.
+   Publishing deletes each advisory's temporary private fork; a draft keeps
+   its fork until then. For a finding about a credential, rotate it before
+   publishing.
 
 If the build fails on something transient, "Re-run failed jobs" on that
 Release Please run builds the same tag again; the publish job uploads over

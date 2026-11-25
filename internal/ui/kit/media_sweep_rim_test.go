@@ -25,8 +25,8 @@ type rimRegion struct {
 // edge pixels keep (1−c)·c of the near-white base and ring the amber glyphs
 // with a pale rim (issue #385). Each stretch is pixel for pixel the text drawn
 // once in its colour, at 1×, 1.25× and 2×: on one line, wrapped, right to
-// left, still (reduced motion, the line painted whole) and with its letters
-// raised.
+// left, still (reduced motion, the line painted whole) and by letters, the
+// first word sung and its letters down again.
 func TestSweepTextPaintsEveryPixelInOneColour(t *testing.T) {
 	useAppFont(t)
 	bg := ui.RGB(0x18, 0x18, 0x18)
@@ -44,14 +44,14 @@ func TestSweepTextPaintsEveryPixelInOneColour(t *testing.T) {
 		clock SweepClock
 	}{
 		// Still: the first word sung, the second 60% of the way.
-		{"still", latin, "", 400, false, SweepClock{T: 1980 * ms, Sung: 1, Until: NoUntil, Still: true}},
-		{"still wrapped", latin, "", 190, false, SweepClock{T: 1980 * ms, Sung: 1, Until: NoUntil, Still: true}},
-		{"still rtl", hebrew, "he", 400, true, SweepClock{T: 1980 * ms, Sung: 1, Until: NoUntil, Still: true}},
-		// Raised: the first word sung, its letters up and at rest, the
+		{"still", latin, "", 400, false, SweepClock{T: 1980 * ms, Sung: 1, Still: true}},
+		{"still wrapped", latin, "", 190, false, SweepClock{T: 1980 * ms, Sung: 1, Still: true}},
+		{"still rtl", hebrew, "he", 400, true, SweepClock{T: 1980 * ms, Sung: 1, Still: true}},
+		// Down: the first word sung, its letters risen and back at rest, the
 		// second not begun.
-		{"raised", latin, "", 400, false, SweepClock{T: 1300 * ms, Sung: 1, Until: NoUntil}},
-		{"raised wrapped", latin, "", 190, false, SweepClock{T: 1300 * ms, Sung: 1, Until: NoUntil}},
-		{"raised rtl", hebrew, "he", 400, true, SweepClock{T: 1300 * ms, Sung: 1, Until: NoUntil}},
+		{"down", latin, "", 400, false, SweepClock{T: 1300 * ms, Sung: 1}},
+		{"down wrapped", latin, "", 190, false, SweepClock{T: 1300 * ms, Sung: 1}},
+		{"down rtl", hebrew, "he", 400, true, SweepClock{T: 1300 * ms, Sung: 1}},
 	} {
 		s := NewSweepText(c.words, c.lang, 40, 700, 48, c.width)
 		edge := s.size * 0.5
@@ -70,22 +70,23 @@ func TestSweepTextPaintsEveryPixelInOneColour(t *testing.T) {
 			}
 			prog, _ := w.progress(c.clock.T)
 			dy := float32(0)
-			if !c.clock.Still {
-				if prog < 1 {
-					t.Fatalf("%s: word %d is moving", c.name, k)
-				}
-				dy = -w.up * s.size
+			if !c.clock.Still && prog < 1 {
+				t.Fatalf("%s: word %d is moving", c.name, k)
 			}
 			if prog >= 1 {
 				regions = append(regions, rimRegion{fmt.Sprintf("word %d, sung", k), left, right, y0, y1, fill, dy})
 				continue
 			}
-			solid := prog*(w.total+edge) - edge
-			reached := rimRegion{fmt.Sprintf("word %d, reached", k), left, b.r.X + solid, y0, y1, fill, dy}
-			ahead := rimRegion{fmt.Sprintf("word %d, ahead", k), b.r.X + solid + edge, right, y0, y1, base, dy}
+			// The fade's slices lie on a grid and take the colour of the fade at
+			// their middle (mediaSegments): the slice the front is in, and the one
+			// the fade ends in, are mixed, so the pure stretches end a slice
+			// short of them.
+			solid, slice := prog*(w.total+edge)-edge, edge/gradientSteps
+			reached := rimRegion{fmt.Sprintf("word %d, reached", k), left, b.r.X + solid - slice, y0, y1, fill, dy}
+			ahead := rimRegion{fmt.Sprintf("word %d, ahead", k), b.r.X + solid + edge + slice, right, y0, y1, base, dy}
 			if c.rtl {
-				reached.x0, reached.x1 = b.r.X+b.r.W-solid, right
-				ahead.x0, ahead.x1 = left, b.r.X+b.r.W-solid-edge
+				reached.x0, reached.x1 = b.r.X+b.r.W-solid+slice, right
+				ahead.x0, ahead.x1 = left, b.r.X+b.r.W-solid-edge-slice
 			}
 			regions = append(regions, reached, ahead)
 		}

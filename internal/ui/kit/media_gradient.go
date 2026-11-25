@@ -164,12 +164,17 @@ type mediaSeg struct {
 
 // mediaSegments appends to segs the stretches of boxes (the boxes of one run
 // of text, in reading order, laid out at ox, oy) in the colours a fill that
-// progress, 0 to 1, has reached paints them: fill up to p·(length + edge) −
-// edge, then edge DIPs of fill fading into base over gradientSteps slices,
-// then base. Each box is covered once, from its left overhang to its right,
-// by its stretches in order from left to right, neighbours meeting exactly.
-// A fill with alpha (a line fading in) is mixed into the base, never drawn
-// over it.
+// progress, 0 to 1, has reached paints them: fill up to the front, p·(length
+// + edge) − edge, then edge DIPs of fill fading into base, then base. The
+// fade is gradientSteps slices that lie where they are, edge/gradientSteps
+// apart along the run, and take the colour of the fade at their middle: a
+// stretch is a clip, whose edges snap to whole device pixels, so slices that
+// travelled with the front would step a pixel at a time across a slow word,
+// where slices that stay and change colour move the front by the part of a
+// pixel each frame asks. Each box is covered once, from its left overhang to
+// its right, by its stretches in order from left to right, neighbours meeting
+// exactly. A fill with alpha (a line fading in) is mixed into the base, never
+// drawn over it.
 func mediaSegments(segs []mediaSeg, boxes []fillBox, ox, oy float32, progress, edge float32, rtl bool, base, fill ui.Color) []mediaSeg {
 	const far = math.MaxFloat32
 	if fill.A == 0 {
@@ -212,13 +217,17 @@ func mediaSegments(segs []mediaSeg, boxes []fillBox, ox, oy float32, progress, e
 		case progress >= 1:
 			add(-far, far, mediaTint(base, fill, 1))
 		default:
-			add(-far, solid, mediaTint(base, fill, 1))
-			for j := range gradientSteps {
-				from := solid + edge*float32(j)/gradientSteps
-				to := solid + edge*float32(j+1)/gradientSteps
-				add(from, to, mediaTint(base, fill, 1-(float32(j)+0.5)/gradientSteps))
+			step := edge / gradientSteps
+			c := int(math.Floor(float64(solid/step) + 0.5)) // the first slice whose middle is past the front
+			add(-far, float32(c)*step, mediaTint(base, fill, 1))
+			for ; ; c++ {
+				v := (float32(c)+0.5)*step - solid // how far its middle is into the fade, in DIPs
+				if v >= edge {
+					break
+				}
+				add(float32(c)*step, float32(c+1)*step, mediaTint(base, fill, 1-v/edge))
 			}
-			add(solid+edge, far, base)
+			add(float32(c)*step, far, base)
 		}
 		if rtl { // read from the right: left to right is the other way round
 			for i, j := first, len(segs)-1; i < j; i, j = i+1, j-1 {
