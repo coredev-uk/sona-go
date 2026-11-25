@@ -126,8 +126,8 @@ func gapPose(gap lyricsync.Span, ms int64, k int, reduced bool) (dotPose, bool) 
 // after it is read from (right when it reads right to left). inset is kept
 // clear at that side. The fill steps about 12 times a second, or whole dots
 // as each third begins under reduced motion. While the gap runs and a song
-// plays, the dots move (gapPose) and the painter is asked for the next frame,
-// painting only the dots, as the playing row's equaliser does; otherwise it
+// plays, the dots move (gapPose) and the painter is asked for the next frame
+// (kit.AmbientFrames: at most 60 a second), painting only the dots, as the playing row's equaliser does; otherwise it
 // is asked for the next fill step with a timer. Nothing is asked while
 // nothing plays or once the gap has passed. A dot moves by a transform, never
 // by moving its rectangle, whose edges would snap to whole pixels and step.
@@ -178,7 +178,7 @@ func (p *player) gapDraw(songID string, gap lyricsync.Span, g gapDots, inset flo
 			return
 		}
 		if moving {
-			kit.AnimationFrames(pt)
+			kit.AmbientFrames(pt)
 			return
 		}
 		if next != lyricsync.Never {
