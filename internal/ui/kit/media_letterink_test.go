@@ -77,8 +77,17 @@ func TestLiftedLettersKeepAllTheirInk(t *testing.T) {
 		line           float32 // line height, in sizes
 	}
 	for _, c := range []word{
-		{text: "fjord"}, {text: "Ty"}, {text: "AVA"}, {text: "office"}, {text: "Éclat", line: 1}, {text: "pygmy"}, {text: "ſaffron"},
-		{text: "fjord", italic: true}, {text: "Typhoon", italic: true}, {text: "office", bg: true}, {text: "Éclat", em: true},
+		{text: "fjord"},
+		{text: "Ty"},
+		{text: "AVA"},
+		{text: "office"},
+		{text: "Éclat", line: 1},
+		{text: "pygmy"},
+		{text: "ſaffron"},
+		{text: "fjord", italic: true},
+		{text: "Typhoon", italic: true},
+		{text: "office", bg: true},
+		{text: "Éclat", em: true},
 	} {
 		end := 800 * ms
 		if c.em {
