@@ -3,8 +3,9 @@ package kit
 import (
 	"time"
 
-	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/egoist/mygo/ui"
+
+	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
 // spinPeriod is the time an icon takes for one turn.
