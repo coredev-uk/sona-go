@@ -153,4 +153,3 @@ func TestTheFillFrontMovesByPartsOfAPixel(t *testing.T) {
 		}
 	}
 }
-
