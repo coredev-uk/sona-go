@@ -83,7 +83,7 @@ type mediaOpenCall struct {
 	px  int
 }
 
-func (f *mediaFakeOpen) open(ctx context.Context, url string, px int) (*ui.VideoPlayer, error) {
+func (f *mediaFakeOpen) open(ctx context.Context, url string, px int) (media.Motion, error) {
 	if f.gate != nil {
 		if f.ignoreCancel {
 			<-f.gate
@@ -106,11 +106,11 @@ func (f *mediaFakeOpen) open(ctx context.Context, url string, px int) (*ui.Video
 	if err != nil {
 		return nil, err
 	}
-	p, err := ui.NewVideoPlayer(mediaClosing{d, &f.closed})
+	k, err := media.NewClip(mediaClosing{d, &f.closed})
 	if err != nil {
 		return nil, err
 	}
-	return p.SetLoop(true), nil
+	return k, nil
 }
 
 func (f *mediaFakeOpen) opened() []mediaOpenCall {
@@ -312,9 +312,11 @@ type mediaCoverApp struct {
 	size   float32
 	top    float32 // padding above the cover: far enough, it is out of the window
 	opts   MotionOpts
+	builds int // how many times the view was built
 }
 
 func (a *mediaCoverApp) view(c *ui.Context) {
+	a.builds++
 	theme.Apply(c)
 	ui.Column(c).Padding(10).PaddingY(10 + a.top).Children(func() {
 		MotionCover(c.Key("m"), a.e.p, a.l, "/art/k1/300x300.jpg", a.motion, a.size, a.opts)

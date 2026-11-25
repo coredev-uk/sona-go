@@ -28,10 +28,11 @@ func TestNativePlaysAndLoops(t *testing.T) {
 	const frames = 45 // 1.5 s at 30 fps
 	f := &files{path: fixtureClip(t, frames)}
 	t0 := time.Now()
-	p, err := OpenMotion(context.Background(), f, "/motion/abc/720.mp4", 192)
+	m, err := OpenMotion(context.Background(), f, "/motion/abc/720.mp4", 192)
 	if err != nil {
 		t.Fatal(err)
 	}
+	p := m.(*ui.VideoPlayer) // the system's player, which a ui.Video shows
 	defer p.Close()
 	opened := time.Since(t0)
 	if p.Ready() {

@@ -54,7 +54,7 @@ type motionSlot struct {
 	url     string
 	px      int
 	state   slotState
-	player  *ui.VideoPlayer
+	player  media.Motion
 	cancel  context.CancelFunc
 	attempt int  // tells a late answer from the current one
 	gen     int  // counts players: each fades in
@@ -167,7 +167,7 @@ func (s *motionSlot) settle() {
 }
 
 // arrived takes the outcome of a load, on the main thread.
-func (s *motionSlot) arrived(attempt int, player *ui.VideoPlayer, err error) {
+func (s *motionSlot) arrived(attempt int, player media.Motion, err error) {
 	if attempt != s.attempt || s.state != slotLoading {
 		if player != nil {
 			player.Close() // nobody wants it any more
@@ -213,10 +213,14 @@ func (s *motionSlot) play(on bool) {
 
 // fill builds the muted loop into host once the file is open, with the edge
 // outline of artwork, and fades it in over 300 ms once it is Ready: it has
-// its first picture, which a system's player (macOS, Windows) loads only while
-// a ui.Video builds it, so the video is built, transparent, from the open on.
-// round makes it a circle. host must be the element the slot lives in or one
-// built each frame.
+// its first picture. A clip (Linux) has it at once and paints its frames in a
+// Draw callback, at the clip's own frame times: a frame of the video paints
+// the cover again and nothing else, the view is not built or laid out for it.
+// A system's player (macOS, Windows) loads its first picture only while a
+// ui.Video builds it, so that video is built, transparent, from the open on,
+// and builds the view for every frame it shows (MyGo's engine players give
+// their pictures to a build only). round makes it a circle. host must be the
+// element the slot lives in or one built each frame.
 func (s *motionSlot) fill(c *ui.Context, host ui.Element, size float32, round bool) ui.Element {
 	if s.state != slotOpening && s.state != slotReady {
 		return host
@@ -229,7 +233,12 @@ func (s *motionSlot) fill(c *ui.Context, host ui.Element, size float32, round bo
 	var video ui.Element
 	host.Radius(radius).ClipX().ClipY()
 	host.Children(func() {
-		video = ui.Video(c, player).Size(size, size).Fit(ui.Cover)
+		if clip, ok := player.(*media.Clip); ok {
+			video = ui.Box(c).Size(size, size)
+			video.Draw(func(pt *ui.Painter, r ui.Rect) { clip.Paint(pt, r) })
+			return
+		}
+		video = ui.Video(c, player.(*ui.VideoPlayer)).Size(size, size).Fit(ui.Cover)
 	})
 	s.settle() // the build may have loaded the first picture
 	switch s.state {
@@ -273,7 +282,8 @@ type MotionOpts struct {
 // window's scale (at most 2x). The video plays only while on screen, the
 // window shows and the page is not covered, and is dropped, decoder
 // included, when the policy stops allowing motion or the cover stops being
-// built.
+// built. On Linux its frames paint at the clip's own frame times without
+// building the view (see fill).
 func MotionCover(c *ui.Context, p *MotionPolicy, l *ArtLoader, art, motion string, size float32, o MotionOpts) ui.Element {
 	root := ui.Box(c).Size(size, size)
 	slot := *ui.Local(root, "motion", func() *motionSlot { return newMotionSlot(p) })

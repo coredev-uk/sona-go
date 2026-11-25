@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/video"
 )
 
@@ -29,7 +28,7 @@ func Codec() string { return "avc" }
 // system opens in the background: it is not Ready, and has no Size, until
 // its first picture came, which a ui.Video that shows it builds. A system with
 // no media framework is ErrNoDecoder; any other failure to open is ErrDecode.
-func openPlayer(path string) (*ui.VideoPlayer, error) {
+func openPlayer(path string) (Motion, error) {
 	p, err := video.Open(path)
 	switch {
 	case errors.Is(err, video.ErrUnsupported):

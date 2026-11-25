@@ -81,8 +81,8 @@ Package notes:
 - **`app`.** `modules.go` has one line per feature. Its order sets the order of routes, event handlers, shortcuts and slots; nav items sort by their own `Order`; a duplicate module ID panics at start-up.
 - **`account`.** The sign-in reducer, the credentials, code, browser and token forms, the signed-in view and the keyring notices.
 - **`media`.** Motion artwork plays through MyGo's `ui/video` on macOS and Windows (`motion_native.go`: AVFoundation, Media Foundation), through GStreamer by cgo on Linux (`motion_gst.go`) and not at all without cgo (`motion_none.go`).
-- **`media.OpenMotion`.** Turns the motion cache's file into a looping, muted `ui.VideoPlayer`: `Ready` at once on Linux, and on macOS and Windows when the system's player has its first picture.
-- **`media.Feed`.** Hands the CDM child's I420 frames to a bitmap: `Picture.YUV` is the image `Bitmap.UpdateYUV` shows.
+- **`media.OpenMotion`.** Turns the motion cache's file into a looping, muted `media.Motion`: a `*media.Clip` on Linux (GStreamer's decoder, `Ready` at once, painted by `Clip.Paint` with no build per frame), a `*ui.VideoPlayer` on macOS and Windows (`Ready` when the system's player has its first picture, shown by a built `ui.Video`).
+- **`media.Feed`.** Hands the CDM child's I420 frames to a bitmap: `Picture.YUV` is the image `Bitmap.UpdateYUV` shows. A consumer that paints takes them with `Poll`; otherwise they go through the poster.
 
 A feature reaches another feature's state only through `store` (the playback mirror, the queries) or a hook in `module.Env`. A new feature is a Go service (`internal/services/<feature>.go`, `<feature>_dto.go` and one `registry.go` line) and a package under `internal/ui/features` with one `modules.go` line.
 
@@ -550,6 +550,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 **MotionCover** is the still `Artwork` with the looping muted video over it.
 
 - It fades in over 300 ms once the player is `Ready`. A system's player loads in the background, so the cover builds the video transparent until its first picture came, and the slot is `opening`, not `ready`.
+- Its frames paint, they never build the view. On Linux the player is a `media.Clip`: a goroutine decodes the frames two ahead of the playhead, and the cover's `Draw` callback (`Clip.Paint`) puts the frame that is due into one `ui.Bitmap` (`Update`, so the GPU keeps its texture), paints it over the box with `Fit(Cover)` inside the cover's radius and fade, and asks for the next paint with `Painter.After` at the frame's own duration (the clip's rate: 10 a second for a 100 ms frame, never the display's). A frame is a repaint of that `Draw` alone (`Painter.After` does not build the view); a clip that is paused (covered, hidden, out of view), under reduced motion or off asks for nothing. A playhead more than 250 ms behind its clock (the window was hidden, a frame took long) goes on from now rather than race through what it missed. On macOS and Windows the player is MyGo's `ui.VideoPlayer` and the cover builds a `ui.Video`, which builds and lays out the view for every frame (MyGo's engine players hand their pictures to a build only: `VideoPlayer` exposes no frame, and `ui.Video`'s `After` asks for a built frame); there a motion cover costs a build per frame, which is MyGo's to fix.
 - The still stays if the video fails (the player's `Err`, which Diagnostics' "Last video" row shows).
 
 **TileMotion** (`TileMotion(c, policy, motion, size, opts)`) is a tile's motion.
@@ -704,7 +705,7 @@ The `inspect` module is in every build (`app/modules.go`). It offers **Inspect**
 
 **VideoFeed and VideoSurface** show the playing music video.
 
-- A goroutine takes the latest picture from `video.Surface`, checks that its planes are whole and hands it to the main thread, which updates one bitmap in place with `Bitmap.UpdateYUV`. Pictures are not handed over while the view is not drawn.
+- A goroutine takes the latest picture from `video.Surface` and checks that its planes are whole. `VideoSurface` takes it as it paints (`Feed.Poll`) and updates one bitmap in place with `Bitmap.UpdateYUV`, so a picture is a frame that paints the video and builds nothing: while pictures keep coming the surface asks to be painted again (`AnimationFrameRate(60)`, the display's rate where it shows 60 evenly or a division of it), and 250 ms after the last it stops asking. The poster (`Window.Update`, which builds the view after every call) delivers only what painting cannot: the first picture, one after a pause, and while the surface was not painted for 100 ms; a picture of another size also posts once, since the view lays the video out by `PictureSize`. Pictures are not handed over while the view is not drawn.
 - The I420 planes are as the child sent them (BT.709 limited range), converted by the GPU; the CPU renderer and captures convert as they need it. Sona has no CPU conversion of its own; the main thread only interleaves the chroma planes for the GPU.
 - A frame whose planes are shorter than its size says is dropped (`UpdateYUV` panics on one). Memory only, never a backlog.
 - `Restart` forgets the picture and takes only pictures shown from now on (a new queue entry must never show the one before's last picture). `HasPicture`, `PictureSize` and `Pictures` (a count, for stall detection) are what the view reads.

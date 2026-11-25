@@ -3,8 +3,20 @@ package media
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/playback/video"
+)
+
+const (
+	// pollIdle is how long after its last picture a consumer stops being told
+	// to paint again: a paused or stalled video asks for no frames, and its
+	// next picture wakes the window through the poster.
+	pollIdle = 250 * time.Millisecond
+	// pollStale is how long after its last Poll a consumer still counts as
+	// polling: a paint it asked for that never came (the window was hidden)
+	// does not leave a picture waiting for ever.
+	pollStale = 100 * time.Millisecond
 )
 
 // FrameSource is the picture on show of the playing music video:
@@ -34,8 +46,9 @@ type Picture struct {
 // Feed hands the music video's pictures to a bitmap: one goroutine takes each
 // picture the source shows (the latest only, never a backlog: a picture that
 // was not drawn before the next arrived is dropped), checks that its planes
-// are whole and hands it over through the poster, which runs show on the main
-// thread with the picture and clear when the video ends. The bitmap shows the
+// are whole and hands it over: to the consumer that paints and polls (Poll),
+// or else through the poster, which runs show on the main thread with the
+// picture and clear when the video ends. The bitmap shows the
 // planes as they are (Picture.YUV): the GPU converts them, so no CPU does.
 // Pictures live in memory only.
 //
@@ -53,7 +66,10 @@ type Feed struct {
 	floor     uint64   // pictures up to this Seq are of before the last Restart
 	pending   *Picture // handed over, not yet shown
 	skipped   *video.Frame
-	scheduled bool
+	scheduled bool      // a post of apply waits
+	pictureAt time.Time // when a picture was last shown
+	pollAt    time.Time // when Poll was last called
+	polling   bool      // Poll said its consumer paints again soon
 	cancel    context.CancelFunc
 	done      chan struct{}
 }
@@ -112,6 +128,7 @@ func (f *Feed) Stop() {
 	// Nothing of the video stays: no picture waiting, none held for reuse.
 	f.mu.Lock()
 	f.pending, f.skipped = nil, nil
+	f.pictureAt, f.polling = time.Time{}, false
 	f.mu.Unlock()
 }
 
@@ -142,6 +159,7 @@ func (f *Feed) run(ctx context.Context, done chan<- struct{}, after uint64) {
 			after = fr.Seq
 			f.mu.Lock()
 			f.pending, f.skipped = nil, nil
+			f.pictureAt, f.polling = time.Time{}, false
 			f.mu.Unlock()
 			f.post(f.clear)
 			continue
@@ -175,8 +193,10 @@ func (f *Feed) publish(fr video.Frame) {
 		return
 	}
 	f.pending = &Picture{Width: fr.Width, Height: fr.Height, Data: fr.Data, Seq: fr.Seq}
-	schedule := !f.scheduled
-	f.scheduled = true
+	schedule := !f.scheduled && !f.polled(time.Now())
+	if schedule {
+		f.scheduled = true
+	}
 	f.mu.Unlock()
 	if schedule {
 		f.post(f.apply)
@@ -189,9 +209,42 @@ func (f *Feed) apply() {
 	p := f.pending
 	f.pending = nil
 	f.scheduled = false
+	if p != nil {
+		f.pictureAt = time.Now()
+	}
 	f.mu.Unlock()
 	if p == nil {
 		return
 	}
 	f.show(*p)
+}
+
+// Poll takes the picture waiting, if any, for a consumer that paints: its Draw
+// callback calls it each time it paints and shows what it returns, so that a
+// picture reaches the screen in a frame that paints again and builds nothing
+// (the poster's way, which Window.Update is, builds the view for every
+// picture). again says the consumer is to paint again soon, which it asks for
+// with Painter.AnimationFrameRate: while pictures keep coming. While the
+// consumer paints and asks for it the feed hands it pictures here and posts
+// nothing; when it does not (a first picture, one after a pause, a window that
+// was not painted for a moment) the poster wakes it, and the view builds
+// once. Main thread.
+func (f *Feed) Poll() (p Picture, ok, again bool) {
+	now := time.Now()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.pending != nil {
+		p, ok = *f.pending, true
+		f.pending = nil
+		f.pictureAt = now
+	}
+	f.pollAt = now
+	f.polling = !f.pictureAt.IsZero() && now.Sub(f.pictureAt) < pollIdle
+	return p, ok, f.polling
+}
+
+// polled reports whether the consumer is polling: it said it would paint
+// again, and not so long ago that it can have been prevented. f.mu is held.
+func (f *Feed) polled(now time.Time) bool {
+	return f.polling && now.Sub(f.pollAt) < pollStale
 }
