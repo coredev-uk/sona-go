@@ -35,12 +35,6 @@ const (
 	empMin      = time.Second
 	empMinChars = 2
 	empMaxChars = 7
-	// swellStep is the steps the swell's scale is quantised to, and
-	// swellSteps how many: the letters are shaped at each of them, so that a
-	// swollen letter is drawn at its size and stays sharp (MyGo v0.9.0
-	// rasterises text before it transforms it, and a scaled glyph blurs).
-	swellStep  = 0.02
-	swellSteps = 6
 )
 
 // bezier is a CSS cubic-bezier(x1, y1, x2, y2) easing: the value at progress x.

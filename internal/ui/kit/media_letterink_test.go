@@ -32,13 +32,15 @@ func glyphShot(s *SweepText, bg, ink ui.Color, scale float32, t time.Duration) *
 				if swelling {
 					pose = w.emp.pose(i, f)
 				}
-				step := min(max(int((pose.scale-1)/swellStep+0.5), 0), len(l.glyphs)-1)
-				sq := 1 + swellStep*float32(step)
-				c0 := x + l.x + l.w/2
-				cx := c0 + pose.dx*size
-				cy := y + l.centre
-				by := cy + (y+l.baseline-cy)*sq
-				p.Transform(ui.Translation(0, (pose.dy-lift)*size), 0, 0, func() { p.Glyphs(l.glyphs[step], cx-l.w*sq/2, by, ink) })
+				c0, cy := x+l.x+l.w/2, y+l.centre
+				draw := func() { p.Glyphs(l.glyphs, x+l.x, y+l.baseline, ink) }
+				p.Transform(ui.Translation(pose.dx*size, (pose.dy-lift)*size), 0, 0, func() {
+					if pose.scale == 1 {
+						draw()
+						return
+					}
+					p.Transform(ui.Scaling(pose.scale, pose.scale), c0, cy, draw)
+				})
 			}
 		}
 	})

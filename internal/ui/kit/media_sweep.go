@@ -76,10 +76,10 @@ type sweepLetter struct {
 	// Where it lies along the word in reading order, left to right (l, t:
 	// its leading and trailing edge) and right to left (lm, tm).
 	l, t, lm, tm float32
-	// glyphs are its own, shaped once, at each size it is drawn at (index k:
-	// 1 + swellStep·k times the text's size; one only for a letter that does
-	// not swell). nil: drawn with its box's text.
-	glyphs [][]ui.Glyph
+	// glyphs are its own, shaped once at the text's size: the layout's own
+	// pixels, which a swelling letter is drawn from at the scale the swell
+	// has got to (paintLetter). nil: drawn with its box's text.
+	glyphs []ui.Glyph
 }
 
 // SweepClock is where the voice stands against a SweepText at one frame.
@@ -146,7 +146,7 @@ func newSweepText(words []lyrics.Word, lang string, size float32, weight int, it
 			sw.total += sw.boxes[k].r.W
 		}
 		swells := emphasizes(w.Text, w.End-w.Begin) && len(sw.boxes) == 1
-		if !s.lettersOf(sw, at, swells, lines) {
+		if !s.lettersOf(sw, at, lines) {
 			s.unitsOf(sw, lines)
 			swells = false
 		}
@@ -175,9 +175,8 @@ func newSweepText(words []lyrics.Word, lang string, size float32, weight int, it
 // lettersOf gives word w (which starts at UTF-16 offset at) its letters, one
 // per grapheme, with their glyphs, and reports whether it could: not for a
 // word of a script read right to left, whose letters join, nor where the
-// layout does not give each letter a box of its own. swells says the glyphs
-// are wanted at every size of the swell.
-func (s *SweepText) lettersOf(w *sweepWord, at int, swells bool, lines []ui.TextLine) bool {
+// layout does not give each letter a box of its own.
+func (s *SweepText) lettersOf(w *sweepWord, at int, lines []ui.TextLine) bool {
 	if hasRTL(w.text) {
 		return false
 	}
@@ -204,17 +203,7 @@ func (s *SweepText) lettersOf(w *sweepWord, at int, swells bool, lines []ui.Text
 		if box < 0 {
 			return false
 		}
-		l := sweepLetter{r: r, x: r.X, w: r.W, box: box, baseline: baselineAt(lines, r.Y), centre: r.Y + r.H/2}
-		steps := 1
-		if swells {
-			steps = swellSteps + 1
-		}
-		l.glyphs = make([][]ui.Glyph, steps)
-		for k := range l.glyphs {
-			f := s.font
-			f.Size = s.size * (1 + swellStep*float32(k))
-			l.glyphs[k] = ui.Shape(g, f)
-		}
+		l := sweepLetter{r: r, x: r.X, w: r.W, box: box, baseline: baselineAt(lines, r.Y), centre: r.Y + r.H/2, glyphs: ui.Shape(g, s.font)}
 		letters = append(letters, l)
 	}
 	if len(letters) == 0 {
@@ -505,34 +494,47 @@ func (s *SweepText) paintRun(p *ui.Painter, x, y float32, w *sweepWord, from, to
 // lift em by the fill's front, with the swell's pose on top, at a fractional
 // offset (Painter.Transform's translation: smooth, where text positioned
 // by Painter.Glyphs lands on whole pixels, at the price of a softer edge
-// while it moves). A swelling letter is drawn at its size (the nearest step
-// of the swell, shaped once), about its own centre, spread from the word's, with a
-// glow of the fill's colour behind it, and the word's stretches of colour
-// (s.segs) passing over it as it moves.
+// while it moves). A swelling letter is its glyphs, the layout's own pixels,
+// scaled about its own centre by a transform: MyGo rasterises them once and
+// samples them at the size the swell has got to, so the letter grows with no
+// step. Glyphs shaped at a few sizes of the swell and drawn from the nearest
+// grew in steps of 2%, and where the text system fits glyphs to whole pixels
+// (Linux) the height of each size is a whole number of its own, a step of a
+// pixel or so where the swell asks for a fraction of one. The scale sits
+// inside the clips of the word's stretches of colour (s.segs, scaled the same
+// way to follow the letter) and never around them: a clip inside a scaling
+// transform is cut with a coverage mask that the renderers rasterise on the
+// CPU and upload again in every frame the scale moves (stagePose), where a
+// clip outside it is cut in the shader like any other. The spread from the
+// word's centre and the rise are translations, folded into the clips. A glow
+// of the fill's colour is behind it.
 func (s *SweepText) paintLetter(p *ui.Painter, x, y float32, w *sweepWord, l *sweepLetter, lift float32, pose letterPose, base, fill ui.Color) {
 	size := s.size
-	k := min(max(int((pose.scale-1)/swellStep+0.5), 0), len(l.glyphs)-1)
-	sq := 1 + swellStep*float32(k)
-	c0 := x + l.x + l.w/2 // where the letter's centre is laid out
-	cx := c0 + pose.dx*size
-	gx := cx - l.w*sq/2
-	cy := y + l.centre
-	by := cy + (y+l.baseline-cy)*sq // the baseline, scaled about the box's middle
-	glyphs := l.glyphs[k]
+	c0, cy := x+l.x+l.w/2, y+l.centre // the letter's centre, where it is laid out
+	by := y + l.baseline
+	scaled := func(fn func()) {
+		if pose.scale == 1 {
+			fn()
+			return
+		}
+		p.Transform(ui.Scaling(pose.scale, pose.scale), c0, cy, fn)
+	}
 	// The stretches of its box, scaled about the letter's centre as it is.
 	row := s.row[:0]
 	for _, sg := range boxSegs(s.segs, l.box) {
-		sg.r = spanRect(cx+(sg.r.X-c0)*sq, cx+(sg.r.X+sg.r.W-c0)*sq, by-2*size, by+2*size)
+		sg.r = spanRect(c0+(sg.r.X-c0)*pose.scale, c0+(sg.r.X+sg.r.W-c0)*pose.scale, by-2*size, by+2*size)
 		row = append(row, sg)
 	}
 	s.row = row
-	p.Transform(ui.Translation(0, (pose.dy-lift)*size), 0, 0, func() {
+	p.Transform(ui.Translation(pose.dx*size, (pose.dy-lift)*size), 0, 0, func() {
 		if fill.A > 0 && pose.glow > 0.01 {
-			mediaGlow(p, glyphs, gx, by, w.emp.glowEm()*size, fill, pose.glow)
+			scaled(func() { mediaGlow(p, l.glyphs, x+l.x, by, w.emp.glowEm()*size, fill, pose.glow) })
 		}
 		// Wider than its ink by an em each side: what lies outside its box
 		// is base.
-		mediaRow(p, row, gx-size, gx+l.w*sq+size, by-2*size, by+2*size, base, func(c ui.Color) { p.Glyphs(glyphs, gx, by, c) })
+		mediaRow(p, row, x+l.x-size, x+l.x+l.w+size, by-2*size, by+2*size, base, func(c ui.Color) {
+			scaled(func() { p.Glyphs(l.glyphs, x+l.x, by, c) })
+		})
 	})
 }
 

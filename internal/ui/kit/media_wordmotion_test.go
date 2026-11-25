@@ -447,9 +447,13 @@ func TestSweepPaintReportsWhetherItMoves(t *testing.T) {
 	}
 }
 
-// The letters of a swelling word are drawn at their own sizes, so they stay
-// sharp: the share of half-covered pixels at the peak is no more than at rest
-// (MyGo v0.9.0 blurs what a transform scales).
+// A swelling word's letters are the layout's own pixels, scaled about their
+// centres by a transform (MyGo v0.9.0 samples what a transform scales with a
+// bilinear filter), so that they grow with no step: they are softer than at
+// rest by the size they have got to, which is little (the share of half-covered
+// pixels at the peak is no more than 3.5 times that at rest). Letters at rest
+// are as sharp as ever (TestLettersAtRestStaySharp), and TestASwellingLetters
+// HeightGrowsWithoutSteps holds the growth smooth.
 func TestSwollenLettersStaySharp(t *testing.T) {
 	useAppFont(t)
 	theme.SetMode(theme.ModeDark)
@@ -486,10 +490,9 @@ func TestSwollenLettersStaySharp(t *testing.T) {
 	}
 	rest := softness(-time.Second)
 	peak := softness(time.Duration(float64(s.words[0].emp.du) * 0.5)) // the first letter at its biggest
-	// A swelling letter moves, so it is drawn at fractional offsets and a
-	// little softer than at rest; letters at rest are as sharp as ever
-	// (TestLettersAtRestStaySharp).
-	if peak > rest*2.2 {
+	// A swelling letter is sampled at the size it has got to, and moves, so it
+	// is a little softer than at rest.
+	if peak > rest*3.5 {
 		t.Errorf("swollen letters are soft: %.3f of the ink at the edge, %.3f at rest", peak, rest)
 	}
 	// And the letters did swell: more ink than at rest.

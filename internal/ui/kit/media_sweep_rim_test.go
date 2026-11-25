@@ -77,12 +77,16 @@ func TestSweepTextPaintsEveryPixelInOneColour(t *testing.T) {
 				regions = append(regions, rimRegion{fmt.Sprintf("word %d, sung", k), left, right, y0, y1, fill, dy})
 				continue
 			}
-			solid := prog*(w.total+edge) - edge
-			reached := rimRegion{fmt.Sprintf("word %d, reached", k), left, b.r.X + solid, y0, y1, fill, dy}
-			ahead := rimRegion{fmt.Sprintf("word %d, ahead", k), b.r.X + solid + edge, right, y0, y1, base, dy}
+			// The fade's slices lie on a grid and take the colour of the fade at
+			// their middle (mediaSegments): the slice the front is in, and the one
+			// the fade ends in, are mixed, so the pure stretches end a slice
+			// short of them.
+			solid, slice := prog*(w.total+edge)-edge, edge/gradientSteps
+			reached := rimRegion{fmt.Sprintf("word %d, reached", k), left, b.r.X + solid - slice, y0, y1, fill, dy}
+			ahead := rimRegion{fmt.Sprintf("word %d, ahead", k), b.r.X + solid + edge + slice, right, y0, y1, base, dy}
 			if c.rtl {
-				reached.x0, reached.x1 = b.r.X+b.r.W-solid, right
-				ahead.x0, ahead.x1 = left, b.r.X+b.r.W-solid-edge
+				reached.x0, reached.x1 = b.r.X+b.r.W-solid+slice, right
+				ahead.x0, ahead.x1 = left, b.r.X+b.r.W-solid-edge-slice
 			}
 			regions = append(regions, reached, ahead)
 		}
