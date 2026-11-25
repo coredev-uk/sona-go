@@ -82,8 +82,10 @@ func (s *motionSlot) touch() {
 // a cover that is on screen (to open it again, and fade it in again, on the
 // build its release asks for). A slot already released stays released.
 func (s *motionSlot) painted() {
-	if s.built.Load() != 0 {
-		s.built.Store(s.p.clock().UnixNano())
+	// Swap, not load-then-store: a release between the two would otherwise
+	// be undone, and the released slot taken for one still shown.
+	if old := s.built.Load(); old != 0 {
+		s.built.CompareAndSwap(old, s.p.clock().UnixNano())
 	}
 }
 
