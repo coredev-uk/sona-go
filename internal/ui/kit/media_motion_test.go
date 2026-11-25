@@ -1057,3 +1057,42 @@ func TestMotionReportSaysWhenTheLastVideoWent(t *testing.T) {
 		t.Errorf("report %+v, want playing at %d", r, at.UnixMilli())
 	}
 }
+
+// A motion cover's frames paint without building the view, so the slot is not
+// built for as long as the video plays. The sweep that closes the decoders of
+// views that are gone must not take it for one: it closed the decoder every
+// 2 s, and the build its release asked for opened it again and faded it in
+// again, a build per frame for 300 ms each time.
+func TestMotionCoverThatPlaysIsNotSweptAsGoneAndBuildsNothing(t *testing.T) {
+	e := newMediaMotionEnv(t)
+	a, tt := newMediaCoverApp(t, e, "")
+	a.opts.VideoSize = 0
+	tt.SetScale(2)
+	mediaFrames(t, tt, e.mt)
+	a.motion = "/motion/k1/720.mp4"
+	mediaSettle(t, tt, e, 1)
+	// The sweep goroutine reads the policy's clock: it follows the Tester's
+	// through an atomic.
+	var now atomic.Int64
+	now.Store(tt.Now().UnixNano())
+	mediaSetClock(e.p, func() time.Time { return time.Unix(0, now.Load()) })
+	step := func(d time.Duration) {
+		tt.Advance(d)
+		now.Store(tt.Now().UnixNano())
+	}
+	tt.Frame()
+	step(motionFade + 50*time.Millisecond)
+	built := a.builds
+	for range 180 { // 3 s: twice the sweep's idle time
+		step(16700 * time.Microsecond)
+	}
+	if stale, _ := e.p.stale(); len(stale) != 0 {
+		t.Errorf("the sweep takes the playing cover for gone after 3 s of painting")
+	}
+	if n := a.builds - built; n > 2 {
+		t.Errorf("the view was built %d times in 3 s of a playing cover", n)
+	}
+	if !mediaIsMoving(tt) {
+		t.Errorf("the video does not move")
+	}
+}

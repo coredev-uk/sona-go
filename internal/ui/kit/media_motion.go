@@ -76,6 +76,17 @@ func (s *motionSlot) touch() {
 	}
 }
 
+// painted marks a slot that is still shown, from its Draw callback: a clip's
+// frames paint without building the view, so the build that touch records
+// goes stale while the video plays, and the sweep would close the decoder of
+// a cover that is on screen (to open it again, and fade it in again, on the
+// build its release asks for). A slot already released stays released.
+func (s *motionSlot) painted() {
+	if s.built.Load() != 0 {
+		s.built.Store(s.p.clock().UnixNano())
+	}
+}
+
 // release closes the decoder and forgets the file: nothing wants this
 // motion now (the view is gone, motion is not allowed, the tile went cold).
 func (s *motionSlot) release() {
@@ -235,7 +246,10 @@ func (s *motionSlot) fill(c *ui.Context, host ui.Element, size float32, round bo
 	host.Children(func() {
 		if clip, ok := player.(*media.Clip); ok {
 			video = ui.Box(c).Size(size, size)
-			video.Draw(func(pt *ui.Painter, r ui.Rect) { clip.Paint(pt, r) })
+			video.Draw(func(pt *ui.Painter, r ui.Rect) {
+				s.painted()
+				clip.Paint(pt, r)
+			})
 			return
 		}
 		video = ui.Video(c, player.(*ui.VideoPlayer)).Size(size, size).Fit(ui.Cover)
