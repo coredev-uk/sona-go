@@ -228,25 +228,3 @@ func IsSinging(spans []Span, t int64, i int) bool {
 	}
 	return i >= k-lookBack && spans[i].EndMs > t
 }
-
-// SungUntil is when line i stops being sung, once it has begun: the first
-// time at or after its begin that IsSinging(spans, t, i) is false (Never: not
-// before the song ends). The sweep's words settle back from there.
-func SungUntil(spans []Span, i int) int64 {
-	next := Never
-	if i+1 < len(spans) {
-		next = spans[i+1].BeginMs
-	}
-	// The voice rests after the line, before the next one begins.
-	if rest := RestFrom(spans, i); rest < next {
-		return rest
-	}
-	// Lit under the lines that follow while it runs on, for as long as it
-	// is one of the last lookBack lines that have begun; until the next
-	// begins, whatever its end.
-	until := spans[i].EndMs
-	if far := i + lookBack + 1; far < len(spans) {
-		until = min(until, spans[far].BeginMs)
-	}
-	return max(until, next)
-}

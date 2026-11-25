@@ -158,7 +158,7 @@ func TestSweepTextFillsEachWordAsItIsSung(t *testing.T) {
 		theme.Apply(c)
 		ui.Box(c).Padding(10).Children(func() {
 			ui.Box(c.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
-				moving = s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at, Sung: 1, Until: NoUntil}, false)
+				moving = s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at, Sung: 1}, false)
 			})
 		})
 	}, 420, 70)
