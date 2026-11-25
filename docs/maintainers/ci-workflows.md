@@ -5,8 +5,8 @@ What each GitHub Actions workflow does, the CI image, and the rules for changing
 ## Workflows
 
 `.github/workflows/`: `ci.yml` (every push to main, every pull request and a
-nightly schedule: "Vet and type-check" (vet for the host, development and
-probe builds, the macOS and Windows type-checks, and `govulncheck`); the Linux tests, in
+nightly schedule: "Vet and type-check" (what `check` runs: vet for the host, development and
+probe builds, the macOS and Windows type-checks, `golangci-lint` on a pull request's changed lines, `mygo vet internal/ui`, the catalogue check, gofumpt, and `govulncheck`); the Linux tests, in
 pools that `.github/ci/shard.sh` packs by measured time (`timings.txt`):
 core, playback, and the native UI's, split into `ui-race` (`ui/store`,
 `ui/kit`, `ui/lyricsync`, which start goroutines) and `ui` (the page and app
@@ -56,12 +56,12 @@ prerelease with `-f prerelease=rc.1`, or the nightly now with `-f nightly=true`)
 the dispatch-only probe and Orca walk) run
 in `ghcr.io/coredev-uk/sona-ci` (`build/ci/Containerfile`: Ubuntu 26.04, the
 GTK, GStreamer, sway, AT-SPI, PipeWire and font packages, Go and gotestsum at
-`go.mod`'s versions; amd64 and arm64), so they start with the toolchain ready
+`go.mod`'s versions, golangci-lint at the version of `build/ci/golangci-lint.sha256`; amd64 and arm64), so they start with the toolchain ready
 and the system libraries, which the UI goldens depend on, change only when the
 image is rebuilt. `images.yml` builds it when `build/ci/**` or `go.mod`
 changes (on a pull request of this repository too: the CI job named "CI image"
 waits for it), weekly and on dispatch; `build/ci/tag.sh` names the tag from the
-Containerfile and the Go and gotestsum versions. Only a run on main writes that
+Containerfile, the Go and gotestsum versions and the two checksum files. Only a run on main writes that
 tag, and it attests the manifest's build provenance; a pull request (or a
 dispatch from a branch) writes `pr-<tag>`, which only pull request runs read.
 `build/ci/find-image.sh` takes `<tag>` for a pull request run (else `pr-<tag>`)
@@ -85,6 +85,12 @@ one by hand, put the new digest of the same tag in the `FROM` line
 (`docker buildx imagetools inspect <image>:<tag> --format '{{.Manifest.Digest}}'`).
 `release.sh` pulls the digest the Containerfile's `FROM` line names and refuses
 a line without one.
+
+**The static checks in CI.** The "Vet and type-check" job runs `check`'s list (`justfile`; `devenv shell -- check`): a change to one is a change to the other, and each names the other in a comment. A failing `check` command fails the job, and so the required "Go vet and test (-race)" check. Three of the commands need a note:
+
+- *gofumpt* is a `tool` of `go.mod` (`go tool gofumpt`), so a machine, `check`, `fmt` and CI run one version, and Renovate moves it like any module. `build/gofumpt.sh` holds the file list (every tracked Go file but `internal/db/dbq`) for all three; the step prints the files it would change.
+- *golangci-lint* is not in `go.mod` (its dependency tree is large, and its maintainers advise against `go tool`). The CI image has the release binary, checked against `build/ci/golangci-lint.sha256` before it is unpacked, like the Go archive; the version in that file is the one devenv's pinned nixpkgs ships (`devenv shell -- golangci-lint --version`). **The two pins move together:** a nixpkgs bump that moves golangci-lint changes that file in the same pull request (`docs/maintainers/repository.md`, "Pinned inputs"). Renovate moves neither: it cannot compute a hash. The step runs on pull requests only: `golangci-lint run --new-from-rev=origin/<base> ./...` after a depth-1 fetch of the base branch, as `check` runs it against `origin/main`. The tree still has findings from before the linter ran in CI, so a full run (the nightly, a release) would fail on code nobody touched; a push to main carries what its pull request passed, and `github.event.before` would lint a range no pull request ever saw.
+- *`go tool mygo vet internal/ui` and `go run ./cmd/i18ntool extract -check`* need nothing the image lacks: the first is a `tool` of `go.mod` and runs on the packages the vets already type-check, the second is pure Go.
 
 **Vulnerability scan.** The "Vet and type-check" job ends its checks with `go tool govulncheck -show verbose -tags sqlite_fts5 ./...`. The tool is a `tool` of `go.mod`, so Renovate moves it like any module. The policy:
 

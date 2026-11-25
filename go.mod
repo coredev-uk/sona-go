@@ -42,10 +42,12 @@ require (
 	golang.org/x/telemetry v0.0.0-20261116191925-e77a43154acb // indirect
 	golang.org/x/vuln v1.10.0 // indirect
 	gotest.tools/gotestsum v1.13.0 // indirect
+	mvdan.cc/gofumpt v0.12.0 // indirect
 )
 
 tool (
 	github.com/egoist/mygo/cmd/mygo
 	golang.org/x/vuln/cmd/govulncheck
 	gotest.tools/gotestsum
+	mvdan.cc/gofumpt
 )
