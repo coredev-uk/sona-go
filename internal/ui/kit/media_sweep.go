@@ -18,8 +18,8 @@ import (
 // with the sweep colour from its start to its end as it is sung, short
 // words too, behind the soft edge (index.css's .lyric-word), and its letters
 // rise with the colour: each starts to lift as the front of the fill reaches
-// it and has lifted liftEm (twice that for background vocals) when the front
-// has passed it and its soft edge; a held word swells letter by letter with
+// it, has lifted liftEm (twice that for background vocals) at the most, and
+// comes straight back down once the front has passed it and its soft edge; a held word swells letter by letter with
 // a glow on top (media_wordmotion.go). Build one per line and width, keep it
 // (shaping is the cost), and paint it from the clock in a Draw callback.
 type SweepText struct {
@@ -31,8 +31,8 @@ type SweepText struct {
 	h      float32
 	size   float32
 
-	begin  time.Duration // when the first word begins
-	empEnd time.Duration // when the last swell has run and settled
+	begin time.Duration // when the first word begins
+	end   time.Duration // when the last letter has come back down: nothing moves after it
 
 	// The scratch of a frame: a word's stretches by colour (mediaSegments),
 	// and a row's or a moving letter's (mediaRow).
@@ -45,7 +45,7 @@ type sweepWord struct {
 	text       string
 	begin, end time.Duration
 	d          time.Duration // how long the colour takes to cross it: end − begin, at least 1 ms
-	up         float32       // how far a letter rests raised, in em
+	up         float32       // how far a letter rises, at the most, in em
 	total      float32       // the length of its boxes, in reading order
 	boxes      []fillBox
 	letters    []sweepLetter
@@ -71,7 +71,6 @@ type sweepLetter struct {
 	// Where it lies along the word in reading order, left to right (l, t:
 	// its leading and trailing edge) and right to left (lm, tm).
 	l, t, lm, tm float32
-	delay        time.Duration // how long after the line stops it starts to settle
 	// glyphs are its own, shaped once, at each size it is drawn at (index k:
 	// 1 + swellStep·k times the text's size; one only for a letter that does
 	// not swell). nil: drawn with its box's text.
@@ -85,17 +84,10 @@ type SweepClock struct {
 	// Sung (0 to 1) scales the fill's strength, which is how a line fades
 	// in and out; 0 paints the text in its base colour alone.
 	Sung float32
-	// Until is when the line stops being sung (NoUntil: not before the song
-	// ends). The letters that lifted settle back from there, and the line is
-	// still, with nothing asked of the next frame, once they have.
-	Until time.Duration
 	// Still is reduced motion: the words light whole and nothing lifts,
 	// swells or glows.
 	Still bool
 }
-
-// NoUntil is the Until of a line that is sung to the end of the song.
-const NoUntil = time.Duration(math.MaxInt64)
 
 // NewSweepText shapes words as one text of the font's size, weight and line
 // height (DIPs) wrapped at width, in the theme's face. lang is the words'
@@ -129,7 +121,6 @@ func newSweepText(words []lyrics.Word, lang string, size float32, weight int, it
 			last = i
 		}
 	}
-	g := 0 // the letter's place in the text: the order they settle in
 	for i, w := range words {
 		// The word's boxes, by UTF-16 offsets, without its trailing space.
 		units := utf16.Encode([]rune(w.Text))
@@ -158,10 +149,6 @@ func newSweepText(words []lyrics.Word, lang string, size float32, weight int, it
 			sw.emp = &sweepSwell{swell: newSwell(w.End-w.Begin, len(sw.letters), i == last, w.Background)}
 			sw.emp.run = sw.emp.total()
 		}
-		for k := range sw.letters {
-			sw.letters[k].delay = min(time.Duration(g)*settleStagger, settleStaggerMax)
-			g++
-		}
 		at += len(units)
 	}
 	s.padBoxes()
@@ -170,8 +157,11 @@ func newSweepText(words []lyrics.Word, lang string, size float32, weight int, it
 		if i == 0 || w.begin < s.begin {
 			s.begin = w.begin
 		}
+		// The colour lights the last letter whole by the word's end at the
+		// latest, and it is down a fall later.
+		s.end = max(s.end, w.begin+w.d+fallDur)
 		if w.emp != nil {
-			s.empEnd = max(s.empEnd, w.begin+w.emp.run+maxSettle)
+			s.end = max(s.end, w.begin+w.emp.run)
 		}
 	}
 	return s
@@ -316,18 +306,6 @@ func (s *SweepText) Width() float32 { return s.width }
 // Height is the shaped height in DIPs.
 func (s *SweepText) Height() float32 { return s.h }
 
-// rise is how far, 0 to 1, letter l of word w has risen s after the word
-// begins: it comes up over riseDur from the moment the colour reaches it
-// (reach), whatever the word's length, so a slow word's letters answer the
-// voice at once instead of creeping up with its fill. rtl reads the word
-// from the right.
-func (w *sweepWord) rise(l *sweepLetter, s time.Duration, edge float32, rtl bool) float32 {
-	if s <= 0 {
-		return 0
-	}
-	return clamp01(float32(s-w.reach(l, edge, rtl)) / float32(riseDur))
-}
-
 // reach is how long after the word begins the colour reaches letter l: the
 // front of the fill (its soft edge's far side) is at s/d·(length + edge)
 // along the word.
@@ -339,42 +317,42 @@ func (w *sweepWord) reach(l *sweepLetter, edge float32, rtl bool) time.Duration 
 	return time.Duration(float64(w.d) * float64(lo/(w.total+edge)))
 }
 
-// lift is how far letter l of word w is raised at t, in em (up), the line
-// sung until until, and whether it is moving (still rising, or settling).
-// While the line is sung a letter comes up as the colour reaches it. After
-// it a letter settles from where it was: each at its turn from the left,
-// over settleDur (a swollen word finishes its swell first).
-func (w *sweepWord) lift(l *sweepLetter, t, until time.Duration, edge float32, rtl bool) (lift float32, moving bool) {
-	stop := until
-	if w.emp != nil {
-		stop = max(until, w.begin+w.emp.run)
+// lit is how long after the word begins letter l is lit whole: the front has
+// passed its trailing edge and the soft edge behind it, which is by the
+// word's end at the latest.
+func (w *sweepWord) lit(l *sweepLetter, edge float32, rtl bool) time.Duration {
+	hi := l.t
+	if rtl {
+		hi = l.tm
 	}
-	if t <= stop {
-		s := t - w.begin
-		return w.up * riseEase.at(w.rise(l, s, edge, rtl)), s >= 0 && s < w.d+riseDur
-	}
-	v0 := w.up * riseEase.at(w.rise(l, stop-w.begin, edge, rtl))
-	if v0 == 0 {
+	return min(time.Duration(float64(w.d)*float64((hi+edge)/(w.total+edge))), w.d)
+}
+
+// lift is how far letter l of word w is raised at t, in em (up), and whether
+// it is moving (rising or falling). A letter comes up over riseDur from the
+// moment the colour reaches it and goes back down over fallDur from the
+// moment it is lit whole, to exactly 0: a pure function of t, so nothing is
+// kept from one frame to the next. A swelling word's letters have no lift
+// of their own: the bump of their pose goes up and comes down.
+func (w *sweepWord) lift(l *sweepLetter, t time.Duration, edge float32, rtl bool) (lift float32, moving bool) {
+	s := t - w.begin
+	if w.emp != nil || s < 0 {
 		return 0, false
 	}
-	x := float32(t-stop-l.delay) / float32(settleDur)
-	if x >= 1 {
+	r, e := w.reach(l, edge, rtl), w.lit(l, edge, rtl)
+	if s >= e+fallDur {
 		return 0, false
 	}
-	return v0 * (1 - riseEase.at(clamp01(x))), true
+	up := riseEase.at(clamp01(float32(s-r) / float32(riseDur)))
+	down := 1 - riseEase.at(clamp01(float32(s-e)/float32(fallDur)))
+	return w.up * up * down, s >= r
 }
 
 // lifts reports whether any letter may be away from its place at c: from the
-// first word's begin until the last has settled. Outside it the text is
-// painted whole.
+// first word's begin until the last letter is down (and the last swell has
+// run). Outside it the text is painted whole.
 func (s *SweepText) lifts(c SweepClock) bool {
-	switch {
-	case c.Still || c.T < s.begin:
-		return false
-	case c.T <= c.Until:
-		return true
-	}
-	return c.T-c.Until < maxSettle || c.T < s.empEnd
+	return !c.Still && c.T >= s.begin && c.T < s.end
 }
 
 // progress is how far the fill has gone through the word at t, and whether it
@@ -394,7 +372,7 @@ func (w *sweepWord) progress(t time.Duration) (float32, bool) {
 // round the fill's glyphs. The letters rise with the front of the fill, and a
 // held word swells; the fill moves with its letters. It reports whether
 // anything is moving, which needs the next frame (Painter.AnimationFrame):
-// filling, rising, swelling or settling. rtl fills from the right.
+// filling, rising, falling or swelling. rtl fills from the right.
 func (s *SweepText) Paint(p *ui.Painter, x, y float32, base, fill ui.Color, clock SweepClock, rtl bool) (moving bool) {
 	hi := mediaAlpha(fill, clock.Sung)
 	edge := s.size * 0.5
@@ -433,7 +411,7 @@ func (s *SweepText) Paint(p *ui.Painter, x, y float32, base, fill ui.Color, cloc
 }
 
 // paintWord paints word w letter by letter: the letters at rest (not yet
-// risen or risen all the way, in runs of neighbours) with the layout's text,
+// risen or down again, in runs of neighbours) with the layout's text,
 // clipped to the run and shifted, which keeps them as sharp as any text; the
 // letters on the move, one by one, from their own glyphs at the fractional
 // offset they have got to. Both are painted by the word's stretches of colour
@@ -448,9 +426,9 @@ func (s *SweepText) paintWord(p *ui.Painter, x, y float32, w *sweepWord, c Sweep
 	from, runLift := -1, float32(0)
 	for i := range w.letters {
 		l := &w.letters[i]
-		lift, mv := w.lift(l, c.T, c.Until, edge, rtl)
+		lift, mv := w.lift(l, c.T, edge, rtl)
 		moving = moving || mv
-		if l.glyphs != nil && (swelling || lift != 0 && lift != w.up) {
+		if l.glyphs != nil && (swelling || lift != 0) {
 			if from >= 0 {
 				s.paintRun(p, x, y, w, from, i, runLift, base)
 				from = -1

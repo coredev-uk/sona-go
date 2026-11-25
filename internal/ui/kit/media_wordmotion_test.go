@@ -243,7 +243,7 @@ func TestPaintingWordByWordLosesNoInk(t *testing.T) {
 			ui.Box(c).Padding(10).Children(func() {
 				ui.Box(c.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
 					// Nothing sung: no fill, and until the line begins nothing lifts.
-					s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at, Until: NoUntil}, false)
+					s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at}, false)
 				})
 			})
 		}, 300, 260)
@@ -255,11 +255,11 @@ func TestPaintingWordByWordLosesNoInk(t *testing.T) {
 		whole := flat(0)
 		// At the first word's begin the line is painted word by word, none
 		// of them yet away from its place.
-		if s.lifts(SweepClock{T: 0, Until: NoUntil}) {
+		if s.lifts(SweepClock{T: 0}) {
 			t.Fatal("lifts before the line begins")
 		}
 		piece := flat(time.Second)
-		if !s.lifts(SweepClock{T: time.Second, Until: NoUntil}) {
+		if !s.lifts(SweepClock{T: time.Second}) {
 			t.Fatal("does not paint by the word as the line begins")
 		}
 		// Antialiasing differs by a shade at a few pixels where a clip splits
@@ -303,9 +303,9 @@ func rowsWith(img *image.RGBA, x0, x1 int, pred func(r, g, b uint8) bool) (top, 
 
 func isRed(r, g, b uint8) bool { return r > 180 && g < 100 && b < 100 }
 
-// The glyphs really move: a lifted word's ink stands higher by 0.05em than an
-// unsung one's, the line's other words stay where they are, and the ink does
-// not blur or fall short of what it was.
+// The glyphs really move: a word's first letter, lit whole, stands 0.05em
+// higher than at rest, the line's other words stay where they are, and the
+// word is back where it was once its letters are down.
 func TestLiftedInkStandsHigher(t *testing.T) {
 	useAppFont(t)
 	theme.SetMode(theme.ModeLight)
@@ -322,7 +322,7 @@ func TestLiftedInkStandsHigher(t *testing.T) {
 		theme.Apply(c)
 		ui.Box(c).Padding(10).Children(func() {
 			ui.Box(c.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
-				moving = s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at, Until: NoUntil}, false)
+				moving = s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at}, false)
 			})
 		})
 	}, 720, 130)
@@ -336,26 +336,26 @@ func TestLiftedInkStandsHigher(t *testing.T) {
 		return [2]int{a, b}, [2]int{c, d}, moving
 	}
 	f0, s0, _ := frame(-time.Second)
-	f1, s1, mv := frame(2 * time.Second)
-	if mv {
-		t.Error("moving long after the first word's second")
+	// The first letter is lit whole 110 ms in, and is up by then.
+	f1, s1, mv := frame(110 * ms)
+	if !mv {
+		t.Error("not moving while the first letter is up")
 	}
 	if got := f0[0] - f1[0]; got < 3 || got > 5 {
 		t.Errorf("the lifted word's top moved by %d px, want 4 (0.05 em of %d)", got, size)
 	}
-	if got := f0[1] - f1[1]; got < 3 || got > 5 {
-		t.Errorf("the lifted word's bottom moved by %d px", got)
-	}
 	if s0 != s1 {
 		t.Errorf("the unsung word moved: %v then %v", s0, s1)
 	}
-	// Partway up (the front in the first letter), between.
-	f2, _, mv := frame(40 * ms)
-	if !mv {
-		t.Error("not moving mid-lift")
-	}
+	// Partway up, between.
+	f2, _, _ := frame(8 * ms)
 	if f2[0] >= f0[0] || f2[0] <= f1[0] {
-		t.Errorf("mid-lift top %d not between %d and %d", f2[0], f0[0], f1[0])
+		t.Errorf("mid-lift top %d not between %d and %d", f2[0], f1[0], f0[0])
+	}
+	// Long after, the word is back where it began, and nothing moves.
+	f3, s3, mv := frame(2 * time.Second)
+	if mv || f3 != f0 || s3 != s0 {
+		t.Errorf("long after: moving %v, word at %v then %v, other at %v then %v", mv, f0, f3, s0, s3)
 	}
 }
 
@@ -366,7 +366,7 @@ func TestStillTextDoesNotMove(t *testing.T) {
 	defer theme.SetMode(theme.ModeSystem)
 	words := []lyrics.Word{{Begin: 0, End: 2 * time.Second, Text: "tide "}, {Begin: 2 * time.Second, End: 2400 * ms, Text: "HHHH"}}
 	s := NewSweepText(words, "", 60, 700, 70, 500)
-	if s.lifts(SweepClock{T: time.Second, Until: NoUntil, Still: true}) {
+	if s.lifts(SweepClock{T: time.Second, Still: true}) {
 		t.Error("a still text lifts")
 	}
 	at := time.Duration(-time.Second)
@@ -375,7 +375,7 @@ func TestStillTextDoesNotMove(t *testing.T) {
 		theme.Apply(c)
 		ui.Box(c).Padding(10).Children(func() {
 			ui.Box(c.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
-				moving = s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at, Until: NoUntil, Still: true}, false)
+				moving = s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at, Still: true}, false)
 			})
 		})
 	}, 520, 100)
@@ -393,7 +393,7 @@ func TestStillTextDoesNotMove(t *testing.T) {
 	}
 }
 
-// Paint reports a moving text only while a word fills, lifts or settles: a
+// Paint reports a moving text only while a word fills, rises or falls: a
 // line at rest, before it, after it or held, asks for no frame.
 func TestSweepPaintReportsWhetherItMoves(t *testing.T) {
 	useAppFont(t)
@@ -415,7 +415,6 @@ func TestSweepPaintReportsWhetherItMoves(t *testing.T) {
 			})
 		})
 	}, 520, 70)
-	until := 9 * time.Second
 	for _, c := range []struct {
 		name string
 		at   time.Duration
@@ -425,24 +424,23 @@ func TestSweepPaintReportsWhetherItMoves(t *testing.T) {
 		{"before the line", 0, 0, false},
 		{"as it begins", time.Second, 1, true},
 		{"filling the first word", 1100 * ms, 1, true},
-		{"after the first word is sung and its letters are up", 1800 * ms, 1, false},
-		{"both lifted, between words", 2400 * ms, 1, false},
-		{"held at rest", 5 * time.Second, 1, false},
+		{"the first letters are down again", 1900 * ms, 1, false},
+		{"both down, between words", 2400 * ms, 1, false},
+		{"at rest", 5 * time.Second, 1, false},
 		{"the last word begins", 6 * time.Second, 1, true},
-		{"the last word held", 8 * time.Second, 1, false},
-		{"just after the line stops", until + 100*ms, 0, true},
-		{"settling", until + 200*ms, 0, true},
-		{"settled", until + 400*ms, 0, false},
-		{"long after", until + 60*time.Second, 0, false},
+		{"the last letters falling", 6400 * ms, 1, true},
+		{"the last word down, the line still current", 8 * time.Second, 1, false},
+		{"after the line", 9 * time.Second, 0, false},
+		{"long after", 60 * time.Second, 0, false},
 	} {
-		clock = SweepClock{T: c.at, Sung: c.sung, Until: until}
+		clock = SweepClock{T: c.at, Sung: c.sung}
 		tt.Frame()
 		if moving != c.want {
 			t.Errorf("%s (%v): moving %v, want %v", c.name, c.at, moving, c.want)
 		}
 	}
 	// Before the line, nothing sung: still, and nothing asked of the next frame.
-	clock = SweepClock{T: 500 * ms, Until: until}
+	clock = SweepClock{T: 500 * ms}
 	tt.Frame()
 	if moving {
 		t.Error("moving before the line")
@@ -465,7 +463,7 @@ func TestSwollenLettersStaySharp(t *testing.T) {
 			ui.Box(c.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
 				p.Fill(r, ui.RGB(0, 0, 0), 0)
 				// No fill colour: the letters and their motion alone.
-				s.Paint(p, r.X, r.Y, ui.RGB(255, 255, 255), ui.Color{}, SweepClock{T: at, Sung: 1, Until: NoUntil}, false)
+				s.Paint(p, r.X, r.Y, ui.RGB(255, 255, 255), ui.Color{}, SweepClock{T: at, Sung: 1}, false)
 			})
 		})
 	}, 420, 100)
@@ -527,7 +525,7 @@ func TestSwellGlowsInTheFillColour(t *testing.T) {
 			ui.Box(c.Key("s")).Size(s.Width(), s.Height()).Draw(func(p *ui.Painter, r ui.Rect) {
 				// A glow of blue round red letters on white: blue pixels not
 				// under a letter are the glow.
-				s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at, Sung: sung, Until: NoUntil}, false)
+				s.Paint(p, r.X, r.Y, mediaGradBase, mediaGradFill, SweepClock{T: at, Sung: sung}, false)
 			})
 		})
 	}, 420, 100)
