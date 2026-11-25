@@ -27,7 +27,7 @@ Press L to open the lyrics in Now Playing. Sona asks every lyrics source you tur
 - The sung line stays a third of the way down the lyrics, and each line glides up to its place as it is sung, one after another, the lines after it a moment behind. Seek back and they glide down. With reduce motion on they jump.
 - With word-by-word lyrics each letter lifts a little as the colour reaches it, so the lift runs along the word with the singing, and stays up until the line is done; a word held for a second or more swells letter by letter with a soft amber glow. The words in the lines around the sung one stand still. With reduce motion on the words only light, with no lift, swell or glow.
 - Select a line to jump to it.
-- Where the singing stops for five seconds or more, three dots stand in the lyrics and fill in amber, one after the other, until the next line begins.
+- Where the singing stops for five seconds or more, three dots stand in the lyrics and fill in amber, one after the other, riding a slow wave, until the next line begins: then they gather in and are gone as it starts.
 - Press [ and ] to shift the lyrics earlier or later, and \ to reset.
 - Choose the sources and a translation language in Settings → Playback → Lyrics.
 
