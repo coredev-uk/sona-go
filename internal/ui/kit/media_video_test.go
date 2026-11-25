@@ -3,6 +3,7 @@ package kit
 import (
 	"image/color"
 	"math"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -25,9 +26,13 @@ func mediaGrey(w, h int, luma byte) []byte {
 	return b
 }
 
-type mediaVideoApp struct{ v *VideoFeed }
+type mediaVideoApp struct {
+	v      *VideoFeed
+	builds int // how many times the view was built
+}
 
 func (a *mediaVideoApp) view(c *ui.Context) {
+	a.builds++
 	theme.Apply(c)
 	ui.Box(c).Size(200, 100).Children(func() {
 		VideoSurface(c.Key("v"), a.v, VideoOpts{A11yLabel: "Music video"})
@@ -157,5 +162,52 @@ func TestVideoSurfaceIsNamed(t *testing.T) {
 	tt.Frame()
 	if _, ok := tt.Find("Music video"); !ok {
 		t.Error("the video has no label")
+	}
+}
+
+// TestVideoSurfaceShowsPicturesWithoutBuildingTheView: a picture of a playing
+// video is a frame that paints the video; only the first, which the poster
+// delivers, builds the view (a poster's call for each picture would build it
+// 30 times a second).
+func TestVideoSurfaceShowsPicturesWithoutBuildingTheView(t *testing.T) {
+	theme.SetMode(theme.ModeLight)
+	defer theme.SetMode(theme.ModeSystem)
+	surface := video.NewSurface()
+	mt := newMainThread()
+	var posts atomic.Int32
+	v := NewVideoFeed(surface, func(fn func()) { posts.Add(1); mt.post(fn) })
+	v.Start()
+	defer v.Stop()
+	a := &mediaVideoApp{v: v}
+	tt := ui.NewTester(a.view, 200, 100)
+
+	surface.Show(64, 48, 0, mediaGrey(64, 48, 235))
+	mediaUntil(t, tt, mt, "the first picture", func() bool { return v.HasPicture() })
+	// The next, in the frames that paint it: one picture per 33 ms frame of
+	// the video, 30 of them, each waited for.
+	built, posted := a.builds, posts.Load()
+	var luma byte
+	for i := 1; i <= 30; i++ {
+		luma = byte(16 + 7*i)
+		surface.Show(64, 48, time.Duration(i)*33*time.Millisecond, mediaGrey(64, 48, luma))
+		deadline := time.Now().Add(hangGuard)
+		for v.Pictures() < uint64(i+1) {
+			if time.Now().After(deadline) {
+				t.Fatalf("picture %d never showed", i)
+			}
+			tt.Advance(16700 * time.Microsecond)
+			mt.run(t, 0)
+			time.Sleep(time.Millisecond)
+		}
+	}
+	// Window.Update, which the app's poster is, builds the view after every
+	// call: a post is a build.
+	n := posts.Load() - posted + int32(a.builds-built)
+	t.Logf("%d builds and posts for 30 pictures", n)
+	if n > 2 {
+		t.Errorf("%d builds and posts for 30 pictures, want at most 2", n)
+	}
+	if got, want := at(tt, 100, 50), refRGB(luma, 128, 128); !near(got, want) {
+		t.Errorf("the last picture shows %v, want %v", got, want)
 	}
 }

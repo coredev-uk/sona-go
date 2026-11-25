@@ -22,6 +22,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/lyricsync"
+	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
@@ -239,7 +240,7 @@ type motionOpens struct {
 	calls []string
 }
 
-func (m *motionOpens) open(_ context.Context, url string, px int) (*ui.VideoPlayer, error) {
+func (m *motionOpens) open(_ context.Context, url string, px int) (media.Motion, error) {
 	m.mu.Lock()
 	m.calls = append(m.calls, fmt.Sprintf("%s@%d", url, px))
 	m.mu.Unlock()

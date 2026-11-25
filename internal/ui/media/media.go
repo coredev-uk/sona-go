@@ -6,7 +6,8 @@
 // the CDM host decodes (I420, internal/playback/video) to the RGBA a MyGo
 // bitmap takes.
 //
-// Nothing here draws: the kit's MotionCover, TileMotion and VideoSurface
+// Nothing here draws but Clip.Paint, which the kit's MotionCover and
+// TileMotion call from a Draw callback; they and VideoSurface
 // (internal/ui/kit) show what this package opens, and the kit's ArtLoader
 // is the cache of decoded bitmaps.
 package media

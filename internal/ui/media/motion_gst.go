@@ -275,9 +275,9 @@ type gstDecoder struct {
 }
 
 // NewMotionDecoder opens the motion artwork file at path (the motion cache's
-// plain MP4) for a ui.VideoPlayer. The decoder is chosen by GStreamer's
-// ranks, hardware ones included. The player calls Next from one goroutine and
-// closes the decoder when it is closed.
+// plain MP4) for a Clip. The decoder is chosen by GStreamer's ranks, hardware
+// ones included. The clip calls Next from one goroutine at a time and closes
+// the decoder when it is closed.
 func NewMotionDecoder(path string) (ui.VideoDecoder, error) {
 	cpath := C.CString(path)
 	defer C.free(unsafe.Pointer(cpath))
@@ -290,22 +290,22 @@ func NewMotionDecoder(path string) (ui.VideoDecoder, error) {
 	return &gstDecoder{m: m}, nil
 }
 
-// openPlayer makes the looping player of the file at path, decoded by
-// GStreamer in this process. NewVideoPlayer decodes the first frame, so it
-// blocks and the player is Ready when it returns.
-func openPlayer(path string) (*ui.VideoPlayer, error) {
+// openPlayer makes the looping clip of the file at path, decoded by
+// GStreamer in this process. NewClip decodes the first frame, so it blocks
+// and the clip is Ready when it returns.
+func openPlayer(path string) (Motion, error) {
 	dec, err := NewMotionDecoder(path)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDecode, err)
 	}
-	p, err := ui.NewVideoPlayer(dec)
+	k, err := NewClip(dec)
 	if err != nil {
 		if c, ok := dec.(io.Closer); ok {
-			_ = c.Close() // a no-op if the player did
+			_ = c.Close()
 		}
 		return nil, fmt.Errorf("%w: %w", ErrDecode, err)
 	}
-	return p.SetLoop(true), nil
+	return k, nil
 }
 
 func (d *gstDecoder) Next() (ui.VideoFrame, error) {

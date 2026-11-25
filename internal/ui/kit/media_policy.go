@@ -7,8 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/egoist/mygo/ui"
-
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/media"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -53,7 +51,7 @@ type MotionPolicy struct {
 	opts MotionOptions
 	post store.Poster
 	// open makes a player of a motion file (tests replace it).
-	open func(ctx context.Context, urlPath string, px int) (*ui.VideoPlayer, error)
+	open func(ctx context.Context, urlPath string, px int) (media.Motion, error)
 	// probe is media.Codec: what decodes motion artwork, "" for nothing. On
 	// Linux it starts GStreamer and scans its plugins, so it runs on a
 	// goroutine, once.
@@ -94,7 +92,7 @@ func NewMotionPolicy(bus *store.Bus, post store.Poster, o MotionOptions) *Motion
 		p.offPower = store.On(bus, services.EventPower, func(s services.PowerState) { p.onBattery = s.OnBattery })
 	}
 	if o.Files != nil {
-		p.open = func(ctx context.Context, urlPath string, px int) (*ui.VideoPlayer, error) {
+		p.open = func(ctx context.Context, urlPath string, px int) (media.Motion, error) {
 			return media.OpenMotion(ctx, o.Files, urlPath, px)
 		}
 	}
@@ -107,7 +105,7 @@ func NewMotionPolicy(bus *store.Bus, post store.Poster, o MotionOptions) *Motion
 // cache and the decoder, so a test sees which URL and size a cover asked for.
 // post is the test's main thread (uitest's Main.Post); the caller closes the
 // policy.
-func NewTestMotionPolicy(post store.Poster, open func(ctx context.Context, urlPath string, px int) (*ui.VideoPlayer, error)) *MotionPolicy {
+func NewTestMotionPolicy(post store.Poster, open func(ctx context.Context, urlPath string, px int) (media.Motion, error)) *MotionPolicy {
 	p := NewMotionPolicy(nil, post, MotionOptions{})
 	p.open = open
 	p.setCodec("avc")

@@ -2,11 +2,7 @@
 
 package media
 
-import (
-	"errors"
-
-	"github.com/egoist/mygo/ui"
-)
+import "errors"
 
 // Supported is whether this build plays motion artwork: not here. Linux plays
 // it through GStreamer, linked with cgo, and macOS and Windows through the
@@ -19,4 +15,4 @@ const Supported = false
 func Codec() string { return "" }
 
 // openPlayer has no decoder on this platform.
-func openPlayer(string) (*ui.VideoPlayer, error) { return nil, errors.ErrUnsupported }
+func openPlayer(string) (Motion, error) { return nil, errors.ErrUnsupported }

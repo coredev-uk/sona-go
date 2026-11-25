@@ -345,3 +345,70 @@ func TestFeedDropsAMalformedPicture(t *testing.T) {
 		t.Fatalf("%d posts for a malformed picture", n)
 	}
 }
+
+// TestFeedPollTakesPicturesWithoutPostsWhileTheConsumerPaints: a consumer that
+// polls and says it paints again gets each picture from Poll and the poster
+// (a build of the view) is called for none; one that stops polling, or does
+// not paint again, is woken through the poster.
+func TestFeedPollTakesPicturesWithoutPostsWhileTheConsumerPaints(t *testing.T) {
+	s := video.NewSurface()
+	var posts atomic.Int32
+	var mu sync.Mutex
+	var queue []func()
+	post := func(fn func()) { posts.Add(1); mu.Lock(); queue = append(queue, fn); mu.Unlock() }
+	runPosted := func() {
+		mu.Lock()
+		q := queue
+		queue = nil
+		mu.Unlock()
+		for _, fn := range q {
+			fn()
+		}
+	}
+	var shown atomic.Int32
+	f := NewFeed(s, post, func(Picture) { shown.Add(1) }, func() {}, nil)
+	f.Start()
+	defer f.Stop()
+	until := func(what string, cond func() bool) {
+		t.Helper()
+		for end := time.Now().Add(hangGuard); !cond(); time.Sleep(time.Millisecond) {
+			if time.Now().After(end) {
+				t.Fatalf("no %s", what)
+			}
+			runPosted()
+		}
+	}
+
+	// The first picture comes by the poster: nothing polls yet.
+	s.Show(64, 48, 0, planes(64, 48, 235))
+	until("first picture", func() bool { return shown.Load() == 1 })
+	if n := posts.Load(); n != 1 {
+		t.Fatalf("%d posts for the first picture, want 1", n)
+	}
+	if _, ok, again := f.Poll(); ok || !again {
+		t.Fatalf("Poll after a picture: ok %v again %v, want nothing waiting and paint again", ok, again)
+	}
+
+	// Pictures after it are the consumer's, while it polls.
+	for i := 1; i <= 5; i++ {
+		s.Show(64, 48, time.Duration(i)*33*time.Millisecond, planes(64, 48, byte(16+i)))
+		var p Picture
+		until("picture by Poll", func() bool {
+			var ok bool
+			p, ok, _ = f.Poll()
+			return ok
+		})
+		if p.Data[0] != byte(16+i) {
+			t.Errorf("picture %d has luma %d", i, p.Data[0])
+		}
+	}
+	if n := posts.Load(); n != 1 {
+		t.Errorf("%d posts while the consumer polled, want only the first picture's", n)
+	}
+
+	// A consumer that does not poll for a moment is woken by the poster.
+	time.Sleep(pollStale + 20*time.Millisecond)
+	s.Show(64, 48, time.Second, planes(64, 48, 100))
+	until("a post", func() bool { return posts.Load() == 2 })
+	until("the picture shown by the poster", func() bool { return shown.Load() == 2 })
+}
