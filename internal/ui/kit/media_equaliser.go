@@ -52,7 +52,7 @@ func eqLevel(period, t time.Duration) float32 {
 // unseen loop still costs every frame) or when motion is reduced. Each bar
 // rises and falls between a quarter of the height and all of it on a period
 // of its own, quick through the middle and slow at the turns. The bars are
-// painted at the display's rate by painting this element alone again: the
+// painted at up to 60 a second (AmbientFrames) by painting this element alone again: the
 // view is not built nor laid out for it, so a long list around it costs
 // nothing per frame, and an element that is off screen is not painted, so it
 // asks for no frame. It replaces a row's index wherever the playing track
@@ -87,7 +87,7 @@ func EqualiserBars(c *ui.Context, playing bool, p *MotionPolicy) ui.Element {
 			})
 		}
 		if live {
-			pt.AnimationFrame()
+			AmbientFrames(pt)
 		}
 	})
 	return box

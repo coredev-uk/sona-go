@@ -59,8 +59,8 @@ func (d *SeekDrag) Tick(c *ui.Context, playing bool, pos, dur time.Duration) {
 // Playhead is where a seek bar's song is, frame by frame. A bar that read
 // the position when the view was built could move only as often as the view
 // was built, and each build is the whole window's work; a Playhead is read
-// in the slider's Draw callback instead, which asks for the next frame as
-// the display can show it (AnimationFrame: the view is not built nor laid
+// in the slider's Draw callback instead, which asks for the next frame
+// (AmbientFrames: 60 a second on a GPU; the view is not built nor laid
 // out for it) and paints the fill and the thumb at the clock's position
 // through a transform, which the device's pixels do not round (Painter.Fill
 // rounds a rectangle's edges to whole pixels: the edge of a fill sized each
@@ -102,7 +102,7 @@ func (h Playhead) Frac(pt *ui.Painter, at float32) float32 {
 	}
 	secs := h.live().Seconds()
 	if secs < h.span && !theme.ReducedMotion() && !h.motion.Covered() {
-		AnimationFrames(pt)
+		AmbientFrames(pt)
 	}
 	return float32(min(max(secs/h.span, 0), 1))
 }
