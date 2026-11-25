@@ -179,8 +179,11 @@ func Button(c *ui.Context, label string, o ButtonOpts) ui.Element {
 			if o.Variant == Play && o.Size == SizeLG {
 				size = playGlyph
 			}
-			ic := theme.Glyph(c, o.Icon, size, theme.GlyphOpts{Color: fg, Inherit: true, Filled: o.Filled, SolidOnly: true})
-			theme.Spin(ic, o.Spin)
+			if o.Spin {
+				SpinIcon(c, theme.Icon(o.Icon), size, fg, true)
+				return
+			}
+			theme.Glyph(c, o.Icon, size, theme.GlyphOpts{Color: fg, Inherit: true, Filled: o.Filled, SolidOnly: true})
 		}
 		if !o.IconAfter {
 			icon()

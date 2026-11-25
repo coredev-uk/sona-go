@@ -157,8 +157,7 @@ func (s *settings) lastFMWaiting(c *ui.Context, cancel func()) {
 	kit.AnnounceMounted(c, row, msg)
 	row.
 		Children(func() {
-			ic := ui.Icon(c.Key("spin"), theme.Icon("loader-circle")).FontSize(16).TextColor(theme.C("ink-muted")).Shrink(0)
-			theme.Spin(ic, true)
+			kit.SpinIcon(c.Key("spin"), theme.Icon("loader-circle"), 16, theme.C("ink-muted"), true)
 			theme.Text(c, i18n.T("Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."), "secondary").
 				TextColor(theme.C("ink")).Grow(1).Shrink(1).MinWidth(0)
 			if kit.Button(c.Key("cancel"), i18n.T("Cancel"), kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM}).Clicked() {
