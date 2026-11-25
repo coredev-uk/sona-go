@@ -692,19 +692,15 @@ func (p *player) lyricPart(c *ui.Context, sh *lyricsSheet, i int, part uint8, t 
 }
 
 // sweepDraw paints a word-timed text of line i from the clock: each word
-// that is sung in fill over base, lifting as it begins and settling back
-// when the line stops being sung (kit.SweepText). The sweep paints without
+// that is sung in fill over base, each letter rising as it is sung and coming
+// straight back down (kit.SweepText). The sweep paints without
 // building the view, and asks for frames only while a word is filling,
-// lifting, swelling or settling. Between words, after the last one and before
+// rising, falling or swelling. Between words, after the last one and before
 // the first it sleeps until the next change: a word beginning or ending, the
 // line ending or the voice resting. Under reduced motion, or while nothing
 // plays, it asks for nothing, and nothing lifts.
 func (p *player) sweepDraw(sw *kit.SweepText, songID string, spans []lyricsync.Span, i int, t lyricsync.Text, base, fill ui.Color, reduced bool) func(*ui.Painter, ui.Rect) {
 	right := rtl(t.Text)
-	until := kit.NoUntil
-	if u := lyricsync.SungUntil(spans, i); u != lyricsync.Never {
-		until = lyricsync.Dur(u)
-	}
 	return func(pt *ui.Painter, r ui.Rect) {
 		ms := lyricsync.WordClock(p.env.Play.Position().Milliseconds(), lyricsync.Session().Get(songID))
 		var f float32
@@ -715,7 +711,7 @@ func (p *player) sweepDraw(sw *kit.SweepText, songID string, spans []lyricsync.S
 		if right {
 			x = r.X + r.W - sw.Width()
 		}
-		moving := sw.Paint(pt, x, r.Y, base, fill, kit.SweepClock{T: lyricsync.Dur(ms), Sung: f, Until: until, Still: reduced}, right)
+		moving := sw.Paint(pt, x, r.Y, base, fill, kit.SweepClock{T: lyricsync.Dur(ms), Sung: f, Still: reduced}, right)
 		if reduced || p.env.Play.State().State != "playing" {
 			return
 		}
@@ -779,9 +775,8 @@ func (p *player) seekLine(ln *services.LyricLine) {
 }
 
 // nextSweepEdge is the next time after t at which part of line i could change:
-// one of its words beginning or ending, the line ending, the voice resting
-// after it, or the line no longer being sung, from where its words settle
-// back (lyricsync.Never: none left).
+// one of its words beginning or ending, the line ending, or the voice resting
+// after it (lyricsync.Never: none left).
 func nextSweepEdge(spans []lyricsync.Span, i int, words []services.LyricWord, t int64) int64 {
 	next := lyricsync.Never
 	consider := func(ms int64) {
@@ -795,6 +790,5 @@ func nextSweepEdge(spans []lyricsync.Span, i int, words []services.LyricWord, t 
 	}
 	consider(spans[i].EndMs)
 	consider(lyricsync.RestFrom(spans, i))
-	consider(lyricsync.SungUntil(spans, i))
 	return next
 }
