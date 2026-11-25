@@ -246,7 +246,7 @@ func Skeleton(c *ui.Context, w, h float32) ui.Element {
 	return e.Draw(func(p *ui.Painter, r ui.Rect) {
 		a := float32(1)
 		if !still {
-			p.AnimationFrame()
+			AmbientFrames(p)
 			phase := float64(p.Now().UnixMilli()%2000) / 2000
 			a = float32(0.75 + 0.25*math.Cos(2*math.Pi*phase))
 		}

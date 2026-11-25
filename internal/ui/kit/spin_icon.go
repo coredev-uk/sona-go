@@ -19,7 +19,7 @@ const spinPeriod = time.Second
 //
 // It turns by painting: the view is built once and the Draw callback paints
 // the icon rotated by the frame's clock, asking for the next paint with
-// AnimationFrames, so a spinner costs no build or layout per frame (an
+// AmbientFrames, so a spinner costs no build or layout per frame (an
 // element's Loop does, as it asks for a built frame).
 func SpinIcon(c *ui.Context, svg *ui.SVG, size float32, color ui.Color, on bool) ui.Element {
 	if !on || theme.ReducedMotion() {
@@ -29,6 +29,6 @@ func SpinIcon(c *ui.Context, svg *ui.SVG, size float32, color ui.Color, on bool)
 		turn := float32(pt.Now().UnixNano()%int64(spinPeriod)) / float32(spinPeriod)
 		cx, cy := r.X+r.W/2, r.Y+r.H/2
 		pt.Transform(ui.Rotation(turn*360), cx, cy, func() { pt.Icon(svg, r, color) })
-		AnimationFrames(pt)
+		AmbientFrames(pt)
 	})
 }
