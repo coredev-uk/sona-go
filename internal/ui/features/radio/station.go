@@ -337,7 +337,13 @@ func (r *radio) upcoming(c *ui.Context, songs []services.Song, ruled bool) {
 							Style: func(e ui.Element) { theme.StyleText(e, "sub").SingleLine() },
 						}).AlignSelf(ui.Start)
 					})
-					theme.Text(c, song.Album, "sub").TextColor(theme.C("ink-muted")).Grow(0.8).Basis(0).MinWidth(0).SingleLine().TextAlign(ui.Start)
+					ui.Row(c.Key("album")).Grow(0.8).Basis(0).MinWidth(0).Children(func() {
+						if song.AlbumID != "" {
+							r.songLink(c, song.Album, "/album/"+url.PathEscape(song.AlbumID), "sub", theme.C("ink-muted"))
+						} else {
+							theme.Text(c, song.Album, "sub").TextColor(theme.C("ink-muted")).SingleLine().TextAlign(ui.Start)
+						}
+					})
 					theme.Text(c, i18n.FormatDuration(time.Duration(song.DurationMs)*time.Millisecond), "meta").TextColor(theme.C("ink-muted")).Shrink(0)
 				})
 			}

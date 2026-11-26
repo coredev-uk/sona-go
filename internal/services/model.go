@@ -65,7 +65,9 @@ type Song struct {
 	Artist    string `json:"artistName"`
 	Album     string `json:"albumName"`
 	// AlbumID and ArtistID are in the same Source as the song ("" when
-	// unknown). ArtistID is the first of Artists, for code that needs one.
+	// unknown), except that a library song with no library album or artist
+	// of its own names the catalogue's. ArtistID is the first of Artists,
+	// for code that needs one.
 	AlbumID  string `json:"albumId"`
 	ArtistID string `json:"artistId"`
 	// Artists are every artist Apple credits the song to, in its order (the

@@ -216,12 +216,6 @@ func (s *PlaylistsService) libraryDetail(ctx context.Context, id string) (Playli
 		return PlaylistDetail{}, fmt.Errorf("playlist %s: %w", id, err)
 	}
 	tracks := mapSlice(all, s.m.libSong)
-	for i := range tracks {
-		if tracks[i].ID == "" && tracks[i].CatalogID != "" {
-			// A catalog song in the playlist (not a library song).
-			tracks[i].ID, tracks[i].Source = tracks[i].CatalogID, SourceCatalog
-		}
-	}
 	// A playlist Apple gave no cover has one made from its tracks
 	// (library.FillCovers), which also shapes its backdrop and colours.
 	tmpl := p.ArtworkTemplate
