@@ -61,20 +61,25 @@ func NewSongArtists(api SongArtistsService, post store.Poster) *SongArtists {
 }
 
 // Of is the artists to offer for a song, a queue slot or a station seed: own
-// when it has them; else, for a catalogue ID whose artist string may name
+// when it has several; else, for a catalogue ID whose artist string may name
 // several, the catalogue copy's once looked up (the lookup starts here, and the
-// frame it ends in is a later one: until then the song reads as one artist);
-// else its first artist, firstID under the string (nil when it has none). A
-// lookup that finds a single artist leaves the first as it was: a library song
-// keeps its library artist's page. A nil SongArtists looks nothing up.
+// frame it ends in is a later one: until then the song reads as the one artist
+// it knows). That holds for a song that knows one artist (an answer cut to the
+// first) or none, even with no first ID. Else own, or its first artist, firstID
+// under the string (nil when it has none). A lookup that finds a single artist
+// leaves what was known as it was: a library song keeps its library artist's
+// page. A nil SongArtists looks nothing up.
 func (s *SongArtists) Of(catalogID, artist, firstID string, own []services.Artist) []services.Artist {
-	if len(own) > 0 {
+	if len(own) > 1 {
 		return own
 	}
 	if s != nil && catalogID != "" && applemusic.MayNameSeveral(artist) {
 		if got := s.lookup(catalogID); len(got) > 1 {
 			return got
 		}
+	}
+	if len(own) == 1 {
+		return own
 	}
 	if firstID == "" {
 		return nil

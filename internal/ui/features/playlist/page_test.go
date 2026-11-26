@@ -758,3 +758,25 @@ func TestPageLedgerDatesByWhoMadeThePlaylist(t *testing.T) {
 		})
 	}
 }
+
+// A song of an Apple playlist with several artists offers them in a chooser
+// that opens each one's page, as the library's and the album's rows do.
+func TestCatalogueTrackWithSeveralArtistsOpensAChooser(t *testing.T) {
+	two := pgSong("a", "Song A", "Mia & Di Lemma", "Album A")
+	two.Source, two.LibraryID, two.ArtistID = services.SourceCatalog, "", "ar.1"
+	two.Artists = []services.Artist{{ID: "ar.1", Source: services.SourceCatalog, Name: "Mia"}, {ID: "ar.2", Source: services.SourceCatalog, Name: "Di Lemma"}}
+	d := catalogDetail("pl.1", "Drum & Bass", two, pgSong("b", "Song B", "Artist B", "Album B"))
+	r := newPageRig(t, "pl.1", d)
+	r.shows("Mia & Di Lemma")
+	tr := access.Read(t, r.tt.Tester)
+	if _, ok := tr.Find(ui.RoleMenuButton, "Mia & Di Lemma"); !ok {
+		t.Fatalf("no artist chooser for a two-artist song:\n%s", tr.Dump())
+	}
+	r.click("Mia & Di Lemma")
+	if p := r.router.Path(); p != "/playlist/pl.1" {
+		t.Fatalf("opening the chooser went to %q", p)
+	}
+	r.shows("Di Lemma")
+	r.click("Di Lemma")
+	r.tt.Until("the second artist's page", func() bool { return r.router.Path() == "/artist/ar.2" })
+}

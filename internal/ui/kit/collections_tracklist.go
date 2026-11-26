@@ -861,8 +861,11 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 					Open: o.OpenArtist, Static: true, Hover: theme.C("ink"),
 					Style: func(e ui.Element) {
 						e.FontSize(typ.Size).FixedLineHeight(typ.LineHeight).SingleLine().MinWidth(0)
-						links = append(links, e)
 					},
+					// The element that takes the pointer (the link, or the chooser's
+					// button: not the text inside it, which would take the press
+					// from the button once Trigger makes it answer a right-click).
+					Wire: func(e ui.Element) { links = append(links, e) },
 					Click: func(m ClickMods) bool {
 						if m.Range || m.Toggle {
 							selectRow(m)

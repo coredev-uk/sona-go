@@ -161,7 +161,8 @@ func TestHistorySublinesSayWhereThePlaysCameFrom(t *testing.T) {
 		}}
 	}
 	r, _, _ := historyRig(t, fixed(one(false)))
-	r.tt.Until("offline", r.tt.Shows("On this computer only: Apple Music couldn't be reached for your other devices",
+	const unreached = "Apple Music couldn't be reached for all of your other devices, so some plays may be missing"
+	r.tt.Until("offline", r.tt.Shows(unreached,
 		"Recently, on your other devices", "Elsewhere"))
 	if r.tt.HasText("1 from other devices") {
 		t.Error("the undated group counts its songs as from other devices")
@@ -169,12 +170,35 @@ func TestHistorySublinesSayWhereThePlaysCameFrom(t *testing.T) {
 
 	r2, _, _ := historySignedOut(t, fixed(one(false)))
 	r2.tt.Until("signed out", r2.tt.Shows("On this computer"))
-	if r2.tt.HasText("On this computer only: Apple Music couldn't be reached for your other devices") {
+	if r2.tt.HasText(unreached) || r2.tt.HasText("Try again") {
 		t.Error("signed out reads as offline")
 	}
 
 	r3, _, _ := historyRig(t, fixed(one(true)))
 	r3.tt.Until("merged", r3.tt.Shows("On this computer and your other devices"))
+}
+
+// A history without all of Apple's list is not cached forever: Try again
+// beside the note reads it again, and the note goes once Apple answered.
+func TestHistoryAppleMissingOffersTryAgain(t *testing.T) {
+	d := localMidnight(0).UnixMilli()
+	r, stub, _ := historyRig(t, func(_, call int) (services.ListeningHistory, error) {
+		h := services.ListeningHistory{Apple: call > 1, Days: []services.HistoryDay{
+			{Day: d, Entries: []services.HistoryEntry{historyEntry(d+1, historySong("1", "Alpha"))}},
+		}}
+		return h, nil
+	})
+	r.tt.Until("the note", r.tt.Shows("Apple Music couldn't be reached for all of your other devices, so some plays may be missing", "Try again"))
+	if err := r.tt.Click("Try again"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("Apple's list", r.tt.Shows("On this computer and your other devices"))
+	if r.tt.HasText("Try again") {
+		t.Error("Try again stays after Apple answered")
+	}
+	if got := stub.calls(); len(got) != 2 {
+		t.Errorf("asked %v, want two reads", got)
+	}
 }
 
 func TestHistoryShowEarlierDaysAsksSixtyAndKeepsTheListShowing(t *testing.T) {
