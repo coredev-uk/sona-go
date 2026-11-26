@@ -241,11 +241,14 @@ func (l *Library) storeTracks(ctx context.Context, q *dbq.Queries, plID int64, l
 }
 
 // UpdatePlaylistDetails stores a library playlist's edited name,
-// description and visibility.
-func (l *Library) UpdatePlaylistDetails(ctx context.Context, id, name, description string, public bool, lastModified string) error {
+// description and visibility, and the artwork template Apple now gives it
+// ("" keeps the stored one): Apple's generated cover has the name in its
+// URL.
+func (l *Library) UpdatePlaylistDetails(ctx context.Context, id, name, description string, public bool, lastModified, artworkTemplate string) error {
 	return l.db.Q.UpdatePlaylistDetails(ctx, dbq.UpdatePlaylistDetailsParams{
 		Name: name, Description: description, IsPublic: db.Bool(public),
-		LastModified: lastModified, UpdatedAt: db.Millis(time.Now()), LibraryID: db.NullString(id),
+		LastModified: lastModified, ArtworkTemplate: artworkTemplate,
+		UpdatedAt: db.Millis(time.Now()), LibraryID: db.NullString(id),
 	})
 }
 

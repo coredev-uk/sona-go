@@ -39,8 +39,10 @@ SELECT CAST(coalesce(max(p), -1) + 1 AS INTEGER) FROM (
 );
 
 -- name: UpdatePlaylistDetails :exec
-UPDATE playlists SET name = ?, description = ?, is_public = ?, last_modified = ?, updated_at = ?
-WHERE library_id = ?;
+-- An empty artwork_template keeps the stored one.
+UPDATE playlists SET name = ?, description = ?, is_public = ?, last_modified = ?, updated_at = ?,
+    artwork_template = coalesce(nullif(CAST(sqlc.arg(artwork_template) AS TEXT), ''), artwork_template)
+WHERE library_id = sqlc.arg(library_id);
 
 -- name: ListPlaylistFolders :many
 SELECT * FROM playlist_folders ORDER BY parent_id, position, name COLLATE NOCASE;
