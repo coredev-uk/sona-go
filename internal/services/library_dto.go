@@ -117,8 +117,10 @@ type ListeningHistory struct {
 	// older plays on this computer (ask for more days).
 	Since int64 `json:"since"`
 	More  bool  `json:"more"`
-	// Apple reports whether Apple's recently played list (the account's
-	// other devices) was merged in; false when signed out or offline.
+	// Apple reports whether all of Apple's recently played list (the
+	// account's other devices) was merged in; false when signed out, when
+	// Apple could not be reached, or when only some of its pages arrived
+	// (those are merged).
 	Apple bool `json:"apple"`
 }
 

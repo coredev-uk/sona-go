@@ -103,9 +103,14 @@ func (l *Library) History(ctx context.Context, since time.Time) (plays []Play, l
 // Apple song not played here was played on another device at a time Apple
 // does not give: it is placed right after the nearest newer song in
 // Apple's list that was played here, in that play's day, or in the leading
-// undated group when no newer one was. Apple's list stops being merged at
-// the first song whose last play here is older than since (everything
-// after it is older too).
+// undated group when no newer one was.
+//
+// A song Apple lists whose last play here is older than since was played
+// elsewhere since then when a later song in Apple's list was played here
+// since (Apple orders by the latest play on any device, so it is newer
+// than that one): it counts as played elsewhere. Past the last song
+// played here since, nothing says it was, and it is left out; the walk
+// goes on, as Apple's list is not ordered by plays here.
 func MergeHistory(plays, started []Play, last map[string]time.Time, apple []applemusic.Song, since time.Time, loc *time.Location) []HistoryDay {
 	plays, last = addStarted(plays, started, last, apple)
 	// after[i] holds the Apple-only songs that follow local play i; lead
@@ -121,18 +126,27 @@ func MergeHistory(plays, started []Play, last map[string]time.Time, apple []appl
 			}
 		}
 	}
+	// inWindow is the last song in Apple's list played here since since.
+	inWindow := -1
+	for i := range apple {
+		if at, ok := playedHere([]string{apple[i].ID, apple[i].CatalogID()}, last); ok && !at.Before(since) {
+			inWindow = i
+		}
+	}
 	anchor := -1 // index of the newest local play the Apple walk has passed
 	for i := range apple {
 		s := &apple[i]
 		keys := []string{s.ID, s.CatalogID()}
 		if at, ok := playedHere(keys, last); ok {
-			if at.Before(since) {
-				break
+			if !at.Before(since) {
+				if j, ok := firstIndex(keys, index); ok && j > anchor {
+					anchor = j
+				}
+				continue
 			}
-			if j, ok := firstIndex(keys, index); ok && j > anchor {
-				anchor = j
+			if i > inWindow {
+				continue // its play here is out of the window, and nothing puts another in it
 			}
-			continue
 		}
 		e := HistoryEntry{Apple: s}
 		if anchor < 0 {

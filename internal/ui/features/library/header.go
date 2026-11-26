@@ -16,6 +16,9 @@ type headOpts struct {
 	// note is one meta line under both, for what the count cannot say
 	// (where History's plays come from).
 	note string
+	// noteAction builds a control at the end of the note's line (History's
+	// retry when Apple could not be reached); nil has none.
+	noteAction func()
 	// actions builds the page's controls into the row at the right edge.
 	actions func()
 }
@@ -38,7 +41,13 @@ func (l *library) pageHead(c *ui.Context, o headOpts) {
 						theme.Text(c, o.count, "sub").TextColor(theme.C("ink-muted")).FontFeatures("tnum").SingleLine()
 					}
 				})
-				if o.note != "" {
+				switch {
+				case o.note != "" && o.noteAction != nil:
+					ui.Row(c.Key("note")).AlignItems(ui.Center).Gap(8).Wrap().Margin(4, 0, 0, 0).Children(func() {
+						theme.Text(c, o.note, "meta").TextColor(theme.C("ink-faint"))
+						o.noteAction()
+					})
+				case o.note != "":
 					theme.Text(c, o.note, "meta").TextColor(theme.C("ink-faint")).Margin(4, 0, 0, 0)
 				}
 			})

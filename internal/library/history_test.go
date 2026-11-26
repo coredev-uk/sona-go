@@ -62,13 +62,20 @@ func TestMergeHistory(t *testing.T) {
 		}},
 		appleSong("3", "C"),
 		appleSong("12", "Phone 3"),
-		appleSong("old", "Old"), // last played here before since: the merge stops
+		appleSong("old", "Old"), // last played here before since: left out, the merge goes on
 		appleSong("13", "Older phone"),
 	}
 	got := render(MergeHistory(plays, nil, last, apple, at(20, 0), loc))
-	want := "recent: ~Phone 1 | 10-30: A ~Phone 2 B | 10-29: A | 10-28: C ~Phone 3"
+	want := "recent: ~Phone 1 | 10-30: A ~Phone 2 B | 10-29: A | 10-28: C ~Phone 3 ~Older phone"
 	if got != want {
 		t.Fatalf("merged\n got %s\nwant %s", got, want)
+	}
+
+	// A song last played here before since, listed above one played here
+	// since, was played elsewhere in between: it is kept.
+	elsewhere := []applemusic.Song{appleSong("1", "A"), appleSong("old", "Old"), appleSong("3", "C"), appleSong("14", "Phone 4")}
+	if got := render(MergeHistory(plays, nil, last, elsewhere, at(20, 0), loc)); got != "10-30: A ~Old B | 10-29: A | 10-28: C ~Phone 4" {
+		t.Fatalf("played elsewhere: %s", got)
 	}
 
 	// Without Apple's list (offline, signed out) the local plays still group.
