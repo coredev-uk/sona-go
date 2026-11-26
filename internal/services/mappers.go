@@ -145,8 +145,13 @@ func mapSlice[T, U any](in []T, f func(T) U) []U {
 
 // Library models.
 
+// libSong maps a stored song. It is a library song unless it is a catalogue
+// song the library does not hold (no library ID, or NotInLibrary: a song of
+// an added or collaborative playlist): that one is a catalogue item by its
+// catalogue ID, with no library ID, so no library action applies to it. An
+// upload (no catalogue ID) is always a library song.
 func (m mapper) libSong(s library.Song) Song {
-	return Song{
+	out := Song{
 		ID:          s.LibraryID,
 		Source:      SourceLibrary,
 		CatalogID:   s.CatalogID,
@@ -168,6 +173,12 @@ func (m mapper) libSong(s library.Song) Song {
 		Playable: (s.CatalogID != "" || s.LibraryID != "") && !s.Unreleased && !withheld(s),
 		Art:      m.artOf(s.ArtworkTemplate),
 	}
+	if s.CatalogID != "" && (s.LibraryID == "" || s.NotInLibrary) {
+		out.ID, out.Source, out.LibraryID = s.CatalogID, SourceCatalog, ""
+		out.AlbumID = cmp.Or(s.AlbumCatalogID, s.AlbumLibraryID)
+		out.ArtistID = cmp.Or(s.ArtistCatalogID, s.ArtistLibraryID)
+	}
+	return out
 }
 
 // withheld reports a library song Apple answers "no longer available" for:
