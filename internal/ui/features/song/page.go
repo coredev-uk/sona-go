@@ -64,6 +64,15 @@ type pageState struct {
 	// Opening the lyrics again asks too, but shows them loading.
 	retrying bool
 
+	// opens is where each credited name opened when it was last looked up
+	// (an artist's page or the search for the name), kept while the song
+	// shows so a name is asked about once. asking is the lookups in flight,
+	// by name, and when each began. want is the name clicked last: only its
+	// answer opens a page.
+	opens  map[string]string
+	asking map[string]time.Time
+	want   string
+
 	videos, albums kit.CoverShelfState
 }
 
@@ -293,7 +302,7 @@ func (s *song) body(c *ui.Context, page services.CatalogSong, sh shape) {
 	first := !s.ledger(c, page)
 	hasLyrics, hasCredits := page.LyricsExcerpt != "", len(page.Credits) > 0
 	if hasCredits {
-		s.creditsShelf(c, page.Credits, sh.cols, first)
+		s.creditsShelf(c, page, sh.cols, first)
 		first = false
 	}
 	if hasLyrics {
@@ -429,14 +438,16 @@ func (s *song) lyricsShelf(c *ui.Context, page services.CatalogSong, first bool)
 
 // creditsShelf is Credits: one labelled section per credit group under a
 // rule, each person with a picture or initials, their name and roles, cols
-// people to a row.
-func (s *song) creditsShelf(c *ui.Context, groups []services.CreditGroup, cols int, first bool) {
+// people to a row. A name opens the person's artist page (credits.go).
+func (s *song) creditsShelf(c *ui.Context, page services.CatalogSong, cols int, first bool) {
 	tk := theme.Current().Type
+	groups := page.Credits
 	kit.Shelf(c, kit.ShelfOpts{Title: i18n.T("Credits"), First: first}, func() {
-		// The names and roles are one selection: drag across people,
-		// double-click a name. The group titles and the pictures' initials
-		// are headings or decoration (docs/design.md, "Selectable text"):
-		// Unselectable.
+		// The roles (and a name that opens nothing) are one selection: drag
+		// across people, double-click a role. A name that is a link is not
+		// part of it (a link keeps its own click), and the group titles and
+		// the pictures' initials are headings or decoration
+		// (docs/design.md, "Selectable text"): Unselectable.
 		ui.Column(c.Key("groups")).FillWidth().Gap(20).Selectable().Children(func() {
 			for gi, g := range groups {
 				title := creditTitle(g)
@@ -452,7 +463,7 @@ func (s *song) creditsShelf(c *ui.Context, groups []services.CreditGroup, cols i
 										ui.Box(c.Key(i)).Grow(1).Basis(0)
 										continue
 									}
-									s.person(c.Key(i), g.Credits[i])
+									s.person(c.Key(i), page, g.Credits[i])
 								}
 							})
 						}
@@ -463,13 +474,14 @@ func (s *song) creditsShelf(c *ui.Context, groups []services.CreditGroup, cols i
 	})
 }
 
-// person is one credit: the avatar, the name and the roles joined by ", ".
-func (s *song) person(c *ui.Context, p services.Credit) {
+// person is one credit: the avatar, the name (a link) and the roles joined by
+// ", ".
+func (s *song) person(c *ui.Context, page services.CatalogSong, p services.Credit) {
 	tk := theme.Current().Type
 	ui.Row(c).Grow(1).Basis(0).MinWidth(0).Gap(12).AlignItems(ui.Start).Children(func() {
 		kit.PersonAvatar(c, s.env.Art, p.Name, p.Art.Small, avatar).Shrink(0).Unselectable()
 		ui.Column(c).Grow(1).MinWidth(0).MinHeight(avatar).Justify(ui.Center).Children(func() {
-			ui.Text(c, p.Name).FontSize(tk["body"].Size).FixedLineHeight(tk["body"].LineHeight).TextColor(theme.C("ink")).SingleLine()
+			s.creditName(c, page, p)
 			ui.Text(c, strings.Join(p.Roles, ", ")).FontSize(tk["secondary"].Size).FixedLineHeight(tk["secondary"].LineHeight).
 				TextColor(theme.C("ink-muted"))
 		})

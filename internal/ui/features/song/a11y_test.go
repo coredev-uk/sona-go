@@ -3,6 +3,7 @@ package song
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,6 +61,7 @@ func TestA11ySongPage(t *testing.T) {
 	r.open()
 	tr := r.walk(
 		"Radiohead", "OK Computer", "Play Airbag", "Add", "Favourite Airbag", "Suggest less like Airbag", "More for Airbag",
+		"Radiohead, artist page", "Nigel Godrich, artist page", "Third Person, artist page", "Chris Blair, artist page",
 		"View full lyrics", "Airbag (Live)", "See all", "Kid A", "Amnesiac",
 	)
 	if h, ok := tr.Find(ui.RoleHeading, "Airbag"); !ok || h.Level != 1 {
@@ -88,6 +90,41 @@ func TestA11ySongPage(t *testing.T) {
 	}
 	if n, ok := tr.Find(ui.RoleMenuButton, "More for Airbag"); !ok {
 		t.Errorf("header menu %+v", n)
+	}
+}
+
+// A credited person's name is a link named for what it opens, "Thom Yorke,
+// artist page": the visible name is in the accessible name (2.5.3), the link
+// is a Tab stop on the tree and holds no other control, and the roles under it
+// stay plain text. The pointer's cursor and the Enter key are the tests in
+// credit_links_test.go.
+func TestA11yCreditLinks(t *testing.T) {
+	r := newRig(t, 1132, 1400, airbag())
+	r.open()
+	tr := r.walk("Nigel Godrich, artist page", "Third Person, artist page", "Chris Blair, artist page")
+	for _, name := range []string{"Radiohead", "Nigel Godrich", "Third Person", "Chris Blair"} {
+		label := creditLabel(name)
+		n, ok := tr.Find(ui.RoleLink, label)
+		if !ok {
+			t.Errorf("%q is not a link:\n%s", label, tr.Dump())
+			continue
+		}
+		if !n.Has(access.Focusable) {
+			t.Errorf("%q is not a Tab stop: %+v", label, n)
+		}
+		if !strings.Contains(n.Label, name) {
+			t.Errorf("link %q does not contain its visible name %q", n.Label, name)
+		}
+	}
+	for _, role := range []string{"Performer, Vocals", "Producer", "Mastering Engineer"} {
+		if n, ok := tr.Find(ui.RoleLink, role); ok {
+			t.Errorf("a role is a link: %+v", n)
+		}
+	}
+	// Both the byline's artist and the credit of the same artist are links
+	// with their own names: neither is read as the other.
+	if _, ok := tr.Find(ui.RoleLink, "Radiohead"); !ok {
+		t.Error("the byline's artist is no longer a link")
 	}
 }
 

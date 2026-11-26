@@ -100,31 +100,52 @@ func TestNoISRCNoCopyButton(t *testing.T) {
 	}
 }
 
-// The credited names and the roles under them are one selection across the
-// people; the group titles and the initials of a person with no picture are
-// not part of it.
-func TestCreditNamesAndRolesSelect(t *testing.T) {
+// The roles under the credited names are one selection across the people; a
+// name that opens the person's page is a link and not part of it, nor are the
+// group titles or the initials of a person with no picture.
+func TestCreditRolesSelect(t *testing.T) {
 	r := newRig(t, 1132, 1200, airbag())
 	r.open()
 	r.tt.Until("the credits", r.tt.Shows("Radiohead", "Performer, Vocals", "Nigel Godrich", "Chris Blair"))
 
 	r.tt.SetClipboard("kept")
-	r.doubleClick("Nigel Godrich")
+	r.doubleClick("Performer, Vocals")
 	r.tt.Key(ui.Cmd, ui.KeyC)
-	if got := r.tt.Clipboard(); got != "Nigel" {
-		t.Errorf("a double click on a name copied %q", got)
+	if got := r.tt.Clipboard(); got != "Performer" {
+		t.Errorf("a double click on a role copied %q", got)
 	}
-	// Select all in the credits: names and roles, in order, no titles.
+	// Select all in the credits: the roles, in order, no titles and no names
+	// (those are links).
 	r.tt.Key(ui.Cmd, ui.KeyA)
 	r.tt.Key(ui.Cmd, ui.KeyC)
 	got := r.tt.Clipboard()
-	for _, want := range []string{"Radiohead", "Performer, Vocals", "Nigel Godrich", "Chris Blair"} {
+	for _, want := range []string{"Performer, Vocals", "Producer", "Guitar", "Mastering Engineer"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("select all in the credits copied %q, missing %q", got, want)
 		}
 	}
-	if strings.Contains(got, "Producer\n") && strings.HasPrefix(got, "Producer") {
-		t.Errorf("select all copied a group title first: %q", got)
+	for _, no := range []string{"Nigel Godrich", "Chris Blair", "Performers", "MIXING"} {
+		if strings.Contains(got, no) {
+			t.Errorf("select all in the credits copied %q, which is not a role: %q", no, got)
+		}
+	}
+	if got := r.route(); got != "/song/1440" {
+		t.Errorf("selecting moved the page to %q", got)
+	}
+
+	// Where the pages a name opens are not here, the names are plain text and
+	// part of the selection again.
+	p := newRig(t, 1132, 1200, airbag())
+	p.routes = map[string]bool{}
+	p.open()
+	p.tt.Until("the credits", p.tt.Shows("Nigel Godrich", "Chris Blair"))
+	p.doubleClick("Producer")
+	p.tt.Key(ui.Cmd, ui.KeyA)
+	p.tt.Key(ui.Cmd, ui.KeyC)
+	for _, want := range []string{"Nigel Godrich", "Chris Blair", "Producer"} {
+		if got := p.tt.Clipboard(); !strings.Contains(got, want) {
+			t.Errorf("select all in plain credits copied %q, missing %q", got, want)
+		}
 	}
 
 	// A triple click takes a person's roles line.
@@ -158,7 +179,7 @@ func TestLyricsStayUnselectable(t *testing.T) {
 }
 
 // The selection reads in light and dark: the ISRC with its Copy button, and
-// the credited names (not their roles) in one selection.
+// the credits' roles (not their names, which are links) in one selection.
 func TestGoldenSongSelection(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -168,11 +189,11 @@ func TestGoldenSongSelection(t *testing.T) {
 		{"song-isrc-selected-light", nil, func(r *rig) { r.doubleClick("GBAYE9700001") }},
 		{"song-isrc-selected-dark", []uitest.Option{uitest.Dark()}, func(r *rig) { r.doubleClick("GBAYE9700001") }},
 		{"song-credits-selected-light", nil, func(r *rig) {
-			r.doubleClick("Nigel Godrich")
+			r.doubleClick("Performer, Vocals")
 			r.tt.Key(ui.Cmd, ui.KeyA)
 		}},
 		{"song-credits-selected-dark", []uitest.Option{uitest.Dark()}, func(r *rig) {
-			r.doubleClick("Nigel Godrich")
+			r.doubleClick("Performer, Vocals")
 			r.tt.Key(ui.Cmd, ui.KeyA)
 		}},
 	} {

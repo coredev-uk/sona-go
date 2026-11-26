@@ -5,6 +5,7 @@ package song
 
 import (
 	"context"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -21,6 +22,10 @@ const songPattern = "/song/{id}"
 // catalogAPI is what the page asks of CatalogService.
 type catalogAPI interface {
 	SongPage(ctx context.Context, id string) (services.CatalogSong, error)
+	// CreditedArtist is the ID of the one artist a credited name is, "" when
+	// no single artist is known (own are the song's artists, which need no
+	// request).
+	CreditedArtist(ctx context.Context, name string, own []services.Artist) (string, error)
 }
 
 // song is the feature's state.
@@ -29,6 +34,8 @@ type song struct {
 	catalog catalogAPI
 	lyrics  store.LyricsSource
 	menus   *kit.ActionMenus
+	// busyAfter is how long a credited name's lookup runs before it shows.
+	busyAfter time.Duration
 
 	page pageState
 }
@@ -50,7 +57,7 @@ func New(env *module.Env) module.Module {
 }
 
 func newSong(env *module.Env, catalog catalogAPI, lyrics store.LyricsSource) *song {
-	s := &song{env: env, catalog: catalog, lyrics: lyrics}
+	s := &song{env: env, catalog: catalog, lyrics: lyrics, busyAfter: creditBusyAfter}
 	if env.Actions != nil {
 		s.menus = kit.NewActionMenus(env.Actions, nil)
 	}

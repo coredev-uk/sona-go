@@ -1884,6 +1884,11 @@ Built by `frame`, which loaded and loading share.
 - From 860 DIPs of content, the cover, title, artists, album and actions sit in a `kit.Backdrop` spine (cover 240, 280 from 1300, 320 from 1600: `coverSize`, so the picture is asked for at three exact boxes) beside the body (details ledger, credits grid, lyrics). Narrower, they are a band (cover 136) over it.
 - The width is the scroll container's as last laid out (`kit.PageFrame`, the window less the sidebar before the first layout).
 - The people to a row of a credit group (1 to 4) come from the room the column has beside the cover (`shapeOf`, `bodyFor`): the body is 760 wide up to three to a row, 960 with four.
+- **A credited name is a link** (`credits.go`: `creditName`, `openCredit`), the name alone (`RoleLink`, named "{name}, artist page"). It is a link only where `Env.Routed` knows both `/artist/` and `/search/artist`; otherwise plain text, and part of the credits' selection.
+  - A click or Enter opens, in this order: an artist of the song (`services.OwnArtist` over `CatalogSong.Artists`: case and accents ignored) at once; a name this page has already resolved (`pageState.opens`, per song, reset when another song opens); else a lookup, `CatalogService.CreditedArtist(ctx, name, own)`, on a goroutine whose answer comes back through `Env.Post`. Its answer is the artist's ID (`/artist/{id}`) or none (`/search/artist?q={name}`, the Artists group's "see all" page); an error also opens the search and is not kept (`pageState.asking` holds the names in flight, with their start).
+  - `pageState.want` is the name clicked last: an answer opens the page only for it, and only while the route is still `/song/{id}` (`Nav.Path()`), so an answer that arrives after the user has moved on opens nothing.
+  - The name shows a lookup only after `song.busyAfter` (`creditBusyAfter`, 300 ms; `creditBusy` asks `Context.After` for the frame at that time): a 12px spinner after the name and an `Announce` of "Finding {name}…" once.
+  - What the service does, and why it searches by name: `docs/apple-music-reference.md`, "Linking a credited person to an artist".
 
 **Lyrics** are `store.UseLyrics` under `store.KeyLyrics(id)` (`["catalog","lyrics",id]`, always a `services.Lyrics`), the one cache the song page and Now Playing read.
 

@@ -89,6 +89,33 @@ func TestCatalogSearch(t *testing.T) {
 	}
 }
 
+// SearchOptions.Types narrows the search to those resource types (a credited
+// name is searched among artists only) and leaves the rest of the web
+// player's request as it is, serverBubbles included.
+func TestCatalogSearchTypes(t *testing.T) {
+	var q map[string]string
+	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q = map[string]string{}
+		for k, v := range r.URL.Query() {
+			q[k] = v[0]
+		}
+		_, _ = w.Write([]byte(searchBody))
+	}))
+	c.AMPBase = c.Base
+	if _, err := CatalogSearch(t.Context(), c, "gb", "thom yorke", SearchOptions{Limit: 10, Types: []string{"artists"}}); err != nil {
+		t.Fatal(err)
+	}
+	if q["types"] != "artists" || q["limit"] != "10" || q["term"] != "thom yorke" || q["with"] != "lyricHighlights,lyrics,naturalLanguage,serverBubbles,subtitles" {
+		t.Errorf("query = %v", q)
+	}
+	if _, err := CatalogSearch(t.Context(), c, "gb", "x", SearchOptions{Types: []string{"artists", "albums"}}); err != nil {
+		t.Fatal(err)
+	}
+	if q["types"] != "artists,albums" {
+		t.Errorf("types = %q", q["types"])
+	}
+}
+
 func TestSearchSuggestions(t *testing.T) {
 	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()

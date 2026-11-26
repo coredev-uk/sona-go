@@ -353,6 +353,29 @@ A song's or album's `relationships.artists` lists the artists Apple credits, in 
 - Sona keeps `Song.Artists` and `Album.Artists` (ID and name, Apple's order) from this; the first stays `ArtistID`. See `docs/ui-architecture.md`, "Artists of a song".
 - Library songs: the sync stores each credited artist of a library song whose `artistName` may name several (`track_artists`, from the batched `Client.Songs`: 100 IDs, `include=artists`), so the Artists list shows a collaboration under each artist. A library song's own relationship holds the first artist alone. Albums are not stored by credit yet (`docs/architecture.md`, "Artists of a song, stored").
 
+#### Linking a credited person to an artist (checked 2026-11-26, gb storefront)
+
+Apple gives no link from a `credit-artists` item to an artist, so Sona finds the artist by the credited name. Read-only GETs through `applemusic.Client` with the Music User Token; the answers were read for their shape only.
+
+- **No parameter adds a link.** On `GET /v1/catalog/{sf}/songs/{id}/credits` of Radiohead's "Everything In Its Right Place" (`1581786337`), every one of these left each `credit-artists` item as `{id, type, attributes{artwork, name, roleNames}}` with no `relationships`: `include=artists`, `include=credit-artists`, `include[credit-artists]=artists` and `=artist`, `include[role-categories]=credit-artists`, `relate[credit-artists]=artists` and `=artist`, `extend=artistUrl`, `extend[credit-artists]=url,artistUrl`, `fields[credit-artists]=name,url,artistUrl,roleNames,artwork`, `views=artists`, `with=artists`; so did the song request itself (`include=albums,artists,credits,lyrics,music-videos`, with and without `include[credit-artists]=artists`, in the `format[resources]=map` form). On seven more songs (Kenshi Yonezu's "Lemon", Fairuz's "Nassam Alayna", Yo-Yo Ma's Cello Suite No. 1, BTS's "Dynamite", Taylor Swift's "Fortnight", Kendrick Lamar's "HUMBLE.", Hans Zimmer's "Time") the plain request and `include[credit-artists]=artists`, `relate[credit-artists]=artists` and `extend=url` showed the same, and the song request with `include=credits&include[credit-artists]=artists` too. The three attributes are all there is.
+- **The item cannot be fetched on its own**: `GET /v1/catalog/{sf}/credit-artists/{id}` → **400** `Invalid Path Value`, "Unknown catalog resource type 'credit-artists'" (code 40008).
+- **The web player (bundle read, `index~B8RKPfmaCI.js`).** Its `SongDetailPageIntent` asks for the song with `include=albums,artists,credits,lyrics,music-videos`, `extend=lyricsExcerpt,offers`, `fields[artists]=name,url`, `fields[albums]=artistName,artistUrl,artwork,name,url` (replayed as sent: no relationship on the credits). Its credit mapper (`dke`) does look for `credit-artists.relationships.artists.data[0]` and, if the artist is there, links the credit to the artist's `url`; Apple does not send that relationship, so the code's link has nothing to follow. [INFERENCE: the credits were not opened in a browser; this is read from the code and the replayed request.]
+- **So the artist is found by name**, `GET amp-api /v1/catalog/{sf}/search?term=<name>&types=artists&limit=10` (Sona's `CatalogSearch` with `SearchOptions.Types`, the `with=…serverBubbles` it always sends) → **200**, MUT: no, one result group `artist` of `artists` resources with `attributes.name`. (Without `with` the same group is named `artists`.) What it returned for credited names:
+
+  | Credited name (song) | Artists found, in order | Meaning |
+  |---|---|---|
+  | Thom Yorke | `39753073` Thom Yorke, Atoms for Peace, Radiohead | one artist of that name |
+  | Nigel Godrich | `26119344` Nigel Godrich | one |
+  | Jonny Greenwood | `5787786` Jonny Greenwood, Radiohead | one |
+  | Sigur Rós | `73720797` Sigur Rós | one |
+  | Philip Selway | `1624083`, `1467571603`, `1470458147` (all "Philip Selway"), Radiohead | three of that name: which one is credited is not known |
+  | John Smith | five artists named John Smith | not known |
+  | Edward O'Brien | `156334706` Ed O'Brien, `1733399908` Edward J O'brien | none of that name (the credit may be the same person as "Ed O'Brien"; Apple does not say) |
+  | Colin Greenwood | Radiohead | none: a person with no artist page of their own finds the band |
+  | Beyonce (no accent) | Beyoncé first, nine others | an accent differs from the artist's name |
+
+- Sona's rule follows from that (`CatalogService.CreditedArtist`): a name equal (ignoring case, accents and width) to one of the song's own `relationships.artists` is that artist, with no request; any other name is searched, and is that artist only when exactly one result has that name; otherwise Sona opens its search of artists for the name and the user picks. A name's search is the catalogue's own order, so a person with no artist page ("Colin Greenwood") and a person Apple spells differently ("Edward O'Brien") both end at the search, and no credit is ever linked to an artist of a different name.
+
 ### 4.5 Music video (`/{sf}/music-video/{slug}/{id}`)
 
 Data: `name`, `artistName`, `contentRating`, `durationInMillis`, `editorialNotes`, `genreNames`, `has4K`, `hasHDR`, `videoTraits`, `previews`, `releaseDate`. Views: `more-by-artist`, `more-in-genre`. Actions: play (video), add to library, favourite, playlist actions, link/embed.

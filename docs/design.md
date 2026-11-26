@@ -449,6 +449,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Artist release rows, discography tiles | row or tile | opens (Cmd or Shift selects); disc over the cover, on hover and focus, plays the album |
 | Artist library page | Play | plays the artist's library songs |
 | Song page | Play | plays the one song (queue of one); no Shuffle |
+|  | credited name (Credits) | click or Enter opens the artist's page, else the search of artists for the name (Space does nothing); a link, a Tab stop |
 | Music video page | Play, "Play the song", "Watch in Apple Music" | plays the video, plays the song, hands the link to the browser |
 | Album, playlist, song, video pages | artist, album, curator links | open (a song's album link carries `?song=`) |
 
@@ -488,7 +489,7 @@ Argued departures that stay (not issues):
 Nothing is selectable by default: a page of rows, tiles and links would fight its own clicks, drags and double-click to play. Text is selectable (MyGo's `Element.Selectable()`) only where people copy it, case by case. One rule decides how:
 
 - **Values, not names.** The value text (`--ink`) is selectable, and so is the muted text that belongs to it: the ℗ and © line, a song's credit roles, the note under a Diagnostics warning and an error's reason. The muted name beside a value, a heading and a picture's initials are `Unselectable()`. MyGo paints the selection (`--selection`, the spot colour at 15%) under the text and leaves the text's colour alone; `theme.Validate` keeps both `--ink` and `--ink-muted` at 4.5:1 on it in every theme, and refuses a user theme that fails.
-- **A container for a block of values**, so a drag runs across rows and Ctrl/Cmd+A copies the block, joined by newlines. A control inside keeps its own behaviour (MyGo does not select text inside a button or a link), so a selectable block holds no link or row that opens something.
+- **A container for a block of values**, so a drag runs across rows and Ctrl/Cmd+A copies the block, joined by newlines. A control inside keeps its own behaviour (MyGo does not select text inside a button or a link), so a selectable block holds no link or row that opens something. The song page's Credits are the one block that does: a name is a link to the person's page and, being a link, is not in the selection; the roles under it are, and so are the names where there is no page to open.
 - **An identifier also gets a Copy button** (`kit.CopyButton`: a 24px ghost icon button, named "Copy ISRC", with a toast "ISRC copied"): it is one Tab stop beside its value, for someone at the keyboard.
 - **Roles and names are unchanged**: `Selectable()` adds no role, so a screen reader reads the same tree. Selecting never clicks the parent: a selectable block is not in a clickable parent.
 
@@ -496,8 +497,8 @@ Nothing is selectable by default: a page of rows, tiles and links would fight it
 | --- | --- | --- |
 | Song page, Details: ISRC | Selectable, with a Copy button | The identifier people paste into a form or a report; the button serves the keyboard |
 | Song page, Details: released, duration, genre, track, disc, written by | Selectable (values; the names are not) | Plain facts people quote; no clickable parent. The song has no label or ℗ line in Apple's data |
-| Song page, Credits: people's names | Selectable (one selection across all groups) | Credits get pasted into notes and forms; names are `--ink` |
-| Song page, Credits: roles | Selectable (in the same selection as the names) | Muted type, which the selection carries at 4.5:1 (issue #411) |
+| Song page, Credits: people's names | Not selectable (a link that opens the person's artist page) | A link keeps its own click, so it is not in the selection. A name is plain and selectable where the artist page or the artists search is not a page here |
+| Song page, Credits: roles | Selectable (one selection across all groups) | Muted type, which the selection carries at 4.5:1 (issue #411) |
 | Song page, Credits: group titles, initials | No | Headings and decoration |
 | Album page, fine print: the label, release dates, genres, writers | Selectable (values; the names are not) | Plain facts people quote, in a column no row or link surrounds |
 | Album page, fine print: the ℗ and © line | Selectable | A plain fact people quote; `--ink-muted` keeps 4.5:1 on the selection (issue #411) |
@@ -541,6 +542,12 @@ The song page is a record's liner note for one track: who it is on the left, wha
   - **Credits** are one block per group under their own 1px rule, the group's name at 13/600 muted (an h3 inside a group). The people sit in a grid of two, three or four to a row by the room the column has (at least 210px a person, 24px between).
   - The body column keeps its 760px reading width with up to three to a row and grows to 960px when four fit. The Details rows and the lyrics keep their own measure (760px, 540px) and the rules run the column's width.
   - A person is the 40px avatar, their name at 14 and their roles at 13 muted; the roles wrap.
+  - **The name is a link to the person** ("A credited person's name", below); the roles are plain text.
+- **A credited person's name** opens an artist page. Apple's credit carries no link to an artist (`docs/apple-music-reference.md`, "Linking a credited person to an artist"), so the page finds the artist by the name.
+  - **It looks and acts as the byline's artist does**: `--ink` at rest, underlined while the pointer is over it, the pointer cursor, a Tab stop that Enter opens. The link is the name alone, not the row or the avatar, so each person has one Tab stop and the link holds no other control. It is named "{name}, artist page" (so "Thom Yorke, artist page"), which contains the visible name. Where the artist page or the artists search is not a page here, the name is plain text.
+  - **Where it opens**: a name equal to one of the song's own artists (ignoring case and accents: the song's artist is usually also credited as a performer) opens that artist at once, with no request. Any other name is looked up when it is clicked, not when the page is drawn: the catalogue's artists are searched for it, and the artist opens only if exactly one result has that name. When no artist or several have it (Apple lists three "Philip Selway"s; a person with no page of their own has none), or the lookup fails, it opens Sona's search of artists for the name (`/search/artist?q=…`), where the user picks. A name is never linked to an artist of a different name.
+  - **Waiting**: a lookup shows nothing for the first 300 ms, which most answers beat. Past that the name stays as it is, with a 12px spinner after it, and assistive technology hears "Finding {name}…" once. The page does not move while it runs; a second Enter or click on the same name asks nothing more, and of two names clicked in a row only the second opens. An answer that comes after the user has left the song page opens nothing.
+  - **Kept for the song's page**: a name opens where it did the first time, without a second request, until another song opens (a failed lookup is not kept, so the next click asks again).
 - **Lyrics** come last: Apple's excerpt at 16/28, a verse break kept, with View full lyrics at the shelf's end, and the whole lyrics on request.
 - **Under 860px** (down to the 940px window, 707px of content) the spine is a band across the top, the 136px cover beside the title and actions on the same wash, and the body follows under it in one column. A song with no credits and no lyrics says so under Details.
 - **Loading** is the same frame built by the same code, with flat bars where the text goes: the cover's square, the title, the artist, the action discs, Details' five rows and two rows of credits. Nothing moves when the song arrives. An error or a signed-out account takes the column's top in the usual way (a way back, Try again, Sign in).
