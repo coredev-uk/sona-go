@@ -4,14 +4,17 @@ import (
 	"cmp"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/artwork"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
@@ -472,10 +475,11 @@ func (s *PlaylistsService) Update(ctx context.Context, id string, in PlaylistInp
 		return s.e.Fail(err)
 	}
 	modified := s.e.Now().UTC().Format("2006-01-02T15:04:05Z")
-	if p, err := s.e.API.LibraryPlaylist(ctx, id); err == nil {
+	p, err := s.refetchRenamed(ctx, id, attrs.Name)
+	if err == nil {
 		modified = p.Modified()
 	}
-	if err := s.e.Library.UpdatePlaylistDetails(ctx, id, attrs.Name, attrs.Description, attrs.IsPublic, modified); err != nil {
+	if err := s.e.Library.UpdatePlaylistDetails(ctx, id, attrs.Name, attrs.Description, attrs.IsPublic, modified, p.Attributes.Artwork.Template()); err != nil {
 		return err
 	}
 	s.changed(PlaylistsChanged{IDs: []string{id}, Tree: true})
@@ -900,4 +904,59 @@ func (s *PlaylistsService) noteMove(id, folderID string) {
 	if s.e.Syncer != nil {
 		s.e.Syncer.NoteMove(id, folderID)
 	}
+}
+
+// renameCoverAttempts and renameCoverWait bound how long Update waits for
+// Apple to answer with the cover of the new name.
+var (
+	renameCoverAttempts = 4
+	renameCoverWait     = 500 * time.Millisecond
+)
+
+// refetchRenamed reads library playlist id after its rename to name. Apple's
+// generated cover has the name in its signed URL (t=), and the read right
+// after the PATCH may still answer with the old name's; it is read again,
+// briefly, until the cover is for name. The last answer is returned
+// whatever it holds: no URL is ever made up (the signature covers the name).
+func (s *PlaylistsService) refetchRenamed(ctx context.Context, id, name string) (applemusic.Playlist, error) {
+	var (
+		p   applemusic.Playlist
+		err error
+	)
+	for i := range renameCoverAttempts {
+		if i > 0 {
+			select {
+			case <-time.After(renameCoverWait):
+			case <-ctx.Done():
+				return p, err
+			}
+		}
+		next, nerr := s.e.API.LibraryPlaylist(ctx, id)
+		if nerr != nil {
+			if i == 0 {
+				return p, nerr
+			}
+			continue // keep the earlier answer
+		}
+		p, err = next, nil
+		if coverNamed(p.Attributes.Artwork.Template(), name) {
+			break
+		}
+	}
+	return p, err
+}
+
+// coverNamed reports whether tmpl is not an Apple-generated cover or is one
+// for the playlist called name: Apple writes the name in the URL as base64
+// (t=). A name it cannot read is taken as the right one.
+func coverNamed(tmpl, name string) bool {
+	if _, ok := artwork.Pattern(tmpl); !ok {
+		return true
+	}
+	u, err := url.Parse(tmpl)
+	if err != nil {
+		return true
+	}
+	got, err := base64.StdEncoding.DecodeString(u.Query().Get("t"))
+	return err != nil || string(got) == name
 }

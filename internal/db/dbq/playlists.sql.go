@@ -498,19 +498,22 @@ func (q *Queries) SetPlaylistFolder(ctx context.Context, arg SetPlaylistFolderPa
 }
 
 const updatePlaylistDetails = `-- name: UpdatePlaylistDetails :exec
-UPDATE playlists SET name = ?, description = ?, is_public = ?, last_modified = ?, updated_at = ?
-WHERE library_id = ?
+UPDATE playlists SET name = ?, description = ?, is_public = ?, last_modified = ?, updated_at = ?,
+    artwork_template = coalesce(nullif(CAST(?6 AS TEXT), ''), artwork_template)
+WHERE library_id = ?7
 `
 
 type UpdatePlaylistDetailsParams struct {
-	Name         string
-	Description  string
-	IsPublic     int64
-	LastModified string
-	UpdatedAt    int64
-	LibraryID    sql.NullString
+	Name            string
+	Description     string
+	IsPublic        int64
+	LastModified    string
+	UpdatedAt       int64
+	ArtworkTemplate string
+	LibraryID       sql.NullString
 }
 
+// An empty artwork_template keeps the stored one.
 func (q *Queries) UpdatePlaylistDetails(ctx context.Context, arg UpdatePlaylistDetailsParams) error {
 	_, err := q.db.ExecContext(ctx, updatePlaylistDetails,
 		arg.Name,
@@ -518,6 +521,7 @@ func (q *Queries) UpdatePlaylistDetails(ctx context.Context, arg UpdatePlaylistD
 		arg.IsPublic,
 		arg.LastModified,
 		arg.UpdatedAt,
+		arg.ArtworkTemplate,
 		arg.LibraryID,
 	)
 	return err
