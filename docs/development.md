@@ -104,8 +104,8 @@ Every recipe runs in a POSIX shell, so it reads the same on every system: `sh` o
 | `build` | Builds the production binary, `bin/sona`. |
 | `docs` | Runs the documentation site with live reload: `cd site && npm ci && npm run dev`. |
 | `gen` | `sqlc generate`. Commit the result. |
-| `fmt` | gofumpt on every tracked Go file except `internal/db/dbq`. |
-| `check` | The static checks, gofumpt formatting included. |
+| `fmt` | gofumpt on every tracked Go file except `internal/db/dbq` (`build/gofumpt.sh -w`). |
+| `check` | The static checks, gofumpt formatting included: what CI's "Vet and type-check" job runs. |
 | `tests` | `go test -race ./...` and the tests of dev-only code. |
 | `release` | `build/linux/release/release.sh`: every Linux package, built and smoke-tested in a container. |
 | `play-spike` | `go run ./cmd/playspike`: the DRM path regression (needs `MUSIC_USER_TOKEN`). `play-spike -preview` needs none. |
@@ -128,7 +128,6 @@ devenv doesn't run on Windows, so you install the tools yourself (with [winget](
 - just: `winget install Casey.Just`.
 - Git for Windows: `winget install Git.Git`. The recipes run in its `sh` (`C:\Program Files\Git\bin\sh.exe`, the `justfile`'s `shell` setting), which also brings the `bash` that `build/ldflags.sh` needs, and `grep` and `xargs`. Git installed elsewhere: `just --shell <path to sh.exe> --shell-arg -cu <recipe>`.
 - golangci-lint: `winget install GolangCI.golangci-lint`.
-- gofumpt, the version devenv pins: `go install mvdan.cc/gofumpt@v0.12.0`.
 - sqlc, only for `gen`: there is no winget package; put `sqlc.exe` from the Windows zip of [sqlc's release](https://github.com/sqlc-dev/sqlc/releases) on `PATH` (1.31.1, the version in `internal/db/dbq`'s headers).
 - The cgo environment of [platforms.md](platforms.md), "Platform support" (`CGO_ENABLED=1`, `GOFLAGS=-tags=sqlite_fts5`, MinGW, GStreamer, `SONA_CDM_SHIM`), in your user environment.
 
@@ -188,9 +187,12 @@ There is no inspector in the binary and MyGo runs in production mode. `build/ldf
 
 - `go vet`, plus `go vet -tags dev,sqlite_fts5` and `-tags probe,sqlite_fts5`, so development and probe builds type-check too.
 - The Windows and macOS type-checks.
-- `golangci-lint --new-from-rev=origin/main`.
+- `golangci-lint --new-from-rev=origin/main`. CI runs it on pull requests, against the pull request's base.
 - `go tool mygo vet internal/ui`, for build values kept past their frame.
 - The catalogue check (`i18ntool extract -check`) and the path-case check (`cmd/pathcase`).
+- `build/gofumpt.sh`: every tracked Go file formatted, with the gofumpt that `go.mod` pins (`go tool gofumpt`). `fmt` is the same script with `-w`.
+
+CI's "Vet and type-check" job runs these same commands ([maintainers/ci-workflows.md](maintainers/ci-workflows.md)), so what fails `check` fails the pull request. A command added to `check` goes into `.github/workflows/ci.yml` too.
 
 `tests` runs `go test -race ./...`, including the `ui.Tester` tests. On Linux it runs inside `dbus-run-session`, so no test reaches your session bus. Extra arguments go to `go test`.
 

@@ -98,6 +98,14 @@ changes `go.mod`, `build/ci/go.sha256`, `build/linux/release/Containerfile`
 (`GO_VERSION` and `GO_SHA256`), `go.nix`'s version and hash (all from
 https://go.dev/dl/?mode=json) and `docs/architecture.md`.
 
+golangci-lint is the other tool devenv and CI install separately: devenv from the
+pinned nixpkgs, the CI image from the release archive named in
+`build/ci/golangci-lint.sha256` (checked against its hash). They must be one
+version, so a nixpkgs bump that changes `devenv shell -- golangci-lint --version`
+changes that file (the version in its file names and both hashes, from the
+release's `golangci-lint-<version>-checksums.txt`) in the same pull request.
+gofumpt is not in nixpkgs' list: `go.mod` pins it (`go tool gofumpt`).
+
 ## Dependency updates
 
 Renovate opens pull requests for Go modules, GitHub
@@ -110,6 +118,6 @@ always left for review, and so is the release image's digest. A review bot
 checks and merges them; the pinned devenv inputs
 are bumped by hand (see "Pinned inputs" above), and so are the downloaded
 tools' hashes (`build/linux/appimage-tools.sha256`, `build/windows/*.sha256`,
-`build/darwin/dmgbuild.sha256`, the Go archive hashes): Renovate cannot compute a hash. You
+`build/darwin/dmgbuild.sha256`, the Go archive hashes, `build/ci/golangci-lint.sha256`): Renovate cannot compute a hash. You
 don't need to update dependencies yourself; a change that needs a newer
 dependency bumps it in the same PR.

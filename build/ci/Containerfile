@@ -59,6 +59,21 @@ RUN arch=$(dpkg --print-architecture) \
  && GOBIN=/usr/local/bin GOTOOLCHAIN=local /usr/local/go/bin/go install "gotest.tools/gotestsum@${GOTESTSUM_VERSION}" \
  && rm -rf /root/go /root/.cache
 
+# golangci-lint, the release archive of build/ci/golangci-lint.sha256 (the
+# version is in its file names: the one devenv.nix's nixpkgs ships, so CI lints
+# with what `check` lints with), checked against that file before it is
+# unpacked. It is not a `tool` of go.mod: its dependency tree is large.
+COPY golangci-lint.sha256 /tmp/golangci-lint.sha256
+RUN arch=$(dpkg --print-architecture) \
+ && file=$(awk -v s="-linux-${arch}.tar.gz" '$1 !~ /^#/ && index($2, s) { print $2 }' /tmp/golangci-lint.sha256) \
+ && want=$(awk -v f="$file" '$2 == f { print $1 }' /tmp/golangci-lint.sha256) \
+ && [ -n "$file" ] && [ -n "$want" ] || { echo "build/ci/golangci-lint.sha256 has no line for ${arch}" >&2; exit 1; } \
+ && version=${file#golangci-lint-} && version=${version%-linux-*} \
+ && curl -fsSL -o "/tmp/$file" "https://github.com/golangci/golangci-lint/releases/download/v${version}/${file}" \
+ && echo "$want  /tmp/$file" | sha256sum --check --strict \
+ && tar -C /usr/local/bin -xzf "/tmp/$file" --strip-components=1 "${file%.tar.gz}/golangci-lint" \
+ && rm "/tmp/$file" /tmp/golangci-lint.sha256
+
 ENV PATH=/usr/local/go/bin:$PATH \
     CGO_ENABLED=1 \
     GOTOOLCHAIN=local

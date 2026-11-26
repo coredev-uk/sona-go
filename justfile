@@ -69,14 +69,15 @@ docs *args:
 gen:
     sqlc generate -f internal/db/sqlc.yaml
 
-# xargs keeps each command line under the system's limit (Windows' is 32 KiB).
 [doc("gofumpt on every tracked Go file except internal/db/dbq")]
 fmt:
-    git ls-files '*.go' | grep -v '^internal/db/dbq/' | xargs gofumpt -w
+    sh build/gofumpt.sh -w
 
 [doc("The static checks: vet, type-checks, lint, mygo vet, catalogues, path case, gofumpt")]
 [script]
 check:
+    # CI's "Vet and type-check" job (.github/workflows/ci.yml) runs these
+    # same commands: a change to one list changes the other.
     go vet ./...
     # Development builds (devloop's restore, the instance names, probe
     # builds) type-check too.
@@ -86,6 +87,7 @@ check:
     # (docs/platforms.md, "Type-check and cross-build").
     GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
     go run ./cmd/typecheck -os darwin -arch arm64 ./...
+    # CI runs it on pull requests only, against the pull request's base.
     golangci-lint run --new-from-rev=origin/main ./...
     # Build values kept past their frame (MyGo's lifetime check).
     go tool mygo vet internal/ui
@@ -93,13 +95,9 @@ check:
     # "Add or change a UI string").
     go run ./cmd/i18ntool extract -check
     go run ./cmd/pathcase
-    # Every tracked Go file is formatted the way `fmt` leaves it (#409).
-    unformatted=$(git ls-files '*.go' | grep -v '^internal/db/dbq/' | xargs gofumpt -l)
-    if [ -n "$unformatted" ]; then
-      echo "check: not gofumpt-formatted (run fmt):" >&2
-      echo "$unformatted" >&2
-      exit 1
-    fi
+    # Every tracked Go file is formatted the way `fmt` leaves it (#409);
+    # build/gofumpt.sh is the list of files and gofumpt's version (go.mod's).
+    sh build/gofumpt.sh
 
 # Not `test`: in devenv the shell's `test` builtin would shadow it.
 [doc("go test -race, then the tests of dev-only code in a development build")]

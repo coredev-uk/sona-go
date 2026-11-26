@@ -4,7 +4,7 @@
     "hash": "sha256-L/soFshmUq57yYjM5Yb+PBld75NLOjjCGIo4Vvg25H4="
   },
   "nightly": {
-    "version": "0.8.0-rc.1",
-    "hash": "sha256-aqHajttM+ylWBSpgbtvFQkflk8HLpiiRcXHxw2/xq7Y="
+    "version": "0.8.0-rc.2",
+    "hash": "sha256-wVNKRhnmpyImmp4ZPg6ZZPdlxoiTs/L1MaGSbwWPCWs="
   }
 }
