@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/auth"
 	"github.com/coredev-uk/sona-go/internal/library"
@@ -261,15 +259,19 @@ func (s *LibraryService) RecentlyPlayed(ctx context.Context, limit, offset int) 
 }
 
 // recentPages is how many pages of Apple's recently played tracks History
-// reads (Apple keeps about 180 songs, 30 per page).
-const recentPages = 7
+// reads at most, recentPageSize songs each (Apple keeps about 180 songs).
+const (
+	recentPages    = 7
+	recentPageSize = 30
+)
 
 // History returns the listening history of the last days days (1–365;
 // 0 means 30): the plays recorded on this computer (and the one in
 // progress, once Apple reports it) merged with Apple's recently played
 // songs from the account's other devices, grouped by local day, newest
-// first (see library.MergeHistory). Apple's list is left out when signed
-// out or unreachable (Apple is false then).
+// first (see library.MergeHistory). Apple is false when signed out, or
+// when Apple could not be reached for all of its list (the pages that
+// arrived are merged all the same).
 func (s *LibraryService) History(ctx context.Context, days int) (ListeningHistory, error) {
 	if days <= 0 {
 		days = 30
@@ -284,12 +286,13 @@ func (s *LibraryService) History(ctx context.Context, days int) (ListeningHistor
 	var apple []applemusic.Song
 	out := ListeningHistory{Since: since.UnixMilli(), More: more}
 	if s.o.Auth.Status().State == auth.StateSignedIn {
-		if apple, err = s.recentlyPlayedAll(ctx); err != nil {
+		// The pages that arrived are merged even when a later one failed.
+		apple, err = s.recentlyPlayedAll(ctx)
+		if err != nil {
 			s.o.Report(err)
-			s.o.Logger.Warn("library: history without Apple's recently played", "err", err)
-		} else {
-			out.Apple = true
+			s.o.Logger.Warn("library: history with part of Apple's recently played", "songs", len(apple), "err", err)
 		}
+		out.Apple = err == nil
 	}
 	var started []library.Play
 	if s.o.History != nil {
@@ -315,27 +318,20 @@ func (s *LibraryService) History(ctx context.Context, days int) (ListeningHistor
 	return out, nil
 }
 
-// recentlyPlayedAll reads Apple's whole recently played list, its pages
-// in parallel.
+// recentlyPlayedAll reads Apple's recently played list a page at a time,
+// stopping at an empty or short page (the end of the list). On a failure
+// it returns the songs of the pages that arrived along with the error.
 func (s *LibraryService) recentlyPlayedAll(ctx context.Context) ([]applemusic.Song, error) {
-	pages := make([][]applemusic.Song, recentPages)
-	g, gctx := errgroup.WithContext(ctx)
-	for i := range pages {
-		g.Go(func() error {
-			r, err := s.o.API.RecentlyPlayed(gctx, 30, i*30)
-			pages[i] = r.Data
-			return err
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
 	var out []applemusic.Song
-	for _, p := range pages {
-		if len(p) == 0 {
+	for i := range recentPages {
+		r, err := s.o.API.RecentlyPlayed(ctx, recentPageSize, i*recentPageSize)
+		if err != nil {
+			return out, err
+		}
+		out = append(out, r.Data...)
+		if len(r.Data) < recentPageSize {
 			break
 		}
-		out = append(out, p...)
 	}
 	return out, nil
 }

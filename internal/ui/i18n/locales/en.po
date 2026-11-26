@@ -451,6 +451,10 @@ msgstr "Apple Music"
 msgid "Apple Music asked Sona to sign in again. Your library is still here."
 msgstr "Apple Music asked Sona to sign in again. Your library is still here."
 
+#: internal/ui/features/library/history.go
+msgid "Apple Music couldn't be reached for all of your other devices, so some plays may be missing"
+msgstr "Apple Music couldn't be reached for all of your other devices, so some plays may be missing"
+
 #: internal/ui/features/song/page.go
 msgid "Apple Music has no credits or lyrics for this song."
 msgstr "Apple Music has no credits or lyrics for this song."
@@ -4865,10 +4869,6 @@ msgstr "On this computer"
 msgid "On this computer and your other devices"
 msgstr "On this computer and your other devices"
 
-#: internal/ui/features/library/history.go
-msgid "On this computer only: Apple Music couldn't be reached for your other devices"
-msgstr "On this computer only: Apple Music couldn't be reached for your other devices"
-
 #: internal/ui/features/discover/newpage.go
 msgid "On this page"
 msgstr "On this page"
@@ -6078,6 +6078,7 @@ msgstr "Retro groove, yellow"
 msgid "Retry"
 msgstr "Retry"
 
+#: internal/ui/features/library/history.go
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/kit/controls_states.go
 msgid "Retrying…"
@@ -8178,6 +8179,7 @@ msgstr "Trusted phone number"
 #: internal/ui/account/keyring.go
 #: internal/ui/features/auth/menu.go
 #: internal/ui/features/cdm/cdm.go
+#: internal/ui/features/library/history.go
 #: internal/ui/features/library/sync.go
 #: internal/ui/features/library/videos.go
 #: internal/ui/features/onboarding/widevine.go

@@ -19,6 +19,10 @@ import (
 // days".
 const historyPageDays = 30
 
+// historyAppleStale is how long a history that lacks (part of) Apple's list
+// counts as fresh when the page is opened again.
+const historyAppleStale = time.Minute
+
 // historyDay is the view state of one day's list.
 type historyDay struct {
 	list  kit.TrackListState
@@ -60,17 +64,24 @@ func (l *library) historyPage(c *ui.Context, r *ui.Route) {
 	}
 	key := historyKey(pg.days)
 	days := pg.days
+	auth := l.authStatus()
+	out := auth.HasData && account.IsSignedOut(auth.Data.State)
+	// Apple unreachable (for some or all of its list) is not kept forever:
+	// the page asks again when it is next opened, or at once with Try again.
+	appleMissing := pg.has && !pg.data.Apple && !out
+	stale := store.Forever // refreshed by ["library","recent"] when a new song plays
+	if appleMissing {
+		stale = historyAppleStale
+	}
 	res := store.Use(l.env.Queries, key, func(ctx context.Context) (services.ListeningHistory, error) {
 		return l.lib.History(ctx, days)
-	}, store.Options{Stale: store.Forever}) // refreshed by ["library","recent"] when a new song plays
+	}, store.Options{Stale: stale})
 	if res.HasData {
-		if id := reflect.ValueOf(res.Data.Days).Pointer(); !pg.has || id != pg.id || len(res.Data.Days) != len(pg.data.Days) {
+		if id := reflect.ValueOf(res.Data.Days).Pointer(); !pg.has || id != pg.id || len(res.Data.Days) != len(pg.data.Days) || res.Data.Apple != pg.data.Apple {
 			pg.data, pg.has, pg.id, pg.arrived = res.Data, true, id, time.Now()
 			pg.groups = historyGroups(res.Data)
 		}
 	}
-	auth := l.authStatus()
-	out := auth.HasData && account.IsSignedOut(auth.Data.State)
 
 	subline := ""
 	if pg.has {
@@ -80,12 +91,16 @@ func (l *library) historyPage(c *ui.Context, r *ui.Route) {
 		case out:
 			subline = i18n.T("On this computer")
 		default:
-			subline = i18n.T("On this computer only: Apple Music couldn't be reached for your other devices")
+			subline = i18n.T("Apple Music couldn't be reached for all of your other devices, so some plays may be missing")
 		}
 	}
 
 	pg.Scroll(c, "history", func(*kit.Pane, float32) {
-		l.pageHead(c, headOpts{title: i18n.T("History"), note: subline})
+		head := headOpts{title: i18n.T("History"), note: subline}
+		if appleMissing {
+			head.noteAction = func() { l.historyRetry(c, key, res.Fetching) }
+		}
+		l.pageHead(c, head)
 		switch {
 		case res.Err != nil && !pg.has:
 			kit.QueryError(c, l.env.Queries, i18n.T("Couldn't read your listening history"), res, key)
@@ -107,6 +122,18 @@ func (l *library) historyPage(c *ui.Context, r *ui.Route) {
 			l.historyFooter(c, pg, res, key)
 		}
 	})
+}
+
+// historyRetry is the Try again beside the note that Apple Music could not
+// be reached: it asks for the history again.
+func (l *library) historyRetry(c *ui.Context, key store.Key, retrying bool) {
+	label := i18n.T("Try again")
+	if retrying {
+		label = i18n.T("Retrying…")
+	}
+	if kit.Button(c.Key("history-retry"), label, kit.ButtonOpts{Variant: kit.Ghost, Size: kit.SizeSM, Disabled: retrying}).Clicked() {
+		l.env.Queries.Invalidate(key)
+	}
 }
 
 // The timeline: the day's heading and counts in a rail on the left, a 1px
