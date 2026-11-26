@@ -116,6 +116,11 @@ type Song struct {
 	AlbumName       string `json:"albumName"`
 	AlbumLibraryID  string `json:"albumLibraryId"`
 	ArtistLibraryID string `json:"artistLibraryId"`
+	// AlbumCatalogID and ArtistCatalogID are the catalogue's: all a catalogue
+	// song stored by a playlist has (library.StoreSong), and what a library
+	// song with no library album or artist of its own is opened by.
+	AlbumCatalogID  string `json:"albumCatalogId"`
+	ArtistCatalogID string `json:"artistCatalogId"`
 	ArtworkTemplate string `json:"artworkTemplate"` // raw {w}x{h} URL
 	DurationMS      int64  `json:"durationMs"`
 	TrackNumber     int    `json:"trackNumber"`
@@ -208,19 +213,20 @@ type DomainStatus struct {
 // `t` joined with withAlbum, whether it is out as of today (release.go).
 func trackColumns(today string) string {
 	return `t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name,
-	t.album_library_id, t.artist_library_id, t.artwork_template, t.duration_ms,
+	t.album_library_id, t.artist_library_id, t.album_catalog_id, t.artist_catalog_id, t.artwork_template, t.duration_ms,
 	t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.no_play_params,
 	` + unreleased(today)
 }
 
 func scanSong(sc scanner) (Song, error) {
 	var s Song
-	var lib, cat, alb, art sql.NullString
+	var lib, cat, alb, art, albCat, artCat sql.NullString
 	var rating string
 	var lyrics, noParams, notOut int64
-	err := sc.Scan(&lib, &cat, &s.Name, &s.ArtistName, &s.AlbumName, &alb, &art, &s.ArtworkTemplate,
+	err := sc.Scan(&lib, &cat, &s.Name, &s.ArtistName, &s.AlbumName, &alb, &art, &albCat, &artCat, &s.ArtworkTemplate,
 		&s.DurationMS, &s.TrackNumber, &s.DiscNumber, &s.ReleaseDate, &s.Genre, &rating, &lyrics, &noParams, &notOut)
 	s.LibraryID, s.CatalogID, s.AlbumLibraryID, s.ArtistLibraryID = lib.String, cat.String, alb.String, art.String
+	s.AlbumCatalogID, s.ArtistCatalogID = albCat.String, artCat.String
 	s.Explicit, s.HasLyrics, s.NoPlayParams, s.Unreleased = rating == "explicit", lyrics != 0, noParams != 0, notOut != 0
 	return s, err
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -130,5 +131,40 @@ func TestCatalogIDs(t *testing.T) {
 	json.Unmarshal([]byte(`{"id":"p.1","type":"library-playlists","attributes":{"playParams":{"globalId":"pl.u-1"}}}`), &pl)
 	if lib.CatalogID() != "99" || cat.CatalogID() != "5" || alb.CatalogID() != "77" || pl.CatalogID() != "pl.u-1" {
 		t.Fatalf("%q %q %q %q", lib.CatalogID(), cat.CatalogID(), alb.CatalogID(), pl.CatalogID())
+	}
+}
+
+// A library playlist's track fetches ask for the songs' artists and albums:
+// a catalogue song in the playlist has no other way to name them.
+func TestLibraryPlaylistTrackFetchesAskForRelationships(t *testing.T) {
+	var mu sync.Mutex
+	var queries []url.Values
+	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/me/library/playlists/p.1/tracks" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		mu.Lock()
+		queries = append(queries, r.URL.Query())
+		mu.Unlock()
+		_, _ = w.Write([]byte(`{"data":[],"meta":{"total":0}}`))
+	}))
+	c.AMPBase = c.Base
+	ctx := context.Background()
+	if _, err := c.LibraryPlaylistTracks(ctx, "p.1", PageOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.LibraryPlaylistEntries(ctx, "p.1"); err != nil {
+		t.Fatal(err)
+	}
+	if len(queries) != 2 {
+		t.Fatalf("requests = %d", len(queries))
+	}
+	for i, q := range queries {
+		if q.Get("include[songs]") != "artists" || q.Get("relate[songs]") != "albums" {
+			t.Errorf("request %d: query = %v", i, q)
+		}
+	}
+	if queries[1].Get("platform") != "web" || queries[0].Has("platform") {
+		t.Errorf("platform: tracks %q, entries %q", queries[0].Get("platform"), queries[1].Get("platform"))
 	}
 }

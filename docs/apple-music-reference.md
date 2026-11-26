@@ -196,6 +196,8 @@ Suggested songs: refresh and paging (probed 2026-11-15, read-only, through Sona'
 
 Library list paging: `limit` is at most 100 and `meta.total` is present. This matches Sona's `FetchPages`. Library playlists can mix catalog and uploaded or non-catalog songs; resolve `catalog` relationships when present.
 
+Sona's library playlist track fetches (`Client.LibraryPlaylistTracks`, the sync's, and `Client.LibraryPlaylistEntries`, which adds `platform=web`) send `include[songs]=artists&relate[songs]=albums`, as the web player does for `include[songs]`. A song in the playlist that is not in the library (a collaborative playlist's, mostly) comes as a catalogue `songs` resource, and its artist and album IDs come only from those relationships. Sona stores them in `tracks.artist_catalog_id` and `album_catalog_id`, and the track list links the song's artist and album by them (`libSong`). A `library-songs` entry keeps the library album and artist IDs the songs sync stored. Not probed live yet.
+
 ### 3.1 A pre-added (unreleased) album in the library
 
 Checked live on 2026-11-10 (`SONA_PRIVATE=1`, read-only, through `applemusic.Client`) against a library of 654 albums and 1,076 songs that held one pre-added album, still 10 days from its release. The shapes below are what Apple answered, with no names or IDs.

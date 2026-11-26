@@ -43,6 +43,11 @@ var (
 	// else of it: a personal mix's library copy keeps its first stamp for
 	// years, so Playlist.Modified reads the catalog copy's.
 	libraryPlaylistsQuery = url.Values{"include": {"catalog"}, "fields[playlists]": {"lastModifiedDate"}}
+	// A library playlist's tracks with their artists and albums: a song
+	// that is not in the library comes as a catalogue song, whose album
+	// and artist IDs only these relationships give (Song.FirstAlbumID,
+	// Song.FirstArtistID). The web player asks include[songs]=artists.
+	libraryPlaylistTracksQuery = url.Values{"include[songs]": {"artists"}, "relate[songs]": {"albums"}}
 )
 
 // LibrarySongs walks the user's library songs, newest added first, with
@@ -140,7 +145,7 @@ func (c *Client) LibraryPlaylistsPage(ctx context.Context, limit, offset int) (P
 // order. Apple answers 404 for an empty playlist; that returns no tracks.
 func (c *Client) LibraryPlaylistTracks(ctx context.Context, id string, opt PageOptions) ([]Song, error) {
 	var out []Song
-	_, err := FetchPages(ctx, c, LibraryPlaylistsPath+"/"+url.PathEscape(id)+"/tracks", nil, opt, func(_ int, items []Song) error {
+	_, err := FetchPages(ctx, c, LibraryPlaylistsPath+"/"+url.PathEscape(id)+"/tracks", libraryPlaylistTracksQuery, opt, func(_ int, items []Song) error {
 		out = append(out, items...)
 		return nil
 	})

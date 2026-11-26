@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -394,7 +395,9 @@ func (c *Client) ReplacePlaylistTracks(ctx context.Context, id string, tracks []
 // playlist id, as Apple holds them now (empty playlists answer 404).
 func (c *Client) LibraryPlaylistEntries(ctx context.Context, id string) ([]Song, error) {
 	var out []Song
-	_, err := FetchPages(ctx, c, c.ampBase()+playlistPath(id, "tracks"), url.Values{"platform": {"web"}}, PageOptions{Parallel: 2},
+	q := maps.Clone(libraryPlaylistTracksQuery)
+	q.Set("platform", "web")
+	_, err := FetchPages(ctx, c, c.ampBase()+playlistPath(id, "tracks"), q, PageOptions{Parallel: 2},
 		func(_ int, items []Song) error {
 			out = append(out, items...)
 			return nil
