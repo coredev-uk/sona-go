@@ -30,6 +30,10 @@ func TestCatalogPlaylistPagesAllTracks(t *testing.T) {
 			if q.Get("limit[tracks]") != "300" || q.Get("include") != "tracks,curator" || q.Get("views") != "more-by-curator" {
 				t.Errorf("playlist query = %s", r.URL.RawQuery)
 			}
+			// Every track's artists, named, for its artist chooser.
+			if q.Get("include[songs]") != "artists" || q.Get("fields[artists]") != "name,url" {
+				t.Errorf("first page does not ask for the songs' artists: %s", r.URL.RawQuery)
+			}
 			var tracks []any
 			for i := range 300 {
 				tracks = append(tracks, songJSON(i))
@@ -47,6 +51,9 @@ func TestCatalogPlaylistPagesAllTracks(t *testing.T) {
 			off, _ := strconv.Atoi(q.Get("offset"))
 			mu.Lock()
 			pages = append(pages, q.Get("offset")+"/"+q.Get("limit"))
+			if q.Get("include[songs]") != "artists" || q.Get("fields[artists]") != "name,url" {
+				t.Errorf("later page %s does not ask for the songs' artists: %s", q.Get("offset"), r.URL.RawQuery)
+			}
 			mu.Unlock()
 			var tracks []any
 			for i := off; i < min(off+300, total); i++ {

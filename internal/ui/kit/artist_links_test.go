@@ -308,3 +308,29 @@ func TestSongArtistsFailureKeepsTheFirstArtist(t *testing.T) {
 		t.Errorf("a failed lookup was queued again at once: %v", q)
 	}
 }
+
+// A song that knows one artist (a queue slot's catalogue ID alone, an answer
+// cut to the first) or none and no first ID still gets the catalogue copy's
+// list when its name may name several.
+func TestSongArtistsLooksUpWhenAtMostOneArtistIsKnown(t *testing.T) {
+	f := &fakeSongArtists{by: map[string][]services.Artist{"1": twoArtists}}
+	s := newSongArtists(f)
+	s.wait = time.Hour
+	one := services.Song{CatalogID: "1", Artist: "The Kid LAROI & Justin Bieber", Artists: twoArtists[:1]}
+	none := services.Song{CatalogID: "1", Artist: "The Kid LAROI & Justin Bieber"}
+	if got := s.OfSong(one); len(got) != 1 {
+		t.Fatalf("before the lookup: %+v", got)
+	}
+	if got := s.OfSong(none); got != nil {
+		t.Fatalf("before the lookup, nothing known: %+v", got)
+	}
+	s.flush()
+	for name, so := range map[string]services.Song{"one known": one, "none known": none} {
+		if got := s.OfSong(so); len(got) != 2 || got[1].ID != "320569549" {
+			t.Errorf("%s: artists %+v, want the catalogue copy's two", name, got)
+		}
+	}
+	if reqs := f.requests(); len(reqs) != 1 || len(reqs[0]) != 1 {
+		t.Errorf("requests %v, want one for the one song", reqs)
+	}
+}
