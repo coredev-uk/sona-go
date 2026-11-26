@@ -692,3 +692,27 @@ func TestTheMiniPlayersLineFollowsTheClockFrameByFrame(t *testing.T) {
 		}
 	}
 }
+
+// The artist is the player bar's links: a song with several artists offers
+// them in a chooser, and the one chosen opens in the main window, which comes
+// back first.
+func TestTheArtistOfSeveralOpensAChooserInTheMainWindow(t *testing.T) {
+	r := newRig(t)
+	nav := &uitest.Nav{}
+	r.h.Env.Nav, r.h.Env.HasRoute = nav, func(string) bool { return true }
+	r.show(30_000, func(s *services.PlaybackState) {
+		s.Current.Artist = "Mia & Di Lemma"
+		s.Current.Artists = []services.Artist{{ID: "ar.1", Name: "Mia"}, {ID: "ar.2", Name: "Di Lemma"}}
+	})
+	tr := access.Read(t, r.tt.Tester)
+	if b, ok := tr.Find(ui.RoleMenuButton, "Mia & Di Lemma"); !ok || b.HasPopup != ui.PopupMenu {
+		t.Fatalf("no artist chooser:\n%s", tr.Dump())
+	}
+	r.tt.MustClick("Mia & Di Lemma")
+	r.tt.Frame()
+	r.tt.MustClick("Di Lemma")
+	r.tt.Until("the second artist's page", func() bool { return nav.Last() == "/artist/ar.2" })
+	if got := r.desk.wait(t); got[len(got)-1] != "show main" {
+		t.Errorf("the main window was not brought back: %v", got)
+	}
+}

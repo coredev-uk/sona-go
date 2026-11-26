@@ -569,7 +569,7 @@ Components are functions taking the `*ui.Context`: `kit.Button(c, label, kit.But
 - Apple's artists relationship, in Apple's order, as `Artist{ID, Name}` (catalogue artists; `docs/apple-music-reference.md` §4.4, "Several artists"). `ArtistID` stays the first, for code that needs one.
 - The catalogue mappers fill `Artists` only when the artists came named (`include=artists`). Every list and page request has it, and `Client.Song` and the batched `Client.Songs` send it. The catalogue cache keys a song as `song-artists`, so a copy cached without names is not read back.
 - A "feat." artist is in the title, not the relationship, so it is not offered. A compilation under "Various Artists" has no artist, so its credit is text.
-- A queue slot fetched from the catalogue (`PlayItems` of a chart or search, a station's batch, a music video) carries `Artists` from the response.
+- A queue slot fetched from the catalogue (`PlayItems` of a chart or search, a station's batch, a music video) carries `Artists` from the response. So does a slot resolved from a stored row that has a catalogue ID (#666): `PlaybackService.resolve` asks `catalog.Songs` for them, one batched lookup that runs beside the fetch of the unstored songs (the catalogue cache keeps them a week; a lookup that fails or takes over three seconds leaves the row's artist), and the first of them becomes the slot's `ArtistID`, which a library row cannot tell from the album's grouping artist ("Various Artists" on a compilation). The mini player's artist is a `kit.ArtistLinks` like the bar's; a link brings the main window back and opens the page there.
 
 **Library songs**
 
