@@ -22,13 +22,44 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 )
 
-// fakeCatalog answers SongPage from a table and counts the asks.
+// fakeCatalog answers SongPage from a table and counts the asks; it answers
+// CreditedArtist from a table of credited names too, and records them.
 type fakeCatalog struct {
 	mu    sync.Mutex
 	pages map[string]services.CatalogSong
 	err   error
 	asked []string
 	gate  chan struct{} // when set, an ask waits for it
+
+	// credits is the artist ID of each credited name the lookup knows ("":
+	// none); creditErr fails it, creditGate holds it; creditAsks are the
+	// names asked.
+	credits    map[string]string
+	creditErr  error
+	creditGate chan struct{}
+	creditAsks []string
+}
+
+func (f *fakeCatalog) CreditedArtist(ctx context.Context, name string, own []services.Artist) (string, error) {
+	f.mu.Lock()
+	f.creditAsks = append(f.creditAsks, name)
+	gate, err, id := f.creditGate, f.creditErr, f.credits[name]
+	f.mu.Unlock()
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
+	return id, err
+}
+
+// creditLookups are the credited names the lookup has been asked about.
+func (f *fakeCatalog) creditLookups() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.creditAsks...)
 }
 
 func (f *fakeCatalog) SongPage(ctx context.Context, id string) (services.CatalogSong, error) {
@@ -339,7 +370,7 @@ func newRigOpts(t *testing.T, w, h int, setup func(*rig), opts []uitest.Option, 
 		queue:   &fakeQueue{},
 		library: &fakeLibrary{state: services.ItemState{InLibrary: false}},
 		routes: map[string]bool{
-			"/album/": true, "/artist/": true, "/music-video/": true, "/library/songs": true,
+			"/album/": true, "/artist/": true, "/music-video/": true, "/library/songs": true, "/search/": true,
 		},
 	}
 	for _, p := range pages {
@@ -383,6 +414,8 @@ func newRigOpts(t *testing.T, w, h int, setup func(*rig), opts []uitest.Option, 
 					r.rows.Popup(c)
 				case rt.Match("/artist/{id}/view/{view}"):
 					ui.Text(c, "ARTIST VIEW "+rt.Param("id")+" "+rt.Param("view"))
+				case rt.Match("/search/{group}"):
+					ui.Text(c, "SEARCH "+rt.Param("group")+" q="+rt.Query("q"))
 				case rt.Match("/artist/{id}"):
 					ui.Text(c, "ARTIST PAGE "+rt.Param("id"))
 				case rt.Match("/library/songs"):

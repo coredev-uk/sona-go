@@ -2791,6 +2791,10 @@ msgstr "Find in playlist"
 msgid "Find songs in this playlist"
 msgstr "Find songs in this playlist"
 
+#: internal/ui/features/song/credits.go
+msgid "Finding {name}…"
+msgstr "Finding {name}…"
+
 #: internal/ui/app/menubar.go
 msgid "Find…"
 msgstr "Find…"
@@ -9649,6 +9653,10 @@ msgstr "{name} no longer accepts Sona's sign-in. Reconnect to keep scrobbling."
 #: internal/ui/features/notifications/panel.go
 msgid "{name} was switched off"
 msgstr "{name} was switched off"
+
+#: internal/ui/features/song/credits.go
+msgid "{name}, artist page"
+msgstr "{name}, artist page"
 
 #: internal/ui/features/player/queue_row.go
 msgid "{name}, {artist}"

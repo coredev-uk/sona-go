@@ -2791,6 +2791,10 @@ msgstr ""
 msgid "Find songs in this playlist"
 msgstr ""
 
+#: internal/ui/features/song/credits.go
+msgid "Finding {name}…"
+msgstr ""
+
 #: internal/ui/app/menubar.go
 msgid "Find…"
 msgstr ""
@@ -9648,6 +9652,10 @@ msgstr ""
 
 #: internal/ui/features/notifications/panel.go
 msgid "{name} was switched off"
+msgstr ""
+
+#: internal/ui/features/song/credits.go
+msgid "{name}, artist page"
 msgstr ""
 
 #: internal/ui/features/player/queue_row.go

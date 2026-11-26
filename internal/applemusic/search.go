@@ -93,12 +93,19 @@ type SearchOptions struct {
 	Group  string
 	Limit  int // per group; 0 or above MaxSearchLimit means MaxSearchLimit
 	Offset int
+	// Types limits the search to these resource types (types=artists); the
+	// result groups are the web player's as ever ("artist" for artists).
+	// Empty: every type the web player searches.
+	Types []string
 }
 
 func (o SearchOptions) apply(q *AMPQuery) {
 	q.Limit = o.Limit
 	if q.Limit <= 0 || q.Limit > MaxSearchLimit {
 		q.Limit = MaxSearchLimit
+	}
+	if len(o.Types) > 0 {
+		q.Extra.Set("types", strings.Join(o.Types, ","))
 	}
 	if o.Group != "" {
 		q.Extra.Set("groups", o.Group)

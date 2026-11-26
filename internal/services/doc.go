@@ -88,6 +88,15 @@
 // shows the song, never by the sync. Nothing of it is stored in the library:
 // the catalogue cache keeps the copy.
 //
+// Credited people: a song page's credits (CatalogSong.Credits) carry a name,
+// roles and a picture and no link to an artist, because Apple's credit-artists
+// resource has none (docs/apple-music-reference.md, "Linking a credited person
+// to an artist"). CatalogService.CreditedArtist finds the artist by name when
+// a credit is opened, not when the page is built: the song's own artists
+// (OwnArtist) need no request; any other name is one search of the catalogue's
+// artists (cached like every search), and is that artist only when exactly one
+// result has the name. None or several are "" and the UI opens its search.
+//
 // Audio (audio.go) applies config.Settings.Audio and Settings.Crossfade to
 // the engine: the equaliser, the output device, Sound Check and the
 // crossfade length are sent at start and from a Settings.OnChange

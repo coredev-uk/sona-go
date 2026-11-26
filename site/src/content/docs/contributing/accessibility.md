@@ -82,7 +82,7 @@ Controls are never nested in an opener. MyGo reads a button, link, tab, column h
   - it also opens from Shift+F10 or the Menu key with the focus on the item or, for a page header, on any of its buttons;
   - only these keyboard ways start the menu on its first entry: the button and the right-click leave it unselected;
   - the playing song's menu opens the same way from the bar's cover and from the mini player, and Now Playing also has a "More for <title>" menu button.
-- Links are the artist and album cells, "See all" and the sidebar entries.
+- Links are the artist and album cells, "See all" and the sidebar entries. A credited person on the song page is a link named "{name}, artist page" (the name alone: one Tab stop a person, the roles plain text); while its lookup runs past 300 ms the wait is announced once ("Finding {name}…"), and the focus stays on the link.
 - Dialogs: `kit.Confirm` builds an `alertdialog`.
 - A `kit.Select`'s list is a list box (MyGo's `SelectBase`) of options, each `Checked` while chosen (aria-selected). Its trigger is a combo box.
 - Suggestions:
