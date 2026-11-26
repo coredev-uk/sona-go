@@ -297,6 +297,13 @@ func TestStationPageListsTheSongsItPlaysFirst(t *testing.T) {
 	if rg.router.Path() != "/artist/7" {
 		t.Errorf("the artist went to %q", rg.router.Path())
 	}
+	// The album leads to the album, not to the song.
+	rg.router.Push("/station/ra.78")
+	rg.tt.Drain()
+	rg.click("OK Computer")
+	if got := rg.router.Location(); got != "/album/al1" {
+		t.Errorf("the album went to %q", got)
+	}
 	// A song with no album or artist ID is plain text.
 	rg.router.Push("/station/ra.78")
 	rg.tt.Drain()

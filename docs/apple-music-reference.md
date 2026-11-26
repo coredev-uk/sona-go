@@ -56,7 +56,7 @@ After any page with catalog items loads, the web app batches two follow-up calls
 - `GET amp-api /v1/me/library?ids[library-songs]=…&ids[library-playlists]=…&ids[library-albums]=…&ids[library-artists]=…&fields[<type>]=personalRating&relate=library`
   → **200**. Note: an empty `ids[library-playlist-folders]=` makes it return 400. Skip empty keys.
 
-Sona does not trust a `false` from these answers for an item it already knows is in the library: an item that names its library copy (a library album, or a catalogue album with a library ID) is in the library whatever `inLibrary` says, and a library ID left out of the second call's answer is not "removed". Both answers are what Apple says about the catalogue resource or the ID asked, not about the user's library rows, and Sona's sync is the authority on which library rows exist (2026-11-15: from reading the code, no account probe; before this, a library album whose catalogue `inLibrary` came back `false` lost its Delete from library item).
+Sona does not trust a `false` from these answers for an album, artist or playlist it already knows is in the library: one that names its library copy (a library album, or a catalogue album with a library ID) is in the library whatever `inLibrary` says, and a library ID left out of the second call's answer is not "removed". Both answers are what Apple says about the catalogue resource or the ID asked, not about the user's library rows, and Sona's sync is the authority on which library rows exist (2026-11-15: from reading the code, no account probe; before this, a library album whose catalogue `inLibrary` came back `false` lost its Delete from library item). A song is not covered by that rule: a song can have a library ID without being in the library (a playlist keeps the row of a song that left it, and an added or collaborative playlist holds songs the library never had), so its state is Apple's answer or the synced library's `library_items`, never its library ID.
 
 ### App-shell calls (made on every page)
 
@@ -195,6 +195,8 @@ Suggested songs: refresh and paging (probed 2026-11-15, read-only, through Sona'
 - The probe only read; no suggestion was added to any playlist. The web player's own refresh control was not inspected.
 
 Library list paging: `limit` is at most 100 and `meta.total` is present. This matches Sona's `FetchPages`. Library playlists can mix catalog and uploaded or non-catalog songs; resolve `catalog` relationships when present.
+
+Sona's library playlist track fetches (`Client.LibraryPlaylistTracks`, the sync's, and `Client.LibraryPlaylistEntries`, which adds `platform=web`) send `include[songs]=artists&relate[songs]=albums`, as the web player does for `include[songs]`. A song in the playlist that is not in the library (a collaborative playlist's, mostly) comes as a catalogue `songs` resource, and its artist and album IDs come only from those relationships. Sona stores them in `tracks.artist_catalog_id` and `album_catalog_id`, and the track list links the song's artist and album by them (`libSong`). A `library-songs` entry keeps the library album and artist IDs the songs sync stored. Not probed live yet.
 
 ### 3.1 A pre-added (unreleased) album in the library
 

@@ -77,6 +77,18 @@ func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool
 		_, si, _ := stateOfItem(a.Item())
 		return namesLibraryCopy(si)
 	}
+	// removable: whether Delete from library is offered. A song is in the
+	// library only as its state says: a song of an added playlist names a
+	// library copy without being in the library, so it waits for the state
+	// (the menu's first paint must not offer it). An album or artist names
+	// its own.
+	removable := func(a *kit.ActionContext) bool {
+		if s, ok := loadedState(a, state); ok {
+			return s.InLibrary
+		}
+		_, si, _ := stateOfItem(a.Item())
+		return target != kit.KindSong && namesLibraryCopy(si)
+	}
 	item := func(a *kit.ActionContext) (kit.StateItem, string) {
 		_, si, _ := stateOfItem(a.Item())
 		return si, a.Item().Name()
@@ -181,7 +193,7 @@ func (l *library) itemActions(target kit.ItemKind, kind string, add, remove bool
 			Group:     kit.GroupItem,
 			Order:     35,
 			Data:      []kit.MenuData{state},
-			Available: inLibrary,
+			Available: removable,
 			Run: func(a *kit.ActionContext) {
 				si, name := item(a)
 				l.env.ItemStates.Remove(kind, si, name)
@@ -248,6 +260,9 @@ func (l *library) bulkActions() []kit.ActionDef {
 		}
 		return nil
 	}
+	// inLibrary: every selected item is in the library: by its state, else
+	// (an album or artist; a song waits for its state, as removable does)
+	// by what the item itself says. Only Delete from library asks.
 	inLibrary := func(a *kit.ActionContext) bool {
 		s, _ := data(a)
 		for i, k := range kinded(a.Items) {
@@ -255,7 +270,7 @@ func (l *library) bulkActions() []kit.ActionDef {
 				if !x.InLibrary {
 					return false
 				}
-			} else if !namesLibraryCopy(k.Item) {
+			} else if k.Kind == kit.StateSongs || !namesLibraryCopy(k.Item) {
 				return false
 			}
 		}

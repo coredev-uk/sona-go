@@ -224,3 +224,38 @@ func TestPlayItemsSupersededWhileResolvingIsDropped(t *testing.T) {
 		t.Fatalf("queue %+v", q.Items)
 	}
 }
+
+// A library song queued from its stored row gets the artists the catalogue
+// credits it, in the one lookup of the play: the first is its own artist, not
+// the library row's (the album's grouping artist on a compilation), and a song
+// with several lists them all, before the first frame.
+func TestPlayItemsGivesStoredSongsTheirCatalogueArtists(t *testing.T) {
+	ce := newCommandEnv(t, privatemode.Options{Override: privatemode.OverrideOn})
+	ce.signIn(t)
+	ctx := t.Context()
+	if _, err := ce.e.DB.W.ExecContext(ctx, `UPDATE tracks SET artist_name = 'The Kid LAROI & Justin Bieber', artist_library_id = 'r.various' WHERE library_id = 'i.100'`); err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	var asked []string
+	ce.songs = func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		asked = append(asked, r.URL.Query().Get("ids"))
+		mu.Unlock()
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"100","type":"songs","attributes":{"name":"Stay","artistName":"The Kid LAROI & Justin Bieber","releaseDate":"2021-07-09","playParams":{"id":"100","kind":"song"}},
+			"relationships":{"artists":{"data":[
+				{"id":"1435848034","type":"artists","attributes":{"name":"The Kid LAROI"}},
+				{"id":"320569549","type":"artists","attributes":{"name":"Justin Bieber"}}]}}}]}`)
+	}
+	refs := []TrackRef{{ID: "i.100", Source: SourceLibrary}, {ID: "i.101", Source: SourceLibrary}}
+	if err := ce.play.PlayItems(ctx, refs, 0, PlayFrom{}); err != nil {
+		t.Fatal(err)
+	}
+	cur := ce.play.Queue().Items[0]
+	if cur.ArtistID != "1435848034" || len(cur.Artists) != 2 || cur.Artists[1].Name != "Justin Bieber" {
+		t.Fatalf("current item artist %q, artists %+v; want the catalogue's two, the song's own first", cur.ArtistID, cur.Artists)
+	}
+	if len(asked) != 1 || asked[0] != "100,101" {
+		t.Errorf("catalogue asked for %v, want one batch of the stored songs", asked)
+	}
+}
