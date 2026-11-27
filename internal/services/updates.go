@@ -35,17 +35,29 @@ type SelfUpdater interface {
 //
 // Where Sona updates itself (macOS and Windows, a signed build in a place it
 // can write) the check is one GET of the release's update-<target>.json and
-// Install downloads, verifies and swaps the app in. Elsewhere it asks GitHub
-// for the latest release and only reports it: Linux packages update through
-// their package manager.
+// Install downloads, verifies and swaps the app in. Elsewhere it reads the
+// latest release's signed release.json and only reports it: Linux packages
+// update through their package manager. Neither is a call to GitHub's API,
+// whose anonymous limit (60 calls an hour per IP address, shared with
+// everything on the network) can be used up before Sona asks; only a release
+// published without release.json is read from it.
+//
+// When GitHub says its limit for this network is reached (UpdateStatus.Error
+// CodeRateLimited) the service makes no call to GitHub, from a check by hand,
+// the start-up check or What's New, until the reset (UpdateStatus.RetryAt),
+// and then checks again.
 type UpdatesService struct {
 	o       *Env
-	checker update.Checker // the GitHub API check, where Sona doesn't update itself
+	checker update.Checker // release.json (the GitHub API for a release without it), where Sona doesn't update itself
 	feed    update.Feed    // update-<target>.json, where it does
 	target  string         // manifest target ("" on Linux)
 	key     string         // the public key signatures must match ("" is off)
 	updater SelfUpdater
 	guard   *update.Guard // rollback guard (nil without a self-updatable install)
+	ctx     context.Context
+	// schedule runs f after d and returns what cancels it (time.AfterFunc;
+	// tests replace it).
+	schedule func(d time.Duration, f func()) (cancel func())
 
 	mu         sync.Mutex
 	status     UpdateStatus
@@ -53,7 +65,19 @@ type UpdatesService struct {
 	restoring  bool           // the previous version is being put back (never cleared by success: Sona restarts)
 	installErr string         // why the last install failed, for Diagnostics (the status carries only the code)
 	whatsNew   WhatsNew       // the notes of the version just installed, fetched and not yet shown
+	limitUntil time.Time      // GitHub's limit holds every call until then (zero: none known)
+	limitRetry func()         // cancels the check scheduled for the reset
+	notesDue   string         // the version whose What's New notes the limit held back
 }
+
+// The limit's hold is at least minHold, so a reset that is already past by
+// this computer's clock doesn't turn into a retry at once, and at most
+// maxHold, the length of GitHub's window: a reset further off than that is
+// not believed.
+const (
+	minHold = time.Minute
+	maxHold = time.Hour
+)
 
 func newUpdatesService(e *Env) *UpdatesService {
 	s := &UpdatesService{
@@ -64,6 +88,7 @@ func newUpdatesService(e *Env) *UpdatesService {
 	s.checker.HTTP = client
 	s.feed.HTTP = client
 	s.feed.Key = s.key
+	s.checker.Key = s.key
 	if exe, err := os.Executable(); err == nil && e.Paths.State != "" {
 		if g, ok := update.NewGuard(e.Paths.State, exe, runtime.GOOS); ok {
 			s.guard = &g
@@ -72,7 +97,19 @@ func newUpdatesService(e *Env) *UpdatesService {
 	s.status.SelfUpdate, s.status.Disabled = s.selfState()
 	s.status.Declined = s.declined()
 	ctx, cancel := context.WithCancel(context.Background())
-	e.OnClose(cancel)
+	s.ctx = ctx
+	s.schedule = func(d time.Duration, f func()) func() {
+		t := time.AfterFunc(d, f)
+		return func() { t.Stop() }
+	}
+	e.OnClose(func() {
+		cancel()
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if s.limitRetry != nil {
+			s.limitRetry()
+		}
+	})
 	e.OnNetwork(func() {
 		// The first paint is what an update on trial must reach.
 		if s.guard != nil {
@@ -130,6 +167,9 @@ func (s *UpdatesService) declined() string {
 func (s *UpdatesService) bundle() any {
 	st := s.Status()
 	out := map[string]any{"current": st.Current, "selfUpdate": st.SelfUpdate, "disabled": st.Disabled, "target": s.target}
+	if st.Error == CodeRateLimited {
+		out["rateLimitedUntil"] = time.UnixMilli(st.RetryAt).UTC().Format(time.RFC3339)
+	}
 	if st.InstallError != "" {
 		s.mu.Lock()
 		out["installError"] = map[string]any{"code": st.InstallError, "detail": s.installErr, "latest": st.Latest}
@@ -375,12 +415,15 @@ func (s *UpdatesService) check(ctx context.Context) (UpdateStatus, error) {
 	var (
 		rel update.Release
 		man *update.Source
-		err error
 	)
-	if s.Status().SelfUpdate {
-		rel, man, err = s.checkFeed(ctx)
-	} else {
-		rel, err = s.checker.Latest(ctx)
+	err := s.held()
+	if err == nil {
+		if s.Status().SelfUpdate {
+			rel, man, err = s.checkFeed(ctx)
+		} else {
+			rel, err = s.checker.Latest(ctx, s.o.Settings.Get().Updates.Prereleases)
+		}
+		err = s.noteLimit(err)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -390,18 +433,81 @@ func (s *UpdatesService) check(ctx context.Context) (UpdateStatus, error) {
 		st.Latest, st.Available, st.URL, st.Published, st.Notes = "", false, "", 0, ""
 		s.manifest = nil
 	case err != nil:
-		st.Error = CodeOf(err)
-		s.o.Logger.Warn("update check failed", "err", err)
+		st.Error, st.RetryAt = CodeOf(err), 0
+		var rl *update.RateLimitError
+		if errors.As(err, &rl) {
+			st.RetryAt = rl.Reset.UnixMilli()
+			s.o.Logger.Info("update check held: GitHub's limit for this network was reached", "until", rl.Reset)
+		} else {
+			s.o.Logger.Warn("update check failed", "err", err)
+		}
 		return *st, err
 	default:
 		st.Latest, st.URL, st.Published, st.Notes = rel.Version, rel.URL, rel.Published.UnixMilli(), update.WithoutVersionHeading(rel.Notes, rel.Version)
 		st.Available = update.Newer(rel.Version, st.Current)
 		s.manifest = man
 	}
-	st.Error = ""
+	st.Error, st.RetryAt = "", 0
 	st.Checked = s.o.Now().UnixMilli()
 	s.o.Logger.Info("update check", "current", st.Current, "latest", st.Latest, "available", st.Available)
 	return *st, nil
+}
+
+// held is the *update.RateLimitError that stands in for a call to GitHub
+// while its limit for this network holds (nil when none does): nothing is
+// asked before the reset, whoever asks.
+func (s *UpdatesService) held() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.o.Now().Before(s.limitUntil) {
+		return &update.RateLimitError{Reset: s.limitUntil}
+	}
+	return nil
+}
+
+// noteLimit passes err through, unless it is GitHub's limit: then the hold
+// runs to the reset (within minHold and maxHold from now), a check is
+// scheduled for then, and the error returned carries the time held to.
+func (s *UpdatesService) noteLimit(err error) error {
+	var rl *update.RateLimitError
+	if !errors.As(err, &rl) {
+		return err
+	}
+	now := s.o.Now()
+	until := rl.Reset
+	if soonest := now.Add(minHold); until.Before(soonest) {
+		until = soonest
+	}
+	if latest := now.Add(maxHold); until.After(latest) {
+		until = latest
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.limitUntil = until
+	if s.limitRetry != nil {
+		s.limitRetry()
+	}
+	if s.ctx.Err() == nil {
+		s.limitRetry = s.schedule(until.Sub(now)+time.Second, func() { s.o.Go("update retry", s.afterLimit) })
+	}
+	return &update.RateLimitError{Reset: until}
+}
+
+// afterLimit runs when the limit is over: the start-up check, if it is on,
+// and the What's New notes the limit held back.
+func (s *UpdatesService) afterLimit() {
+	if s.o.Settings.Get().Updates.Check {
+		if st, err := s.check(s.ctx); err == nil && st.Available {
+			s.o.Emit.Emit(EventUpdateAvailable, st)
+		}
+	}
+	s.mu.Lock()
+	version := s.notesDue
+	s.notesDue = ""
+	s.mu.Unlock()
+	if version != "" {
+		s.fetchWhatsNew(s.ctx, version)
+	}
 }
 
 // checkFeed reads the update manifest of this platform's latest release.

@@ -55,12 +55,18 @@ func (s *UpdatesService) initWhatsNew(ctx context.Context) {
 
 // fetchWhatsNew reads version's notes and announces them (EventWhatsNew). A
 // release without notes is seen at once; a fetch that fails is skipped
-// silently (it is logged) and tried again at the next start.
+// silently (it is logged) and tried again at the next start, or, when GitHub's
+// limit for this network was reached, once the limit is over.
 func (s *UpdatesService) fetchWhatsNew(ctx context.Context, version string) {
 	w, err := s.notesOf(ctx, version)
 	switch {
 	case err != nil:
 		s.o.Logger.Warn("update: fetching the release notes", "version", version, "err", err)
+		if errors.As(err, new(*update.RateLimitError)) {
+			s.mu.Lock()
+			s.notesDue = version
+			s.mu.Unlock()
+		}
 		return
 	case w.Notes == "":
 		if err := s.markSeen(version); err != nil {
@@ -76,9 +82,14 @@ func (s *UpdatesService) fetchWhatsNew(ctx context.Context, version string) {
 
 // notesOf is version's release notes from GitHub, the install instructions
 // and the version's heading left out. A version with no release has none
-// (zero Notes, no error).
+// (zero Notes, no error). While GitHub's limit for this network holds it asks
+// nothing and fails with the limit's *update.RateLimitError.
 func (s *UpdatesService) notesOf(ctx context.Context, version string) (WhatsNew, error) {
+	if err := s.held(); err != nil {
+		return WhatsNew{}, err
+	}
 	rel, err := s.checker.Version(ctx, version)
+	err = s.noteLimit(err)
 	switch {
 	case errors.Is(err, update.ErrNoRelease):
 		return WhatsNew{}, nil

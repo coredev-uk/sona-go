@@ -1,7 +1,10 @@
 // Package update checks GitHub for a newer Sona release. It is the one
 // network call Sona makes to anyone but Apple, so it sends nothing about the
-// user: an anonymous GET of the repository's latest release, with a fixed
-// User-Agent, no cookies and no credentials.
+// user: anonymous GETs of the repository's release files (release.json, the
+// update manifests, releases.atom), with a fixed User-Agent, no cookies and
+// no credentials. Those are plain downloads, which GitHub's limit of 60
+// anonymous API calls an hour per IP address doesn't cover; the API is read
+// only for a release published without release.json.
 package update
 
 import (
@@ -47,21 +50,41 @@ type Release struct {
 	Published time.Time
 }
 
-// Checker fetches the latest release.
+// Checker reads a release's version, notes and publication time. It reads
+// the signed release.json asset, a plain download that GitHub's API limit
+// doesn't cover, and asks the API only about a release published without it
+// (up to v0.8.0-rc.4).
 type Checker struct {
 	// HTTP is the client to use; nil means a client with a 15 s timeout and
 	// no cookie jar.
 	HTTP *http.Client
 	// API is the REST API root; empty means DefaultAPI.
 	API string
+	// Web is the site releases download from; empty means https://github.com.
+	Web string
 	// Repo is owner/name; empty means Repo.
 	Repo string
+	// Key is the base64 public key release.json must be signed with. Without
+	// one (a build with no update key) nothing could be verified, and the
+	// API is read as it always was.
+	Key string
 }
 
-// Latest returns the repository's latest published release. A repository
-// without one yields ErrNoRelease.
-func (c Checker) Latest(ctx context.Context) (Release, error) {
-	return c.release(ctx, "latest", false)
+// Latest returns the repository's latest published release, from
+// releases/latest/download/release.json. With prerelease it is the release of
+// the newest tag in releases.atom, a prerelease too. A repository without a
+// release yields ErrNoRelease; GitHub's limit on this network
+// *RateLimitError.
+func (c Checker) Latest(ctx context.Context, prerelease bool) (Release, error) {
+	web, repo := releaseSite(c.Web, c.Repo)
+	if !prerelease {
+		return c.read(ctx, web, repo, "latest/download", "", "latest", false)
+	}
+	tag, err := newestTag(ctx, c.HTTP, web, repo)
+	if err != nil {
+		return Release{}, err
+	}
+	return c.tag(ctx, web, repo, tag)
 }
 
 // Version returns the published release of version (with or without a
@@ -73,17 +96,62 @@ func (c Checker) Version(ctx context.Context, version string) (Release, error) {
 	if !Valid(version) {
 		return Release{}, ErrNoRelease
 	}
-	return c.release(ctx, "tags/v"+url.PathEscape(version), true)
+	web, repo := releaseSite(c.Web, c.Repo)
+	return c.tag(ctx, web, repo, "v"+version)
 }
 
-// release reads the release at /repos/{repo}/releases/{path}.
-func (c Checker) release(ctx context.Context, path string, prerelease bool) (Release, error) {
-	api, repo := c.API, c.Repo
+// tag reads the release of tag.
+func (c Checker) tag(ctx context.Context, web, repo, tag string) (Release, error) {
+	return c.read(ctx, web, repo, "download/"+url.PathEscape(tag), tag, "tags/"+url.PathEscape(tag), true)
+}
+
+// read reads the release.json under releases/{dir}: signed by Key, naming
+// tag's version (tag "" is the latest release, which is never a
+// prerelease unless prerelease says it may be). A release without the
+// asset is read from the API at /repos/{repo}/releases/{apiPath} instead.
+func (c Checker) read(ctx context.Context, web, repo, dir, tag, apiPath string, prerelease bool) (Release, error) {
+	pub, err := ParseKey(c.Key)
+	switch {
+	case errors.Is(err, ErrNoKey):
+		return c.api(ctx, repo, apiPath, prerelease)
+	case err != nil:
+		return Release{}, err
+	}
+	raw, err := get(ctx, c.HTTP, web+"/"+repo+"/releases/"+dir+"/"+ReleaseInfoName, MaxReleaseInfo)
+	if errors.Is(err, ErrNoRelease) {
+		return c.api(ctx, repo, apiPath, prerelease)
+	}
+	if err != nil {
+		return Release{}, err
+	}
+	info, err := ParseReleaseInfo(raw, pub)
+	if err != nil {
+		return Release{}, err
+	}
+	switch {
+	case tag == "" && !prerelease && ChannelOf(info.Version) != ChannelStable:
+		return Release{}, fmt.Errorf("update: the latest release names the pre-release %s", info.Version)
+	case tag != "" && info.Version != strings.TrimPrefix(tag, "v"):
+		return Release{}, fmt.Errorf("update: release %s carries the notes of %s", tag, info.Version)
+	}
+	published, _ := time.Parse(time.RFC3339, info.Published) // ParseReleaseInfo checked it
+	return Release{
+		Version: info.Version, Name: "Sona " + info.Version, URL: releasePage(repo, "v"+info.Version),
+		Notes: info.Notes, Published: published,
+	}, nil
+}
+
+// releasePage is the page of the repository's release tagged tag.
+func releasePage(repo, tag string) string {
+	return "https://github.com/" + repo + "/releases/tag/" + tag
+}
+
+// api reads the release at /repos/{repo}/releases/{path} from GitHub's API:
+// the way before release.json, and still for a release published without it.
+func (c Checker) api(ctx context.Context, repo, path string, prerelease bool) (Release, error) {
+	api := c.API
 	if api == "" {
 		api = DefaultAPI
-	}
-	if repo == "" {
-		repo = Repo
 	}
 	raw, err := get(ctx, c.HTTP, strings.TrimRight(api, "/")+"/repos/"+repo+"/releases/"+path, 1<<20,
 		"Accept", "application/vnd.github+json", "X-GitHub-Api-Version", "2022-11-28")
@@ -110,9 +178,8 @@ func (c Checker) release(ctx context.Context, path string, prerelease bool) (Rel
 		return Release{}, fmt.Errorf("update: release tag %q is not a version", body.TagName)
 	}
 	// Only ever open the repository's own release pages.
-	page := "https://github.com/" + repo + "/releases/"
-	if !strings.HasPrefix(body.HTMLURL, page) {
-		body.HTMLURL = page + "tag/" + body.TagName
+	if page := releasePage(repo, ""); !strings.HasPrefix(body.HTMLURL, page) {
+		body.HTMLURL = page + body.TagName
 	}
 	return Release{Version: v, Name: body.Name, URL: body.HTMLURL, Notes: releaseNotes(body.Body), Published: body.PublishedAt}, nil
 }
@@ -123,6 +190,13 @@ func (c Checker) release(ctx context.Context, path string, prerelease bool) (Rel
 func releaseNotes(body string) string {
 	notes, _, _ := strings.Cut(body, InstallNotesMarker)
 	return strings.TrimSpace(notes)
+}
+
+// ReleaseNotes is a release's body as release.json carries its notes: the
+// changelog without the install instructions (InstallNotesMarker) and
+// without the heading that names version (WithoutVersionHeading), trimmed.
+func ReleaseNotes(body, version string) string {
+	return strings.TrimSpace(WithoutVersionHeading(releaseNotes(body), version))
 }
 
 // WithoutVersionHeading is notes without a leading heading line that names

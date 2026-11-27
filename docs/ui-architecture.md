@@ -1275,6 +1275,7 @@ The account menu, Settings, the setup, the player bar and an album page use thos
 - After a failed install (`UpdateStatus.InstallError`) the row is an alert, the button reads "Try again" and "View release" sits beside it, so the row is a way out and not a loop of retries. The cause is in the Diagnostics bundle's Updates section.
 - `updates:available` and `updates:install` write the query. While it downloads the row has a bar in place of the buttons and the bell its own; "Restarting into Sona {latest}…" is the row's title once installed.
 - Settings → General → Updates words why an install can't update itself (`UpdateStatus.Disabled`: no signing key, not writable) and has the Test versions switch (`updates.prereleases`). Linux packages and AppImages keep updating through their own tools (`docs/architecture.md`, "Updates").
+- A check that GitHub's limit for this network stopped (`UpdateStatus.Error` `rate_limited`, `RetryAt`) is worded in the verdict's detail and in Check now's "Couldn't check:" line and the menu's failure toast as "GitHub's limit for this network was reached; Sona will check again after {time}." (`i18n.RateLimitText`, `i18n.ErrorMessage`: the time of day in the shown language's clock and the computer's time zone). The notice's row appears only for a found update, so the limit shows where the failure already did.
 
 **Reminders** (`features/reminders`)
 

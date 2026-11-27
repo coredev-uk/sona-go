@@ -70,9 +70,10 @@ Merging a release:
      are kept as the `linux-release`, `macos-release` and `windows-release`
      run artifacts. `linux` also writes its `SHA256SUMS`.
    - `publish` (environment `release`, as bot-cecil): checks the Linux
-     checksums, signs the update manifests, writes one `SHA256SUMS` over
-     everything and attests it; the packages, the `.dmg`, the Windows files,
-     the update archives and manifests, the AppImage `.zsync`, the AUR
+     checksums, signs the update manifests and `release.json`, writes one
+     `SHA256SUMS` over everything and attests it; the packages, the `.dmg`,
+     the Windows files, the update archives, manifests and `release.json`, the
+     AppImage `.zsync`, the AUR
      `sona-bin` files and `SHA256SUMS` are uploaded to the draft
      (`--clobber`) and it is published as `Sona X.Y.Z`, marked latest.
      `releases/latest` never returns a draft, so the update notice,
@@ -138,6 +139,14 @@ deploys from `main`, so these builds have no Last.fm or Discord
 credentials compiled in. `release-secrets.yml` checks that the Proton Pass token and
 all four items resolve (monthly and on dispatch; [ci-and-secrets.md](ci-and-secrets.md)).
 
+A dry run has no signing key, so the `release-info` job stands in for the
+signing of `release.json` (below): it makes a throwaway key (`go tool mygo
+keygen`), signs a sample release body with `releasesign -release-info`,
+verifies the file with `releasesign -verify -pub-env` and checks with `jq` that
+its notes were cut at the install-notes marker and lost the version's heading.
+It prints the file in the run summary. The run is red if the asset can't be
+built, signed or verified; the manifests are still signed only by `publish`.
+
 ### Platforms in a release
 
 `release.yml` runs `plan`, then `checks` (ci.yml with `linux-only`: the macOS
@@ -149,7 +158,8 @@ and Windows development builds in ci.yml never hold a release up), then the
 | `linux`   | ubuntu-26.04  | the Linux packages (`build/linux/release/release.sh`)              | each package on clean Ubuntu, Fedora and Arch containers                              |
 | `macos`   | macos-26      | `Sona-<v>-macos-arm64.dmg`, `sona-<v>-darwin-arm64.tar.gz` (`build/darwin/bundle.sh`, the window by `build/darwin/dmg.sh`) | `build/darwin/smoke.sh`: the `.dmg`'s window layout (`.DS_Store`, background, icons, hidden chrome), `--version`, first paint, no video plugin in the bundle and a preview played from the bundle's GStreamer (`avdec_aac`), no `/nix`, `/opt/homebrew` or `/Library/Frameworks` paths, `codesign --verify` |
 | `windows` | windows-2025  | `Sona-<v>-windows-x64.zip`, `Sona-<v>-windows-x64-setup.exe`, `sona-<v>-windows-amd64.tar.gz` (`build/windows/package.sh`) | `build/windows/smoke.sh` with GStreamer off `PATH`: layout (shim, GStreamer runtime and plugins, no CDM), the zip's `--version`, first paint and audio stack from the bundle, two previews played to `fakesink`, the update archive's files and that the updater could unpack it (`releasesign -check`: no `./` entry), silent install, files and `music:`/`itms:` keys; silent uninstall, which also removes the playback sandbox's AppContainer profile and package folder (checked gone); the zip's `sona.exe --remove-sandbox` takes the sandbox's entry off its folder |
-| `publish` | ubuntu-26.04  | `update-darwin-arm64.json`, `update-windows-amd64.json`, `SHA256SUMS` | checks the Linux checksums; attests the manifests and the combined `SHA256SUMS`       |
+| `release-info` | ubuntu-26.04 | `release.json` for a dry run only, with a throwaway key (a publishing run signs the real one in `publish`) | `releasesign -verify` with the throwaway key's public half; `jq` checks the notes |
+| `publish` | ubuntu-26.04  | `update-darwin-arm64.json`, `update-windows-amd64.json`, `release.json`, `SHA256SUMS` | checks the Linux checksums; `releasesign -verify release.json` against `update.pub`; attests the manifests, `release.json` and the combined `SHA256SUMS` |
 
 - **macOS app:** plain Go and Xcode's clang against the official GStreamer
   framework (the version and package hashes are pinned in
@@ -284,17 +294,58 @@ and Windows development builds in ci.yml never hold a release up), then the
   `releasesign` is run again over its archives. Installs that predate the
   statement ignore the fields and update as before.
   Manifests are signed last, after the archives are uploaded. Without the key
-  the release has no `update-<target>.json` and installs do not self-update;
-  in this repository `publish` refuses to run without it. Where the key and
-  the other secrets live, and how to rotate them: [ci-and-secrets.md](ci-and-secrets.md).
+  the release has no `update-<target>.json` or `release.json`, so installs do
+  not self-update and the update check and the release notes read GitHub's
+  rate-limited API; in this repository `publish` refuses to run without it.
+  Where the key and the other secrets live, and how to rotate them:
+  [ci-and-secrets.md](ci-and-secrets.md).
+- **`release.json`:** the asset that Linux's update check, the release notes
+  and What's New read instead of GitHub's API, whose anonymous limit is 60
+  calls an hour per IP address (#728). `go run ./cmd/releasesign
+  -release-info -version X -notes changelog.md -out release/release.json`
+  writes `{"version","published","notes","signature"}` (the same for every
+  platform), the notes being the release body cut at the
+  `<!-- sona-install-notes -->` marker with the version's heading removed
+  (`update.ReleaseNotes`), and `signature` an Ed25519 signature by the
+  manifests' key over `sona-release-v1 NUL version NUL channel NUL published
+  NUL hex(sha256(notes))` (`update.ReleaseStatement`). `publish` signs it after
+  the manifests, with the body it already read for the manifests' notes
+  (`changelog.md`: release-please's entry, or a prerelease's test-build line
+  and `cmd/rcnotes` list), then runs `releasesign -verify release/release.json`
+  against `internal/update/update.pub`, which fails the job when
+  `SONA_UPDATE_KEY` isn't the key the installs carry. It is uploaded with the
+  manifests, for releases, nightlies and prereleases alike. Sona reads
+  `releases/latest/download/release.json` (with Test versions, the newest
+  tag's; What's New, `releases/download/v<version>/release.json`) and falls
+  back to the API only for a release that answers 404, which is every release
+  up to and including `v0.8.0-rc.4`. A release that is later edited keeps its
+  signed notes until `releasesign -release-info` is run again over its body and
+  the file uploaded with `--clobber`.
+- **The release list (`releases.atom`):** with Test versions Sona finds the
+  newest tag in `https://github.com/coredev-uk/sona-go/releases.atom`, a page
+  of the site that GitHub's API limit doesn't cover. Its shape, fetched on
+  2026-11-27 (HTTP 200, `application/atom+xml; charset=utf-8`, 120 kB): an
+  Atom 1.0 `<feed xmlns="http://www.w3.org/2005/Atom">` with `id`, a
+  `link rel="alternate"` to the releases page, a `link rel="self"`, `title`
+  and `updated`, then ten `<entry>` elements, newest first, prereleases
+  included (`v0.8.0-rc.4`, `-rc.3`, …, `v0.7.0`), each with `id`
+  (`tag:github.com,2008:Repository/<repo id>/<tag>`), `updated`, `link
+  rel="alternate" type="text/html" href="https://github.com/<repo>/releases/tag/<tag>"`,
+  `title` (`Sona 0.8.0-rc.4`), `content type="html"` (the release body as
+  escaped HTML) and an `author`. Sona reads only the entries' `alternate`
+  links and takes the highest version among them; nothing else in the feed is
+  used or trusted. Re-fetch it by hand to check the shape: `curl -s
+  https://github.com/coredev-uk/sona-go/releases.atom | head -30`.
 - **Release notes:** a release's draft holds release-please's changelog entry;
   `publish` appends `.github/release-notes/install.md` (first-run steps for
   macOS and Windows, verifying downloads) after the `<!-- sona-install-notes -->`
   line. The marker is a contract: Sona shows the notes in a dialog ("What's
   new" on the update notice and in Settings → General), taken from the update
-  manifest where it updates itself and from the GitHub release's body on Linux,
-  and the Linux notes end before the marker (`update.InstallNotesMarker`) so
-  they match the manifest's.
+  manifest where it updates itself and from the signed `release.json` on Linux
+  and for What's New and the current version's notes (the GitHub release's
+  body, through the API, for a release published before it). `release.json`'s
+  notes end before the marker (`update.InstallNotesMarker`) and lose the
+  version's heading, as the manifests' do in Sona's own reading, so they match.
 - **Prerelease notes:** a prerelease has no release-please draft, so `publish`
   writes its notes: the "Test build" line, then `go run ./cmd/rcnotes`'s list of
   the changes since the previous prerelease or release. The previous tag is
@@ -308,13 +359,15 @@ and Windows development builds in ci.yml never hold a release up), then the
   style commits are one count line, since a tester sees none of them; at
   most 30 entries are listed. The first prerelease of a version lists every
   change since the previous release, and one built on a commit that already
-  has a tag says "No changes". The same text is the update manifests' notes.
+  has a tag says "No changes". The same text is the update manifests' and
+  `release.json`'s notes.
   Preview it with `go run ./cmd/rcnotes -exclude v<VERSION>-rc.<N>` (it reads
   git only; `-since <tag>` and `-ref <commit>` pick the range).
 - **Dry run and prereleases:** dispatch `release.yml` (`gh workflow run
   release.yml --ref <branch>`). With `prerelease` empty it builds and
   smoke-tests all three platforms and publishes nothing (the files are the
-  `linux-release`, `macos-release` and `windows-release` artifacts). With
+  `linux-release`, `macos-release` and `windows-release` artifacts) and builds
+  and verifies a sample `release.json` (`release-info`). With
   `prerelease=rc.1` it builds `v<VERSION>-rc.1` from the branch in the
   `release` environment, signs the manifests and publishes a GitHub
   prerelease, which updates only builds with Settings → Updates → Test

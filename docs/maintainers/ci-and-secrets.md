@@ -10,7 +10,7 @@ All CI secrets but the bot-cecil App's are Proton Pass items in the vault "CI":
 
 | Item | Fields |
 | --- | --- |
-| "Update Signing Key" | `SONA_UPDATE_KEY`, the Ed25519 key `releasesign` signs the update manifests with. The master copy is also in Development → Sona Update Signing Key (the file `go tool mygo keygen` wrote); the public key is `internal/update/update.pub`. Never print or commit it. |
+| "Update Signing Key" | `SONA_UPDATE_KEY`, the Ed25519 key `releasesign` signs the update manifests and `release.json` with. The master copy is also in Development → Sona Update Signing Key (the file `go tool mygo keygen` wrote); the public key is `internal/update/update.pub`. Never print or commit it. |
 | "Last.fm API" | `SONA_LASTFM_KEY`, `SONA_LASTFM_SECRET` |
 | "Discord App" | `SONA_DISCORD_CLIENT_ID` |
 | "Apple Music User Token" | `MUSIC_USER_TOKEN`, for the live checks |
@@ -27,7 +27,7 @@ The bot-cecil App's private key is not in this repository, in any of its environ
 
 `release-please.yml` calls `release.yml` with `secrets: inherit`, since a called workflow sees its environment's secret (the Proton Pass token) only that way. With the App's credentials passed by name as secrets, v0.3.0 shipped without them or the manifests and was replaced by v0.3.1. The publish job's token now needs no secret, but the Proton Pass token still does.
 
-**Without the update key** (a fork, a run outside the environment) the manifest-signing step is skipped and says so in the run summary. The release then has no `update-<target>.json`, so macOS and Windows installs don't self-update. In this repository `publish` refuses instead: it checks that `SONA_UPDATE_KEY` and the Last.fm and Discord credentials are all there before it signs or publishes.
+**Without the update key** (a fork, a run outside the environment) the signing step is skipped and says so in the run summary. The release then has no `update-<target>.json` or `release.json`, so macOS and Windows installs don't self-update, and the update check and the release notes read GitHub's rate-limited API. In this repository `publish` refuses instead: it checks that `SONA_UPDATE_KEY` and the Last.fm and Discord credentials are all there before it signs or publishes.
 
 ## What there is to protect
 
