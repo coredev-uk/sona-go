@@ -24,6 +24,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
+	"github.com/coredev-uk/sona-go/internal/namefold"
 )
 
 // Cache lifetimes per response kind.
@@ -183,7 +184,7 @@ func (c *Catalog) Artist(ctx context.Context, id string) (applemusic.Artist, err
 	return cached(ctx, c, "artist-page", id, ArtistTTL, func(ctx context.Context, sf string) (applemusic.Artist, error) {
 		return applemusic.ArtistPage(ctx, c.api, sf, id)
 	}, func(q *dbq.Queries, a applemusic.Artist, now int64) error {
-		if _, err := storeArtist(ctx, q, a, now); err != nil {
+		if _, err := StoreArtist(ctx, q, a, now); err != nil {
 			return err
 		}
 		for _, s := range a.Views.TopSongs.Data {
@@ -298,7 +299,7 @@ func storeAlbum(ctx context.Context, q *dbq.Queries, a applemusic.Album, now int
 		return err
 	}
 	for _, r := range a.Relationships.Artists.Data {
-		if _, err := storeArtist(ctx, q, r, now); err != nil {
+		if _, err := StoreArtist(ctx, q, r, now); err != nil {
 			return err
 		}
 	}
@@ -328,12 +329,15 @@ func storeAlbumRow(ctx context.Context, q *dbq.Queries, a applemusic.Album, now 
 	})
 }
 
-func storeArtist(ctx context.Context, q *dbq.Queries, a applemusic.Artist, now int64) (int64, error) {
+// StoreArtist upserts catalog artist a as a catalog artist row (library_id
+// NULL) and returns its row ID; an artist with no attributes (a relationship
+// stub) is not stored (0).
+func StoreArtist(ctx context.Context, q *dbq.Queries, a applemusic.Artist, now int64) (int64, error) {
 	if a.Attributes.Name == "" {
 		return 0, nil // relationship stub without attributes
 	}
 	return q.UpsertCatalogArtist(ctx, dbq.UpsertCatalogArtistParams{
-		CatalogID: db.NullString(a.ID), Name: a.Attributes.Name,
+		CatalogID: db.NullString(a.ID), Name: a.Attributes.Name, NameKey: namefold.Fold(a.Attributes.Name),
 		ArtworkTemplate: a.Attributes.Artwork.Template(), Url: a.Attributes.URL, UpdatedAt: now,
 	})
 }

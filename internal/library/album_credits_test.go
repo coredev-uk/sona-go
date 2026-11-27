@@ -110,8 +110,8 @@ func TestCollaborationAlbumsGroupUnderEachCreditedArtist(t *testing.T) {
 		"900":   {"Trio"},
 		"r.va":  {"Now 123"},
 		"r.up":  {"Mine"},
-		// The combined library artist still holds the albums it carries itself.
-		"r.duo": {"Both"},
+		// The combined library artist holds nothing: its album is credited.
+		"r.duo": {},
 	} {
 		a, got, err := e.lib.ArtistAlbums(ctx, key)
 		if err != nil {

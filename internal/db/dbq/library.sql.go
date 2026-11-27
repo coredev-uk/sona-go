@@ -273,7 +273,7 @@ func (q *Queries) GetTrackByLibraryID(ctx context.Context, libraryID sql.NullStr
 }
 
 const insertAlbumArtist = `-- name: InsertAlbumArtist :exec
-INSERT INTO album_artists (album_id, artist_catalog_id, name, position) VALUES (?, ?, ?, ?)
+INSERT INTO album_artists (album_id, artist_catalog_id, name, name_key, position) VALUES (?, ?, ?, ?, ?)
 ON CONFLICT (album_id, artist_catalog_id) DO NOTHING
 `
 
@@ -281,6 +281,7 @@ type InsertAlbumArtistParams struct {
 	AlbumID         int64
 	ArtistCatalogID string
 	Name            string
+	NameKey         string
 	Position        int64
 }
 
@@ -289,6 +290,7 @@ func (q *Queries) InsertAlbumArtist(ctx context.Context, arg InsertAlbumArtistPa
 		arg.AlbumID,
 		arg.ArtistCatalogID,
 		arg.Name,
+		arg.NameKey,
 		arg.Position,
 	)
 	return err
@@ -310,7 +312,7 @@ func (q *Queries) InsertPlaylistTrack(ctx context.Context, arg InsertPlaylistTra
 }
 
 const insertTrackArtist = `-- name: InsertTrackArtist :exec
-INSERT INTO track_artists (track_id, artist_catalog_id, name, position) VALUES (?, ?, ?, ?)
+INSERT INTO track_artists (track_id, artist_catalog_id, name, name_key, position) VALUES (?, ?, ?, ?, ?)
 ON CONFLICT (track_id, artist_catalog_id) DO NOTHING
 `
 
@@ -318,6 +320,7 @@ type InsertTrackArtistParams struct {
 	TrackID         int64
 	ArtistCatalogID string
 	Name            string
+	NameKey         string
 	Position        int64
 }
 
@@ -326,6 +329,7 @@ func (q *Queries) InsertTrackArtist(ctx context.Context, arg InsertTrackArtistPa
 		arg.TrackID,
 		arg.ArtistCatalogID,
 		arg.Name,
+		arg.NameKey,
 		arg.Position,
 	)
 	return err
@@ -925,11 +929,12 @@ func (q *Queries) UpsertLibraryAlbum(ctx context.Context, arg UpsertLibraryAlbum
 }
 
 const upsertLibraryArtist = `-- name: UpsertLibraryArtist :one
-INSERT INTO artists (library_id, catalog_id, name, artwork_template, url, updated_at)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO artists (library_id, catalog_id, name, name_key, artwork_template, url, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (library_id) DO UPDATE SET
     catalog_id = excluded.catalog_id,
     name = excluded.name,
+    name_key = excluded.name_key,
     artwork_template = excluded.artwork_template,
     url = excluded.url,
     updated_at = excluded.updated_at
@@ -940,6 +945,7 @@ type UpsertLibraryArtistParams struct {
 	LibraryID       sql.NullString
 	CatalogID       sql.NullString
 	Name            string
+	NameKey         string
 	ArtworkTemplate string
 	Url             string
 	UpdatedAt       int64
@@ -950,6 +956,7 @@ func (q *Queries) UpsertLibraryArtist(ctx context.Context, arg UpsertLibraryArti
 		arg.LibraryID,
 		arg.CatalogID,
 		arg.Name,
+		arg.NameKey,
 		arg.ArtworkTemplate,
 		arg.Url,
 		arg.UpdatedAt,

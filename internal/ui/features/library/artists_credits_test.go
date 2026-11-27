@@ -9,6 +9,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
+	"github.com/coredev-uk/sona-go/internal/namefold"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/fixture"
 )
@@ -52,7 +53,7 @@ func seedCollab(ctx context.Context, d *db.DB) error {
 		for pos, name := range []string{"Ada", "Bo", "Cy"} {
 			// Cy is no library artist: the library knows them by this credit only.
 			err := q.InsertTrackArtist(ctx, dbq.InsertTrackArtistParams{
-				TrackID: track, ArtistCatalogID: catalogOf(artists, name), Name: name, Position: int64(pos),
+				TrackID: track, ArtistCatalogID: catalogOf(artists, name), Name: name, NameKey: namefold.Fold(name), Position: int64(pos),
 			})
 			if err != nil {
 				return err
@@ -109,7 +110,7 @@ func seedCollabAlbum(ctx context.Context, d *db.DB) error {
 		}
 		for pos, name := range []string{"Ada", "Bo"} {
 			err := q.InsertAlbumArtist(ctx, dbq.InsertAlbumArtistParams{
-				AlbumID: ref, ArtistCatalogID: catalogOf(artists, name), Name: name, Position: int64(pos),
+				AlbumID: ref, ArtistCatalogID: catalogOf(artists, name), Name: name, NameKey: namefold.Fold(name), Position: int64(pos),
 			})
 			if err != nil {
 				return err
@@ -144,4 +145,94 @@ func TestArtistsListACollaborationAlbumUnderEachCreditedArtist(t *testing.T) {
 	if r.tt.HasText("Both Of Us") {
 		t.Error("Cy's page lists an album Apple does not credit to them")
 	}
+}
+
+// Apple's library artist for "A & B" carries A's catalogue ID: the live
+// library's "Alesso & Zara Larsson" has Alesso's. With no library artist of
+// their own, Alesso's credits must not go to that combined artist.
+const (
+	alessoID = "432464201"
+	zaraID   = "570372593"
+)
+
+// seedAlesso adds the combined library artist "Alesso & Zara Larsson"
+// (Alesso's catalogue ID), the library artist "Zara Larsson" (added after
+// it), and the song "Words" and its album "Words - Single", which Apple's
+// library gives to the combined artist and the catalogue credits to Alesso
+// and Zara Larsson (what Syncer.syncCredits stores).
+func seedAlesso(ctx context.Context, d *db.DB) error {
+	const now = 1_700_000_000_000
+	return d.Tx(ctx, func(q *dbq.Queries) error {
+		for _, a := range [][3]string{
+			{"r.az", alessoID, "Alesso & Zara Larsson"},
+			{"r.zl", zaraID, "Zara Larsson"},
+		} {
+			ref, err := q.UpsertLibraryArtist(ctx, dbq.UpsertLibraryArtistParams{
+				LibraryID: db.NullString(a[0]), CatalogID: db.NullString(a[1]), Name: a[2], NameKey: namefold.Fold(a[2]), UpdatedAt: now,
+			})
+			if err != nil {
+				return err
+			}
+			if err := q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "artist", Ref: ref, Generation: 1}); err != nil {
+				return err
+			}
+		}
+		credited := [][2]string{{alessoID, "Alesso"}, {zaraID, "Zara Larsson"}}
+		album, err := q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{
+			LibraryID: db.NullString("l.words"), CatalogID: db.NullString("7200"), Name: "Words - Single", ArtistName: "Alesso & Zara Larsson",
+			ArtistLibraryID: db.NullString("r.az"), ReleaseDate: "2021-05-01", Genre: "Pop", TrackCount: 1, UpdatedAt: now,
+		})
+		if err != nil {
+			return err
+		}
+		if err := q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "album", Ref: album, DateAdded: sql.NullInt64{Int64: now, Valid: true}, Generation: 1}); err != nil {
+			return err
+		}
+		track, err := q.UpsertLibraryTrack(ctx, dbq.UpsertLibraryTrackParams{
+			LibraryID: db.NullString("i.words"), CatalogID: db.NullString("7201"), Name: "Words", ArtistName: "Alesso & Zara Larsson",
+			ArtistLibraryID: db.NullString("r.az"), DurationMs: 200_000, TrackNumber: 1, DiscNumber: 1,
+			ReleaseDate: "2021-05-01", Genre: "Pop", UpdatedAt: now,
+		})
+		if err != nil {
+			return err
+		}
+		if err := q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{Kind: "song", Ref: track, AddedRank: sql.NullInt64{Int64: 98, Valid: true}, Generation: 1}); err != nil {
+			return err
+		}
+		for pos, c := range credited {
+			if err := q.InsertAlbumArtist(ctx, dbq.InsertAlbumArtistParams{
+				AlbumID: album, ArtistCatalogID: c[0], Name: c[1], NameKey: namefold.Fold(c[1]), Position: int64(pos),
+			}); err != nil {
+				return err
+			}
+			if err := q.InsertTrackArtist(ctx, dbq.InsertTrackArtistParams{
+				TrackID: track, ArtistCatalogID: c[0], Name: c[1], NameKey: namefold.Fold(c[1]), Position: int64(pos),
+			}); err != nil {
+				return err
+			}
+		}
+		if err := q.MarkAlbumCredited(ctx, dbq.MarkAlbumCreditedParams{CreditsChecked: now, ID: album}); err != nil {
+			return err
+		}
+		return q.MarkTrackCredited(ctx, dbq.MarkTrackCreditedParams{CreditsChecked: now, ID: track})
+	})
+}
+
+// Alesso, who has no library artist, is listed alone with Words and its album;
+// Zara Larsson lists them too; "Alesso & Zara Larsson", whose only song and
+// album are credited to them, is gone.
+func TestArtistsListAnArtistWhoseCreditsRodeOnACombinedArtist(t *testing.T) {
+	open := func(key string) *pageRig {
+		return newPageRig(t, artistsAt(key), 1132, 900, nil, uitest.Albums(collabAlbums()...), uitest.Seeded(seedAlesso))
+	}
+	r := open(alessoID)
+	r.tt.Until("Alesso's page", r.tt.Shows(
+		"4 artists", "Alesso, 1 album, 1 song", "Zara Larsson, 1 album, 1 song",
+		"Artist · 1 album, 1 song", "Albums by Alesso in your library", "Words", "2021 · Single",
+	))
+	if r.tt.HasText("Alesso & Zara Larsson") {
+		t.Error("the combined artist is still listed though its song and album are credited to Alesso and Zara Larsson")
+	}
+	r = open("r.zl")
+	r.tt.Until("Zara Larsson's page", r.tt.Shows("Artist · 1 album, 1 song", "Albums by Zara Larsson in your library", "Words", "2021 · Single"))
 }

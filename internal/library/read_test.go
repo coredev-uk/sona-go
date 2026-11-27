@@ -165,16 +165,17 @@ func TestLargeLibraryListsFast(t *testing.T) {
 	// A quarter of the songs credited to two artists, as the sync stores them:
 	// 500 credit-only artists, and the library artists of the others.
 	for _, q := range []string{
-		`INSERT INTO track_artists (track_id, artist_catalog_id, name, position)
-			SELECT id, 'k' || (id % 500), 'Credit ' || (id % 500), 0 FROM tracks WHERE id % 4 = 0`,
-		`INSERT INTO track_artists (track_id, artist_catalog_id, name, position)
-			SELECT id, 'cr.' || (id % 7), 'Second', 1 FROM tracks WHERE id % 4 = 0`,
+		`INSERT INTO track_artists (track_id, artist_catalog_id, name, name_key, position)
+			SELECT id, 'k' || (id % 500), 'Credit ' || (id % 500), 'credit ' || (id % 500), 0 FROM tracks WHERE id % 4 = 0`,
+		// The credited name is the library artist's ("Artist 3"), as Apple's.
+		`INSERT INTO track_artists (track_id, artist_catalog_id, name, name_key, position)
+			SELECT id, 'cr.' || (id % 7), 'Artist ' || (id % 7), 'artist ' || (id % 7), 1 FROM tracks WHERE id % 4 = 0`,
 		// A quarter of the albums too: 75 more credit-only artists, and the
 		// library artists r.0 to r.4 gain the albums credited to them.
-		`INSERT INTO album_artists (album_id, artist_catalog_id, name, position)
-			SELECT id, 'ak' || (id % 300), 'Album credit ' || (id % 300), 0 FROM albums WHERE id % 4 = 0`,
-		`INSERT INTO album_artists (album_id, artist_catalog_id, name, position)
-			SELECT id, 'cr.' || (id % 7), 'Second', 1 FROM albums WHERE id % 4 = 0`,
+		`INSERT INTO album_artists (album_id, artist_catalog_id, name, name_key, position)
+			SELECT id, 'ak' || (id % 300), 'Album credit ' || (id % 300), 'album credit ' || (id % 300), 0 FROM albums WHERE id % 4 = 0`,
+		`INSERT INTO album_artists (album_id, artist_catalog_id, name, name_key, position)
+			SELECT id, 'cr.' || (id % 7), 'Artist ' || (id % 7), 'artist ' || (id % 7), 1 FROM albums WHERE id % 4 = 0`,
 	} {
 		if _, err := e.db.W.ExecContext(ctx, q); err != nil {
 			t.Fatal(err)
@@ -230,7 +231,7 @@ func TestLargeLibraryListsFast(t *testing.T) {
 	check("artist albums", func() (int, error) {
 		_, r, err := lib.ArtistAlbums(ctx, "r.1")
 		return len(r), err
-	}, 275, 2, 276) // the artist, then their albums: 240 of their own and 35 credited to them
+	}, 223, 2, 224) // the artist, then their albums: the 180 of their own that are uncredited and 43 credited to them
 	check("album detail", func() (int, error) {
 		_, r, err := lib.Album(ctx, "l.500")
 		return len(r), err

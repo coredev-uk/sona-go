@@ -471,8 +471,9 @@ func (l *Library) Album(ctx context.Context, id string) (Album, []Song, error) {
 // artistRow is the artist the Artists list shows under key: a library
 // artist's library ID, or the catalogue ID of an artist the library holds
 // only through the credits of songs and albums (credit-only: no library ID,
-// the catalogue row's artwork when the catalogue cache has one). Its name is
-// the first credit's, a song's before an album's. ErrNotFound for neither.
+// the artwork of its catalogue artist row, which the credits pass stores).
+// Its name is the first credit's, a song's before an album's. ErrNotFound for
+// neither.
 func (l *Library) artistRow(ctx context.Context, key string) (Artist, error) {
 	a, err := one(query(ctx, l, `SELECT r.library_id, r.catalog_id, r.name, r.artwork_template FROM artists r
 		WHERE r.library_id = ?`, scanArtist, key))
@@ -497,9 +498,10 @@ func (l *Library) artistRow(ctx context.Context, key string) (Artist, error) {
 // the catalogue ID of a credit-only artist, see artistRow) and its library
 // albums (newest release first), without its songs: what the Artists overview
 // shows. An album is the artist's when the catalogue credits it to them
-// (Syncer.syncCredits), or, for a library artist, when Apple's library
-// names them its artist: a compilation credited to no artist stays with its
-// library artist.
+// (Syncer.syncCredits; album_credit_keys), or, with no credits, when Apple's
+// library names them its artist: a compilation credited to no artist stays
+// with its library artist, and a combined artist ("A & B") keeps only the
+// albums with no credits, as the Artists list counts them.
 func (l *Library) ArtistAlbums(ctx context.Context, key string) (Artist, []Album, error) {
 	a, err := l.artistRow(ctx, key)
 	if err != nil {
@@ -507,8 +509,8 @@ func (l *Library) ArtistAlbums(ctx context.Context, key string) (Artist, []Album
 	}
 	albums, err := query(ctx, l, `SELECT `+albumColumns+` FROM albums a
 		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
-		WHERE a.artist_library_id = ? OR a.id IN (SELECT k.album_id FROM album_credit_keys k WHERE k.artist_key = ?)
-		ORDER BY a.release_date DESC, a.name COLLATE NOCASE`, scanAlbum, key, key)
+		WHERE a.id IN (SELECT k.album_id FROM album_credit_keys k WHERE k.artist_key = ?)
+		ORDER BY a.release_date DESC, a.name COLLATE NOCASE`, scanAlbum, key)
 	if err != nil {
 		return Artist{}, nil, err
 	}
@@ -517,7 +519,8 @@ func (l *Library) ArtistAlbums(ctx context.Context, key string) (Artist, []Album
 
 // Artist returns the artist under key (see ArtistAlbums), its library albums
 // (newest first) and its library songs that are out: the songs credited to
-// it (Syncer.syncCredits), and those of its library artist with no credits.
+// it (Syncer.syncCredits; track_credit_keys), and those of its library artist
+// with no credits.
 func (l *Library) Artist(ctx context.Context, key string) (Artist, []Album, []Song, error) {
 	a, albums, err := l.ArtistAlbums(ctx, key)
 	if err != nil {
@@ -526,8 +529,8 @@ func (l *Library) Artist(ctx context.Context, key string) (Artist, []Album, []So
 	today := l.today()
 	songs, err := query(ctx, l, `SELECT `+trackColumns(today)+` FROM tracks t
 		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id`+withAlbum+`
-		WHERE (t.artist_library_id = ? OR t.id IN (SELECT k.track_id FROM track_credit_keys k WHERE k.artist_key = ?)) AND `+out(today)+`
-		ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number`, scanSong, key, key)
+		WHERE t.id IN (SELECT k.track_id FROM track_credit_keys k WHERE k.artist_key = ?) AND `+out(today)+`
+		ORDER BY t.album_name COLLATE NOCASE, t.disc_number, t.track_number`, scanSong, key)
 	if err != nil {
 		return Artist{}, nil, nil, fmt.Errorf("library: artist tracks: %w", err)
 	}
@@ -554,9 +557,13 @@ type ArtistSummary struct {
 // album_credit_keys), each credited artist counting the song or album; one
 // with no credits counts for its library artist: a compilation credited to
 // "Various Artists" (Apple credits it to no artist) stays with its library
-// artist, as does an upload. A credited artist the library has no artist row
-// for is listed from its credits. A library artist whose songs and albums
-// were all credited elsewhere ("A & B") is not listed.
+// artist, as does an upload. A credit goes to the library artist of that name
+// (catalogue ID and name_key equal), never to one that only shares the
+// catalogue ID ("A & B" carries A's): any other credited artist is listed from
+// its credits, with its catalogue artist row's artwork first, else the newest
+// album credited to them.
+// A library artist whose songs and albums were all credited elsewhere
+// ("A & B") is not listed.
 func (l *Library) ArtistIndex(ctx context.Context) ([]ArtistSummary, error) {
 	today := l.today()
 	return query(ctx, l, `WITH cr AS (

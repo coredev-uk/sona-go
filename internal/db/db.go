@@ -86,14 +86,15 @@ func migrate(ctx context.Context, w *sql.DB) error {
 	return nil
 }
 
-// provider returns the goose provider over the embedded migrations. They are
-// numbered densely (00001, 00002, …) and applied strictly in order.
+// provider returns the goose provider over the embedded migrations and the Go
+// ones (nameKeysMigration). They are numbered densely (00001, 00002, …) and
+// applied strictly in order.
 func provider(w *sql.DB) (*goose.Provider, error) {
 	fsys, err := fs.Sub(migrations, "migrations")
 	if err != nil {
 		return nil, err
 	}
-	p, err := goose.NewProvider(goose.DialectSQLite3, w, fsys)
+	p, err := goose.NewProvider(goose.DialectSQLite3, w, fsys, goose.WithGoMigrations(nameKeysMigration()))
 	if err != nil {
 		return nil, fmt.Errorf("db: migrations: %w", err)
 	}

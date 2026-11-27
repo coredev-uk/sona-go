@@ -44,6 +44,10 @@ type fakeApple struct {
 	// /v1/catalog/{sf}/albums?ids=...&include=artists. A compilation is
 	// present with no artists ("Various Artists").
 	albumCredits map[string][][2]string
+	// creditArtwork is the artwork template Apple's include=artists carries
+	// for a credited catalogue artist ID (checked 2026-11-27: every included
+	// artist has one); an artist not in it is served without artwork.
+	creditArtwork map[string]string
 
 	failPath   string // path answering 400 ...
 	failOffset int    // ... for this page offset
@@ -178,7 +182,11 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			artists := []any{}
 			for _, a := range cr {
-				artists = append(artists, map[string]any{"id": a[0], "type": "artists", "attributes": map[string]any{"name": a[1]}})
+				attrs := map[string]any{"name": a[1]}
+				if url, ok := f.creditArtwork[a[0]]; ok {
+					attrs["artwork"] = map[string]any{"url": url, "width": 1000, "height": 1000}
+				}
+				artists = append(artists, map[string]any{"id": a[0], "type": "artists", "attributes": attrs})
 			}
 			data = append(data, map[string]any{
 				"id": id, "type": strings.TrimPrefix(kind.suffix, "/"),

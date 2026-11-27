@@ -128,8 +128,8 @@ func TestCreditedSongsGroupUnderEachArtist(t *testing.T) {
 		"r.bo":  {"Solo B", "Three", "Together"},
 		"900":   {"Three"},
 		"r.up":  {"Mine"},
-		// The combined library artist still has its own songs (its page, its pin).
-		"r.duo": {"Together"},
+		// The combined library artist holds nothing: its song is credited.
+		"r.duo": {},
 	} {
 		a, albums, got, err := e.lib.Artist(ctx, id)
 		if err != nil {

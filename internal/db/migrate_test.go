@@ -210,3 +210,69 @@ func TestMigrateBackfillsLibraryRelease(t *testing.T) {
 		t.Fatalf("last_full = %v (albums), %v (songs), %v (playlists)", albums, songs, playlists)
 	}
 }
+
+// TestMigrateFoldsCreditNames checks 00022 and 00023 on data: the names
+// already stored get their folded key (case, accents), and the songs whose
+// credits name an artist that neither a library artist of that name nor a
+// catalogue row holds are asked about again (credits_checked 0), no other.
+func TestMigrateFoldsCreditNames(t *testing.T) {
+	ctx := context.Background()
+	w := openRaw(t, "keys.db")
+	p, err := provider(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.UpTo(ctx, 21); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Exec(`INSERT INTO artists (library_id, catalog_id, name, updated_at) VALUES
+			('r.az', '432464201', 'Alesso & Zara Larsson', 1), ('r.bey', '5', 'Beyoncé', 1);
+		INSERT INTO artists (catalog_id, name, updated_at) VALUES ('7', 'Seven', 1);
+		INSERT INTO tracks (library_id, catalog_id, name, artist_name, credits_checked, updated_at) VALUES
+			('i.1', '10', 'Words', 'Alesso & Zara Larsson', 100, 1),
+			('i.2', '11', 'Halo', 'Beyoncé & Seven', 100, 1);
+		INSERT INTO track_artists (track_id, artist_catalog_id, name, position) VALUES
+			(1, '432464201', 'Alesso', 0), (1, '5', 'Beyoncé', 1), (2, '5', 'BEYONCE', 0), (2, '7', 'Seven', 1);
+		INSERT INTO albums (library_id, catalog_id, name, credits_checked, updated_at) VALUES ('l.1', '20', 'Words - Single', 100, 1);
+		INSERT INTO album_artists (album_id, artist_catalog_id, name, position) VALUES (1, '432464201', 'Alesso', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrate(ctx, w); err != nil {
+		t.Fatal(err)
+	}
+	keys := func(query string) string {
+		rows, err := w.Query(query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = rows.Close() }()
+		var out []string
+		for rows.Next() {
+			var s string
+			if err := rows.Scan(&s); err != nil {
+				t.Fatal(err)
+			}
+			out = append(out, s)
+		}
+		return strings.Join(out, ",")
+	}
+	if got := keys(`SELECT name_key FROM artists ORDER BY id`); got != "alesso & zara larsson,beyonce,seven" {
+		t.Errorf("artist keys = %s", got)
+	}
+	if got := keys(`SELECT name_key FROM track_artists ORDER BY rowid`); got != "alesso,beyonce,beyonce,seven" {
+		t.Errorf("credit keys = %s", got)
+	}
+	// Song 1 names Alesso, held by neither a library artist of that name nor a
+	// catalogue row; song 2 names Beyoncé (a library artist, by name) and Seven
+	// (a catalogue row).
+	if got := keys(`SELECT credits_checked FROM tracks ORDER BY id`); got != "0,100" {
+		t.Errorf("songs' credits_checked = %s, want 0,100", got)
+	}
+	if got := keys(`SELECT credits_checked FROM albums`); got != "0" {
+		t.Errorf("albums' credits_checked = %s, want 0", got)
+	}
+	// The views key a credit by the artist of that name only.
+	if got := keys(`SELECT artist_key FROM track_credit_keys ORDER BY track_id, artist_key`); got != "432464201,r.bey,7,r.bey" {
+		t.Errorf("track credit keys = %s, want 432464201,r.bey,7,r.bey", got)
+	}
+}
