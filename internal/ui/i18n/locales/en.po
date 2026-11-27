@@ -2986,6 +2986,15 @@ msgstr "Get tickets for {lineup}"
 msgid "Get tickets for {lineup} from {seller}, opens in your browser"
 msgstr "Get tickets for {lineup} from {seller}, opens in your browser"
 
+#: internal/ui/i18n/errors.go
+msgid "GitHub's limit for this network was reached. Sona will check again later."
+msgstr "GitHub's limit for this network was reached. Sona will check again later."
+
+#. Said when GitHub's limit for update checks from this network is used up; time is the time of day it is over, such as 18:15 or 6:15 PM.
+#: internal/ui/i18n/errors.go
+msgid "GitHub's limit for this network was reached; Sona will check again after {time}."
+msgstr "GitHub's limit for this network was reached; Sona will check again after {time}."
+
 #: internal/ui/features/inspect/model.go
 msgid "Global"
 msgstr "Global"

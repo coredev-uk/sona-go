@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/artwork"
@@ -114,6 +115,7 @@ func TestEveryCodeIsClassified(t *testing.T) {
 		CodeUpdateSignature:     update.ErrSignature,
 		CodeUpdateFailed:        update.ErrInstall,
 		CodeRestoreFailed:       update.ErrRestore,
+		CodeRateLimited:         fmt.Errorf("checking: %w", &update.RateLimitError{Reset: time.Now().Add(time.Hour)}),
 		CodeKeyring:             auth.ErrKeyring,
 		CodeImageUnusable:       artwork.ErrCoverImage,
 		CodeVideoHDOnly:         playback.ErrVideoHDOnly,

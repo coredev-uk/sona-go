@@ -73,7 +73,7 @@ func TestLatestSendsNothingAboutTheUser(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	rel, err := Checker{API: srv.URL}.Latest(context.Background())
+	rel, err := Checker{API: srv.URL}.Latest(context.Background(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestLatestNotesStopAtTheInstallInstructions(t *testing.T) {
 			}
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(body) }))
 			defer srv.Close()
-			rel, err := Checker{API: srv.URL}.Latest(context.Background())
+			rel, err := Checker{API: srv.URL}.Latest(context.Background(), false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -178,7 +178,7 @@ func TestLatestResponses(t *testing.T) {
 				_, _ = w.Write([]byte(tc.body))
 			}))
 			defer srv.Close()
-			rel, err := Checker{API: srv.URL}.Latest(context.Background())
+			rel, err := Checker{API: srv.URL}.Latest(context.Background(), false)
 			switch {
 			case tc.wantErr == errAny:
 				if err == nil || errors.Is(err, ErrNoRelease) {

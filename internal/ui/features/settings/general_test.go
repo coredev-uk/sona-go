@@ -13,11 +13,13 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
+	"github.com/coredev-uk/sona-go/internal/update"
 )
 
 // fakeUpdates is the update check without GitHub.
@@ -698,6 +700,12 @@ func TestUpdateVerdicts(t *testing.T) {
 			[]string{"Couldn't check GitHub for updates"},
 			[]string{"View release"},
 		},
+		{
+			"rate limited",
+			services.UpdateStatus{Current: "1.0.0", Checkable: true, Error: services.CodeRateLimited, RetryAt: now.Add(20 * time.Minute).UnixMilli()},
+			[]string{"Couldn't check GitHub for updates", "GitHub's limit for this network was reached; Sona will check again after " + i18n.FormatClock(now.Add(20*time.Minute))},
+			[]string{"View release", "Something went wrong"},
+		},
 		{"never", services.UpdateStatus{Current: "1.0.0", Checkable: true}, []string{"Sona 1.0.0 · not checked yet"}, nil},
 		{
 			"up to date",
@@ -778,6 +786,18 @@ func TestFailedCheckSaysWhy(t *testing.T) {
 	g.toEnd()
 	g.click("Check now")
 	g.until("failure", g.tt.Shows("Couldn't check: "))
+}
+
+// GitHub's limit for this network says when Sona checks again, in the local
+// time format, in place of "Couldn't check" and a generic cause.
+func TestRateLimitedCheckSaysWhenItChecksAgain(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	reset := time.Now().Add(20 * time.Minute)
+	g.up.checkErr = fmt.Errorf("checking: %w", &update.RateLimitError{Reset: reset})
+	g.until("button", g.tt.Shows("Check now"))
+	g.toEnd()
+	g.click("Check now")
+	g.until("failure", g.tt.Shows("Couldn't check: GitHub's limit for this network was reached; Sona will check again after "+i18n.FormatClock(reset)))
 }
 
 func TestViewReleaseOpensThePageAndAFailureToasts(t *testing.T) {

@@ -1,6 +1,12 @@
 package i18n
 
-import "github.com/coredev-uk/sona-go/internal/services"
+import (
+	"errors"
+	"time"
+
+	"github.com/coredev-uk/sona-go/internal/services"
+	"github.com/coredev-uk/sona-go/internal/update"
+)
 
 // ErrorText is the wording of a services error code in the language shown:
 // v0.2.0's shared/lib/errors.ts codeMessages, with the same msgids. An
@@ -104,6 +110,8 @@ func ErrorText(code services.ErrorCode) string {
 		return T("The update couldn't be installed. Sona is unchanged.")
 	case services.CodeRestoreFailed:
 		return T("Sona couldn't put the previous version back. Check that it can write where it is installed, then try again.")
+	case services.CodeRateLimited:
+		return T("GitHub's limit for this network was reached. Sona will check again later.")
 	case services.CodeKeyring:
 		return T("Your keyring didn't answer or refused. Unlock it, then try again.")
 	case services.CodeImageUnusable:
@@ -112,15 +120,28 @@ func ErrorText(code services.ErrorCode) string {
 	return T("Something went wrong.")
 }
 
+// RateLimitText words GitHub's limit for this network having been reached:
+// Sona checks again after until, shown as a time of day in the shown
+// language's hour cycle and the computer's time zone.
+func RateLimitText(until time.Time) string {
+	// translators: Said when GitHub's limit for update checks from this network is used up; time is the time of day it is over, such as 18:15 or 6:15 PM.
+	return T("GitHub's limit for this network was reached; Sona will check again after {time}.", "time", FormatClock(until))
+}
+
 // ErrorMessage is the wording of an error for the user: Apple's own,
 // already localised wording of a sign-in failure Sona has no code for,
-// else the text of the error's code (services.CodeOf). nil is "".
+// GitHub's limit with the time it is over, else the text of the error's code
+// (services.CodeOf). nil is "".
 func ErrorMessage(err error) string {
 	if err == nil {
 		return ""
 	}
 	if m := services.AppleMessage(err); m != "" {
 		return m
+	}
+	var rl *update.RateLimitError
+	if errors.As(err, &rl) {
+		return RateLimitText(rl.Reset)
 	}
 	return ErrorText(services.CodeOf(err))
 }

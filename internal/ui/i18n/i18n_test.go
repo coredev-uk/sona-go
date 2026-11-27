@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"bytes"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -17,6 +18,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/i18n/po"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n/locales"
+	"github.com/coredev-uk/sona-go/internal/update"
 )
 
 // reset puts the package back to English with no layers.
@@ -527,5 +529,31 @@ func TestErrorMessage(t *testing.T) {
 	}
 	if got := ErrorMessage(services.ErrNameRequired); got != "Enter a name." {
 		t.Errorf("a service error is worded by its code: %q", got)
+	}
+}
+
+// GitHub's limit is worded with when it is over, in the shown language's
+// clock; its bare code, without a time, says "later".
+func TestErrorMessageNamesWhenGitHubsLimitIsOver(t *testing.T) {
+	reset(t)
+	until := time.Date(2026, 11, 27, 18, 15, 6, 0, time.Local)
+	err := fmt.Errorf("update check: %w", &update.RateLimitError{Reset: until})
+	want := "GitHub's limit for this network was reached; Sona will check again after " + FormatClock(until) + "."
+	if got := ErrorMessage(err); got != want {
+		t.Errorf("ErrorMessage = %q, want %q", got, want)
+	}
+	if got := RateLimitText(until); got != want {
+		t.Errorf("RateLimitText = %q, want %q", got, want)
+	}
+	if got := ErrorText(services.CodeRateLimited); got != "GitHub's limit for this network was reached. Sona will check again later." {
+		t.Errorf("ErrorText = %q", got)
+	}
+	SetLocale("en-US")
+	if got := FormatClock(until); got != "6:15 PM" {
+		t.Errorf("en-US clock = %q", got)
+	}
+	SetLocale("en-GB")
+	if got := FormatClock(until); got != "18:15" {
+		t.Errorf("en-GB clock = %q", got)
 	}
 }

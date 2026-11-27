@@ -75,6 +75,8 @@ func (s *settings) updateVerdict(st services.UpdateStatus) verdict {
 			v.detail, v.ok = i18n.ErrorText(st.InstallError), -1
 		}
 		return v
+	case st.Error == services.CodeRateLimited && st.RetryAt != 0:
+		return verdict{text: i18n.T("Couldn't check GitHub for updates"), detail: i18n.RateLimitText(stampTime(st.RetryAt)), ok: -1}
 	case st.Error != "":
 		return verdict{text: i18n.T("Couldn't check GitHub for updates"), detail: i18n.ErrorText(st.Error), ok: -1}
 	case st.Checked == 0:

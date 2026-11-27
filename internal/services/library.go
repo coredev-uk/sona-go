@@ -37,16 +37,21 @@ type LibraryService struct {
 	// removeRecheck is how long after a removal Remove checks that Apple
 	// really dropped the item (see confirmRemoved).
 	removeRecheck time.Duration
+	// rel is the timer that syncs when a pre-added album comes out
+	// (library_release_sync.go).
+	rel *releaseSync
 }
 
 // newLibraryService also schedules the library sync: after first paint
 // and on sign-in when stale, cancelled before the sign-out wipe.
 func newLibraryService(e *Env) *LibraryService {
 	s := &LibraryService{o: e, m: e.m, setClipboard: e.Clipboard, removeRecheck: 10 * time.Second}
+	s.rel = newReleaseSync(s)
 	s.signedIn = func() bool { return e.Auth.Status().State == auth.StateSignedIn }
 	s.remote.init(s)
 	e.OnNetwork(func() {
 		go s.syncIfStale(context.Background())
+		go s.rel.begin()
 		s.startRemoteChecks()
 		if e.History != nil {
 			go e.History.trim(context.Background())
@@ -60,9 +65,13 @@ func newLibraryService(e *Env) *LibraryService {
 		was := prev
 		prev = st.State
 		if st.State == auth.StateSignedIn && was != auth.StateSignedIn {
-			go e.OnNetwork(func() { s.syncIfStale(context.Background()) })
+			go e.OnNetwork(func() {
+				s.syncIfStale(context.Background())
+				s.rel.enable()
+			})
 		}
 	})
+	e.OnSignOut("library release sync", func(context.Context) error { s.rel.disable(); return nil })
 	e.OnSignOut("library sync", func(context.Context) error { s.stopSync(); return nil })
 	e.OnClose(s.close)
 	return s
@@ -531,6 +540,7 @@ func (s *LibraryService) start(run syncRun) error {
 		if run.quiet {
 			s.announceRemote(before, start, err)
 		} else {
+			s.rearmRelease()
 			c, cerr := s.o.Library.Counts(context.Background())
 			if cerr != nil {
 				s.o.Logger.Warn("library: counts", "err", cerr)
@@ -563,6 +573,9 @@ func (s *LibraryService) stopSync() {
 
 // close stops any sync and refuses new ones.
 func (s *LibraryService) close() {
+	if s.rel != nil { // a service built by a test has none
+		s.rel.close()
+	}
 	s.remote.close()
 	s.mu.Lock()
 	s.closed = true

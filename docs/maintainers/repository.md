@@ -63,15 +63,23 @@ needs:
   update-T.json` signs it (key from `$SONA_UPDATE_KEY`): the digest, as MyGo
   checks it, and a statement of target, version, channel and digest that
   Sona checks (`docs/architecture.md`, "Updates"); the publish job signs
-  last, after the archives are uploaded.
-- A prerelease's notes (and its manifests' notes) are `go run ./cmd/rcnotes
+  last, after the archives are uploaded. `-release-info -version V -notes
+  FILE -out release.json` signs the platform-neutral `release.json` (version,
+  publication time and notes) with the same key, and `-verify FILE` checks
+  one against `update.pub`: Linux's update check, the release notes and
+  What's New read it instead of GitHub's rate-limited API
+  (`docs/architecture.md`, "Updates").
+- A prerelease's notes (and its manifests' and `release.json`'s notes) are `go run ./cmd/rcnotes
   -exclude <tag>`: the changes since the previous `v*` tag, by Conventional
   Commit type (`docs/maintainers/release.md`, "Releasing": the Prerelease notes item).
 - Tests run against an `httptest` fake release server (`internal/update`,
   `internal/services/updates_self_test.go`): the check, a bad signature
   refused, a replayed older manifest, another platform's, a tampered
   version or digest and a manifest without a statement refused, no key
-  (off), a development build never checking, the rollback
+  (off), a development build never checking, GitHub's limit as a typed error
+  that holds every call, the prerelease feed from a fake `releases.atom`, a
+  `release.json` verified and a bad one refused, a release without it read
+  from the API, the rollback
   decision, a failed install leaving the kept version as it was, and the
   archive rules (`archive_test.go`, pinned to what MyGo's extractor does with
   the same entries; the Windows archive script is run on a folder and its

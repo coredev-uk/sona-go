@@ -81,7 +81,11 @@ contents:
 
 # Runtime: MyGo loads GTK3, libepoxy (GL), EGL (libglvnd) and AT-SPI
 # (accessibility) by soname with purego, so none of them shows up in ldd and
-# each must be declared here. No WebKitGTK, GTK4, libsoup or Node. GStreamer
+# each must be declared here. libepoxy dlopens libOpenGL.so.0 or libGL.so.1
+# itself (libopengl0 | libgl1) and aborts without one, and EGL draws through
+# Mesa's DRI drivers, llvmpipe included (libgl1-mesa-dri, mesa-dri-drivers).
+# Nothing else on a minimal install brings them in. No WebKitGTK, GTK4,
+# libsoup or Node. GStreamer
 # core + base (appsrc, audioconvert, audioresample, volume) + good
 # (autoaudiosink) + an AAC decoder (avdec_aac from libav) + a PipeWire or
 # PulseAudio sink for the playback host.
@@ -98,6 +102,8 @@ depends:
   - libgtk-3-0
   - libepoxy0
   - libegl1
+  - libopengl0 | libgl1
+  - libgl1-mesa-dri
   - at-spi2-core
   - libgstreamer1.0-0
   - libgstreamer-plugins-base1.0-0
@@ -123,6 +129,8 @@ overrides:
       - gtk3
       - libepoxy
       - libglvnd-egl
+      - libglvnd-opengl
+      - mesa-dri-drivers
       - at-spi2-core
       - gstreamer1
       - gstreamer1-plugins-base

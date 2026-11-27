@@ -99,3 +99,45 @@ func SongUnreleased(ctx context.Context, d *db.DB, today, libraryID string) (boo
 // Day is the local day at now, "YYYY-MM-DD": what the release rule compares
 // with.
 func Day(now time.Time) string { return now.In(time.Local).Format(time.DateOnly) }
+
+// PendingRelease is a library album whose release Apple's data may not
+// show yet: the fields libraryRelease (services) reads.
+type PendingRelease struct {
+	LibraryID          string
+	ReleaseDate        string
+	CatalogReleaseDate string
+	Prerelease         bool
+}
+
+// PendingReleases lists the library albums a sync at their release may
+// change: those still ahead of it or flagged pre-release (as
+// UpcomingLibraryAlbums, which the sync refreshes), and those released since
+// yesterday that still have a song with no playParams (a placeholder Apple
+// has not published). An album released earlier is not listed for its songs:
+// one Apple never gave playParams stays without them.
+func (l *Library) PendingReleases(ctx context.Context, now time.Time) ([]PendingRelease, error) {
+	rows, err := l.db.R.QueryContext(ctx, `SELECT a.library_id, a.release_date, a.catalog_release_date, a.is_prerelease
+		FROM albums a JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
+		WHERE a.library_id IS NOT NULL AND (a.is_prerelease = 1 OR a.release_date > ?1 OR a.catalog_release_date > ?1
+			OR ((a.release_date >= ?2 OR a.catalog_release_date >= ?2) AND EXISTS (
+				SELECT 1 FROM tracks t JOIN library_items lt ON lt.kind = 'song' AND lt.ref = t.id
+				WHERE t.album_library_id = a.library_id AND t.no_play_params = 1)))`, Day(now), Day(now.AddDate(0, 0, -1)))
+	if err != nil {
+		return nil, fmt.Errorf("library: pending releases: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []PendingRelease
+	for rows.Next() {
+		var p PendingRelease
+		var flagged int64
+		if err := rows.Scan(&p.LibraryID, &p.ReleaseDate, &p.CatalogReleaseDate, &flagged); err != nil {
+			return nil, fmt.Errorf("library: pending releases: %w", err)
+		}
+		p.Prerelease = flagged != 0
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("library: pending releases: %w", err)
+	}
+	return out, nil
+}
