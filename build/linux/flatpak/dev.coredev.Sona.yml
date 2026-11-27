@@ -4,7 +4,7 @@
 # This manifest builds Sona from the working tree in org.gnome.Sdk, with the Go
 # toolchain from org.freedesktop.Sdk.Extension.golang and every Go module
 # supplied as a checksummed source (go-sources.json), so the build needs no
-# network. MyGo loads GTK3, libepoxy, AT-SPI, libsecret and EGL by soname, and
+# network. MyGo loads GTK3, libepoxy, AT-SPI and EGL by soname, and
 # org.gnome.Platform provides all of them; the tray's libayatana-appindicator3
 # (and its libayatana-indicator, ayatana-ido and libdbusmenu-gtk3) is not in
 # the runtime and is built as modules below.
