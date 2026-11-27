@@ -75,6 +75,8 @@ const maxPage = 1000
 // ListOptions pages and orders a list. Limit 0 means 100; it is capped at
 // 1000. Type applies to albums only.
 type ListOptions struct {
+	// Query keeps the songs the search index finds for it (Songs only).
+	Query  string    `json:"query"`
 	Sort   Sort      `json:"sort"`
 	Desc   bool      `json:"desc"`
 	Type   AlbumType `json:"type"`
@@ -116,6 +118,11 @@ type Song struct {
 	AlbumName       string `json:"albumName"`
 	AlbumLibraryID  string `json:"albumLibraryId"`
 	ArtistLibraryID string `json:"artistLibraryId"`
+	// AlbumCatalogID and ArtistCatalogID are the catalogue's: all a catalogue
+	// song stored by a playlist has (library.StoreSong), and what a library
+	// song with no library album or artist of its own is opened by.
+	AlbumCatalogID  string `json:"albumCatalogId"`
+	ArtistCatalogID string `json:"artistCatalogId"`
 	ArtworkTemplate string `json:"artworkTemplate"` // raw {w}x{h} URL
 	DurationMS      int64  `json:"durationMs"`
 	TrackNumber     int    `json:"trackNumber"`
@@ -130,6 +137,11 @@ type Song struct {
 	// album: release.go's rule, as of the library's clock). It is listed
 	// only on its album.
 	Unreleased bool `json:"unreleased"`
+	// NotInLibrary: a track of a playlist (Playlist) that is not one of the
+	// library's songs: a catalogue song of an added or collaborative
+	// playlist, which Apple keeps in the playlist only. A row of any other
+	// listing is in the library: false.
+	NotInLibrary bool `json:"notInLibrary"`
 }
 
 // Album is a library album.
@@ -208,19 +220,26 @@ type DomainStatus struct {
 // `t` joined with withAlbum, whether it is out as of today (release.go).
 func trackColumns(today string) string {
 	return `t.library_id, t.catalog_id, t.name, t.artist_name, t.album_name,
-	t.album_library_id, t.artist_library_id, t.artwork_template, t.duration_ms,
+	t.album_library_id, t.artist_library_id, t.album_catalog_id, t.artist_catalog_id, t.artwork_template, t.duration_ms,
 	t.track_number, t.disc_number, t.release_date, t.genre, t.content_rating, t.has_lyrics, t.no_play_params,
 	` + unreleased(today)
 }
 
-func scanSong(sc scanner) (Song, error) {
+func scanSong(sc scanner) (Song, error) { return scanSongWith(sc) }
+
+// scanSongWith scans the columns of trackColumns, then the columns that
+// follow them into extra.
+func scanSongWith(sc scanner, extra ...any) (Song, error) {
 	var s Song
-	var lib, cat, alb, art sql.NullString
+	var lib, cat, alb, art, albCat, artCat sql.NullString
 	var rating string
 	var lyrics, noParams, notOut int64
-	err := sc.Scan(&lib, &cat, &s.Name, &s.ArtistName, &s.AlbumName, &alb, &art, &s.ArtworkTemplate,
-		&s.DurationMS, &s.TrackNumber, &s.DiscNumber, &s.ReleaseDate, &s.Genre, &rating, &lyrics, &noParams, &notOut)
+	err := sc.Scan(append([]any{
+		&lib, &cat, &s.Name, &s.ArtistName, &s.AlbumName, &alb, &art, &albCat, &artCat, &s.ArtworkTemplate,
+		&s.DurationMS, &s.TrackNumber, &s.DiscNumber, &s.ReleaseDate, &s.Genre, &rating, &lyrics, &noParams, &notOut,
+	}, extra...)...)
 	s.LibraryID, s.CatalogID, s.AlbumLibraryID, s.ArtistLibraryID = lib.String, cat.String, alb.String, art.String
+	s.AlbumCatalogID, s.ArtistCatalogID = albCat.String, artCat.String
 	s.Explicit, s.HasLyrics, s.NoPlayParams, s.Unreleased = rating == "explicit", lyrics != 0, noParams != 0, notOut != 0
 	return s, err
 }
@@ -271,10 +290,44 @@ func (l *Library) Songs(ctx context.Context, o ListOptions) ([]Song, error) {
 	}
 	limit, offset := o.page()
 	today := l.today()
+	where, args := songFilter(o.Query)
 	return query(ctx, l, `SELECT `+trackColumns(today)+` FROM tracks t
 		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id`+withAlbum+`
-		WHERE `+out(today)+`
-		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanSong, limit, offset)
+		WHERE `+out(today)+where+`
+		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanSong, append(args, limit, offset)...)
+}
+
+// songFilter is the WHERE clause (to follow the out() one) and arguments that
+// keep the songs found by term in the search index: the words of term, each
+// a prefix of one in the name, artist or album (Search's rule). A term with
+// no words keeps every song.
+func songFilter(term string) (string, []any) {
+	match := matchExpr(term)
+	if match == "" {
+		return "", nil
+	}
+	return ` AND t.library_id IN (SELECT ref FROM search_fts WHERE kind = 'song' AND search_fts MATCH ?)`, []any{match}
+}
+
+// SongCount is the number of library songs that are out and found by term
+// (all of them when term has no words): Songs' total.
+func (l *Library) SongCount(ctx context.Context, term string) (int, error) {
+	where, args := songFilter(term)
+	if where == "" {
+		c, err := l.Counts(ctx)
+		return c.Songs, err
+	}
+	today := l.today()
+	n, err := query(ctx, l, `SELECT count(*) FROM tracks t
+		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id`+withAlbum+`
+		WHERE `+out(today)+where, func(sc scanner) (int, error) {
+		var n int
+		return n, sc.Scan(&n)
+	}, args...)
+	if err != nil || len(n) == 0 {
+		return 0, err
+	}
+	return n[0], nil
 }
 
 // AllSongs is Songs for every row from o.Offset on, collected page by page.
@@ -552,7 +605,9 @@ func (l *Library) playlistRow(ctx context.Context, id string) (Playlist, error) 
 // Playlist returns library playlist id and a page of its tracks in
 // playlist order (o.Sort is ignored). Apple lets no song that is not out be
 // added to a playlist, so it lists every track as stored (a one that were
-// there would be Unreleased and not playable).
+// there would be Unreleased and not playable). A track that is not in the
+// library (library_items) is NotInLibrary: an added or collaborative
+// playlist holds songs the library does not.
 func (l *Library) Playlist(ctx context.Context, id string, o ListOptions) (Playlist, []Song, error) {
 	p, err := l.playlistRow(ctx, id)
 	if err != nil {
@@ -564,11 +619,17 @@ func (l *Library) Playlist(ctx context.Context, id string, o ListOptions) (Playl
 	}
 	p = pls[0]
 	limit, offset := o.page()
-	songs, err := query(ctx, l, `SELECT `+trackColumns(l.today())+` FROM playlist_tracks pt
+	songs, err := query(ctx, l, `SELECT `+trackColumns(l.today())+`, li.ref IS NULL FROM playlist_tracks pt
 		JOIN playlists p ON p.id = pt.playlist_id
 		JOIN tracks t ON t.id = pt.track_id`+withAlbum+`
+		LEFT JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
 		WHERE p.library_id = ?
-		ORDER BY pt.position LIMIT ? OFFSET ?`, scanSong, id, limit, offset)
+		ORDER BY pt.position LIMIT ? OFFSET ?`, func(sc scanner) (Song, error) {
+		var out int64
+		s, err := scanSongWith(sc, &out)
+		s.NotInLibrary = out != 0
+		return s, err
+	}, id, limit, offset)
 	return p, songs, err
 }
 
@@ -585,8 +646,11 @@ func (l *Library) AllPlaylist(ctx context.Context, id string) (p Playlist, songs
 // PlacedPlaylist is a library playlist with its place in the folder tree.
 type PlacedPlaylist struct {
 	Playlist
-	FolderID  string // "" for the top level
-	Position  int
+	FolderID string // "" for the top level
+	Position int    // Apple's place among the folder's entries
+	// Order is the place, from 1, the user gave it among the folder's
+	// playlists (ReorderPlaylist); 0 when they gave none.
+	Order     int
 	CanDelete bool
 	Favorited bool
 	// Collaborative and Host: Apple's hasCollaboration and
@@ -623,7 +687,7 @@ func (l *Library) PlaylistTree(ctx context.Context) ([]dbq.PlaylistFolder, []Pla
 	out := make([]PlacedPlaylist, len(rows))
 	for i, r := range rows {
 		out[i] = PlacedPlaylist{
-			Playlist: pls[i], FolderID: r.FolderID, Position: int(r.FolderPosition),
+			Playlist: pls[i], FolderID: r.FolderID, Position: int(r.FolderPosition), Order: int(r.LocalPosition) + 1,
 			CanDelete: r.CanDelete != 0, Favorited: r.Favorited != 0,
 			Collaborative: r.IsCollaborative != 0, Host: r.CollaborativeHost != 0,
 		}

@@ -30,6 +30,7 @@ func (s *settings) general(c *ui.Context) {
 		s.group(c, "general-startup", i18n.T("Starting Sona"), "", func() {
 			s.startupRows(c, cfg, cp)
 			s.startPageRow(c, cfg)
+			s.greetingRow(c, cfg)
 			s.linkHandlerRow(c, cp)
 			s.setupRow(c)
 		})
@@ -108,5 +109,15 @@ func (s *settings) startPageRow(c *ui.Context, cfg config.Settings) {
 			return
 		}
 		s.saveDesktop(func(d *config.Desktop) { d.StartPage, d.ResumeLastRoute, d.LastRoute = v, false, "" })
+	})
+}
+
+// greetingRow turns the greeting above For You's heading on or off.
+func (s *settings) greetingRow(c *ui.Context, cfg config.Settings) {
+	s.switchRow(c, rowOpts{
+		ID: "home-greeting", Title: i18n.T("Greeting on For You"),
+		Desc: i18n.T("Says good morning, good afternoon or good evening above the heading, by the time on this computer."),
+	}, cfg.Home.Greeting, false, func(on bool) {
+		s.save(func(n *config.Settings) { n.Home.Greeting = on })
 	})
 }

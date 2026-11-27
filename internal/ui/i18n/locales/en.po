@@ -173,6 +173,7 @@ msgid "Add to the queue"
 msgstr "Add to the queue"
 
 #: internal/ui/features/playlist/drops.go
+#: internal/ui/features/playlist/reorder.go
 msgid "Add to “{name}”"
 msgstr "Add to “{name}”"
 
@@ -202,6 +203,7 @@ msgstr "Add-ons folder"
 msgid "Add-ons you install show here, each with its switch."
 msgstr "Add-ons you install show here, each with its switch."
 
+#: internal/ui/features/playlist/page.go
 #: internal/ui/kit/collections_tracklist.go
 msgid "Added By"
 msgstr "Added By"
@@ -372,6 +374,10 @@ msgstr "All your playlists are pinned above."
 msgid "Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."
 msgstr "Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Already in “{folder}”"
+msgstr "Already in “{folder}”"
+
 #: internal/ui/features/settings/updates.go
 msgid "Also offers release candidates and other test versions, so a test build updates to the next one."
 msgstr "Also offers release candidates and other test versions, so a test build updates to the next one."
@@ -450,6 +456,10 @@ msgstr "Apple Music"
 #: internal/ui/app/banner.go
 msgid "Apple Music asked Sona to sign in again. Your library is still here."
 msgstr "Apple Music asked Sona to sign in again. Your library is still here."
+
+#: internal/ui/features/library/history.go
+msgid "Apple Music couldn't be reached for all of your other devices, so some plays may be missing"
+msgstr "Apple Music couldn't be reached for all of your other devices, so some plays may be missing"
 
 #: internal/ui/features/song/page.go
 msgid "Apple Music has no credits or lyrics for this song."
@@ -999,6 +1009,10 @@ msgstr "Check now"
 msgid "Check the email or phone number and the password, then try again."
 msgstr "Check the email or phone number and the password, then try again."
 
+#: internal/ui/features/library/songs.go
+msgid "Check the spelling, or try fewer words. Find looks at a song's title, artist and album."
+msgstr "Check the spelling, or try fewer words. Find looks at a song's title, artist and album."
+
 #: internal/ui/features/search/page.go
 msgid "Check the spelling, try fewer words, or search your library instead."
 msgstr "Check the spelling, try fewer words, or search your library instead."
@@ -1131,6 +1145,7 @@ msgstr "Clear filters"
 msgid "Clear list"
 msgstr "Clear list"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/search/field.go
 #: internal/ui/kit/controls_input.go
 msgid "Clear search"
@@ -1147,6 +1162,7 @@ msgstr "Clearing…"
 #: internal/ui/features/commands/help.go
 #: internal/ui/kit/overlays_dialog.go
 #: internal/ui/kit/overlays_palette.go
+#: internal/ui/kit/release_notes.go
 msgid "Close"
 msgstr "Close"
 
@@ -1667,6 +1683,10 @@ msgstr "Couldn't load the new releases"
 msgid "Couldn't load the playlist"
 msgstr "Couldn't load the playlist"
 
+#: internal/ui/features/discover/charts.go
+msgid "Couldn't load the top songs"
+msgstr "Couldn't load the top songs"
+
 #: internal/ui/features/search/groups.go
 msgid "Couldn't load these results"
 msgstr "Couldn't load these results"
@@ -1761,7 +1781,7 @@ msgstr "Couldn't move the pin"
 msgid "Couldn't move the song"
 msgstr "Couldn't move the song"
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
 msgid "Couldn't move “{name}”"
 msgstr "Couldn't move “{name}”"
 
@@ -1783,6 +1803,7 @@ msgstr "Couldn't open the inspector"
 
 #: internal/ui/features/addons/addons.go
 #: internal/ui/features/inspect/panel.go
+#: internal/ui/features/updates/notes.go
 msgid "Couldn't open the link"
 msgstr "Couldn't open the link"
 
@@ -2444,6 +2465,10 @@ msgstr "Downloading, {percent}"
 msgid "Downloading…"
 msgstr "Downloading…"
 
+#: internal/ui/features/playlist/sidebar.go
+msgid "Drag a playlist to reorder it or to move it into a folder, or press Alt+↑ and Alt+↓ on it. Its menu also moves it."
+msgstr "Drag a playlist to reorder it or to move it into a folder, or press Alt+↑ and Alt+↓ on it. Its menu also moves it."
+
 #: internal/ui/features/playlist/editor.go
 msgid "Drag the handle, or press Alt+↑ and Alt+↓ on a song, to change the order. Delete removes the focused song."
 msgstr "Drag the handle, or press Alt+↑ and Alt+↓ on a song, to change the order. Delete removes the focused song."
@@ -2784,8 +2809,24 @@ msgid "Find in playlist"
 msgstr "Find in playlist"
 
 #: internal/ui/features/playlist/page.go
+msgid "Find in playlist or by who added"
+msgstr "Find in playlist or by who added"
+
+#: internal/ui/features/library/songs.go
+msgid "Find in your songs"
+msgstr "Find in your songs"
+
+#: internal/ui/features/playlist/page.go
 msgid "Find songs in this playlist"
 msgstr "Find songs in this playlist"
+
+#: internal/ui/features/library/songs.go
+msgid "Find songs in your library"
+msgstr "Find songs in your library"
+
+#: internal/ui/features/song/credits.go
+msgid "Finding {name}…"
+msgstr "Finding {name}…"
 
 #: internal/ui/app/menubar.go
 msgid "Find…"
@@ -3020,6 +3061,18 @@ msgstr "Go's catalogue cache"
 msgid "Gold"
 msgstr "Gold"
 
+#: internal/ui/features/home/greeting.go
+msgid "Good afternoon"
+msgstr "Good afternoon"
+
+#: internal/ui/features/home/greeting.go
+msgid "Good evening"
+msgstr "Good evening"
+
+#: internal/ui/features/home/greeting.go
+msgid "Good morning"
+msgstr "Good morning"
+
 #: internal/ui/i18n/cdm.go
 msgid "Google doesn't make Widevine for this computer, so songs can't play here."
 msgstr "Google doesn't make Widevine for this computer, so songs can't play here."
@@ -3048,6 +3101,10 @@ msgstr "Gradient"
 #: internal/ui/features/settings/themes.go
 msgid "Graphite"
 msgstr "Graphite"
+
+#: internal/ui/features/settings/general.go
+msgid "Greeting on For You"
+msgstr "Greeting on For You"
 
 #: internal/ui/features/settings/motiondiag.go
 msgid "H.264 decoding"
@@ -3238,6 +3295,7 @@ msgid "Install GStreamer 1.x with the base and good plugins."
 msgstr "Install GStreamer 1.x with the base and good plugins."
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 msgid "Install and restart"
 msgstr "Install and restart"
@@ -4012,6 +4070,18 @@ msgstr "Motion cache"
 msgid "Move"
 msgstr "Move"
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Move after “{name}”"
+msgstr "Move after “{name}”"
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Move before “{name}”"
+msgstr "Move before “{name}”"
+
+#: internal/ui/features/playlist/actions.go
+msgid "Move down"
+msgstr "Move down"
+
 #: internal/ui/features/player/queue_list.go
 #: internal/ui/features/playlist/editor.go
 msgid "Move here"
@@ -4030,6 +4100,15 @@ msgstr "Move to end"
 msgid "Move to folder…"
 msgstr "Move to folder…"
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Move to the top level"
+msgstr "Move to the top level"
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Move to “{folder}”"
+msgstr "Move to “{folder}”"
+
+#: internal/ui/features/playlist/actions.go
 #: internal/ui/features/playlist/sidebar.go
 msgid "Move up"
 msgstr "Move up"
@@ -4046,13 +4125,25 @@ msgstr "Move {name} up"
 msgid "Moved {songName} to position {position} of {count}"
 msgstr "Moved {songName} to position {position} of {count}"
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to position {position} of {count}"
+msgstr "Moved “{name}” to position {position} of {count}"
+
+#: internal/ui/features/playlist/reorder.go
 msgid "Moved “{name}” to the top level"
 msgstr "Moved “{name}” to the top level"
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to the top level, position {position} of {count}"
+msgstr "Moved “{name}” to the top level, position {position} of {count}"
+
+#: internal/ui/features/playlist/reorder.go
 msgid "Moved “{name}” to “{folder}”"
 msgstr "Moved “{name}” to “{folder}”"
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to “{folder}”, position {position} of {count}"
+msgstr "Moved “{name}” to “{folder}”, position {position} of {count}"
 
 #: internal/ui/account/token.go
 msgid "Music User Token"
@@ -4435,6 +4526,7 @@ msgstr "No singles or EPs in your library"
 msgid "No song in this playlist matches “{query}”."
 msgstr "No song in this playlist matches “{query}”."
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "No song matches “{query}”"
 msgstr "No song matches “{query}”"
@@ -4446,6 +4538,10 @@ msgstr "No songs for “{q}”"
 #: internal/ui/features/library/gate.go
 msgid "No songs in your library yet"
 msgstr "No songs in your library yet"
+
+#: internal/ui/features/library/songs.go
+msgid "No songs match “{query}”"
+msgstr "No songs match “{query}”"
 
 #: internal/ui/features/playlist/sidebar.go
 msgid "No songs to play"
@@ -4864,10 +4960,6 @@ msgstr "On this computer"
 #: internal/ui/features/library/history.go
 msgid "On this computer and your other devices"
 msgstr "On this computer and your other devices"
-
-#: internal/ui/features/library/history.go
-msgid "On this computer only: Apple Music couldn't be reached for your other devices"
-msgstr "On this computer only: Apple Music couldn't be reached for your other devices"
 
 #: internal/ui/features/discover/newpage.go
 msgid "On this page"
@@ -5857,6 +5949,10 @@ msgstr "Release"
 msgid "Release date"
 msgstr "Release date"
 
+#: internal/ui/kit/release_notes.go
+msgid "Release notes"
+msgstr "Release notes"
+
 #: internal/ui/features/newreleases/page.go
 msgid "Release tracking is off"
 msgstr "Release tracking is off"
@@ -5865,6 +5961,10 @@ msgstr "Release tracking is off"
 #: internal/ui/features/song/page.go
 msgid "Released"
 msgstr "Released"
+
+#: internal/ui/kit/release_notes.go
+msgid "Released {date}"
+msgstr "Released {date}"
 
 #: internal/ui/features/video/page.go
 msgid "Released {releaseDate}"
@@ -6078,6 +6178,7 @@ msgstr "Retro groove, yellow"
 msgid "Retry"
 msgstr "Retry"
 
+#: internal/ui/features/library/history.go
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/kit/controls_states.go
 msgid "Retrying…"
@@ -6217,6 +6318,10 @@ msgstr "Saving your sign-in in your keyring; unlock it if it asks."
 #: internal/ui/features/playlist/dialogs.go
 msgid "Saving…"
 msgstr "Saving…"
+
+#: internal/ui/features/settings/general.go
+msgid "Says good morning, good afternoon or good evening above the heading, by the time on this computer."
+msgstr "Says good morning, good afternoon or good evening above the heading, by the time on this computer."
 
 #: internal/ui/features/radio/station.go
 msgid "Schedule"
@@ -7437,6 +7542,10 @@ msgstr "Stations"
 msgid "Stay awake while playing"
 msgstr "Stay awake while playing"
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Stays where it is"
+msgstr "Stays where it is"
+
 #: internal/ui/kit/controls_badge.go
 msgid "Stereo · Apple has no Spatial Audio mix of this song for Sona"
 msgstr "Stereo · Apple has no Spatial Audio mix of this song for Sona"
@@ -8011,6 +8120,10 @@ msgstr "This playlist is empty"
 msgid "This playlist isn't available"
 msgstr "This playlist isn't available"
 
+#: internal/ui/kit/release_notes.go
+msgid "This release has no notes. The release page may say more."
+msgstr "This release has no notes. The release page may say more."
+
 #: internal/ui/account/signin.go
 msgid "This sign-in was cancelled"
 msgstr "This sign-in was cancelled"
@@ -8178,11 +8291,13 @@ msgstr "Trusted phone number"
 #: internal/ui/account/keyring.go
 #: internal/ui/features/auth/menu.go
 #: internal/ui/features/cdm/cdm.go
+#: internal/ui/features/library/history.go
 #: internal/ui/features/library/sync.go
 #: internal/ui/features/library/videos.go
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 #: internal/ui/features/video/view.go
 #: internal/ui/kit/controls_states.go
@@ -8466,6 +8581,7 @@ msgid "View playlist collaborators"
 msgstr "View playlist collaborators"
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 msgid "View release"
 msgstr "View release"
@@ -8562,6 +8678,15 @@ msgstr "What plays your music and how it sounds."
 #: internal/ui/features/onboarding/layer.go
 msgid "What you've chosen so far is kept. Settings → General runs the setup again."
 msgstr "What you've chosen so far is kept. Settings → General runs the setup again."
+
+#: internal/ui/kit/release_notes.go
+msgid "What's New in Sona {version}"
+msgstr "What's New in Sona {version}"
+
+#: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
+msgid "What's new"
+msgstr "What's new"
 
 #: internal/ui/features/onboarding/desktop.go
 msgid "When You Close the Window"
@@ -9472,10 +9597,12 @@ msgstr "{done} of {total}"
 msgid "{elsewhere} from other devices"
 msgstr "{elsewhere} from other devices"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "{found, plural, one {Play the # song found} other {Play the # songs found}}"
 msgstr "{found, plural, one {Play the # song found} other {Play the # songs found}}"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "{found, plural, one {Shuffle the # song found} other {Shuffle the # songs found}}"
 msgstr "{found, plural, one {Shuffle the # song found} other {Shuffle the # songs found}}"
@@ -9484,6 +9611,7 @@ msgstr "{found, plural, one {Shuffle the # song found} other {Shuffle the # song
 msgid "{found} of {everyone}"
 msgstr "{found} of {everyone}"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "{found} of {total, plural, one {# song} other {# songs}}"
 msgstr "{found} of {total, plural, one {# song} other {# songs}}"
@@ -9539,6 +9667,7 @@ msgstr "{len, plural, one {# digit} other {# digits}}"
 msgid "{matches, plural, one {# artist matches} other {# artists match}}"
 msgstr "{matches, plural, one {# artist matches} other {# artists match}}"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "{matches, plural, one {# song matches} other {# songs match}}"
 msgstr "{matches, plural, one {# song matches} other {# songs match}}"
@@ -9647,6 +9776,10 @@ msgstr "{name} no longer accepts Sona's sign-in. Reconnect to keep scrobbling."
 #: internal/ui/features/notifications/panel.go
 msgid "{name} was switched off"
 msgstr "{name} was switched off"
+
+#: internal/ui/features/song/credits.go
+msgid "{name}, artist page"
+msgstr "{name}, artist page"
 
 #: internal/ui/features/player/queue_row.go
 msgid "{name}, {artist}"

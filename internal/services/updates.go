@@ -371,16 +371,12 @@ func (s *UpdatesService) check(ctx context.Context) (UpdateStatus, error) {
 		return s.Status(), nil
 	}
 	var (
-		rel   update.Release
-		man   *update.Source
-		notes string
-		err   error
+		rel update.Release
+		man *update.Source
+		err error
 	)
 	if s.Status().SelfUpdate {
 		rel, man, err = s.checkFeed(ctx)
-		if man != nil {
-			notes = man.Update.Notes
-		}
 	} else {
 		rel, err = s.checker.Latest(ctx)
 	}
@@ -396,7 +392,7 @@ func (s *UpdatesService) check(ctx context.Context) (UpdateStatus, error) {
 		s.o.Logger.Warn("update check failed", "err", err)
 		return *st, err
 	default:
-		st.Latest, st.URL, st.Published, st.Notes = rel.Version, rel.URL, rel.Published.UnixMilli(), notes
+		st.Latest, st.URL, st.Published, st.Notes = rel.Version, rel.URL, rel.Published.UnixMilli(), update.WithoutVersionHeading(rel.Notes, rel.Version)
 		st.Available = update.Newer(rel.Version, st.Current)
 		s.manifest = man
 	}
@@ -413,6 +409,6 @@ func (s *UpdatesService) checkFeed(ctx context.Context) (update.Release, *update
 		return update.Release{}, nil, err
 	}
 	published, _ := time.Parse(time.RFC3339, m.Date)
-	rel := update.Release{Version: m.Version, URL: "https://github.com/" + update.Repo + "/releases/tag/v" + m.Version, Published: published}
+	rel := update.Release{Version: m.Version, URL: "https://github.com/" + update.Repo + "/releases/tag/v" + m.Version, Notes: m.Notes, Published: published}
 	return rel, &update.Source{Update: m, Raw: raw}, nil
 }

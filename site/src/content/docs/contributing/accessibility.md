@@ -59,7 +59,8 @@ Controls are never nested in an opener. MyGo reads a button, link, tab, column h
 - A list is one Tab stop with arrow keys inside: a focusable row, the others reached by the arrows. Its controls are on the tree but are not stops.
 - Links are `RoleLink`. Headings carry their level (`RoleHeading` and `Level`): the page title is level 1, dialog titles level 2. Lists and tables are named by their heading, and lists hold only their items.
 - Every dialog is a named `dialog`, or an `alertdialog` when it asks. What is behind a modal is not on the tree while it is open.
-- Inline links are underlined, never marked by colour alone.
+- Inline links are underlined, never marked by colour alone. The one exception is Markdown (`kit.Markdown`, the release notes): MyGo's Markdown theme has no link that is always underlined, so its links are `--ink` at weight 600 (`Theme.LinkWeight`, its cue besides colour), underlined under the pointer and ringed under the keyboard.
+- A scroll area that holds text and no control of its own is a Tab stop (a `RoleGroup` named for its contents), so the keyboard can scroll it: the release notes dialog opens on its notes, and the arrow keys, Page Up, Page Down, Home and End scroll them. When the focus is on a link inside, the first Escape dismisses the link's address tooltip and the second closes the dialog.
 - Landmarks are few and named for what they hold. A landmark never sits inside another of the same name. A region's own heading or list may repeat its name: a heading and a list are not landmarks.
 - What takes the focus without being a control is a group named by its text, not a heading. Orca reads a focused heading's role and level ("heading 2") and takes its words from the text, which MyGo gives to labels.
 - A tooltip whose first line is the control's name describes the control by the rest. By itself it is the description, and the name is read twice.
@@ -82,7 +83,7 @@ Controls are never nested in an opener. MyGo reads a button, link, tab, column h
   - it also opens from Shift+F10 or the Menu key with the focus on the item or, for a page header, on any of its buttons;
   - only these keyboard ways start the menu on its first entry: the button and the right-click leave it unselected;
   - the playing song's menu opens the same way from the bar's cover and from the mini player, and Now Playing also has a "More for <title>" menu button.
-- Links are the artist and album cells, "See all" and the sidebar entries.
+- Links are the artist and album cells, "See all" and the sidebar entries. A credited person on the song page is a link named "{name}, artist page" (the name alone: one Tab stop a person, the roles plain text); while its lookup runs past 300 ms the wait is announced once ("Finding {name}…"), and the focus stays on the link.
 - Dialogs: `kit.Confirm` builds an `alertdialog`.
 - A `kit.Select`'s list is a list box (MyGo's `SelectBase`) of options, each `Checked` while chosen (aria-selected). Its trigger is a combo box.
 - Suggestions:
@@ -266,6 +267,7 @@ How Sona uses each state:
 | Reorder the queue | Alt+↑ / Alt+↓ on a focused queue row, or "Play next" and "Move to end" in its menu |
 | Reorder a playlist in the editor | Alt+↑ / Alt+↓ on a focused row, announced |
 | Reorder pins in the sidebar | "Move up" in the pin's menu |
+| Move or reorder a playlist in the sidebar, or move it into a folder | Alt+↑ / Alt+↓ on a focused playlist row, or "Move up", "Move down" and "Move to folder…" in its menu; the new place is announced |
 
 - On a queue row Delete removes and Enter plays. The row's menu opens with Shift+F10 or the Menu key.
 - Each queue move is announced with the song's new place. Only the user's songs move, and they stay before the station's or AutoPlay's songs.

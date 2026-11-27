@@ -402,12 +402,22 @@ func TestAddAndDeleteAvailabilityFollowTheLibraryState(t *testing.T) {
 		t.Errorf("song in library: add %v delete %v", avail(add, inLib), avail(del, inLib))
 	}
 
-	// A library song: Delete, no Add (even before its state loads); an
-	// upload (no catalogue ID) has no link.
+	// A library song: no Add; Delete waits for its state, and is there when
+	// the state says it is in the library (a song a playlist holds can name
+	// a library copy and not be in the library: #670). An upload (no
+	// catalogue ID) has no link.
 	lib := kit.SongItem(actLibrarySong)
 	unloaded = r.h.Env.Actions.Context([]kit.Item{lib}, nil, nil)
-	if avail(add, unloaded) || !avail(del, unloaded) {
-		t.Errorf("library song: add %v delete %v", avail(add, unloaded), avail(del, unloaded))
+	if avail(add, unloaded) || avail(del, unloaded) {
+		t.Errorf("unloaded library song: add %v delete %v", avail(add, unloaded), avail(del, unloaded))
+	}
+	if loadedLib := actContext(r, lib); avail(add, loadedLib) || !avail(del, loadedLib) {
+		t.Errorf("library song: add %v delete %v", avail(add, loadedLib), avail(del, loadedLib))
+	}
+	r3, f3 := newActRig(t)
+	f3.setState("songs", services.ItemState{Kind: "songs", ID: "i.abc", InLibrary: false, LibraryID: "i.abc"})
+	if notIn := actContext(r3, lib); avail(del, notIn) {
+		t.Error("Delete offered for a song whose state says it is not in the library")
 	}
 	link := actDef(t, r, kit.KindSong, "library.copy-link.song")
 	if !avail(link, unloaded) || avail(link, r.h.Env.Actions.Context([]kit.Item{kit.SongItem(actUploadSong)}, nil, nil)) ||
@@ -763,6 +773,14 @@ func TestBulkDeleteAsksOnceThenRemovesEachOne(t *testing.T) {
 	ctx := actContext(r, items...)
 	if !del.Available(ctx) {
 		t.Fatal("Delete from library is not offered for library songs")
+	}
+	if del.Available(r.h.Env.Actions.Context(items, nil, nil)) {
+		t.Error("Delete offered for songs before their states load")
+	}
+	rn, fn := newActRig(t)
+	fn.setState("songs", services.ItemState{Kind: "songs", ID: "i.b", InLibrary: false, LibraryID: "i.b"})
+	if del.Available(actContext(rn, items...)) {
+		t.Error("Delete offered for a selection with a song that is not in the library")
 	}
 	if actBulk(t, r, items, "library.remove.many").Available(r.h.Env.Actions.Context(actSongs(2, services.SourceCatalog), nil, nil)) {
 		t.Error("Delete offered for catalogue songs")

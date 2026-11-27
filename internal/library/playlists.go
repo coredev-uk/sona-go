@@ -241,11 +241,14 @@ func (l *Library) storeTracks(ctx context.Context, q *dbq.Queries, plID int64, l
 }
 
 // UpdatePlaylistDetails stores a library playlist's edited name,
-// description and visibility.
-func (l *Library) UpdatePlaylistDetails(ctx context.Context, id, name, description string, public bool, lastModified string) error {
+// description and visibility, and the artwork template Apple now gives it
+// ("" keeps the stored one): Apple's generated cover has the name in its
+// URL.
+func (l *Library) UpdatePlaylistDetails(ctx context.Context, id, name, description string, public bool, lastModified, artworkTemplate string) error {
 	return l.db.Q.UpdatePlaylistDetails(ctx, dbq.UpdatePlaylistDetailsParams{
 		Name: name, Description: description, IsPublic: db.Bool(public),
-		LastModified: lastModified, UpdatedAt: db.Millis(time.Now()), LibraryID: db.NullString(id),
+		LastModified: lastModified, ArtworkTemplate: artworkTemplate,
+		UpdatedAt: db.Millis(time.Now()), LibraryID: db.NullString(id),
 	})
 }
 
@@ -274,14 +277,66 @@ func (l *Library) DropPlaylist(ctx context.Context, id string) error {
 }
 
 // MovePlaylist stores library playlist id at the end of folder folderID
-// ("" for the root).
+// ("" for the root). It has no place of the user's own there until it is
+// placed (ReorderPlaylist).
 func (l *Library) MovePlaylist(ctx context.Context, id, folderID string) error {
 	return l.db.Tx(ctx, func(q *dbq.Queries) error {
 		pos, err := q.NextFolderPosition(ctx, folderID)
 		if err != nil {
 			return err
 		}
-		return q.SetPlaylistFolder(ctx, dbq.SetPlaylistFolderParams{FolderID: folderID, FolderPosition: pos, LibraryID: db.NullString(id)})
+		if err := q.SetPlaylistFolder(ctx, dbq.SetPlaylistFolderParams{FolderID: folderID, FolderPosition: pos, LibraryID: db.NullString(id)}); err != nil {
+			return err
+		}
+		return q.SetPlaylistLocalOrder(ctx, dbq.SetPlaylistLocalOrderParams{LocalFolder: folderID, LocalPosition: -1, LibraryID: db.NullString(id)})
+	})
+}
+
+// ReorderPlaylist places library playlist id just before playlist beforeID
+// of the same folder, or last when beforeID is "". Apple's web API has no
+// call that sets a playlist's place among its siblings, so the order is
+// Sona's own, kept in SQLite: every playlist of the folder gets its place,
+// and the sync leaves them alone. It fails with ErrNotFound when id, or
+// beforeID, is not a playlist of the folder id is in. Placing a playlist
+// before itself changes nothing.
+func (l *Library) ReorderPlaylist(ctx context.Context, id, beforeID string) error {
+	if id == beforeID {
+		return nil
+	}
+	return l.db.Tx(ctx, func(q *dbq.Queries) error {
+		row, err := q.GetPlaylistByLibraryID(ctx, db.NullString(id))
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		ids, err := q.FolderPlaylistOrder(ctx, row.FolderID)
+		if err != nil {
+			return err
+		}
+		order := make([]string, 0, len(ids))
+		for _, v := range ids {
+			if v.String != id {
+				order = append(order, v.String)
+			}
+		}
+		if len(order) == len(ids) {
+			return ErrNotFound
+		}
+		at := len(order)
+		if beforeID != "" {
+			if at = slices.Index(order, beforeID); at < 0 {
+				return ErrNotFound
+			}
+		}
+		order = slices.Insert(order, at, id)
+		for i, v := range order {
+			if err := q.SetPlaylistLocalOrder(ctx, dbq.SetPlaylistLocalOrderParams{LocalFolder: row.FolderID, LocalPosition: int64(i), LibraryID: db.NullString(v)}); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

@@ -148,7 +148,7 @@ func TestLibraryAlbumDetailOfAPreAddedAlbum(t *testing.T) {
 	}
 	// The song list has only the songs out, and counts only them: the others
 	// are listed on their album alone.
-	songs, err := s.Songs(ctx, "title", false, 0, 10)
+	songs, err := s.Songs(ctx, "title", false, "", 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestLibraryAlbumDetailOfAPreAddedAlbum(t *testing.T) {
 		t.Fatalf("released = %+v, playable %v", got.Album, playables(got.Tracks))
 	}
 	// And they are songs of the library: listed, counted.
-	if songs, err = s.Songs(ctx, "title", false, 0, 10); err != nil || len(songs.Items) != 4 || songs.Total != 4 {
+	if songs, err = s.Songs(ctx, "title", false, "", 0, 10); err != nil || len(songs.Items) != 4 || songs.Total != 4 {
 		t.Fatalf("songs on release day = %+v, %v", songs, err)
 	}
 }
@@ -243,10 +243,10 @@ func TestPlayLibraryRefusesPreAddedSongs(t *testing.T) {
 
 	// By title: i.last, i.later (neither out), i.out, i.single (out). The
 	// list has only the two out, so the rows are 0 and 1.
-	if err := s.PlayLibrary(ctx, "title", false, 2); CodeOf(err) != CodeInvalidArgument {
+	if err := s.PlayLibrary(ctx, "title", false, "", 2); CodeOf(err) != CodeInvalidArgument {
 		t.Fatalf("start 2 of the 2 songs out: %v, want invalid_argument", err)
 	}
-	if err := s.PlayLibrary(ctx, "title", false, 0); err != nil {
+	if err := s.PlayLibrary(ctx, "title", false, "", 0); err != nil {
 		t.Fatal(err)
 	}
 	var ids []string
@@ -258,7 +258,7 @@ func TestPlayLibraryRefusesPreAddedSongs(t *testing.T) {
 	}
 
 	now = localDay(t, "2026-11-20")
-	if err := s.PlayLibrary(ctx, "title", false, 0); err != nil {
+	if err := s.PlayLibrary(ctx, "title", false, "", 0); err != nil {
 		t.Fatalf("on release day: %v", err)
 	}
 	if n := len(s.Queue().Items); n != 4 {

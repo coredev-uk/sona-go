@@ -12,26 +12,31 @@ import (
 )
 
 // folded is a song's searchable text, folded once for a pass over the list.
-type folded struct{ name, artist, album string }
+type folded struct{ name, artist, album, adder string }
 
 // viewOrder is the songs the page shows and the order they show in: the
 // positions in tracks of those that match query, sorted by key (a kit.Sort…
 // key; "" is the playlist's own order). The query is the words of
 // i18n.Fold(query), and a song matches when each of them is somewhere in its
-// name, artist or album, so "mia salt" finds Mia's song on Salt Flats. The
-// sort folds case and accents and reads digits as numbers (collate.Numeric,
-// "Track 2" before "Track 10"); songs that compare equal keep the order they
-// have in the playlist, descending or not, so the result is stable. The
-// answers are original indices: positions in the playlist, which is what
+// name, artist or album, or in its adder's name or handle (by, a row per
+// song, nil unless the playlist is collaborative), so "mia salt" finds Mia's
+// song on Salt Flats. The sort folds case and accents and reads digits as
+// numbers (collate.Numeric, "Track 2" before "Track 10"); songs that compare
+// equal keep the order they have in the playlist, descending or not, so the
+// result is stable. Sorted by adder, songs with none come last either way.
+// The answers are original indices: positions in the playlist, which is what
 // RemoveTracks and MoveTrack are given.
-func viewOrder(tracks []services.Song, key string, desc bool, query string) []int {
+func viewOrder(tracks []services.Song, by []*services.SocialProfile, key string, desc bool, query string) []int {
 	words := strings.Fields(i18n.Fold(query))
-	needText := len(words) > 0 || key == kit.SortTitle || key == kit.SortArtist || key == kit.SortAlbum
+	needText := len(words) > 0 || key == kit.SortTitle || key == kit.SortArtist || key == kit.SortAlbum || key == kit.SortAddedBy
 	var text []folded
 	if needText {
 		text = make([]folded, len(tracks))
 		for i, s := range tracks {
-			text[i] = folded{i18n.Fold(s.Name), i18n.Fold(s.Artist), i18n.Fold(s.Album)}
+			text[i] = folded{name: i18n.Fold(s.Name), artist: i18n.Fold(s.Artist), album: i18n.Fold(s.Album)}
+			if i < len(by) && by[i] != nil {
+				text[i].adder = i18n.Fold(by[i].Name + " " + by[i].Handle)
+			}
 		}
 	}
 
@@ -44,6 +49,26 @@ func viewOrder(tracks []services.Song, key string, desc bool, query string) []in
 
 	var cmp func(a, b int) int
 	switch key {
+	case kit.SortAddedBy:
+		if by == nil {
+			return order
+		}
+		col := i18n.Collator(collate.Numeric)
+		slices.SortStableFunc(order, func(a, b int) int {
+			switch ha, hb := by[a] != nil, by[b] != nil; {
+			case ha && hb:
+				if desc {
+					a, b = b, a
+				}
+				return col.CompareString(text[a].adder, text[b].adder)
+			case ha:
+				return -1
+			case hb:
+				return 1
+			}
+			return 0
+		})
+		return order
 	case kit.SortTitle:
 		cmp = textCompare(func(i int) string { return text[i].name })
 	case kit.SortArtist:
@@ -76,7 +101,7 @@ func viewOrder(tracks []services.Song, key string, desc bool, query string) []in
 func matchesAll(text []folded, i int, words []string) bool {
 	for _, w := range words {
 		t := text[i]
-		if !strings.Contains(t.name, w) && !strings.Contains(t.artist, w) && !strings.Contains(t.album, w) {
+		if !strings.Contains(t.name, w) && !strings.Contains(t.artist, w) && !strings.Contains(t.album, w) && !strings.Contains(t.adder, w) {
 			return false
 		}
 	}
@@ -110,6 +135,8 @@ func (v shown) place(i int) int {
 type viewCache struct {
 	tracks *services.Song
 	n      int
+	by     **services.SocialProfile
+	nBy    int
 	key    string
 	desc   bool
 	query  string
@@ -117,24 +144,29 @@ type viewCache struct {
 	shown
 }
 
-// view is the playlist's songs as the sort and the filter list them,
-// worked out again only when one of them, or the tracks, changed.
-func (pg *page) view(tracks []services.Song) shown {
+// view is the playlist's songs as the sort and the filter list them (by is
+// who added each song, nil unless the playlist is collaborative), worked out
+// again only when one of them, or the tracks, changed.
+func (pg *page) view(tracks []services.Song, by []*services.SocialProfile) shown {
 	v := &pg.shownCache
 	var first *services.Song
 	if len(tracks) > 0 {
 		first = &tracks[0]
 	}
+	var firstBy **services.SocialProfile
+	if len(by) > 0 {
+		firstBy = &by[0]
+	}
 	key, desc, query := pg.sort.Key, pg.sort.Desc, pg.query
-	if v.valid && v.tracks == first && v.n == len(tracks) && v.key == key && v.desc == desc && v.query == query {
+	if v.valid && v.tracks == first && v.n == len(tracks) && v.by == firstBy && v.nBy == len(by) && v.key == key && v.desc == desc && v.query == query {
 		return v.shown
 	}
-	*v = viewCache{tracks: first, n: len(tracks), key: key, desc: desc, query: query, valid: true}
+	*v = viewCache{tracks: first, n: len(tracks), by: firstBy, nBy: len(by), key: key, desc: desc, query: query, valid: true}
 	if key == "" && strings.TrimSpace(query) == "" {
 		v.songs = tracks
 		return v.shown
 	}
-	v.order = viewOrder(tracks, key, desc, query)
+	v.order = viewOrder(tracks, by, key, desc, query)
 	v.songs = make([]services.Song, len(v.order))
 	for i, at := range v.order {
 		v.songs[i] = tracks[at]

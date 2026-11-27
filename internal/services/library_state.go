@@ -78,9 +78,11 @@ func itemState(r ItemRef, st applemusic.LibraryState) ItemState {
 // one batched Apple lookup for the items not seen in the last two minutes
 // (catalog items by catalog ID, library-only items by library ID, artists'
 // ratings by ID). After the user's own changes their outcome is reported
-// for five minutes, since Apple's answers lag. An item that names its
-// library copy (Source library, or a LibraryID) is in the library whatever
-// Apple's catalogue answers. Signed out or offline, the
+// for five minutes, since Apple's answers lag. An album, artist or playlist
+// that names its library copy (Source library, or a LibraryID) is in the
+// library whatever Apple's catalogue answers; a song is, when Apple says so
+// or the synced library lists it (a song can have a library ID and not be
+// in the library: a playlist keeps the row). Signed out or offline, the
 // answers come from the synced library and local ratings.
 func (s *LibraryService) States(ctx context.Context, refs []ItemRef) ([]ItemState, error) {
 	return s.states(ctx, refs, s.o.Auth.Status().State == auth.StateSignedIn)
@@ -112,11 +114,13 @@ func (s *LibraryService) states(ctx context.Context, refs []ItemRef, online bool
 		if !ok {
 			st = s.localState(ctx, r)
 		}
-		// A library copy the item names is in the library whatever Apple's
+		// A library copy an album names is in the library whatever Apple's
 		// catalogue says (it reports a partly added album, or one just
 		// added, as not in the library); only the user's own removal, still
-		// held, says otherwise.
-		if _, lib := refIDs(r); lib != "" && !st.InLibrary && !s.o.members.isRemoved(keys[i]) {
+		// held, says otherwise. A song's library ID says nothing: the
+		// synced library does.
+		if _, lib := refIDs(r); lib != "" && !st.InLibrary && !s.o.members.isRemoved(keys[i]) &&
+			(r.Kind != applemusic.TypeSongs || s.o.members.songHeld(ctx, lib)) {
 			st.InLibrary, st.LibraryID = true, lib
 		}
 		out[i] = itemState(r, st)
@@ -186,13 +190,19 @@ func (s *LibraryService) fetchStates(ctx context.Context, missing map[string][]s
 	return g.Wait()
 }
 
-// localState answers for r from the synced library and local ratings.
+// localState answers for r from the synced library and local ratings. An
+// album, artist or playlist that names its library copy is in the library;
+// a song is when the library lists it, by its library ID or its catalogue
+// one.
 func (s *LibraryService) localState(ctx context.Context, r ItemRef) applemusic.LibraryState {
 	cat, lib := refIDs(r)
 	var st applemusic.LibraryState
-	if lib != "" {
+	switch {
+	case r.Kind == applemusic.TypeSongs && s.o.members.songHeld(ctx, lib):
 		st.InLibrary, st.LibraryID = true, lib
-	} else {
+	case lib != "" && r.Kind != applemusic.TypeSongs:
+		st.InLibrary, st.LibraryID = true, lib
+	default:
 		st.LibraryID, st.InLibrary = s.o.members.lookup(ctx, addKinds[r.Kind], cat)
 	}
 	if st.LibraryID != "" {

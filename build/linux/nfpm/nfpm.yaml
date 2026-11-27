@@ -79,32 +79,40 @@ contents:
     type: config|noreplace
     packager: rpm
 
-# Runtime: MyGo loads GTK3, libepoxy (GL), EGL (libglvnd), the tray's
-# appindicator, AT-SPI (accessibility), libsecret and X11's XTest by soname
-# with purego, so none of them shows up in ldd and each must be declared
-# here. No WebKitGTK, GTK4, libsoup or Node. GStreamer core + base (appsrc, audioconvert, audioresample,
-# volume) + good (autoaudiosink) + an AAC decoder (avdec_aac from libav) + a
-# PipeWire or PulseAudio sink for the playback host; bad for the video
-# parsers motion artwork and music videos use.
+# Runtime: MyGo loads GTK3, libepoxy (GL), EGL (libglvnd) and AT-SPI
+# (accessibility) by soname with purego, so none of them shows up in ldd and
+# each must be declared here. No WebKitGTK, GTK4, libsoup or Node. GStreamer
+# core + base (appsrc, audioconvert, audioresample, volume) + good
+# (autoaudiosink) + an AAC decoder (avdec_aac from libav) + a PipeWire or
+# PulseAudio sink for the playback host.
+# What Sona works without is recommended, not required: the tray's
+# appindicator (Sona quits when its window closes without a tray), the bad
+# plugins' video parsers (motion artwork only), PipeWire output, xdg-utils
+# (music:// links) and the desktop portal (file chooser). A Secret Service is
+# suggested: without one the sign-in is kept in a file in the config directory.
+# libsecret and libxtst are no dependency at all: Sona's keyring is go-keyring
+# over D-Bus, and MyGo uses XTest only in its GUI tests.
 # The Widevine CDM is no dependency: Sona downloads it from Google at
 # runtime and never ships it.
 depends:
   - libgtk-3-0
   - libepoxy0
   - libegl1
-  - libayatana-appindicator3-1
   - at-spi2-core
-  - libsecret-1-0
-  - libxtst6
   - libgstreamer1.0-0
   - libgstreamer-plugins-base1.0-0
   - gstreamer1.0-plugins-base
   - gstreamer1.0-plugins-good
-  - gstreamer1.0-plugins-bad
   - gstreamer1.0-libav
   - gstreamer1.0-pipewire | gstreamer1.0-pulseaudio
 recommends:
+  - libayatana-appindicator3-1
+  - gstreamer1.0-plugins-bad
   - gstreamer1.0-pipewire
+  - xdg-utils
+  - xdg-desktop-portal
+suggests:
+  - gnome-keyring
 
 overrides:
   rpm:
@@ -115,17 +123,19 @@ overrides:
       - gtk3
       - libepoxy
       - libglvnd-egl
-      - libayatana-appindicator-gtk3
       - at-spi2-core
-      - libsecret
-      - libXtst
       - gstreamer1
       - gstreamer1-plugins-base
       - gstreamer1-plugins-good
-      - gstreamer1-plugins-bad-free
       - gstreamer1-plugin-libav
     recommends:
+      - libayatana-appindicator-gtk3
+      - gstreamer1-plugins-bad-free
       - pipewire-gstreamer
+      - xdg-utils
+      - xdg-desktop-portal
+    suggests:
+      - gnome-keyring
   archlinux:
     # nfpm's Arch packager writes depends only (no optdepends); the AUR
     # PKGBUILD (build/linux/arch/update.sh) takes these depends from the built

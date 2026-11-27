@@ -10,7 +10,7 @@ Sona shows your Apple Music library under Library in the sidebar. It keeps a cop
 The Library section lists these pages:
 
 - **Recently added**: the newest items in your library.
-- **Songs**, **Albums** and **Artists**: everything you added, with sort and filter controls at the top of each page.
+- **Songs**, **Albums** and **Artists**: everything you added, with sort and filter controls at the top of each page. On Songs, the find field narrows the list to songs whose title, artist or album start with every word you type; Play and Shuffle then play the songs found, and Escape clears the field. Your words stay when you open a song's album or artist and come back.
 - **Playlists**: your playlists and folders. The sidebar lists them too.
 - **Favourite songs**: every song you've favourited, newest first. Apple Music's own Favourite Songs playlist isn't listed anywhere else in Sona, and a link or pin to it opens this page.
 - **Music videos**. Sona copies your music videos too, so the page lists them with no connection; playing one needs a connection.
@@ -29,6 +29,10 @@ Sona syncs after you sign in, music videos included. While it syncs, a short bar
 3. Add songs from any item's menu: point at Add to playlist, or press Right on it, to open a list of your playlists. Choose New playlist… to make one with the item in it, a folder to look inside it, or a playlist to add to it at once. Playlists you used lately come first. When a list is long, or folders go deep, More playlists… at its end opens a window with a search field. You can also drag songs, albums and playlists onto a playlist in the sidebar.
 
 In a playlist you can reorder songs by dragging them, or with Alt+↑ and Alt+↓ on a focused row.
+
+In the sidebar's Playlists you can drag a playlist to put it between two others, or onto a folder to move it in; drop it on the list's empty space to take it out of its folder. A line shows where it will land, and dropping on the middle of another playlist still adds its songs to that playlist. Without a pointer, press Alt+↑ or Alt+↓ on a focused playlist, or choose Move up, Move down or Move to folder… in its menu; Sona says the new place. A playlist you joined, which you can't edit, can be moved the same way.
+
+Apple Music has no way to set the order of your playlists, so Sona keeps that order on this computer: it isn't synced to your other devices. Moving a playlist into a folder is Apple's, and shows on your other devices.
 
 ## See your history
 

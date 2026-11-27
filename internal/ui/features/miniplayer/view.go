@@ -103,7 +103,7 @@ func (m *mini) head(c *ui.Context, s services.PlaybackState) {
 				return
 			}
 			text(c.Key("title"), cur.Name, "heading").TextColor(theme.C("ink")).Tooltip(cur.Name)
-			text(c.Key("artist"), cur.Artist, "sub").TextColor(theme.C("ink-muted")).Tooltip(cur.Artist)
+			m.artist(c.Key("artist"), cur)
 		})
 		m.playingRow(song, cur)
 		if !leading {
@@ -329,3 +329,24 @@ func text(c *ui.Context, s, style string) ui.Element {
 
 // quiet is text of the line under the song's size.
 func quiet(c *ui.Context, s string) ui.Element { return text(c, s, "sub").Tooltip(s) }
+
+// artist is the playing song's artist: a link to their page, or a button that
+// opens a menu of them when the song has several (kit.ArtistLinks, as the
+// player bar's), plain text where that page is not ported. The page opens in
+// the main window, which comes back first.
+func (m *mini) artist(c *ui.Context, cur *services.QueueItem) {
+	var open func(id string)
+	if o := m.env.ArtistOpener(); o != nil {
+		open = func(id string) {
+			m.expand()
+			o(id)
+		}
+	}
+	kit.ArtistLinks(c, m.env.SongArtists.OfPlaying(cur), cur.Artist, theme.C("ink-muted"), kit.ArtistLinksOpts{
+		Open: open,
+		Style: func(e ui.Element) {
+			theme.StyleText(e, "sub").SingleLine().MinWidth(0).Shrink(1).Tooltip(cur.Artist)
+		},
+		Wire: func(e ui.Element) { m.playingRow(e, cur) },
+	})
+}

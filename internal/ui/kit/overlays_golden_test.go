@@ -144,6 +144,23 @@ var overlaysScenes = []struct {
 		tt.Advance(400 * time.Millisecond)
 		return tt
 	}},
+	{"release-notes", func(t *testing.T) *ui.Tester {
+		a, tt := newNotesApp(t, releaseNotesGolden, 720, 640)
+		a.open = true
+		tt.Frame()
+		tt.Advance(400 * time.Millisecond)
+		return tt
+	}},
+	{"release-notes-link", func(t *testing.T) *ui.Tester {
+		// A link with the keyboard focus, as Tab reaches it: ring and address.
+		a, tt := newNotesApp(t, releaseNotesGolden, 720, 640)
+		a.spec.Primary = ReleaseNotesAction{}
+		a.open = true
+		tt.Frame()
+		tt.Key(0, ui.KeyTab)
+		tt.Advance(400 * time.Millisecond)
+		return tt
+	}},
 	{"confirm", func(t *testing.T) *ui.Tester {
 		_, tt := newConfirmApp(t)
 		_ = tt.Click("Delete…")

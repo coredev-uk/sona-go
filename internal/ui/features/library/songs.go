@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 
@@ -22,15 +23,25 @@ type songList struct {
 type songsPage struct {
 	railFrame
 	list songList
+	// find is the find field's text. urlFind is the ?q= last read from the URL
+	// and sent the text last written to it, which tells the URL's echo of
+	// the field from a navigation that changed it.
+	find, urlFind, sent string
+	// announced is the find result last read out.
+	announced string
 }
 
 // songsList is the songs of q in pages of 200 (key `["library", "songs",
-// sort, desc, page]`).
+// sort, desc, page, find?]`).
 func (l *library) songsList(q listQuery) *listView[services.Song] {
 	return usePaged(l, &l.songs.list.pager, func(n int) store.Key {
-		return store.Key{"library", "songs", q.sort, q.desc, n}
+		key := store.Key{"library", "songs", q.sort, q.desc, n}
+		if q.find != "" {
+			key = append(key, q.find)
+		}
+		return key
 	}, func(ctx context.Context, off, lim int) (listPage[services.Song], error) {
-		p, err := l.lib.Songs(ctx, q.sort, q.desc, off, lim)
+		p, err := l.lib.Songs(ctx, q.sort, q.desc, q.find, off, lim)
 		return listPage[services.Song]{p.Items, p.Total}, err
 	})
 }
@@ -45,13 +56,29 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 	q := songsSpec.parse(r)
 	pg := &l.songs
 	list := l.songsList(q)
+	counts := store.Use(l.env.Queries, store.KeyLibraryCounts, l.lib.Counts)
+	l.syncFind(q)
 
+	// While the words find nothing the library is not empty: the gate must
+	// not say so.
+	filtering := q.filtering()
+	total := list.Total
+	if filtering {
+		total = max(total, counts.Data.Songs, 1)
+	}
+	filteredNone := filtering && !list.Pending() && list.Total == 0
 	subline := ""
-	if list.Total > 0 {
+	switch {
+	case list.Total == 0:
+	case filtering && counts.HasData:
+		subline = i18n.T("{found} of {total, plural, one {# song} other {# songs}}",
+			"found", i18n.FormatNumber(float64(list.Total)), "total", counts.Data.Songs)
+	default:
 		subline = i18n.SongCount(list.Total)
 	}
+	l.announceFound(c, q, list)
 	var rail func()
-	if railShown(q.sort, q.desc, list.Total) {
+	if !filtering && railShown(q.sort, q.desc, list.Total) {
 		jumps, ready := l.songLetters(q, list)
 		rail = func() {
 			l.letterRail(c, jumps, ready, func(slot int) {
@@ -63,10 +90,15 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 	}
 	l.scrollRail(c, &pg.railFrame, q.key(), rail, func(pane *kit.Pane) {
 		l.pageHead(c, headOpts{title: i18n.T("Songs"), count: subline, actions: func() {
+			l.songFinder(c, q)
 			l.sortSelect(c, songsSpec, q)
-			play, shuffle := kit.PlayButtons(c, kit.PlayButtonsOpts{
-				PlayLabel: i18n.T("Play your songs"), Shuffle: true, Disabled: list.Total == 0,
-			})
+			opts := kit.PlayButtonsOpts{PlayLabel: i18n.T("Play your songs"), Shuffle: true, Disabled: list.Total == 0}
+			if filtering {
+				// Name the controls for what they queue: the songs found.
+				opts.PlayLabel = i18n.T("{found, plural, one {Play the # song found} other {Play the # songs found}}", "found", list.Total)
+				opts.ShuffleLabel = i18n.T("{found, plural, one {Shuffle the # song found} other {Shuffle the # songs found}}", "found", list.Total)
+			}
+			play, shuffle := kit.PlayButtons(c, opts)
 			if play {
 				l.playSongsFrom(q, 0, false)
 			}
@@ -75,10 +107,23 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 			}
 		}})
 		if l.gate(c, gateOpts{
-			total: list.Total, pending: list.Pending(), err: list.Err(), retry: list.Retry, retrying: list.Retrying(),
+			total: total, pending: list.Pending(), err: list.Err(), retry: list.Retry, retrying: list.Retrying(),
 			kind: kindSongs, frame: kit.FrameBox,
 			empty: i18n.T("Songs you add in Apple Music on any device appear here after the next sync."),
 		}) {
+			return
+		}
+		if filteredNone {
+			kit.EmptyState(c, i18n.T("No songs match “{query}”", "query", strings.TrimSpace(q.find)),
+				i18n.T("Check the spelling, or try fewer words. Find looks at a song's title, artist and album."),
+				kit.EmptyOpts{Frame: kit.FrameBox, Action: &kit.EmptyAction{
+					Label: i18n.T("Clear search"),
+					Run: func() {
+						next := q
+						next.find = ""
+						l.env.Nav.Replace(songsSpec.location(next))
+					},
+				}})
 			return
 		}
 		sortState := &kit.TrackSortState{Desc: q.desc, OnSort: func(key string) {
@@ -105,14 +150,64 @@ func (l *library) songsPage(c *ui.Context, r *ui.Route) {
 	})
 }
 
-// playSongsFrom replaces the queue with the library in q's order, starting
-// at index start; shuffle turns shuffle on first.
+// syncFind brings the field's text in line with the URL when the URL is what
+// changed (back, forward, a restore, a link), not when it only echoes what
+// the field sent.
+func (l *library) syncFind(q listQuery) {
+	pg := &l.songs
+	if q.find == pg.urlFind {
+		return
+	}
+	pg.urlFind = q.find
+	if q.find != pg.sent {
+		pg.find = q.find
+	}
+}
+
+// songFinder is the find field of the header, "Find in your songs", in a
+// search landmark. Typing replaces the URL's ?q= (one history entry whatever
+// the keystrokes); Escape in the field and its clear button empty it.
+func (l *library) songFinder(c *ui.Context, q listQuery) {
+	pg := &l.songs
+	ui.Column(c.Key("find")).Shrink(0).Role(ui.RoleSearch).Label(i18n.T("Find songs in your library")).Children(func() {
+		label := i18n.T("Find in your songs")
+		kit.SearchField(c, &pg.find, kit.SearchFieldOpts{Placeholder: label, A11yLabel: label, Width: 220})
+	})
+	if pg.find != q.find {
+		pg.sent = pg.find
+		next := q
+		next.find = pg.find
+		l.env.Nav.Replace(songsSpec.location(next))
+	}
+}
+
+// announceFound reads out the find's result when it changes (a list's result
+// is not otherwise announced).
+func (l *library) announceFound(c *ui.Context, q listQuery, list *listView[services.Song]) {
+	pg := &l.songs
+	text := ""
+	if q.filtering() && !list.Pending() {
+		if list.Total > 0 {
+			text = i18n.T("{matches, plural, one {# song matches} other {# songs match}}", "matches", list.Total)
+		} else {
+			text = i18n.T("No song matches “{query}”", "query", strings.TrimSpace(q.find))
+		}
+	}
+	if text != "" && pg.announced != text {
+		c.Announce(text)
+	}
+	pg.announced = text
+}
+
+// playSongsFrom replaces the queue with the library in q's order (the songs
+// found, while q finds), starting at index start; shuffle turns shuffle on
+// first.
 func (l *library) playSongsFrom(q listQuery, start int, shuffle bool) {
 	l.env.Queue.Replace(i18n.T("Couldn't start playback"), func(ctx context.Context) error {
 		if shuffle {
 			l.play.SetShuffle(true)
 		}
-		return l.play.PlayLibrary(ctx, q.sort, q.desc, start)
+		return l.play.PlayLibrary(ctx, q.sort, q.desc, q.find, start)
 	}, nil)
 }
 
@@ -161,7 +256,7 @@ func (l *library) songLetters(q listQuery, list *listView[services.Song]) (lette
 	}
 	key := store.Key{"library", "songs", "letters", q.sort, list.Total}
 	return jumpsOf(l, list.Total, list.first.HasData, held, key, func(ctx context.Context, i int) (string, error) {
-		p, err := l.lib.Songs(ctx, q.sort, false, i, 1)
+		p, err := l.lib.Songs(ctx, q.sort, false, "", i, 1)
 		if err != nil || len(p.Items) == 0 {
 			return "", err
 		}

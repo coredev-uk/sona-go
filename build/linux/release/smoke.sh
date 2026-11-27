@@ -14,9 +14,9 @@
 # needs exist, and the app, run headless under Xvfb, creates its window and
 # logs its first paint (MyGo's CPU renderer, MYGO_GPU=0).
 #
-# MyGo loads GTK3, libepoxy, EGL, the tray, AT-SPI, libsecret and XTest by
-# soname (purego), so ldd never lists them: the smoke test checks each one
-# resolves, from the package's declared dependencies or from the AppImage.
+# MyGo loads GTK3, libepoxy, EGL and AT-SPI by soname (purego), so ldd never
+# lists them: the smoke test checks each one resolves, from the package's
+# declared dependencies or from the AppImage.
 set -euo pipefail
 kind=$1
 smoke_name="smoke($kind)"
@@ -30,13 +30,17 @@ deb)
   apt-get update -qq
   # Only the package's declared Depends (no Recommends): proves they suffice.
   apt-get install -y -qq --no-install-recommends /pkg/sona_*.deb >/dev/null
-  apt-get install -y -qq --no-install-recommends xvfb xauth dbus gstreamer1.0-tools >/dev/null
+  # The bad plugins stand in for a user who took the Recommends for motion
+  # artwork: their h264parse is checked below.
+  apt-get install -y -qq --no-install-recommends xvfb xauth dbus gstreamer1.0-tools gstreamer1.0-plugins-bad >/dev/null
   exe=/usr/bin/sona
   contents() { dpkg-deb -c /pkg/sona_*.deb | awk '{print $6}' | sed 's|^\./|/|'; }
   ;;
 rpm)
   dnf install -y -q --setopt=install_weak_deps=False /pkg/sona-*.rpm
-  dnf install -y -q --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon gstreamer1 gstreamer1-plugins-base-tools which
+  # The bad plugins stand in for a user who took the Recommends for motion
+  # artwork: their h264parse is checked below.
+  dnf install -y -q --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon gstreamer1 gstreamer1-plugins-base-tools gstreamer1-plugins-bad-free which
   exe=/usr/bin/sona
   contents() { rpm -qlp /pkg/sona-*.rpm; }
   ;;
@@ -142,7 +146,7 @@ fi
 # The libraries MyGo loads by soname: each must resolve on this clean
 # system (installed by the package's dependencies) or be bundled.
 sonames=(libgtk-3.so.0 libgdk-3.so.0 libepoxy.so.0 libayatana-appindicator3.so.1
-  libatk-1.0.so.0 libatk-bridge-2.0.so.0 libsecret-1.so.0 libXtst.so.6)
+  libatk-1.0.so.0 libatk-bridge-2.0.so.0)
 if [[ $kind == appimage ]]; then
   for so in "${sonames[@]}"; do
     [[ -e $root/usr/lib/$so ]] || fail "$so not bundled"
@@ -155,11 +159,9 @@ else
   # SIGPIPE, which pipefail reports as a missing library.
   cache=$(ldconfig -p)
   for so in "${sonames[@]}"; do
-    # The Arch package leaves the tray (an optdepends) and libsecret (never
-    # loaded: Sona's keyring is go-keyring over D-Bus) out of its depends.
-    if [[ $kind == arch ]]; then
-      case $so in libayatana-appindicator3.so.1 | libsecret-1.so.0) continue ;; esac
-    fi
+    # No package depends on the tray (a Recommends on the deb and rpm, an
+    # optdepends on Arch): Sona works without it.
+    [[ $so == libayatana-appindicator3.so.1 ]] && continue
     grep -qF "$so" <<<"$cache" || fail "$so not installed by the package's dependencies"
   done
   # The package has no GTK4, WebKitGTK or libsoup 3 dependency.

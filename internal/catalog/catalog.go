@@ -140,13 +140,16 @@ func CacheScope(sf, lang string) string {
 }
 
 // Search searches the catalog (every result group, or one group's page).
-// Results are cached per term and page.
+// Results are cached per term, page and types.
 func (c *Catalog) Search(ctx context.Context, term string, opt applemusic.SearchOptions) (applemusic.SearchResults, error) {
 	term = strings.Join(strings.Fields(strings.ToLower(term)), " ")
 	if term == "" {
 		return applemusic.SearchResults{}, nil
 	}
 	id := term + "|" + opt.Group + "|" + strconv.Itoa(opt.Limit) + "|" + strconv.Itoa(opt.Offset)
+	if len(opt.Types) > 0 {
+		id += "|" + strings.Join(opt.Types, ",")
+	}
 	return cached(ctx, c, "search", id, SearchTTL, func(ctx context.Context, sf string) (applemusic.SearchResults, error) {
 		return applemusic.CatalogSearch(ctx, c.api, sf, term, opt)
 	}, nil)

@@ -25,6 +25,22 @@ func TestLoadMissingReturnsDefaults(t *testing.T) {
 	}
 }
 
+func TestGreetingIsOnUnlessTheFileTurnsItOff(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(`{"volume": 0.5}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := LoadSettings(path); err != nil || !s.Home.Greeting {
+		t.Fatalf("a file without the key: greeting %v, err %v", s.Home.Greeting, err)
+	}
+	if err := os.WriteFile(path, []byte(`{"home": {"greeting": false}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := LoadSettings(path); err != nil || s.Home.Greeting {
+		t.Fatalf("a file with it off: greeting %v, err %v", s.Home.Greeting, err)
+	}
+}
+
 func TestThemeIDDefaultsToSonaAndKeepsUnknownIDs(t *testing.T) {
 	if d := Defaults(); d.ThemeID != DefaultThemeID || DefaultThemeID != "sona" {
 		t.Errorf("default theme %q", d.ThemeID)

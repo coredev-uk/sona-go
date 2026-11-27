@@ -114,6 +114,18 @@ func (m *membership) lookup(ctx context.Context, kind, catalogID string) (librar
 	return "", ok
 }
 
+// songHeld reports whether the synced library lists library song libraryID.
+// A song can have a library ID without being in the library: a playlist
+// that holds it keeps its row (DeleteOrphanLibraryTracks).
+func (m *membership) songHeld(ctx context.Context, libraryID string) bool {
+	if libraryID == "" {
+		return false
+	}
+	var one int
+	return m.db.R.QueryRowContext(ctx, `SELECT 1 FROM tracks t JOIN library_items li ON li.kind = 'song' AND li.ref = t.id
+		WHERE t.library_id = ? LIMIT 1`, libraryID).Scan(&one) == nil
+}
+
 // markAdded records catalog items of type typ as added.
 func (m *membership) markAdded(typ string, ids []string) {
 	kind, ok := addKinds[typ]

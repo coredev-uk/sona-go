@@ -36,6 +36,7 @@ const (
 	SortArtist   = "artist"
 	SortAlbum    = "album"
 	SortDuration = "duration"
+	SortAddedBy  = "addedBy"
 )
 
 // TrackColumns says which columns a list shows.
@@ -565,7 +566,7 @@ func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Toke
 			st.headerCell(c, o, cellAlbum, i18n.T("Album"), SortAlbum, meta)
 		}
 		if o.AddedBy != nil {
-			st.headerCell(c, o, cellAddedBy, i18n.T("Added By"), "", meta)
+			st.headerCell(c, o, cellAddedBy, i18n.T("Added By"), SortAddedBy, meta)
 		}
 		st.durationHeader(c, o)
 		o.cell(ui.Box(c.Key("h-act")).Role(ui.RoleColumnHeader).Label(i18n.T("Actions")), cellActions).Height(1)
@@ -861,8 +862,11 @@ func (st *TrackListState) row(c *ui.Context, o *TrackListOpts, i int, s *service
 					Open: o.OpenArtist, Static: true, Hover: theme.C("ink"),
 					Style: func(e ui.Element) {
 						e.FontSize(typ.Size).FixedLineHeight(typ.LineHeight).SingleLine().MinWidth(0)
-						links = append(links, e)
 					},
+					// The element that takes the pointer (the link, or the chooser's
+					// button: not the text inside it, which would take the press
+					// from the button once Trigger makes it answer a right-click).
+					Wire: func(e ui.Element) { links = append(links, e) },
 					Click: func(m ClickMods) bool {
 						if m.Range || m.Toggle {
 							selectRow(m)

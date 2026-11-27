@@ -25,8 +25,9 @@ type trackMeta struct {
 	id, catalogID, libraryID string
 	albumID, artistID        string
 	// artists are every credited artist where the song came from the
-	// catalogue with them named (a fetched song, a station's); a stored row
-	// keeps only the first artist's ID.
+	// catalogue with them named (a fetched song, a station's), or where
+	// resolve looked a stored song up; a restored row keeps only the first
+	// artist's ID.
 	artists []Artist
 }
 
@@ -306,6 +307,11 @@ func metaOf(t dbq.Track, src Source) trackMeta {
 	} else {
 		m.id, m.albumID, m.artistID = t.CatalogID.String, t.AlbumCatalogID.String, t.ArtistCatalogID.String
 	}
+	// The song's own catalogue artist, where known, beats a library artist ID
+	// that may be the album's grouping artist ("Various Artists").
+	if t.ArtistCatalogID.Valid {
+		m.artistID = t.ArtistCatalogID.String
+	}
 	return m
 }
 
@@ -340,11 +346,23 @@ func (s *PlaybackService) resolve(ctx context.Context, refs []TrackRef, start in
 			fetch = append(fetch, i)
 		}
 	}
+	var stored []int
+	for i := range refs {
+		if slots[i].err == nil && refs[i].Kind == "" && slots[i].meta.catalogID != "" {
+			stored = append(stored, i)
+		}
+	}
+	var enriched sync.WaitGroup
+	if len(stored) > 0 {
+		enriched.Go(func() { s.enrichStored(ctx, slots, stored) })
+	}
 	if len(fetch) > 0 {
 		if err := s.fetchSongs(ctx, refs, slots, fetch); err != nil {
+			enriched.Wait()
 			return nil, 0, err
 		}
 	}
+	enriched.Wait()
 	items := make([]coordinator.Item, 0, len(refs))
 	metas := make([]trackMeta, 0, len(refs))
 	newStart := -1
@@ -651,12 +669,13 @@ func (s *PlaybackService) SetSleep(mode string, minutes int) error {
 }
 
 // PlayLibrary queues the whole library songs list in the given order
-// (as LibraryService.Songs, which leaves out the songs not out yet) and plays
-// the song at position start.
-func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, start int) error {
+// (as LibraryService.Songs, which leaves out the songs not out yet, and
+// narrows it to the songs found by query) and plays the song at position
+// start.
+func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, query string, start int) error {
 	rctx, superseded, end := s.beginReplace(ctx)
 	defer end()
-	songs, err := s.o.Library.AllSongs(rctx, library.ListOptions{Sort: library.Sort(sort), Desc: desc})
+	songs, err := s.o.Library.AllSongs(rctx, library.ListOptions{Sort: library.Sort(sort), Desc: desc, Query: query})
 	if superseded() {
 		return nil
 	}
@@ -841,4 +860,42 @@ func (s *PlaybackService) SetRepeat(mode string) error {
 		return fmt.Errorf("%w: %v", ErrInvalidArgument, err)
 	}
 	return nil
+}
+
+// storedArtistsWait is how long a start waits on the catalogue's artists of
+// the stored songs it queues: they only improve the artist links, so a slow
+// or absent network never holds playback of the library back.
+const storedArtistsWait = 3 * time.Second
+
+// enrichStored gives slots[i] for every i in stored (a song resolved from its
+// SQLite row, with a catalogue ID) the artists the catalogue credits it, one
+// batched lookup (cached for a week, so a song costs a request once): the
+// first is the song's own artist, which a row cannot tell from the album's
+// grouping artist ("Various Artists" on a compilation), and a song with
+// several lists them all on the first frame. Failing leaves the row's single
+// artist.
+func (s *PlaybackService) enrichStored(ctx context.Context, slots []resolved, stored []int) {
+	if s.o.Catalog == nil {
+		return
+	}
+	ids := make([]string, len(stored))
+	for k, i := range stored {
+		ids[k] = slots[i].meta.catalogID
+	}
+	ctx, cancel := context.WithTimeout(ctx, storedArtistsWait)
+	defer cancel()
+	songs, err := s.o.Catalog.Songs(ctx, ids)
+	if err != nil {
+		s.o.Logger.Debug("playback: catalogue artists of stored songs", "err", err)
+		return
+	}
+	for _, i := range stored {
+		so, ok := songs[slots[i].meta.catalogID]
+		if !ok {
+			continue
+		}
+		if artists := s.m.amArtists(so.Relationships.Artists.Data); len(artists) > 0 {
+			slots[i].meta.artists, slots[i].meta.artistID = artists, artists[0].ID
+		}
+	}
 }

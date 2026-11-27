@@ -2,6 +2,8 @@ package library
 
 import (
 	"net/url"
+	"strings"
+	"unicode"
 
 	"github.com/egoist/mygo/ui"
 
@@ -21,6 +23,8 @@ type listSpec struct {
 	sorts []sortOpt
 	// types: the list has the ?type= filter (albums).
 	types bool
+	// find: the list has the ?q= find field (songs).
+	find bool
 	// noDefaultDesc: a URL with a sort and no ?desc is ascending, whatever
 	// the sort (songs); else it follows startsDesc.
 	noDefaultDesc bool
@@ -37,6 +41,9 @@ type listQuery struct {
 	sort string
 	desc bool
 	kind string // albums: "", "albums" or "singles"
+	// find is the words the list is narrowed to (?q=, songs), as typed: the
+	// find field edits it, so it is not trimmed.
+	find string
 }
 
 // parse reads the page's query. A sort the list does not know falls back to
@@ -63,11 +70,14 @@ func (s listSpec) parse(r *ui.Route) listQuery {
 			q.kind = t
 		}
 	}
+	if s.find {
+		q.find = r.Query("q")
+	}
 	return q
 }
 
 // location is the page's URL for a query: the explicit sort and order, and
-// the type when there is one.
+// the type and the find words when there are any.
 func (s listSpec) location(q listQuery) string {
 	v := url.Values{}
 	v.Set("sort", q.sort)
@@ -75,12 +85,21 @@ func (s listSpec) location(q listQuery) string {
 	if q.kind != "" {
 		v.Set("type", q.kind)
 	}
+	if q.find != "" {
+		v.Set("q", q.find)
+	}
 	return s.path + "?" + v.Encode()
 }
 
 // key is q as part of a query key: its identity for scroll resets.
 func (q listQuery) key() string {
-	return q.sort + "/" + map[bool]string{true: "desc", false: "asc"}[q.desc] + "/" + q.kind
+	return q.sort + "/" + map[bool]string{true: "desc", false: "asc"}[q.desc] + "/" + q.kind + "/" + q.find
+}
+
+// filtering reports whether the find words narrow the list: it has a word, as
+// the search index reads one (a letter or a digit); else it lists everything.
+func (q listQuery) filtering() bool {
+	return strings.IndexFunc(q.find, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsNumber(r) }) >= 0
 }
 
 var (
@@ -94,6 +113,6 @@ var (
 
 var (
 	albumsSpec    = listSpec{path: albumsPath, types: true, sorts: []sortOpt{dateAddedSort, titleSort, artistSort, releaseDateSort}}
-	songsSpec     = listSpec{path: songsPath, noDefaultDesc: true, sorts: []sortOpt{titleSort, artistSort, albumSort, dateAddedSort}}
+	songsSpec     = listSpec{path: songsPath, noDefaultDesc: true, find: true, sorts: []sortOpt{titleSort, artistSort, albumSort, dateAddedSort}}
 	playlistsSpec = listSpec{path: playlistsPath, sorts: []sortOpt{dateAddedSort, lastModified, titleSort}}
 )

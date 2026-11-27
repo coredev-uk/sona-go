@@ -15,6 +15,7 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Start Sona when you log in | Adds Sona to your desktop's startup applications. | Needs Sona.app on _macOS_, not a source build. On _Windows_ Task Manager's startup apps list it; a portable copy must stay in its folder, or be turned on again after a move. |
 | Start in the tray | Starts Sona without a window at login, ready to play from the tray or your media keys. Shown when Start Sona when you log in is on. | Needs a tray icon |
 | Open on | Chooses the page Sona shows when it starts: the page you were last on, or a fixed page. Your queue is always kept. | |
+| Greeting on For You | Shows "Good morning", "Good afternoon" or "Good evening" above the For You heading, by the time on your computer. On by default. | |
 | Open Apple Music links in Sona | Makes Sona the app that opens `music://` and `itms://` links. Links that start with `https://` stay with your browser. | Needs Sona.app on _macOS_; needs Sona's desktop entry on _Linux_, so not a source build, Flatpak or AppImage that isn't integrated. On _Windows_ an app you chose in Settings → Apps → Default apps, or the Apple Music app, keeps the links until you choose Sona there. |
 | First-run setup | Runs "Set up Sona again": the steps of [first-run setup](/guide/first-run/). | |
 | When the window is closed | Keeps playing in the background or quits Sona. In the background, Sona stays in the system tray. | Without a tray icon Sona quits. |
@@ -37,7 +38,7 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Check for updates when Sona starts | Asks GitHub for the newest release once the window has opened. Nothing about you or your library is sent. | |
 | Test versions | Also offers release candidates and other test versions. | Only where Sona can update itself |
 
-This group also shows whether you're up to date, with View release, Install and restart and Check now. It doesn't check development builds. See [Install](/guide/install/) for how updating works.
+This group also shows whether you're up to date, with What's new, View release, Install and restart and Check now. What's new opens the new version's release notes in a window you can scroll; it is there when the release has notes. It doesn't check development builds. See [Install](/guide/install/) for how updating works.
 
 ## Playback
 
