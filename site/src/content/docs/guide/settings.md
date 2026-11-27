@@ -42,6 +42,8 @@ Some settings depend on your platform or build. Where a platform can't back a se
 
 This group also shows whether you're up to date, with What's new, View release, Install and restart and Check now. What's new opens the new version's release notes in a window you can scroll; it is there when the release has notes. It doesn't check development builds. See [Install](/guide/install/) for how updating works.
 
+GitHub lets each network address make only 60 anonymous requests an hour, shared with every other program on that network, and most of Sona's update check doesn't use them. When the limit has been reached anyway, Check now says "GitHub's limit for this network was reached; Sona will check again after" the time it is over, in your clock. Sona asks GitHub nothing until then, for the update check, the release notes and What's new alike, and checks again by itself once the limit is over if "Check for updates when Sona starts" is on.
+
 ## Playback
 
 On a platform with no playback engine this section says so, and only Lyrics remains. Browsing Apple Music and your library works as usual.

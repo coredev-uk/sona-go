@@ -149,7 +149,7 @@ func newSelfRig(t *testing.T, o selfOpts) *selfRig {
 	if o.key {
 		r.s.key = base64.StdEncoding.EncodeToString(pub)
 	}
-	r.s.feed = update.Feed{Web: srv.URL, API: srv.URL, Key: r.s.key}
+	r.s.feed = update.Feed{Web: srv.URL, Key: r.s.key}
 	r.s.checker = update.Checker{API: srv.URL}
 	r.s.status.SelfUpdate, r.s.status.Disabled = r.s.selfState()
 	t.Cleanup(r.e.close)

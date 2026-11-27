@@ -135,3 +135,67 @@ func TestReleasesignCheckOnlyChecks(t *testing.T) {
 		t.Fatalf("a ./ archive: %v", err)
 	}
 }
+
+// release.json carries the notes cut at the install instructions and without
+// the version's heading, and the updater verifies it against the key.
+func TestReleasesignWritesVerifiableReleaseInfo(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	dir := t.TempDir()
+	body := "## [0.3.0](https://example.test/compare) (2026-01-02)\n\n### Fixes\n\n- a (#1)\n\n" + update.InstallNotesMarker + "\n## Installing\n\nRun it.\n"
+	notes := filepath.Join(dir, "changelog.md")
+	if err := os.WriteFile(notes, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "release.json")
+	env := map[string]string{"K": base64.StdEncoding.EncodeToString(priv)}
+	now := func() time.Time { return time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC) }
+	if err := run([]string{"-release-info", "-version", "v0.3.0", "-notes", notes, "-key-env", "K", "-out", out}, func(k string) string { return env[k] }, now); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := update.ParseReleaseInfo(raw, pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Version != "0.3.0" || info.Published != "2026-01-02T03:04:05Z" || info.Notes != "### Fixes\n\n- a (#1)" {
+		t.Fatalf("release.json = %+v", info)
+	}
+	other, _, _ := ed25519.GenerateKey(nil)
+	if _, err := update.ParseReleaseInfo(raw, other); !errors.Is(err, update.ErrSignature) {
+		t.Fatalf("verified with another key: %v", err)
+	}
+
+	// -verify checks a file against the key in -pub-env and refuses one
+	// that another key signed.
+	env["P"] = base64.StdEncoding.EncodeToString(pub)
+	env["OTHER"] = base64.StdEncoding.EncodeToString(other)
+	if err := run([]string{"-verify", out, "-pub-env", "P"}, func(k string) string { return env[k] }, now); err != nil {
+		t.Fatalf("-verify with the signing key: %v", err)
+	}
+	if err := run([]string{"-verify", out, "-pub-env", "OTHER"}, func(k string) string { return env[k] }, now); !errors.Is(err, update.ErrSignature) {
+		t.Fatalf("-verify with another key: %v", err)
+	}
+}
+
+// A release.json needs a version and a key, and a date that is a date.
+func TestReleasesignReleaseInfoRefusals(t *testing.T) {
+	_, priv, _ := ed25519.GenerateKey(nil)
+	env := map[string]string{"K": base64.StdEncoding.EncodeToString(priv)}
+	getenv := func(k string) string { return env[k] }
+	out := filepath.Join(t.TempDir(), "release.json")
+	for name, args := range map[string][]string{
+		"no version": {"-release-info", "-key-env", "K", "-out", out},
+		"no key":     {"-release-info", "-version", "0.3.0", "-key-env", "NONE", "-out", out},
+		"bad date":   {"-release-info", "-version", "0.3.0", "-date", "yesterday", "-key-env", "K", "-out", out},
+	} {
+		if err := run(args, getenv, time.Now); err == nil {
+			t.Errorf("%s: wrote a release.json", name)
+		}
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("a refused run left a file")
+	}
+}

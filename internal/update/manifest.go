@@ -57,17 +57,30 @@ func ManifestName(target string) string { return "update-" + target + ".json" }
 type Feed struct {
 	// HTTP is the client; nil means 15 s and no cookies.
 	HTTP *http.Client
-	// Web is the site releases download from (default https://github.com),
-	// API the REST root (default DefaultAPI). Repo defaults to Repo.
-	Web, API, Repo string
+	// Web is the site releases download from (default https://github.com).
+	// Repo defaults to Repo.
+	Web, Repo string
 	// Key is the base64 public key manifests must be signed with.
 	Key string
 }
 
+// releaseSite is the website root and repository (owner/name) a feed reads
+// from, with their defaults.
+func releaseSite(web, repo string) (string, string) {
+	if web = strings.TrimRight(web, "/"); web == "" {
+		web = "https://github.com"
+	}
+	if repo == "" {
+		repo = Repo
+	}
+	return web, repo
+}
+
 // Manifest reads the manifest of target from the latest release: one
 // anonymous GET of releases/latest/download/update-<target>.json. With
-// prerelease it lists the repository's releases first (the newest tag
-// including prereleases) and reads that release's manifest. It returns the
+// prerelease it reads the repository's releases.atom first (the newest tag,
+// prereleases included) and then that release's manifest. Neither is an API
+// call, so GitHub's anonymous limit doesn't reach them. It returns the
 // decoded manifest and its raw bytes, once the signed statement says the
 // version is the key holder's for target (VerifyStatement), the stable feed
 // carries no pre-release and a release's manifest names that release.
@@ -76,23 +89,17 @@ func (f Feed) Manifest(ctx context.Context, target string, prerelease bool) (Man
 	if err != nil {
 		return Manifest{}, nil, err
 	}
-	web, repo := strings.TrimRight(f.Web, "/"), f.Repo
-	if web == "" {
-		web = "https://github.com"
-	}
-	if repo == "" {
-		repo = Repo
-	}
+	web, repo := releaseSite(f.Web, f.Repo)
 	u, tag := web+"/"+repo+"/releases/latest/download/"+ManifestName(target), ""
 	if prerelease {
 		var err error
-		tag, err = f.newestTag(ctx, repo)
+		tag, err = newestTag(ctx, f.HTTP, web, repo)
 		if err != nil {
 			return Manifest{}, nil, err
 		}
-		u = web + "/" + repo + "/releases/download/" + tag + "/" + ManifestName(target)
+		u = web + "/" + repo + "/releases/download/" + url.PathEscape(tag) + "/" + ManifestName(target)
 	}
-	raw, err := f.get(ctx, u, MaxManifest)
+	raw, err := get(ctx, f.HTTP, u, MaxManifest)
 	if err != nil {
 		return Manifest{}, nil, err
 	}
@@ -144,13 +151,10 @@ func isLoopback(host string) bool {
 	return host == "localhost" || (ip != nil && ip.IsLoopback())
 }
 
-func (f Feed) get(ctx context.Context, u string, limit int64) ([]byte, error) {
-	return get(ctx, f.HTTP, u, limit)
-}
-
 // get reads up to limit bytes of u with hc (nil: a client with a 15 s
 // timeout and no cookie jar), sending headers (name, value pairs) beside the
-// fixed User-Agent. A 404 is ErrNoRelease.
+// fixed User-Agent. A 404 is ErrNoRelease, an answer larger than limit an
+// error, and GitHub's limit on this network a *RateLimitError.
 func get(ctx context.Context, hc *http.Client, u string, limit int64, headers ...string) ([]byte, error) {
 	if hc == nil {
 		hc = &http.Client{Timeout: 15 * time.Second}
@@ -168,45 +172,21 @@ func get(ctx context.Context, hc *http.Client, u string, limit int64, headers ..
 		return nil, fmt.Errorf("update: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	switch {
-	case resp.StatusCode == http.StatusNotFound:
+	if resp.StatusCode == http.StatusNotFound {
 		return nil, ErrNoRelease
-	case resp.StatusCode != http.StatusOK:
+	}
+	if rl, ok := rateLimit(resp, time.Now()); ok {
+		return nil, rl
+	}
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("update: %s answered %s", req.URL.Host, resp.Status)
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, limit))
-}
-
-// newestTag is the tag of the highest version among non-draft releases,
-// prereleases included.
-func (f Feed) newestTag(ctx context.Context, repo string) (string, error) {
-	api := f.API
-	if api == "" {
-		api = DefaultAPI
-	}
-	raw, err := f.get(ctx, strings.TrimRight(api, "/")+"/repos/"+repo+"/releases?per_page=30", 4<<20)
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("update: reading %s: %w", req.URL.Host, err)
 	}
-	var list []struct {
-		Tag   string `json:"tag_name"`
-		Draft bool   `json:"draft"`
+	if int64(len(raw)) > limit {
+		return nil, fmt.Errorf("update: %s answered more than %d bytes", req.URL.Host, limit)
 	}
-	if err := json.Unmarshal(raw, &list); err != nil {
-		return "", fmt.Errorf("update: decode releases: %w", err)
-	}
-	best := ""
-	for _, r := range list {
-		v := strings.TrimPrefix(r.Tag, "v")
-		if r.Draft || !Valid(v) || strings.ContainsAny(r.Tag, "/?#") {
-			continue
-		}
-		if best == "" || Newer(v, strings.TrimPrefix(best, "v")) {
-			best = r.Tag
-		}
-	}
-	if best == "" {
-		return "", ErrNoRelease
-	}
-	return best, nil
+	return raw, nil
 }

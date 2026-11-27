@@ -14,8 +14,12 @@
 #             signed, its .dmg and the update archive (build/darwin), smoke-tested
 #   windows   the x64 portable .zip, the per-user installer and the update
 #             archive (build/windows), smoke-tested
-#   publish   signs the update manifests (update-<target>.json) with the
-#             SONA_UPDATE_KEY (Proton Pass), writes one SHA256SUMS over everything,
+#   release-info  a dry run's check of the signed release.json asset (a throwaway
+#             key; the dry run signs nothing else)
+#   publish   signs the update manifests (update-<target>.json) and release.json
+#             (version, date and notes; what Linux's check and the release notes
+#             read without GitHub's rate-limited API) with the SONA_UPDATE_KEY
+#             (Proton Pass), writes one SHA256SUMS over everything,
 #             attests it, uploads and publishes, as the bot-cecil GitHub App
 #
 # The notes in a tag's draft are release-please's changelog entry; publishing
@@ -49,7 +53,8 @@
 # Without the SONA_UPDATE_KEY (forks, a run outside the environment: no
 # Proton Pass token)
 # the signing step is skipped, says so in the run summary, and the release has
-# no update-<target>.json: those installs do not self-update.
+# no update-<target>.json and no release.json: those installs do not
+# self-update, and the update check and the release notes read GitHub's API.
 name: Release
 
 on:
@@ -517,6 +522,49 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ needs.plan.outputs.publish == 'true' && 14 || 7 }}
 
+  # A dry run has no key and signs nothing, so this is where it builds
+  # release.json: from a sample of the notes publish reads, with a throwaway
+  # key, and verifies it the way the installs do. A publishing run signs the
+  # real one in the publish job.
+  release-info:
+    name: Build and verify release.json (dry run)
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.publish != 'true' && needs.plan.outputs.skip != 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+
+      - name: Sign and verify a sample release.json
+        run: |
+          keys="$RUNNER_TEMP/keys"
+          go tool mygo keygen -o "$keys" >/dev/null
+          {
+            printf '## [%s](https://example.test/compare) (2026-01-02)\n\n### Fixes\n\n- a\n\n' "$VERSION"
+            printf '%s\n## Installing\n\nRun it.\n' '<!-- sona-install-notes -->'
+          } >sample-notes.md
+          SONA_UPDATE_KEY=$(cat "$keys/mygo-update.key") go run ./cmd/releasesign -release-info -version "$VERSION" \
+            -notes sample-notes.md -date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" -out release.json
+          SONA_DRY_RUN_KEY=$(cat "$keys/mygo-update.pub") go run ./cmd/releasesign -verify release.json -pub-env SONA_DRY_RUN_KEY
+          jq -e --arg v "$VERSION" '.version == $v and .notes == "### Fixes\n\n- a"' release.json
+          {
+            echo '### release.json (dry run, throwaway key)'
+            echo '```'
+            cat release.json
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
   publish:
     name: Sign the update manifests and publish the GitHub release
     needs: [plan, checks, linux, macos, windows]
@@ -638,7 +686,7 @@ jobs:
         if: ${{ steps.notes.outputs.draft == 'true' }}
         run: |
           if [ -z "$SONA_UPDATE_KEY" ]; then
-            msg="SONA_UPDATE_KEY is not set: update manifests are NOT signed and this release has no update-<target>.json; installs will not self-update."
+            msg="SONA_UPDATE_KEY is not set: update manifests are NOT signed and this release has no update-<target>.json or release.json; installs will not self-update, and the update check and the release notes read GitHub's API."
             echo "::warning::$msg"
             echo "### Update signing skipped" >>"$GITHUB_STEP_SUMMARY"
             echo "$msg" >>"$GITHUB_STEP_SUMMARY"
@@ -651,8 +699,15 @@ jobs:
               -url "$base/$(basename "$archive")" -notes changelog.md \
               -date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" -out "release/update-$target.json"
           done
-          echo "### Update manifests signed" >>"$GITHUB_STEP_SUMMARY"
-          ls -l release/update-*.json >>"$GITHUB_STEP_SUMMARY"
+          # release.json is the same for every platform: Linux's check and the
+          # release notes read it instead of the API. Its notes are the body
+          # the manifests carry, cut at the install instructions. It must verify
+          # against the key the installs carry (internal/update/update.pub).
+          go run ./cmd/releasesign -release-info -version "$VERSION" -notes changelog.md \
+            -date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" -out release/release.json
+          go run ./cmd/releasesign -verify release/release.json
+          echo "### Update manifests and release.json signed" >>"$GITHUB_STEP_SUMMARY"
+          ls -l release/update-*.json release/release.json >>"$GITHUB_STEP_SUMMARY"
 
       - name: Write SHA256SUMS
         if: ${{ steps.notes.outputs.draft == 'true' }}
@@ -678,8 +733,9 @@ jobs:
 
       # Re-running the job uploads again over the same names (--clobber); a
       # release that is already published is left alone. Archives go up
-      # before the manifests that name them. Publishing a tag's release makes
-      # it the latest, which the update check reads; a prerelease never is.
+      # before the manifests and release.json that describe them. Publishing a
+      # tag's release makes it the latest, which the update check reads; a
+      # prerelease never is.
       - name: Upload the files and publish
         if: ${{ steps.notes.outputs.draft == 'true' }}
         env:
@@ -687,10 +743,13 @@ jobs:
         working-directory: release
         run: |
           shopt -s nullglob
-          manifests=(update-*.json)
+          manifests=()
+          for f in update-*.json release.json; do
+            if [ -e "$f" ]; then manifests+=("$f"); fi
+          done
           files=()
           for f in *; do
-            case $f in update-*.json | SHA256SUMS) ;; *) files+=("$f") ;; esac
+            case $f in update-*.json | release.json | SHA256SUMS) ;; *) files+=("$f") ;; esac
           done
           gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"
           if [ ${#manifests[@]} -gt 0 ]; then

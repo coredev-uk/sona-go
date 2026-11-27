@@ -53,6 +53,10 @@ type UpdateStatus struct {
 	Checked   int64  `json:"checked"`   // last successful check, Unix ms; 0 never
 	// Error is why the last check failed ("" when it succeeded).
 	Error ErrorCode `json:"error"`
+	// RetryAt, with Error CodeRateLimited, is when GitHub's limit for this
+	// network is over and Sona checks again, Unix ms; 0 otherwise. Until then
+	// no call to GitHub is made.
+	RetryAt int64 `json:"retryAt"`
 	// AppImage: this process runs from an AppImage, which AppImageUpdate
 	// can update in place; packages update through the package manager.
 	AppImage bool `json:"appImage"`
@@ -65,9 +69,10 @@ type UpdateStatus struct {
 	// development build). Linux updates through the package manager.
 	Disabled string `json:"disabled"`
 	// Notes are Latest's release notes (Markdown): the signed update
-	// manifest's where Sona updates itself, else the body of the GitHub
-	// release the check reads, without the install instructions. "" when the
-	// release has none. The UI shows them in a dialog (kit.ReleaseNotes).
+	// manifest's where Sona updates itself, else the signed release.json's
+	// (the body of the GitHub release for a release published without it),
+	// without the install instructions. "" when the release has none. The UI
+	// shows them in a dialog (kit.ReleaseNotes).
 	Notes string `json:"notes"`
 	// Installing, Downloaded and Total are the install under way: Total is
 	// the archive's size in bytes.

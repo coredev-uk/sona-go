@@ -17,14 +17,16 @@ import (
 	"testing"
 )
 
-// release is a fake GitHub: the manifest at releases/latest/download, the
-// archive it names, and the releases list.
+// release is a fake GitHub: the manifest and release.json at
+// releases/latest/download and the release's own download path, the archive
+// the manifest names, and releases.atom.
 type release struct {
 	srv      *httptest.Server
 	pub      string
 	priv     ed25519.PrivateKey
 	archive  []byte
 	manifest Manifest
+	info     []byte // release.json as served; nil serves a release without it (404)
 	hits     map[string]int
 }
 
@@ -46,8 +48,20 @@ func newRelease(t *testing.T, version string, sign func(digest []byte, priv ed25
 			_ = json.NewEncoder(w).Encode(r.manifest)
 		case "/archive.tar.gz":
 			_, _ = w.Write(r.archive)
-		case "/repos/coredev-uk/sona-go/releases":
-			_, _ = w.Write([]byte(`[{"tag_name":"v0.1.0"},{"tag_name":"v` + version + `"},{"tag_name":"v9.9.9","draft":true}]`))
+		case "/coredev-uk/sona-go/releases/latest/download/release.json",
+			"/coredev-uk/sona-go/releases/download/v" + version + "/release.json":
+			if r.info == nil {
+				http.NotFound(w, req)
+				return
+			}
+			_, _ = w.Write(r.info)
+		case "/coredev-uk/sona-go/releases.atom":
+			w.Header().Set("Content-Type", "application/atom+xml; charset=utf-8")
+			_, _ = w.Write([]byte(atomOf(
+				r.srv.URL+"/coredev-uk/sona-go/releases/tag/v"+version,
+				r.srv.URL+"/coredev-uk/sona-go/releases/tag/v0.1.0",
+				r.srv.URL+"/other/repo/releases/tag/v9.9.9", // another repository's release is not this one's
+			)))
 		default:
 			http.NotFound(w, req)
 		}
@@ -65,7 +79,7 @@ func newRelease(t *testing.T, version string, sign func(digest []byte, priv ed25
 
 func goodSig(d []byte, priv ed25519.PrivateKey) string { return Sign(priv, d) }
 
-func (r *release) feed() Feed { return Feed{Web: r.srv.URL, API: r.srv.URL, Key: r.pub} }
+func (r *release) feed() Feed { return Feed{Web: r.srv.URL, Key: r.pub} }
 
 func TestFeedFindsTheNewerRelease(t *testing.T) {
 	r := newRelease(t, "0.3.0", goodSig)

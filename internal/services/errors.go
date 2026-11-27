@@ -81,6 +81,7 @@ const (
 	CodeUpdateSignature     ErrorCode = "update_signature"      // the update isn't signed with Sona's key (update.ErrSignature)
 	CodeUpdateFailed        ErrorCode = "update_failed"         // the update couldn't be installed (update.ErrInstall)
 	CodeRestoreFailed       ErrorCode = "restore_failed"        // the previous version couldn't be put back (update.ErrRestore)
+	CodeRateLimited         ErrorCode = "rate_limited"          // GitHub's limit for this network was reached (*update.RateLimitError)
 	CodeKeyring             ErrorCode = "keyring"               // the token store failed or didn't answer in time
 	CodeImageUnusable       ErrorCode = "image_unusable"        // a chosen image can't be a cover (artwork.ErrCoverImage)
 	CodeAddonUnavailable    ErrorCode = "addon_unavailable"     // the add-on isn't running or didn't answer (ErrAddonUnavailable)
@@ -151,6 +152,8 @@ func CodeOf(err error) ErrorCode {
 		return CodeUpdateFailed
 	case errors.Is(err, update.ErrRestore):
 		return CodeRestoreFailed
+	case errors.As(err, new(*update.RateLimitError)):
+		return CodeRateLimited
 	case errors.Is(err, auth.ErrKeyring):
 		return CodeKeyring
 	case errors.Is(err, artwork.ErrCoverImage):

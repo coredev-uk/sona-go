@@ -23,6 +23,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [Sona's own add-ons](#sonas-own-add-ons)
   - [Secret scanning](#secret-scanning)
   - [Vulnerability scanning](#vulnerability-scanning)
+  - [Updates](#updates)
 - [Findings](#findings)
   - [Summary](#summary)
   - [F1. Settings import could set the CDM path](#f1-settings-import-could-set-the-cdm-path)
@@ -53,6 +54,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [F26. The update manifest's version and platform were not signed](#f26-the-update-manifests-version-and-platform-were-not-signed)
   - [F27. The loopback sign-in could be completed with another account's token](#f27-the-loopback-sign-in-could-be-completed-with-another-accounts-token)
   - [F28. On macOS any program could read Sona's keychain items without a prompt](#f28-on-macos-any-program-could-read-sonas-keychain-items-without-a-prompt)
+  - [F29. Update checks used GitHub's rate-limited API, and said nothing useful when it refused](#f29-update-checks-used-githubs-rate-limited-api-and-said-nothing-useful-when-it-refused)
 - [Areas reviewed without findings](#areas-reviewed-without-findings)
 - [Run the tests](#run-the-tests)
 
@@ -801,6 +803,23 @@ nix run nixpkgs#gitleaks -- dir --config .gitleaks.toml --redact .
 
 **Residual risks.** The database lists only known, reported vulnerabilities, and a reachable call through reflection or a plugin can be missed. The CI log is public and shows each finding with its call stacks, as the advisory itself already is.
 
+### Updates
+
+**What it does.** `internal/update` and `internal/services/updates.go` find a newer release and, on macOS and Windows, install it (`docs/architecture.md`, "Updates"). It makes anonymous GETs with a fixed User-Agent and no cookies or identifiers, to `github.com` (the release's files and `releases.atom`) and, for a release published without `release.json` only, to `api.github.com`.
+
+**Threats.** Whoever can publish or replace release assets without the signing key (a `contents: write` token, or a compromise of GitHub or its TLS) wants Sona to install an archive of their choosing, an older or another platform's genuine one, or to show notes or offer a version of their choosing. A network that exhausts GitHub's anonymous API allowance (60 calls an hour per IP address, shared with everything on it) wants the check to fail.
+
+**Controls.**
+
+- **A signed statement binds the version.** A manifest carries an Ed25519 signature of `sona-update-v1 NUL target NUL version NUL channel NUL hex(sha256)`, and the archive's digest is signed again as MyGo's updater checks it ([F26](#f26-the-update-manifests-version-and-platform-were-not-signed)). `release.json`, which the Linux check, the release notes and What's New read, carries an Ed25519 signature, by the same key, of `sona-release-v1 NUL version NUL channel NUL published NUL hex(sha256(notes))` (`update.ReleaseStatement`): a version, time or notes the key holder did not sign together, a missing signature or another key is `ErrSignature` (`update_signature`), never read as a release and never retried through the API. The two prefixes differ, so a signature of one is no signature of the other.
+- **The stable feed never carries a pre-release.** `releases/latest/download/…` is refused when its manifest or `release.json` names a version with a pre-release part, and a release read by tag (the newest tag with Test versions, or What's New's) must name that tag's version, so an older release's genuine files under a newer tag are refused.
+- **The tag from `releases.atom` is a hint, not a trust anchor.** The feed is a page of the website, parsed with `encoding/xml` (no entity expansion) and capped at 4 MiB (an answer longer than a cap is refused, not cut). Only an entry that links `{web}/{repo}/releases/tag/{tag}` of this repository, whose tag is a semantic version without `/`, `?` or `#`, is considered; a forged feed can at most pick another existing tag, whose signed files must then name it. Nothing the feed carries (its HTML content) is read.
+- **Sizes and transport.** The manifest (1 MiB), `release.json` (1 MiB), the Atom feed (4 MiB) and the API answer (1 MiB) are capped by `get`, which refuses a longer answer. Archive URLs must be HTTPS (loopback HTTP in tests), the archive's size, digest and signature are checked before MyGo sees it, and no request carries more than the fixed User-Agent and an `Accept`.
+- **The API is the fallback for a release without `release.json` (404) only,** and a build with no update key, which can't verify it, reads the API as before. Its answer was never signed: it is as trusted as TLS to `api.github.com`, as it was before `release.json` ([F29](#f29-update-checks-used-githubs-rate-limited-api-and-said-nothing-useful-when-it-refused)).
+- **GitHub's limit is a typed error and a hold.** A `403`/`429` with `x-ratelimit-remaining: 0` or a `Retry-After` is `*update.RateLimitError`; the service then makes no call to GitHub until the reset (between a minute and an hour, so a forged or skewed header can neither make Sona hammer GitHub nor hold checks for long). Nothing else is read as the limit.
+
+**Residual risks.** A replayed older genuine `release.json` or manifest passes its signature, so it can hide a newer release or show older notes until the real file is restored (`ReleaseStatement` carries a time but no counter, and the check does not compare it). `release.json` signs the notes: a release whose body was edited after publishing keeps the signed notes until it is re-signed. The Atom feed lists only the ten newest releases. Whoever holds `SONA_UPDATE_KEY` can sign anything; its protection is `docs/maintainers/ci-and-secrets.md`.
+
 ## Findings
 
 Each finding has an issue, its impact, the fix and the test that keeps it fixed. Where a fix is a component's control, the finding links to that component instead of repeating it.
@@ -837,6 +856,7 @@ Each finding has an issue, its impact, the fix and the test that keeps it fixed.
 | F26 | The update manifest's version and platform were not signed (downgrade, cross-platform archive) | Low | Fixed (residual risks listed) | `cmd/releasesign/main.go`, `internal/update/statement.go`, `manifest.go`, `source.go`, `internal/services/updates.go` |
 | F27 | The loopback sign-in could be completed with another account's token (login CSRF) | Low | Fixed | `internal/auth/mut/loopback.go` |
 | F28 | On macOS any program of the user's could read Sona's keychain items (the MUT, the scrobbler and lyrics tokens) without a prompt | Medium | Fixed (residual risks listed) | `internal/auth/store/keyring_darwin.go` |
+| F29 | Update checks used GitHub's rate-limited anonymous API and failed with a generic error; the Linux check and the notes read an unsigned answer | Low | Fixed (residual risks listed) | `internal/update/ratelimit.go`, `atom.go`, `releaseinfo.go`, `update.go`, `cmd/releasesign/main.go`, `.github/workflows/release.yml`, `internal/services/updates.go` |
 
 ### F1. Settings import could set the CDM path
 
@@ -1521,6 +1541,32 @@ Severity: Medium (GHSA-49cj-524r-6gp3). Status: fixed (residual risks listed).
 - An item is still writable by any program (its `encrypt` authorisation is open to all, as for every item), so another program can replace a secret, though not read it.
 - A secret is readable by any program until Sona first starts after the update, which moves it.
 
+### F29. Update checks used GitHub's rate-limited API, and said nothing useful when it refused
+
+Severity: Low (availability; the Linux check and the notes also read an answer that carried no signature). Status: fixed (residual risks listed).
+
+**Issue.** `Feed.newestTag` (Test versions) and `Checker.Latest` and `Checker.Version` (Linux's update check, the release notes, What's New) read `api.github.com`, which answers an anonymous caller 60 times an hour per IP address, shared with everything on the network. On 2026-11-27 seven checks in a row answered `403` (`x-ratelimit-remaining: 0`) after other tools on the network had used the hour's allowance, and Sona reported a generic failure. Those paths also read the release's version and notes from an answer nothing signed.
+
+**Impact.** An office, a university network or a carrier NAT can use up the 60 calls before Sona asks, so the check, the notes and What's New failed with no cause named, and each click on Check now asked again. For Linux, and for the notes everywhere, the version and notes offered were only as trusted as TLS to `api.github.com`.
+
+**Fix** (`internal/update/ratelimit.go`, `atom.go`, `releaseinfo.go`, `update.go`, `manifest.go`; `cmd/releasesign/main.go`; `.github/workflows/release.yml`; `internal/services/updates.go`, `whatsnew.go`; `internal/ui/i18n/errors.go`):
+
+- A `403` or `429` with `x-ratelimit-remaining: 0`, or with `Retry-After`, is `*update.RateLimitError` carrying the reset. `UpdatesService` holds every call to GitHub until then and says "GitHub's limit for this network was reached; Sona will check again after {time}".
+- Test versions read the newest tag from `releases.atom`, not the API; the tag's manifest stays signed and must name it.
+- `releasesign -release-info` signs `release.json` (version, publication time, notes) and `-verify` checks it against `update.pub` in the publish job; the Linux check, the release notes and What's New read it, and verify its signature, and ask the API only when it is absent.
+
+**Test.**
+
+- `internal/update`: `TestGitHubsLimitIsATypedError`, `TestOtherRefusalsAreNotTheLimit`, `TestNewestTagFromTheAtomFeed`, `TestFeedPrereleaseNeverCallsTheAPI`, `TestLatestReadsTheSignedReleaseInfo`, `TestVersionReadsTheReleaseInfoOfThatTag`, `TestLatestWithTestVersionsReadsTheNewestTag`, `TestReleaseInfoIsRefusedUnlessSignedForThatRelease` (another key, unsigned, changed notes, version or time, a manifest's signature, a pre-release as the latest, another release's file under this tag, an oversize answer: refused, never read through the API), `TestAReleaseWithoutReleaseInfoFallsBackToTheAPI`, `TestReleaseStatementFormat`.
+- `cmd/releasesign`: `TestReleasesignWritesVerifiableReleaseInfo`.
+- `internal/services`: `TestUpdateRateLimitIsSaidAndHoldsEveryCall`, `TestUpdateChecksAgainWhenTheLimitIsOver`, `TestUpdateLimitHoldIsBounded`, `TestUpdateReadsReleaseInfoWithoutTheAPI`.
+
+**Residual risks.**
+
+- The anonymous API still answers a release published without `release.json` (every release up to `v0.8.0-rc.4`), so a network that has used its allowance is still refused for those, and the message says when it is over.
+- Atom lists the ten newest releases by publication date. A release with the highest version that ten others were published after would not be named there, so Test versions would not offer it until it is one of the ten newest.
+- A reset that GitHub names is believed only within a minute to an hour.
+
 ## Areas reviewed without findings
 
 - native Apple ID input handling
@@ -1534,7 +1580,7 @@ Severity: Medium (GHSA-49cj-524r-6gp3). Status: fixed (residual risks listed).
 - secret stores
 - the scrobble queue
 - the diagnostics bundle
-- autostart, and the update check's request (its manifest is [F26](#f26-the-update-manifests-version-and-platform-were-not-signed))
+- autostart, and the update check's request (its signed files are [Updates](#updates), [F26](#f26-the-update-manifests-version-and-platform-were-not-signed) and [F29](#f29-update-checks-used-githubs-rate-limited-api-and-said-nothing-useful-when-it-refused))
 
 ## Run the tests
 
