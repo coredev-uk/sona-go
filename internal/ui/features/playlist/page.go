@@ -169,6 +169,20 @@ func (p *playlists) collabOf(id string, pl services.Playlist) *services.Playlist
 	return nil
 }
 
+// adders is who added each of d's songs, by row, when the playlist is
+// collaborative and Apple names at least one adder (the "Added by" column
+// shows then); else nil.
+func (p *playlists) adders(id string, d services.PlaylistDetail) []*services.SocialProfile {
+	collab := p.collabOf(id, d.Playlist)
+	if collab == nil {
+		return nil
+	}
+	if rows, some := p.page.addedBy(d.Tracks, *collab); some {
+		return rows
+	}
+	return nil
+}
+
 // playList plays songs, the playlist as the page lists them (sorted, and
 // narrowed by the filter), from song start, or shuffled. Main thread.
 func (p *playlists) playList(id string, songs []services.Song, start int, shuffle bool) {
@@ -210,7 +224,7 @@ func (p *playlists) playlistBody(c *ui.Context, id string, d services.PlaylistDe
 	stamps := p.stamps(c, pl, collab)
 	var find func()
 	if !inEdit && len(d.Tracks) > 0 {
-		find = func() { p.songFinder(c, d.Tracks) }
+		find = func() { p.songFinder(c, d.Tracks, p.adders(id, d)) }
 	}
 	p.header(c, d, byline, p.ledger(d, collab, stamps...), func(head ui.Element) { p.headerActions(c, head, id, d, editable, inEdit, menus) }, find)
 
@@ -399,7 +413,7 @@ func (p *playlists) headerActions(c *ui.Context, head ui.Element, id string, d s
 		return
 	}
 	// Play and Shuffle take the songs as the page lists them.
-	songs := pg.view(d.Tracks).songs
+	songs := pg.view(d.Tracks, p.adders(id, d)).songs
 	playable := false
 	for _, s := range songs {
 		if s.Playable {
@@ -454,7 +468,8 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 	// The finder in the header's strip was built first: a key typed in it
 	// changes the query, and the songs listed, their count and what is
 	// announced all follow that query.
-	v := pg.view(d.Tracks)
+	by := p.adders(id, d)
+	v := pg.view(d.Tracks, by)
 	songs := v.songs
 	if len(songs) == 0 {
 		theme.Text(c, i18n.T("No song in this playlist matches “{query}”.", "query", pg.query), "sub").
@@ -477,18 +492,17 @@ func (p *playlists) trackList(c *ui.Context, id string, d services.PlaylistDetai
 	if editable {
 		o.Container = &kit.ActionContainer{Kind: "playlist", ID: id, Editable: true, Order: v.order}
 	}
-	if collab := p.collabOf(id, d.Playlist); collab != nil {
-		if rows, some := pg.addedBy(d.Tracks, *collab); some {
-			o.AddedBy = func(i int) *services.SocialProfile { return rows[v.place(i)] }
-		}
+	if by != nil {
+		o.AddedBy = func(i int) *services.SocialProfile { return by[v.place(i)] }
 	}
 	kit.TrackList(c, &pg.list, len(songs), func(i int) *services.Song { return &songs[i] }, o)
 }
 
 // songFinder is the field at the right end of the header's strip, "Find in
 // playlist", and, while it holds a query, how many of the playlist's songs
-// match it. Escape in the field clears it.
-func (p *playlists) songFinder(c *ui.Context, tracks []services.Song) {
+// match it. Escape in the field clears it. A collaborative playlist's field
+// also matches who added a song (by), and its placeholder says so.
+func (p *playlists) songFinder(c *ui.Context, tracks []services.Song, by []*services.SocialProfile) {
 	pg := &p.page
 	// A reversed row: the field is built first (the count asks for the
 	// query it now holds) and sits at the row's right end, the count to its
@@ -496,9 +510,9 @@ func (p *playlists) songFinder(c *ui.Context, tracks []services.Song) {
 	ui.Row(c.Key("find")).Reverse().Gap(12).AlignItems(ui.Center).Shrink(0).Children(func() {
 		ui.Column(c.Key("field")).Shrink(0).Role(ui.RoleSearch).Label(i18n.T("Find songs in this playlist")).Children(func() {
 			label := i18n.T("Find in playlist")
-			kit.SearchField(c, &pg.query, kit.SearchFieldOpts{Placeholder: label, A11yLabel: label, Width: 240})
+			kit.SearchField(c, &pg.query, kit.SearchFieldOpts{Placeholder: findPlaceholder(by != nil), A11yLabel: label, Width: 240})
 		})
-		found := len(pg.view(tracks).songs)
+		found := len(pg.view(tracks, by).songs)
 		if pg.filtering() {
 			theme.Text(c, i18n.T("{found} of {total, plural, one {# song} other {# songs}}",
 				"found", i18n.FormatNumber(float64(found)), "total", len(tracks)), "sub").
@@ -506,6 +520,15 @@ func (p *playlists) songFinder(c *ui.Context, tracks []services.Song) {
 		}
 		p.announceFound(c, found)
 	})
+}
+
+// findPlaceholder is what the find field shows while empty: it says the
+// adder is found too only on a collaborative playlist.
+func findPlaceholder(collaborative bool) string {
+	if collaborative {
+		return i18n.T("Find in playlist or by who added")
+	}
+	return i18n.T("Find in playlist")
 }
 
 // announceFound reads out the filter's result when it changes (a filter's
@@ -542,6 +565,8 @@ func sortAnnouncement(s kit.TrackSortState) string {
 		by = i18n.T("Album")
 	case kit.SortDuration:
 		by = i18n.T("Duration")
+	case kit.SortAddedBy:
+		by = i18n.T("Added By")
 	default:
 		return i18n.T("Songs in playlist order")
 	}

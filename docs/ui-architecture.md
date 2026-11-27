@@ -1721,12 +1721,12 @@ Registered after video and before radio and the player. It owns:
 
 #### Sort and find
 
-`view.go`, for catalogue and library playlists alike. The page holds every track, so it sorts and filters in the UI with `viewOrder(tracks, key, desc, query) []int`, a pure function that answers original indices.
+`view.go`, for catalogue and library playlists alike. The page holds every track, so it sorts and filters in the UI with `viewOrder(tracks, by, key, desc, query) []int`, a pure function that answers original indices.
 
-- It returns the songs matching every word of the query (folded, in Name, Artist or Album) in the order of the key (Title, Artist, Album, Duration, or none: the playlist's order). The sort is stable, so songs that compare equal keep their playlist order whichever way it runs, and digits read as numbers.
+- It returns the songs matching every word of the query (folded, in Name, Artist or Album, and on a collaborative playlist the adder's name and handle) in the order of the key (Title, Artist, Album, Duration, Added By on a collaborative playlist, or none: the playlist's order). The adder rows (`playlists.adders`, nil unless the playlist is collaborative and Apple names an adder) are passed in. The sort is stable, so songs that compare equal keep their playlist order whichever way it runs, and digits read as numbers. Sorted by Added By, songs with no adder come last in both directions.
 - A header click cycles ascending, descending, playlist order (`TrackSortState.Toggle`) and is announced.
-- The `kit.SearchField` ("Find in playlist", in a search landmark) shows "N of M songs" while it holds a query, announces its count, replaces the table with a message when nothing matches, and Escape clears it.
-- `page.view` memoises the answer per tracks, key and query.
+- The `kit.SearchField` ("Find in playlist", in a search landmark; its placeholder reads "Find in playlist or by who added" on a collaborative playlist) shows "N of M songs" while it holds a query, announces its count, replaces the table with a message when nothing matches, and Escape clears it.
+- `page.view` memoises the answer per tracks, adder rows, key and query.
 - Everything the page does with a song goes through the listed songs or maps back. Play, Shuffle and row activation queue the songs as listed (a query narrows the queue to the songs found). While a query is active `headerActions` names Play and Shuffle for them (`kit.PlayButtonsOpts.PlayLabel` and `ShuffleLabel`: "Play the N songs found", "Shuffle the N songs found"). Remove from playlist (`ActionContainer.Order`) and "Added by" use the songs' positions in the playlist, because `RemoveTracks` and `MoveTrack` are positional.
 - Edit mode shows the playlist whole and in its own order: entering or leaving it clears sort and query and hides the controls. The state resets in `page.enter` with the rest of the page's.
 

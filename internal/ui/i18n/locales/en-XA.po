@@ -202,6 +202,7 @@ msgstr ""
 msgid "Add-ons you install show here, each with its switch."
 msgstr ""
 
+#: internal/ui/features/playlist/page.go
 #: internal/ui/kit/collections_tracklist.go
 msgid "Added By"
 msgstr ""
@@ -2794,6 +2795,10 @@ msgstr ""
 
 #: internal/ui/features/playlist/page.go
 msgid "Find in playlist"
+msgstr ""
+
+#: internal/ui/features/playlist/page.go
+msgid "Find in playlist or by who added"
 msgstr ""
 
 #: internal/ui/features/library/songs.go
