@@ -1671,6 +1671,10 @@ msgstr "Couldn't load the new releases"
 msgid "Couldn't load the playlist"
 msgstr "Couldn't load the playlist"
 
+#: internal/ui/features/discover/charts.go
+msgid "Couldn't load the top songs"
+msgstr "Couldn't load the top songs"
+
 #: internal/ui/features/search/groups.go
 msgid "Couldn't load these results"
 msgstr "Couldn't load these results"

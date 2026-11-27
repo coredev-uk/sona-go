@@ -9,6 +9,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/i18n"
 	"github.com/coredev-uk/sona-go/internal/ui/kit"
+	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
@@ -22,7 +23,10 @@ type chartsPage struct {
 	skel   kit.WidthTracker
 	shelf  map[string]*kit.CoverShelfState
 	tracks kit.TrackListState
-	songs  []services.Song
+	// last is the top songs listed last, kept on screen while another genre's
+	// load.
+	last  []services.Item
+	songs []services.Song
 }
 
 // chartPage is the state of one chart in full.
@@ -55,45 +59,40 @@ func (d *discover) genreChoice(c *ui.Context, genres []services.Genre, value str
 	}
 }
 
-// chartsPage is Charts: Apple Music's most played, overall or by genre, plus
-// city and country charts.
+// chartsPage is Charts: Apple Music's most played plus city and country
+// charts. The genre (the URL's ?genre=) filters the top songs only: the page's
+// query and body are the overall charts', so the shelves stay mounted and keep
+// their place when it changes.
 func (d *discover) chartsPage(c *ui.Context, r *ui.Route) {
 	st := &d.charts
 	genre := chartsSearch(r)
-	q := d.chartsFor(genre)
-	st.pg.body(c, "charts|"+genre, func(_ *kit.Pane, _ float32) {
-		var actions func()
+	q := d.chartsFor("")
+	st.pg.body(c, "charts", func(_ *kit.Pane, _ float32) {
 		sub := ""
 		if q.HasData {
 			sub = freshness(q.Data.FetchedAt, q.Data.Stale, d.now())
-			if len(q.Data.Genres) >= 2 {
-				actions = func() {
-					d.genreChoice(c, q.Data.Genres, genre, func(g string) { d.env.Nav.Replace(chartsURL(g)) })
-				}
-			}
 		}
-		d.masthead(c, i18n.T("Charts"), sub, !q.HasData && q.Err == nil, actions)
+		d.masthead(c, i18n.T("Charts"), sub, !q.HasData && q.Err == nil, nil)
 		switch {
 		case q.HasData:
-			d.chartList(c, q.Data)
+			d.chartList(c, q.Data, genre)
 		case q.Err != nil:
-			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load the charts"), q, keyCharts(genre))
+			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load the charts"), q, keyCharts(""))
 		default:
 			d.chartsSkeleton(c, &st.skel)
 		}
 	})
 }
 
-// chartList is the overview's charts, in Apple's order: the top songs ranked,
-// the others as shelves with "See all" to the chart in full.
-func (d *discover) chartList(c *ui.Context, page services.ChartsPage) {
+// chartList is the overview's charts, in Apple's order: the top songs ranked
+// (for genre), the others as shelves with "See all" to the chart in full.
+func (d *discover) chartList(c *ui.Context, page services.ChartsPage, genre string) {
 	st := &d.charts
 	ctx := d.env.ItemsCtx(st.menus)
 	ctx.NoPopup = true // the page draws the menus' popup once, after the charts
 	for i, ch := range page.Charts {
-		more := chartURL(ch.Key, page.Genre, ch.ChartID)
 		if ch.Key == services.ChartSongs {
-			d.topSongs(c, ch, more, ctx)
+			d.topSongs(c, ch, page.Genres, genre, ctx)
 			continue
 		}
 		id := ch.Key + ":" + ch.ChartID
@@ -102,57 +101,91 @@ func (d *discover) chartList(c *ui.Context, page services.ChartsPage) {
 		if ch.Key == services.ChartMusicVideos {
 			minTile = 240
 		}
-		kit.ItemShelf(c, sh, chartTitle(ch), ch.Items, ctx, kit.ItemShelfOpts{First: i == 0, More: more, Min: minTile})
+		kit.ItemShelf(c, sh, chartTitle(ch), ch.Items, ctx, kit.ItemShelfOpts{First: i == 0, More: chartURL(ch.Key, "", ch.ChartID), Min: minTile})
 	}
 	st.menus.Popup(c)
 }
 
 // topSongs is the top songs, ranked, with Play for the whole chart's first
-// page.
-func (d *discover) topSongs(c *ui.Context, ch services.Chart, more string, ctx kit.ItemsCtx) {
+// page, and the Genre select that filters them. all is the overall chart the
+// overview fetched; another genre has its own query, and the rows of the
+// last list stay (or row placeholders, with none yet) while it loads.
+func (d *discover) topSongs(c *ui.Context, all services.Chart, genres []services.Genre, genre string, ctx kit.ItemsCtx) {
 	st := &d.charts
-	title := chartTitle(ch)
+	title := chartTitle(all)
+	items := all.Items
+	var failed *store.Result[services.ItemPage]
+	loading := false
+	if genre != "" {
+		q := d.topSongsFor(genre)
+		switch {
+		case q.HasData:
+			items = q.Data.Items
+		case q.Err != nil:
+			failed = &q
+		default:
+			items = st.last
+			loading = len(items) == 0
+		}
+	}
+	if failed == nil && !loading {
+		st.last = items
+	}
 	st.songs = st.songs[:0]
-	for _, it := range ch.Items {
+	for _, it := range items {
 		if it.Song != nil {
 			st.songs = append(st.songs, *it.Song)
 		}
 	}
 	songs := st.songs
+	more := chartURL(all.Key, genre, all.ChartID)
 	ui.Column(c.Key("top-songs")).FillWidth().Margin(8, 0, 40, 0).Role(ui.RoleGroup).Label(title).Children(func() {
 		ui.Row(c.Key("heading")).FillWidth().MinHeight(32).Margin(0, 0, 12, 0).Wrap().Gap(16).AlignItems(ui.Center).Children(func() {
 			theme.StyleText(ui.Text(c, title), "heading").TextColor(theme.C("ink")).
 				SingleLine().Role(ui.RoleHeading).Level(2)
 			ui.Row(c.Key("play")).Gap(8).AlignItems(ui.Center).Children(func() { d.playButtons(c, title, songs) })
 			ui.Box(c.Key("fill")).Grow(1)
+			d.genreChoice(c, genres, genre, func(g string) { d.env.Nav.Replace(chartsURL(g)) })
 			kit.ShelfSeeAll(c, "see-all", func() { d.env.Nav.Push(more) })
 		})
-		shown := songs[:min(len(songs), topSongs)]
-		opts := d.env.TrackOpts(st.menus, ctx.Restricted)
-		opts.Label = title
-		opts.Columns = kit.TrackColumns{Artwork: true, Artist: true, Album: true}
-		opts.Rank = &kit.TrackRank{}
-		opts.OnPlay = func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) }
-		opts.NoPopup = true
-		kit.TrackList(c, &st.tracks, len(shown), func(i int) *services.Song { return &shown[i] }, opts)
+		switch {
+		case failed != nil:
+			kit.QueryError(c, d.env.Queries, i18n.T("Couldn't load the top songs"), *failed, keyChartSongs(genre))
+		case loading:
+			ui.Column(c.Key("rows-skeleton")).FillWidth().Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() { d.songRowsSkeleton(c, topSongs) })
+		default:
+			shown := songs[:min(len(songs), topSongs)]
+			opts := d.env.TrackOpts(st.menus, ctx.Restricted)
+			opts.Label = title
+			opts.Columns = kit.TrackColumns{Artwork: true, Artist: true, Album: true}
+			opts.Rank = &kit.TrackRank{}
+			opts.OnPlay = func(i int) { d.env.Queue.PlaySongs(songs, i, services.PlayFrom{ID: title}) }
+			opts.NoPopup = true
+			kit.TrackList(c, &st.tracks, len(shown), func(i int) *services.Song { return &shown[i] }, opts)
+		}
 	})
 }
 
 // chartsSkeleton is the charts overview while it loads: the top songs'
 // heading and rows, then a shelf of tiles, as flat bars at their real sizes.
 func (d *discover) chartsSkeleton(c *ui.Context, m *kit.WidthTracker) {
-	tk := theme.Current()
 	ui.Column(c.Key("top-songs-skeleton")).FillWidth().Margin(8, 0, 40, 0).Role(ui.RoleStatus).Label(i18n.T("Loading")).Children(func() {
 		ui.Row(c).Height(32).Margin(0, 0, 12, 0).AlignItems(ui.Center).Children(func() { kit.Bar(c, 112, 16) })
-		for i := range 6 {
-			ui.Row(c.Key(i)).FillWidth().Height(kit.TrackRowHeight).PaddingX(8).Gap(16).AlignItems(ui.Center).Children(func() {
-				ui.Box(c).Width(kit.TrackRankWidth).Shrink(0).Height(1)
-				ui.Box(c).Size(tk.Metric["track-art"], tk.Metric["track-art"]).Shrink(0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
-				ui.Box(c).WidthPercent(30).Height(14).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
-			})
-		}
+		d.songRowsSkeleton(c, 6)
 	})
 	d.shelvesSkeleton(c, m, false)
+}
+
+// songRowsSkeleton is n track rows as flat bars at their real size.
+func (d *discover) songRowsSkeleton(c *ui.Context, n int) {
+	tk := theme.Current()
+	for i := range n {
+		ui.Row(c.Key(i)).FillWidth().Height(kit.TrackRowHeight).PaddingX(8).Gap(16).AlignItems(ui.Center).Children(func() {
+			ui.Box(c).Width(kit.TrackRankWidth).Shrink(0).Height(1)
+			ui.Box(c).Size(tk.Metric["track-art"], tk.Metric["track-art"]).Shrink(0).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
+			ui.Box(c).WidthPercent(30).Height(14).Radius(tk.Radius["sm"]).Background(theme.C("hover"))
+		})
+	}
 }
 
 // chartPage is one chart in full, in pages of 50 as it scrolls.

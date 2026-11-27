@@ -822,7 +822,7 @@ Discover (`/new`) sets Apple's editorial front page as Sona's own issue: a masth
 
 ## Charts
 
-Charts (`/charts`, `/charts/{chart}`) takes Discover's masthead (Genre at its end). Top songs is the kit's track list, its first column the chart rank as big numerals (the title size, tabular figures, right-aligned in a 56 DIP column; Play replaces the numeral on a hovered row), and the other charts are shelves with "See all". Loading: the masthead's line holds a bar, then the Top songs heading and six rows of covers and bars, then a shelf of tiles.
+Charts (`/charts`, `/charts/{chart}`) takes Discover's masthead. A chart in full has Genre at the masthead's end; the overview has it in Top songs' heading row, between Play and "See all", because it filters Top songs alone: the shelves below stay as they are and keep their scroll place. A new genre keeps the old rows in place until its own arrive (row placeholders at the same height with none yet), so nothing jumps. Top songs is the kit's track list, its first column the chart rank as big numerals (the title size, tabular figures, right-aligned in a 56 DIP column; Play replaces the numeral on a hovered row), and the other charts are shelves with "See all". Loading: the masthead's line holds a bar, then the Top songs heading and six rows of covers and bars, then a shelf of tiles.
 
 ## Search
 
