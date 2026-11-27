@@ -159,7 +159,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	open := false
 	sel.Popup(func(panel ui.Element) {
 		open = true
-		controlsPopupPanel(panel).MinWidth(max(width, 128)).Modal().Label(o.A11yLabel)
+		controlsPopupPanel(panel).MinWidth(max(width, 128)).Label(o.A11yLabel)
 		align.place(c, panel, trigger, placeholder)
 		ui.Scroll(c).MaxHeight(controlsPopupHeight(c, trigger)).Role(ui.RoleGroup).Children(func() {
 			for i, it := range items {
@@ -185,6 +185,11 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	})
 	if !open {
 		*align = selectAlign{}
+	} else {
+		// The trigger keeps the focus while the list is open: taking Tab
+		// (and Shift+Tab) keeps the keyboard in the list, as Modal on the
+		// panel did before MyGo took the focus from outside a modal.
+		_ = trigger.Shortcut(0, ui.KeyTab) || trigger.Shortcut(ui.Shift, ui.KeyTab)
 	}
 	return trigger
 }

@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/ebitengine/purego v0.11.3
-	github.com/egoist/mygo v0.9.0
+	github.com/egoist/mygo v0.10.1-0.20261127204953-c0b8f37e1774
 	github.com/godbus/dbus/v5 v5.2.4
 	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/pressly/goose/v3 v3.30.2

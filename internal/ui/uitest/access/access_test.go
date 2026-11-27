@@ -88,8 +88,8 @@ func TestPinnedMyGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(mod), "github.com/egoist/mygo v0.9.0\n") {
-		t.Fatal("MyGo is not v0.9.0 any more: re-check the constants of internal/ui/uitest/access/access.go against ui/element.go, ui/access.go and internal/platform/access.go, then update this pin")
+	if !strings.Contains(string(mod), "github.com/egoist/mygo v0.10.1-0.20261127204953-c0b8f37e1774\n") {
+		t.Fatal("MyGo is not main c0b8f37e1774 any more: re-check the constants of internal/ui/uitest/access/access.go against ui/element.go, ui/access.go and internal/platform/access.go, then update this pin")
 	}
 }
 
