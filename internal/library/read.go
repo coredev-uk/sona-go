@@ -470,39 +470,45 @@ func (l *Library) Album(ctx context.Context, id string) (Album, []Song, error) {
 
 // artistRow is the artist the Artists list shows under key: a library
 // artist's library ID, or the catalogue ID of an artist the library holds
-// only through the credits of songs (credit-only: no library ID, the
-// catalogue row's artwork when the catalogue cache has one). ErrNotFound for
-// neither.
+// only through the credits of songs and albums (credit-only: no library ID,
+// the catalogue row's artwork when the catalogue cache has one). Its name is
+// the first credit's, a song's before an album's. ErrNotFound for neither.
 func (l *Library) artistRow(ctx context.Context, key string) (Artist, error) {
 	a, err := one(query(ctx, l, `SELECT r.library_id, r.catalog_id, r.name, r.artwork_template FROM artists r
 		WHERE r.library_id = ?`, scanArtist, key))
 	if !errors.Is(err, ErrNotFound) {
 		return a, err
 	}
-	return one(query(ctx, l, `SELECT NULL, ta.artist_catalog_id, ta.name,
-			coalesce((SELECT c.artwork_template FROM artists c WHERE c.catalog_id = ta.artist_catalog_id AND c.library_id IS NULL LIMIT 1), '')
-		FROM track_artists ta
-		WHERE ta.artist_catalog_id = ? AND EXISTS (SELECT 1 FROM library_items x WHERE x.kind = 'song' AND x.ref = ta.track_id)
-		ORDER BY ta.position, ta.track_id LIMIT 1`, scanArtist, key))
+	return one(query(ctx, l, `SELECT NULL, c.id, c.name,
+			coalesce((SELECT x.artwork_template FROM artists x WHERE x.catalog_id = c.id AND x.library_id IS NULL LIMIT 1), '')
+		FROM (
+			SELECT ta.artist_catalog_id AS id, ta.name AS name, 0 AS kind, ta.position AS position, ta.track_id AS item
+			FROM track_artists ta
+			WHERE ta.artist_catalog_id = ? AND EXISTS (SELECT 1 FROM library_items x WHERE x.kind = 'song' AND x.ref = ta.track_id)
+			UNION ALL
+			SELECT aa.artist_catalog_id, aa.name, 1, aa.position, aa.album_id
+			FROM album_artists aa
+			WHERE aa.artist_catalog_id = ? AND EXISTS (SELECT 1 FROM library_items x WHERE x.kind = 'album' AND x.ref = aa.album_id)
+		) c
+		ORDER BY c.kind, c.position, c.item LIMIT 1`, scanArtist, key, key))
 }
 
 // ArtistAlbums returns the artist under key (a library artist's library ID, or
 // the catalogue ID of a credit-only artist, see artistRow) and its library
 // albums (newest release first), without its songs: what the Artists overview
-// shows. A credit-only artist has no album: albums are not attributed by
-// credit.
+// shows. An album is the artist's when the catalogue credits it to them
+// (Syncer.syncCredits), or, for a library artist, when Apple's library
+// names them its artist: a compilation credited to no artist stays with its
+// library artist.
 func (l *Library) ArtistAlbums(ctx context.Context, key string) (Artist, []Album, error) {
 	a, err := l.artistRow(ctx, key)
 	if err != nil {
 		return Artist{}, nil, err
 	}
-	if a.LibraryID == "" {
-		return a, []Album{}, nil
-	}
 	albums, err := query(ctx, l, `SELECT `+albumColumns+` FROM albums a
 		JOIN library_items li ON li.kind = 'album' AND li.ref = a.id
-		WHERE a.artist_library_id = ?
-		ORDER BY a.release_date DESC, a.name COLLATE NOCASE`, scanAlbum, key)
+		WHERE a.artist_library_id = ? OR a.id IN (SELECT k.album_id FROM album_credit_keys k WHERE k.artist_key = ?)
+		ORDER BY a.release_date DESC, a.name COLLATE NOCASE`, scanAlbum, key, key)
 	if err != nil {
 		return Artist{}, nil, err
 	}
@@ -530,9 +536,9 @@ func (l *Library) Artist(ctx context.Context, key string) (Artist, []Album, []So
 
 // ArtistSummary is an artist of the Artists list with how much of them the
 // library holds: a library artist (LibraryID set), or one the library holds
-// only through the credits of songs (LibraryID empty; CatalogID is its key).
-// An artist with no artwork of their own takes the cover of their newest
-// library album.
+// only through the credits of songs and albums (LibraryID empty; CatalogID is
+// its key). An artist with no artwork of their own takes the cover of their
+// newest library album.
 type ArtistSummary struct {
 	Artist
 	Albums int `json:"albums"`
@@ -543,48 +549,63 @@ type ArtistSummary struct {
 // and songs (that are out) they have: the Artists overview's list, filtered in
 // the UI, so it is one query and never paged.
 //
-// Songs group by the artists the catalogue credits them to (track_artists,
-// through track_credit_keys), each credited artist counting the song; a song
-// with no credits counts for its library artist. A credited artist the library
-// has no artist row for is listed from its credits. A library artist whose
-// songs were all credited elsewhere ("A & B") and that holds no album is not
-// listed: albums are still attributed to their first artist alone, so one with
-// albums stays.
+// Songs and albums group by the artists the catalogue credits them to
+// (track_artists and album_artists, through track_credit_keys and
+// album_credit_keys), each credited artist counting the song or album; one
+// with no credits counts for its library artist: a compilation credited to
+// "Various Artists" (Apple credits it to no artist) stays with its library
+// artist, as does an upload. A credited artist the library has no artist row
+// for is listed from its credits. A library artist whose songs and albums
+// were all credited elsewhere ("A & B") is not listed.
 func (l *Library) ArtistIndex(ctx context.Context) ([]ArtistSummary, error) {
 	today := l.today()
 	return query(ctx, l, `WITH cr AS (
-			SELECT DISTINCT t.artist_library_id AS key FROM track_artists ta
-			JOIN tracks t ON t.id = ta.track_id WHERE t.artist_library_id IS NOT NULL),
+			SELECT t.artist_library_id AS key FROM track_artists ta
+			JOIN tracks t ON t.id = ta.track_id WHERE t.artist_library_id IS NOT NULL
+			UNION
+			SELECT a.artist_library_id FROM album_artists aa
+			JOIN albums a ON a.id = aa.album_id WHERE a.artist_library_id IS NOT NULL),
 		so AS (
 			SELECT k.artist_key AS key, COUNT(*) AS n FROM track_credit_keys k
 			JOIN tracks t ON t.id = k.track_id
 			JOIN library_items x ON x.kind = 'song' AND x.ref = t.id`+withAlbum+`
 			WHERE `+out(today)+` GROUP BY 1),
 		al AS (
-			SELECT a.artist_library_id AS key, COUNT(*) AS n FROM albums a
-			JOIN library_items x ON x.kind = 'album' AND x.ref = a.id GROUP BY 1)
+			SELECT k.artist_key AS key, COUNT(*) AS n FROM album_credit_keys k
+			JOIN library_items x ON x.kind = 'album' AND x.ref = k.album_id GROUP BY 1),
+		art AS (
+			SELECT key, art FROM (
+				SELECT k.artist_key AS key, a.artwork_template AS art,
+					ROW_NUMBER() OVER (PARTITION BY k.artist_key ORDER BY a.release_date DESC) AS rn
+				FROM album_credit_keys k
+				JOIN albums a ON a.id = k.album_id
+				JOIN library_items x ON x.kind = 'album' AND x.ref = a.id
+				WHERE a.artwork_template <> '') WHERE rn = 1),
+		ck AS (SELECT key FROM so UNION SELECT key FROM al)
 		SELECT library_id, catalog_id, name, artwork, albums, songs FROM (
 			SELECT r.library_id AS library_id, r.catalog_id AS catalog_id, r.name AS name,
-				COALESCE(NULLIF(r.artwork_template, ''), (
-					SELECT a.artwork_template FROM albums a
-					JOIN library_items x ON x.kind = 'album' AND x.ref = a.id
-					WHERE a.artist_library_id = r.library_id AND a.artwork_template <> ''
-					ORDER BY a.release_date DESC LIMIT 1), '') AS artwork,
+				COALESCE(NULLIF(r.artwork_template, ''), art.art, '') AS artwork,
 				COALESCE(al.n, 0) AS albums, COALESCE(so.n, 0) AS songs, r.library_id AS ord
 			FROM artists r
 			JOIN library_items li ON li.kind = 'artist' AND li.ref = r.id
 			LEFT JOIN al ON al.key = r.library_id
 			LEFT JOIN so ON so.key = r.library_id
+			LEFT JOIN art ON art.key = r.library_id
 			WHERE NOT (COALESCE(al.n, 0) = 0 AND COALESCE(so.n, 0) = 0
 				AND r.library_id IN (SELECT key FROM cr))
 			UNION ALL
-			SELECT NULL, so.key,
-				(SELECT ta.name FROM track_artists ta WHERE ta.artist_catalog_id = so.key ORDER BY ta.position, ta.track_id LIMIT 1),
-				COALESCE((SELECT c.artwork_template FROM artists c WHERE c.catalog_id = so.key AND c.library_id IS NULL LIMIT 1), ''),
-				0, so.n, so.key
-			FROM so
-			WHERE EXISTS (SELECT 1 FROM track_artists ta WHERE ta.artist_catalog_id = so.key)
-				AND NOT EXISTS (SELECT 1 FROM artists r WHERE r.library_id = so.key)
+			SELECT NULL, ck.key,
+				COALESCE((SELECT ta.name FROM track_artists ta WHERE ta.artist_catalog_id = ck.key ORDER BY ta.position, ta.track_id LIMIT 1),
+					(SELECT aa.name FROM album_artists aa WHERE aa.artist_catalog_id = ck.key ORDER BY aa.position, aa.album_id LIMIT 1)),
+				COALESCE(NULLIF((SELECT c.artwork_template FROM artists c WHERE c.catalog_id = ck.key AND c.library_id IS NULL LIMIT 1), ''), art.art, ''),
+				COALESCE(al.n, 0), COALESCE(so.n, 0), ck.key
+			FROM ck
+			LEFT JOIN al ON al.key = ck.key
+			LEFT JOIN so ON so.key = ck.key
+			LEFT JOIN art ON art.key = ck.key
+			WHERE (EXISTS (SELECT 1 FROM track_artists ta WHERE ta.artist_catalog_id = ck.key)
+					OR EXISTS (SELECT 1 FROM album_artists aa WHERE aa.artist_catalog_id = ck.key))
+				AND NOT EXISTS (SELECT 1 FROM artists r WHERE r.library_id = ck.key)
 		) ORDER BY name COLLATE NOCASE, ord`, func(sc scanner) (ArtistSummary, error) {
 		var s ArtistSummary
 		var lib, cat sql.NullString

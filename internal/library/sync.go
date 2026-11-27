@@ -223,16 +223,10 @@ func (s *Syncer) Sync(ctx context.Context, mode Mode, progress func(Progress), d
 		}
 		changed = changed || pruned
 	}
-	// The artists the catalogue credits songs to (credits.go) follow the
-	// songs domain, new songs included. A failure leaves them for the next
-	// sync: the songs are listed under their library artist meanwhile.
-	if synced[DomainSongs] && ctx.Err() == nil {
-		credited, err := s.syncCredits(ctx)
-		if err != nil {
-			s.log.Warn("library sync: song credits", "err", err)
-		}
-		changed = changed || credited
-	}
+	// The artists the catalogue credits songs and albums to (credits.go)
+	// follow their domains, new items included. A failure leaves them for the
+	// next sync: the items are listed under their library artist meanwhile.
+	changed = s.syncCredits(ctx, synced) || changed
 	if changed {
 		if err := RebuildSearch(context.WithoutCancel(ctx), s.db); err != nil {
 			errs = append(errs, err)

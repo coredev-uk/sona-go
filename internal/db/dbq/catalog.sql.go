@@ -78,7 +78,7 @@ func (q *Queries) GetCache(ctx context.Context, key string) (CatalogCache, error
 }
 
 const getCatalogAlbum = `-- name: GetCatalogAlbum :one
-SELECT id, library_id, catalog_id, name, artist_name, artist_library_id, artist_catalog_id, artwork_template, release_date, genre, track_count, content_rating, is_single, is_compilation, record_label, copyright, editorial_notes, url, updated_at, is_prerelease, catalog_release_date FROM albums WHERE catalog_id = ? AND library_id IS NULL
+SELECT id, library_id, catalog_id, name, artist_name, artist_library_id, artist_catalog_id, artwork_template, release_date, genre, track_count, content_rating, is_single, is_compilation, record_label, copyright, editorial_notes, url, updated_at, is_prerelease, catalog_release_date, credits_checked FROM albums WHERE catalog_id = ? AND library_id IS NULL
 `
 
 func (q *Queries) GetCatalogAlbum(ctx context.Context, catalogID sql.NullString) (Album, error) {
@@ -106,6 +106,7 @@ func (q *Queries) GetCatalogAlbum(ctx context.Context, catalogID sql.NullString)
 		&i.UpdatedAt,
 		&i.IsPrerelease,
 		&i.CatalogReleaseDate,
+		&i.CreditsChecked,
 	)
 	return i, err
 }

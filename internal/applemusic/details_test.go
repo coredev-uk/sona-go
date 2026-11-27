@@ -240,3 +240,62 @@ func TestSongsBatches(t *testing.T) {
 		t.Fatalf("no ids = %v, %v", got, err)
 	}
 }
+
+// Albums asks for a hundred IDs a request (Apple refuses 101), with the
+// artists named, and leaves out the albums Apple doesn't serve. A compilation
+// comes with no artists.
+func TestAlbumsBatches(t *testing.T) {
+	var mu sync.Mutex
+	var sizes []int
+	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/catalog/gb/albums" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("include"); got != "artists" {
+			t.Errorf("include = %q, want artists (names come only with it)", got)
+		}
+		ids := strings.Split(r.URL.Query().Get("ids"), ",")
+		mu.Lock()
+		sizes = append(sizes, len(ids))
+		mu.Unlock()
+		var data []string
+		for _, id := range ids {
+			artists := fmt.Sprintf(`{"id":"a%[1]s","type":"artists","attributes":{"name":"A %[1]s"}},{"id":"b%[1]s","type":"artists","attributes":{"name":"B %[1]s"}}`, id)
+			if id == "s3" {
+				artists = "" // Various Artists
+			}
+			if id != "s7" {
+				data = append(data, fmt.Sprintf(`{"id":%q,"type":"albums","relationships":{"artists":{"data":[%s]}}}`, id, artists))
+			}
+		}
+		_, _ = fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(data, ","))
+	}))
+	ids := make([]string, 250)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("s%d", i)
+	}
+	albums, err := c.Albums(context.Background(), "gb", ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(albums) != 249 || albums[0].ID != "s0" || albums[248].ID != "s249" {
+		t.Fatalf("albums = %d, first %q, last %q; want 249 in order without s7", len(albums), albums[0].ID, albums[len(albums)-1].ID)
+	}
+	if got := albums[0].Relationships.Artists.Data; len(got) != 2 || got[1].ID != "bs0" || got[1].Attributes.Name != "B s0" {
+		t.Errorf("artists of the first album = %+v, want two, named, in Apple's order", got)
+	}
+	if got := albums[3].Relationships.Artists.Data; albums[3].ID != "s3" || len(got) != 0 {
+		t.Errorf("the compilation %s has artists %+v", albums[3].ID, got)
+	}
+	if len(sizes) != 3 {
+		t.Fatalf("requests of %v ids, want 3 of at most 100", sizes)
+	}
+	for _, n := range sizes {
+		if n > 100 {
+			t.Fatalf("a request of %d ids", n)
+		}
+	}
+	if got, err := c.Albums(context.Background(), "gb", nil); err != nil || len(got) != 0 {
+		t.Fatalf("no ids = %v, %v", got, err)
+	}
+}
