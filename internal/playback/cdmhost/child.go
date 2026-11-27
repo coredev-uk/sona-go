@@ -893,6 +893,6 @@ func (s *server) shutdown() {
 		p.Close()
 	}
 	if s.cdm != nil {
-		s.cdm.Close()
+		_ = s.cdm.Close()
 	}
 }

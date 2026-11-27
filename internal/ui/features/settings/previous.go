@@ -43,7 +43,7 @@ func (s *settings) previousVersion(c *ui.Context) {
 		return api.Previous(), nil
 	})
 	st := stateOf[previousState](s, "previous-version")
-	if !(q.HasData && q.Data.Available) && !st.busy && st.failure == "" {
+	if (!q.HasData || !q.Data.Available) && !st.busy && st.failure == "" {
 		return
 	}
 	version := q.Data.Version

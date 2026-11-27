@@ -521,7 +521,11 @@ func (r *Reporter) load() error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(r.path)
+	defer func() {
+		if err := os.Remove(r.path); err != nil {
+			r.log.Warn("play activity: remove the saved events", "err", err)
+		}
+	}()
 	var q []applemusic.PlayActivityEvent
 	if err := json.Unmarshal(b, &q); err != nil {
 		return err

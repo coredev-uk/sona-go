@@ -52,7 +52,7 @@ func TestDoSendsHeaders(t *testing.T) {
 			r.Header.Get("Origin") != devtoken.WebPlayerOrigin {
 			t.Errorf("headers = %v", r.Header)
 		}
-		w.Write([]byte(`{"data":[{"id":"gb","type":"storefronts","attributes":{"name":"United Kingdom"}}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"gb","type":"storefronts","attributes":{"name":"United Kingdom"}}]}`))
 	}))
 	sf, err := c.Storefront(context.Background())
 	if err != nil || sf.ID != "gb" || sf.Attributes.Name != "United Kingdom" {
@@ -68,7 +68,7 @@ func TestDo401RefreshesDevTokenOnce(t *testing.T) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	var out struct{ OK bool }
 	if err := c.Get(context.Background(), "/v1/x", nil, &out); err != nil || !out.OK {
@@ -103,7 +103,7 @@ func TestDo429HonoursRetryAfter(t *testing.T) {
 			w.WriteHeader(http.StatusTooManyRequests)
 			return
 		}
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	if err := c.Get(context.Background(), "/v1/x", nil, nil); err != nil {
 		t.Fatal(err)
@@ -146,12 +146,12 @@ func TestDo5xxRetriesOnlyIdempotent(t *testing.T) {
 		hits.Add(1)
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
-	c.Do(context.Background(), Request{Method: http.MethodPost, URL: "/v1/x"}, nil)
+	_ = c.Do(context.Background(), Request{Method: http.MethodPost, URL: "/v1/x"}, nil)
 	if hits.Load() != 1 {
 		t.Fatalf("POST hits = %d, want 1", hits.Load())
 	}
 	hits.Store(0)
-	c.Get(context.Background(), "/v1/x", nil, nil)
+	_ = c.Get(context.Background(), "/v1/x", nil, nil)
 	if hits.Load() != maxRetries+1 {
 		t.Fatalf("GET hits = %d, want %d", hits.Load(), maxRetries+1)
 	}
@@ -178,7 +178,7 @@ func TestSingleflightDedupesConcurrentGets(t *testing.T) {
 	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)
 		<-release
-		w.Write([]byte(`{"data":[{"id":"1"}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"1"}]}`))
 	}))
 	const n = 10
 	var wg sync.WaitGroup
@@ -204,7 +204,7 @@ func TestSingleflightDedupesConcurrentGets(t *testing.T) {
 		}
 	}
 	// Different URLs are not merged.
-	c.Get(context.Background(), "/v1/other", nil, nil)
+	_ = c.Get(context.Background(), "/v1/other", nil, nil)
 	if hits.Load() != 2 {
 		t.Fatalf("hits = %d after distinct URL", hits.Load())
 	}
@@ -217,7 +217,7 @@ func TestSingleflightCancelledLeader(t *testing.T) {
 			<-r.Context().Done() // the leader is cancelled mid-request
 			return
 		}
-		w.Write([]byte(`{"v":1}`))
+		_, _ = w.Write([]byte(`{"v":1}`))
 	}))
 	leaderCtx, cancel := context.WithCancel(context.Background())
 	leaderDone := make(chan error, 1)

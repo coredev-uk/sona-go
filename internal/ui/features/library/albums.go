@@ -12,9 +12,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 )
 
-// albumTypes are the Album type control's choices: "" is all.
-var albumTypes = []string{"", "albums", "singles"}
-
 // albumsPage is the Albums page's view state.
 type albumsPage struct {
 	railFrame

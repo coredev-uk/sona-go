@@ -220,11 +220,11 @@ func Open(path string, log *slog.Logger) (*CDM, error) {
 	select {
 	case ok := <-c.initDone:
 		if !ok {
-			c.Close()
+			_ = c.Close()
 			return nil, errors.New("widevine: CDM initialisation failed")
 		}
 	case <-time.After(10 * time.Second):
-		c.Close()
+		_ = c.Close()
 		return nil, errors.New("widevine: CDM did not finish initialising")
 	}
 	log.Debug("widevine CDM ready", "version", c.version, "interface", c.iface, "host", c.hostIf)

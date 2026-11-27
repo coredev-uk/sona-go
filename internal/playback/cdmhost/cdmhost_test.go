@@ -50,7 +50,11 @@ func startHost(t *testing.T) *Host {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { h.Close() })
+	t.Cleanup(func() {
+		if err := h.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	return h
 }
 

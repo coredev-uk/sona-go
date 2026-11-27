@@ -66,7 +66,7 @@ func copyFile(t *testing.T, dst string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	f, err := os.Create(dst)
 	if err != nil {
 		t.Fatal(err)

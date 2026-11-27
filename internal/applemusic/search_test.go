@@ -30,7 +30,7 @@ func TestCatalogSearch(t *testing.T) {
 			q[k] = v[0]
 		}
 		queries = append(queries, q)
-		w.Write([]byte(searchBody))
+		_, _ = w.Write([]byte(searchBody))
 	}))
 	c.AMPBase = c.Base
 
@@ -123,7 +123,7 @@ func TestSearchSuggestions(t *testing.T) {
 			q.Get("limit[results:terms]") != "5" || q.Get("limit[results:topResults]") != "6" || q.Get("format[resources]") != "map" {
 			t.Errorf("request = %s?%s", r.URL.Path, r.URL.RawQuery)
 		}
-		w.Write([]byte(`{"results":{"suggestions":[
+		_, _ = w.Write([]byte(`{"results":{"suggestions":[
 			{"kind":"terms","searchTerm":"blue","displayTerm":"blue"},
 			{"kind":"topResults","content":{"id":"9","type":"artists"}}]},
 			"resources":{"artists":{"9":{"id":"9","type":"artists","attributes":{"name":"Blue Band"}}}}}`))
@@ -152,24 +152,27 @@ func TestSocialSearchLandingAndProfile(t *testing.T) {
 			if q.Get("types") != "playlists,social-profiles" || q.Get("groups") != "profile" || q.Get("offset") != "25" {
 				t.Errorf("social query = %s", r.URL.RawQuery)
 			}
-			w.Write([]byte(`{"results":{"profile":{"data":[{"id":"sp.1","type":"social-profiles"}],"next":"/v1/social/gb/search?offset=50"}},
+			_, _ = w.Write([]byte(`{"results":{"profile":{"data":[{"id":"sp.1","type":"social-profiles"}],"next":"/v1/social/gb/search?offset=50"}},
 				"resources":{"social-profiles":{"sp.1":{"id":"sp.1","type":"social-profiles","attributes":{"name":"Taylor","handle":"t"}}}}}`))
+
 		case "/v1/recommendations/gb":
 			if q.Get("name") != "search-landing" || q.Get("format[resources]") != "map" {
 				t.Errorf("landing query = %s", r.URL.RawQuery)
 			}
-			w.Write([]byte(`{"data":[{"id":"r1","type":"personal-recommendation"}],"resources":{
+			_, _ = w.Write([]byte(`{"data":[{"id":"r1","type":"personal-recommendation"}],"resources":{
 				"personal-recommendation":{"r1":{"id":"r1","type":"personal-recommendation","attributes":{"title":{"stringForDisplay":"Browse Categories"}},
 					"relationships":{"contents":{"data":[{"id":"988556214","type":"apple-curators"}]}}}},
 				"apple-curators":{"988556214":{"id":"988556214","type":"apple-curators","attributes":{"name":"Apple Music Alternative","kind":"Genre"}}}}}`))
+
 		case "/v1/social/gb/social-profiles":
 			if q.Get("ids") != "sp.1" || q.Get("include") != "shared-playlists" {
 				t.Errorf("profile query = %s", r.URL.RawQuery)
 			}
-			w.Write([]byte(`{"data":[{"id":"sp.1","type":"social-profiles"}],"resources":{
+			_, _ = w.Write([]byte(`{"data":[{"id":"sp.1","type":"social-profiles"}],"resources":{
 				"social-profiles":{"sp.1":{"id":"sp.1","type":"social-profiles","attributes":{"name":"Taylor"},
 					"relationships":{"shared-playlists":{"data":[{"id":"pl.u-1","type":"playlists"}]}}}},
 				"playlists":{"pl.u-1":{"id":"pl.u-1","type":"playlists","attributes":{"name":"Mix"}}}}}`))
+
 		default:
 			http.NotFound(w, r)
 		}

@@ -39,7 +39,7 @@ func TestCDM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	t.Logf("CDM %s (manifest %s, %s) interface %d host %d", c.Version(), cdm.LibraryVersion(path), path, c.Interface(), c.HostInterface())
 	if c.Version() == "" || (c.Interface() != 10 && c.Interface() != 11) {
 		t.Fatalf("version %q interface %d", c.Version(), c.Interface())

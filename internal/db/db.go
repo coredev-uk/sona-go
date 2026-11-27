@@ -57,16 +57,16 @@ func Open(ctx context.Context, path string) (*DB, error) {
 	w.SetConnMaxLifetime(0)
 	w.SetConnMaxIdleTime(0)
 	if err := w.PingContext(ctx); err != nil {
-		w.Close()
+		_ = w.Close() // the error that matters is the one being returned
 		return nil, fmt.Errorf("db: open %s: %w", path, err)
 	}
 	if err := migrate(ctx, w); err != nil {
-		w.Close()
+		_ = w.Close()
 		return nil, err
 	}
 	r, err := sql.Open("sqlite3", base+"&_query_only=1")
 	if err != nil {
-		w.Close()
+		_ = w.Close()
 		return nil, fmt.Errorf("db: open readers: %w", err)
 	}
 	n := max(4, runtime.NumCPU())
@@ -113,7 +113,7 @@ func (d *DB) Tx(ctx context.Context, fn func(q *dbq.Queries) error) error {
 		return fmt.Errorf("db: begin: %w", err)
 	}
 	if err := fn(d.Q.WithTx(tx)); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback() // fn's error is the one returned
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -157,7 +157,7 @@ func (d *DB) WipeUserData(ctx context.Context) error {
 		return fmt.Errorf("db: begin: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, wipeUserData); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return fmt.Errorf("db: wipe user data: %w", err)
 	}
 	return tx.Commit()

@@ -15,7 +15,7 @@ func TestMembership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	ref, err := d.Q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{
 		LibraryID: db.NullString("l.abc"), CatalogID: db.NullString("1440"), Name: "A", UpdatedAt: 1,
 	})

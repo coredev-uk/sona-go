@@ -83,7 +83,7 @@ func TestLyricsFallsBackToLineTimed(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.Write([]byte(`{"data":[{"id":"1","type":"lyrics","attributes":{"ttml":` + jsonString(lineTTML) + `}}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"1","type":"lyrics","attributes":{"ttml":` + jsonString(lineTTML) + `}}]}`))
 	}))
 	l, err := lyricsAt(c, "1", true)
 	if err != nil || len(l.Lines) != 2 {
@@ -96,7 +96,7 @@ func TestLyricsFallsBackToLineTimed(t *testing.T) {
 
 func TestLyricsNone(t *testing.T) {
 	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"data":[]}`))
+		_, _ = w.Write([]byte(`{"data":[]}`))
 	}))
 	if _, err := lyricsAt(c, "1", false); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("err = %v", err)
@@ -173,7 +173,7 @@ func TestLyricsRequestsLocalizations(t *testing.T) {
 	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queries = append(queries, r.URL.Path+"?"+r.URL.RawQuery)
 		// With extend=ttmlLocalizations Apple sends ttmlLocalizations instead of ttml.
-		w.Write([]byte(`{"data":[{"id":"1","type":"syllable-lyrics","attributes":{"ttmlLocalizations":` + jsonString(localizedTTML) + `}}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"1","type":"syllable-lyrics","attributes":{"ttmlLocalizations":` + jsonString(localizedTTML) + `}}]}`))
 	}))
 	c.AMPBase = c.Base
 	l, err := c.Lyrics(context.Background(), "gb", "1", LyricsOptions{Syllable: true, Language: "en-GB"})

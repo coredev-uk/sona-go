@@ -74,14 +74,17 @@ func (f *fakePlaylistAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("limit") == "1" {
 			limit = 1
 		}
-		json.NewEncoder(w).Encode(map[string]any{"data": f.entries[:min(limit, len(f.entries))], "meta": map[string]any{"total": len(f.entries)}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": f.entries[:min(limit, len(f.entries))], "meta": map[string]any{"total": len(f.entries)}})
 	case r.Method == http.MethodPut && r.URL.Path == "/v1/me/library/playlists/p.x/tracks":
 		b, _ := io.ReadAll(r.Body)
 		f.puts = append(f.puts, string(b))
 		var body struct {
 			Data []applemusic.ResourceRef `json:"data"`
 		}
-		json.Unmarshal(b, &body)
+		if err := json.Unmarshal(b, &body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		f.entries = f.entries[:0:0]
 		for _, d := range body.Data {
 			f.entries = append(f.entries, entry(d.ID, d.Type))
@@ -107,7 +110,11 @@ func newPlaylistsEnv(t *testing.T, f *fakePlaylistAPI) (*PlaylistsService, *reco
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	srv := httptest.NewServer(f)
 	t.Cleanup(srv.Close)
 	api := applemusic.New(srv.Client(), staticToken{}, func() string { return "mut" })
@@ -123,7 +130,9 @@ func newPlaylistsEnv(t *testing.T, f *fakePlaylistAPI) (*PlaylistsService, *reco
 	for _, en := range f.entries {
 		b, _ := json.Marshal(en)
 		var so applemusic.Song
-		json.Unmarshal(b, &so)
+		if err := json.Unmarshal(b, &so); err != nil {
+			t.Fatal(err)
+		}
 		songs = append(songs, so)
 	}
 	p := applemusic.Playlist{Resource: applemusic.Resource[applemusic.PlaylistAttributes]{
