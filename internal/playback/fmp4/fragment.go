@@ -31,9 +31,12 @@ const (
 const maxSamples = 1 << 16
 
 // ParseFragment parses every moof + mdat pair in b (one HLS byte range) and
-// returns the samples of init's track in decode order. Per-sample
-// encryption comes from senc, or from saiz/saio auxiliary information when
-// senc is absent. Sample, IV and subsample slices alias b.
+// returns the samples of init's track in decode order. Only the traf whose
+// tfhd names that track is read: the other tracks' (a video rendition's
+// closed captions) are skipped, data and all, as every trun's data offset
+// is its own. Per-sample encryption comes from senc, or from saiz/saio
+// auxiliary information when senc is absent. Sample, IV and subsample
+// slices alias b.
 func ParseFragment(b []byte, in *Init) ([]Sample, error) {
 	top, err := boxes(b, 0)
 	if err != nil {
@@ -75,7 +78,10 @@ func parseTraf(b []byte, moof, traf box, in *Init, out []Sample) ([]Sample, erro
 	r := reader{b: tfhd.body}
 	_, flags := r.full()
 	trackID := r.u32()
-	if in.TrackID != 0 && trackID != in.TrackID {
+	if r.err != nil {
+		return nil, fmt.Errorf("fmp4: tfhd: %w", r.err)
+	}
+	if trackID != in.TrackID {
 		return out, nil
 	}
 	if flags&tfhdBaseDataOffset != 0 {
