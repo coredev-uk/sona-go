@@ -11,7 +11,7 @@ The main checkout is read-only: it stays on `main` and you never edit, build or 
 3. Use absolute paths into the worktree for every file tool (read, edit, write). File tools resolve relative paths against the session's starting directory, which is often the main checkout.
 4. Implement, with the docs and tests that describe the change in the same PR. A new worktree has no `.env`; symlink it from the main checkout only when a live token is needed (on Windows, `devloop` reads the main checkout's itself).
 5. Run `devenv shell -- check` and `devenv shell -- tests`. After rebasing onto `main`, also run `gen` and `go run ./cmd/i18ntool extract`, and commit the results.
-6. Push and open the PR with a Conventional Commit title and the template (`.github/pull_request_template.md`): What, Why, Evidence (commands with their output; light and dark screenshots for UI, no personal account data), Tests, Docs, Left.
+6. Push and open the PR with a Conventional Commit title and the template (`.github/pull_request_template.md`): What, Why, Evidence (commands with their output; light and dark screenshots for UI, no personal data, see Process), Tests, Docs, Left.
 7. When CI is green and the work is done, comment `@bot-clarence merge`.
 8. After the merge, remove the worktree: `git worktree remove ../sona-go-<slug>`.
 
@@ -19,7 +19,7 @@ The main checkout is read-only: it stays on `main` and you never edit, build or 
 
 - Always: one change per branch and PR; run `check` and `tests` before a PR; update docs with the code; use `SONA_PRIVATE=1` for anything that plays music; read Clarence's card on your PR.
 - Ask first: restarting WirePlumber, merging anything Clarence ruled `verdict/review`, `SONA_ALLOW_MAIN=1`, bumping a pinned dependency (MyGo, Go, nixpkgs), changing a DRM or security rule.
-- Never: commit or push to `main` (`.githooks/` refuse both); merge with `gh pr merge` or the button; hand-edit generated files (`internal/db/dbq`, the English `.po` catalogues, `CHANGELOG.md`); print, log or commit `.env`, tokens or passwords; renumber or edit a released migration; bundle, patch or work around the CDM (Hard rules).
+- Never: commit or push to `main` (`.githooks/` refuse both); merge with `gh pr merge` or the button; hand-edit generated files (`internal/db/dbq`, the English `.po` catalogues, `CHANGELOG.md`); print, log or commit `.env`, tokens or passwords; put anyone's personal data in what leaves the machine (Process); renumber or edit a released migration; bundle, patch or work around the CDM (Hard rules).
 
 ## Commands
 
@@ -62,6 +62,12 @@ Rationale: `docs/architecture.md`.
 - Private mode: every test, smoke or live check that plays runs with `SONA_PRIVATE=1`; never play against Apple without it. `SONA_PREVIEW=1` or `playspike -preview` play 30-second previews with no account.
 - Live audio goes to your own PipeWire null sink, never the default sink or source; destroy only nodes you created. Recipe: `docs/development.md`, "Live playback and the session bus".
 - Only one Sona may own the real session bus. Everything else runs under `dbus-run-session` with private XDG dirs, never the real `~/.config/sona` or `~/.local/share/sona`. Concurrent dev builds also set `SONA_DEV_INSTANCE=<name>`.
+- Personal data stays on the machine. Nothing that identifies or describes the maintainer or any user goes into commits, branches, PRs, issues, comments, docs, tests, fixtures, goldens or screenshots:
+  - **identity:** names, Apple ID or email, handles, profile, account or storefront IDs, avatars, artwork or profile URLs;
+  - **library and listening:** what is in a real library or playlist (artists, albums, songs, playlist names, counts), listening history, recommendations;
+  - **machine:** log lines, diagnostics, database rows or file paths from a real account or a real home directory.
+
+  Use made-up data instead ("Alex Morgan", the fixture library in `internal/ui/uitest/fixture`). Report what a real library or account showed as its shape and outcome ("a combined artist kept a credited album; the fix moves it"), not its values. GitHub keeps every edit, so check before posting; if something slips out, delete the issue or comment and post it again clean, since editing leaves the old text in the history.
 - Commits and PR titles are Conventional Commits (`feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `ci`, `build`, `chore`, `revert`; scope optional); CI fails other PR titles and squash merges use the title.
 
 ## Clarence (merge bot)
