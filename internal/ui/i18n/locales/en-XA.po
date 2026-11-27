@@ -8613,13 +8613,13 @@ msgstr ""
 msgid "What you've chosen so far is kept. Settings → General runs the setup again."
 msgstr ""
 
+#: internal/ui/kit/release_notes.go
+msgid "What's New in Sona {version}"
+msgstr ""
+
 #: internal/ui/features/settings/updates.go
 #: internal/ui/features/updates/updates.go
 msgid "What's new"
-msgstr ""
-
-#: internal/ui/kit/release_notes.go
-msgid "What's new in Sona {version}"
 msgstr ""
 
 #: internal/ui/features/onboarding/desktop.go

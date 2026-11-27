@@ -55,13 +55,13 @@ func TestRowOffersWhatsNewOnlyWithNotes(t *testing.T) {
 func TestWhatsNewOpensTheNotesAndInstallFromThemStartsTheInstall(t *testing.T) {
 	r := newRig(t)
 	r.offer(services.UpdateStatus{SelfUpdate: true, Notes: notes, Published: published})
-	if r.tt.HasText("What's new in Sona 0.3.0") {
+	if r.tt.HasText("What's New in Sona 0.3.0") {
 		t.Fatal("the dialog is open before it was asked for")
 	}
 	if err := r.tt.Click("What's new"); err != nil {
 		t.Fatal(err)
 	}
-	for _, w := range []string{"What's new in Sona 0.3.0", "Released", "Features", "favourite", "Close", "View release"} {
+	for _, w := range []string{"What's New in Sona 0.3.0", "Released", "Features", "favourite", "Close", "View release"} {
 		if !r.tt.HasText(w) {
 			t.Errorf("the dialog lacks %q: %q", w, r.tt.Texts())
 		}
@@ -71,7 +71,7 @@ func TestWhatsNewOpensTheNotesAndInstallFromThemStartsTheInstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Until("the release to open", func() bool { return r.opens.Load() == 1 })
-	if !r.tt.HasText("What's new in Sona 0.3.0") {
+	if !r.tt.HasText("What's New in Sona 0.3.0") {
 		t.Error("View release closed the dialog")
 	}
 	// Install and restart installs, and closes the dialog: the row carries the progress.
@@ -80,7 +80,7 @@ func TestWhatsNewOpensTheNotesAndInstallFromThemStartsTheInstall(t *testing.T) {
 	}
 	r.tt.Until("the install to start", func() bool { return r.installs.Load() == 1 })
 	r.tt.Advance(300e6)
-	if r.tt.HasText("What's new in Sona 0.3.0") || r.h.Env.Surfaces.ReleaseNotesOpen() {
+	if r.tt.HasText("What's New in Sona 0.3.0") || r.h.Env.Surfaces.ReleaseNotesOpen() {
 		t.Errorf("the dialog stays open over the install: %q", r.tt.Texts())
 	}
 }
@@ -129,11 +129,11 @@ func TestNotesDialogFollowsTheStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.2.0", Checkable: true, Latest: "0.3.1", Available: true, Notes: "### Fixes\n\n* a newer fix\n"})
-	if !r.tt.HasText("What's new in Sona 0.3.1") || !r.tt.HasText("a newer fix") || r.tt.HasText("favourite") {
+	if !r.tt.HasText("What's New in Sona 0.3.1") || !r.tt.HasText("a newer fix") || r.tt.HasText("favourite") {
 		t.Errorf("the dialog does not follow the new status: %q", r.tt.Texts())
 	}
 	r.tt.Emit(services.EventUpdateAvailable, services.UpdateStatus{Current: "0.3.1", Checkable: true, Latest: "0.3.1"})
-	if r.tt.HasText("What's new in Sona") || r.h.Env.Surfaces.ReleaseNotesOpen() {
+	if r.tt.HasText("What's New in Sona") || r.h.Env.Surfaces.ReleaseNotesOpen() {
 		t.Errorf("the dialog stays for an update that is gone: %q", r.tt.Texts())
 	}
 }
@@ -148,7 +148,7 @@ func TestNotesOpenForAnUpdateTheNoticeHoldsBack(t *testing.T) {
 	}
 	r.h.Env.Surfaces.OpenReleaseNotes()
 	r.tt.Frame()
-	if !r.tt.HasText("What's new in Sona 0.3.0") {
+	if !r.tt.HasText("What's New in Sona 0.3.0") {
 		t.Fatalf("the dialog does not open for a declined update: %q", r.tt.Texts())
 	}
 }
@@ -161,10 +161,10 @@ func TestA11yNotesDialogIsNamedAndFocusReturnsToTheRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := access.Read(t, r.tt.Tester)
-	if _, ok := tr.Find(ui.RoleDialog, "What's new in Sona 0.3.0"); !ok {
+	if _, ok := tr.Find(ui.RoleDialog, "What's New in Sona 0.3.0"); !ok {
 		t.Fatalf("no dialog named by its title:\n%s", tr.Dump())
 	}
-	if _, ok := tr.Find(ui.RoleHeading, "What's new in Sona 0.3.0"); !ok {
+	if _, ok := tr.Find(ui.RoleHeading, "What's New in Sona 0.3.0"); !ok {
 		t.Errorf("the title is not a heading:\n%s", tr.Dump())
 	}
 	access.NoNestedControls(t, r.tt.Tester)
@@ -179,7 +179,7 @@ func TestA11yNotesDialogIsNamedAndFocusReturnsToTheRow(t *testing.T) {
 		r.tt.Key(0, ui.KeyEscape)
 		r.tt.Advance(300e6)
 	}
-	if r.tt.HasText("What's new in Sona 0.3.0") {
+	if r.tt.HasText("What's New in Sona 0.3.0") {
 		t.Fatal("Escape did not close the dialog")
 	}
 	if !r.tt.Focused("What's new") {

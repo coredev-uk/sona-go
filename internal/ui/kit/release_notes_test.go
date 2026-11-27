@@ -92,14 +92,14 @@ func newNotesApp(t *testing.T, notes string, w, h int) (*notesApp, *ui.Tester) {
 
 func TestReleaseNotesDialogShowsTheVersionDateAndRenderedNotes(t *testing.T) {
 	a, tt := newNotesApp(t, releaseNotesSample, 900, 700)
-	if tt.HasText("What's new in Sona 0.8.0") {
+	if tt.HasText("What's New in Sona 0.8.0") {
 		t.Fatal("the dialog is built while closed")
 	}
 	if err := tt.Click("Notes…"); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"What's new in Sona 0.8.0", "Released", "Features", "Bug Fixes", "favourite", "italic", "sona addons dev",
+		"What's New in Sona 0.8.0", "Released", "Features", "Bug Fixes", "favourite", "italic", "sona addons dev",
 		"#621", "Close", "View release", "Install and restart",
 	} {
 		if !tt.HasText(want) {
@@ -122,14 +122,14 @@ func TestReleaseNotesDialogIsANamedDialogWithTheHeadingAndAGroupForTheNotes(t *t
 	if err := tt.Click("Notes…"); err != nil {
 		t.Fatal(err)
 	}
-	d, ok := tt.AccessByRole(ui.RoleDialog, "What's new in Sona 0.8.0")
+	d, ok := tt.AccessByRole(ui.RoleDialog, "What's New in Sona 0.8.0")
 	if !ok {
 		t.Fatalf("no dialog named by its title: %v", tt.AccessAll())
 	}
 	if !strings.Contains(d.Description, "Released") {
 		t.Errorf("the dialog's description is %q, want the release date", d.Description)
 	}
-	if h, ok := tt.AccessByRole(ui.RoleHeading, "What's new in Sona 0.8.0"); !ok || h.Level != 2 {
+	if h, ok := tt.AccessByRole(ui.RoleHeading, "What's New in Sona 0.8.0"); !ok || h.Level != 2 {
 		t.Errorf("the title is not a level 2 heading: %+v, %v", h, ok)
 	}
 	if _, ok := tt.AccessByRole(ui.RoleGroup, "Release notes"); !ok {
@@ -182,7 +182,7 @@ func TestReleaseNotesDialogIsCappedForReadingAndScrollsInTheWindow(t *testing.T)
 	if err := tt.Click("Notes…"); err != nil {
 		t.Fatal(err)
 	}
-	title, ok := tt.Find("What's new in Sona 0.8.0")
+	title, ok := tt.Find("What's New in Sona 0.8.0")
 	if !ok {
 		t.Fatal("no title")
 	}
@@ -257,7 +257,7 @@ func TestReleaseNotesDialogActionsAndClose(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Advance(300 * time.Millisecond)
-	if a.open || tt.HasText("What's new in Sona 0.8.0") {
+	if a.open || tt.HasText("What's New in Sona 0.8.0") {
 		t.Fatal("Close did not close the dialog")
 	}
 	if !tt.Focused("Notes…") {

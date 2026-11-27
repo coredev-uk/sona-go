@@ -45,7 +45,7 @@ type ReleaseNotesSpec struct {
 	Primary, Secondary ReleaseNotesAction
 }
 
-// ReleaseNotes is the dialog that shows a release's notes: "What's new in
+// ReleaseNotes is the dialog that shows a release's notes: "What's New in
 // Sona {version}" over the date, the notes as Markdown in a scroll area, and
 // the footer's Close with the actions the caller gives. The update notice
 // opens it for the update on offer; the What's New window after an update
@@ -73,7 +73,7 @@ func NewReleaseNotes(open func(url string)) *ReleaseNotes {
 // around the focus.
 func (r *ReleaseNotes) Show(c *ui.Context, open *bool, s ReleaseNotesSpec) ui.Element {
 	o := DialogOpts{
-		Title:        i18n.T("What's new in Sona {version}", "version", s.Version),
+		Title:        i18n.T("What's New in Sona {version}", "version", s.Version),
 		MaxWidth:     releaseNotesWidth,
 		HeadingTitle: true,
 	}
