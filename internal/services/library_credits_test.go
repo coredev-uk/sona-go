@@ -8,6 +8,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/namefold"
 )
 
 // creditsStore is a library with the combined artist "Ada & Bo" (r.duo) and
@@ -39,7 +40,7 @@ func creditsStore(t *testing.T) *db.DB {
 		t.Fatal(err)
 	}
 	for pos, c := range [][2]string{{"1", "Ada"}, {"2", "Bo"}} {
-		if err := d.Q.InsertTrackArtist(ctx, dbq.InsertTrackArtistParams{TrackID: track, ArtistCatalogID: c[0], Name: c[1], Position: int64(pos)}); err != nil {
+		if err := d.Q.InsertTrackArtist(ctx, dbq.InsertTrackArtistParams{TrackID: track, ArtistCatalogID: c[0], Name: c[1], NameKey: namefold.Fold(c[1]), Position: int64(pos)}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -48,8 +49,8 @@ func creditsStore(t *testing.T) *db.DB {
 
 // An artist the library holds only through credits is a catalogue item: its
 // ID is a catalogue ID, so no library action (delete, pin, library state)
-// may take it for a library one. The combined library artist stays one and
-// still plays its own songs, for the page, the pin and the player.
+// may take it for a library one. The combined library artist stays one, with
+// nothing left to page, pin or play: its song is credited to Ada and Bo.
 func TestCreditOnlyArtistsAreCatalogueItems(t *testing.T) {
 	ctx := t.Context()
 	d := creditsStore(t)
@@ -81,13 +82,13 @@ func TestCreditOnlyArtistsAreCatalogueItems(t *testing.T) {
 		t.Errorf("combined artist = %+v, %v, want a library artist", duo.Artist, err)
 	}
 
-	// The combined artist still lists, and pins, its own song.
+	// The combined artist holds nothing: its song is credited to Ada and Bo.
 	det, err := ls.Artist(ctx, "r.duo")
-	if err != nil || len(det.Songs) != 1 {
-		t.Errorf("Artist(r.duo) songs = %+v, %v, want its own song", det.Songs, err)
+	if err != nil || len(det.Songs) != 0 {
+		t.Errorf("Artist(r.duo) songs = %+v, %v, want none", det.Songs, err)
 	}
 	ps := &PlaylistsService{e: e}
-	if songs, err := ps.PinTracks(ctx, "r.duo"); err != nil || len(songs) != 1 {
-		t.Errorf("PinTracks(r.duo) = %+v, %v", songs, err)
+	if songs, err := ps.PinTracks(ctx, "r.duo"); err != nil || len(songs) != 0 {
+		t.Errorf("PinTracks(r.duo) = %+v, %v, want none", songs, err)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
 	"github.com/coredev-uk/sona-go/internal/library"
+	"github.com/coredev-uk/sona-go/internal/namefold"
 )
 
 // day is a day in the milliseconds library_items.date_added counts.
@@ -52,7 +53,7 @@ func Seed(ctx context.Context, d *db.DB, albums []Album, playlists []Playlist) e
 			id := ArtistLibraryID(n)
 			artistIDs[name] = id
 			ref, err := q.UpsertLibraryArtist(ctx, dbq.UpsertLibraryArtistParams{
-				LibraryID: db.NullString(id), CatalogID: db.NullString(fmt.Sprint(500 + n)), Name: name, UpdatedAt: now,
+				LibraryID: db.NullString(id), CatalogID: db.NullString(fmt.Sprint(500 + n)), Name: name, NameKey: namefold.Fold(name), UpdatedAt: now,
 			})
 			if err != nil {
 				return err

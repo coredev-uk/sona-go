@@ -248,10 +248,11 @@ func (q *Queries) UpsertCatalogAlbum(ctx context.Context, arg UpsertCatalogAlbum
 }
 
 const upsertCatalogArtist = `-- name: UpsertCatalogArtist :one
-INSERT INTO artists (catalog_id, name, artwork_template, url, updated_at)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO artists (catalog_id, name, name_key, artwork_template, url, updated_at)
+VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT (catalog_id) WHERE library_id IS NULL DO UPDATE SET
     name = excluded.name,
+    name_key = excluded.name_key,
     artwork_template = excluded.artwork_template,
     url = excluded.url,
     updated_at = excluded.updated_at
@@ -261,6 +262,7 @@ RETURNING id
 type UpsertCatalogArtistParams struct {
 	CatalogID       sql.NullString
 	Name            string
+	NameKey         string
 	ArtworkTemplate string
 	Url             string
 	UpdatedAt       int64
@@ -270,6 +272,7 @@ func (q *Queries) UpsertCatalogArtist(ctx context.Context, arg UpsertCatalogArti
 	row := q.db.QueryRowContext(ctx, upsertCatalogArtist,
 		arg.CatalogID,
 		arg.Name,
+		arg.NameKey,
 		arg.ArtworkTemplate,
 		arg.Url,
 		arg.UpdatedAt,

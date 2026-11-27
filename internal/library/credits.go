@@ -5,8 +5,10 @@ import (
 	"fmt"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/catalog"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
+	"github.com/coredev-uk/sona-go/internal/namefold"
 )
 
 // creditsGroup is how many songs or albums one round of creditPass asks
@@ -58,7 +60,7 @@ func (s *Syncer) songCredits() creditKind {
 		},
 		insert: func(ctx context.Context, q *dbq.Queries, id int64, a applemusic.Artist, pos int) error {
 			return q.InsertTrackArtist(ctx, dbq.InsertTrackArtistParams{
-				TrackID: id, ArtistCatalogID: a.ID, Name: a.Attributes.Name, Position: int64(pos),
+				TrackID: id, ArtistCatalogID: a.ID, Name: a.Attributes.Name, NameKey: namefold.Fold(a.Attributes.Name), Position: int64(pos),
 			})
 		},
 		mark: func(ctx context.Context, q *dbq.Queries, id, now int64) error {
@@ -91,7 +93,7 @@ func (s *Syncer) albumCredits() creditKind {
 		},
 		insert: func(ctx context.Context, q *dbq.Queries, id int64, a applemusic.Artist, pos int) error {
 			return q.InsertAlbumArtist(ctx, dbq.InsertAlbumArtistParams{
-				AlbumID: id, ArtistCatalogID: a.ID, Name: a.Attributes.Name, Position: int64(pos),
+				AlbumID: id, ArtistCatalogID: a.ID, Name: a.Attributes.Name, NameKey: namefold.Fold(a.Attributes.Name), Position: int64(pos),
 			})
 		},
 		mark: func(ctx context.Context, q *dbq.Queries, id, now int64) error {
@@ -192,6 +194,21 @@ func (s *Syncer) creditPass(ctx context.Context, k creditKind) (changed bool, er
 		// What the answer taught is stored even if the sync is cancelled now.
 		wctx := context.WithoutCancel(ctx)
 		err = s.db.Tx(wctx, func(q *dbq.Queries) error {
+			// The answer names each credited artist with their picture (the
+			// same include=artists response): kept as a catalogue artist row,
+			// the picture of one the library holds only through credits.
+			stored := map[string]bool{}
+			for _, id := range group {
+				for _, a := range credits[id] {
+					if a.ID == "" || stored[a.ID] || a.Attributes.Artwork == nil {
+						continue
+					}
+					stored[a.ID] = true
+					if _, err := catalog.StoreArtist(wctx, q, a, now); err != nil {
+						return err
+					}
+				}
+			}
 			for _, id := range group {
 				for _, item := range asked[id] {
 					if _, err := k.clear(wctx, q, item); err != nil {
