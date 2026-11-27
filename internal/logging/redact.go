@@ -90,12 +90,13 @@ func NormalizeKey(key string) string {
 	return strings.ToLower(keyNormalizer.Replace(key))
 }
 
-// sensitiveKey reports whether an attribute key names a secret. Matching
+// SensitiveKey reports whether an attribute key names a secret. Matching
 // ignores case, '-' and '_' and accepts any key ending in "token".
 // "ldflags" is a Build Info setting: the linker flags inject Sona's
 // Last.fm and Discord credentials (-X), and nothing else in them is worth
-// a log line (the version is logged at startup).
-func sensitiveKey(key string) bool {
+// a log line (the version is logged at startup). The diagnostics bundle
+// applies it to the log lines it reads from disk.
+func SensitiveKey(key string) bool {
 	k := NormalizeKey(key)
 	switch k {
 	case "mut", "authorization", "auth", "cookie", "setcookie", "password", "secret", "ldflags":
@@ -144,7 +145,7 @@ func (h *RedactHandler) WithGroup(name string) slog.Handler {
 }
 
 func redactAttr(a slog.Attr) slog.Attr {
-	if sensitiveKey(a.Key) {
+	if SensitiveKey(a.Key) {
 		return slog.String(a.Key, Redacted)
 	}
 	v := a.Value.Resolve()

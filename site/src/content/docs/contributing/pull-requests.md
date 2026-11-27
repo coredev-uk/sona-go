@@ -52,7 +52,7 @@ Bot commands and labels are in [docs/maintainers/clarence.md](https://github.com
 
 Use the issue form that matches. For anything larger than a fix, open an issue before writing code, so the design can be agreed first.
 
-The bug form asks for your **Platform** (Linux, macOS or Windows), how you installed Sona, and the closest **Area** ("Not sure" is fine). Paste the diagnostics bundle (Settings → Diagnostics → Copy diagnostics: versions, devices and recent log lines, with secrets redacted; read it before posting). Tick that you searched existing issues, are on the latest release and removed personal data, and say how often it happens. The feature request form takes the same Area.
+The bug form asks for your **Platform** (Linux, macOS or Windows), how you installed Sona, and the closest **Area** ("Not sure" is fine). Paste the diagnostics bundle (Settings → Diagnostics → Copy diagnostics: versions, devices and recent log lines, with secrets removed and what you played or searched for replaced by codes; [Troubleshooting](/guide/troubleshooting/) lists what changes; read it before posting). Tick that you searched existing issues, are on the latest release and removed personal data, and say how often it happens. The feature request form takes the same Area.
 
 Report vulnerabilities privately, following [SECURITY.md](https://github.com/coredev-uk/sona-go/blob/main/SECURITY.md).
 

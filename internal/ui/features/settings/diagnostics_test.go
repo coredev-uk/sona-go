@@ -361,7 +361,7 @@ func TestCopyDiagnosticsCopiesTheBundleWithTheMotionReport(t *testing.T) {
 	g.tt.Until("page", g.tt.Shows("Copy diagnostics"))
 	g.click("Copy diagnostics")
 	g.tt.Until("toast", g.tt.Shows("Diagnostics copied",
-		"Tokens and your e-mail address are removed. A copy is saved as sona-diagnostics-1.txt in the log folder."))
+		"Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes. A copy is saved as sona-diagnostics-1.txt in the log folder."))
 	if got := g.h.Copied(); len(got) != 1 || got[0] != "BUNDLE" {
 		t.Errorf("copied %q", got)
 	}
