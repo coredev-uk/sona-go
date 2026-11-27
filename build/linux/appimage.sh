@@ -3,9 +3,9 @@
 #
 #   build/linux/appimage.sh <binary> <output-dir> <version>
 #
-# MyGo loads GTK3, libepoxy, the tray's appindicator, AT-SPI, libsecret and
-# X11's XTest by soname at run time (purego), so linuxdeploy cannot see them
-# in the binary: this script names each one (--library) and linuxdeploy
+# MyGo loads GTK3, libepoxy, the tray's appindicator and AT-SPI by soname at
+# run time (purego), so linuxdeploy cannot see them in the binary: this
+# script names each one (--library) and linuxdeploy
 # bundles it with its dependencies. linuxdeploy's GTK plugin adds what GTK3
 # reads from disk (GSettings schemas, pixbuf loaders, input methods). The
 # GStreamer plugins the playback host uses are dlopened too: they are copied
@@ -62,12 +62,12 @@ mkdir -p "$appdir/usr/share/icons"
 cp -r "$root/build/linux/icons/hicolor" "$appdir/usr/share/icons/"
 
 # The sonames MyGo loads (it is the list in mygo's Linux backends: GTK3 and
-# its stack, GL loader, tray, accessibility, Secret Service, X11 placement).
+# its stack, GL loader, tray, accessibility).
 sonames=(
   libgtk-3.so.0 libgdk-3.so.0 libepoxy.so.0
   libayatana-appindicator3.so.1 libdbusmenu-gtk3.so.4
-  libatk-1.0.so.0 libatk-bridge-2.0.so.0 libsecret-1.so.0
-  libXtst.so.6 libgdk_pixbuf-2.0.so.0 libpangocairo-1.0.so.0 libpangoft2-1.0.so.0
+  libatk-1.0.so.0 libatk-bridge-2.0.so.0
+  libgdk_pixbuf-2.0.so.0 libpangocairo-1.0.so.0 libpangoft2-1.0.so.0
 )
 libs=()
 for so in "${sonames[@]}"; do

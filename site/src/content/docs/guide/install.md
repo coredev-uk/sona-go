@@ -16,7 +16,7 @@ gh attestation verify <file> --repo coredev-uk/sona-go
 1. Download the package for your system: `.deb`, `.rpm`, Arch (`.pkg.tar.zst`) or AppImage.
 2. Install it with your package manager, or make the AppImage executable and run it.
 
-The packages pull in GTK3 and GStreamer, and the `.deb` and `.rpm` also `libayatana-appindicator3` (the tray icon). Your package manager updates them. The AppImage updates through AppImageUpdate.
+The packages pull in GTK3 and GStreamer. The `.deb` and `.rpm` also recommend the features Sona works without, so your package manager installs them unless you decline recommends: `libayatana-appindicator3` (the tray icon), GStreamer's bad plugins (motion artwork), PipeWire output, `xdg-utils` (so `music://` links open in Sona) and `xdg-desktop-portal` (the file chooser). They suggest `gnome-keyring`, or another Secret Service, to keep your sign-in in the system keyring; without one Sona keeps it in a file in its config directory. Your package manager updates them. The AppImage updates through AppImageUpdate.
 
 On Ubuntu 23.10 and later, prefer the `.deb` to the AppImage. Ubuntu stops programs creating the user namespaces Sona's playback sandbox is built from, unless an AppArmor profile allows them. The `.deb` (and `.rpm`) install that profile, `/etc/apparmor.d/sona`, and nothing else of Sona is restricted by it. An AppImage can't, so on Ubuntu it still plays, but Settings → Diagnostics → Host sandbox says "Not fully sandboxed" and that the playback helper can reach your session bus.
 
