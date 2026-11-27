@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Init describes the single track of an init segment: audio, or video.
+// Init describes the media track of an init segment: audio, or video.
 type Init struct {
 	TrackID   uint32
 	Timescale uint32 // media timescale (mdhd)

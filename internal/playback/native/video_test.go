@@ -67,7 +67,8 @@ func testWidevinePSSH(kid []byte) []byte {
 }
 
 // videoInitSeg is an 864×486 'cbcs' encv/avc1 init segment (H.264 High)
-// with an all-zero default key ID.
+// with an all-zero default key ID, and, as Apple's video renditions have,
+// a CEA-608 closed-caption track ('clcp', track 2) beside the video.
 var videoInitSeg = func() []byte {
 	avcC := mp4Box("avcC", []byte{1, 100, 0, 30, 0xff, 0xe1, 0, 4, 0x67, 100, 0, 30, 1, 0, 4, 0x68, 0xee, 0x3c, 0x80})
 	tenc := mp4Box("tenc", be32(1<<24), []byte{0, 0x19, 1, 0}, make([]byte, 16), []byte{16}, bytes.Repeat([]byte{7}, 16))
@@ -77,8 +78,11 @@ var videoInitSeg = func() []byte {
 	stsd := mp4Box("stsd", be32(0), be32(1), entry)
 	mdhd := mp4Box("mdhd", be32(0), be32(0), be32(0), be32(90000), be32(0), be32(0))
 	tkhd := mp4Box("tkhd", be32(7), be32(0), be32(0), be32(1), make([]byte, 68))
-	trak := mp4Box("trak", tkhd, mp4Box("mdia", mdhd, mp4Box("minf", mp4Box("stbl", stsd))))
-	return append(mp4Box("ftyp", []byte("iso8"), be32(0)), mp4Box("moov", trak)...)
+	hdlr := func(typ string) []byte { return mp4Box("hdlr", be32(0), be32(0), []byte(typ), make([]byte, 13)) }
+	trak := mp4Box("trak", tkhd, mp4Box("mdia", mdhd, hdlr("vide"), mp4Box("minf", mp4Box("stbl", stsd))))
+	captions := mp4Box("trak", mp4Box("tkhd", be32(7), be32(0), be32(0), be32(2), make([]byte, 68)),
+		mp4Box("mdia", mdhd, hdlr("clcp"), mp4Box("minf", mp4Box("stbl", mp4Box("stsd", be32(0), be32(1), mp4Box("c608", make([]byte, 8)))))))
+	return append(mp4Box("ftyp", []byte("iso8"), be32(0)), mp4Box("moov", trak, captions)...)
 }()
 
 // audioFragment is a one-sample AAC fragment of the fixture's audio init

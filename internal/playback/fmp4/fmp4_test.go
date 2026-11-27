@@ -420,3 +420,165 @@ func TestParseFragmentRejectsEmptySamples(t *testing.T) {
 		t.Fatal("expected an error for zero-size samples")
 	}
 }
+
+// mkTrak is a track of an init segment: its ID, handler type, timescale and
+// one sample entry.
+func mkTrak(id uint32, handler string, timescale uint32, entry []byte) []byte {
+	tkhd := mkfull("tkhd", 0, 7, be32(0), be32(0), be32(id), make([]byte, 68))
+	mdhd := mkfull("mdhd", 0, 0, be32(0), be32(0), be32(timescale), be32(0), be16(0x55c4), be16(0))
+	hdlr := mkfull("hdlr", 0, 0, be32(0), []byte(handler), make([]byte, 13))
+	stsd := mkfull("stsd", 0, 0, be32(1), entry)
+	return mkbox("trak", tkhd, mkbox("mdia", mdhd, hdlr, mkbox("minf", mkbox("stbl", stsd))))
+}
+
+// mkMoov is an init segment of traks with a trex (default duration 3600)
+// for each of ids.
+func mkMoov(traks [][]byte, ids ...uint32) []byte {
+	var trexes []byte
+	for _, id := range ids {
+		trexes = append(trexes, mkfull("trex", 0, 0, be32(id), be32(1), be32(3600), be32(0), be32(0))...)
+	}
+	return cat(mkbox("ftyp", []byte("iso8"), be32(0)), mkbox("moov", mkfull("mvhd", 0, 0, make([]byte, 96)), cat(traks...), mkbox("mvex", trexes)))
+}
+
+// testAVC1 is a clear 640×360 H.264 sample entry.
+var testAVC1 = func() []byte {
+	avcC := mkbox("avcC", []byte{1, 100, 0, 30, 0xff, 0xe1, 0, 4, 0x67, 100, 0, 30, 1, 0, 4, 0x68, 0xee, 0x3c, 0x80})
+	return mkbox("avc1", make([]byte, 6), be16(1), make([]byte, 16), be16(640), be16(360),
+		be32(0x480000), be32(0x480000), be32(0), be16(1), make([]byte, 32), be16(0x18), be16(0xffff), avcC)
+}()
+
+// testC608 is the sample entry of a CEA-608 closed-caption track, which
+// Apple's video renditions carry beside the picture. Its body is not a
+// real sample entry: a track ParseInit ignores is not parsed.
+var testC608 = mkbox("c608", []byte("not parsed"))
+
+func TestParseInitPicksTheMediaTrack(t *testing.T) {
+	audio := mkTrak(1, "soun", 44100, mkbox("mp4a", cat(make([]byte, 6), be16(1), make([]byte, 8), be16(2), be16(16), be16(0), be16(0), be32(44100<<16)), mkesds(lcStereo44)))
+	for name, tc := range map[string]struct {
+		traks [][]byte
+		ids   []uint32
+		id    uint32
+		video bool
+	}{
+		"video then captions": {[][]byte{mkTrak(1, "vide", 90000, testAVC1), mkTrak(2, "clcp", 90000, testC608)}, []uint32{1, 2}, 1, true},
+		"captions then video": {[][]byte{mkTrak(1, "clcp", 90000, testC608), mkTrak(2, "vide", 90000, testAVC1)}, []uint32{1, 2}, 2, true},
+		"video, text, meta":   {[][]byte{mkTrak(1, "vide", 90000, testAVC1), mkTrak(2, "text", 1000, testC608), mkTrak(3, "meta", 1000, testC608)}, []uint32{1, 2, 3}, 1, true},
+		"subtitles":           {[][]byte{mkTrak(5, "subt", 1000, testC608), mkTrak(6, "sbtl", 1000, testC608), mkTrak(7, "vide", 90000, testAVC1)}, []uint32{5, 6, 7}, 7, true},
+		"audio and metadata":  {[][]byte{audio, mkTrak(2, "meta", 1000, testC608)}, []uint32{1, 2}, 1, false},
+	} {
+		in, err := ParseInit(mkMoov(tc.traks, tc.ids...))
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		if in.TrackID != tc.id || in.IsVideo() != tc.video || in.DefaultSampleDuration != 3600 {
+			t.Errorf("%s: track %d, video %v, default duration %d", name, in.TrackID, in.IsVideo(), in.DefaultSampleDuration)
+		}
+		if tc.video && (in.Codec != "avc1" || in.Width != 640 || in.Height != 360 || in.Timescale != 90000) {
+			t.Errorf("%s: %+v", name, in)
+		}
+		if !tc.video && (in.Codec != "mp4a" || in.Timescale != 44100 || in.Channels != 2) {
+			t.Errorf("%s: %+v", name, in)
+		}
+	}
+}
+
+func TestParseInitMediaTrackErrors(t *testing.T) {
+	video := func(id uint32) []byte { return mkTrak(id, "vide", 90000, testAVC1) }
+	audio := mkTrak(3, "soun", 44100, mkbox("mp4a"))
+	noHandler := mkbox("trak", mkfull("tkhd", 0, 7, be32(0), be32(0), be32(1), make([]byte, 68)))
+	noTkhd := mkbox("trak", mkbox("mdia", mkfull("mdhd", 0, 0, be32(0), be32(0), be32(90000), be32(0), be16(0), be16(0)),
+		mkfull("hdlr", 0, 0, be32(0), []byte("vide"), make([]byte, 13)),
+		mkbox("minf", mkbox("stbl", mkfull("stsd", 0, 0, be32(1), testAVC1)))))
+	for name, b := range map[string][]byte{
+		"two video tracks":         mkMoov([][]byte{video(1), mkTrak(2, "clcp", 90000, testC608), video(3)}, 1, 2, 3),
+		"video and audio":          mkMoov([][]byte{video(1), audio}, 1, 3),
+		"only captions":            mkMoov([][]byte{mkTrak(2, "clcp", 90000, testC608)}, 2),
+		"no track":                 mkMoov(nil),
+		"track without a handler":  mkMoov([][]byte{noHandler}, 1),
+		"media track without tkhd": mkMoov([][]byte{noTkhd}, 1),
+		"media track with ID zero": mkMoov([][]byte{video(0)}, 0),
+		"video entry without avcC": mkMoov([][]byte{mkTrak(1, "vide", 90000, mkbox("avc1", make([]byte, 78)))}, 1),
+		"bad entry of the media":   mkMoov([][]byte{mkTrak(1, "vide", 90000, testC608)}, 1),
+		"junk trak only":           mkMoov([][]byte{mkbox("trak", []byte{0, 0, 0})}, 1),
+	} {
+		if _, err := ParseInit(b); err == nil {
+			t.Errorf("%s: expected an error", name)
+		}
+	}
+}
+
+// mkTwoTracks is a moof with two trafs and one mdat that holds the
+// captions' data first, then the video's: the traf of captions has one
+// sample (track capID), the video's (track videoID) the given samples in
+// two truns, the second continuing where the first ends. The traf of
+// captions comes first unless videoFirst.
+func mkTwoTracks(videoID, capID uint32, videoFirst bool, caps []byte, video [][]byte) []byte {
+	var vdata, rest []byte
+	for _, s := range video {
+		vdata = append(vdata, s...)
+	}
+	for _, s := range video[1:] {
+		rest = append(rest, be32(uint32(len(s)))...)
+	}
+	build := func(payload uint32) []byte {
+		capTraf := mkbox("traf", mkfull("tfhd", 0, 0x020000, be32(capID)), mkfull("tfdt", 1, 0, be64(500)),
+			mkfull("trun", 0, trunDataOffset|trunSize, be32(1), be32(payload), be32(uint32(len(caps)))))
+		vidTraf := mkbox("traf", mkfull("tfhd", 0, 0x020000, be32(videoID)), mkfull("tfdt", 1, 0, be64(90000)),
+			mkfull("trun", 0, trunDataOffset|trunSize, be32(1), be32(payload+uint32(len(caps))), be32(uint32(len(video[0])))),
+			mkfull("trun", 0, trunSize, be32(uint32(len(video)-1)), rest))
+		trafs := cat(capTraf, vidTraf)
+		if videoFirst {
+			trafs = cat(vidTraf, capTraf)
+		}
+		return mkbox("moof", mkfull("mfhd", 0, 0, be32(1)), trafs)
+	}
+	return cat(build(uint32(len(build(0)))+8), mkbox("mdat", caps, vdata))
+}
+
+// A moof with a traf for the video and one for the captions yields the
+// video's samples only, at their own data offsets, whichever traf comes
+// first and whichever track number the video has.
+func TestParseFragmentReadsOnlyItsTrack(t *testing.T) {
+	video := [][]byte{[]byte("frame-one"), []byte("f2"), []byte("frame-three!")}
+	caps := []byte("CC608")
+	for _, tc := range []struct {
+		videoID, capID uint32
+		videoFirst     bool
+	}{{1, 2, false}, {1, 2, true}, {2, 1, false}, {2, 1, true}} {
+		in, err := ParseInit(mkMoov([][]byte{mkTrak(tc.capID, "clcp", 90000, testC608), mkTrak(tc.videoID, "vide", 90000, testAVC1)}, tc.capID, tc.videoID))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := ParseFragment(mkTwoTracks(tc.videoID, tc.capID, tc.videoFirst, caps, video), in)
+		if err != nil {
+			t.Fatalf("%+v: %v", tc, err)
+		}
+		if len(got) != len(video) {
+			t.Fatalf("%+v: %d samples, want %d", tc, len(got), len(video))
+		}
+		for i, s := range got {
+			if !bytes.Equal(s.Data, video[i]) || s.Encrypted() {
+				t.Errorf("%+v: sample %d = %q", tc, i, s.Data)
+			}
+			if s.DecodeTime != 90000+uint64(i)*3600 || s.Duration != 3600 {
+				t.Errorf("%+v: sample %d timing %d +%d", tc, i, s.DecodeTime, s.Duration)
+			}
+		}
+	}
+}
+
+// A fragment of the other track's alone has no samples for this one.
+func TestParseFragmentOfAnotherTrack(t *testing.T) {
+	in, err := ParseInit(mkMoov([][]byte{mkTrak(1, "vide", 90000, testAVC1), mkTrak(2, "clcp", 90000, testC608)}, 1, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := mkbox("moof", mkfull("mfhd", 0, 0, be32(1)), mkbox("traf", mkfull("tfhd", 0, 0x020000, be32(2)),
+		mkfull("trun", 0, trunDataOffset|trunSize, be32(1), be32(1<<30), be32(5))))
+	_, err = ParseFragment(cat(caps, mkbox("mdat", []byte("CC608"))), in)
+	if err == nil || err.Error() != "fmp4: fragment has no samples" {
+		t.Fatalf("err = %v, want no samples: the only traf is another track's, and its offsets are not read", err)
+	}
+}
