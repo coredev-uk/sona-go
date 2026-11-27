@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-// Apple's library artist for "A & B" carries A's catalogue ID, as live data
-// shows: "Alesso & Zara Larsson" has Alesso's 432464201, "Alan Walker & Ava
-// Max" Alan Walker's 1062085272. withCatalogID gives a fake library artist
-// that catalogue ID.
+// Apple's library artist for "A & B" carries A's catalogue ID: the library
+// artist "Mira Vale & Theo Lund" has Mira Vale's ID, and "Kai Moreno & Ivy
+// Lane" Kai Moreno's. withCatalogID gives a fake library artist that
+// catalogue ID.
 func withCatalogID(a map[string]any, id string) map[string]any {
 	cat := a["relationships"].(map[string]any)["catalog"].(map[string]any)["data"].([]any)[0].(map[string]any)
 	cat["id"] = id
@@ -17,29 +17,29 @@ func withCatalogID(a map[string]any, id string) map[string]any {
 }
 
 const (
-	alessoID = "432464201"
-	zaraID   = "570372593"
-	alessoIm = "https://art/alesso/{w}x{h}.jpg"
+	miraID = "100001"
+	theoID = "100002"
+	miraIm = "https://art/mira/{w}x{h}.jpg"
 )
 
-// alessoLibrary is the live case: the library artist "Alesso & Zara Larsson"
-// (Alesso's catalogue ID), the library artist "Zara Larsson" (inserted after
-// it), and no library artist for Alesso. The song "Words" and its album are
-// by "Alesso & Zara Larsson" in Apple's library, and credited to Alesso and
-// Zara Larsson in the catalogue.
-func alessoLibrary(e *env) {
+// miraLibrary is the combined case: the library artist "Mira Vale & Theo
+// Lund" (Mira Vale's catalogue ID), the library artist "Theo Lund" (inserted
+// after it), and no library artist for Mira Vale. The song "Signals" and its
+// album are by "Mira Vale & Theo Lund" in Apple's library, and credited to
+// Mira Vale and Theo Lund in the catalogue.
+func miraLibrary(e *env) {
 	e.sync.Storefront = func() string { return "us" }
 	f := e.fake
 	f.artists = []map[string]any{
-		withCatalogID(artist("r.az", "Alesso & Zara Larsson"), alessoID),
-		withCatalogID(artist("r.zl", "Zara Larsson"), zaraID),
+		withCatalogID(artist("r.az", "Mira Vale & Theo Lund"), miraID),
+		withCatalogID(artist("r.zl", "Theo Lund"), theoID),
 	}
-	f.albums = []map[string]any{album("l.w", "Words - Single", "Alesso & Zara Larsson", "r.az", "2024-01-01T00:00:00Z")}
-	f.songs = []map[string]any{song("i.w", "Words", "Alesso & Zara Larsson", "Words - Single", "l.w", "r.az")}
-	credited := [][2]string{{alessoID, "Alesso"}, {zaraID, "Zara Larsson"}}
+	f.albums = []map[string]any{album("l.w", "Signals - Single", "Mira Vale & Theo Lund", "r.az", "2024-01-01T00:00:00Z")}
+	f.songs = []map[string]any{song("i.w", "Signals", "Mira Vale & Theo Lund", "Signals - Single", "l.w", "r.az")}
+	credited := [][2]string{{miraID, "Mira Vale"}, {theoID, "Theo Lund"}}
 	f.credits = map[string][][2]string{"cw": credited}
 	f.albumCredits = map[string][][2]string{"cl.w": credited}
-	f.creditArtwork = map[string]string{alessoID: alessoIm}
+	f.creditArtwork = map[string]string{miraID: miraIm}
 }
 
 func indexNames(index []ArtistSummary) []string {
@@ -56,7 +56,7 @@ func indexNames(index []ArtistSummary) []string {
 // the second keeps their library artist, and the combined one is gone.
 func TestCombinedArtistDoesNotTakeTheFirstArtistsCredits(t *testing.T) {
 	e := newEnv(t)
-	alessoLibrary(e)
+	miraLibrary(e)
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
 	}
@@ -65,19 +65,19 @@ func TestCombinedArtistDoesNotTakeTheFirstArtistsCredits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := indexNames(index); !slices.Equal(got, []string{"Alesso", "Zara Larsson"}) {
-		t.Fatalf("artists = %v, want Alesso and Zara Larsson alone", got)
+	if got := indexNames(index); !slices.Equal(got, []string{"Mira Vale", "Theo Lund"}) {
+		t.Fatalf("artists = %v, want Mira Vale and Theo Lund alone", got)
 	}
-	alesso, zara := index[0], index[1]
-	if alesso.LibraryID != "" || alesso.CatalogID != alessoID || alesso.Albums != 1 || alesso.Songs != 1 {
-		t.Errorf("Alesso = %+v, want credit-only, 1 album, 1 song", alesso)
+	mira, theo := index[0], index[1]
+	if mira.LibraryID != "" || mira.CatalogID != miraID || mira.Albums != 1 || mira.Songs != 1 {
+		t.Errorf("Mira Vale = %+v, want credit-only, 1 album, 1 song", mira)
 	}
-	if zara.LibraryID != "r.zl" || zara.Albums != 1 || zara.Songs != 1 {
-		t.Errorf("Zara Larsson = %+v, want her library artist, 1 album, 1 song", zara)
+	if theo.LibraryID != "r.zl" || theo.Albums != 1 || theo.Songs != 1 {
+		t.Errorf("Theo Lund = %+v, want their library artist, 1 album, 1 song", theo)
 	}
-	for _, key := range []string{alessoID, "r.zl"} {
+	for _, key := range []string{miraID, "r.zl"} {
 		_, albums, songs, err := e.lib.Artist(ctx, key)
-		if err != nil || !slices.Equal(albumNames(albums), []string{"Words - Single"}) || !slices.Equal(songNames(songs), []string{"Words"}) {
+		if err != nil || !slices.Equal(albumNames(albums), []string{"Signals - Single"}) || !slices.Equal(songNames(songs), []string{"Signals"}) {
 			t.Errorf("Artist(%s) = %v, %v, %v", key, albumNames(albums), songNames(songs), err)
 		}
 	}
@@ -86,13 +86,13 @@ func TestCombinedArtistDoesNotTakeTheFirstArtistsCredits(t *testing.T) {
 		t.Errorf("Artist(r.az) = %v, %v, %v, want nothing", albumNames(albums), songNames(songs), err)
 	}
 	// Search lists the same artists.
-	for term, want := range map[string]bool{"Alesso": true, "Zara": true} {
+	for term, want := range map[string]bool{"Mira": true, "Theo": true} {
 		r, err := e.lib.SearchAll(ctx, term, 10)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, a := range r.Artists {
-			if a.Name == "Alesso & Zara Larsson" {
+			if a.Name == "Mira Vale & Theo Lund" {
 				t.Errorf("search %q lists the combined artist", term)
 			}
 		}
@@ -107,7 +107,7 @@ func TestCombinedArtistDoesNotTakeTheFirstArtistsCredits(t *testing.T) {
 // the list and on their page.
 func TestCreditOnlyArtistShowsTheCataloguePicture(t *testing.T) {
 	e := newEnv(t)
-	alessoLibrary(e)
+	miraLibrary(e)
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
 	}
@@ -116,20 +116,20 @@ func TestCreditOnlyArtistShowsTheCataloguePicture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	alesso, ok := artistNamed(t, index, "Alesso")
-	if !ok || alesso.ArtworkTemplate != alessoIm {
-		t.Errorf("Alesso in the list = %+v, want the artwork %s", alesso, alessoIm)
+	mira, ok := artistNamed(t, index, "Mira Vale")
+	if !ok || mira.ArtworkTemplate != miraIm {
+		t.Errorf("Mira Vale in the list = %+v, want the artwork %s", mira, miraIm)
 	}
-	a, _, err := e.lib.ArtistAlbums(ctx, alessoID)
-	if err != nil || a.ArtworkTemplate != alessoIm {
-		t.Errorf("Alesso's page = %+v, %v, want the artwork %s", a, err, alessoIm)
+	a, _, err := e.lib.ArtistAlbums(ctx, miraID)
+	if err != nil || a.ArtworkTemplate != miraIm {
+		t.Errorf("Mira Vale's page = %+v, %v, want the artwork %s", a, err, miraIm)
 	}
-	if n := catalogArtistRows(t, e, alessoID); n != 1 {
-		t.Errorf("%d catalogue rows for Alesso, want 1", n)
+	if n := catalogArtistRows(t, e, miraID); n != 1 {
+		t.Errorf("%d catalogue rows for Mira Vale, want 1", n)
 	}
 	// An artist the answer gives no artwork for is not stored (nothing to add).
-	if n := catalogArtistRows(t, e, zaraID); n != 0 {
-		t.Errorf("%d catalogue rows for Zara Larsson, whose answer had no artwork", n)
+	if n := catalogArtistRows(t, e, theoID); n != 0 {
+		t.Errorf("%d catalogue rows for Theo Lund, whose answer had no artwork", n)
 	}
 }
 
@@ -150,20 +150,20 @@ func TestCreditGoesToTheArtistOfThatNameWhateverTheOrder(t *testing.T) {
 	e := newEnv(t)
 	e.sync.Storefront = func() string { return "us" }
 	f := e.fake
-	const alan, ava = "1062085272", "1130143357"
+	const kai, ivy = "100003", "100004"
 	f.artists = []map[string]any{
-		withCatalogID(artist("r.aa", "Alan Walker & Ava Max"), alan),
-		withCatalogID(artist("r.ac", "Alan Walker & Conor Maynard"), alan),
-		withCatalogID(artist("r.aw", "Alan Walker"), alan),
+		withCatalogID(artist("r.aa", "Kai Moreno & Ivy Lane"), kai),
+		withCatalogID(artist("r.ac", "Kai Moreno & Rhys Hale"), kai),
+		withCatalogID(artist("r.aw", "Kai Moreno"), kai),
 	}
-	f.albums = []map[string]any{album("l.al", "Alone", "Alan Walker", "r.aw", "2024-01-01T00:00:00Z")}
+	f.albums = []map[string]any{album("l.al", "Echoes", "Kai Moreno", "r.aw", "2024-01-01T00:00:00Z")}
 	f.songs = []map[string]any{
-		song("i.a1", "Alone Pt. II", "Alan Walker & Ava Max", "Alone", "l.al", "r.aa"),
-		song("i.a2", "Alone Pt. III", "Alan Walker & Conor Maynard", "Alone", "l.al", "r.ac"),
+		song("i.a1", "Echoes Pt. II", "Kai Moreno & Ivy Lane", "Echoes", "l.al", "r.aa"),
+		song("i.a2", "Echoes Pt. III", "Kai Moreno & Rhys Hale", "Echoes", "l.al", "r.ac"),
 	}
 	f.credits = map[string][][2]string{
-		"ca1": {{alan, "Alan Walker"}, {ava, "Ava Max"}},
-		"ca2": {{alan, "alan walker"}, {"900", "Conor Maynard"}}, // folded: case
+		"ca1": {{kai, "Kai Moreno"}, {ivy, "Ivy Lane"}},
+		"ca2": {{kai, "kai moreno"}, {"900", "Rhys Hale"}}, // folded: case
 	}
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
@@ -172,14 +172,14 @@ func TestCreditGoesToTheArtistOfThatNameWhateverTheOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := indexNames(index); !slices.Equal(got, []string{"Alan Walker", "Ava Max", "Conor Maynard"}) {
-		t.Fatalf("artists = %v, want Alan Walker, Ava Max and Conor Maynard", got)
+	if got := indexNames(index); !slices.Equal(got, []string{"Ivy Lane", "Kai Moreno", "Rhys Hale"}) {
+		t.Fatalf("artists = %v, want Ivy Lane, Kai Moreno and Rhys Hale", got)
 	}
-	if aw := index[0]; aw.LibraryID != "r.aw" || aw.Songs != 2 || aw.Albums != 1 {
-		t.Errorf("Alan Walker = %+v, want his library artist with both songs and his album", aw)
+	if km := index[1]; km.LibraryID != "r.aw" || km.Songs != 2 || km.Albums != 1 {
+		t.Errorf("Kai Moreno = %+v, want their library artist with both songs and their album", km)
 	}
-	if am := index[1]; am.LibraryID != "" || am.CatalogID != ava || am.Songs != 1 {
-		t.Errorf("Ava Max = %+v, want a credit-only artist with 1 song", ava)
+	if il := index[0]; il.LibraryID != "" || il.CatalogID != ivy || il.Songs != 1 {
+		t.Errorf("Ivy Lane = %+v, want a credit-only artist with 1 song", il)
 	}
 }
 
@@ -188,8 +188,8 @@ func TestCreditGoesToTheArtistOfThatNameWhateverTheOrder(t *testing.T) {
 // it, with that item only; the credited song and album go to the artists.
 func TestCombinedArtistKeepsWhatIsUncredited(t *testing.T) {
 	e := newEnv(t)
-	alessoLibrary(e)
-	up := uploadSong("i.up", "Demo", "Alesso & Zara Larsson", "r.az")
+	miraLibrary(e)
+	up := uploadSong("i.up", "Demo", "Mira Vale & Theo Lund", "r.az")
 	e.fake.songs = append(e.fake.songs, up)
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
@@ -199,10 +199,10 @@ func TestCombinedArtistKeepsWhatIsUncredited(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := indexNames(index); !slices.Equal(got, []string{"Alesso", "Alesso & Zara Larsson", "Zara Larsson"}) {
+	if got := indexNames(index); !slices.Equal(got, []string{"Mira Vale", "Mira Vale & Theo Lund", "Theo Lund"}) {
 		t.Fatalf("artists = %v", got)
 	}
-	combined, _ := artistNamed(t, index, "Alesso & Zara Larsson")
+	combined, _ := artistNamed(t, index, "Mira Vale & Theo Lund")
 	if combined.LibraryID != "r.az" || combined.Songs != 1 || combined.Albums != 0 {
 		t.Errorf("combined artist = %+v, want its upload only", combined)
 	}

@@ -147,25 +147,25 @@ func TestArtistsListACollaborationAlbumUnderEachCreditedArtist(t *testing.T) {
 	}
 }
 
-// Apple's library artist for "A & B" carries A's catalogue ID: the live
-// library's "Alesso & Zara Larsson" has Alesso's. With no library artist of
-// their own, Alesso's credits must not go to that combined artist.
+// Apple's library artist for "A & B" carries A's catalogue ID: the library
+// artist "Mira Vale & Theo Lund" has Mira Vale's. With no library artist of
+// their own, Mira Vale's credits must not go to that combined artist.
 const (
-	alessoID = "432464201"
-	zaraID   = "570372593"
+	miraID = "100001"
+	theoID = "100002"
 )
 
-// seedAlesso adds the combined library artist "Alesso & Zara Larsson"
-// (Alesso's catalogue ID), the library artist "Zara Larsson" (added after
-// it), and the song "Words" and its album "Words - Single", which Apple's
-// library gives to the combined artist and the catalogue credits to Alesso
-// and Zara Larsson (what Syncer.syncCredits stores).
-func seedAlesso(ctx context.Context, d *db.DB) error {
+// seedMira adds the combined library artist "Mira Vale & Theo Lund"
+// (Mira Vale's catalogue ID), the library artist "Theo Lund" (added after
+// it), and the song "Signals" and its album "Signals - Single", which Apple's
+// library gives to the combined artist and the catalogue credits to Mira Vale
+// and Theo Lund (what Syncer.syncCredits stores).
+func seedMira(ctx context.Context, d *db.DB) error {
 	const now = 1_700_000_000_000
 	return d.Tx(ctx, func(q *dbq.Queries) error {
 		for _, a := range [][3]string{
-			{"r.az", alessoID, "Alesso & Zara Larsson"},
-			{"r.zl", zaraID, "Zara Larsson"},
+			{"r.az", miraID, "Mira Vale & Theo Lund"},
+			{"r.zl", theoID, "Theo Lund"},
 		} {
 			ref, err := q.UpsertLibraryArtist(ctx, dbq.UpsertLibraryArtistParams{
 				LibraryID: db.NullString(a[0]), CatalogID: db.NullString(a[1]), Name: a[2], NameKey: namefold.Fold(a[2]), UpdatedAt: now,
@@ -177,9 +177,9 @@ func seedAlesso(ctx context.Context, d *db.DB) error {
 				return err
 			}
 		}
-		credited := [][2]string{{alessoID, "Alesso"}, {zaraID, "Zara Larsson"}}
+		credited := [][2]string{{miraID, "Mira Vale"}, {theoID, "Theo Lund"}}
 		album, err := q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{
-			LibraryID: db.NullString("l.words"), CatalogID: db.NullString("7200"), Name: "Words - Single", ArtistName: "Alesso & Zara Larsson",
+			LibraryID: db.NullString("l.words"), CatalogID: db.NullString("7200"), Name: "Signals - Single", ArtistName: "Mira Vale & Theo Lund",
 			ArtistLibraryID: db.NullString("r.az"), ReleaseDate: "2021-05-01", Genre: "Pop", TrackCount: 1, UpdatedAt: now,
 		})
 		if err != nil {
@@ -189,7 +189,7 @@ func seedAlesso(ctx context.Context, d *db.DB) error {
 			return err
 		}
 		track, err := q.UpsertLibraryTrack(ctx, dbq.UpsertLibraryTrackParams{
-			LibraryID: db.NullString("i.words"), CatalogID: db.NullString("7201"), Name: "Words", ArtistName: "Alesso & Zara Larsson",
+			LibraryID: db.NullString("i.words"), CatalogID: db.NullString("7201"), Name: "Signals", ArtistName: "Mira Vale & Theo Lund",
 			ArtistLibraryID: db.NullString("r.az"), DurationMs: 200_000, TrackNumber: 1, DiscNumber: 1,
 			ReleaseDate: "2021-05-01", Genre: "Pop", UpdatedAt: now,
 		})
@@ -218,21 +218,21 @@ func seedAlesso(ctx context.Context, d *db.DB) error {
 	})
 }
 
-// Alesso, who has no library artist, is listed alone with Words and its album;
-// Zara Larsson lists them too; "Alesso & Zara Larsson", whose only song and
-// album are credited to them, is gone.
+// Mira Vale, who has no library artist, is listed alone with Signals and its
+// album; Theo Lund lists them too; "Mira Vale & Theo Lund", whose only song
+// and album are credited to them, is gone.
 func TestArtistsListAnArtistWhoseCreditsRodeOnACombinedArtist(t *testing.T) {
 	open := func(key string) *pageRig {
-		return newPageRig(t, artistsAt(key), 1132, 900, nil, uitest.Albums(collabAlbums()...), uitest.Seeded(seedAlesso))
+		return newPageRig(t, artistsAt(key), 1132, 900, nil, uitest.Albums(collabAlbums()...), uitest.Seeded(seedMira))
 	}
-	r := open(alessoID)
-	r.tt.Until("Alesso's page", r.tt.Shows(
-		"4 artists", "Alesso, 1 album, 1 song", "Zara Larsson, 1 album, 1 song",
-		"Artist · 1 album, 1 song", "Albums by Alesso in your library", "Words", "2021 · Single",
+	r := open(miraID)
+	r.tt.Until("Mira Vale's page", r.tt.Shows(
+		"4 artists", "Mira Vale, 1 album, 1 song", "Theo Lund, 1 album, 1 song",
+		"Artist · 1 album, 1 song", "Albums by Mira Vale in your library", "Signals", "2021 · Single",
 	))
-	if r.tt.HasText("Alesso & Zara Larsson") {
-		t.Error("the combined artist is still listed though its song and album are credited to Alesso and Zara Larsson")
+	if r.tt.HasText("Mira Vale & Theo Lund") {
+		t.Error("the combined artist is still listed though its song and album are credited to Mira Vale and Theo Lund")
 	}
 	r = open("r.zl")
-	r.tt.Until("Zara Larsson's page", r.tt.Shows("Artist · 1 album, 1 song", "Albums by Zara Larsson in your library", "Words", "2021 · Single"))
+	r.tt.Until("Theo Lund's page", r.tt.Shows("Artist · 1 album, 1 song", "Albums by Theo Lund in your library", "Signals", "2021 · Single"))
 }

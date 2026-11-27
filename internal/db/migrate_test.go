@@ -226,15 +226,15 @@ func TestMigrateFoldsCreditNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := w.Exec(`INSERT INTO artists (library_id, catalog_id, name, updated_at) VALUES
-			('r.az', '432464201', 'Alesso & Zara Larsson', 1), ('r.bey', '5', 'Beyoncé', 1);
+			('r.az', '100001', 'Mira Vale & Theo Lund', 1), ('r.bey', '5', 'Beyoncé', 1);
 		INSERT INTO artists (catalog_id, name, updated_at) VALUES ('7', 'Seven', 1);
 		INSERT INTO tracks (library_id, catalog_id, name, artist_name, credits_checked, updated_at) VALUES
-			('i.1', '10', 'Words', 'Alesso & Zara Larsson', 100, 1),
+			('i.1', '10', 'Signals', 'Mira Vale & Theo Lund', 100, 1),
 			('i.2', '11', 'Halo', 'Beyoncé & Seven', 100, 1);
 		INSERT INTO track_artists (track_id, artist_catalog_id, name, position) VALUES
-			(1, '432464201', 'Alesso', 0), (1, '5', 'Beyoncé', 1), (2, '5', 'BEYONCE', 0), (2, '7', 'Seven', 1);
-		INSERT INTO albums (library_id, catalog_id, name, credits_checked, updated_at) VALUES ('l.1', '20', 'Words - Single', 100, 1);
-		INSERT INTO album_artists (album_id, artist_catalog_id, name, position) VALUES (1, '432464201', 'Alesso', 0)`); err != nil {
+			(1, '100001', 'Mira Vale', 0), (1, '5', 'Beyoncé', 1), (2, '5', 'BEYONCE', 0), (2, '7', 'Seven', 1);
+		INSERT INTO albums (library_id, catalog_id, name, credits_checked, updated_at) VALUES ('l.1', '20', 'Signals - Single', 100, 1);
+		INSERT INTO album_artists (album_id, artist_catalog_id, name, position) VALUES (1, '100001', 'Mira Vale', 0)`); err != nil {
 		t.Fatal(err)
 	}
 	if err := migrate(ctx, w); err != nil {
@@ -256,13 +256,13 @@ func TestMigrateFoldsCreditNames(t *testing.T) {
 		}
 		return strings.Join(out, ",")
 	}
-	if got := keys(`SELECT name_key FROM artists ORDER BY id`); got != "alesso & zara larsson,beyonce,seven" {
+	if got := keys(`SELECT name_key FROM artists ORDER BY id`); got != "mira vale & theo lund,beyonce,seven" {
 		t.Errorf("artist keys = %s", got)
 	}
-	if got := keys(`SELECT name_key FROM track_artists ORDER BY rowid`); got != "alesso,beyonce,beyonce,seven" {
+	if got := keys(`SELECT name_key FROM track_artists ORDER BY rowid`); got != "mira vale,beyonce,beyonce,seven" {
 		t.Errorf("credit keys = %s", got)
 	}
-	// Song 1 names Alesso, held by neither a library artist of that name nor a
+	// Song 1 names Mira Vale, held by neither a library artist of that name nor a
 	// catalogue row; song 2 names Beyoncé (a library artist, by name) and Seven
 	// (a catalogue row).
 	if got := keys(`SELECT credits_checked FROM tracks ORDER BY id`); got != "0,100" {
@@ -272,7 +272,7 @@ func TestMigrateFoldsCreditNames(t *testing.T) {
 		t.Errorf("albums' credits_checked = %s, want 0", got)
 	}
 	// The views key a credit by the artist of that name only.
-	if got := keys(`SELECT artist_key FROM track_credit_keys ORDER BY track_id, artist_key`); got != "432464201,r.bey,7,r.bey" {
-		t.Errorf("track credit keys = %s, want 432464201,r.bey,7,r.bey", got)
+	if got := keys(`SELECT artist_key FROM track_credit_keys ORDER BY track_id, artist_key`); got != "100001,r.bey,7,r.bey" {
+		t.Errorf("track credit keys = %s, want 100001,r.bey,7,r.bey", got)
 	}
 }

@@ -60,8 +60,8 @@ func tileMotionAMP() http.Handler {
 		case "/v1/catalog/gb/artists/54657/view/playlists":
 			body = `{"data":[` + essentialsJSON + `,` + rocketHourJSON + `]}`
 		case "/v1/me/recent/radio-stations":
-			body = `{"data":[{"id":"ra.u-f6e485aaa343121e1abb70ff757aa95f","type":"stations","attributes":{"name":"Your Station","kind":"user",` + squareVideo("motionSquareVideo1x1", stationHLS) + `}},
-				{"id":"ra.a-570372593","type":"stations","attributes":{"name":"Artist Station","kind":"artistOnly"}}]}`
+			body = `{"data":[{"id":"ra.u-00000000000000000000000000000001","type":"stations","attributes":{"name":"Your Station","kind":"user",` + squareVideo("motionSquareVideo1x1", stationHLS) + `}},
+				{"id":"ra.a-100001","type":"stations","attributes":{"name":"Artist Station","kind":"artistOnly"}}]}`
 		case "/v1/catalog/gb/charts":
 			body = `{"results":{"playlists":[{"chart":"most-played","name":"Top Playlists","data":[{"id":"pl.72ee689fe3f84ce2b46a6913c2e6f5f1","type":"playlists"}]}]},
 				"resources":{"playlists":{"pl.72ee689fe3f84ce2b46a6913c2e6f5f1":` + essentialsJSON + `}}}`

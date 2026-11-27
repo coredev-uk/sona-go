@@ -55,7 +55,7 @@ func (f *fakeAMP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		file = "home.json"
 	case strings.HasPrefix(p, "/v1/me/recommendations/") && r.Method == http.MethodPost:
 		// A refreshed Recently Played shelf: the same shelf, one item fewer.
-		_, _ = w.Write([]byte(`{"data":[{"id":"7-2Tqlz47h9yro","type":"personal-recommendation"}],"resources":{"personal-recommendation":{"7-2Tqlz47h9yro":{"id":"7-2Tqlz47h9yro","type":"personal-recommendation","attributes":{"title":{"stringForDisplay":"Recently Played"},"kind":"recently-played","display":{"kind":"MusicCoverShelf"},"hasSeeAll":true,"nextUpdateDate":"2026-10-30T12:30:00Z"},"relationships":{"contents":{"data":[{"id":"6812476961","type":"albums"}]}}}}}}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"7-FixtureRecent01","type":"personal-recommendation"}],"resources":{"personal-recommendation":{"7-FixtureRecent01":{"id":"7-FixtureRecent01","type":"personal-recommendation","attributes":{"title":{"stringForDisplay":"Recently Played"},"kind":"recently-played","display":{"kind":"MusicCoverShelf"},"hasSeeAll":true,"nextUpdateDate":"2026-10-30T12:30:00Z"},"relationships":{"contents":{"data":[{"id":"800000001","type":"albums"}]}}}}}}`))
 		return
 	case p == "/v1/editorial/gb/groupings":
 		file = "new.json"
@@ -206,7 +206,7 @@ func TestHomeCacheAndRefresh(t *testing.T) {
 	*env.now = time.Date(2026, 10, 30, 11, 5, 0, 0, time.UTC)
 	env.s.refreshHomeIfDue(ctx)
 	reqs := env.amp.requests()
-	if len(reqs) != 2 || reqs[1] != "POST /v1/me/recommendations/7-2Tqlz47h9yro" {
+	if len(reqs) != 2 || reqs[1] != "POST /v1/me/recommendations/7-FixtureRecent01" {
 		t.Fatalf("requests = %v", reqs)
 	}
 	if len(env.ev.events) != 1 || env.ev.events[0] != EventHome {
