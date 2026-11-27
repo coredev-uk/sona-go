@@ -30,6 +30,10 @@ Sona syncs after you sign in, music videos included. While it syncs, a short bar
 
 In a playlist you can reorder songs by dragging them, or with Alt+↑ and Alt+↓ on a focused row.
 
+In the sidebar's Playlists you can drag a playlist to put it between two others, or onto a folder to move it in; drop it on the list's empty space to take it out of its folder. A line shows where it will land, and dropping on the middle of another playlist still adds its songs to that playlist. Without a pointer, press Alt+↑ or Alt+↓ on a focused playlist, or choose Move up, Move down or Move to folder… in its menu; Sona says the new place. A playlist you joined, which you can't edit, can be moved the same way.
+
+Apple Music has no way to set the order of your playlists, so Sona keeps that order on this computer: it isn't synced to your other devices. Moving a playlist into a folder is Apple's, and shows on your other devices.
+
 ## See your history
 
 History lists what you played, by day. When you are signed in it includes plays from your other Apple Music devices. Plays on this computer are kept for a year. [Private listening](/guide/private-listening/) keeps plays out of it.

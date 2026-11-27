@@ -63,14 +63,30 @@ SELECT
   + (SELECT count(*) FROM playlist_folders f WHERE f.parent_id = sqlc.arg(folder_id));
 
 -- name: LibraryPlaylistTree :many
+-- local_position is the order the user gave the playlist among its folder's
+-- (-1: none, or it was set for another folder).
 SELECT p.library_id, p.catalog_id, p.name, p.description, p.curator_name, p.artwork_template,
        p.can_edit, p.can_delete, p.is_public, p.favorited, p.is_collaborative, p.collaborative_host,
        p.track_count, p.last_modified,
-       p.folder_id, p.folder_position, li.date_added
+       p.folder_id, p.folder_position, li.date_added,
+       CAST(CASE WHEN p.local_folder = p.folder_id THEN p.local_position ELSE -1 END AS INTEGER) AS local_position
 FROM playlists p
 JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
 WHERE p.library_id IS NOT NULL
 ORDER BY p.folder_id, p.folder_position, p.name COLLATE NOCASE;
+
+-- name: FolderPlaylistOrder :many
+-- The library IDs of the playlists of a folder in the order the sidebar lists
+-- them: the user's own order first, then the rest in Apple's.
+SELECT p.library_id
+FROM playlists p
+JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
+WHERE p.library_id IS NOT NULL AND p.folder_id = sqlc.arg(folder_id)
+ORDER BY (p.local_folder <> p.folder_id OR p.local_position < 0), p.local_position,
+         p.folder_position, p.name COLLATE NOCASE;
+
+-- name: SetPlaylistLocalOrder :exec
+UPDATE playlists SET local_folder = ?, local_position = ? WHERE library_id = ?;
 
 -- name: PlaylistFlags :one
 SELECT p.can_delete, p.is_public, p.folder_id

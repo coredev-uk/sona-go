@@ -38,7 +38,7 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Check for updates when Sona starts | Asks GitHub for the newest release once the window has opened. Nothing about you or your library is sent. | |
 | Test versions | Also offers release candidates and other test versions. | Only where Sona can update itself |
 
-This group also shows whether you're up to date, with View release, Install and restart and Check now. It doesn't check development builds. See [Install](/guide/install/) for how updating works.
+This group also shows whether you're up to date, with What's new, View release, Install and restart and Check now. What's new opens the new version's release notes in a window you can scroll; it is there when the release has notes. It doesn't check development builds. See [Install](/guide/install/) for how updating works.
 
 ## Playback
 

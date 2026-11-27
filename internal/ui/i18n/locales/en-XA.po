@@ -173,6 +173,7 @@ msgid "Add to the queue"
 msgstr ""
 
 #: internal/ui/features/playlist/drops.go
+#: internal/ui/features/playlist/reorder.go
 msgid "Add to “{name}”"
 msgstr ""
 
@@ -371,6 +372,10 @@ msgstr ""
 #: internal/ui/features/onboarding/connections.go
 #: internal/ui/features/settings/scrobble.go
 msgid "Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Already in “{folder}”"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
@@ -1157,6 +1162,7 @@ msgstr ""
 #: internal/ui/features/commands/help.go
 #: internal/ui/kit/overlays_dialog.go
 #: internal/ui/kit/overlays_palette.go
+#: internal/ui/kit/release_notes.go
 msgid "Close"
 msgstr ""
 
@@ -1775,7 +1781,7 @@ msgstr ""
 msgid "Couldn't move the song"
 msgstr ""
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
 msgid "Couldn't move “{name}”"
 msgstr ""
 
@@ -1797,6 +1803,7 @@ msgstr ""
 
 #: internal/ui/features/addons/addons.go
 #: internal/ui/features/inspect/panel.go
+#: internal/ui/features/updates/notes.go
 msgid "Couldn't open the link"
 msgstr ""
 
@@ -2456,6 +2463,10 @@ msgstr ""
 #: internal/ui/features/settings/diag_rows.go
 #: internal/ui/features/settings/updates.go
 msgid "Downloading…"
+msgstr ""
+
+#: internal/ui/features/playlist/sidebar.go
+msgid "Drag a playlist to reorder it or to move it into a folder, or press Alt+↑ and Alt+↓ on it. Its menu also moves it."
 msgstr ""
 
 #: internal/ui/features/playlist/editor.go
@@ -3284,6 +3295,7 @@ msgid "Install GStreamer 1.x with the base and good plugins."
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 msgid "Install and restart"
 msgstr ""
@@ -4058,6 +4070,18 @@ msgstr ""
 msgid "Move"
 msgstr ""
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Move after “{name}”"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Move before “{name}”"
+msgstr ""
+
+#: internal/ui/features/playlist/actions.go
+msgid "Move down"
+msgstr ""
+
 #: internal/ui/features/player/queue_list.go
 #: internal/ui/features/playlist/editor.go
 msgid "Move here"
@@ -4076,6 +4100,15 @@ msgstr ""
 msgid "Move to folder…"
 msgstr ""
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Move to the top level"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Move to “{folder}”"
+msgstr ""
+
+#: internal/ui/features/playlist/actions.go
 #: internal/ui/features/playlist/sidebar.go
 msgid "Move up"
 msgstr ""
@@ -4092,12 +4125,24 @@ msgstr ""
 msgid "Moved {songName} to position {position} of {count}"
 msgstr ""
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to position {position} of {count}"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
 msgid "Moved “{name}” to the top level"
 msgstr ""
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to the top level, position {position} of {count}"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
 msgid "Moved “{name}” to “{folder}”"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to “{folder}”, position {position} of {count}"
 msgstr ""
 
 #: internal/ui/account/token.go
@@ -5904,6 +5949,10 @@ msgstr ""
 msgid "Release date"
 msgstr ""
 
+#: internal/ui/kit/release_notes.go
+msgid "Release notes"
+msgstr ""
+
 #: internal/ui/features/newreleases/page.go
 msgid "Release tracking is off"
 msgstr ""
@@ -5911,6 +5960,10 @@ msgstr ""
 #: internal/ui/features/album/model.go
 #: internal/ui/features/song/page.go
 msgid "Released"
+msgstr ""
+
+#: internal/ui/kit/release_notes.go
+msgid "Released {date}"
 msgstr ""
 
 #: internal/ui/features/video/page.go
@@ -7489,6 +7542,10 @@ msgstr ""
 msgid "Stay awake while playing"
 msgstr ""
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Stays where it is"
+msgstr ""
+
 #: internal/ui/kit/controls_badge.go
 msgid "Stereo · Apple has no Spatial Audio mix of this song for Sona"
 msgstr ""
@@ -8063,6 +8120,10 @@ msgstr ""
 msgid "This playlist isn't available"
 msgstr ""
 
+#: internal/ui/kit/release_notes.go
+msgid "This release has no notes. The release page may say more."
+msgstr ""
+
 #: internal/ui/account/signin.go
 msgid "This sign-in was cancelled"
 msgstr ""
@@ -8236,6 +8297,7 @@ msgstr ""
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 #: internal/ui/features/video/view.go
 #: internal/ui/kit/controls_states.go
@@ -8519,6 +8581,7 @@ msgid "View playlist collaborators"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 msgid "View release"
 msgstr ""
@@ -8614,6 +8677,15 @@ msgstr ""
 
 #: internal/ui/features/onboarding/layer.go
 msgid "What you've chosen so far is kept. Settings → General runs the setup again."
+msgstr ""
+
+#: internal/ui/kit/release_notes.go
+msgid "What's New in Sona {version}"
+msgstr ""
+
+#: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
+msgid "What's new"
 msgstr ""
 
 #: internal/ui/features/onboarding/desktop.go

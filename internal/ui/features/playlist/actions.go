@@ -118,6 +118,25 @@ func (p *playlists) pinAction(kind kit.ItemKind) kit.ActionDef {
 
 func isLibraryPlaylist(pl services.Playlist) bool { return pl.Source == services.SourceLibrary }
 
+// nudgeAction is "Move up" (dir -1) or "Move down" (+1): the keyboard's way,
+// with Alt+↑ and Alt+↓, to place one of the user's own playlists in the
+// sidebar. Only the sidebar's rows list it, and only where there is a place
+// to go.
+func (p *playlists) nudgeAction(id, label, icon string, order, dir int) kit.ActionDef {
+	return kit.ActionDef{
+		ID:     id,
+		Target: kit.KindPlaylist,
+		Label:  func(*kit.ActionContext) string { return label },
+		Icon:   icon,
+		Group:  kit.GroupItem,
+		Order:  order,
+		Available: func(a *kit.ActionContext) bool {
+			return a.Container != nil && a.Container.Kind == sidebarContainer && p.canNudge(a.Container.ID, dir)
+		},
+		Run: func(a *kit.ActionContext) { p.nudge(a.Container.ID, dir) },
+	}
+}
+
 func inEditablePlaylist(a *kit.ActionContext) bool {
 	return a.Container != nil && a.Container.Kind == "playlist" && a.Container.Editable
 }
@@ -224,6 +243,8 @@ func (p *playlists) actions() []kit.ActionDef {
 				p.changeCover(pl.ID, pl.Name)
 			},
 		},
+		p.nudgeAction("playlists.move-up", i18n.T("Move up"), "arrow-up", 73, -1),
+		p.nudgeAction("playlists.move-down", i18n.T("Move down"), "arrow-down", 74, 1),
 		{
 			ID:     "playlists.move",
 			Target: kit.KindPlaylist,
@@ -231,11 +252,23 @@ func (p *playlists) actions() []kit.ActionDef {
 			Icon:   "folder-input",
 			Group:  kit.GroupItem,
 			Order:  75,
-			// Folders hold the user's own playlists; the others sit in their
-			// sidebar section.
+			// Folders hold the user's own playlists (the sidebar's Playlists
+			// section); the others sit in their own section. A collaborative
+			// playlist the user joined is theirs there although they cannot
+			// edit it: which folder it is in is the user's library's, not the
+			// playlist's. The tree, read as the menu opens, says which section
+			// a playlist is in; until it loads, an editable one is the user's.
 			Available: func(a *kit.ActionContext) bool {
 				pl := a.Item().Playlist()
-				return isLibraryPlaylist(pl) && pl.CanEdit
+				if !isLibraryPlaylist(pl) {
+					return false
+				}
+				if byID, ok := kit.DataOf[map[string]services.TreePlaylist](a, tree); ok {
+					if tp, listed := byID[pl.ID]; listed {
+						return playlistSection(tp) == sectionOwn
+					}
+				}
+				return pl.CanEdit && !isPersonalMix(pl)
 			},
 			Data: []kit.MenuData{tree},
 			Run: func(a *kit.ActionContext) {

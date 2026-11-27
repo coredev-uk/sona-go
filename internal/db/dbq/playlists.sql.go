@@ -93,6 +93,40 @@ func (q *Queries) DropPlaylistItem(ctx context.Context, ref int64) error {
 	return err
 }
 
+const folderPlaylistOrder = `-- name: FolderPlaylistOrder :many
+SELECT p.library_id
+FROM playlists p
+JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
+WHERE p.library_id IS NOT NULL AND p.folder_id = ?1
+ORDER BY (p.local_folder <> p.folder_id OR p.local_position < 0), p.local_position,
+         p.folder_position, p.name COLLATE NOCASE
+`
+
+// The library IDs of the playlists of a folder in the order the sidebar lists
+// them: the user's own order first, then the rest in Apple's.
+func (q *Queries) FolderPlaylistOrder(ctx context.Context, folderID string) ([]sql.NullString, error) {
+	rows, err := q.db.QueryContext(ctx, folderPlaylistOrder, folderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []sql.NullString{}
+	for rows.Next() {
+		var library_id sql.NullString
+		if err := rows.Scan(&library_id); err != nil {
+			return nil, err
+		}
+		items = append(items, library_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPlaylistCover = `-- name: GetPlaylistCover :one
 SELECT pc.kind, pc.template, pc.upload
 FROM playlist_covers pc JOIN playlists p ON p.id = pc.playlist_id
@@ -164,7 +198,8 @@ const libraryPlaylistTree = `-- name: LibraryPlaylistTree :many
 SELECT p.library_id, p.catalog_id, p.name, p.description, p.curator_name, p.artwork_template,
        p.can_edit, p.can_delete, p.is_public, p.favorited, p.is_collaborative, p.collaborative_host,
        p.track_count, p.last_modified,
-       p.folder_id, p.folder_position, li.date_added
+       p.folder_id, p.folder_position, li.date_added,
+       CAST(CASE WHEN p.local_folder = p.folder_id THEN p.local_position ELSE -1 END AS INTEGER) AS local_position
 FROM playlists p
 JOIN library_items li ON li.kind = 'playlist' AND li.ref = p.id
 WHERE p.library_id IS NOT NULL
@@ -189,8 +224,11 @@ type LibraryPlaylistTreeRow struct {
 	FolderID          string
 	FolderPosition    int64
 	DateAdded         sql.NullInt64
+	LocalPosition     int64
 }
 
+// local_position is the order the user gave the playlist among its folder's
+// (-1: none, or it was set for another folder).
 func (q *Queries) LibraryPlaylistTree(ctx context.Context) ([]LibraryPlaylistTreeRow, error) {
 	rows, err := q.db.QueryContext(ctx, libraryPlaylistTree)
 	if err != nil {
@@ -218,6 +256,7 @@ func (q *Queries) LibraryPlaylistTree(ctx context.Context) ([]LibraryPlaylistTre
 			&i.FolderID,
 			&i.FolderPosition,
 			&i.DateAdded,
+			&i.LocalPosition,
 		); err != nil {
 			return nil, err
 		}
@@ -494,6 +533,21 @@ type SetPlaylistFolderParams struct {
 
 func (q *Queries) SetPlaylistFolder(ctx context.Context, arg SetPlaylistFolderParams) error {
 	_, err := q.db.ExecContext(ctx, setPlaylistFolder, arg.FolderID, arg.FolderPosition, arg.LibraryID)
+	return err
+}
+
+const setPlaylistLocalOrder = `-- name: SetPlaylistLocalOrder :exec
+UPDATE playlists SET local_folder = ?, local_position = ? WHERE library_id = ?
+`
+
+type SetPlaylistLocalOrderParams struct {
+	LocalFolder   string
+	LocalPosition int64
+	LibraryID     sql.NullString
+}
+
+func (q *Queries) SetPlaylistLocalOrder(ctx context.Context, arg SetPlaylistLocalOrderParams) error {
+	_, err := q.db.ExecContext(ctx, setPlaylistLocalOrder, arg.LocalFolder, arg.LocalPosition, arg.LibraryID)
 	return err
 }
 

@@ -698,6 +698,8 @@ jobs:
           fi
           gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber SHA256SUMS
 
+          # Sona (internal/update.InstallNotesMarker) cuts a release's notes at
+          # this marker on Linux, so keep the text identical.
           marker='<!-- sona-install-notes -->'
           if grep -qF "$marker" ../changelog.md; then
             cp ../changelog.md ../notes.md

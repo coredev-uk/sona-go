@@ -20,9 +20,9 @@ let
   ]
   ++ lib.optional isLinux pkgs.pipewire;
   # The libraries MyGo loads by soname with purego on Linux (GTK3, Pango,
-  # EGL, epoxy, AT-SPI, the tray, X11 placement, Secret Service). They come
-  # from this nixpkgs pin, as GStreamer does, so the process has one GLib: a
-  # second one breaks it.
+  # EGL, epoxy, AT-SPI, the tray, X11 placement, XTest for the GUI test
+  # hooks). They come from this nixpkgs pin, as GStreamer does, so the
+  # process has one GLib: a second one breaks it.
   uiLibs = with pkgs; [
     gtk3
     glib
@@ -37,7 +37,6 @@ let
     libayatana-appindicator
     libx11
     libxtst
-    libsecret
   ];
 in
 {

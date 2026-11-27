@@ -2,7 +2,9 @@
 # built from the checkout, and release.nix, the published release): MyGo
 # loads GTK3, Pango, EGL, epoxy and the tray's appindicator by soname, and
 # GStreamer finds its plugins on GST_PLUGIN_SYSTEM_PATH_1_0, so the wrapper
-# sets both (`wrapProgram $out/bin/sona ${wrapperArgs}`).
+# sets both (`wrapProgram $out/bin/sona ${wrapperArgs}`). Nix has no
+# recommends: the tray library and the bad plugins stay in the closure, which
+# installs whole.
 {
   lib,
   gtk3,
@@ -18,8 +20,6 @@
   libglvnd,
   libayatana-appindicator,
   libx11,
-  libxtst,
-  libsecret,
   gst_all_1,
   pipewire,
 }:
@@ -49,8 +49,6 @@ let
     libglvnd
     libayatana-appindicator
     libx11
-    libxtst
-    libsecret
   ];
 in
 {
