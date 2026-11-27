@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.8.0](https://github.com/coredev-uk/sona-go/compare/v0.7.0...v0.8.0) (2026-11-27)
+
+
+### Features
+
+* **home:** a greeting by time of day above For You ([#718](https://github.com/coredev-uk/sona-go/issues/718)) ([cfd8fe0](https://github.com/coredev-uk/sona-go/commit/cfd8fe09b1b7e2c7c64d52e2d5659d83e528751d))
+* **library:** a find field on the Songs page ([#714](https://github.com/coredev-uk/sona-go/issues/714)) ([b32af4c](https://github.com/coredev-uk/sona-go/commit/b32af4cb1e4dfc4746565ba80f6777dd9b8691c6))
+* **library:** list a collaboration album under each credited artist ([#723](https://github.com/coredev-uk/sona-go/issues/723)) ([0123f3c](https://github.com/coredev-uk/sona-go/commit/0123f3c5d21e22e3667571d4d6630335e185ca2a))
+* **library:** sync when a pre-added album comes out ([#727](https://github.com/coredev-uk/sona-go/issues/727)) ([b7993d6](https://github.com/coredev-uk/sona-go/commit/b7993d65ef8523e5f46344a3a249bce22b0ed4bd))
+* **lyrics:** the instrumental dots ride a wave, then gather in as the line begins ([#687](https://github.com/coredev-uk/sona-go/issues/687)) ([0ae6f18](https://github.com/coredev-uk/sona-go/commit/0ae6f18ba566baed7d248d459c32fbf3d12eb6f0))
+* **playlists:** Added By sorts, and find matches who added a song ([#715](https://github.com/coredev-uk/sona-go/issues/715)) ([a2f05b0](https://github.com/coredev-uk/sona-go/commit/a2f05b074e65314a2b43fcbce830f9e50868a231))
+* **sidebar:** drag playlists to reorder them and into folders ([#720](https://github.com/coredev-uk/sona-go/issues/720)) ([82a9330](https://github.com/coredev-uk/sona-go/commit/82a9330824cca8eeecb7293ff7b2a9876f3a0601))
+* **song:** a credited person opens their artist page ([#712](https://github.com/coredev-uk/sona-go/issues/712)) ([1dbf175](https://github.com/coredev-uk/sona-go/commit/1dbf175ea1db5b64544431a50e6b9f23a1d8f872))
+* **ui:** New from Artists You Love, a shelf on For You ([#719](https://github.com/coredev-uk/sona-go/issues/719)) ([1c64797](https://github.com/coredev-uk/sona-go/commit/1c647976632341b0d0d7eeb4570974de81f2dee3))
+* **updates:** show the release notes in an in-app dialog ([#716](https://github.com/coredev-uk/sona-go/issues/716)) ([4413e3b](https://github.com/coredev-uk/sona-go/commit/4413e3b8e701ea50421d4dd584919bd86f481242))
+* **updates:** What's New after an update ([#721](https://github.com/coredev-uk/sona-go/issues/721)) ([5257c38](https://github.com/coredev-uk/sona-go/commit/5257c3866e05b841847f8af2f40085b8a7d4804f))
+
+
+### Bug Fixes
+
+* **arch:** sona-bin declares only what Sona loads, with optional features as optdepends ([#677](https://github.com/coredev-uk/sona-go/issues/677)) ([251d758](https://github.com/coredev-uk/sona-go/commit/251d75880fe4847251e6cb6c822100e68d0fd9b8))
+* **cdm:** the manifest fallback reads mozilla-central's default branch ([#726](https://github.com/coredev-uk/sona-go/issues/726)) ([379f9df](https://github.com/coredev-uk/sona-go/commit/379f9df0fa5ec3171c1465e3287a0e22666f90f9))
+* **charts:** a genre change reloads only Top Songs ([#713](https://github.com/coredev-uk/sona-go/issues/713)) ([773f39d](https://github.com/coredev-uk/sona-go/commit/773f39d7e77b473cbc611019bda32a607fcdd13b))
+* **history:** the History page lists every play, and a failed fetch can be retried ([#708](https://github.com/coredev-uk/sona-go/issues/708)) ([94ae9d3](https://github.com/coredev-uk/sona-go/commit/94ae9d35e02fd1e77b2dc3406bd02e246729a238))
+* **library:** a credit goes to the artist of that name, not a combined artist ([#724](https://github.com/coredev-uk/sona-go/issues/724)) ([839a2a0](https://github.com/coredev-uk/sona-go/commit/839a2a0440c2a294c2f20d51ef36ae4273803262))
+* **library:** a library playlist's tracks link their artist and album, and only library songs offer removal ([#710](https://github.com/coredev-uk/sona-go/issues/710)) ([5dc187f](https://github.com/coredev-uk/sona-go/commit/5dc187fc2ec531c67d004e1bad1e157bd2fdbf4e))
+* **linux:** the deb and rpm depend on the GL libraries Sona needs to draw ([#729](https://github.com/coredev-uk/sona-go/issues/729)) ([27a9095](https://github.com/coredev-uk/sona-go/commit/27a90956153ac0f1f12e8f00a6e5faa18d72795c))
+* **lyrics:** a sung letter rises and comes straight back down ([#686](https://github.com/coredev-uk/sona-go/issues/686)) ([ce9f53a](https://github.com/coredev-uk/sona-go/commit/ce9f53aafd489223e06fe2f3e5dc639744bed820))
+* **lyrics:** line changes glide without scaling, and held words swell without steps ([#698](https://github.com/coredev-uk/sona-go/issues/698)) ([cc44545](https://github.com/coredev-uk/sona-go/commit/cc44545ecdd1c0272769e477904551766826b0c6))
+* **playback:** a song that is playing never stays in the loading state ([#701](https://github.com/coredev-uk/sona-go/issues/701)) ([35648e1](https://github.com/coredev-uk/sona-go/commit/35648e1e886a6a8cf7f04e94ab912dd2406b697d))
+* **playlists:** show a renamed playlist's generated cover at once ([#707](https://github.com/coredev-uk/sona-go/issues/707)) ([b089fff](https://github.com/coredev-uk/sona-go/commit/b089fffc33375e746750098c31611bff6742b8f0))
+* **radio:** a song's album in Plays First links to its page ([#706](https://github.com/coredev-uk/sona-go/issues/706)) ([22768ac](https://github.com/coredev-uk/sona-go/commit/22768ac7c473f2254c1018624cea774ddcb10805))
+* **ui:** a motion cover's decoder closes when it leaves the screen, not on a sweep that rebuilt it ([#703](https://github.com/coredev-uk/sona-go/issues/703)) ([0d4b0af](https://github.com/coredev-uk/sona-go/commit/0d4b0affc1fabca2d2da2d5a9495c69319e19e28))
+* **ui:** artist links name a song's own artists, and a song with several opens its chooser ([#711](https://github.com/coredev-uk/sona-go/issues/711)) ([074f682](https://github.com/coredev-uk/sona-go/commit/074f6825530de78c9c58bfa5832fe6f87499ace8))
+* **ui:** the loading spinner turns by painting, without building the view every frame ([#695](https://github.com/coredev-uk/sona-go/issues/695)) ([4b3ae70](https://github.com/coredev-uk/sona-go/commit/4b3ae701b589cce695cee3e8ce906abbdf98707a))
+* **updates:** say when GitHub's limit is reached, and check without the API ([#730](https://github.com/coredev-uk/sona-go/issues/730)) ([2cfd3ad](https://github.com/coredev-uk/sona-go/commit/2cfd3ad7998639d5c007c88cb4bfb58b22533186))
+
+
+### Performance
+
+* **ui:** motion covers paint their frames without building the view ([#697](https://github.com/coredev-uk/sona-go/issues/697)) ([b5d39c4](https://github.com/coredev-uk/sona-go/commit/b5d39c4594443a4f9b2392e9c9aaa25239485fc7))
+* **ui:** slow ambient motion paints at most 60 times a second ([#702](https://github.com/coredev-uk/sona-go/issues/702)) ([26254d9](https://github.com/coredev-uk/sona-go/commit/26254d932ec9e98156cf7687f26259b11872bbbf))
+
 ## [0.7.0](https://github.com/coredev-uk/sona-go/compare/v0.6.0...v0.7.0) (2026-11-23)
 
 
