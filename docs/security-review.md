@@ -95,7 +95,7 @@ Each component lists what it does, the threats, the controls, the tests and the 
 
 - **Manifest trust and pinning** (`manifest.go`):
   - The version, size, SHA-512 and download URLs come from Mozilla's Firefox GMP manifest for Widevine (`toolkit/content/gmp-sources/widevinecdm.json`), the file Firefox's own GMP updater falls back to.
-  - Sona fetches it pinned to two URLs, in order: the GitHub mirror (`raw.githubusercontent.com/mozilla-firefox/firefox/refs/heads/main/…`), then `hg.mozilla.org/mozilla-central/raw-file/tip/…`.
+  - Sona fetches it pinned to two URLs, in order: the GitHub mirror (`raw.githubusercontent.com/mozilla-firefox/firefox/refs/heads/main/…`), then mozilla-central's default branch, `hg.mozilla.org/mozilla-central/raw-file/default/…` (until 2026-11-27 this was `raw-file/tip/…`, which stopped serving the file and left no fallback when the mirror rate-limits).
   - Only `raw.githubusercontent.com`, `hg.mozilla.org` and `hg-edge.mozilla.org` are allowed, redirects included. The document is capped at 1 MiB.
   - `hashFunction` must be `sha512` and every hash 64 bytes; anything else is `manifest_invalid`.
   - The version must be numeric (`^[0-9]{1,6}(\.[0-9]{1,6}){1,3}$`), because it names an install directory.

@@ -25,14 +25,15 @@ type Source struct {
 }
 
 // Mozilla is the pinned source: Firefox's GMP manifest for Widevine in
-// Mozilla's repository (its GitHub mirror, then hg.mozilla.org, which
-// redirects to hg-edge), the file Firefox's own GMP updater falls back to.
+// Mozilla's repository (its GitHub mirror, then mozilla-central's default
+// branch on hg.mozilla.org, which redirects to hg-edge; its "tip" no longer
+// holds the file), the file Firefox's own GMP updater falls back to.
 // It names the version, Google's download URLs and the package's SHA-512.
 // The package itself comes only from Google's download hosts.
 var Mozilla = Source{
 	Manifests: []string{
 		"https://raw.githubusercontent.com/mozilla-firefox/firefox/refs/heads/main/toolkit/content/gmp-sources/widevinecdm.json",
-		"https://hg.mozilla.org/mozilla-central/raw-file/tip/toolkit/content/gmp-sources/widevinecdm.json",
+		"https://hg.mozilla.org/mozilla-central/raw-file/default/toolkit/content/gmp-sources/widevinecdm.json",
 	},
 	ManifestHosts: []string{"raw.githubusercontent.com", "hg.mozilla.org", "hg-edge.mozilla.org"},
 	PackageHosts:  []string{"edgedl.me.gvt1.com", "www.google.com", "dl.google.com"},
