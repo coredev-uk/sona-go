@@ -73,17 +73,22 @@ func listOpts(sort string, desc bool, offset, limit int) library.ListOptions {
 }
 
 // Songs lists library songs. sort is "title", "artist", "album" or
-// "dateAdded"; limit 0 means 100 (max 1000).
-func (s *LibraryService) Songs(ctx context.Context, sort string, desc bool, offset, limit int) (SongPage, error) {
-	songs, err := s.o.Library.Songs(ctx, listOpts(sort, desc, offset, limit))
+// "dateAdded"; limit 0 means 100 (max 1000). A query with words narrows the
+// list to the songs the search index finds for it (a prefix of every word in
+// the name, artist or album), in the same order; Total counts the songs
+// listed.
+func (s *LibraryService) Songs(ctx context.Context, sort string, desc bool, query string, offset, limit int) (SongPage, error) {
+	o := listOpts(sort, desc, offset, limit)
+	o.Query = query
+	songs, err := s.o.Library.Songs(ctx, o)
 	if err != nil {
 		return SongPage{}, err
 	}
-	c, err := s.o.Library.Counts(ctx)
+	total, err := s.o.Library.SongCount(ctx, query)
 	if err != nil {
 		return SongPage{}, err
 	}
-	return SongPage{Items: mapSlice(songs, s.m.libSong), Total: c.Songs}, nil
+	return SongPage{Items: mapSlice(songs, s.m.libSong), Total: total}, nil
 }
 
 // Albums lists library albums. sort is "title", "artist", "dateAdded" or

@@ -600,3 +600,54 @@ func TestAlbumTracksListSongsWithNoDiscLast(t *testing.T) {
 		t.Errorf("album tracks %q, want %q", got, want)
 	}
 }
+
+// A query narrows Songs to the songs the search index finds (a prefix of
+// every word, in the name, artist or album), in the list's own order and
+// paging, and SongCount counts them.
+func TestSongsQueryNarrowsTheList(t *testing.T) {
+	e := newEnv(t)
+	f := e.fake
+	f.artists = []map[string]any{artist("r.a", "Zed"), artist("r.b", "abba")}
+	f.albums = []map[string]any{
+		album("l.1", "beta", "Zed", "r.a", "2024-01-02T00:00:00Z"),
+		album("l.2", "Alpha", "abba", "r.b", "2024-03-01T00:00:00Z"),
+	}
+	f.songs = []map[string]any{
+		song("i.1", "charlie", "Zed", "beta", "l.1", "r.a"),
+		song("i.2", "Bravo", "abba", "Alpha", "l.2", "r.b"),
+		song("i.3", "alpha", "Zed", "Alpha", "l.2", "r.a"),
+	}
+	if err := e.run(t); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	ids := func(s []Song) (out string) {
+		for _, x := range s {
+			out += x.LibraryID + " "
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		o     ListOptions
+		want  string
+		count int
+	}{
+		{ListOptions{Query: "alp"}, "i.3 i.2 ", 2},                               // the album's name and a song's, by title
+		{ListOptions{Query: "ALP", Sort: SortArtist}, "i.2 i.3 ", 2},             // the sort holds
+		{ListOptions{Query: "alp", Sort: SortArtist, Desc: true}, "i.3 i.2 ", 2}, // and its direction
+		{ListOptions{Query: "alp", Limit: 1, Offset: 1}, "i.2 ", 2},              // and the paging
+		{ListOptions{Query: "zed alp"}, "i.3 ", 1},                               // every word must match
+		{ListOptions{Query: "zed"}, "i.3 i.1 ", 2},                               // the artist
+		{ListOptions{Query: "nothing"}, "", 0},
+		{ListOptions{Query: "  !! "}, "i.3 i.2 i.1 ", 3}, // no word: every song
+		{ListOptions{}, "i.3 i.2 i.1 ", 3},
+	} {
+		got, err := e.lib.Songs(ctx, tc.o)
+		if err != nil || ids(got) != tc.want {
+			t.Errorf("Songs(%+v) = %q, %v; want %q", tc.o, ids(got), err, tc.want)
+		}
+		if n, err := e.lib.SongCount(ctx, tc.o.Query); err != nil || n != tc.count {
+			t.Errorf("SongCount(%q) = %d, %v; want %d", tc.o.Query, n, err, tc.count)
+		}
+	}
+}

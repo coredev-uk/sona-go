@@ -1003,6 +1003,10 @@ msgstr "Check now"
 msgid "Check the email or phone number and the password, then try again."
 msgstr "Check the email or phone number and the password, then try again."
 
+#: internal/ui/features/library/songs.go
+msgid "Check the spelling, or try fewer words. Find looks at a song's title, artist and album."
+msgstr "Check the spelling, or try fewer words. Find looks at a song's title, artist and album."
+
 #: internal/ui/features/search/page.go
 msgid "Check the spelling, try fewer words, or search your library instead."
 msgstr "Check the spelling, try fewer words, or search your library instead."
@@ -1135,6 +1139,7 @@ msgstr "Clear filters"
 msgid "Clear list"
 msgstr "Clear list"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/search/field.go
 #: internal/ui/kit/controls_input.go
 msgid "Clear search"
@@ -2787,9 +2792,17 @@ msgstr "Find artists"
 msgid "Find in playlist"
 msgstr "Find in playlist"
 
+#: internal/ui/features/library/songs.go
+msgid "Find in your songs"
+msgstr "Find in your songs"
+
 #: internal/ui/features/playlist/page.go
 msgid "Find songs in this playlist"
 msgstr "Find songs in this playlist"
+
+#: internal/ui/features/library/songs.go
+msgid "Find songs in your library"
+msgstr "Find songs in your library"
 
 #: internal/ui/features/song/credits.go
 msgid "Finding {name}…"
@@ -4443,6 +4456,7 @@ msgstr "No singles or EPs in your library"
 msgid "No song in this playlist matches “{query}”."
 msgstr "No song in this playlist matches “{query}”."
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "No song matches “{query}”"
 msgstr "No song matches “{query}”"
@@ -4454,6 +4468,10 @@ msgstr "No songs for “{q}”"
 #: internal/ui/features/library/gate.go
 msgid "No songs in your library yet"
 msgstr "No songs in your library yet"
+
+#: internal/ui/features/library/songs.go
+msgid "No songs match “{query}”"
+msgstr "No songs match “{query}”"
 
 #: internal/ui/features/playlist/sidebar.go
 msgid "No songs to play"
@@ -9478,10 +9496,12 @@ msgstr "{done} of {total}"
 msgid "{elsewhere} from other devices"
 msgstr "{elsewhere} from other devices"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "{found, plural, one {Play the # song found} other {Play the # songs found}}"
 msgstr "{found, plural, one {Play the # song found} other {Play the # songs found}}"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "{found, plural, one {Shuffle the # song found} other {Shuffle the # songs found}}"
 msgstr "{found, plural, one {Shuffle the # song found} other {Shuffle the # songs found}}"
@@ -9490,6 +9510,7 @@ msgstr "{found, plural, one {Shuffle the # song found} other {Shuffle the # song
 msgid "{found} of {everyone}"
 msgstr "{found} of {everyone}"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "{found} of {total, plural, one {# song} other {# songs}}"
 msgstr "{found} of {total, plural, one {# song} other {# songs}}"
@@ -9545,6 +9566,7 @@ msgstr "{len, plural, one {# digit} other {# digits}}"
 msgid "{matches, plural, one {# artist matches} other {# artists match}}"
 msgstr "{matches, plural, one {# artist matches} other {# artists match}}"
 
+#: internal/ui/features/library/songs.go
 #: internal/ui/features/playlist/page.go
 msgid "{matches, plural, one {# song matches} other {# songs match}}"
 msgstr "{matches, plural, one {# song matches} other {# songs match}}"

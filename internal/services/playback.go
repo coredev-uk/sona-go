@@ -669,12 +669,13 @@ func (s *PlaybackService) SetSleep(mode string, minutes int) error {
 }
 
 // PlayLibrary queues the whole library songs list in the given order
-// (as LibraryService.Songs, which leaves out the songs not out yet) and plays
-// the song at position start.
-func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, start int) error {
+// (as LibraryService.Songs, which leaves out the songs not out yet, and
+// narrows it to the songs found by query) and plays the song at position
+// start.
+func (s *PlaybackService) PlayLibrary(ctx context.Context, sort string, desc bool, query string, start int) error {
 	rctx, superseded, end := s.beginReplace(ctx)
 	defer end()
-	songs, err := s.o.Library.AllSongs(rctx, library.ListOptions{Sort: library.Sort(sort), Desc: desc})
+	songs, err := s.o.Library.AllSongs(rctx, library.ListOptions{Sort: library.Sort(sort), Desc: desc, Query: query})
 	if superseded() {
 		return nil
 	}

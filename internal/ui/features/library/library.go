@@ -31,7 +31,7 @@ const (
 
 // libraryAPI is what the pages and actions ask of LibraryService.
 type libraryAPI interface {
-	Songs(ctx context.Context, sort string, desc bool, offset, limit int) (services.SongPage, error)
+	Songs(ctx context.Context, sort string, desc bool, query string, offset, limit int) (services.SongPage, error)
 	Albums(ctx context.Context, sort string, desc bool, albumType string, offset, limit int) (services.AlbumPage, error)
 	Playlists(ctx context.Context, sort string, desc bool, offset, limit int) (services.PlaylistPage, error)
 	ArtistIndex(ctx context.Context) ([]services.ArtistEntry, error)
@@ -56,7 +56,7 @@ type libraryAPI interface {
 // playbackAPI is what the pages ask of PlaybackService.
 type playbackAPI interface {
 	PlayItems(ctx context.Context, refs []services.TrackRef, start int, from services.PlayFrom) error
-	PlayLibrary(ctx context.Context, sort string, desc bool, start int) error
+	PlayLibrary(ctx context.Context, sort string, desc bool, query string, start int) error
 	UndoReplace(ctx context.Context) (bool, error)
 	SetShuffle(on bool)
 }

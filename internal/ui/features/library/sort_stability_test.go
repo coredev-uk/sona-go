@@ -42,9 +42,9 @@ func (g *gatedLists) Albums(ctx context.Context, sort string, desc bool, typ str
 	return g.libraryAPI.Albums(ctx, sort, desc, typ, off, lim)
 }
 
-func (g *gatedLists) Songs(ctx context.Context, sort string, desc bool, off, lim int) (services.SongPage, error) {
+func (g *gatedLists) Songs(ctx context.Context, sort string, desc bool, query string, off, lim int) (services.SongPage, error) {
 	g.hold(ctx, sort)
-	return g.libraryAPI.Songs(ctx, sort, desc, off, lim)
+	return g.libraryAPI.Songs(ctx, sort, desc, query, off, lim)
 }
 
 func (g *gatedLists) Playlists(ctx context.Context, sort string, desc bool, off, lim int) (services.PlaylistPage, error) {
