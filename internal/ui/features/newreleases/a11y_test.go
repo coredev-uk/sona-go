@@ -20,7 +20,7 @@ func TestA11yRowsAreNamedLinksInGroupedTables(t *testing.T) {
 	tt := r.tt.Tester
 	access.NoNestedControls(t, tt)
 	tr := access.Read(t, tt)
-	if _, ok := tr.Find(ui.RoleHeading, "New releases"); !ok {
+	if _, ok := tr.Find(ui.RoleHeading, "New from Artists You Love"); !ok {
 		t.Fatalf("no h1:\n%s", tr.Dump())
 	}
 	for _, g := range []string{"Coming soon", "This week", "Earlier"} {
@@ -59,5 +59,37 @@ func TestA11yHoveredRowOffersRemove(t *testing.T) {
 	tr := access.Read(t, r.tt.Tester)
 	if _, ok := tr.Find(ui.RoleButton, "Remove Paper Boats"); !ok {
 		t.Fatalf("no Remove button on the hovered row:\n%s", tr.Dump())
+	}
+}
+
+// The shelf is a group named by its h2, holding one table of rows, each row a
+// link named like the page's; "See all" comes first in the Tab order, then one
+// stop for the list.
+func TestA11yTheShelfIsAGroupWithAHeadingAndRowsAsLinks(t *testing.T) {
+	r := newShelfRig(t, sample(), true, 1132, 700)
+	r.until("the shelf", r.tt.Shows("Winter Rooms", "See all"))
+	tt := r.tt.Tester
+	access.NoNestedControls(t, tt)
+	tr := access.Read(t, tt)
+	if _, ok := tr.Find(ui.RoleHeading, "New from Artists You Love"); !ok {
+		t.Fatalf("no heading:\n%s", tr.Dump())
+	}
+	if _, ok := tr.Find(ui.RoleGroup, "New from Artists You Love"); !ok {
+		t.Errorf("no group:\n%s", tr.Dump())
+	}
+	if _, ok := tr.Find(ui.RoleTable, "New from Artists You Love"); !ok {
+		t.Errorf("no table:\n%s", tr.Dump())
+	}
+	link, ok := tr.Find(ui.RoleLink, "Night Signals")
+	if !ok || link.Description != "Unread · Mia Vale · EP · Nov 14" {
+		t.Errorf("the unread EP: %+v\n%s", link, tr.Dump())
+	}
+	var labels []string
+	for _, s := range access.TabWalk(t, tt, 8) {
+		labels = append(labels, s.Node.Label)
+	}
+	want := []string{"See all", "Winter Rooms", "Night Signals", "Lantern Season"}
+	if !slices.Equal(labels[:min(len(labels), len(want))], want) {
+		t.Errorf("Tab stops %v, want %v", labels, want)
 	}
 }

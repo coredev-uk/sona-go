@@ -209,7 +209,7 @@ func TestGeneralShowsEveryGroupAndRowInOrder(t *testing.T) {
 	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Desktop.Autostart = false })
 	g.tt.Until("rows", g.tt.Shows("Starting Sona", "Window", "While Music Plays", "Updates", "Start Sona when you log in",
 		"Open on", "First-run setup", "When the window is closed", "Title bar", "Window size", "Track notifications",
-		"Stay awake while playing", "New releases", "Track new releases from favourite artists", "Also show releases as desktop notifications",
+		"Stay awake while playing", "New Releases", "Track new releases from favourite artists", "Also show releases as desktop notifications",
 		"Check for updates when Sona starts"))
 	if g.tt.HasText("Start in the tray") {
 		t.Error("Start in the tray shows with autostart off")

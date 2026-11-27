@@ -251,9 +251,7 @@ func (a *App) sidebarView(c *ui.Context, tint float32) {
 		a.brand(c)
 		ui.Column(c).Gap(2).Margin(8, 0, 0, 0).Children(func() {
 			for _, n := range a.nav[module.NavPrimary] {
-				if n.Shown() {
-					a.navLink(c, n)
-				}
+				a.navLink(c, n)
 			}
 		})
 		ui.Scroll(c).Grow(1).Basis(0).MinHeight(0).Children(func() {
@@ -262,9 +260,7 @@ func (a *App) sidebarView(c *ui.Context, tint float32) {
 					theme.Text(c, i18n.T("Library"), "meta").TextColor(theme.C("ink-faint")).Padding(24, 10, 6)
 					ui.Column(c).Gap(2).Children(func() {
 						for _, n := range a.nav[module.NavLibrary] {
-							if n.Shown() {
-								a.navLink(c, n)
-							}
+							a.navLink(c, n)
 						}
 					})
 				}
@@ -277,9 +273,7 @@ func (a *App) sidebarView(c *ui.Context, tint float32) {
 		})
 		ui.Column(c).Gap(2).Children(func() {
 			for _, n := range a.nav[module.NavFooter] {
-				if n.Shown() {
-					a.navLink(c, n)
-				}
+				a.navLink(c, n)
 			}
 		})
 	})
@@ -316,17 +310,8 @@ func (a *App) brand(c *ui.Context) {
 // Exact), with the icon at 16 and the label.
 func (a *App) navLink(c *ui.Context, n module.NavItem) {
 	label := n.Label()
-	count := 0
-	if n.Count != nil {
-		count = n.Count()
-	}
-	name := label
-	if count > 0 {
-		// The count is part of the link's name: "New releases, 3 new".
-		name = i18n.T("{page}, {count} new", "page", label, "count", i18n.FormatNumber(float64(count)))
-	}
 	on := navActive(a.router.Path(), n)
-	row := ui.ButtonBase(c.Key("nav:" + n.To)).Role(ui.RoleLink).Label(name).Height(theme.Current().Metric["nav-row"]).
+	row := ui.ButtonBase(c.Key("nav:" + n.To)).Role(ui.RoleLink).Label(label).Height(theme.Current().Metric["nav-row"]).
 		PaddingX(10).Gap(10).Justify(ui.Start).AlignItems(ui.Center).Radius(theme.Current().Radius["md"]).Cursor(ui.CursorPointer)
 	fg := theme.C("ink-muted")
 	switch {
@@ -348,13 +333,6 @@ func (a *App) navLink(c *ui.Context, n module.NavItem) {
 		t := theme.Text(c, label, "body").TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
 		if on {
 			t.FontWeight(500)
-		}
-		if count > 0 {
-			// Quiet: a figure at the link's end in ink, no badge shape and
-			// no amber (nothing is playing).
-			ui.Box(c.Key("gap")).Grow(1).Height(1)
-			theme.Text(c, i18n.FormatNumber(float64(count)), "meta").FontWeight(600).FontFeatures("tnum").
-				TextColor(theme.C("ink")).SingleLine().Shrink(0)
 		}
 	})
 }

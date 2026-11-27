@@ -3,12 +3,12 @@ title: New Releases
 description: Get told in Sona when an artist you've favourited puts out an album, EP or single.
 ---
 
-Sona can watch the artists you've favourited and list their new releases under New releases in the sidebar. It is off until you turn it on, and the sidebar has no New releases link until then.
+Sona can watch the artists you've favourited and show their new releases on For You, under New from Artists You Love. It is off until you turn it on, and For You has no such section until then.
 
 ## Turn it on
 
 1. Open Settings → General → New releases.
-2. Turn on Track new releases from favourite artists. The New releases link appears in the sidebar as soon as it is on, and goes again if you turn it off.
+2. Turn on Track new releases from favourite artists. New from Artists You Love appears on For You as soon as there is a release to show, and goes when you turn it off.
 3. New releases also show in [Notifications](/guide/notifications/), under the bell in the top bar. To get a desktop notification as well, turn on Also show releases as desktop notifications. It is shown only where your system has notifications.
 
 Turning it on lists nothing that is already out: Sona notes what each artist has released so far, and lists only what comes out afterwards. It does the same for an artist you favourite later.
@@ -19,11 +19,11 @@ Sona follows the artists you've favourited that are in your library, and the one
 
 ## Read the list
 
-The New releases page lists each release with its cover, title, artist, kind (album, EP or single) and date, under Coming soon, This week and Earlier. The sidebar link shows how many are unread.
+New from Artists You Love sits on For You, under the first picks. It shows the releases that are still to come and the ones that are out and unread, up to four, each with its cover, title, artist, kind (album, EP or single) and date. When there is nothing unread or upcoming it isn't shown. See all opens the whole list on a page of its own, under Coming soon, This week and Earlier, with the releases you've already read. That page is also where a notification about new releases leads.
 
 - Select a release to open it. That marks it read.
-- Right-click a release, or press Shift+F10 or the Menu key on a focused row, for its menu. It is the album's menu, with Mark as read and Remove from New releases. A release that is still to come has Remind me.
-- Mark all as read marks the whole list. Clear list empties it. A release you removed or cleared isn't listed again.
+- Right-click a release, or press Shift+F10 or the Menu key on a focused row, for its menu. It is the album's menu, with Mark as read and Remove from list. A release that is still to come has Remind me.
+- On the page, Mark all as read marks the whole list and Clear list empties it. A release you removed or cleared isn't listed again.
 - Press Delete on a focused release to remove it.
 
 ## When Sona looks

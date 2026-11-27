@@ -16,7 +16,7 @@ const (
 	// NoticeNewReleases: the artist tracker found new releases. Count is how
 	// many; when it is 1, Subject is the release, Artist its artist, Variant
 	// its kind (ReleaseAlbum, ReleaseEP, ReleaseSingle) and Target the album,
-	// otherwise Target is the New releases page.
+	// otherwise Target is the page of the tracker's releases (OpenNewReleases).
 	NoticeNewReleases = "new-releases"
 	// NoticeAddonOff: an add-on stopped on its own too many times in a row
 	// and was switched off. Subject is its name, Target Settings → Add-ons.

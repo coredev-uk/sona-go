@@ -87,14 +87,14 @@ func (n *newReleases) releasesPage(c *ui.Context, _ *ui.Route) {
 				skeleton(c)
 			case len(list.Data.Items) == 0 && !on:
 				kit.EmptyState(c, i18n.T("Release tracking is off"),
-					i18n.T("Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here."),
+					i18n.T("Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here and on For You."),
 					kit.EmptyOpts{Action: &kit.EmptyAction{Label: i18n.T("Open Settings"), Run: func() { n.env.Nav.Push(settingsPath) }}})
 			case len(list.Data.Items) == 0:
 				kit.EmptyState(c, i18n.T("Nothing new yet"),
-					i18n.T("Sona looks about once a day. When an artist you've favourited puts something out, it shows up here."),
+					i18n.T("Sona looks about once a day. When an artist you've favourited puts something out, it shows up here and on For You."),
 					kit.EmptyOpts{})
 			default:
-				n.releases(c, groupsOf(list.Data.Items, now), now)
+				n.releases(c, &n.list, groupsOf(list.Data.Items, now), now, true)
 			}
 		})
 	})
@@ -119,7 +119,7 @@ func (n *newReleases) header(c *ui.Context, r services.NewReleases, known, on bo
 	}
 	ui.Column(c.Key("header")).Margin(0, 0, 24, 0).Shrink(0).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(16).Children(func() {
-			theme.Text(c, i18n.T("New releases"), "display").TextColor(theme.C("ink")).SingleLine().MinWidth(0).Shrink(1).
+			theme.Text(c, shelfTitle(), "display").TextColor(theme.C("ink")).SingleLine().MinWidth(0).Shrink(1).
 				Role(ui.RoleHeading).Level(1)
 			if len(r.Items) == 0 {
 				return

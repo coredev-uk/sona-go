@@ -13,6 +13,7 @@ import (
 
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
+	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // errDown is a request that never reached Apple.
@@ -524,4 +525,141 @@ func TestHeroArtIsTheSquareCoverBeforeTheBanner(t *testing.T) {
 	if got := heroArt(it); got != "/art/w/2400x600.jpg" {
 		t.Errorf("without a cover: %q, want the banner", got)
 	}
+}
+
+// newReleasesShelf is the newreleases module's shelf as the Env hands it
+// over: a body of one text, and what "See all" does counted.
+func newReleasesShelf(seeAll *int) func(c *ui.Context, frame func(title string, more func(), body func())) {
+	return func(c *ui.Context, frame func(title string, more func(), body func())) {
+		frame("New from Artists You Love", func() { *seeAll++ }, func() { ui.Text(c, "Fresh Release") })
+	}
+}
+
+// The artist tracker's shelf sits right under the lead, before Apple's
+// shelves, in Home's own ruled head with its "See all".
+func TestHomeSetsTheNewReleasesShelfUnderTheLead(t *testing.T) {
+	var seeAll int
+	r := newRig(t, "/", 1132, 1600, withHome(samplePage()), withNewReleases(newReleasesShelf(&seeAll)))
+	r.until("the page", "Top Picks for You", "New from Artists You Love", "Fresh Release", "Recently Played")
+	texts := r.tt.Texts()
+	at := func(s string) int { return slices.Index(texts, s) }
+	if at("Pick 2") >= at("New from Artists You Love") || at("New from Artists You Love") >= at("Recently Played") {
+		t.Errorf("the shelf is not between the lead and Apple's first shelf: %q", texts)
+	}
+	tr := access.Read(t, r.tt.Tester)
+	if h, ok := tr.Find(ui.RoleHeading, "New from Artists You Love"); !ok || h.Level != 2 {
+		t.Errorf("the shelf's heading: %+v, %t\n%s", h, ok, tr.Dump())
+	}
+	if _, ok := tr.Find(ui.RoleGroup, "New from Artists You Love"); !ok {
+		t.Errorf("the shelf is not a named group:\n%s", tr.Dump())
+	}
+
+	// Without the module there is no shelf and Home is as it was.
+	r2 := newRig(t, "/", 1132, 1600, withHome(samplePage()))
+	r2.until("the page", "Top Picks for You", "Recently Played")
+	requireNoTexts(t, r2, "New from Artists You Love", "Fresh Release")
+}
+
+// The tracker's list is local: it shows when Home has nothing of Apple's (or
+// can't be read), above the local shelves, and its "See all" is the module's.
+func TestHomeKeepsTheNewReleasesShelfWhenAppleHasNothing(t *testing.T) {
+	var seeAll int
+	r := newRig(t, "/", 1132, 1600, withHome(services.HomePage{}), withNewReleases(newReleasesShelf(&seeAll)))
+	r.until("the page", "New from Artists You Love", "Fresh Release", "Recently Played")
+	texts := r.tt.Texts()
+	if at := slices.Index(texts, "New from Artists You Love"); at > slices.Index(texts, "Recently Played") {
+		t.Errorf("the shelf is under the local shelves: %q", texts)
+	}
+	r.click("See all")
+	if seeAll != 1 {
+		t.Errorf("See all ran the module's link %d times, want once", seeAll)
+	}
+
+	// A Home that could not be read: the shelf stays.
+	failing := newRig(t, "/", 1132, 1600, withDisc(func(d *fakeDiscover) { d.err = errDown }), withNewReleases(newReleasesShelf(&seeAll)))
+	failing.until("the page", "Couldn't load your recommendations", "New from Artists You Love")
+}
+
+// Signed out there are no favourite artists to follow: the shelf is not set.
+func TestHomeLeavesOutTheNewReleasesShelfSignedOut(t *testing.T) {
+	var seeAll int
+	r := newRig(t, "/", 1132, 1253, withAuth(services.AuthStatus{State: "signed_out"}), withNewReleases(newReleasesShelf(&seeAll)))
+	r.until("the page", "Recommendations need Apple Music")
+	requireNoTexts(t, r, "New from Artists You Love", "Fresh Release")
+}
+
+// renewedPage is samplePage with one more shelf, so that a test can tell the
+// renewed page has been drawn.
+func renewedPage(title string) services.HomePage {
+	p := samplePage()
+	p.Sections = append(p.Sections, section("renewed", services.SectionShelf, title, albums("New", 2, 100)...))
+	return p
+}
+
+// refreshed has Home renew its page (the Refresh button) with renewedPage and
+// waits for it, which rebuilds the body with whatever the shelf's hook says by
+// then.
+func refreshed(t *testing.T, r *rig, title string) {
+	t.Helper()
+	r.disc.set(func(f *fakeDiscover) { f.refresh = renewedPage(title) })
+	r.click("Refresh")
+	r.until("the renewed page", title)
+	r.tt.Settle()
+}
+
+// The shelf is on the first frame that has Apple's shelves, not a frame later:
+// it must never push painted shelves down.
+func TestHomePaintsTheNewReleasesShelfWithTheFirstShelves(t *testing.T) {
+	var seeAll int
+	r := newRig(t, "/", 1132, 1600, withHome(samplePage()), withNewReleases(newReleasesShelf(&seeAll)))
+	withShelf := false
+	r.tt.Until("the first shelves", func() bool {
+		if !r.tt.HasText("Recently Played") {
+			if r.tt.HasText("New from Artists You Love") {
+				t.Error("the shelf is painted before the page's own shelves")
+			}
+			return false
+		}
+		withShelf = r.tt.HasText("New from Artists You Love")
+		return true
+	})
+	if !withShelf {
+		t.Errorf("the first frame with Apple's shelves lacks the new releases shelf: %q", r.tt.Texts())
+	}
+}
+
+// A list that is not read when Home first sets its shelves is left out for the
+// visit: it would appear under shelves that are already painted.
+func TestHomeDoesNotAddTheNewReleasesShelfOnceThePageIsPainted(t *testing.T) {
+	ready := false
+	hook := func(c *ui.Context, frame func(title string, more func(), body func())) {
+		if ready {
+			frame("New from Artists You Love", func() {}, func() { ui.Text(c, "Fresh Release") })
+		}
+	}
+	r := newRig(t, "/", 1132, 1600, withHome(samplePage()), withNewReleases(hook))
+	r.until("the page", "Top Picks for You", "Recently Played")
+	ready = true
+	refreshed(t, r, "Fresh Picks")
+	requireNoTexts(t, r, "New from Artists You Love", "Fresh Release")
+	requireTexts(t, r, "Recently Played")
+}
+
+// A shelf can go (the last release read) and does not come back until the page
+// is opened again.
+func TestHomeDropsTheNewReleasesShelfWhenItHasNothingAndDoesNotReturnIt(t *testing.T) {
+	shown := true
+	hook := func(c *ui.Context, frame func(title string, more func(), body func())) {
+		if shown {
+			frame("New from Artists You Love", func() {}, func() { ui.Text(c, "Fresh Release") })
+		}
+	}
+	r := newRig(t, "/", 1132, 1600, withHome(samplePage()), withNewReleases(hook))
+	r.until("the page", "New from Artists You Love", "Fresh Release", "Recently Played")
+	shown = false
+	refreshed(t, r, "Fresh Picks")
+	requireNoTexts(t, r, "New from Artists You Love", "Fresh Release")
+	shown = true
+	refreshed(t, r, "Later Picks")
+	requireNoTexts(t, r, "New from Artists You Love", "Fresh Release")
 }

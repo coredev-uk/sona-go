@@ -82,6 +82,42 @@ func (h *home) homeSection(c *ui.Context, s services.Section, ctx kit.ItemsCtx) 
 	}
 }
 
+// releasesShelf is whether the artist tracker's shelf is on the page this visit.
+// It is decided the first time Home sets its shelves: shown if the module draws
+// it then, out if it does not (nothing unread or upcoming, or its list not read
+// yet). It is never added after that, because it would push down shelves that
+// are already painted; it can only go (the last release read, the tracker
+// turned off), which moves what is under it up and nothing above it.
+type releasesShelf int
+
+const (
+	shelfUndecided releasesShelf = iota
+	shelfShown
+	shelfOut
+)
+
+// newReleases is the artist tracker's shelf, "New from Artists You Love", right
+// under the lead and before Apple's shelves: it is the shelf with a date on it.
+// It is the newreleases feature's (ArtistTrackerService's unread and upcoming
+// releases) and, as the concerts shelf, handed over through the Env; it draws
+// nothing while there is nothing to show, and Home sets it in its own ruled head.
+// The module reads its list from SQLite at start-up, so it is there by the time
+// Apple's page is (releasesShelf).
+func (h *home) newReleases(c *ui.Context) {
+	if h.env.NewReleasesShelf == nil || h.releases == shelfOut {
+		return
+	}
+	drew := false
+	h.env.NewReleasesShelf(c, func(title string, more func(), body func()) {
+		drew = true
+		ruledShelf(c, ruledOpts{Title: title, More: more}, body)
+	})
+	h.releases = shelfOut
+	if drew {
+		h.releases = shelfShown
+	}
+}
+
 // editorial sets a section as the shared editorial sections do (v0.2.0's
 // EditorialSections over one section).
 func (h *home) editorial(c *ui.Context, st *sectionState, s services.Section, ctx kit.ItemsCtx) {

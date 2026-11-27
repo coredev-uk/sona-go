@@ -198,6 +198,8 @@ type rig struct {
 	routes func(string) bool
 	// concerts is the concerts module's shelf (Env.ConcertsShelf); nil: none.
 	concerts func(c *ui.Context, first bool)
+	// newReleases is the newreleases module's shelf (Env.NewReleasesShelf); nil: none.
+	newReleases func(c *ui.Context, frame func(title string, more func(), body func()))
 }
 
 // signedIn is the status of an account that can read Home.
@@ -220,6 +222,10 @@ func withRoutes(f func(string) bool) rigOpt { return func(r *rig) { r.routes = f
 
 func withConcerts(f func(c *ui.Context, first bool)) rigOpt {
 	return func(r *rig) { r.concerts = f }
+}
+
+func withNewReleases(f func(c *ui.Context, frame func(title string, more func(), body func()))) rigOpt {
+	return func(r *rig) { r.newReleases = f }
 }
 
 // withUnknownAuth leaves the sign-in state unknown: Go has not answered.
@@ -271,6 +277,7 @@ func newRig(t *testing.T, path string, w, hgt int, opts ...rigOpt) *rig {
 		o(r)
 	}
 	env.ConcertsShelf = r.concerts
+	env.NewReleasesShelf = r.newReleases
 	// What the auth module does: the cache follows auth:changed.
 	store.On(env.Bus, services.EventAuthChanged, func(s services.AuthStatus) { store.Set(env.Queries, store.KeyAuth, s) })
 	if r.noAuth {

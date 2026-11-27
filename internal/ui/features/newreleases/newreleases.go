@@ -1,11 +1,13 @@
-// Package newreleases is the artist tracker's page (Go's ArtistTrackerService,
+// Package newreleases is the artist tracker's list (Go's ArtistTrackerService,
 // off until Settings → General turns it on): the new albums, EPs and singles
 // of the artists the user has favourited, newest first, with the releases
-// still to come on top. Each row is the release as an album (cover, title,
-// artist and kind, its date) with the usual item menu; opening one marks it
-// read. The sidebar link is there only while the tracker is on, and carries
-// how many are unread (module.NavItem.Visible, Count); the page itself opens
-// either way, and says so when the tracker is off.
+// still to come on top. It is a shelf of For You ("New from Artists You Love",
+// Env.NewReleasesShelf: the upcoming and unread releases, while there are
+// any and the tracker is on) and, behind its "See all", a page of its own at
+// /new-releases with every release, read or not. Each row is the release as
+// an album (cover, title, artist and kind, its date) with the usual item
+// menu; opening one marks it read. The page is also where a summary
+// notification leads, and says so when the tracker is off.
 // The list mirrors "artisttracker:changed" (store.UseNewReleases).
 //
 // A release still to come carries the album's "Remind me" action
@@ -26,7 +28,7 @@ import (
 )
 
 // The page's route, and the kind of the ActionContainer its rows are listed
-// in (the actions below are listed only there).
+// in, on the shelf and on the page (the actions below are listed only there).
 const (
 	path          = "/new-releases"
 	containerKind = "new-releases"
@@ -54,7 +56,9 @@ type newReleases struct {
 		// gutters narrow with it.
 		width float32
 	}
-	list releaseList
+	// list is the page's rows (selection, keyboard navigation, item menu),
+	// shelf the For You shelf's.
+	list, shelf releaseList
 }
 
 // New is the New releases module.
@@ -63,7 +67,9 @@ func New(env *module.Env) module.Module {
 	if env.Core != nil {
 		a = services.Service[services.ArtistTrackerService](env.Core)
 	}
-	return newNewReleases(env, a).module()
+	n := newNewReleases(env, a)
+	env.NewReleasesShelf = n.forYouShelf
+	return n.module()
 }
 
 func newNewReleases(env *module.Env, a api) *newReleases {
@@ -75,20 +81,13 @@ func (n *newReleases) module() module.Module {
 		ID: "newreleases",
 		Routes: []module.Route{{
 			Pattern: path,
-			Title:   func(*ui.Route) string { return i18n.T("New releases") },
+			Title:   func(*ui.Route) string { return shelfTitle() },
 			Build:   n.releasesPage,
 		}},
-		Nav: []module.NavItem{{
-			// After Concerts, so the positional Ctrl+1…9 keys of the pages before it stay.
-			Section: module.NavPrimary,
-			Label:   func() string { return i18n.T("New releases") },
-			Icon:    "calendar",
-			To:      path,
-			Order:   27,
-			Count:   n.unread,
-			Visible: n.tracking,
-		}},
 		Actions: n.actions(),
+		// Init reads what the shelf decides on, the list (SQLite only) and
+		// whether the tracker is on, off the main thread, so that both are in
+		// the cache by the time For You's page has arrived and sets its shelves.
 		Init: func() {
 			var snapshot func() services.NewReleases
 			if n.env.Core != nil {
@@ -97,26 +96,23 @@ func (n *newReleases) module() module.Module {
 					r, _ := svc.Releases(context.Background())
 					return r
 				}
+				store.Seed(n.env.Queries, n.env.Post, store.KeySettings, services.Service[services.SystemService](n.env.Core).Settings)
 			}
 			store.Mirror[services.NewReleases](n.env.Bus, n.env.Queries, n.env.Post, store.KeyNewReleases, snapshot, services.EventArtistReleasesChanged)
 		},
 	}
 }
 
+// shelfTitle names the shelf and the page behind its "See all".
+func shelfTitle() string { return i18n.T("New from Artists You Love") }
+
 // tracking reports whether the artist tracker is on (Settings → General): the
-// sidebar link is shown only then. The route stays, so a link to it (the
-// notification centre's, a desktop notification's) still opens the page, which
-// says the tracker is off and how to turn it on.
+// shelf is shown only then. The page opens either way (the notification
+// centre's link, a desktop notification's), and says the tracker is off and
+// how to turn it on.
 func (n *newReleases) tracking() bool {
 	st := store.UseSettings(n.env.Queries, n.env.Core)
 	return st.HasData && st.Data.ArtistTracker.Enabled
-}
-
-// unread is how many releases are unread, for the sidebar link: 0 until the
-// list is known.
-func (n *newReleases) unread() int {
-	r, _ := store.Peek[services.NewReleases](n.env.Queries, store.KeyNewReleases)
-	return r.Unread
 }
 
 // do runs a service call off the main thread; the change comes back as
@@ -158,7 +154,7 @@ func (n *newReleases) actions() []kit.ActionDef {
 		},
 	}, {
 		ID: "newreleases.dismiss", Target: kit.KindAlbum, Icon: "x", Group: kit.GroupItem, Order: 81,
-		Label:     func(*kit.ActionContext) string { return i18n.T("Remove from New releases") },
+		Label:     func(*kit.ActionContext) string { return i18n.T("Remove from list") },
 		Available: here,
 		Run: func(a *kit.ActionContext) {
 			id := a.Item().Album().CatalogID

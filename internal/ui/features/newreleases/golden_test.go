@@ -61,3 +61,34 @@ func TestGoldenOffDark(t *testing.T) {
 	r.tt.Settle()
 	uitest.Golden(t, r.tt.Image(), "off-dark")
 }
+
+// goldenShelf draws For You's shelf over the invented list, as goldenPage does
+// the page.
+func goldenShelf(t *testing.T, w, h int, dark bool) *rig {
+	t.Helper()
+	if err := theme.RegisterFonts(); err != nil {
+		t.Fatal(err)
+	}
+	r := newShelfRig(t, sample(), true, w, h, uitest.Empty())
+	if dark {
+		theme.SetMode(theme.ModeDark)
+		t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
+	}
+	return r
+}
+
+func TestGoldenShelfLight(t *testing.T) {
+	r := goldenShelf(t, 900, 320, false)
+	r.until("the shelf", r.tt.Shows("Winter Rooms", "Lantern Season"))
+	r.until("the covers", func() bool { return r.h.Covers.Hits() > 0 })
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "shelf-light")
+}
+
+func TestGoldenShelfDark(t *testing.T) {
+	r := goldenShelf(t, 900, 320, true)
+	r.until("the shelf", r.tt.Shows("Winter Rooms", "Lantern Season"))
+	r.until("the covers", func() bool { return r.h.Covers.Hits() > 0 })
+	r.tt.Settle()
+	uitest.Golden(t, r.tt.Image(), "shelf-dark")
+}
