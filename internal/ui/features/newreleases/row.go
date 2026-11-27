@@ -39,11 +39,12 @@ type releaseList struct {
 
 func albumPath(id string) string { return "/album/" + url.PathEscape(id) }
 
-// releases builds the groups: each a heading (with its count) over a table
-// of rows. Rows select, open their menu on right-click or Shift+F10 and drag
-// like cover tiles; Up and Down move between them; opening one marks it read.
-func (n *newReleases) releases(c *ui.Context, groups []group, now time.Time) {
-	st := &n.list
+// releases builds the groups in the rows st holds: on the page each a heading
+// (with its count) over a table of rows, on the shelf (headed false) the
+// tables alone, under the shelf's own heading. Rows select, open their menu on
+// right-click or Shift+F10 and drag like cover tiles; Up and Down move between
+// them; opening one marks it read.
+func (n *newReleases) releases(c *ui.Context, st *releaseList, groups []group, now time.Time, headed bool) {
 	kit.MenusIn(&st.menus, n.env.Actions, &st.sel)
 	var flat []services.NewRelease
 	for _, g := range groups {
@@ -55,16 +56,20 @@ func (n *newReleases) releases(c *ui.Context, groups []group, now time.Time) {
 	st.nav.Count, st.nav.Columns = len(flat), 1
 	restricted := n.restricted()
 
-	root := ui.Column(c.Key("releases")).AlignSelf(ui.Stretch).Margin(0, -rowPadX, 0, -rowPadX).Gap(32).
-		Role(ui.RoleGroup).Label(i18n.T("New releases"))
+	root := ui.Column(c.Key("releases")).AlignSelf(ui.Stretch).Margin(0, -rowPadX, 0, -rowPadX).Gap(32)
+	if headed {
+		root.Role(ui.RoleGroup).Label(shelfTitle())
+	}
 	root.Children(func() {
 		i := 0
 		for _, g := range groups {
 			ui.Column(c.Key("group:" + g.id)).Children(func() {
-				ui.Row(c.Key("heading")).Gap(8).AlignItems(ui.Baseline).Padding(0, rowPadX, 8).Children(func() {
-					theme.Text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
-					theme.Text(c, i18n.FormatNumber(float64(len(g.items))), "secondary").TextColor(theme.C("ink-faint")).FontFeatures("tnum")
-				})
+				if headed {
+					ui.Row(c.Key("heading")).Gap(8).AlignItems(ui.Baseline).Padding(0, rowPadX, 8).Children(func() {
+						theme.Text(c, g.title, "heading").TextColor(theme.C("ink")).Role(ui.RoleHeading).Level(2)
+						theme.Text(c, i18n.FormatNumber(float64(len(g.items))), "secondary").TextColor(theme.C("ink-faint")).FontFeatures("tnum")
+					})
+				}
 				ui.Column(c.Key("rows")).Role(ui.RoleTable).Label(g.title).Children(func() {
 					for _, r := range g.items {
 						n.row(c, st, i, r, restricted, now)

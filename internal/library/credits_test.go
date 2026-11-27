@@ -11,14 +11,27 @@ import (
 )
 
 // catalogRequests is the catalogue song lookups the fake Apple served.
-func catalogRequests(e *env) []string {
+func catalogRequests(e *env) []string { return catalogLookups(e, "songs") }
+
+// albumRequests is the catalogue album lookups the fake Apple served.
+func albumRequests(e *env) []string { return catalogLookups(e, "albums") }
+
+// catalogLookups is the requests the fake served for the catalogue's kind
+// ("songs" or "albums"), by their IDs: a lookup of one resource would be
+// /v1/catalog/{sf}/{kind}/{id}, which no pass of the sync may send.
+func catalogLookups(e *env, kind string) []string {
 	var out []string
 	for _, r := range e.fake.seen() {
-		if strings.HasPrefix(r, "/v1/catalog/") {
+		if strings.HasPrefix(r, "/v1/catalog/") && strings.Contains(r, "/"+kind) {
 			out = append(out, r)
 		}
 	}
 	return out
+}
+
+// requestedIDs is the catalogue IDs a batched lookup names.
+func requestedIDs(r string) []string {
+	return strings.Split(strings.SplitN(strings.SplitN(r, "ids=", 2)[1], "&", 2)[0], "%2C")
 }
 
 // uploadSong is a library song that has no catalogue copy.
@@ -155,14 +168,21 @@ func cmpKey(a Artist) string {
 	return a.CatalogID
 }
 
-func TestACombinedArtistWithAlbumsStaysListed(t *testing.T) {
+// A combined artist with an album the catalogue has no copy of (so no credit)
+// keeps that album: it stays listed under its string, with the album alone.
+func TestACombinedArtistWithAnUncreditedAlbumStaysListed(t *testing.T) {
 	e := newEnv(t)
 	collabLibrary(e)
-	e.fake.albums = append(e.fake.albums, album("l.duo", "Both", "Ada & Bo", "r.duo", "2024-01-03T00:00:00Z"))
+	both := album("l.duo", "Both", "Ada & Bo", "r.duo", "2024-01-03T00:00:00Z")
+	delete(both["relationships"].(map[string]any), "catalog")
+	e.fake.albums = append(e.fake.albums, both)
 	e.fake.songs = append(e.fake.songs, song("i.c3", "Both Of Us", "Ada & Bo", "Both", "l.duo", "r.duo"))
 	e.fake.credits["cc3"] = [][2]string{{"cr.ada", "Ada"}, {"cr.bo", "Bo"}}
 	if err := e.run(t); err != nil {
 		t.Fatal(err)
+	}
+	if reqs := albumRequests(e); len(reqs) != 0 {
+		t.Errorf("an album with no catalogue ID was asked about: %v", reqs)
 	}
 	index, err := e.lib.ArtistIndex(context.Background())
 	if err != nil {
@@ -170,7 +190,10 @@ func TestACombinedArtistWithAlbumsStaysListed(t *testing.T) {
 	}
 	duo, ok := artistNamed(t, index, "Ada & Bo")
 	if !ok || duo.Albums != 1 || duo.Songs != 0 {
-		t.Errorf("Ada & Bo = %+v (%v), want listed with its album and no songs: albums are not attributed by credit yet", duo, ok)
+		t.Errorf("Ada & Bo = %+v (%v), want listed with its album and no songs", duo, ok)
+	}
+	if ada, _ := artistNamed(t, index, "Ada"); ada.Albums != 1 {
+		t.Errorf("Ada = %+v, want her own album only: the combined album has no credit to give her", ada)
 	}
 }
 

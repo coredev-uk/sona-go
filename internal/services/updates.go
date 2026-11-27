@@ -52,6 +52,7 @@ type UpdatesService struct {
 	manifest   *update.Source // the update found, minus the download client
 	restoring  bool           // the previous version is being put back (never cleared by success: Sona restarts)
 	installErr string         // why the last install failed, for Diagnostics (the status carries only the code)
+	whatsNew   WhatsNew       // the notes of the version just installed, fetched and not yet shown
 }
 
 func newUpdatesService(e *Env) *UpdatesService {
@@ -90,6 +91,7 @@ func newUpdatesService(e *Env) *UpdatesService {
 		})
 	})
 	e.OnDiagnostics("Updates", s.bundle)
+	s.initWhatsNew(ctx)
 	return s
 }
 

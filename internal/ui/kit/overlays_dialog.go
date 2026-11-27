@@ -113,9 +113,10 @@ func Dialog(c *ui.Context, open *bool, o DialogOpts, build func()) ui.Element {
 	return panel
 }
 
-// dialogsBuilt counts the dialogs built since TakeDialogsBuilt. Main thread
-// only, like every view.
-var dialogsBuilt int
+// dialogsBuilt counts the dialogs built since TakeDialogsBuilt, and
+// dialogsShown how many the frame before that built. Main thread only, like
+// every view.
+var dialogsBuilt, dialogsShown int
 
 // TakeDialogsBuilt returns how many dialogs (Dialog, ConfirmHost, the
 // palette) were built since it was last called, and resets the count. The
@@ -123,9 +124,15 @@ var dialogsBuilt int
 // that just ended is a modal covering the page.
 func TakeDialogsBuilt() int {
 	n := dialogsBuilt
-	dialogsBuilt = 0
+	dialogsBuilt, dialogsShown = 0, n
 	return n
 }
+
+// DialogShown reports whether the last frame the shell finished had a dialog
+// open: what a dialog that waits for the window to be idle (What's New) asks
+// before it opens. The frame being built is not counted, so a dialog that
+// builds before the asker does not hide it.
+func DialogShown() bool { return dialogsShown > 0 }
 
 // closeButton is the dialog's top-right X, named "Close", with the focus
 // ring; it sits in the corner whatever the content does.

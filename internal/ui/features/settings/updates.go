@@ -14,10 +14,12 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/theme"
 )
 
-// updateState outlives a frame: a manual check in flight and its failure.
+// updateState outlives a frame: a manual check in flight and its failure, and
+// the running version's release notes being fetched.
 type updateState struct {
 	checking bool
 	failure  string
+	notes    bool
 }
 
 // whyNotSelf explains an install that can't update itself, on the
@@ -98,6 +100,23 @@ func (s *settings) updatesGroup(c *ui.Context, cfg config.Settings) {
 			Desc: i18n.T("Asks GitHub for the newest Sona release once the window has opened. Nothing about you, your account or your library is sent."),
 		}, cfg.Updates.Check, false, func(on bool) {
 			s.save(func(st *config.Settings) { st.Updates.Check = on })
+		})
+		s.switchRow(c, rowOpts{
+			ID: "updates-whatsnew", Title: i18n.T("Show what's new after an update"),
+			Desc: i18n.T("Opens the release notes the first time Sona starts after an update. Asks GitHub for them once the window has opened."),
+		}, cfg.Updates.WhatsNew, false, func(on bool) {
+			s.save(func(st *config.Settings) { st.Updates.WhatsNew = on })
+		})
+		us := stateOf[updateState](s, "updates")
+		s.row(c, rowOpts{
+			ID: "updates-notes", Title: i18n.T("Release notes"),
+			Desc: i18n.T("What changed in the version of Sona you are running."),
+		}, func() ui.Element {
+			b := kit.Button(c.Key("current-notes"), i18n.T("Show"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "sparkles", Disabled: us.notes})
+			if b.Clicked() {
+				s.showCurrentNotes(us)
+			}
+			return b
 		})
 		st := s.updateStatus()
 		if caps := s.caps(); caps.HasData && selfUpdating(findContext{caps: &caps.Data}) {
@@ -218,6 +237,28 @@ func (s *settings) checkNow(us *updateState) {
 				return
 			}
 			store.Set(s.env.Queries, store.KeyUpdates, st)
+		})
+	}()
+}
+
+// showCurrentNotes fetches the running version's release notes and opens them
+// in the What's New dialog; a release with none says so, and a failed fetch
+// toasts.
+func (s *settings) showCurrentNotes(us *updateState) {
+	us.notes = true
+	u := s.updates
+	go func() {
+		w, err := u.CurrentNotes(context.Background())
+		s.env.Post(func() {
+			us.notes = false
+			switch {
+			case err != nil:
+				kit.ToastFailure(i18n.T("Couldn't load the release notes"), err)
+			case w.Notes == "":
+				kit.ShowToast(kit.ToastSpec{Title: i18n.T("This version has no release notes"), Kind: kit.ToastInfo})
+			default:
+				s.env.Surfaces.OpenWhatsNew(w)
+			}
 		})
 	}()
 }

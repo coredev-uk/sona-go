@@ -28,7 +28,7 @@ Some settings depend on your platform or build. Where a platform can't back a se
 
 | Setting | What it does | Platform |
 | --- | --- | --- |
-| Track new releases from favourite artists | Once a day, looks at the artists you've favourited and lists their new albums, EPs and singles in [New releases](/guide/new-releases/). Off until you turn it on. Releases that are out when you turn it on aren't listed, only the ones that come out afterwards. | |
+| Track new releases from favourite artists | Once a day, looks at the artists you've favourited and shows their new albums, EPs and singles on For You, under [New from Artists You Love](/guide/new-releases/). Off until you turn it on. Releases that are out when you turn it on aren't listed, only the ones that come out afterwards. | |
 | Also show releases as desktop notifications | Releases are always in [Notifications](/guide/notifications/): an album you asked to be reminded of when it comes out, and new releases from your artists. This shows them on your desktop too, one for each release or one summary when several arrive together. Click it to open the release. | Needs a notification service on _Linux_ and Sona.app on _macOS_. Not on _Windows_ yet. |
 
 ### Updates
@@ -36,6 +36,8 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Setting | What it does | Platform |
 | --- | --- | --- |
 | Check for updates when Sona starts | Asks GitHub for the newest release once the window has opened. Nothing about you or your library is sent. | |
+| Show what's new after an update | The first time Sona starts after an update, opens the new version's release notes in a window you can scroll. It asks GitHub for them once the window has opened. It doesn't show on a first install or after going back to an older version, and it shows once for each version. | |
+| Release notes | Shows the release notes of the version you're running: press Show. | |
 | Test versions | Also offers release candidates and other test versions. | Only where Sona can update itself |
 
 This group also shows whether you're up to date, with What's new, View release, Install and restart and Check now. What's new opens the new version's release notes in a window you can scroll; it is there when the release has notes. It doesn't check development builds. See [Install](/guide/install/) for how updating works.

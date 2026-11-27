@@ -40,6 +40,10 @@ type fakeApple struct {
 	// credits is the catalogue's artists of a catalogue song ID, served at
 	// /v1/catalog/{sf}/songs?ids=...&include=artists as [id, name] pairs.
 	credits map[string][][2]string
+	// albumCredits is the same for a catalogue album ID, served at
+	// /v1/catalog/{sf}/albums?ids=...&include=artists. A compilation is
+	// present with no artists ("Various Artists").
+	albumCredits map[string][][2]string
 
 	failPath   string // path answering 400 ...
 	failOffset int    // ... for this page offset
@@ -154,10 +158,21 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"errors":[{"title":"injected"}]}`, http.StatusBadRequest)
 		return
 	}
-	if strings.HasPrefix(path, "/v1/catalog/") && strings.HasSuffix(path, "/songs") {
+	for _, kind := range []struct {
+		suffix  string
+		credits map[string][][2]string
+	}{{"/songs", f.credits}, {"/albums", f.albumCredits}} {
+		if !strings.HasPrefix(path, "/v1/catalog/") || !strings.HasSuffix(path, kind.suffix) {
+			continue
+		}
+		ids := strings.Split(q.Get("ids"), ",")
+		if len(ids) > 100 { // Apple's limit: "Too Many Ids"
+			http.Error(w, `{"errors":[{"title":"Too Many Ids","code":"40010"}]}`, http.StatusBadRequest)
+			return
+		}
 		data := []map[string]any{}
-		for _, id := range strings.Split(q.Get("ids"), ",") {
-			cr, ok := f.credits[id]
+		for _, id := range ids {
+			cr, ok := kind.credits[id]
 			if !ok {
 				continue
 			}
@@ -166,7 +181,7 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				artists = append(artists, map[string]any{"id": a[0], "type": "artists", "attributes": map[string]any{"name": a[1]}})
 			}
 			data = append(data, map[string]any{
-				"id": id, "type": "songs",
+				"id": id, "type": strings.TrimPrefix(kind.suffix, "/"),
 				"relationships": map[string]any{"artists": map[string]any{"data": artists}},
 			})
 		}

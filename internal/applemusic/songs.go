@@ -60,23 +60,24 @@ func (c *Client) Song(ctx context.Context, sf, id string) (Song, error) {
 	return first(body.Data, "song "+id)
 }
 
-// songsBatch is how many IDs one Songs request carries.
-const songsBatch = 100
+// catalogBatch is how many IDs one batched catalogue request carries: 100,
+// Apple's limit for songs and for albums alike (101 is a 400, "Too Many
+// Ids", checked live on 2026-11-27).
+const catalogBatch = 100
 
-// Songs returns the catalog songs with the given IDs, as Song does (with
-// their album relationship and their artists, named): one request per 100 IDs, four
-// requests at a time, so a whole chart or playlist costs one round trip, not
-// one per song. A song Apple doesn't serve in the storefront is omitted; the
-// order follows Apple's reply, not ids.
-func (c *Client) Songs(ctx context.Context, sf string, ids []string) ([]Song, error) {
-	chunks := slices.Collect(slices.Chunk(ids, songsBatch))
-	results := make([][]Song, len(chunks))
+// catalogByIDs returns the catalog resources of type typ with the given IDs,
+// each with its artists named (include=artists): one request per 100 IDs, four
+// requests at a time. A resource Apple doesn't serve in the storefront is
+// omitted; the order follows Apple's reply, not ids.
+func catalogByIDs[T any](ctx context.Context, c *Client, sf, typ string, ids []string) ([]T, error) {
+	chunks := slices.Collect(slices.Chunk(ids, catalogBatch))
+	results := make([][]T, len(chunks))
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(defaultParallel)
 	for i, batch := range chunks {
 		g.Go(func() error {
-			var body Page[Song]
-			if err := c.Get(gctx, CatalogPath(sf, "songs"), url.Values{"ids": {strings.Join(batch, ",")}, "include": {"artists"}}, &body); err != nil {
+			var body Page[T]
+			if err := c.Get(gctx, CatalogPath(sf, typ), url.Values{"ids": {strings.Join(batch, ",")}, "include": {"artists"}}, &body); err != nil {
 				return err
 			}
 			results[i] = body.Data
@@ -87,6 +88,15 @@ func (c *Client) Songs(ctx context.Context, sf string, ids []string) ([]Song, er
 		return nil, err
 	}
 	return slices.Concat(results...), nil
+}
+
+// Songs returns the catalog songs with the given IDs, as Song does (with
+// their album relationship and their artists, named): one request per 100 IDs, four
+// requests at a time, so a whole chart or playlist costs one round trip, not
+// one per song. A song Apple doesn't serve in the storefront is omitted; the
+// order follows Apple's reply, not ids.
+func (c *Client) Songs(ctx context.Context, sf string, ids []string) ([]Song, error) {
+	return catalogByIDs[Song](ctx, c, sf, TypeSongs, ids)
 }
 
 // LyricsOptions select the lyrics variant.

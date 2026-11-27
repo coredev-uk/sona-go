@@ -160,7 +160,7 @@ func words(n services.Notification) entryWords {
 		}
 		return entryWords{
 			title:  i18n.T("{n, plural, one {# new release from your artists} other {# new releases from your artists}}", "n", n.Count),
-			detail: i18n.T("They're in New Releases."),
+			detail: i18n.T("They're on For You."),
 			icon:   "disc-3",
 		}
 	case services.NoticeAddonOff:

@@ -1683,6 +1683,10 @@ msgstr "Couldn't load the new releases"
 msgid "Couldn't load the playlist"
 msgstr "Couldn't load the playlist"
 
+#: internal/ui/features/settings/updates.go
+msgid "Couldn't load the release notes"
+msgstr "Couldn't load the release notes"
+
 #: internal/ui/features/discover/charts.go
 msgid "Couldn't load the top songs"
 msgstr "Couldn't load the top songs"
@@ -4272,6 +4276,10 @@ msgstr "New album from {artist}"
 msgid "New folder…"
 msgstr "New folder…"
 
+#: internal/ui/features/newreleases/newreleases.go
+msgid "New from Artists You Love"
+msgstr "New from Artists You Love"
+
 #. Command in the command palette, the shortcut help and the File menu: opens the form that makes a playlist.
 #: internal/ui/features/playlist/dialogs.go
 #: internal/ui/features/playlist/drops.go
@@ -4291,12 +4299,6 @@ msgstr "New playlist or folder"
 #: internal/ui/features/playlist/addmenu.go
 msgid "New playlist…"
 msgstr "New playlist…"
-
-#: internal/ui/features/newreleases/newreleases.go
-#: internal/ui/features/newreleases/page.go
-#: internal/ui/features/newreleases/row.go
-msgid "New releases"
-msgstr "New releases"
 
 #: internal/ui/features/notifications/panel.go
 msgid "New single from {artist}"
@@ -4966,8 +4968,8 @@ msgid "On this page"
 msgstr "On this page"
 
 #: internal/ui/features/settings/releases.go
-msgid "Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
-msgstr "Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
+msgid "Once a day Sona looks at the artists you've favourited and shows their new albums, EPs and singles on For You. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
+msgstr "Once a day Sona looks at the artists you've favourited and shows their new albums, EPs and singles on For You. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
 
 #. Notice at the top of the playlist cover picker: the chosen cover is kept on this computer only; Apple Music and the user's other devices do not get it.
 #: internal/ui/features/playlist/covers.go
@@ -5090,6 +5092,10 @@ msgstr "Opens in your browser"
 #: internal/ui/features/settings/summaries.go
 msgid "Opens on {page}"
 msgstr "Opens on {page}"
+
+#: internal/ui/features/settings/updates.go
+msgid "Opens the release notes the first time Sona starts after an update. Asks GitHub for them once the window has opened."
+msgstr "Opens the release notes the first time Sona starts after an update. Asks GitHub for them once the window has opened."
 
 #: internal/ui/features/settings/summaries.go
 msgid "Opens where you left off"
@@ -5949,6 +5955,8 @@ msgstr "Release"
 msgid "Release date"
 msgstr "Release date"
 
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/updates.go
 #: internal/ui/kit/release_notes.go
 msgid "Release notes"
 msgstr "Release notes"
@@ -5994,8 +6002,8 @@ msgid "Remove"
 msgstr "Remove"
 
 #: internal/ui/features/newreleases/newreleases.go
-msgid "Remove from New releases"
-msgstr "Remove from New releases"
+msgid "Remove from list"
+msgstr "Remove from list"
 
 #: internal/ui/features/playlist/actions.go
 msgid "Remove from playlist"
@@ -6512,6 +6520,7 @@ msgid "Shortcuts"
 msgstr "Shortcuts"
 
 #: internal/ui/features/settings/bugreport.go
+#: internal/ui/features/settings/updates.go
 msgid "Show"
 msgstr "Show"
 
@@ -6640,6 +6649,11 @@ msgstr "Show the mini player"
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Show video"
 msgstr "Show video"
+
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/updates.go
+msgid "Show what's new after an update"
+msgstr "Show what's new after an update"
 
 #: internal/ui/app/app.go
 msgid "Showing lyrics"
@@ -7193,8 +7207,8 @@ msgid "Sona loads the CDM only inside its sandbox, which keeps it off the networ
 msgstr "Sona loads the CDM only inside its sandbox, which keeps it off the network, and the sandbox could not be set up. Only 30-second previews play."
 
 #: internal/ui/features/newreleases/page.go
-msgid "Sona looks about once a day. When an artist you've favourited puts something out, it shows up here."
-msgstr "Sona looks about once a day. When an artist you've favourited puts something out, it shows up here."
+msgid "Sona looks about once a day. When an artist you've favourited puts something out, it shows up here and on For You."
+msgstr "Sona looks about once a day. When an artist you've favourited puts something out, it shows up here and on For You."
 
 #: internal/ui/i18n/errors.go
 msgid "Sona needs Google's Widevine to play songs, and it isn't ready yet. Settings → Playback shows its progress."
@@ -8015,8 +8029,8 @@ msgid "They open in {app} now."
 msgstr "They open in {app} now."
 
 #: internal/ui/features/notifications/panel.go
-msgid "They're in New Releases."
-msgstr "They're in New Releases."
+msgid "They're on For You."
+msgstr "They're on For You."
 
 #: internal/ui/i18n/errors.go
 msgid "This Apple Account doesn't have an active Apple Music subscription."
@@ -8147,6 +8161,10 @@ msgstr "This station isn't naming what it is playing."
 #: internal/ui/kit/collections_items_play.go
 msgid "This stream isn't offered with Widevine, the only protection Sona can play."
 msgstr "This stream isn't offered with Widevine, the only protection Sona can play."
+
+#: internal/ui/features/settings/updates.go
+msgid "This version has no release notes"
+msgstr "This version has no release notes"
 
 #: internal/ui/features/concerts/page.go
 #: internal/ui/features/newreleases/page.go
@@ -8357,8 +8375,8 @@ msgid "Turn on {name}?"
 msgstr "Turn on {name}?"
 
 #: internal/ui/features/newreleases/page.go
-msgid "Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here."
-msgstr "Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here."
+msgid "Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here and on For You."
+msgstr "Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here and on For You."
 
 #: internal/ui/features/settings/motiondiag.go
 msgid "UPower didn't answer. Sona's log says why."
@@ -8662,6 +8680,10 @@ msgstr "What Whole Songs Need"
 #: internal/ui/features/inspect/panel.go
 msgid "What an add-on gets"
 msgstr "What an add-on gets"
+
+#: internal/ui/features/settings/updates.go
+msgid "What changed in the version of Sona you are running."
+msgstr "What changed in the version of Sona you are running."
 
 #: internal/ui/features/settings/addons.go
 msgid "What it adds to Sona's menus, palette or settings isn't valid."
@@ -9316,6 +9338,10 @@ msgstr "quieter"
 msgid "random"
 msgstr "random"
 
+#: internal/ui/features/settings/find.go
+msgid "release notes, changelog"
+msgstr "release notes, changelog"
+
 #: internal/ui/features/player/shortcuts.go
 msgid "resume stop"
 msgstr "resume stop"
@@ -9387,6 +9413,10 @@ msgstr "up next"
 #: internal/ui/features/settings/find.go
 msgid "video, animated covers"
 msgstr "video, animated covers"
+
+#: internal/ui/features/settings/find.go
+msgid "what's new, changelog, changes"
+msgstr "what's new, changelog, changes"
 
 #: internal/ui/features/settings/find.go
 msgid "window buttons, decorations"
@@ -9833,10 +9863,6 @@ msgstr "{others, plural, one {You & # other} other {You & # others}}"
 #: internal/ui/features/playlist/collaborators.go
 msgid "{others, plural, one {{lead} & # other} other {{lead} & # others}}"
 msgstr "{others, plural, one {{lead} & # other} other {{lead} & # others}}"
-
-#: internal/ui/app/view.go
-msgid "{page}, {count} new"
-msgstr "{page}, {count} new"
 
 #: internal/ui/features/settings/connections.go
 msgid "{pending, plural, one {# song waiting to send.} other {# songs waiting to send.}}"

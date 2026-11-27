@@ -512,32 +512,28 @@ func TestSettingsChangedKeepsTheSharedSettingsCurrent(t *testing.T) {
 	}
 }
 
-// The New releases link is in the sidebar only while the artist tracker is
-// on, and follows settings:changed without a restart; its route stays, so a
-// link to the page (the notification centre's) still opens it.
-func TestNewReleasesLinkFollowsTheTrackerSetting(t *testing.T) {
+// The artist tracker's list has no sidebar link and no Go menu entry, with
+// the tracker on or off: it is For You's shelf. Its page stays registered, so
+// a notification, a saved route or the shelf's "See all" still opens it, and
+// the module hands the shelf to For You through the Env.
+func TestNewReleasesHasNoSidebarLinkButItsPageStillOpens(t *testing.T) {
 	h := uitest.New(t)
 	a := newApp(Options{Core: h.Core, Settings: h.Settings, Bus: h.Bus, Poster: h.Main.Post, Now: h.Clock.Now}, []module.Factory{newreleases.New})
 	t.Cleanup(a.env.Art.Close)
 	a.connect()
+	if a.env.NewReleasesShelf == nil {
+		t.Error("the module did not hand For You its shelf")
+	}
 	tt := h.Tester(t, a.view, 1132, 800)
-	link := func() bool {
+	inSidebar := func() bool {
 		tt.Frame()
-		_, ok := access.Read(t, tt.Tester).Find(ui.RoleLink, "New releases")
-		return ok
-	}
-	set := func(on bool) {
-		if _, err := h.Settings.Update(func(s *config.Settings) { s.ArtistTracker.Enabled = on }); err != nil {
-			t.Fatal(err)
+		tr := access.Read(t, tt.Tester)
+		for _, name := range []string{"New releases", "New from Artists You Love"} {
+			if _, ok := tr.Find(ui.RoleLink, name); ok {
+				return true
+			}
 		}
-		h.Bus.Emit(services.EventSettingsChanged, h.Settings.Get())
-		h.Main.Drain()
-	}
-	if link() {
-		t.Fatal("the link is in the sidebar with the tracker off (the default)")
-	}
-	if a.hasRoute("/new-releases") != true {
-		t.Error("the route is not registered with the tracker off")
+		return false
 	}
 	inMenu := func() bool {
 		in := a.menuInput()
@@ -545,23 +541,24 @@ func TestNewReleasesLinkFollowsTheTrackerSetting(t *testing.T) {
 		_, ok := findEntry(buildMenuBar(in), "nav.new-releases")
 		return ok
 	}
-	if inMenu() {
-		t.Error("the Go menu lists the page with the tracker off")
+	for _, on := range []bool{false, true} {
+		if _, err := h.Settings.Update(func(s *config.Settings) { s.ArtistTracker.Enabled = on }); err != nil {
+			t.Fatal(err)
+		}
+		h.Bus.Emit(services.EventSettingsChanged, h.Settings.Get())
+		h.Main.Drain()
+		if inSidebar() {
+			t.Errorf("the sidebar has a link with the tracker on = %t", on)
+		}
+		if inMenu() {
+			t.Errorf("the Go menu lists the page with the tracker on = %t", on)
+		}
+	}
+	if !a.hasRoute("/new-releases") {
+		t.Fatal("the page's route is not registered")
 	}
 	a.router.Push("/new-releases")
-	tt.Until("the off state", tt.Shows("Release tracking is off"))
-	a.router.Back()
-	set(true)
-	if !link() {
-		t.Fatal("the link did not appear when the tracker was turned on")
-	}
-	if !inMenu() {
-		t.Error("the Go menu lacks the page with the tracker on")
-	}
-	set(false)
-	if link() {
-		t.Fatal("the link stayed after the tracker was turned off")
-	}
+	tt.Until("the page", tt.Shows("New from Artists You Love"))
 }
 
 // defaultChord is how a default written Ctrl+X is bound here: Meta+X where the

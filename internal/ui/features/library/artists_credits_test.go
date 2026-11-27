@@ -87,3 +87,61 @@ func TestArtistsListACollaborationUnderEachCreditedArtist(t *testing.T) {
 	r = open("900")
 	r.tt.Until("Cy's song", r.tt.Shows("Songs in Your Library", "Together", "Artist · 1 song"))
 }
+
+// seedCollabAlbum adds the album "Both Of Us" of "Ada & Bo", with the
+// credits the sync stores for it (Syncer.syncCredits): Ada and Bo. Apple's
+// library names the combined library artist of seedCollab as its artist.
+func seedCollabAlbum(ctx context.Context, d *db.DB) error {
+	const now = 1_700_000_000_000
+	artists := fixture.Artists(collabAlbums())
+	return d.Tx(ctx, func(q *dbq.Queries) error {
+		ref, err := q.UpsertLibraryAlbum(ctx, dbq.UpsertLibraryAlbumParams{
+			LibraryID: db.NullString("l.duo"), CatalogID: db.NullString("7100"), Name: "Both Of Us", ArtistName: "Ada & Bo",
+			ArtistLibraryID: db.NullString("r.duo"), ReleaseDate: "2021-05-01", Genre: "Pop", TrackCount: 1, UpdatedAt: now,
+		})
+		if err != nil {
+			return err
+		}
+		if err := q.MarkLibraryItem(ctx, dbq.MarkLibraryItemParams{
+			Kind: "album", Ref: ref, DateAdded: sql.NullInt64{Int64: now, Valid: true}, Generation: 1,
+		}); err != nil {
+			return err
+		}
+		for pos, name := range []string{"Ada", "Bo"} {
+			err := q.InsertAlbumArtist(ctx, dbq.InsertAlbumArtistParams{
+				AlbumID: ref, ArtistCatalogID: catalogOf(artists, name), Name: name, Position: int64(pos),
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return q.MarkAlbumCredited(ctx, dbq.MarkAlbumCreditedParams{CreditsChecked: now, ID: ref})
+	})
+}
+
+// An album credited to two artists is on both their pages and counts for
+// both, and the combined artist is gone once its song and its album are
+// credited elsewhere.
+func TestArtistsListACollaborationAlbumUnderEachCreditedArtist(t *testing.T) {
+	artists := fixture.Artists(collabAlbums())
+	open := func(key string) *pageRig {
+		return newPageRig(t, artistsAt(key), 1132, 900, nil, uitest.Albums(collabAlbums()...), uitest.Seeded(seedCollab), uitest.Seeded(seedCollabAlbum))
+	}
+	// Each has their own album and Both Of Us; Together and their own two songs.
+	for _, name := range []string{"Ada", "Bo"} {
+		r := open(fixture.ArtistLibraryID(slices.Index(artists, name)))
+		r.tt.Until(name+"'s page", r.tt.Shows(
+			"3 artists", "Ada, 2 albums, 3 songs", "Bo, 2 albums, 3 songs", "Cy, 1 song",
+			"Albums by "+name+" in your library", name+" Alone", "Both Of Us",
+		))
+		if r.tt.HasText("Ada & Bo") {
+			t.Errorf("%s's page: the combined artist is still listed though its song and album are credited elsewhere", name)
+		}
+	}
+	// Cy is credited on the song only: the album is not theirs.
+	r := open("900")
+	r.tt.Until("Cy's song", r.tt.Shows("Songs in Your Library", "Together", "Artist · 1 song"))
+	if r.tt.HasText("Both Of Us") {
+		t.Error("Cy's page lists an album Apple does not credit to them")
+	}
+}
