@@ -900,3 +900,15 @@ func TestViewReleaseComesBackWhenTheDownloadEnds(t *testing.T) {
 	store.Set(g.h.Env.Queries, store.KeyUpdates, st)
 	g.until("release again", g.tt.Shows("View release"))
 }
+
+func TestGreetingRowIsOnByDefaultAndSaves(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	g.tt.Until("rows", g.tt.Shows("Greeting on For You"))
+	if !g.saved().Home.Greeting {
+		t.Fatal("the greeting is off by default")
+	}
+	g.toggle("home-greeting")
+	g.until("greeting off", func() bool { return !g.saved().Home.Greeting })
+	g.toggle("home-greeting")
+	g.until("greeting on", func() bool { return g.saved().Home.Greeting })
+}

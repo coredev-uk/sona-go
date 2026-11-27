@@ -3061,6 +3061,18 @@ msgstr "Go's catalogue cache"
 msgid "Gold"
 msgstr "Gold"
 
+#: internal/ui/features/home/greeting.go
+msgid "Good afternoon"
+msgstr "Good afternoon"
+
+#: internal/ui/features/home/greeting.go
+msgid "Good evening"
+msgstr "Good evening"
+
+#: internal/ui/features/home/greeting.go
+msgid "Good morning"
+msgstr "Good morning"
+
 #: internal/ui/i18n/cdm.go
 msgid "Google doesn't make Widevine for this computer, so songs can't play here."
 msgstr "Google doesn't make Widevine for this computer, so songs can't play here."
@@ -3089,6 +3101,10 @@ msgstr "Gradient"
 #: internal/ui/features/settings/themes.go
 msgid "Graphite"
 msgstr "Graphite"
+
+#: internal/ui/features/settings/general.go
+msgid "Greeting on For You"
+msgstr "Greeting on For You"
 
 #: internal/ui/features/settings/motiondiag.go
 msgid "H.264 decoding"
@@ -6302,6 +6318,10 @@ msgstr "Saving your sign-in in your keyring; unlock it if it asks."
 #: internal/ui/features/playlist/dialogs.go
 msgid "Saving…"
 msgstr "Saving…"
+
+#: internal/ui/features/settings/general.go
+msgid "Says good morning, good afternoon or good evening above the heading, by the time on this computer."
+msgstr "Says good morning, good afternoon or good evening above the heading, by the time on this computer."
 
 #: internal/ui/features/radio/station.go
 msgid "Schedule"

@@ -1834,6 +1834,7 @@ Data is `store.Use` with keys such as `["discover","home"]`, `["discover","page"
 
 - **The plan** (`plan.go`): the lead is the first `feature` shelf with items; three plain shelves stay open; the rest go to the "More for you" index. Recently Played, station-only shelves, features and heroes never do.
 - **The lead band** is a `kit.Backdrop` over the lead cover's pre-blurred backdrop: the page header as one line, a ruled head, the lead pick with its cover large, and Apple's other picks as one unnumbered running order of eight rows beside it (a row of cover and name over the order below 900 DIPs).
+- **The greeting** (`greeting.go`) is a muted line above the heading in `pageHead`, shown while `Settings.Home.Greeting` (default on) is true. `greetingAt` gives the text for an hour and the next boundary (05:00, 12:00, 18:00); the view asks `c.After` for that moment, so nothing runs between boundaries. The heading stays the page's `RoleHeading` level 1.
 - **Shelf heads** are the local ruled head (`rule.go`: heading, hairline, "See all" or "Show all"), which replaces `kit.Shelf` on Home.
 - **Shelf kinds**:
   - `HeroCard` shows a hero shelf of one item.
