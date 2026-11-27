@@ -1,10 +1,10 @@
 {
   "release": {
-    "version": "0.7.0",
-    "hash": "sha256-L/soFshmUq57yYjM5Yb+PBld75NLOjjCGIo4Vvg25H4="
+    "version": "0.8.0",
+    "hash": "sha256-QyykE1KFCN+sy9j+r2tteTWl2VTc2ylf/9WYXao3ea8="
   },
   "nightly": {
-    "version": "0.8.0-rc.5",
-    "hash": "sha256-hX1AMsStUcodpqAIHkE45yVh4JtZQ/bithnIASZA0KQ="
+    "version": "0.8.0",
+    "hash": "sha256-QyykE1KFCN+sy9j+r2tteTWl2VTc2ylf/9WYXao3ea8="
   }
 }
