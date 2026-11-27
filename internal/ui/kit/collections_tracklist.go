@@ -36,6 +36,7 @@ const (
 	SortArtist   = "artist"
 	SortAlbum    = "album"
 	SortDuration = "duration"
+	SortAddedBy  = "addedBy"
 )
 
 // TrackColumns says which columns a list shows.
@@ -565,7 +566,7 @@ func (st *TrackListState) header(c *ui.Context, o *TrackListOpts, tk *theme.Toke
 			st.headerCell(c, o, cellAlbum, i18n.T("Album"), SortAlbum, meta)
 		}
 		if o.AddedBy != nil {
-			st.headerCell(c, o, cellAddedBy, i18n.T("Added By"), "", meta)
+			st.headerCell(c, o, cellAddedBy, i18n.T("Added By"), SortAddedBy, meta)
 		}
 		st.durationHeader(c, o)
 		o.cell(ui.Box(c.Key("h-act")).Role(ui.RoleColumnHeader).Label(i18n.T("Actions")), cellActions).Height(1)

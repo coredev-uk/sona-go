@@ -66,7 +66,7 @@ func TestViewOrder(t *testing.T) {
 		{"filtered and by duration", kit.SortDuration, false, "e", []int{0, 2, 3}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := viewOrder(songs, tc.key, tc.desc, tc.query)
+			got := viewOrder(songs, nil, tc.key, tc.desc, tc.query)
 			if got == nil || !slices.Equal(got, tc.want) {
 				t.Errorf("viewOrder(%q, desc %v, %q) = %v, want %v", tc.key, tc.desc, tc.query, got, tc.want)
 			}
@@ -77,20 +77,20 @@ func TestViewOrder(t *testing.T) {
 // A song added twice is two entries with one ID: each keeps its own place.
 func TestViewOrderKeepsEachCopyOfASongApart(t *testing.T) {
 	songs := []services.Song{song("a", "Same", "x"), song("b", "Other", "x"), song("a", "Same", "x")}
-	if got := viewOrder(songs, "", false, "same"); !slices.Equal(got, []int{0, 2}) {
+	if got := viewOrder(songs, nil, "", false, "same"); !slices.Equal(got, []int{0, 2}) {
 		t.Errorf("found: %v", got)
 	}
-	if got := viewOrder(songs, kit.SortTitle, true, ""); !slices.Equal(got, []int{0, 2, 1}) {
+	if got := viewOrder(songs, nil, kit.SortTitle, true, ""); !slices.Equal(got, []int{0, 2, 1}) {
 		t.Errorf("by title, descending: %v", got)
 	}
-	if got := viewOrder(songs, kit.SortTitle, false, ""); !slices.Equal(got, []int{1, 0, 2}) {
+	if got := viewOrder(songs, nil, kit.SortTitle, false, ""); !slices.Equal(got, []int{1, 0, 2}) {
 		t.Errorf("by title: %v", got)
 	}
 }
 
 func TestViewOrderReadsDigitsAsNumbers(t *testing.T) {
 	songs := []services.Song{song("1", "Track 10", "x"), song("2", "Track 2", "x"), song("3", "Track 1", "x")}
-	if got := viewOrder(songs, kit.SortTitle, false, ""); !slices.Equal(got, []int{2, 1, 0}) {
+	if got := viewOrder(songs, nil, kit.SortTitle, false, ""); !slices.Equal(got, []int{2, 1, 0}) {
 		t.Errorf("order %v, want Track 1, 2, 10", got)
 	}
 }
@@ -98,11 +98,11 @@ func TestViewOrderReadsDigitsAsNumbers(t *testing.T) {
 func TestViewOrderDoesNotTouchTheTracksAndHandlesNone(t *testing.T) {
 	songs := viewSongs()
 	want := slices.Clone(songs)
-	viewOrder(songs, kit.SortTitle, true, "a")
+	viewOrder(songs, nil, kit.SortTitle, true, "a")
 	if !reflect.DeepEqual(songs, want) {
 		t.Error("viewOrder changed the tracks")
 	}
-	if got := viewOrder(nil, kit.SortTitle, false, "x"); len(got) != 0 {
+	if got := viewOrder(nil, nil, kit.SortTitle, false, "x"); len(got) != 0 {
 		t.Errorf("no tracks: %v", got)
 	}
 }
@@ -120,22 +120,22 @@ func names(songs []services.Song) []string {
 func TestPageViewIsMemoised(t *testing.T) {
 	var pg page
 	songs := viewSongs()
-	first := pg.view(songs)
+	first := pg.view(songs, nil)
 	if len(first.songs) != 4 || first.order != nil || &first.songs[0] != &songs[0] {
 		t.Fatalf("with no sort and no query the page lists the tracks themselves: %+v", first)
 	}
 
 	pg.sort.Key = kit.SortTitle
-	sorted := pg.view(songs)
+	sorted := pg.view(songs, nil)
 	if got := names(sorted.songs); !slices.Equal(got, []string{"alpha", "Bravo", "Charlie", "Échelle"}) || !slices.Equal(sorted.order, []int{1, 2, 0, 3}) {
 		t.Fatalf("sorted: %v %v", got, sorted.order)
 	}
-	if again := pg.view(songs); &again.songs[0] != &sorted.songs[0] || &again.order[0] != &sorted.order[0] {
+	if again := pg.view(songs, nil); &again.songs[0] != &sorted.songs[0] || &again.order[0] != &sorted.order[0] {
 		t.Error("the view was worked out again for nothing")
 	}
 
 	pg.query = "salt"
-	narrowed := pg.view(songs)
+	narrowed := pg.view(songs, nil)
 	if got := names(narrowed.songs); !slices.Equal(got, []string{"alpha", "Échelle"}) {
 		t.Errorf("narrowed: %v", got)
 	}
@@ -144,7 +144,7 @@ func TestPageViewIsMemoised(t *testing.T) {
 	}
 
 	// Other tracks (an edit made a new list) are listed afresh.
-	if got := names(pg.view(songs[:3]).songs); !slices.Equal(got, []string{"alpha"}) {
+	if got := names(pg.view(songs[:3], nil).songs); !slices.Equal(got, []string{"alpha"}) {
 		t.Errorf("after the tracks changed: %v", got)
 	}
 }
@@ -472,6 +472,83 @@ func TestPageAddedByFollowsTheSongsListed(t *testing.T) {
 	r.tt.Settle()
 	if got := r.order("Ada", "Bo"); !slices.Equal(got, []string{"Bo", "Ada"}) {
 		t.Errorf("who added them, in the listed order: %v", got)
+	}
+}
+
+// Added By sorts like the other columns, songs nobody is named for last
+// whichever way it runs, and the find field matches the adder's name and
+// handle on a collaborative playlist only.
+func TestPageAddedBySortsAndIsFound(t *testing.T) {
+	songs := viewSongs()
+	for i := range songs {
+		songs[i].CatalogID = "c" + songs[i].ID
+	}
+	d := catalogDetail("pl.u-9", "Shared mix", songs...)
+	d.Kind = "user-shared"
+	r := newPageRig(t, "pl.u-9", d)
+	r.api.collab["pl.u-9"] = services.PlaylistCollaboration{
+		Collaborative: true,
+		OwnerID:       "sp.1",
+		Collaborators: []services.SocialProfile{
+			{ID: "sp.1", Name: "Ada", Handle: "lovelace"},
+			{ID: "sp.2", Name: "Bo", Handle: "bobo"},
+		},
+		Viewer: services.RoleListener,
+		AddedBy: []services.TrackAddedBy{
+			{SongID: "ca", ProfileID: "sp.1"}, // Charlie
+			{SongID: "cb", ProfileID: "sp.2"}, // alpha
+		},
+	}
+	r.shows("Added By", "Charlie")
+	if got := findPlaceholder(r.tt.HasText("Added By")); got != "Find in playlist or by who added" {
+		t.Errorf("collaborative placeholder %q", got)
+	}
+	if got := findPlaceholder(false); got != "Find in playlist" {
+		t.Errorf("plain placeholder %q", got)
+	}
+	songNames := []string{"Charlie", "alpha", "Bravo", "Échelle"}
+	r.click("Added By")
+	r.tt.Settle()
+	if got := r.order(songNames...); !slices.Equal(got, []string{"Charlie", "alpha", "Bravo", "Échelle"}) {
+		t.Errorf("ascending, Ada before Bo, the unattributed last: %v", got)
+	}
+	r.click("Added By")
+	r.tt.Settle()
+	if got := r.order(songNames...); !slices.Equal(got, []string{"alpha", "Charlie", "Bravo", "Échelle"}) {
+		t.Errorf("descending, Bo before Ada, the unattributed still last: %v", got)
+	}
+	r.find("lovelace")
+	r.tt.Settle()
+	if got := r.order(songNames...); !slices.Equal(got, []string{"Charlie"}) {
+		t.Errorf("the adder's handle finds the song: %v", got)
+	}
+}
+
+func TestViewOrderAddedBy(t *testing.T) {
+	songs := viewSongs()
+	ada := &services.SocialProfile{Name: "Ada", Handle: "lovelace"}
+	bo := &services.SocialProfile{Name: "Bo", Handle: "bobo"}
+	by := []*services.SocialProfile{bo, nil, ada, nil}
+	for _, tc := range []struct {
+		name  string
+		by    []*services.SocialProfile
+		desc  bool
+		query string
+		want  []int
+	}{
+		{"ascending, none last", by, false, "", []int{2, 0, 1, 3}},
+		{"descending, none still last", by, true, "", []int{0, 2, 1, 3}},
+		{"no adders is the playlist's order", nil, false, "", []int{0, 1, 2, 3}},
+		{"the query matches the name", by, false, "ada", []int{2}},
+		{"the query matches the handle", by, false, "BOBO", []int{0}},
+		{"adders are not found when there are none", nil, false, "ada", []int{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := viewOrder(songs, tc.by, kit.SortAddedBy, tc.desc, tc.query)
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 
