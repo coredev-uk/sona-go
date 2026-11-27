@@ -1,6 +1,7 @@
 package playlist
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 
@@ -121,6 +122,17 @@ func buildTree(tree services.PlaylistTree, hidden map[string]bool) []*treeNode {
 					return -1
 				}
 				return 1
+			}
+			// The user's own order of playlists (Apple has no call that sets
+			// it) comes first; the rest follow in Apple's.
+			if a.Item != nil {
+				oa, ob := a.Item.Order, b.Item.Order
+				if (oa > 0) != (ob > 0) {
+					return cmp.Compare(ob, oa)
+				}
+				if d := oa - ob; d != 0 {
+					return d
+				}
 			}
 			if d := a.position() - b.position(); d != 0 {
 				return d

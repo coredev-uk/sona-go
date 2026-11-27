@@ -333,7 +333,7 @@ func (s *PlaylistsService) Tree(ctx context.Context) (PlaylistTree, error) {
 	}
 	for i, r := range rows {
 		out.Playlists[i] = TreePlaylist{
-			Playlist: s.m.libPlaylist(r.Playlist), FolderID: r.FolderID, Position: r.Position,
+			Playlist: s.m.libPlaylist(r.Playlist), FolderID: r.FolderID, Position: r.Position, Order: r.Order,
 			CanDelete: r.CanDelete, Favorited: r.Favorited, Collaborative: r.Collaborative, Host: r.Host,
 		}
 	}
@@ -672,6 +672,22 @@ func (s *PlaylistsService) MoveToFolder(ctx context.Context, id, folderID string
 		return err
 	}
 	s.noteMove(id, folderID)
+	s.changed(PlaylistsChanged{IDs: []string{id}, Tree: true})
+	return nil
+}
+
+// ReorderPlaylist places library playlist id just before playlist beforeID
+// of its folder ("" places it last). Apple's web API has no call that sets
+// a playlist's place among its siblings (checked in the web player's
+// bundle), so the order is Sona's own: kept in SQLite, not synced, and
+// Apple's order is the default for playlists never placed.
+func (s *PlaylistsService) ReorderPlaylist(ctx context.Context, id, beforeID string) error {
+	if err := requireLibraryPlaylist(id); err != nil {
+		return err
+	}
+	if err := s.e.Library.ReorderPlaylist(ctx, id, beforeID); err != nil {
+		return err
+	}
 	s.changed(PlaylistsChanged{IDs: []string{id}, Tree: true})
 	return nil
 }

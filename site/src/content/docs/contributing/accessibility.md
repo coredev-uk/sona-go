@@ -266,6 +266,7 @@ How Sona uses each state:
 | Reorder the queue | Alt+↑ / Alt+↓ on a focused queue row, or "Play next" and "Move to end" in its menu |
 | Reorder a playlist in the editor | Alt+↑ / Alt+↓ on a focused row, announced |
 | Reorder pins in the sidebar | "Move up" in the pin's menu |
+| Move or reorder a playlist in the sidebar, or move it into a folder | Alt+↑ / Alt+↓ on a focused playlist row, or "Move up", "Move down" and "Move to folder…" in its menu; the new place is announced |
 
 - On a queue row Delete removes and Enter plays. The row's menu opens with Shift+F10 or the Menu key.
 - Each queue move is announced with the song's new place. Only the user's songs move, and they stay before the station's or AutoPlay's songs.

@@ -602,20 +602,9 @@ func (p *playlists) moveDialog(c *ui.Context) {
 	settled := tree.HasData || tree.Err != nil
 	move := func(folderID, folder string) {
 		d.open = false
-		if folderID == s.folderID {
-			return
+		if folderID != s.folderID {
+			p.moveTo(s.id, s.name, folderID, folder)
 		}
-		p.run(i18n.T("Couldn't move “{name}”", "name", s.name),
-			func(ctx context.Context) error { return p.api.MoveToFolder(ctx, s.id, folderID) },
-			func(ok bool) {
-				switch {
-				case !ok:
-				case folderID == "":
-					kit.ShowToast(kit.ToastSpec{Title: i18n.T("Moved “{name}” to the top level", "name", s.name)})
-				default:
-					kit.ShowToast(kit.ToastSpec{Title: i18n.T("Moved “{name}” to “{folder}”", "name", s.name, "folder", folder)})
-				}
-			})
 	}
 	p.picker(c, 384, i18n.T("Move to Folder"), s.name, func() {
 		d.nav.Count = 1 + len(folders)

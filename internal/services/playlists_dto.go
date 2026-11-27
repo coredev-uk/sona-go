@@ -120,11 +120,15 @@ type PlaylistFolder struct {
 
 // TreePlaylist is a library playlist placed in the tree.
 type TreePlaylist struct {
-	Playlist  Playlist `json:"playlist"`
-	FolderID  string   `json:"folderId"`
-	Position  int      `json:"position"`
-	CanDelete bool     `json:"canDelete"`
-	Favorited bool     `json:"favorited"`
+	Playlist Playlist `json:"playlist"`
+	FolderID string   `json:"folderId"`
+	Position int      `json:"position"`
+	// Order is the place, counting from 1, the user gave the playlist among
+	// its folder's playlists (Sona's own order: Apple has no call that sets
+	// it); 0 when they gave none, and Position says.
+	Order     int  `json:"order"`
+	CanDelete bool `json:"canDelete"`
+	Favorited bool `json:"favorited"`
 	// Collaborative: the playlist is collaborative, whether the user
 	// started it (Host) or joined it. A joined one is not editable.
 	Collaborative bool `json:"collaborative"`

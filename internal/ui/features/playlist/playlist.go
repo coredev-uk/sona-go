@@ -48,6 +48,7 @@ type playlistsAPI interface {
 	MoveTrack(ctx context.Context, id string, from, to int, trackID string) (services.PlaylistDetail, error)
 	RemoveTracks(ctx context.Context, id string, positions []int, trackIDs []string) (services.PlaylistDetail, error)
 	MoveToFolder(ctx context.Context, id, folderID string) error
+	ReorderPlaylist(ctx context.Context, id, beforeID string) error
 	CreateFolder(ctx context.Context, name string) (services.PlaylistFolder, error)
 	RenameFolder(ctx context.Context, id, name string) error
 	DeleteFolder(ctx context.Context, id string) error

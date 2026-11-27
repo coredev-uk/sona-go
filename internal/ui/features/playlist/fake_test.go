@@ -56,6 +56,9 @@ type fakeAPI struct {
 	// gate, when set, blocks Add/MoveTrack/RemoveTracks until it is closed
 	// (to keep an edit in flight).
 	gate chan struct{}
+	// changed, when set, runs after a move or a reorder changed the tree, as
+	// the service's PlaylistsChanged event would.
+	changed func()
 }
 
 func newFakeAPI() *fakeAPI {
@@ -337,7 +340,87 @@ func (f *fakeAPI) RemoveTracks(_ context.Context, id string, positions []int, tr
 
 func (f *fakeAPI) MoveToFolder(_ context.Context, id, folderID string) error {
 	f.note("MoveToFolder %s %q", id, folderID)
-	return f.err
+	if f.err != nil {
+		return f.err
+	}
+	f.edit(func(pls []services.TreePlaylist) {
+		last := -1
+		for _, tp := range pls {
+			if tp.FolderID == folderID {
+				last = max(last, tp.Position)
+			}
+		}
+		for i := range pls {
+			if pls[i].Playlist.ID == id {
+				pls[i].FolderID, pls[i].Position, pls[i].Order = folderID, last+1, 0
+			}
+		}
+	})
+	return nil
+}
+
+// ReorderPlaylist places the playlist as the service does: every playlist of
+// its folder gets an order, the user's own first, then Apple's.
+func (f *fakeAPI) ReorderPlaylist(_ context.Context, id, beforeID string) error {
+	f.note("ReorderPlaylist %s %q", id, beforeID)
+	if f.err != nil {
+		return f.err
+	}
+	f.edit(func(pls []services.TreePlaylist) {
+		var folder string
+		for _, tp := range pls {
+			if tp.Playlist.ID == id {
+				folder = tp.FolderID
+			}
+		}
+		var siblings []*services.TreePlaylist
+		for i := range pls {
+			if pls[i].FolderID == folder {
+				siblings = append(siblings, &pls[i])
+			}
+		}
+		slices.SortStableFunc(siblings, func(a, b *services.TreePlaylist) int {
+			if (a.Order > 0) != (b.Order > 0) {
+				return b.Order - a.Order
+			}
+			if a.Order != b.Order {
+				return a.Order - b.Order
+			}
+			return a.Position - b.Position
+		})
+		var order []*services.TreePlaylist
+		var moved *services.TreePlaylist
+		for _, s := range siblings {
+			if s.Playlist.ID == id {
+				moved = s
+			} else {
+				order = append(order, s)
+			}
+		}
+		at := len(order)
+		if i := slices.IndexFunc(order, func(s *services.TreePlaylist) bool { return s.Playlist.ID == beforeID }); beforeID != "" && i >= 0 {
+			at = i
+		}
+		order = slices.Insert(order, at, moved)
+		for i, s := range order {
+			s.Order = i + 1
+		}
+	})
+	return nil
+}
+
+// edit changes a copy of the tree's playlists (the sidebar keeps what it
+// derived until the slice is another one) and tells the sidebar.
+func (f *fakeAPI) edit(change func([]services.TreePlaylist)) {
+	f.mu.Lock()
+	pls := slices.Clone(f.tree.Playlists)
+	change(pls)
+	f.tree.Playlists = pls
+	changed := f.changed
+	f.mu.Unlock()
+	if changed != nil {
+		changed()
+	}
 }
 
 func (f *fakeAPI) CreateFolder(_ context.Context, name string) (services.PlaylistFolder, error) {
