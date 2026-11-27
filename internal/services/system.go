@@ -69,13 +69,14 @@ func (s *SystemService) Settings() config.Settings { return s.o.Settings.Get() }
 // idle timeout on the next start. The volume is the
 // player's (the player bar, MPRIS, `sona volume`; PlaybackService saves
 // it), so the saved one is kept whatever next carries: a page holding an
-// older copy of the settings can't turn the music back up or down.
+// older copy of the settings can't turn the music back up or down. The
+// What's New version seen is the updates service's, kept the same way.
 func (s *SystemService) UpdateSettings(next config.Settings) (config.Settings, error) {
 	prev := s.o.Settings.Get()
 	saved, err := s.o.updateSettings(func(st *config.Settings) {
-		volume := st.Volume
+		volume, seen := st.Volume, st.Updates.WhatsNewSeen
 		*st = next
-		st.Volume = volume
+		st.Volume, st.Updates.WhatsNewSeen = volume, seen
 	})
 	if err != nil {
 		return prev, err

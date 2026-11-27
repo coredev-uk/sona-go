@@ -1,5 +1,7 @@
 package store
 
+import "github.com/coredev-uk/sona-go/internal/services"
+
 // The first-run setup's steps, in order. A step name is what OpenSetup takes
 // and Surfaces.SetupStep returns; an unknown one means SetupWelcome.
 const (
@@ -22,10 +24,25 @@ const (
 // Main thread only: it is read while a view builds and written by what the
 // user did (a click, a shortcut), never from a goroutine.
 type Surfaces struct {
-	account bool
-	setup   bool
-	step    string
-	notes   bool
+	account  bool
+	setup    bool
+	step     string
+	notes    bool
+	whatsNew services.WhatsNew
+}
+
+// OpenWhatsNew shows the What's New dialog with w's release notes (the
+// version just installed; Settings → General → Updates opens the running
+// version's again). It replaces one that is open.
+func (s *Surfaces) OpenWhatsNew(w services.WhatsNew) { s.whatsNew = w }
+
+// CloseWhatsNew hides the What's New dialog.
+func (s *Surfaces) CloseWhatsNew() { s.whatsNew = services.WhatsNew{} }
+
+// WhatsNew is the notes the What's New dialog shows, with ok false while it is
+// closed.
+func (s *Surfaces) WhatsNew() (w services.WhatsNew, ok bool) {
+	return s.whatsNew, s.whatsNew.Version != ""
 }
 
 // NewSurfaces is a Surfaces with all of them closed.

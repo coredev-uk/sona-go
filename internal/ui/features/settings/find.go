@@ -164,6 +164,14 @@ func settingIndex(shortcuts []module.BoundShortcut) []settingEntry {
 		},
 		{ID: "updates-check", Section: secGeneral, Group: updates, Title: i18n.T("Check for updates when Sona starts")},
 		{
+			ID: "updates-whatsnew", Section: secGeneral, Group: updates, Title: i18n.T("Show what's new after an update"),
+			Keywords: i18n.T("release notes, changelog"),
+		},
+		{
+			ID: "updates-notes", Section: secGeneral, Group: updates, Title: i18n.T("Release notes"),
+			Keywords: i18n.T("what's new, changelog, changes"),
+		},
+		{
 			ID: "updates-prereleases", Section: secGeneral, Group: updates, Title: i18n.T("Test versions"),
 			Keywords: i18n.T("beta, release candidate, prerelease"), When: selfUpdating,
 		},

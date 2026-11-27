@@ -1683,6 +1683,10 @@ msgstr "Couldn't load the new releases"
 msgid "Couldn't load the playlist"
 msgstr "Couldn't load the playlist"
 
+#: internal/ui/features/settings/updates.go
+msgid "Couldn't load the release notes"
+msgstr "Couldn't load the release notes"
+
 #: internal/ui/features/discover/charts.go
 msgid "Couldn't load the top songs"
 msgstr "Couldn't load the top songs"
@@ -5089,6 +5093,10 @@ msgstr "Opens in your browser"
 msgid "Opens on {page}"
 msgstr "Opens on {page}"
 
+#: internal/ui/features/settings/updates.go
+msgid "Opens the release notes the first time Sona starts after an update. Asks GitHub for them once the window has opened."
+msgstr "Opens the release notes the first time Sona starts after an update. Asks GitHub for them once the window has opened."
+
 #: internal/ui/features/settings/summaries.go
 msgid "Opens where you left off"
 msgstr "Opens where you left off"
@@ -5947,6 +5955,8 @@ msgstr "Release"
 msgid "Release date"
 msgstr "Release date"
 
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/updates.go
 #: internal/ui/kit/release_notes.go
 msgid "Release notes"
 msgstr "Release notes"
@@ -6510,6 +6520,7 @@ msgid "Shortcuts"
 msgstr "Shortcuts"
 
 #: internal/ui/features/settings/bugreport.go
+#: internal/ui/features/settings/updates.go
 msgid "Show"
 msgstr "Show"
 
@@ -6638,6 +6649,11 @@ msgstr "Show the mini player"
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Show video"
 msgstr "Show video"
+
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/updates.go
+msgid "Show what's new after an update"
+msgstr "Show what's new after an update"
 
 #: internal/ui/app/app.go
 msgid "Showing lyrics"
@@ -8146,6 +8162,10 @@ msgstr "This station isn't naming what it is playing."
 msgid "This stream isn't offered with Widevine, the only protection Sona can play."
 msgstr "This stream isn't offered with Widevine, the only protection Sona can play."
 
+#: internal/ui/features/settings/updates.go
+msgid "This version has no release notes"
+msgstr "This version has no release notes"
+
 #: internal/ui/features/concerts/page.go
 #: internal/ui/features/newreleases/page.go
 msgid "This week"
@@ -8660,6 +8680,10 @@ msgstr "What Whole Songs Need"
 #: internal/ui/features/inspect/panel.go
 msgid "What an add-on gets"
 msgstr "What an add-on gets"
+
+#: internal/ui/features/settings/updates.go
+msgid "What changed in the version of Sona you are running."
+msgstr "What changed in the version of Sona you are running."
 
 #: internal/ui/features/settings/addons.go
 msgid "What it adds to Sona's menus, palette or settings isn't valid."
@@ -9314,6 +9338,10 @@ msgstr "quieter"
 msgid "random"
 msgstr "random"
 
+#: internal/ui/features/settings/find.go
+msgid "release notes, changelog"
+msgstr "release notes, changelog"
+
 #: internal/ui/features/player/shortcuts.go
 msgid "resume stop"
 msgstr "resume stop"
@@ -9385,6 +9413,10 @@ msgstr "up next"
 #: internal/ui/features/settings/find.go
 msgid "video, animated covers"
 msgstr "video, animated covers"
+
+#: internal/ui/features/settings/find.go
+msgid "what's new, changelog, changes"
+msgstr "what's new, changelog, changes"
 
 #: internal/ui/features/settings/find.go
 msgid "window buttons, decorations"

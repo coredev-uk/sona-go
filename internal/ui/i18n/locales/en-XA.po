@@ -1683,6 +1683,10 @@ msgstr ""
 msgid "Couldn't load the playlist"
 msgstr ""
 
+#: internal/ui/features/settings/updates.go
+msgid "Couldn't load the release notes"
+msgstr ""
+
 #: internal/ui/features/discover/charts.go
 msgid "Couldn't load the top songs"
 msgstr ""
@@ -5089,6 +5093,10 @@ msgstr ""
 msgid "Opens on {page}"
 msgstr ""
 
+#: internal/ui/features/settings/updates.go
+msgid "Opens the release notes the first time Sona starts after an update. Asks GitHub for them once the window has opened."
+msgstr ""
+
 #: internal/ui/features/settings/summaries.go
 msgid "Opens where you left off"
 msgstr ""
@@ -5947,6 +5955,8 @@ msgstr ""
 msgid "Release date"
 msgstr ""
 
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/updates.go
 #: internal/ui/kit/release_notes.go
 msgid "Release notes"
 msgstr ""
@@ -6510,6 +6520,7 @@ msgid "Shortcuts"
 msgstr ""
 
 #: internal/ui/features/settings/bugreport.go
+#: internal/ui/features/settings/updates.go
 msgid "Show"
 msgstr ""
 
@@ -6637,6 +6648,11 @@ msgstr ""
 #: internal/ui/features/player/bar.go
 #: internal/ui/features/player/nowplaying_view.go
 msgid "Show video"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+#: internal/ui/features/settings/updates.go
+msgid "Show what's new after an update"
 msgstr ""
 
 #: internal/ui/app/app.go
@@ -8146,6 +8162,10 @@ msgstr ""
 msgid "This stream isn't offered with Widevine, the only protection Sona can play."
 msgstr ""
 
+#: internal/ui/features/settings/updates.go
+msgid "This version has no release notes"
+msgstr ""
+
 #: internal/ui/features/concerts/page.go
 #: internal/ui/features/newreleases/page.go
 msgid "This week"
@@ -8659,6 +8679,10 @@ msgstr ""
 
 #: internal/ui/features/inspect/panel.go
 msgid "What an add-on gets"
+msgstr ""
+
+#: internal/ui/features/settings/updates.go
+msgid "What changed in the version of Sona you are running."
 msgstr ""
 
 #: internal/ui/features/settings/addons.go
@@ -9314,6 +9338,10 @@ msgstr ""
 msgid "random"
 msgstr ""
 
+#: internal/ui/features/settings/find.go
+msgid "release notes, changelog"
+msgstr ""
+
 #: internal/ui/features/player/shortcuts.go
 msgid "resume stop"
 msgstr ""
@@ -9384,6 +9412,10 @@ msgstr ""
 
 #: internal/ui/features/settings/find.go
 msgid "video, animated covers"
+msgstr ""
+
+#: internal/ui/features/settings/find.go
+msgid "what's new, changelog, changes"
 msgstr ""
 
 #: internal/ui/features/settings/find.go
