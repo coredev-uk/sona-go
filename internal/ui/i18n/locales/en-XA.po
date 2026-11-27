@@ -4272,6 +4272,10 @@ msgstr ""
 msgid "New folder…"
 msgstr ""
 
+#: internal/ui/features/newreleases/newreleases.go
+msgid "New from Artists You Love"
+msgstr ""
+
 #. Command in the command palette, the shortcut help and the File menu: opens the form that makes a playlist.
 #: internal/ui/features/playlist/dialogs.go
 #: internal/ui/features/playlist/drops.go
@@ -4290,12 +4294,6 @@ msgstr ""
 
 #: internal/ui/features/playlist/addmenu.go
 msgid "New playlist…"
-msgstr ""
-
-#: internal/ui/features/newreleases/newreleases.go
-#: internal/ui/features/newreleases/page.go
-#: internal/ui/features/newreleases/row.go
-msgid "New releases"
 msgstr ""
 
 #: internal/ui/features/notifications/panel.go
@@ -4966,7 +4964,7 @@ msgid "On this page"
 msgstr ""
 
 #: internal/ui/features/settings/releases.go
-msgid "Once a day Sona looks at the artists you've favourited and lists their new albums, EPs and singles under New releases in the sidebar. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
+msgid "Once a day Sona looks at the artists you've favourited and shows their new albums, EPs and singles on For You. Turning it on lists nothing that is out already, only what comes out afterwards. Sona only reads Apple Music's catalogue: nothing counts as a play."
 msgstr ""
 
 #. Notice at the top of the playlist cover picker: the chosen cover is kept on this computer only; Apple Music and the user's other devices do not get it.
@@ -5994,7 +5992,7 @@ msgid "Remove"
 msgstr ""
 
 #: internal/ui/features/newreleases/newreleases.go
-msgid "Remove from New releases"
+msgid "Remove from list"
 msgstr ""
 
 #: internal/ui/features/playlist/actions.go
@@ -7193,7 +7191,7 @@ msgid "Sona loads the CDM only inside its sandbox, which keeps it off the networ
 msgstr ""
 
 #: internal/ui/features/newreleases/page.go
-msgid "Sona looks about once a day. When an artist you've favourited puts something out, it shows up here."
+msgid "Sona looks about once a day. When an artist you've favourited puts something out, it shows up here and on For You."
 msgstr ""
 
 #: internal/ui/i18n/errors.go
@@ -8015,7 +8013,7 @@ msgid "They open in {app} now."
 msgstr ""
 
 #: internal/ui/features/notifications/panel.go
-msgid "They're in New Releases."
+msgid "They're on For You."
 msgstr ""
 
 #: internal/ui/i18n/errors.go
@@ -8357,7 +8355,7 @@ msgid "Turn on {name}?"
 msgstr ""
 
 #: internal/ui/features/newreleases/page.go
-msgid "Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here."
+msgid "Turn on “Track new releases from favourite artists” in Settings, and the new albums, EPs and singles of the artists you favourite will be listed here and on For You."
 msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
@@ -9832,10 +9830,6 @@ msgstr ""
 
 #: internal/ui/features/playlist/collaborators.go
 msgid "{others, plural, one {{lead} & # other} other {{lead} & # others}}"
-msgstr ""
-
-#: internal/ui/app/view.go
-msgid "{page}, {count} new"
 msgstr ""
 
 #: internal/ui/features/settings/connections.go

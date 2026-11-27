@@ -5,8 +5,9 @@ package services
 // sign-out empties the list.
 const EventArtistReleasesChanged = "artisttracker:changed"
 
-// OpenNewReleases is the OpenTarget.Kind of Sona's own New releases page
-// (no ID): what the click on a summary notification opens.
+// OpenNewReleases is the OpenTarget.Kind of Sona's own page of the artist
+// tracker's releases, New from Artists You Love (no ID): what the click on a
+// summary notification opens.
 const OpenNewReleases = "new-releases"
 
 // Release kinds of a NewRelease.

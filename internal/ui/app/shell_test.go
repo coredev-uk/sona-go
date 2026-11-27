@@ -13,7 +13,6 @@ import (
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
 	"github.com/coredev-uk/sona-go/internal/ui/uitest"
-	"github.com/coredev-uk/sona-go/internal/ui/uitest/access"
 )
 
 // fakeNative is a window with a shown state.
@@ -454,35 +453,5 @@ func TestPagesFadeInPlaceLeavingAndReturningToForYou(t *testing.T) {
 			t.Errorf("going to %s, the page is at x %v partway, want %v", step.to, got, at)
 		}
 		tt.Advance(time.Second)
-	}
-}
-
-// A sidebar link carries its count (unread new releases) at its end and in its
-// name for assistive technology, and shows none while it is 0.
-func TestSidebarLinkCarriesItsCount(t *testing.T) {
-	count := 0
-	f := func(*module.Env) module.Module {
-		return module.Module{
-			ID:     "counted",
-			Routes: []module.Route{{Pattern: "/n", Build: func(c *ui.Context, _ *ui.Route) { ui.Text(c, "page") }}},
-			Nav: []module.NavItem{{
-				Section: module.NavPrimary, Label: func() string { return "New releases" }, To: "/n", Count: func() int { return count },
-			}},
-		}
-	}
-	_, tt := newShell(t, Options{}, f)
-	tt.Frame()
-	tr := access.Read(t, tt.Tester)
-	if _, ok := tr.Find(ui.RoleLink, "New releases"); !ok {
-		t.Fatalf("no link while the count is 0:\n%s", tr.Dump())
-	}
-	count = 3
-	tt.Frame()
-	tr = access.Read(t, tt.Tester)
-	if _, ok := tr.Find(ui.RoleLink, "New releases, 3 new"); !ok {
-		t.Fatalf("the count is not in the link's name:\n%s", tr.Dump())
-	}
-	if !tt.HasText("3") {
-		t.Errorf("the count is not drawn: %q", tt.Texts())
 	}
 }

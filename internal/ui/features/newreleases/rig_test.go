@@ -101,9 +101,21 @@ type rig struct {
 // window. Album pages are registered so that a row opens one.
 func newRig(t *testing.T, list services.NewReleases, on bool, w, h int, opts ...uitest.Option) *rig {
 	t.Helper()
+	return buildRig(t, path, list, on, w, h, opts...)
+}
+
+// newShelfRig is For You's shelf over a list, standing where the page's
+// route is not: its "See all" opens the page in the same window.
+func newShelfRig(t *testing.T, list services.NewReleases, on bool, w, h int, opts ...uitest.Option) *rig {
+	t.Helper()
+	return buildRig(t, "/", list, on, w, h, opts...)
+}
+
+func buildRig(t *testing.T, start string, list services.NewReleases, on bool, w, h int, opts ...uitest.Option) *rig {
+	t.Helper()
 	hn := uitest.New(t, opts...)
 	hn.Env.HasRoute = func(p string) bool { return p != "" }
-	r := &rig{t: t, h: hn, api: &fakeAPI{}, router: ui.NewRouter(path)}
+	r := &rig{t: t, h: hn, api: &fakeAPI{}, router: ui.NewRouter(start)}
 	hn.Env.Nav = r.router
 	r.n = newNewReleases(hn.Env, r.api)
 	r.n.now = func() time.Time { return now }
@@ -119,7 +131,13 @@ func newRig(t *testing.T, list services.NewReleases, on bool, w, h int, opts ...
 			r.router.View(c, func(rt *ui.Route) {
 				if rt.Match(path) {
 					r.n.releasesPage(c, rt)
+					return
 				}
+				ui.Column(c).Padding(24).Children(func() {
+					r.n.forYouShelf(c, func(title string, more func(), body func()) {
+						kit.Shelf(c, kit.ShelfOpts{Title: title, More: more, First: true}, body)
+					})
+				})
 			})
 			kit.Toaster(c)
 		})

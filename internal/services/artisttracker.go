@@ -67,10 +67,11 @@ const (
 
 // ArtistTrackerService is the opt-in artist tracker (config.ArtistTracker,
 // off until Settings → General turns it on): Sona watches the artists the
-// user has favourited and lists, in the New releases page, the releases that
-// come out afterwards. It uses the release reminders' pieces: an upcoming
-// release carries the album "Remind me" action, and the optional desktop
-// notification is shown by the same notifier, a click opening the release (or
+// user has favourited and lists, on For You (a shelf, and the page behind its
+// "See all"), the releases that come out afterwards. It uses the release
+// reminders' pieces: an upcoming release carries the album "Remind me"
+// action, and the optional desktop notification is shown by the same
+// notifier, a click opening the release (or
 // the list, for a summary).
 //
 // There is no Apple call that lists favourite artists (/v1/me/ratings/artists

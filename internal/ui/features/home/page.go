@@ -26,6 +26,7 @@ func (h *home) homePage(c *ui.Context, _ *ui.Route) {
 		// The refresh mutation belongs to the page's mount, as useMutation's.
 		ui.Local(root, "mount", func() struct{} {
 			h.refreshErr = nil
+			h.releases = shelfUndecided
 			return struct{}{}
 		})
 		root.Children(func() { h.homeBody(c) })
@@ -95,10 +96,12 @@ func (h *home) homeBody(c *ui.Context) {
 		} else {
 			kit.QueryError(c, h.env.Queries, i18n.T("Couldn't load your recommendations"), res, keyHome)
 		}
+		h.newReleases(c)
 		h.localShelves(c, true, ctx)
 	case plan.lead == nil && len(plan.open) == 0 && len(plan.index) == 0:
 		header()
 		refreshError()
+		h.newReleases(c)
 		h.localShelves(c, true, ctx)
 	default:
 		var lead *services.Item
@@ -112,6 +115,7 @@ func (h *home) homeBody(c *ui.Context) {
 				h.homeLead(c, *plan.lead, ctx)
 			}
 		})
+		h.newReleases(c)
 		for i := range plan.open {
 			h.homeSection(c, plan.open[i], ctx)
 		}

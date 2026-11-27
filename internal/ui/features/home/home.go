@@ -76,6 +76,9 @@ type home struct {
 	index    map[string]*indexLine
 	local    localState
 	titles   map[string]string // shelf titles seen, for the window title
+	// releases is the artist tracker's shelf for this visit to the page
+	// (releasesShelf).
+	releases releasesShelf
 }
 
 // New is the home module.
