@@ -1360,11 +1360,15 @@ Eight pages under the sidebar's Library section, the sync mirror and its sidebar
 
 #### Lists
 
-- Albums (`?sort=dateAdded|title|artist|releaseDate&desc=&type=albums|singles`), Songs (`?sort=title|artist|album|dateAdded&desc=`) and Playlists (`?sort=dateAdded|lastModified|title&desc=`) take their order from the URL. `listSpec.parse` drops what it does not know and `Router.Replace` writes it. Recently added and Favourite songs have no order.
-- Each reads pages of 200 through `usePaged` (`store.Use` per page, key `["library",kind,sort,desc,page,type?]`, never stale until invalidated). The first page is always read; the others only for the rows the grid or list reports built (`OnRange`) and their neighbours. So the list has its full length from the first page and the scroll bar is stable.
+- Albums (`?sort=dateAdded|title|artist|releaseDate&desc=&type=albums|singles`), Songs (`?sort=title|artist|album|dateAdded&desc=&q=`) and Playlists (`?sort=dateAdded|lastModified|title&desc=`) take their order from the URL. `listSpec.parse` drops what it does not know and `Router.Replace` writes it. Recently added and Favourite songs have no order.
+- Each reads pages of 200 through `usePaged` (`store.Use` per page, key `["library",kind,sort,desc,page,type?|find?]`, never stale until invalidated). The first page is always read; the others only for the rows the grid or list reports built (`OnRange`) and their neighbours. So the list has its full length from the first page and the scroll bar is stable.
 - Albums, Playlists and Recently added are a `kit.CoverGrid`; Songs and Favourite songs are a `kit.TrackList`. Both are built in the page's one scroll container (`scrollPage`, which hands the kit its `Pane`). Selection, keyboard navigation, menus and drag are the kit's.
 - A tile or row links to a page only when `env.HasRoute` says it exists.
-- Songs play through `PlaybackService.PlayLibrary(sort, desc, start)`, the others through the queue commands.
+- Songs play through `PlaybackService.PlayLibrary(sort, desc, query, start)`, the others through the queue commands.
+- **Songs find.** The Songs header has a `kit.SearchField` ("Find in your songs", in a search landmark) before the Sort select. The words are `?q=` (`listQuery.find`, kept as typed; `listSpec.find` turns it on), so Back, Forward, a link and a restore keep them. Typing writes the URL with `Router.Replace` (one history entry whatever the keystrokes); `syncFind` copies the URL into the field only when the URL changed by something other than the field's own write (`songsPage.sent`).
+  - Go answers it: `ListOptions.Query` keeps the songs whose id the `search_fts` index finds for `matchExpr(query)` (a prefix of every word in the name, artist or album, as Search), in the page's own order and paging. `LibraryService.Songs` takes the query and its Total counts the matches (`Library.SongCount`). `PlayLibrary` takes the same query, so Play, Shuffle and a row play the songs found. A query with no letter or digit lists every song (`listQuery.filtering`).
+  - While it filters, the count reads "N of M songs", Play and Shuffle are named "Play the N songs found" and "Shuffle the N songs found", the result is announced, and the letter rail is not built. A result of nothing is not the empty library: a calm "No songs match “…”" with Clear search as its one action (`filteredNone`, past the gate).
+  - Escape in the field and its clear button empty it. **No Ctrl+F on the page**: the global `search.focus` (`/`, `Ctrl+F`) keeps it, as on the playlist page (see "Sort and find"); the field is a click or Tab away.
 
 #### The gate
 

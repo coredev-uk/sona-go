@@ -75,6 +75,8 @@ const maxPage = 1000
 // ListOptions pages and orders a list. Limit 0 means 100; it is capped at
 // 1000. Type applies to albums only.
 type ListOptions struct {
+	// Query keeps the songs the search index finds for it (Songs only).
+	Query  string    `json:"query"`
 	Sort   Sort      `json:"sort"`
 	Desc   bool      `json:"desc"`
 	Type   AlbumType `json:"type"`
@@ -288,10 +290,44 @@ func (l *Library) Songs(ctx context.Context, o ListOptions) ([]Song, error) {
 	}
 	limit, offset := o.page()
 	today := l.today()
+	where, args := songFilter(o.Query)
 	return query(ctx, l, `SELECT `+trackColumns(today)+` FROM tracks t
 		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id`+withAlbum+`
-		WHERE `+out(today)+`
-		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanSong, limit, offset)
+		WHERE `+out(today)+where+`
+		ORDER BY `+order+` LIMIT ? OFFSET ?`, scanSong, append(args, limit, offset)...)
+}
+
+// songFilter is the WHERE clause (to follow the out() one) and arguments that
+// keep the songs found by term in the search index: the words of term, each
+// a prefix of one in the name, artist or album (Search's rule). A term with
+// no words keeps every song.
+func songFilter(term string) (string, []any) {
+	match := matchExpr(term)
+	if match == "" {
+		return "", nil
+	}
+	return ` AND t.library_id IN (SELECT ref FROM search_fts WHERE kind = 'song' AND search_fts MATCH ?)`, []any{match}
+}
+
+// SongCount is the number of library songs that are out and found by term
+// (all of them when term has no words): Songs' total.
+func (l *Library) SongCount(ctx context.Context, term string) (int, error) {
+	where, args := songFilter(term)
+	if where == "" {
+		c, err := l.Counts(ctx)
+		return c.Songs, err
+	}
+	today := l.today()
+	n, err := query(ctx, l, `SELECT count(*) FROM tracks t
+		JOIN library_items li ON li.kind = 'song' AND li.ref = t.id`+withAlbum+`
+		WHERE `+out(today)+where, func(sc scanner) (int, error) {
+		var n int
+		return n, sc.Scan(&n)
+	}, args...)
+	if err != nil || len(n) == 0 {
+		return 0, err
+	}
+	return n[0], nil
 }
 
 // AllSongs is Songs for every row from o.Offset on, collected page by page.

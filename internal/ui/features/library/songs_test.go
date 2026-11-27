@@ -24,11 +24,15 @@ type songsRecorder struct {
 	asks []string
 }
 
-func (r *songsRecorder) Songs(ctx context.Context, sort string, desc bool, off, lim int) (services.SongPage, error) {
+func (r *songsRecorder) Songs(ctx context.Context, sort string, desc bool, query string, off, lim int) (services.SongPage, error) {
 	r.mu.Lock()
-	r.asks = append(r.asks, fmt.Sprintf("%s desc=%v offset=%d", sort, desc, off))
+	ask := fmt.Sprintf("%s desc=%v offset=%d", sort, desc, off)
+	if query != "" {
+		ask += " query=" + query
+	}
+	r.asks = append(r.asks, ask)
 	r.mu.Unlock()
-	return r.libraryAPI.Songs(ctx, sort, desc, off, lim)
+	return r.libraryAPI.Songs(ctx, sort, desc, query, off, lim)
 }
 
 func (r *songsRecorder) asked() []string {
@@ -45,11 +49,11 @@ type songsFailing struct {
 
 var errSongsRead = errors.New("read failed")
 
-func (f *songsFailing) Songs(ctx context.Context, sort string, desc bool, off, lim int) (services.SongPage, error) {
+func (f *songsFailing) Songs(ctx context.Context, sort string, desc bool, query string, off, lim int) (services.SongPage, error) {
 	if f.fail.Load() {
 		return services.SongPage{}, errSongsRead
 	}
-	return f.libraryAPI.Songs(ctx, sort, desc, off, lim)
+	return f.libraryAPI.Songs(ctx, sort, desc, query, off, lim)
 }
 
 func (f *songsFailing) FavoriteSongs(ctx context.Context, off, lim int) (services.SongPage, error) {
@@ -67,7 +71,7 @@ type songsSynth struct {
 	asks  []int
 }
 
-func (s *songsSynth) Songs(_ context.Context, _ string, _ bool, off, lim int) (services.SongPage, error) {
+func (s *songsSynth) Songs(_ context.Context, _ string, _ bool, _ string, off, lim int) (services.SongPage, error) {
 	s.mu.Lock()
 	s.asks = append(s.asks, off)
 	s.mu.Unlock()
@@ -400,4 +404,109 @@ func TestSongsFollowASync(t *testing.T) {
 	s.total.Store(4)
 	r.h.Env.Bus.Emit(services.EventSyncProgress, services.SyncProgress{Domain: "songs", Done: 4, Total: 4, Finished: true})
 	r.tt.Until("four songs", r.tt.Shows("4 songs"))
+}
+
+func TestSongsFindFromTheURLNarrowsTheListAndHidesTheRail(t *testing.T) {
+	var rec *songsRecorder
+	r := newSongsRig(t, songsPath+"?q=blue", func(l *library) {
+		rec = &songsRecorder{libraryAPI: l.lib}
+		l.lib = rec
+	})
+	r.tt.Until("the matches", r.tt.Shows("2 of 14 songs", "Blue Hour song 2"))
+	if got, want := songsOrder(r), []string{"Blue Hour song 1", "Blue Hour song 2"}; !slices.Equal(got, want) {
+		t.Errorf("songs shown %q, want %q", got, want)
+	}
+	if asks := rec.asked(); len(asks) == 0 || asks[0] != "title desc=false offset=0 query=blue" {
+		t.Errorf("first query %q", asks)
+	}
+	if _, ok := r.tt.Find("Jump to B"); ok {
+		t.Error("the letter rail shows while the list is found")
+	}
+	if !r.tt.HasText("Play the 2 songs found") {
+		t.Errorf("Play does not name the songs found: %q", r.tt.Texts())
+	}
+}
+
+func TestSongsFindMatchesTheArtistAndKeepsTheSort(t *testing.T) {
+	r := newSongsRig(t, songsPath+"?q=mia&sort=album&desc=true", nil)
+	r.tt.Until("the matches", r.tt.Shows("2 of 14 songs"))
+	if got, want := songsOrder(r), []string{"Zebra Crossing song 1", "Zebra Crossing song 2"}; !slices.Equal(got, want) {
+		t.Errorf("songs shown %q, want %q", got, want)
+	}
+	if err := r.tt.Click("Sort"); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.tt.Click("Title"); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.router.Location(); !strings.Contains(got, "q=mia") || !strings.Contains(got, "sort=title") {
+		t.Errorf("changing the sort left the URL %q", got)
+	}
+}
+
+func TestSongsTypingInTheFieldWritesTheURLAndEscapeClearsIt(t *testing.T) {
+	r := newSongsRig(t, songsPath, nil)
+	r.tt.Until("the songs", r.tt.Shows("14 songs"))
+	if _, ok := r.tt.Find("Jump to B"); !ok {
+		t.Fatal("the letter rail is missing before any find")
+	}
+	if err := r.tt.Click("Find in your songs"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Type("blue h")
+	r.tt.Until("the matches", r.tt.Shows("2 of 14 songs"))
+	if got := r.router.Location(); !strings.Contains(got, "q=blue+h") {
+		t.Fatalf("typing left the URL %q", got)
+	}
+	r.tt.Key(0, ui.KeyEscape)
+	r.tt.Until("every song", r.tt.Shows("14 songs"))
+	if got := r.router.Location(); strings.Contains(got, "q=") {
+		t.Errorf("Escape left the URL %q", got)
+	}
+}
+
+func TestSongsFindPlaysTheMatches(t *testing.T) {
+	r := newSongsRig(t, songsPath+"?q=blue", nil)
+	r.tt.Until("the matches", r.tt.Shows("2 of 14 songs"))
+	if err := r.tt.Click("Play the 2 songs found"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the engine to play", func() bool { return len(songsPlayed(r)) > 0 })
+	// Blue Hour is album 4: its first song, not the library's first.
+	if got := songsPlayed(r)[0]; got != "10040" {
+		t.Errorf("played %v, want Blue Hour song 1 (10040)", got)
+	}
+}
+
+func TestSongsFindWithNoMatchesSaysSoAndClears(t *testing.T) {
+	r := newSongsRig(t, songsPath+"?q=qqzz", nil)
+	r.tt.Until("the empty result", r.tt.Shows("No songs match “qqzz”", "Clear search"))
+	if r.tt.HasText("No songs in your library yet") {
+		t.Error("a find with no match says the library is empty")
+	}
+	if _, ok := r.tt.Find("Jump to B"); ok {
+		t.Error("the letter rail shows with no matches")
+	}
+	// The header's Play is off: nothing to play.
+	if err := r.tt.Click("Clear search"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("every song", r.tt.Shows("14 songs"))
+	if got := r.router.Location(); strings.Contains(got, "q=") {
+		t.Errorf("Clear search left the URL %q", got)
+	}
+}
+
+func TestSongsFindFollowsBackAndForward(t *testing.T) {
+	r := newSongsRig(t, songsPath, nil)
+	r.tt.Until("the songs", r.tt.Shows("14 songs"))
+	r.router.Push(songsPath + "?q=blue")
+	r.tt.Until("the matches", r.tt.Shows("2 of 14 songs"))
+	r.router.Back()
+	r.tt.Until("every song", r.tt.Shows("14 songs"))
+	r.router.Forward()
+	r.tt.Until("the matches again", r.tt.Shows("2 of 14 songs"))
+	if !r.tt.HasText("Find in your songs") {
+		t.Error("the find field is missing")
+	}
 }

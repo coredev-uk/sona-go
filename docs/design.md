@@ -382,7 +382,7 @@ Unless a cell says otherwise: Shift+Enter does what Enter does or nothing, Space
 | Albums, Playlists, Recently added grids | album, playlist | opens | opens | opens | disc, on hover and focus | yes |
 | Videos grid | music video | opens | opens | opens | disc where the platform plays videos | yes where the platform plays videos (none otherwise) |
 | Artists master list | artist | chooses it: the detail beside it changes and `?artist=` follows | same | same, Enter or Shift+Enter moves the focus to the detail | none on the row; the detail has Play and Shuffle | n/a |
-| Songs page head | | "Play your songs" plays from the first song, "Shuffle" shuffles | | | | |
+| Songs page head | | "Play your songs" plays from the first song, "Shuffle" shuffles; while the find filters they play the songs found | | | | |
 
 ### Search
 
@@ -695,9 +695,10 @@ What happened without the person asking, and what is going on that they may need
 - **A–Z letter rail.** Albums (ordered by Title or Artist), Songs (Title, Artist or Album) and Artists (unfiltered) carry a static column of letters at the page's right edge, outside the scroll container, 24px wide.
   - The rail is A to Z and `#`: the letters that start something are buttons in `--ink-muted` 12/600, the others are in `--control-line`. A letter jumps to the first item of that letter, scrolled to the top of the list.
   - It is one toolbar ("Jump to letter") and one Tab stop, Up and Down moving among the letters that can be jumped to. Each button is named "Jump to A".
-  - It shows only for an ascending order, since the library sorts bytewise and a descending list has no useful first item. The page keeps the rail's place (the list is 8px narrower than it would be) whether or not it shows, so controls and tiles never move when the sort changes.
+  - It shows only for an ascending order, since the library sorts bytewise and a descending list has no useful first item, and not while the Songs find is filtering. The page keeps the rail's place (the list is 8px narrower than it would be) whether or not it shows, so controls and tiles never move when the sort changes.
   - A list longer than one page of 200 finds its letters by bisection over single-row reads on a worker (a few hundred, once per sort until a sync), and shows every letter faint until they are known.
-- **List controls** sit on the header's right. The album list has a segmented control for what it shows (All, Albums, Singles & EPs; `Segmented`, the same control as the search scope, 32px tall in a `--hover` track, the chosen one raised) before the Sort select.
+- **List controls** sit on the header's right. The Songs list has a find field (a `kit.SearchField`, 220 wide, "Find in your songs") before the Sort select: its words live in the URL (`?q=`), narrow the list through the library's search index with the sort and paging kept, and rename Play and Shuffle for the songs found. While it filters the letter rail is hidden, the count reads "N of M songs", and a result of nothing says "No songs match …" with Clear search as its action. Escape clears it.
+  - The album list has a segmented control for what it shows (All, Albums, Singles & EPs; `Segmented`, the same control as the search scope, 32px tall in a `--hover` track, the chosen one raised) before the Sort select.
   - The choice lives in the URL (`?type=`) beside the sort and keeps its lifetime: Back and Forward return to it, and a reload keeps it.
   - A type with no albums keeps the page and says so, with Show all albums as its one action, rather than the empty-library text.
 

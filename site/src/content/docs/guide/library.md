@@ -10,7 +10,7 @@ Sona shows your Apple Music library under Library in the sidebar. It keeps a cop
 The Library section lists these pages:
 
 - **Recently added**: the newest items in your library.
-- **Songs**, **Albums** and **Artists**: everything you added, with sort and filter controls at the top of each page.
+- **Songs**, **Albums** and **Artists**: everything you added, with sort and filter controls at the top of each page. On Songs, the find field narrows the list to songs whose title, artist or album start with every word you type; Play and Shuffle then play the songs found, and Escape clears the field. Your words stay when you open a song's album or artist and come back.
 - **Playlists**: your playlists and folders. The sidebar lists them too.
 - **Favourite songs**: every song you've favourited, newest first. Apple Music's own Favourite Songs playlist isn't listed anywhere else in Sona, and a link or pin to it opens this page.
 - **Music videos**. Sona copies your music videos too, so the page lists them with no connection; playing one needs a connection.

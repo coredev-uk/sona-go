@@ -159,10 +159,10 @@ func TestPlayLibrarySkipsUnreleasedSongs(t *testing.T) {
 
 	// The list leaves the songs not out yet out (B and E): A, C, D and F are
 	// rows 0 to 3, and every row starts the same queue.
-	if err := s.PlayLibrary(ctx, "title", false, 4); CodeOf(err) != CodeInvalidArgument {
+	if err := s.PlayLibrary(ctx, "title", false, "", 4); CodeOf(err) != CodeInvalidArgument {
 		t.Fatalf("start 4 of the 4 songs out: %v, want invalid_argument", err)
 	}
-	if err := s.PlayLibrary(ctx, "title", false, 1); err != nil {
+	if err := s.PlayLibrary(ctx, "title", false, "", 1); err != nil {
 		t.Fatal(err)
 	}
 	var ids []string
