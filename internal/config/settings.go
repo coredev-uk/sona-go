@@ -121,6 +121,8 @@ type Settings struct {
 	// development build offers Inspect whatever it says. Every value is
 	// valid, so there is nothing to normalise.
 	DeveloperTools bool `json:"developerTools"`
+	// Home is the For You page's own choices (home.go).
+	Home Home `json:"home"`
 }
 
 // Scrobbling holds the non-secret part of the scrobbler connections.
@@ -173,6 +175,7 @@ func Defaults() Settings {
 		Crossfade:         Crossfade{Seconds: defaultCrossfadeSeconds},
 		TitleBar:          TitleBar{Style: TitleBarAuto},
 		Lyrics:            defaultLyrics(),
+		Home:              Home{Greeting: true},
 	}
 }
 

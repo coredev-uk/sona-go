@@ -589,6 +589,7 @@ Home ("For You") answers one question first: what shall I play now. It is set li
 ```
 
 - **The page's head** is one line of the lead band: "For You" at 24/650, when Home was picked (13 muted, on the title's baseline) and the ghost Refresh at the far end. Under it the first section's ruled head.
+- **The greeting** is a line of 13 muted text above "For You": "Good morning" from 05:00, "Good afternoon" from 12:00, "Good evening" from 18:00 to 05:00, by the clock on this computer, with no name. It is decoration: "For You" stays the page's level-1 heading and its window title. Settings → General → "Greeting on For You" turns it off.
 - **Ruled heads**: every section of Home (`rule.go`) is its heading at 16/600, a 1px hairline (ink at 14%, so it reads on the ground and on a cover's wash) that runs to the right edge, and the section's controls on the line's end: "See all" to the section's own page, or "Show all N" / "Show fewer" in place. Sections sit 48px apart, so the page keeps a rhythm of rule, content, space.
 - **The lead**: the first "feature" shelf (Top Picks).
   - **Its first pick is large**: the cover at 280px as the left column (360px from 1400px of lead width; a 144px cover beside the name when the page is under 900px wide), then the name at 24/650, the artist or curator at 16/500, the catalogue line (`Station · Made for You`: what it is, then Apple's reason) and the amber play disc with the item's menu.

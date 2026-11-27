@@ -121,19 +121,23 @@ func (h *home) homeBody(c *ui.Context) {
 	}
 }
 
-// pageHead is the page's header as one line of the band: the title, when
-// Home was picked on the same baseline, and Refresh at the far end.
+// pageHead is the page's header: the greeting when it is on, then one line
+// of the band: the title, when Home was picked on the same baseline, and
+// Refresh at the far end.
 func (h *home) pageHead(c *ui.Context, subline string, actions func()) {
-	ui.Row(c.Key("page-head")).FillWidth().MinHeight(32).AlignItems(ui.Center).Gap(24).Margin(0, 0, 28, 0).Shrink(0).Children(func() {
-		ui.Row(c.Key("words")).Grow(1).Basis(0).MinWidth(0).AlignItems(ui.Baseline).Gap(14).Children(func() {
-			theme.Text(c, i18n.T("For You"), "page").TextColor(theme.C("ink")).SingleLine().Shrink(0).Role(ui.RoleHeading).Level(1)
-			if subline != "" {
-				theme.Text(c, subline, "sub").TextColor(theme.C("ink-muted")).SingleLine().Shrink(1).MinWidth(0)
+	ui.Column(c.Key("page-head")).FillWidth().Margin(0, 0, 28, 0).Shrink(0).Children(func() {
+		h.greeting(c)
+		ui.Row(c.Key("line")).FillWidth().MinHeight(32).AlignItems(ui.Center).Gap(24).Shrink(0).Children(func() {
+			ui.Row(c.Key("words")).Grow(1).Basis(0).MinWidth(0).AlignItems(ui.Baseline).Gap(14).Children(func() {
+				theme.Text(c, i18n.T("For You"), "page").TextColor(theme.C("ink")).SingleLine().Shrink(0).Role(ui.RoleHeading).Level(1)
+				if subline != "" {
+					theme.Text(c, subline, "sub").TextColor(theme.C("ink-muted")).SingleLine().Shrink(1).MinWidth(0)
+				}
+			})
+			if actions != nil {
+				ui.Row(c.Key("actions")).Shrink(0).Gap(8).AlignItems(ui.Center).Children(actions)
 			}
 		})
-		if actions != nil {
-			ui.Row(c.Key("actions")).Shrink(0).Gap(8).AlignItems(ui.Center).Children(actions)
-		}
 	})
 }
 

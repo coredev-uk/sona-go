@@ -3050,6 +3050,18 @@ msgstr ""
 msgid "Gold"
 msgstr ""
 
+#: internal/ui/features/home/greeting.go
+msgid "Good afternoon"
+msgstr ""
+
+#: internal/ui/features/home/greeting.go
+msgid "Good evening"
+msgstr ""
+
+#: internal/ui/features/home/greeting.go
+msgid "Good morning"
+msgstr ""
+
 #: internal/ui/i18n/cdm.go
 msgid "Google doesn't make Widevine for this computer, so songs can't play here."
 msgstr ""
@@ -3077,6 +3089,10 @@ msgstr ""
 
 #: internal/ui/features/settings/themes.go
 msgid "Graphite"
+msgstr ""
+
+#: internal/ui/features/settings/general.go
+msgid "Greeting on For You"
 msgstr ""
 
 #: internal/ui/features/settings/motiondiag.go
@@ -6248,6 +6264,10 @@ msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
 msgid "Saving…"
+msgstr ""
+
+#: internal/ui/features/settings/general.go
+msgid "Says good morning, good afternoon or good evening above the heading, by the time on this computer."
 msgstr ""
 
 #: internal/ui/features/radio/station.go
