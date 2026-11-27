@@ -969,3 +969,36 @@ func TestGreetingRowIsOnByDefaultAndSaves(t *testing.T) {
 	g.toggle("home-greeting")
 	g.until("greeting on", func() bool { return g.saved().Home.Greeting })
 }
+
+func TestUseMyNameRowIsOnByDefaultSavesAndNeedsTheGreeting(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	g.tt.Until("rows", g.tt.Shows("Use my name"))
+	if !g.saved().Home.UseName {
+		t.Fatal("Use my name is off by default")
+	}
+	g.toggle("home-use-name")
+	g.until("name off", func() bool { return !g.saved().Home.UseName })
+	if !g.saved().Home.Greeting {
+		t.Error("turning the name off turned the greeting off")
+	}
+	g.toggle("home-use-name")
+	g.until("name on", func() bool { return g.saved().Home.UseName })
+
+	// With the greeting off the row has nothing to do: it is dimmed, and
+	// keeps its value for when the greeting comes back.
+	g.toggle("home-greeting")
+	g.until("greeting off", func() bool { return !g.saved().Home.Greeting })
+	g.until("the row disabled", func() bool {
+		n, ok := access.Read(t, g.tt.Tester).Find(ui.RoleSwitch, "Use my name")
+		return ok && n.Has(access.Disabled)
+	})
+	if !g.saved().Home.UseName {
+		t.Error("the greeting off changed Use my name")
+	}
+	g.toggle("home-greeting")
+	g.until("greeting on", func() bool { return g.saved().Home.Greeting })
+	g.until("the row enabled", func() bool {
+		n, ok := access.Read(t, g.tt.Tester).Find(ui.RoleSwitch, "Use my name")
+		return ok && !n.Has(access.Disabled)
+	})
+}

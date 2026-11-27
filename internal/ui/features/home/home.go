@@ -45,6 +45,12 @@ type libraryAPI interface {
 	Playlists(ctx context.Context, sort string, desc bool, offset, limit int) (services.PlaylistPage, error)
 }
 
+// profileAPI is what the greeting asks of ProfileService: the first name
+// from SQLite, never a request.
+type profileAPI interface {
+	GreetingName(ctx context.Context) (services.GreetingName, error)
+}
+
 // Query keys, as v0.2.0's discoverKeys and shared/lib/keys.ts.
 var (
 	keyHome = store.Key{"discover", "home"}
@@ -53,6 +59,9 @@ var (
 	keyRecentLocal = store.Key{"library", "recent", "local"}
 	keyAdded       = store.Key{"library", "albums", "dateAdded", true, -1}
 	keyPlaylists   = store.LibraryPlaylists("lastModified", true, -1)
+	// keyGreetingName is the first name ProfileService keeps; its event
+	// writes it, so it is read from SQLite once and on a change of account.
+	keyGreetingName = store.Key{"profile", "greeting-name"}
 )
 
 func keyHomeShelf(id string) store.Key { return store.Key{"discover", "home-shelf", id} }
@@ -62,6 +71,7 @@ type home struct {
 	env  *module.Env
 	disc discoverAPI
 	lib  libraryAPI
+	prof profileAPI
 
 	// refreshing and refreshErr are the Refresh button's mutation
 	// (useMutation's isPending and error).
@@ -85,7 +95,8 @@ type home struct {
 func New(env *module.Env) module.Module {
 	h := newHome(env,
 		services.Service[services.DiscoverService](env.Core),
-		services.Service[services.LibraryService](env.Core))
+		services.Service[services.LibraryService](env.Core),
+		services.Service[services.ProfileService](env.Core))
 	return module.Module{
 		ID: "home",
 		Routes: []module.Route{
@@ -104,21 +115,23 @@ func New(env *module.Env) module.Module {
 	}
 }
 
-func newHome(env *module.Env, disc discoverAPI, lib libraryAPI) *home {
+func newHome(env *module.Env, disc discoverAPI, lib libraryAPI, prof profileAPI) *home {
 	return &home{
-		env: env, disc: disc, lib: lib,
+		env: env, disc: disc, lib: lib, prof: prof,
 		titles: map[string]string{},
 	}
 }
 
 // init follows v0.2.0's eventHandlers: a renewed Home replaces the cached
-// page without a refetch, and a change of account drops every discover
-// query.
+// page without a refetch, a change of account drops every discover query and
+// has the greeting's name read again, and a changed profile name replaces it.
 func (h *home) init() {
 	q := h.env.Queries
 	store.On(h.env.Bus, services.EventHome, func(p services.HomePage) { store.Set(q, keyHome, p) })
+	store.On(h.env.Bus, services.EventProfileChanged, func(g services.GreetingName) { store.Set(q, keyGreetingName, g) })
 	store.On(h.env.Bus, services.EventAuthChanged, func(services.AuthStatus) {
 		q.Invalidate(store.KeyDiscover)
+		q.Invalidate(keyGreetingName)
 	})
 }
 
