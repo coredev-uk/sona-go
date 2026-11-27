@@ -66,7 +66,7 @@ func TestNetworkOutsideTheFixturesFailsFast(t *testing.T) {
 
 	t.Run("update check", func(t *testing.T) {
 		_, err := services.Service[services.UpdatesService](h.Core).Check(t.Context())
-		assertOffline(t, err, "api.github.com")
+		assertOffline(t, err, "github.com/coredev-uk/sona-go/releases/latest/download/release.json")
 	})
 	t.Run("client", func(t *testing.T) {
 		_, err := h.Network.Client().Get("https://example.com/path")
@@ -88,9 +88,11 @@ func assertOffline(t *testing.T, err error, want string) {
 }
 
 // The Network serves what the test registers, in process, and the fixture's
-// covers.
+// covers. The release here predates release.json (a 404 on github.com), so
+// the check falls back to the API, as it does for v0.8.0-rc.4 and older.
 func TestNetworkServesFixtureHosts(t *testing.T) {
 	h := New(t, Version("1.0.0"))
+	h.Network.ServeHandler("github.com", http.NotFoundHandler())
 	h.Network.ServeHandler("api.github.com", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/repos/coredev-uk/sona-go/releases/latest" {
 			http.NotFound(w, r)
