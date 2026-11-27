@@ -48,8 +48,10 @@ type UpdateStatus struct {
 	// UpdatesNotWritable ("" when SelfUpdate, on Linux, or for a
 	// development build). Linux updates through the package manager.
 	Disabled string `json:"disabled"`
-	// Notes are Latest's release notes (Markdown) when the manifest has
-	// them.
+	// Notes are Latest's release notes (Markdown): the signed update
+	// manifest's where Sona updates itself, else the body of the GitHub
+	// release the check reads, without the install instructions. "" when the
+	// release has none. The UI shows them in a dialog (kit.ReleaseNotes).
 	Notes string `json:"notes"`
 	// Installing, Downloaded and Total are the install under way: Total is
 	// the archive's size in bytes.

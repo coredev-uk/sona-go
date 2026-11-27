@@ -1162,6 +1162,7 @@ msgstr ""
 #: internal/ui/features/commands/help.go
 #: internal/ui/kit/overlays_dialog.go
 #: internal/ui/kit/overlays_palette.go
+#: internal/ui/kit/release_notes.go
 msgid "Close"
 msgstr ""
 
@@ -1802,6 +1803,7 @@ msgstr ""
 
 #: internal/ui/features/addons/addons.go
 #: internal/ui/features/inspect/panel.go
+#: internal/ui/features/updates/notes.go
 msgid "Couldn't open the link"
 msgstr ""
 
@@ -3277,6 +3279,7 @@ msgid "Install GStreamer 1.x with the base and good plugins."
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 msgid "Install and restart"
 msgstr ""
@@ -5930,6 +5933,10 @@ msgstr ""
 msgid "Release date"
 msgstr ""
 
+#: internal/ui/kit/release_notes.go
+msgid "Release notes"
+msgstr ""
+
 #: internal/ui/features/newreleases/page.go
 msgid "Release tracking is off"
 msgstr ""
@@ -5937,6 +5944,10 @@ msgstr ""
 #: internal/ui/features/album/model.go
 #: internal/ui/features/song/page.go
 msgid "Released"
+msgstr ""
+
+#: internal/ui/kit/release_notes.go
+msgid "Released {date}"
 msgstr ""
 
 #: internal/ui/features/video/page.go
@@ -8089,6 +8100,10 @@ msgstr ""
 msgid "This playlist isn't available"
 msgstr ""
 
+#: internal/ui/kit/release_notes.go
+msgid "This release has no notes. The release page may say more."
+msgstr ""
+
 #: internal/ui/account/signin.go
 msgid "This sign-in was cancelled"
 msgstr ""
@@ -8262,6 +8277,7 @@ msgstr ""
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 #: internal/ui/features/video/view.go
 #: internal/ui/kit/controls_states.go
@@ -8545,6 +8561,7 @@ msgid "View playlist collaborators"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 msgid "View release"
 msgstr ""
@@ -8640,6 +8657,15 @@ msgstr ""
 
 #: internal/ui/features/onboarding/layer.go
 msgid "What you've chosen so far is kept. Settings → General runs the setup again."
+msgstr ""
+
+#: internal/ui/kit/release_notes.go
+msgid "What's New in Sona {version}"
+msgstr ""
+
+#: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
+msgid "What's new"
 msgstr ""
 
 #: internal/ui/features/onboarding/desktop.go

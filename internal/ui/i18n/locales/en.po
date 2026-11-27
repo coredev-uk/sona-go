@@ -1162,6 +1162,7 @@ msgstr "Clearing…"
 #: internal/ui/features/commands/help.go
 #: internal/ui/kit/overlays_dialog.go
 #: internal/ui/kit/overlays_palette.go
+#: internal/ui/kit/release_notes.go
 msgid "Close"
 msgstr "Close"
 
@@ -1802,6 +1803,7 @@ msgstr "Couldn't open the inspector"
 
 #: internal/ui/features/addons/addons.go
 #: internal/ui/features/inspect/panel.go
+#: internal/ui/features/updates/notes.go
 msgid "Couldn't open the link"
 msgstr "Couldn't open the link"
 
@@ -3277,6 +3279,7 @@ msgid "Install GStreamer 1.x with the base and good plugins."
 msgstr "Install GStreamer 1.x with the base and good plugins."
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 msgid "Install and restart"
 msgstr "Install and restart"
@@ -5930,6 +5933,10 @@ msgstr "Release"
 msgid "Release date"
 msgstr "Release date"
 
+#: internal/ui/kit/release_notes.go
+msgid "Release notes"
+msgstr "Release notes"
+
 #: internal/ui/features/newreleases/page.go
 msgid "Release tracking is off"
 msgstr "Release tracking is off"
@@ -5938,6 +5945,10 @@ msgstr "Release tracking is off"
 #: internal/ui/features/song/page.go
 msgid "Released"
 msgstr "Released"
+
+#: internal/ui/kit/release_notes.go
+msgid "Released {date}"
+msgstr "Released {date}"
 
 #: internal/ui/features/video/page.go
 msgid "Released {releaseDate}"
@@ -8089,6 +8100,10 @@ msgstr "This playlist is empty"
 msgid "This playlist isn't available"
 msgstr "This playlist isn't available"
 
+#: internal/ui/kit/release_notes.go
+msgid "This release has no notes. The release page may say more."
+msgstr "This release has no notes. The release page may say more."
+
 #: internal/ui/account/signin.go
 msgid "This sign-in was cancelled"
 msgstr "This sign-in was cancelled"
@@ -8262,6 +8277,7 @@ msgstr "Trusted phone number"
 #: internal/ui/features/onboarding/widevine.go
 #: internal/ui/features/playlist/covers.go
 #: internal/ui/features/settings/cdm.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 #: internal/ui/features/video/view.go
 #: internal/ui/kit/controls_states.go
@@ -8545,6 +8561,7 @@ msgid "View playlist collaborators"
 msgstr "View playlist collaborators"
 
 #: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/notes.go
 #: internal/ui/features/updates/updates.go
 msgid "View release"
 msgstr "View release"
@@ -8641,6 +8658,15 @@ msgstr "What plays your music and how it sounds."
 #: internal/ui/features/onboarding/layer.go
 msgid "What you've chosen so far is kept. Settings → General runs the setup again."
 msgstr "What you've chosen so far is kept. Settings → General runs the setup again."
+
+#: internal/ui/kit/release_notes.go
+msgid "What's New in Sona {version}"
+msgstr "What's New in Sona {version}"
+
+#: internal/ui/features/settings/updates.go
+#: internal/ui/features/updates/updates.go
+msgid "What's new"
+msgstr "What's new"
 
 #: internal/ui/features/onboarding/desktop.go
 msgid "When You Close the Window"
