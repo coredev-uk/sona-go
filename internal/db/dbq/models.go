@@ -41,6 +41,21 @@ type Album struct {
 	UpdatedAt          int64
 	IsPrerelease       int64
 	CatalogReleaseDate string
+	CreditsChecked     int64
+}
+
+type AlbumArtist struct {
+	AlbumID         int64
+	ArtistCatalogID string
+	Name            string
+	Position        int64
+}
+
+type AlbumCreditKey struct {
+	AlbumID           int64
+	ArtistKey         string
+	CreditedCatalogID string
+	CreditedName      string
 }
 
 type Artist struct {

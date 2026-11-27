@@ -16,6 +16,8 @@ The Library section lists these pages:
 - **Music videos**. Sona copies your music videos too, so the page lists them with no connection; playing one needs a connection.
 - **History**: songs you played, grouped by day.
 
+On Artists each artist is listed once. A song or an album by several artists ("Ada & Bo") appears under every artist Apple Music credits it to, and counts for each, instead of under an artist named "Ada & Bo". That entry is gone once all its songs and albums are credited to the artists themselves; what Apple Music credits to no artist, such as a compilation by Various Artists, an upload, or a song with no Apple Music copy, stays under the name it has. Sona learns the credits when it syncs, so a new collaboration moves to its artists at the next sync.
+
 Select an item to open it. Right-click it, or press Shift+F10 or the Menu key on a focused row, for its menu: Play next, Play last, Add to playlist, Create station and more.
 
 ## Sync the library

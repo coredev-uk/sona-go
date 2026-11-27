@@ -55,3 +55,13 @@ func AlbumPage(ctx context.Context, c *Client, sf, id string) (Album, error) {
 	}
 	return a, nil
 }
+
+// Albums returns the catalog albums with the given IDs, with their artists
+// named (include=artists): one request per 100 IDs (Apple's limit for albums),
+// four requests at a time, never one per album. An album Apple doesn't serve
+// in the storefront is omitted; the order follows Apple's reply, not ids. A
+// compilation credited to "Various Artists" comes with an empty artists
+// relationship.
+func (c *Client) Albums(ctx context.Context, sf string, ids []string) ([]Album, error) {
+	return catalogByIDs[Album](ctx, c, sf, TypeAlbums, ids)
+}

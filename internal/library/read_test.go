@@ -169,6 +169,12 @@ func TestLargeLibraryListsFast(t *testing.T) {
 			SELECT id, 'k' || (id % 500), 'Credit ' || (id % 500), 0 FROM tracks WHERE id % 4 = 0`,
 		`INSERT INTO track_artists (track_id, artist_catalog_id, name, position)
 			SELECT id, 'cr.' || (id % 7), 'Second', 1 FROM tracks WHERE id % 4 = 0`,
+		// A quarter of the albums too: 75 more credit-only artists, and the
+		// library artists r.0 to r.4 gain the albums credited to them.
+		`INSERT INTO album_artists (album_id, artist_catalog_id, name, position)
+			SELECT id, 'ak' || (id % 300), 'Album credit ' || (id % 300), 0 FROM albums WHERE id % 4 = 0`,
+		`INSERT INTO album_artists (album_id, artist_catalog_id, name, position)
+			SELECT id, 'cr.' || (id % 7), 'Second', 1 FROM albums WHERE id % 4 = 0`,
 	} {
 		if _, err := e.db.W.ExecContext(ctx, q); err != nil {
 			t.Fatal(err)
@@ -220,11 +226,11 @@ func TestLargeLibraryListsFast(t *testing.T) {
 	check("artist index", func() (int, error) {
 		r, err := lib.ArtistIndex(ctx)
 		return len(r), err
-	}, 3132, 1, 3132) // 3005 artists less those whose songs were all credited elsewhere, plus the credit-only ones
+	}, 3207, 1, 3207) // 3005 artists less those whose songs were all credited elsewhere, plus the credit-only ones (500 of songs, 75 of albums)
 	check("artist albums", func() (int, error) {
 		_, r, err := lib.ArtistAlbums(ctx, "r.1")
 		return len(r), err
-	}, 240, 2, 241) // the artist, then their albums
+	}, 275, 2, 276) // the artist, then their albums: 240 of their own and 35 credited to them
 	check("album detail", func() (int, error) {
 		_, r, err := lib.Album(ctx, "l.500")
 		return len(r), err
