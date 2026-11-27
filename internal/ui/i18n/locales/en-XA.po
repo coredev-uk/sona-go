@@ -1676,6 +1676,10 @@ msgstr ""
 msgid "Couldn't load the playlist"
 msgstr ""
 
+#: internal/ui/features/discover/charts.go
+msgid "Couldn't load the top songs"
+msgstr ""
+
 #: internal/ui/features/search/groups.go
 msgid "Couldn't load these results"
 msgstr ""

@@ -256,21 +256,106 @@ func TestChartsFreshnessLineAndNoGenreSelectForOneGenre(t *testing.T) {
 	}
 }
 
-func TestChartsGenreSelectChangesTheGenreInTheURL(t *testing.T) {
-	r, api := newCharts(t, "/charts", chartsFixture())
-	r.tt.Until("the charts", r.tt.Shows("Genre"))
+// genreSongs is what the fake serves as the top songs of a genre: songs
+// numbered from 100, so they tell from the overall chart's.
+func genreSongs(key string, _ int) services.ItemPage {
+	if key != services.ChartSongs {
+		return services.ItemPage{}
+	}
+	return services.ItemPage{Items: songItems(100, 12)}
+}
+
+func pickGenre(t *testing.T, r *rig, name string) {
+	t.Helper()
 	if err := r.tt.Click("Genre"); err != nil {
 		t.Fatal(err)
 	}
 	r.tt.Drain()
-	if err := r.tt.Click("Pop"); err != nil {
+	if err := r.tt.Click(name); err != nil {
 		t.Fatal(err)
 	}
 	r.tt.Drain()
+}
+
+func TestChartsGenreSelectChangesTheGenreInTheURLAndRefetchesOnlyTheTopSongs(t *testing.T) {
+	r, api := newCharts(t, "/charts", chartsFixture())
+	api.chartItem = genreSongs
+	r.tt.Until("the charts", r.tt.Shows("Genre", "Song 0"))
+	pickGenre(t, r, "Pop")
 	if got := r.path(); got != "/charts?genre=14" {
 		t.Errorf("the URL is %q", got)
 	}
-	r.tt.Until("the charts of the genre", func() bool { return api.count("charts?14") == 1 })
+	r.tt.Until("the songs of the genre", r.tt.Shows("Song 100", "Top Albums"))
+	if r.tt.HasText("Song 0") {
+		t.Error("the overall songs stay after the genre's arrive")
+	}
+	if n := api.count("charts?"); n != 1 {
+		t.Errorf("%d charts fetches, want the overview's one", n)
+	}
+	if n := api.count("chart-items/songs/?14@0"); n != 1 {
+		t.Errorf("%d top songs fetches for the genre, want 1", n)
+	}
+	pickGenre(t, r, "All genres")
+	r.tt.Until("the overall songs again", r.tt.Shows("Song 0"))
+	if got := r.path(); got != "/charts" {
+		t.Errorf("the URL is %q", got)
+	}
+	if n := api.count("chart-items/songs/?@0"); n != 0 {
+		t.Errorf("%d top songs fetches for all genres, the overview has them", n)
+	}
+}
+
+func TestChartsGenreChangeKeepsTheShelvesTheScrollAndThePreviousRowsWhileLoading(t *testing.T) {
+	api := &fakeAPI{charts: chartsFixture(), chartItem: genreSongs}
+	r := newRig(t, "/charts", withAPI(api), withSize(1132, 500))
+	r.tt.Until("the charts", r.tt.Shows("Genre", "Song 0"))
+	r.tt.Scroll(5, 300, 0, 40)
+	r.tt.Drain()
+	y := r.d.charts.pg.Pos.Y
+	if y <= 0 {
+		t.Fatalf("the page did not scroll (%v)", y)
+	}
+
+	api.mu.Lock()
+	api.blockItems = make(chan struct{})
+	api.mu.Unlock()
+	pickGenre(t, r, "Pop")
+	r.tt.Drain()
+	if !r.tt.HasText("Song 0") {
+		t.Error("the previous rows went while the genre loads")
+	}
+	if r.tt.HasText("Loading") {
+		t.Error("a loading state while the genre loads over the previous rows")
+	}
+	close(api.blockItems)
+	r.tt.Until("the genre's songs", r.tt.Shows("Song 100"))
+	if got := r.d.charts.pg.Pos.Y; got != y {
+		t.Errorf("the scroll offset went from %v to %v", y, got)
+	}
+	if n := api.count("charts?"); n != 1 {
+		t.Errorf("%d charts fetches, want the overview's one", n)
+	}
+}
+
+func TestChartsGenreInTheURLWithNoRowsYetShowsRowPlaceholders(t *testing.T) {
+	api := &fakeAPI{charts: chartsFixture(), chartItem: genreSongs, blockItems: make(chan struct{})}
+	r := newRig(t, "/charts?genre=14", withAPI(api), withSize(1132, 1253))
+	r.tt.Until("the placeholders", r.tt.Shows("Charts", "Top Songs", "Loading", "Top Albums", "Genre"))
+	close(api.blockItems)
+	r.tt.Until("the songs", r.tt.Shows("Song 100"))
+}
+
+func TestChartsGenreSongsFailureIsInPlaceAndRetries(t *testing.T) {
+	api := &fakeAPI{charts: chartsFixture(), chartItem: genreSongs, itemsErr: applemusic.ErrNotFound}
+	r := newRig(t, "/charts?genre=14", withAPI(api), withSize(1132, 1253))
+	r.tt.Until("the error in place", r.tt.Shows("Couldn't load the top songs", "Top Albums", "Try again"))
+	api.mu.Lock()
+	api.itemsErr = nil
+	api.mu.Unlock()
+	if err := r.tt.Click("Try again"); err != nil {
+		t.Fatal(err)
+	}
+	r.tt.Until("the songs", r.tt.Shows("Song 100", "Top Albums"))
 }
 
 func TestChartsSeeAllOpensTheChartInFull(t *testing.T) {
@@ -283,7 +368,7 @@ func TestChartsSeeAllOpensTheChartInFull(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.tt.Drain()
-	if got := r.path(); got != "/charts/cityCharts?chartId=135&genre=14" {
+	if got := r.path(); got != "/charts/cityCharts?chartId=135" {
 		t.Errorf("See all went to %q", got)
 	}
 

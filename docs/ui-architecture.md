@@ -1841,6 +1841,7 @@ Routes: `/new` (Compass, order 15), `/charts` (order 17), `/room/{id}?sort`, `/c
   It stops under reduced motion.
 - **The contents** are a wrapping row of columns, one per band: its jump button with its shelf count over a jump button for each titled shelf. From a 1100 DIP page a band's heading stands in a 200 DIP margin column beside its shelves.
 - Rooms page their items by 100, charts by 50, as the list scrolls.
+- **Charts' genre** (`/charts?genre=`) filters Top songs only. The overview's query and page body are the overall charts' (`keyCharts("")`), so the shelves stay mounted, painted and where they were scrolled. The Genre select sits in Top songs' heading row, and the URL keeps the genre (Back and a restored route show it). Another genre has its own query (`keyChartSongs`, the first page of the songs chart); while it loads the list keeps the previous rows (row placeholders at their height when there are none yet), and a failure is an in-place error with Try again. "All genres" uses the overview's songs, with no fetch. The shelves' "See all" links are the overall charts; Top songs' carries the genre. The full chart (`/charts/{chart}`) keeps its own Genre select in its masthead.
 - The module registers the players of items (`Env.Players`): a song alone, an album or playlist from its first track, a music video alone, a track shelf as the queue.
 
 #### Radio
