@@ -302,6 +302,7 @@ func (s *LibraryService) Remove(ctx context.Context, r ItemRef) (ItemState, erro
 	// at once; the lists hear of it before Apple answers, and again if Apple
 	// refuses and the item is put back.
 	changed := func() {
+		go s.rearmRelease() // the caller may hold what the read needs
 		if s.o.Emit != nil {
 			s.o.Emit.Emit(EventLibraryChanged, LibraryChanged{})
 		}

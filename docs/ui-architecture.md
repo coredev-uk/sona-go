@@ -779,7 +779,7 @@ Options: `Albums(...)` for a library of your own, `Empty()`, `ServiceClock(now)`
 - `Until(what, cond)`: drains and draws frames until the goroutines delivered, `uitest.HangGuard` (30 s) at most.
 - `Shows(texts...)` (parts of a text, as `HasText`), `ShowsExactly(texts...)` (a whole text or label, what `MustClick` needs), `Drain()`, and `Settle()` (frames until the picture stops changing).
 
-Other helpers: `uitest.Transport` (a recording fake of the playback commands, over `uitest.Recorder`), `uitest.Nav`, `Harness.Play` (a playing song seeded into the mirror), `PreAdded` (a pre-added library album as a sync stores it, for a release test), and the `Session` helpers `MustClick`, `Want`, `Lacks`, `Emit`, `Hover` and `Pump`. The Tester's own `Click` tries every control of the name.
+Other helpers: `uitest.Transport` (a recording fake of the playback commands, over `uitest.Recorder`), `uitest.Nav`, `Harness.Play` (a playing song seeded into the mirror), `PreAdded` (a pre-added library album as a sync stores it, for a release test), `NewPreAddedApple` (a fake Apple library for `uitest.Apple` that lists that album as not out until `Publish`; the Core's syncer reads it, so a test sees the sync the library makes at the release, as the `…ComesOut…` tests of `features/library` and `features/album` do), and the `Session` helpers `MustClick`, `Want`, `Lacks`, `Emit`, `Hover` and `Pump`. The Tester's own `Click` tries every control of the name.
 
 ### `uitest/access`
 
