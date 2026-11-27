@@ -7,7 +7,11 @@
 // installs, UpdateStatus.SelfUpdate) the row offers "Install and restart",
 // with the download's progress from "updates:install" on the row and the
 // bell; elsewhere it links the release page, since updating is the
-// platform's: a package manager or an AppImage's own updater.
+// platform's: a package manager or an AppImage's own updater. When the
+// update has release notes (UpdateStatus.Notes) the row, and Settings →
+// General, also offer "What's new", which opens them in a dialog
+// (store.Surfaces.OpenReleaseNotes; notes.go) with the install or the link
+// to the release page.
 package updates
 
 import (
@@ -30,6 +34,9 @@ type updates struct {
 	// tests replace them.
 	openRelease func() error
 	install     func() error
+	// notes is the release notes dialog, whose links open through
+	// env.OpenURL.
+	notes *kit.ReleaseNotes
 	// said is the row's title last read out ("" while there is no update).
 	said string
 }
@@ -46,13 +53,15 @@ func New(env *module.Env) module.Module {
 }
 
 func newUpdates(env *module.Env, open, install func() error) *updates {
-	return &updates{env: env, openRelease: open, install: install}
+	u := &updates{env: env, openRelease: open, install: install}
+	u.notes = kit.NewReleaseNotes(u.openLink)
+	return u
 }
 
 func (u *updates) module() module.Module {
 	return module.Module{
 		ID:    "updates",
-		Slots: module.Slots{Activity: &module.Activity{Status: u.status, Build: u.row}},
+		Slots: module.Slots{Activity: &module.Activity{Status: u.status, Build: u.row}, Layer: u.dialog}, // dialog only: no LayerOpen, so the layer takes no input itself
 		Init: func() {
 			store.Mirror[services.UpdateStatus](u.env.Bus, u.env.Queries, u.env.Post, store.KeyUpdates, nil, services.EventUpdateAvailable, services.EventUpdateInstall)
 		},
@@ -140,9 +149,17 @@ func (u *updates) row(c *ui.Context) {
 	case st.SelfUpdate:
 		spec.Action, spec.OnAction = i18n.T("Install and restart"), u.installAndRestart
 		spec.Secondary, spec.OnSecondary = i18n.T("View release"), u.view
+		if st.Notes != "" {
+			// The notes' dialog has "View release" too.
+			spec.Secondary, spec.OnSecondary = i18n.T("What's new"), u.env.Surfaces.OpenReleaseNotes
+		}
 	default:
 		spec.Detail = i18n.T("Update it the way you installed Sona.")
 		spec.Action, spec.OnAction = i18n.T("View"), u.view
+		if st.Notes != "" {
+			spec.Action, spec.OnAction = i18n.T("What's new"), u.env.Surfaces.OpenReleaseNotes
+			spec.Secondary, spec.OnSecondary = i18n.T("View release"), u.view
+		}
 	}
 	kit.ActivityRow(c, "updates:row", spec)
 }

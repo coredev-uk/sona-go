@@ -17,7 +17,7 @@ At the top is what is going on now:
 
 - **Library sync**: what Sona is syncing and how far it is. If a sync fails, it says why and offers Try again.
 - **Add-ons**: an add-on waiting for your approval, or one that can't run. Review opens Settings → Add-ons.
-- **A new version of Sona**: Install and restart where Sona updates itself, or a link to the release where your package manager does.
+- **A new version of Sona**: Install and restart where Sona updates itself, or a link to the release where your package manager does. What's new opens the release notes in a window: the changes in that version, with the same Install and restart or View release at the foot. Links in the notes open in your browser, and Tab reaches them.
 - **Widevine**: the first download, or why songs can't play.
 
 Under that is what happened:

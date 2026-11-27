@@ -104,3 +104,19 @@ func TestUpdateDevBuildNeverChecks(t *testing.T) {
 		t.Fatalf("Check = %+v, %v (hits %d)", st, err, hits.Load())
 	}
 }
+
+// Where Sona doesn't update itself (Linux), the notes are the GitHub release's
+// body, the install instructions left off, from the request the check makes
+// anyway.
+func TestUpdateNotesFromTheGitHubRelease(t *testing.T) {
+	s, _, _, _ := updatesEnv(t, "0.1.0", "0.2.0", false)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"tag_name":"v0.2.0","body":"## [0.2.0](https://example.test/compare) (2026-11-27)\n\n### Fixes\n\n- a (#1)\n\n` + update.InstallNotesMarker + `\n## Installing\n"}`))
+	}))
+	t.Cleanup(srv.Close)
+	s.checker = update.Checker{API: srv.URL}
+	st, err := s.Check(context.Background())
+	if err != nil || !st.Available || st.Notes != "### Fixes\n\n- a (#1)" {
+		t.Fatalf("Check = %+v, %v", st, err)
+	}
+}
