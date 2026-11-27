@@ -87,6 +87,8 @@ type fakeAPI struct {
 	roomItems func(offset int) services.ItemPage
 	charts    services.ChartsPage
 	chartItem func(key string, offset int) services.ItemPage
+	// itemsErr fails ChartItems alone.
+	itemsErr error
 }
 
 func (f *fakeAPI) note(call string) error {
@@ -182,6 +184,12 @@ func (f *fakeAPI) ChartItems(_ context.Context, key, chartID, genre string, offs
 		return services.ItemPage{}, err
 	}
 	f.waitItems()
+	f.mu.Lock()
+	err := f.itemsErr
+	f.mu.Unlock()
+	if err != nil {
+		return services.ItemPage{}, err
+	}
 	return f.chartItem(key, offset), nil
 }
 

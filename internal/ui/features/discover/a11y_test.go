@@ -366,7 +366,7 @@ func TestA11yPagesHaveNoControlInsideAnotherAndAWalkInReadingOrder(t *testing.T)
 			},
 			ready:    []string{"Charts", "Top Songs", "Song 9", "Genre"},
 			headings: map[string]int{"Charts": 1, "Top Songs": 2, "Top Albums": 2},
-			stops:    []string{"Genre", "Play Top Songs", "Shuffle", "See all", "Song 0", "See all", "See all", "Album 0"},
+			stops:    []string{"Play Top Songs", "Shuffle", "Genre", "See all", "Song 0", "See all", "See all", "Album 0"},
 		},
 		{
 			name: "a chart in full",

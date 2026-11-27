@@ -11,9 +11,10 @@ import (
 // Query keys (v0.2.0's discoverKeys); every key starts with "discover" so a
 // sign-in change can drop them all (store.KeyDiscover).
 
-func keyPage(kind, id string) store.Key { return store.Key{"discover", "page", kind, id} }
-func keyRoom(id, sort string) store.Key { return store.Key{"discover", "room", id, sort} }
-func keyCharts(genre string) store.Key  { return store.Key{"discover", "charts", genre} }
+func keyPage(kind, id string) store.Key    { return store.Key{"discover", "page", kind, id} }
+func keyRoom(id, sort string) store.Key    { return store.Key{"discover", "room", id, sort} }
+func keyCharts(genre string) store.Key     { return store.Key{"discover", "charts", genre} }
+func keyChartSongs(genre string) store.Key { return store.Key{"discover", "chart-songs", genre} }
 func keyChart(key, chartID, genre string) store.Key {
 	return store.Key{"discover", "chart", key, chartID, genre}
 }
@@ -138,4 +139,12 @@ func (p *pager) ask(pages *itemPages, end, near int) {
 	if pages.hasMore && !pages.fetching && end >= pages.count-near && p.want == len(pages.more) {
 		p.want++
 	}
+}
+
+// topSongsFor is the first page of the top songs for a genre, apart from the
+// overview's query so another genre refetches only these.
+func (d *discover) topSongsFor(genre string) store.Result[services.ItemPage] {
+	return store.Use(d.env.Queries, keyChartSongs(genre), func(ctx context.Context) (services.ItemPage, error) {
+		return d.api.ChartItems(ctx, services.ChartSongs, "", genre, 0)
+	}, store.Options{Stale: editorialStale})
 }
