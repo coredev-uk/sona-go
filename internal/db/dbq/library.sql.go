@@ -191,7 +191,7 @@ func (q *Queries) GetAlbumByLibraryID(ctx context.Context, libraryID sql.NullStr
 }
 
 const getPlaylistByLibraryID = `-- name: GetPlaylistByLibraryID :one
-SELECT id, library_id, catalog_id, name, description, curator_name, artwork_template, can_edit, is_public, last_modified, tracks_modified, track_count, url, updated_at, folder_id, folder_position, can_delete, favorited, is_collaborative, collaborative_host FROM playlists WHERE library_id = ?
+SELECT id, library_id, catalog_id, name, description, curator_name, artwork_template, can_edit, is_public, last_modified, tracks_modified, track_count, url, updated_at, folder_id, folder_position, can_delete, favorited, is_collaborative, collaborative_host, local_folder, local_position FROM playlists WHERE library_id = ?
 `
 
 func (q *Queries) GetPlaylistByLibraryID(ctx context.Context, libraryID sql.NullString) (Playlist, error) {
@@ -218,6 +218,8 @@ func (q *Queries) GetPlaylistByLibraryID(ctx context.Context, libraryID sql.Null
 		&i.Favorited,
 		&i.IsCollaborative,
 		&i.CollaborativeHost,
+		&i.LocalFolder,
+		&i.LocalPosition,
 	)
 	return i, err
 }

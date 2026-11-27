@@ -646,8 +646,11 @@ func (l *Library) AllPlaylist(ctx context.Context, id string) (p Playlist, songs
 // PlacedPlaylist is a library playlist with its place in the folder tree.
 type PlacedPlaylist struct {
 	Playlist
-	FolderID  string // "" for the top level
-	Position  int
+	FolderID string // "" for the top level
+	Position int    // Apple's place among the folder's entries
+	// Order is the place, from 1, the user gave it among the folder's
+	// playlists (ReorderPlaylist); 0 when they gave none.
+	Order     int
 	CanDelete bool
 	Favorited bool
 	// Collaborative and Host: Apple's hasCollaboration and
@@ -684,7 +687,7 @@ func (l *Library) PlaylistTree(ctx context.Context) ([]dbq.PlaylistFolder, []Pla
 	out := make([]PlacedPlaylist, len(rows))
 	for i, r := range rows {
 		out[i] = PlacedPlaylist{
-			Playlist: pls[i], FolderID: r.FolderID, Position: int(r.FolderPosition),
+			Playlist: pls[i], FolderID: r.FolderID, Position: int(r.FolderPosition), Order: int(r.LocalPosition) + 1,
 			CanDelete: r.CanDelete != 0, Favorited: r.Favorited != 0,
 			Collaborative: r.IsCollaborative != 0, Host: r.CollaborativeHost != 0,
 		}

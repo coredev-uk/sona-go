@@ -173,6 +173,7 @@ msgid "Add to the queue"
 msgstr "Add to the queue"
 
 #: internal/ui/features/playlist/drops.go
+#: internal/ui/features/playlist/reorder.go
 msgid "Add to “{name}”"
 msgstr "Add to “{name}”"
 
@@ -372,6 +373,10 @@ msgstr "All your playlists are pinned above."
 #: internal/ui/features/settings/scrobble.go
 msgid "Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."
 msgstr "Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Already in “{folder}”"
+msgstr "Already in “{folder}”"
 
 #: internal/ui/features/settings/updates.go
 msgid "Also offers release candidates and other test versions, so a test build updates to the next one."
@@ -1776,7 +1781,7 @@ msgstr "Couldn't move the pin"
 msgid "Couldn't move the song"
 msgstr "Couldn't move the song"
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
 msgid "Couldn't move “{name}”"
 msgstr "Couldn't move “{name}”"
 
@@ -2459,6 +2464,10 @@ msgstr "Downloading, {percent}"
 #: internal/ui/features/settings/updates.go
 msgid "Downloading…"
 msgstr "Downloading…"
+
+#: internal/ui/features/playlist/sidebar.go
+msgid "Drag a playlist to reorder it or to move it into a folder, or press Alt+↑ and Alt+↓ on it. Its menu also moves it."
+msgstr "Drag a playlist to reorder it or to move it into a folder, or press Alt+↑ and Alt+↓ on it. Its menu also moves it."
 
 #: internal/ui/features/playlist/editor.go
 msgid "Drag the handle, or press Alt+↑ and Alt+↓ on a song, to change the order. Delete removes the focused song."
@@ -4045,6 +4054,18 @@ msgstr "Motion cache"
 msgid "Move"
 msgstr "Move"
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Move after “{name}”"
+msgstr "Move after “{name}”"
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Move before “{name}”"
+msgstr "Move before “{name}”"
+
+#: internal/ui/features/playlist/actions.go
+msgid "Move down"
+msgstr "Move down"
+
 #: internal/ui/features/player/queue_list.go
 #: internal/ui/features/playlist/editor.go
 msgid "Move here"
@@ -4063,6 +4084,15 @@ msgstr "Move to end"
 msgid "Move to folder…"
 msgstr "Move to folder…"
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Move to the top level"
+msgstr "Move to the top level"
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Move to “{folder}”"
+msgstr "Move to “{folder}”"
+
+#: internal/ui/features/playlist/actions.go
 #: internal/ui/features/playlist/sidebar.go
 msgid "Move up"
 msgstr "Move up"
@@ -4079,13 +4109,25 @@ msgstr "Move {name} up"
 msgid "Moved {songName} to position {position} of {count}"
 msgstr "Moved {songName} to position {position} of {count}"
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to position {position} of {count}"
+msgstr "Moved “{name}” to position {position} of {count}"
+
+#: internal/ui/features/playlist/reorder.go
 msgid "Moved “{name}” to the top level"
 msgstr "Moved “{name}” to the top level"
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to the top level, position {position} of {count}"
+msgstr "Moved “{name}” to the top level, position {position} of {count}"
+
+#: internal/ui/features/playlist/reorder.go
 msgid "Moved “{name}” to “{folder}”"
 msgstr "Moved “{name}” to “{folder}”"
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to “{folder}”, position {position} of {count}"
+msgstr "Moved “{name}” to “{folder}”, position {position} of {count}"
 
 #: internal/ui/account/token.go
 msgid "Music User Token"
@@ -7479,6 +7521,10 @@ msgstr "Stations"
 #: internal/ui/features/settings/settingsfile.go
 msgid "Stay awake while playing"
 msgstr "Stay awake while playing"
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Stays where it is"
+msgstr "Stays where it is"
 
 #: internal/ui/kit/controls_badge.go
 msgid "Stereo · Apple has no Spatial Audio mix of this song for Sona"

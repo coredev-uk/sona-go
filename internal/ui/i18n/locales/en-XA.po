@@ -173,6 +173,7 @@ msgid "Add to the queue"
 msgstr ""
 
 #: internal/ui/features/playlist/drops.go
+#: internal/ui/features/playlist/reorder.go
 msgid "Add to “{name}”"
 msgstr ""
 
@@ -371,6 +372,10 @@ msgstr ""
 #: internal/ui/features/onboarding/connections.go
 #: internal/ui/features/settings/scrobble.go
 msgid "Allow Sona on the Last.fm page that opened in your browser. Sona continues by itself."
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Already in “{folder}”"
 msgstr ""
 
 #: internal/ui/features/settings/updates.go
@@ -1776,7 +1781,7 @@ msgstr ""
 msgid "Couldn't move the song"
 msgstr ""
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
 msgid "Couldn't move “{name}”"
 msgstr ""
 
@@ -2458,6 +2463,10 @@ msgstr ""
 #: internal/ui/features/settings/diag_rows.go
 #: internal/ui/features/settings/updates.go
 msgid "Downloading…"
+msgstr ""
+
+#: internal/ui/features/playlist/sidebar.go
+msgid "Drag a playlist to reorder it or to move it into a folder, or press Alt+↑ and Alt+↓ on it. Its menu also moves it."
 msgstr ""
 
 #: internal/ui/features/playlist/editor.go
@@ -4045,6 +4054,18 @@ msgstr ""
 msgid "Move"
 msgstr ""
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Move after “{name}”"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Move before “{name}”"
+msgstr ""
+
+#: internal/ui/features/playlist/actions.go
+msgid "Move down"
+msgstr ""
+
 #: internal/ui/features/player/queue_list.go
 #: internal/ui/features/playlist/editor.go
 msgid "Move here"
@@ -4063,6 +4084,15 @@ msgstr ""
 msgid "Move to folder…"
 msgstr ""
 
+#: internal/ui/features/playlist/reorder.go
+msgid "Move to the top level"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Move to “{folder}”"
+msgstr ""
+
+#: internal/ui/features/playlist/actions.go
 #: internal/ui/features/playlist/sidebar.go
 msgid "Move up"
 msgstr ""
@@ -4079,12 +4109,24 @@ msgstr ""
 msgid "Moved {songName} to position {position} of {count}"
 msgstr ""
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to position {position} of {count}"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
 msgid "Moved “{name}” to the top level"
 msgstr ""
 
-#: internal/ui/features/playlist/dialogs.go
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to the top level, position {position} of {count}"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
 msgid "Moved “{name}” to “{folder}”"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Moved “{name}” to “{folder}”, position {position} of {count}"
 msgstr ""
 
 #: internal/ui/account/token.go
@@ -7478,6 +7520,10 @@ msgstr ""
 #: internal/ui/features/settings/integrations_rows.go
 #: internal/ui/features/settings/settingsfile.go
 msgid "Stay awake while playing"
+msgstr ""
+
+#: internal/ui/features/playlist/reorder.go
+msgid "Stays where it is"
 msgstr ""
 
 #: internal/ui/kit/controls_badge.go

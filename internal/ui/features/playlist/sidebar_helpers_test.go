@@ -64,6 +64,7 @@ func sbSetupWith(t *testing.T, tree services.PlaylistTree, pins []services.Pin, 
 		p.api = wrap(api)
 	}
 	api.tree, api.pins = tree, pins
+	api.changed = func() { h.Bus.Emit(services.EventPlaylistsChanged, services.PlaylistsChanged{Tree: true}) }
 	h.Env.HasRoute = func(string) bool { return true }
 	h.Env.Actions = kit.NewActionRegistry(p.actions()...)
 	h.Env.Actions.SetPoster(h.Main.Post)

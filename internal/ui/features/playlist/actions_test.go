@@ -67,7 +67,7 @@ func TestActionsRegisterByKind(t *testing.T) {
 		{kit.KindSong, []string{"playlists.add-to.song", "playlists.remove-from", "playlists.pin.song"}},
 		{kit.KindAlbum, []string{"playlists.add-to.album", "playlists.pin.album"}},
 		{kit.KindArtist, []string{"playlists.pin.artist"}},
-		{kit.KindPlaylist, []string{"playlists.add-to.playlist", "playlists.pin.playlist", "playlists.edit", "playlists.cover", "playlists.move", "playlists.delete", "playlists.shuffle"}},
+		{kit.KindPlaylist, []string{"playlists.add-to.playlist", "playlists.pin.playlist", "playlists.edit", "playlists.cover", "playlists.move-up", "playlists.move-down", "playlists.move", "playlists.delete", "playlists.shuffle"}},
 	} {
 		got := listIDs(f.r.For(c.kind))
 		slices.Sort(got)
@@ -245,8 +245,9 @@ func TestEditAndMoveOnlyForEditableLibraryPlaylists(t *testing.T) {
 	}
 }
 
-// A playlist the user joined is theirs to leave but not to edit: Apple says
-// it is not editable, so only the actions that do not edit it are offered.
+// A playlist the user joined is theirs to leave and to file in a folder, but
+// not to edit: Apple says it is not editable, so the actions that edit it are
+// not offered. Which folder it is in belongs to the user's library.
 func TestJoinedCollaborativePlaylistOffersOnlyTheCollaboratorsActions(t *testing.T) {
 	f := newActionsFixture(t)
 	joined := libPlaylist("p.joined", false, "pl.u-9")
@@ -254,7 +255,7 @@ func TestJoinedCollaborativePlaylistOffersOnlyTheCollaboratorsActions(t *testing
 		"p.joined": {Playlist: joined.Playlist(), CanDelete: true, Collaborative: true},
 	}})
 	for id, want := range map[string]bool{
-		"playlists.edit": false, "playlists.move": false, "playlists.delete": true, "playlists.cover": true,
+		"playlists.edit": false, "playlists.move": true, "playlists.delete": true, "playlists.cover": true,
 	} {
 		if got := available(f.def(t, id), ctx); got != want {
 			t.Errorf("%s available = %v, want %v", id, got, want)

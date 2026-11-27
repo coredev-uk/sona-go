@@ -59,6 +59,12 @@ type sidebar struct {
 		since time.Time
 	}
 	derived derived
+	// hint is where the pointer of a drag of a sidebar playlist is on the
+	// row under it (dropOnTreeRow).
+	hint dropHint
+	// said is what a move says to a screen reader, announced by the next
+	// frame.
+	said string
 }
 
 // derived is what the sidebar makes of the tree and the pins. Building it
@@ -160,6 +166,10 @@ func (p *playlists) sidebarSection(c *ui.Context) {
 	p.pinsSection(c, pins.Data, d.editable)
 	p.readOnlySection(c, config.SidebarAppleSection, i18n.T("Apple Music"), d.lists.Apple)
 	p.ownSection(c, d.lists.Own, treePending || pinsPending, d.anyEdit)
+	if p.side.said != "" {
+		c.Announce(p.side.said)
+		p.side.said = ""
+	}
 	if am := p.sidebarActions(); am != nil {
 		am.Popup(c)
 	}
@@ -496,22 +506,42 @@ func (p *playlists) pinMenu(pin services.Pin, path string, opens bool, upAfter s
 
 // playlistRow is a library playlist: a link to its page (indented by its
 // folder depth) with its art, the item actions' "more" menu, and a drop
-// target when the user can edit it.
-func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth, pos, size int) {
+// target when the user can edit it. A row of the user's own playlists (own;
+// next is the playlist listed after it, "") can be dragged to move it and
+// takes another sidebar row's drop as a place (dropOnTreeRow); Alt+↑ and
+// Alt+↓ on it move it up and down.
+func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth, pos, size int, own bool, next string) {
 	pl := item.Playlist
 	path := "/playlist/" + pl.ID
 	wrap := ui.Row(c.Key("playlist:"+pl.ID)).FillWidth().Role(ui.RoleListItem).PositionInSet(pos, size)
-	over := p.dropOnPlaylist(wrap, "playlist:"+pl.ID, pl.ID, pl.Name, pl.CanEdit)
+	over, zone := false, zoneOnto
+	if own {
+		over, zone = p.dropOnTreeRow(c, wrap, item, next)
+	} else {
+		over = p.dropOnPlaylist(wrap, "playlist:"+pl.ID, pl.ID, pl.Name, pl.CanEdit)
+	}
 	hot := wrap.Hovered() || wrap.FocusWithin()
 	wrap.Children(func() {
 		active := p.env.Nav != nil && p.env.Nav.Path() == path
-		row := ui.ButtonBase(c.Key("open")).Role(ui.RoleLink).Label(pl.Name).Grow(1).MinWidth(0).
-			Padding(0, 32, 0, rowArtLeft(depth))
-		fg := rowFace(row, hot, active, over)
-		row.Gap(rowArtGap)
-		if active {
-			row.Current(ui.CurrentPage)
+		var fg ui.Color
+		opts := kit.DragOpts{
+			Key: pl.ID, Scope: &p.side, Index: pos - 1, Art: p.env.Art, Row: true, Button: true,
+			Outer: func(w ui.Element) { w.Grow(1).MinWidth(0) },
+			Source: func(s ui.Element) {
+				s.Role(ui.RoleLink).Label(pl.Name).Padding(0, 32, 0, rowArtLeft(depth))
+				fg = rowFace(s, hot, active, over && zone == zoneOnto)
+				s.Gap(rowArtGap)
+				if active {
+					s.Current(ui.CurrentPage)
+				}
+			},
 		}
+		if own {
+			opts.Payload = func() *kit.DragPayload { return p.sidebarPayload(pl, pos-1) }
+		}
+		_, row := kit.DragItem(c, opts, func(_, _ ui.Element) {
+			p.rowContent(c, pl.Art.Small, false, pl.Name, fg, active)
+		})
 		if row.Clicked() {
 			p.env.Nav.Push(path)
 		}
@@ -519,7 +549,14 @@ func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth
 		if row.Focused() && row.Shortcut(ui.Shift, ui.KeyEnter) && p.shuffleReason(pl.TrackCount) == "" {
 			p.playPin(pl.ID, pl.Name, true)
 		}
-		row.Children(func() { p.rowContent(c, pl.Art.Small, false, pl.Name, fg, active) })
+		if own && row.Focused() {
+			switch {
+			case row.Shortcut(ui.Alt, ui.KeyUp):
+				p.nudge(pl.ID, -1)
+			case row.Shortcut(ui.Alt, ui.KeyDown):
+				p.nudge(pl.ID, 1)
+			}
+		}
 
 		p.shuffleButton(c, pl.ID, pl.Name, pl.TrackCount, rowArtLeft(depth), hot)
 		if am := p.sidebarActions(); am != nil {
@@ -530,7 +567,24 @@ func (p *playlists) playlistRow(c *ui.Context, item services.TreePlaylist, depth
 				}, kit.TriggerOpts{Visible: hot})
 			})
 		}
+		if over && zone != zoneOnto {
+			dropLine(c, zone, depth, wrap.Bounds().H)
+		}
 	})
+}
+
+// dropLine is the 2 DIP line in the gap above a row (zoneBefore) or below
+// it (zoneAfter) where a dragged playlist would land.
+func dropLine(c *ui.Context, zone dropZone, depth int, h float32) {
+	if h == 0 {
+		h = theme.Current().Metric["nav-row"]
+	}
+	top := float32(-2)
+	if zone == zoneAfter {
+		top = h
+	}
+	ui.Box(c.Key("slot")).Absolute().Left(rowArtLeft(depth)).Right(8).Top(top).Height(2).Radius(1).
+		Background(theme.C("ink")).IgnoreInput(true).Role(ui.RoleNone)
 }
 
 // shuffleReason is why a playlist of songs songs (negative: not known, as a
@@ -625,7 +679,7 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 		list := ui.Column(c.Key("list")).FillWidth().Gap(2).Role(ui.RoleList).Label(title)
 		list.Children(func() {
 			for i, it := range items {
-				p.playlistRow(c, it, 0, i+1, len(items))
+				p.playlistRow(c, it, 0, i+1, len(items), false, "")
 			}
 		})
 		fold.Controls(list)
@@ -640,7 +694,9 @@ func (p *playlists) readOnlySection(c *ui.Context, id, title string, items []ser
 // pins are not known yet (no empty message then); anyEditable: the user has
 // playlists they can edit (they are all pinned when none is listed).
 func (p *playlists) ownSection(c *ui.Context, nodes []*treeNode, pending, anyEditable bool) {
-	ui.Column(c.Key("section:playlists")).FillWidth().Children(func() {
+	section := ui.Column(c.Key("section:playlists")).FillWidth()
+	p.dropOnLevel(section, "level:top", "")
+	section.Children(func() {
 		sideHeading(c, i18n.T("Playlists"), countPlaylists(nodes), p.newMenu(c))
 		if kit.DragActive(addable) {
 			p.dropZone(c, "new-playlist", "list-plus", i18n.T("New playlist"), false, p.dropOnNewPlaylist)
@@ -685,17 +741,22 @@ func (p *playlists) newMenu(c *ui.Context) func() {
 
 // treeLevel builds a level of the folder tree.
 func (p *playlists) treeLevel(c *ui.Context, nodes []*treeNode, depth int) {
-	list := ui.Column(c).FillWidth().Gap(2).Role(ui.RoleList)
+	list := ui.Column(c.Key("level")).FillWidth().Gap(2).Role(ui.RoleList)
 	if depth == 0 {
-		list.Label(i18n.T("Playlists"))
+		list.Label(i18n.T("Playlists")).
+			Description(i18n.T("Drag a playlist to reorder it or to move it into a folder, or press Alt+↑ and Alt+↓ on it. Its menu also moves it."))
 	}
 	list.Children(func() {
 		for i, n := range nodes {
 			if n.Folder != nil {
 				p.folderRow(c, n, depth, i+1, len(nodes))
-			} else {
-				p.playlistRow(c, *n.Item, depth, i+1, len(nodes))
+				continue
 			}
+			next := ""
+			if i+1 < len(nodes) && nodes[i+1].Item != nil {
+				next = nodes[i+1].Item.Playlist.ID
+			}
+			p.playlistRow(c, *n.Item, depth, i+1, len(nodes), true, next)
 		}
 	})
 }
@@ -726,8 +787,9 @@ func (p *playlists) springOpen(c *ui.Context, row ui.Element, id string, open bo
 
 // folderRow is a folder: a button that opens and closes it (open: the open
 // folder icon; kept across restarts), its "More for the folder" menu, and
-// below it, when open, its contents or why there are none. Folders are not
-// drop targets themselves; a drag resting on a closed one opens it.
+// below it, when open, its contents or why there are none. A drag of a
+// sidebar playlist onto it moves the playlist in; a drag resting on a closed
+// one opens it.
 func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) {
 	f := *n.Folder
 	open := p.prefs.FolderOpen(f.ID)
@@ -737,7 +799,9 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 		hot := wrap.Hovered() || wrap.FocusWithin()
 		wrap.Children(func() {
 			row := ui.ButtonBase(c.Key("toggle")).Role(ui.RoleDisclosure).Label(f.Name).Expanded(open).Grow(1).MinWidth(0).Padding(0, 32, 0, rowArtLeft(depth))
-			fg := rowFace(row, hot, false, false)
+			// The button is the drop target, as it is the element springOpen
+			// asks about: MyGo reports a drag over the innermost one.
+			fg := rowFace(row, hot, false, p.dropOnFolder(row, f))
 			row.Gap(rowArtGap)
 			if row.Clicked() || p.springOpen(c, row, f.ID, open) {
 				open = !open
@@ -773,6 +837,7 @@ func (p *playlists) folderRow(c *ui.Context, n *treeNode, depth, pos, size int) 
 			guide.Draw(func(pt *ui.Painter, r ui.Rect) {
 				pt.Fill(ui.Rect{X: r.X + 19.5 + pad, Y: r.Y + 2, W: 1, H: max(0, r.H-4)}, theme.C("line"), 0)
 			})
+			p.dropOnLevel(guide, "level:"+f.ID, f.ID)
 			guide.Children(func() { p.treeLevel(c, n.Children, depth+1) })
 			return
 		}

@@ -204,6 +204,8 @@ type Playlist struct {
 	Favorited         int64
 	IsCollaborative   int64
 	CollaborativeHost int64
+	LocalFolder       string
+	LocalPosition     int64
 }
 
 type PlaylistCover struct {
