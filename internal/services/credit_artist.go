@@ -2,15 +2,9 @@ package services
 
 import (
 	"context"
-	"strings"
-	"unicode"
-
-	"golang.org/x/text/cases"
-	"golang.org/x/text/runes"
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
 
 	"github.com/coredev-uk/sona-go/internal/applemusic"
+	"github.com/coredev-uk/sona-go/internal/namefold"
 )
 
 // creditSearchLimit is how many artists a credited name's search asks for:
@@ -26,12 +20,12 @@ const creditArtistsType = "artists"
 // it is none of them. It needs no request, so the song page opens such a
 // credit at once.
 func OwnArtist(name string, own []Artist) (Artist, bool) {
-	want := foldName(name)
+	want := namefold.Fold(name)
 	if want == "" {
 		return Artist{}, false
 	}
 	for _, a := range own {
-		if a.ID != "" && foldName(a.Name) == want {
+		if a.ID != "" && namefold.Fold(a.Name) == want {
 			return a, true
 		}
 	}
@@ -54,7 +48,7 @@ func OwnArtist(name string, own []Artist) (Artist, bool) {
 //
 // A failed search returns its error; the UI treats it as "".
 func (s *CatalogService) CreditedArtist(ctx context.Context, name string, own []Artist) (string, error) {
-	want := foldName(name)
+	want := namefold.Fold(name)
 	if want == "" {
 		return "", nil
 	}
@@ -76,7 +70,7 @@ func (s *CatalogService) CreditedArtist(ctx context.Context, name string, own []
 			continue
 		}
 		var at applemusic.ArtistAttributes
-		if node.Attrs(&at) != nil || foldName(at.Name) != want {
+		if node.Attrs(&at) != nil || namefold.Fold(at.Name) != want {
 			continue
 		}
 		if n++; n == 1 {
@@ -87,18 +81,4 @@ func (s *CatalogService) CreditedArtist(ctx context.Context, name string, own []
 		return "", nil
 	}
 	return id, nil
-}
-
-// foldName is name as CreditedArtist compares it: Unicode-folded (widths and
-// compatibility forms, accents dropped, case folded), its words
-// single-spaced and typographic apostrophes straight ("Ed O’Brien" is
-// "Ed O'Brien"). A transform chain keeps state, so each call builds its own.
-func foldName(name string) string {
-	fold := transform.Chain(norm.NFKD, runes.Remove(runes.In(unicode.Mn)), norm.NFC, cases.Fold())
-	folded, _, err := transform.String(fold, name)
-	if err != nil {
-		folded = strings.ToLower(name)
-	}
-	folded = strings.NewReplacer("’", "'", "ʼ", "'", "‘", "'").Replace(folded)
-	return strings.Join(strings.Fields(folded), " ")
 }

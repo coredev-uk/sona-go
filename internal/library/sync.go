@@ -24,6 +24,7 @@ import (
 	"github.com/coredev-uk/sona-go/internal/applemusic"
 	"github.com/coredev-uk/sona-go/internal/db"
 	"github.com/coredev-uk/sona-go/internal/db/dbq"
+	"github.com/coredev-uk/sona-go/internal/namefold"
 )
 
 // Domain is one independently checkpointed part of the library sync.
@@ -697,7 +698,10 @@ func (s *Syncer) syncAll(ctx context.Context, d Domain, mode Mode, progress func
 		_, err = s.api.LibraryArtists(ctx, opt, func(offset int, items []applemusic.Artist) error {
 			return store(offset, len(items), func(q *dbq.Queries, now int64) error {
 				for _, it := range items {
-					p := dbq.UpsertLibraryArtistParams{LibraryID: db.NullString(it.ID), CatalogID: db.NullString(it.CatalogID()), Name: it.Attributes.Name, UpdatedAt: now}
+					p := dbq.UpsertLibraryArtistParams{
+						LibraryID: db.NullString(it.ID), CatalogID: db.NullString(it.CatalogID()),
+						Name: it.Attributes.Name, NameKey: namefold.Fold(it.Attributes.Name), UpdatedAt: now,
+					}
 					if cat := it.Relationships.Catalog.Data; len(cat) > 0 {
 						p.ArtworkTemplate = cat[0].Attributes.Artwork.Template()
 						p.Url = cat[0].Attributes.URL

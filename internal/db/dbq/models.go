@@ -49,6 +49,7 @@ type AlbumArtist struct {
 	ArtistCatalogID string
 	Name            string
 	Position        int64
+	NameKey         string
 }
 
 type AlbumCreditKey struct {
@@ -66,6 +67,7 @@ type Artist struct {
 	ArtworkTemplate string
 	Url             string
 	UpdatedAt       int64
+	NameKey         string
 }
 
 type ArtistRelease struct {
@@ -322,6 +324,7 @@ type TrackArtist struct {
 	ArtistCatalogID string
 	Name            string
 	Position        int64
+	NameKey         string
 }
 
 type TrackCreditKey struct {
