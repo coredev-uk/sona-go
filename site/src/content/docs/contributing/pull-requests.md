@@ -32,7 +32,7 @@ The template (`.github/pull_request_template.md`) has these sections:
 
 - **What**: what changed, in a few lines.
 - **Why**: the problem, with a link to its issue.
-- **Evidence**: the commands you ran and the tail of their output. For UI changes, screenshots in light and dark, with no personal account data, tokens or library names.
+- **Evidence**: the commands you ran and the tail of their output. For UI changes, screenshots in light and dark from the fixture library or a test account. Nothing in the PR identifies you or anyone else: no names, handles or account IDs, no real library or playlist contents or listening history, no logs or diagnostics from a real account. Describe what a real library showed by its shape and outcome instead. GitHub keeps every edit, so if something slips out, delete the comment rather than editing it.
 - **Tests**: tests added or changed.
 - **Docs**: docs you updated, or why none apply.
 - **Left**: anything not done or not reachable. "Nothing" is fine.
