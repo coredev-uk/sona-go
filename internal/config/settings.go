@@ -166,7 +166,7 @@ func Defaults() Settings {
 		Desktop:           defaultDesktop(),
 		Window:            defaultWindow(),
 		Shortcuts:         Shortcuts{},
-		Updates:           Updates{Check: true},
+		Updates:           Updates{Check: true, WhatsNew: true},
 		Integrations:      defaultIntegrations(),
 		Audio:             defaultAudio(),
 		MotionArtwork:     MotionArtwork{Enabled: true},

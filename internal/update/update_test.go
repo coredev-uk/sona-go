@@ -38,6 +38,33 @@ func TestNewer(t *testing.T) {
 	}
 }
 
+// Version reads the release of one tag, a prerelease too, and asks nothing
+// for a version that is not one.
+func TestVersionReadsThatTagsRelease(t *testing.T) {
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		if r.URL.Path != "/repos/coredev-uk/sona-go/releases/tags/v0.3.0-rc.1" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"tag_name":"v0.3.0-rc.1","prerelease":true,"body":"### Fixes\n\n- a\n\n` + InstallNotesMarker + `\ninstall"}`))
+	}))
+	defer srv.Close()
+	c := Checker{API: srv.URL}
+	rel, err := c.Version(context.Background(), "v0.3.0-rc.1")
+	if err != nil || rel.Version != "0.3.0-rc.1" || rel.Notes != "### Fixes\n\n- a" {
+		t.Fatalf("Version = %+v, %v", rel, err)
+	}
+	if _, err := c.Version(context.Background(), "0.4.0"); !errors.Is(err, ErrNoRelease) {
+		t.Errorf("a version with no release: %v", err)
+	}
+	path = ""
+	if _, err := c.Version(context.Background(), "../latest"); !errors.Is(err, ErrNoRelease) || path != "" {
+		t.Errorf("a version that is not one: %v (asked %q)", err, path)
+	}
+}
+
 func TestLatestSendsNothingAboutTheUser(t *testing.T) {
 	var got *http.Request
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

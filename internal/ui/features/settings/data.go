@@ -95,6 +95,7 @@ type cdmAPI interface {
 type updatesAPI interface {
 	Check(ctx context.Context) (services.UpdateStatus, error)
 	OpenRelease() error
+	CurrentNotes(ctx context.Context) (services.WhatsNew, error)
 	Install(ctx context.Context) (services.UpdateStatus, error)
 	previousAPI
 }

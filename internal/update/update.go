@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -60,6 +61,23 @@ type Checker struct {
 // Latest returns the repository's latest published release. A repository
 // without one yields ErrNoRelease.
 func (c Checker) Latest(ctx context.Context) (Release, error) {
+	return c.release(ctx, "latest", false)
+}
+
+// Version returns the published release of version (with or without a
+// leading "v"), a prerelease too: a build on a release candidate has its
+// notes. A version with no release, or one that is not a version, yields
+// ErrNoRelease.
+func (c Checker) Version(ctx context.Context, version string) (Release, error) {
+	version = strings.TrimPrefix(version, "v")
+	if !Valid(version) {
+		return Release{}, ErrNoRelease
+	}
+	return c.release(ctx, "tags/v"+url.PathEscape(version), true)
+}
+
+// release reads the release at /repos/{repo}/releases/{path}.
+func (c Checker) release(ctx context.Context, path string, prerelease bool) (Release, error) {
 	api, repo := c.API, c.Repo
 	if api == "" {
 		api = DefaultAPI
@@ -67,7 +85,7 @@ func (c Checker) Latest(ctx context.Context) (Release, error) {
 	if repo == "" {
 		repo = Repo
 	}
-	raw, err := get(ctx, c.HTTP, strings.TrimRight(api, "/")+"/repos/"+repo+"/releases/latest", 1<<20,
+	raw, err := get(ctx, c.HTTP, strings.TrimRight(api, "/")+"/repos/"+repo+"/releases/"+path, 1<<20,
 		"Accept", "application/vnd.github+json", "X-GitHub-Api-Version", "2022-11-28")
 	if err != nil {
 		return Release{}, err
@@ -84,7 +102,7 @@ func (c Checker) Latest(ctx context.Context) (Release, error) {
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return Release{}, fmt.Errorf("update: decode release: %w", err)
 	}
-	if body.Draft || body.Prerelease || body.TagName == "" {
+	if body.Draft || body.Prerelease && !prerelease || body.TagName == "" {
 		return Release{}, ErrNoRelease
 	}
 	v := strings.TrimPrefix(body.TagName, "v")

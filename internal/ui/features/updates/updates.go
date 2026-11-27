@@ -11,7 +11,8 @@
 // update has release notes (UpdateStatus.Notes) the row, and Settings →
 // General, also offer "What's new", which opens them in a dialog
 // (store.Surfaces.OpenReleaseNotes; notes.go) with the install or the link
-// to the release page.
+// to the release page. After an update, the first start also opens the What's
+// New dialog with the notes of the version just installed (whatsnew.go).
 package updates
 
 import (
@@ -37,6 +38,14 @@ type updates struct {
 	// notes is the release notes dialog, whose links open through
 	// env.OpenURL.
 	notes *kit.ReleaseNotes
+	// whatsNew is the What's New dialog, and markSeen records, off the main
+	// thread, that its version was shown (UpdatesService.MarkWhatsNewSeen;
+	// tests replace it).
+	whatsNew *kit.ReleaseNotes
+	markSeen func(version string)
+	// dialogShown says whether another dialog is open (kit.DialogShown when
+	// nil; tests replace it).
+	dialogShown func() bool
 	// said is the row's title last read out ("" while there is no update).
 	said string
 }
@@ -44,26 +53,38 @@ type updates struct {
 // New is the update notice's module.
 func New(env *module.Env) module.Module {
 	var open, install func() error
+	var markSeen func(string)
 	if env.Core != nil {
 		svc := services.Service[services.UpdatesService](env.Core)
 		open = svc.OpenRelease
 		install = func() error { _, err := svc.Install(context.Background()); return err }
+		markSeen = func(v string) {
+			go func() {
+				if err := svc.MarkWhatsNewSeen(v); err != nil {
+					env.Log.Warn("updates: recording the What's New dialog as shown", "err", err)
+				}
+			}()
+		}
 	}
-	return newUpdates(env, open, install).module()
+	u := newUpdates(env, open, install)
+	u.markSeen = markSeen
+	return u.module()
 }
 
 func newUpdates(env *module.Env, open, install func() error) *updates {
 	u := &updates{env: env, openRelease: open, install: install}
 	u.notes = kit.NewReleaseNotes(u.openLink)
+	u.whatsNew = kit.NewReleaseNotes(u.openLink)
 	return u
 }
 
 func (u *updates) module() module.Module {
 	return module.Module{
 		ID:    "updates",
-		Slots: module.Slots{Activity: &module.Activity{Status: u.status, Build: u.row}, Layer: u.dialog}, // dialog only: no LayerOpen, so the layer takes no input itself
+		Slots: module.Slots{Activity: &module.Activity{Status: u.status, Build: u.row}, Layer: u.layers}, // dialogs only: no LayerOpen, so the layer takes no input itself
 		Init: func() {
 			store.Mirror[services.UpdateStatus](u.env.Bus, u.env.Queries, u.env.Post, store.KeyUpdates, nil, services.EventUpdateAvailable, services.EventUpdateInstall)
+			store.Mirror[services.WhatsNew](u.env.Bus, u.env.Queries, u.env.Post, store.KeyWhatsNew, nil, services.EventWhatsNew)
 		},
 	}
 }

@@ -4,6 +4,22 @@ package services
 // finds a newer release.
 const EventUpdateAvailable = "updates:available"
 
+// EventWhatsNew carries the WhatsNew of the version just installed, once its
+// notes are fetched after the first start of that version.
+const EventWhatsNew = "updates:whatsnew"
+
+// WhatsNew is the release notes of a version: what the What's New dialog
+// shows after an update (UpdatesService.WhatsNew, "updates:whatsnew").
+type WhatsNew struct {
+	// Version is the release's number ("0.8.0"); "" when there is none to show.
+	Version string `json:"version"`
+	// Published is its publication, Unix ms (0 when unknown).
+	Published int64 `json:"published"`
+	// Notes are the release notes (Markdown), without the install
+	// instructions and the version's own heading. Never empty with a Version.
+	Notes string `json:"notes"`
+}
+
 // EventUpdateInstall carries the UpdateStatus while an update installs:
 // at the start, on download progress, and when it finishes or fails.
 const EventUpdateInstall = "updates:install"

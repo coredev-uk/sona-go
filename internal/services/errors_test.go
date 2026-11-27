@@ -265,6 +265,7 @@ func eventPayloads(t *testing.T) []reflect.Type {
 		"EventAppleLanguages":        reflect.TypeFor[AppleLanguages](),
 		"EventUpdateAvailable":       reflect.TypeFor[UpdateStatus](),
 		"EventUpdateInstall":         reflect.TypeFor[UpdateStatus](),
+		"EventWhatsNew":              reflect.TypeFor[WhatsNew](),
 	}
 	files, err := filepath.Glob("*.go")
 	if err != nil {

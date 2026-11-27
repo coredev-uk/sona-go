@@ -31,6 +31,14 @@ type fakeUpdates struct {
 	installs   int
 	installErr error
 	onOpen     func()
+	notes      services.WhatsNew
+	notesErr   error
+}
+
+func (f *fakeUpdates) CurrentNotes(context.Context) (services.WhatsNew, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.notes, f.notesErr
 }
 
 func (f *fakeUpdates) Status() services.UpdateStatus {
@@ -603,6 +611,35 @@ func TestUpdatesCheckSwitchSaves(t *testing.T) {
 	g.until("saved", func() bool { return !g.saved().Updates.Check })
 }
 
+func TestWhatsNewSwitchSavesAndKeepsTheVersionSeen(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), func(s *config.Settings) { s.Updates.WhatsNewSeen = "0.9.0" })
+	if !g.saved().Updates.WhatsNew {
+		t.Fatal("What's New is off by default")
+	}
+	g.toggle("updates-whatsnew")
+	g.until("saved", func() bool { return !g.saved().Updates.WhatsNew })
+	if got := g.saved().Updates.WhatsNewSeen; got != "0.9.0" {
+		t.Errorf("the version seen = %q after a save from the page, want 0.9.0", got)
+	}
+}
+
+// "Release notes" fetches the running version's notes and asks the updates
+// module's dialog for them; a release without notes says so.
+func TestReleaseNotesButtonOpensTheRunningVersionsNotes(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	g.toEnd()
+	g.click("Show")
+	g.until("no notes", g.tt.Shows("This version has no release notes"))
+	if _, ok := g.h.Env.Surfaces.WhatsNew(); ok {
+		t.Fatal("the dialog opened for a release with no notes")
+	}
+	g.up.mu.Lock()
+	g.up.notes = services.WhatsNew{Version: "1.0.0", Notes: "### Fixes\n\n* a fix\n"}
+	g.up.mu.Unlock()
+	g.click("Show")
+	g.until("dialog", func() bool { _, ok := g.h.Env.Surfaces.WhatsNew(); return ok })
+}
+
 func TestUpdateVerdicts(t *testing.T) {
 	now := g0(time.Now())
 	cases := []struct {
@@ -804,7 +841,7 @@ func TestClickingARowsTitleGoesToItsControl(t *testing.T) {
 
 	// "Track notifications" is a switch, on in the defaults: the click
 	// focuses it and turns it off.
-	g.toEnd()
+	g.reveal("track-notifications") // the Updates rows below it push it off a short window's end
 	if err := g.tt.Click("Track notifications"); err != nil {
 		t.Fatal(err)
 	}

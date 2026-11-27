@@ -18,10 +18,13 @@ import (
 var (
 	// KeyAuth is the sign-in status (v0.2.0's keys.auth); the auth module
 	// writes every "auth:changed" status into it.
-	KeyAuth      = Key{"auth"}
-	KeyPrivate   = Key{"private"}
-	KeyCDM       = Key{"cdm"}
-	KeyUpdates   = Key{"updates"}
+	KeyAuth    = Key{"auth"}
+	KeyPrivate = Key{"private"}
+	KeyCDM     = Key{"cdm"}
+	KeyUpdates = Key{"updates"}
+	// KeyWhatsNew is the notes of the version just installed, waiting for the
+	// window to be idle (UseWhatsNew).
+	KeyWhatsNew  = Key{"whats-new"}
 	KeyReminders = Key{"reminders"}
 	// KeyNewReleases is the artist tracker's list.
 	KeyNewReleases = Key{"new-releases"}
@@ -92,6 +95,13 @@ func CDMCanRetry(s *services.CDMStatus) bool {
 // "updates:available"; Settings' manual check writes its answer with Set).
 func UseUpdates(cl *Client, core *services.Core) Result[services.UpdateStatus] {
 	return useCore(cl, core, KeyUpdates, func(s *services.UpdatesService) services.UpdateStatus { return s.Status() })
+}
+
+// UseWhatsNew is the release notes of the version just installed that wait to
+// be shown (UpdatesService.WhatsNew, then "updates:whatsnew"); the zero
+// WhatsNew once they were shown.
+func UseWhatsNew(cl *Client, core *services.Core) Result[services.WhatsNew] {
+	return useCore(cl, core, KeyWhatsNew, func(s *services.UpdatesService) services.WhatsNew { return s.WhatsNew() })
 }
 
 // UseReminders is every release reminder set (RemindersService.List, then
