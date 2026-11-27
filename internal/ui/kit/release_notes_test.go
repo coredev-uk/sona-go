@@ -12,15 +12,19 @@ import (
 )
 
 // releaseNotesGolden is longer than its dialog, as a real release's are, and
-// has every block the changelogs carry: a heading with a linked version,
-// groups, bullets with bold, italic and code, links and a wrapped line.
+// has the blocks the changelogs carry: a heading with a linked version,
+// groups, bullets with bold and italic, links and a wrapped line. It has no
+// code span: code is drawn in the system's monospaced font, which differs
+// between machines (DejaVu Sans Mono in CI), so it would make the image
+// depend on where it ran. TestMarkdownRendersTheSubsetReleaseNotesUse
+// covers code.
 const releaseNotesGolden = `## [0.8.0](https://github.com/coredev-uk/sona-go/compare/v0.7.0...v0.8.0) (2026-11-26)
 
 ### Features
 
 * **library:** one place for **favourite** songs ([#621](https://github.com/coredev-uk/sona-go/issues/621)) ([a627490](https://github.com/coredev-uk/sona-go/commit/a627490))
 * **lyrics:** letters lift with the colour sweep, letter by letter, and a line that is long enough to wrap onto a second line in the dialog ([#617](https://github.com/coredev-uk/sona-go/issues/617))
-* **cli:** ` + "`sona connect`" + `: the add-on protocol on stdio for *your own* programs ([#553](https://github.com/coredev-uk/sona-go/issues/553))
+* **cli:** the add-on protocol on stdio for *your own* programs ([#553](https://github.com/coredev-uk/sona-go/issues/553))
 * **ui:** keep a submenu open while the pointer heads for it ([#625](https://github.com/coredev-uk/sona-go/issues/625))
 * **macos:** a designed drag-to-install window in the .dmg ([#646](https://github.com/coredev-uk/sona-go/issues/646))
 
