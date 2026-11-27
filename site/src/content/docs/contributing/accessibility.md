@@ -59,7 +59,8 @@ Controls are never nested in an opener. MyGo reads a button, link, tab, column h
 - A list is one Tab stop with arrow keys inside: a focusable row, the others reached by the arrows. Its controls are on the tree but are not stops.
 - Links are `RoleLink`. Headings carry their level (`RoleHeading` and `Level`): the page title is level 1, dialog titles level 2. Lists and tables are named by their heading, and lists hold only their items.
 - Every dialog is a named `dialog`, or an `alertdialog` when it asks. What is behind a modal is not on the tree while it is open.
-- Inline links are underlined, never marked by colour alone.
+- Inline links are underlined, never marked by colour alone. The one exception is Markdown (`kit.Markdown`, the release notes): MyGo's Markdown theme has no link that is always underlined, so its links are `--ink` at weight 600 (`Theme.LinkWeight`, its cue besides colour), underlined under the pointer and ringed under the keyboard.
+- A scroll area that holds text and no control of its own is a Tab stop (a `RoleGroup` named for its contents), so the keyboard can scroll it: the release notes dialog opens on its notes, and the arrow keys, Page Up, Page Down, Home and End scroll them. When the focus is on a link inside, the first Escape dismisses the link's address tooltip and the second closes the dialog.
 - Landmarks are few and named for what they hold. A landmark never sits inside another of the same name. A region's own heading or list may repeat its name: a heading and a list are not landmarks.
 - What takes the focus without being a control is a group named by its text, not a heading. Orca reads a focused heading's role and level ("heading 2") and takes its words from the text, which MyGo gives to labels.
 - A tooltip whose first line is the control's name describes the control by the rest. By itself it is the description, and the name is read twice.

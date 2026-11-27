@@ -45,6 +45,7 @@ func newRig(t *testing.T) *rig {
 				}
 			})
 			kit.Toaster(c)
+			m.Slots.Layer(c)
 		})
 	}, 360, 300)
 	return r

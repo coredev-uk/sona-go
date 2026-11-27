@@ -289,7 +289,12 @@ and Windows development builds in ci.yml never hold a release up), then the
   the other secrets live, and how to rotate them: [ci-and-secrets.md](ci-and-secrets.md).
 - **Release notes:** a release's draft holds release-please's changelog entry;
   `publish` appends `.github/release-notes/install.md` (first-run steps for
-  macOS and Windows, verifying downloads).
+  macOS and Windows, verifying downloads) after the `<!-- sona-install-notes -->`
+  line. The marker is a contract: Sona shows the notes in a dialog ("What's
+  new" on the update notice and in Settings → General), taken from the update
+  manifest where it updates itself and from the GitHub release's body on Linux,
+  and the Linux notes end before the marker (`update.InstallNotesMarker`) so
+  they match the manifest's.
 - **Prerelease notes:** a prerelease has no release-please draft, so `publish`
   writes its notes: the "Test build" line, then `go run ./cmd/rcnotes`'s list of
   the changes since the previous prerelease or release. The previous tag is

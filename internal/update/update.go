@@ -27,6 +27,12 @@ const DefaultAPI = "https://api.github.com"
 // without one. It deliberately carries no version or system details.
 const userAgent = "Sona-update-check"
 
+// InstallNotesMarker starts the install instructions the release workflow
+// appends to a release's body (.github/workflows/release.yml). They are for
+// the release page: Release.Notes stops before them, as the update manifests'
+// notes do.
+const InstallNotesMarker = "<!-- sona-install-notes -->"
+
 // ErrNoRelease means the repository has no published (non-draft,
 // non-prerelease) release yet, or is not visible anonymously.
 var ErrNoRelease = errors.New("update: no published release")
@@ -36,6 +42,7 @@ type Release struct {
 	Version   string // the tag without a leading "v"
 	Name      string
 	URL       string // the release page
+	Notes     string // the release notes (Markdown), without the install instructions; "" when there are none
 	Published time.Time
 }
 
@@ -69,6 +76,7 @@ func (c Checker) Latest(ctx context.Context) (Release, error) {
 		TagName     string    `json:"tag_name"`
 		Name        string    `json:"name"`
 		HTMLURL     string    `json:"html_url"`
+		Body        string    `json:"body"`
 		PublishedAt time.Time `json:"published_at"`
 		Draft       bool      `json:"draft"`
 		Prerelease  bool      `json:"prerelease"`
@@ -88,7 +96,46 @@ func (c Checker) Latest(ctx context.Context) (Release, error) {
 	if !strings.HasPrefix(body.HTMLURL, page) {
 		body.HTMLURL = page + "tag/" + body.TagName
 	}
-	return Release{Version: v, Name: body.Name, URL: body.HTMLURL, Published: body.PublishedAt}, nil
+	return Release{Version: v, Name: body.Name, URL: body.HTMLURL, Notes: releaseNotes(body.Body), Published: body.PublishedAt}, nil
+}
+
+// releaseNotes is a release's body as its notes: the changelog, trimmed,
+// without the install instructions the workflow appends after
+// InstallNotesMarker.
+func releaseNotes(body string) string {
+	notes, _, _ := strings.Cut(body, InstallNotesMarker)
+	return strings.TrimSpace(notes)
+}
+
+// WithoutVersionHeading is notes without a leading heading line that names
+// version: release-please opens an entry with "## [0.8.0](compare-url)
+// (2026-11-27)", which the release notes dialog's own title and date repeat.
+// The heading is any level and its text starts with version or [version]
+// (with or without a leading "v"), not followed by more of a version
+// ("0.8.0-rc.1" is another one). Blank lines after it go too. Any other
+// heading, or one that is not the first line, stays.
+func WithoutVersionHeading(notes, version string) string {
+	notes = strings.TrimLeft(notes, "\r\n \t")
+	first, rest, _ := strings.Cut(notes, "\n")
+	text := strings.TrimLeft(first, "#")
+	if n := len(first) - len(text); n < 1 || n > 6 || !strings.HasPrefix(text, " ") && !strings.HasPrefix(text, "\t") {
+		return notes
+	}
+	text = strings.TrimLeft(text, " \t")
+	if after, ok := strings.CutPrefix(text, "["); ok {
+		text = after
+	}
+	text = strings.TrimPrefix(text, "v")
+	after, ok := strings.CutPrefix(text, strings.TrimPrefix(version, "v"))
+	if !ok || version == "" {
+		return notes
+	}
+	if after != "" {
+		if c := after[0]; c == '.' || c == '-' || c == '+' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' {
+			return notes
+		}
+	}
+	return strings.TrimLeft(rest, "\r\n \t")
 }
 
 // semverOf is v (with or without a leading "v") as x/mod's semver wants it:

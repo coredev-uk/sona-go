@@ -102,7 +102,7 @@ func newSelfRig(t *testing.T, o selfOpts) *selfRig {
 				sig = update.Sign(other, digest[:])
 			}
 			m := update.Manifest{
-				Version: o.latest, Notes: "What's new.", Date: "2026-01-02T03:04:05Z",
+				Version: o.latest, Notes: "## [" + o.latest + "](https://example.test/compare) (2026-01-02)\n\nWhat's new.", Date: "2026-01-02T03:04:05Z",
 				URL: srv.URL + "/a.tar.gz", Size: int64(len(r.archive)), Signature: sig,
 				SHA256: hex.EncodeToString(digest[:]), StatementSignature: update.SignStatement(priv, "darwin-arm64", o.latest, digest[:]),
 			}

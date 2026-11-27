@@ -12,11 +12,12 @@ const (
 	SetupDone        = "done"
 )
 
-// Surfaces is the open state of the two surfaces any feature may ask for:
-// the account dialog (features/auth) and the first-run setup layer
-// (features/onboarding). v0.2.0's shared/lib/account.ts and setup.ts, so
-// every "Sign in" action and Settings → General's "Set up Sona again" can
-// open them without importing the feature that draws them.
+// Surfaces is the open state of the surfaces any feature may ask for: the
+// account dialog (features/auth), the first-run setup layer
+// (features/onboarding) and the release notes dialog (features/updates).
+// v0.2.0's shared/lib/account.ts and setup.ts, so every "Sign in" action,
+// Settings → General's "Set up Sona again" and its "What's new" can open
+// them without importing the feature that draws them.
 //
 // Main thread only: it is read while a view builds and written by what the
 // user did (a click, a shortcut), never from a goroutine.
@@ -24,10 +25,21 @@ type Surfaces struct {
 	account bool
 	setup   bool
 	step    string
+	notes   bool
 }
 
-// NewSurfaces is a Surfaces with both closed.
+// NewSurfaces is a Surfaces with all of them closed.
 func NewSurfaces() *Surfaces { return &Surfaces{} }
+
+// OpenReleaseNotes shows the release notes dialog (the notes of the update on
+// offer).
+func (s *Surfaces) OpenReleaseNotes() { s.notes = true }
+
+// CloseReleaseNotes hides the release notes dialog.
+func (s *Surfaces) CloseReleaseNotes() { s.notes = false }
+
+// ReleaseNotesOpen reports whether the release notes dialog is open.
+func (s *Surfaces) ReleaseNotesOpen() bool { return s.notes }
 
 // OpenAccount shows the account dialog. While the setup is open it goes to
 // the setup's Apple Music step instead (the account is part of the setup).

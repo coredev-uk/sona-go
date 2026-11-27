@@ -151,6 +151,11 @@ func (s *settings) updateStatusRow(c *ui.Context, st services.UpdateStatus) {
 			}
 		})
 		ui.Row(c.Key("actions")).Shrink(0).Gap(8).Children(func() {
+			if st.Available && st.Notes != "" && !st.Installing {
+				if kit.Button(c.Key("notes"), i18n.T("What's new"), kit.ButtonOpts{Variant: kit.Outline, Size: kit.SizeSM, Icon: "sparkles"}).Clicked() {
+					s.env.Surfaces.OpenReleaseNotes()
+				}
+			}
 			if st.Available && !st.Installing {
 				if kit.Button(c.Key("release"), i18n.T("View release"), kit.ButtonOpts{Size: kit.SizeSM, Icon: "external-link"}).Clicked() {
 					s.openRelease()

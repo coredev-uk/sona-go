@@ -760,6 +760,32 @@ func TestViewReleaseOpensThePageAndAFailureToasts(t *testing.T) {
 	g.until("toast", g.tt.Shows("Couldn't open the release"))
 }
 
+// "What's new" is there only while an update with notes is on offer and not
+// downloading; it asks for the release notes dialog (the updates module draws it).
+func TestWhatsNewOpensTheReleaseNotes(t *testing.T) {
+	g := newGeneralRig(t, linuxCaps(), nil)
+	st := services.UpdateStatus{Current: "1.0.0", Checkable: true, Latest: "1.1.0", Available: true}
+	store.Set(g.h.Env.Queries, store.KeyUpdates, st)
+	g.until("button", g.tt.Shows("View release"))
+	if g.tt.HasText("What's new") {
+		t.Fatalf("What's new for a release with no notes: %q", g.tt.Texts())
+	}
+	st.Notes = "### Fixes\n\n* a fix\n"
+	store.Set(g.h.Env.Queries, store.KeyUpdates, st)
+	g.until("What's new", g.tt.Shows("What's new"))
+	g.toEnd()
+	g.click("What's new")
+	if !g.h.Env.Surfaces.ReleaseNotesOpen() {
+		t.Fatal("What's new did not ask for the release notes")
+	}
+	st.SelfUpdate, st.Installing, st.Downloaded, st.Total = true, true, 1, 4
+	store.Set(g.h.Env.Queries, store.KeyUpdates, st)
+	g.until("downloading", g.tt.Shows("Downloading…"))
+	if g.tt.HasText("What's new") {
+		t.Errorf("What's new while downloading: %q", g.tt.Texts())
+	}
+}
+
 // A row's title is its control's label, as HTML's <label for>: it names the
 // control, and a click on it takes the focus to the control and, for a
 // switch, flips it.
