@@ -24,23 +24,38 @@ smoke_name="smoke($kind)"
 # shellcheck source=../../lib/smoke.sh
 . "$(dirname "$0")/smoke-lib.sh"
 
+# libepoxy aborts at start without libOpenGL or libGL, and the distro images
+# carry neither: the package's Depends must bring one in. Checked straight
+# after the install, before the test's own tools (Xvfb) could add GL.
+check_gl() {
+  local cache
+  ldconfig
+  cache=$(ldconfig -p)
+  grep -qE 'libOpenGL\.so\.0|libGL\.so\.1' <<<"$cache" || fail "neither libOpenGL.so.0 nor libGL.so.1 installed by the package's dependencies"
+}
+
 case $kind in
 deb)
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   # Only the package's declared Depends (no Recommends): proves they suffice.
   apt-get install -y -qq --no-install-recommends /pkg/sona_*.deb >/dev/null
-  # The bad plugins stand in for a user who took the Recommends for motion
-  # artwork: their h264parse is checked below.
-  apt-get install -y -qq --no-install-recommends xvfb xauth dbus gstreamer1.0-tools gstreamer1.0-plugins-bad >/dev/null
+  check_gl
+  # What the test itself needs: Xvfb is the display.
+  apt-get install -y -qq --no-install-recommends xvfb xauth dbus >/dev/null
+  # Run last, after the app's first paint: the bad plugins stand in for a
+  # user who took the Recommends for motion artwork (h264parse is checked
+  # below), and gst-inspect for the element checks.
+  add_optional() { apt-get install -y -qq --no-install-recommends gstreamer1.0-tools gstreamer1.0-plugins-bad >/dev/null; }
   exe=/usr/bin/sona
   contents() { dpkg-deb -c /pkg/sona_*.deb | awk '{print $6}' | sed 's|^\./|/|'; }
   ;;
 rpm)
   dnf install -y -q --setopt=install_weak_deps=False /pkg/sona-*.rpm
-  # The bad plugins stand in for a user who took the Recommends for motion
-  # artwork: their h264parse is checked below.
-  dnf install -y -q --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon gstreamer1 gstreamer1-plugins-base-tools gstreamer1-plugins-bad-free which
+  check_gl
+  dnf install -y -q --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon which
+  # Run after the app's first paint; see the deb.
+  add_optional() { dnf install -y -q --setopt=install_weak_deps=False gstreamer1-plugins-base-tools gstreamer1-plugins-bad-free; }
   exe=/usr/bin/sona
   contents() { rpm -qlp /pkg/sona-*.rpm; }
   ;;
@@ -168,6 +183,36 @@ else
   if ldd "$exe" | grep -qE 'libgtk-4|libwebkit|libsoup'; then fail "binary links GTK4, WebKitGTK or libsoup"; fi
 fi
 
+# Run it headless under Xvfb: MyGo's CPU renderer (MYGO_GPU=0), as no GPU
+# is here, and private mode so nothing reaches Apple's servers or a
+# scrobbler. The log path is the same on every platform: ~/.local/state.
+# On the deb and rpm this runs before the optional packages are added, so it
+# sees the package's hard dependencies alone (plus Xvfb, which may itself
+# pull in libgl: hence check_gl right after the install).
+run_app() {
+  export HOME=/tmp/home XDG_RUNTIME_DIR=/tmp/run
+  mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
+  chmod 700 "$XDG_RUNTIME_DIR"
+  export MYGO_GPU=0 LIBGL_ALWAYS_SOFTWARE=1 SONA_PRIVATE=1
+  log=$HOME/.local/state/sona/sona.log
+  timeout 40 dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" "$exe" >/tmp/sona.out 2>&1 &
+  pid=$!
+  wait_for_log "$log" '"startup: first paint"' 35 "$pid" || true
+  stop_app "$pid"
+
+  grep -q '"startup: process start"' "$log" 2>/dev/null || { cat /tmp/sona.out; fail "no startup log"; }
+  grep -q '"startup: window created"' "$log" || { cat /tmp/sona.out "$log"; fail "window not created"; }
+  grep -q '"startup: first paint"' "$log" || { cat /tmp/sona.out "$log"; fail "no first paint"; }
+  echo "smoke($kind): log excerpt:"
+  grep -o '"msg":"startup[^"]*"[^}]*' "$log" | head -8
+}
+if [[ $kind == deb || $kind == rpm ]]; then
+  run_app
+  add_optional
+else
+  run_app
+fi
+
 # GStreamer elements for appsrc ! avdec_aac ! audioconvert ! audioresample ! volume ! <sink>,
 # and what Sona's motion artwork pipeline needs: playbin3/decodebin3
 # (playback), typefind, qtdemux (isomp4), h264parse (videoparsersbad),
@@ -197,22 +242,4 @@ else
   gst-inspect-1.0 pipewiresink >/dev/null 2>&1 || gst-inspect-1.0 pulsesink >/dev/null 2>&1 || fail "no PipeWire/Pulse sink"
 fi
 
-# Run it headless under Xvfb: MyGo's CPU renderer (MYGO_GPU=0), as no GPU
-# is here, and private mode so nothing reaches Apple's servers or a
-# scrobbler. The log path is the same on every platform: ~/.local/state.
-export HOME=/tmp/home XDG_RUNTIME_DIR=/tmp/run
-mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
-chmod 700 "$XDG_RUNTIME_DIR"
-export MYGO_GPU=0 LIBGL_ALWAYS_SOFTWARE=1 SONA_PRIVATE=1
-log=$HOME/.local/state/sona/sona.log
-timeout 40 dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" "$exe" >/tmp/sona.out 2>&1 &
-pid=$!
-wait_for_log "$log" '"startup: first paint"' 35 "$pid" || true
-stop_app "$pid"
-
-grep -q '"startup: process start"' "$log" 2>/dev/null || { cat /tmp/sona.out; fail "no startup log"; }
-grep -q '"startup: window created"' "$log" || { cat /tmp/sona.out "$log"; fail "window not created"; }
-grep -q '"startup: first paint"' "$log" || { cat /tmp/sona.out "$log"; fail "no first paint"; }
-echo "smoke($kind): log excerpt:"
-grep -o '"msg":"startup[^"]*"[^}]*' "$log" | head -8
 echo "smoke($kind): PASS"
