@@ -154,7 +154,8 @@ jobs:
   # seams (docs/platforms.md, "Type-check and cross-build"): every package must
   # type-check there with cgo off, which needs no system packages, and paths
   # that differ only by case break macOS and Windows checkouts. Then the lint
-  # (golangci-lint on the whole tree, MyGo's lifetime check), the
+  # (golangci-lint on the whole tree, once for each of the six builds: the
+  # host, dev, probe, e2e, Windows and macOS; MyGo's lifetime check), the
   # message catalogue and gofumpt formatting. The steps share compiled
   # dependencies, so one job beats several that each compile them. A step added
   # to `check` is added here, and the other way round.
@@ -214,9 +215,38 @@ jobs:
         run: go run ./cmd/typecheck -os darwin -arch arm64 ./...
 
       # The whole tree, on every run (a pull request, a push to main, the
-      # nightly, a release), as `check` runs it. The binary is in the CI
-      # image, at the version devenv pins (build/ci/golangci-lint.sha256).
+      # nightly, a release), as `check` runs it, once for each build: a
+      # package lints only in the build that compiles it, so a finding in
+      # Windows-only, macOS-only or tag-gated code shows only there. The
+      # binary is in the CI image, at the version devenv pins
+      # (build/ci/golangci-lint.sha256). The runs share golangci-lint's cache
+      # and Go's build cache, so the later ones only compile what differs.
       - name: golangci-lint
+        run: golangci-lint run ./...
+
+      - name: golangci-lint (development build)
+        run: golangci-lint run --build-tags dev,sqlite_fts5 ./...
+
+      - name: golangci-lint (probe build)
+        run: golangci-lint run --build-tags probe,sqlite_fts5 ./...
+
+      - name: golangci-lint (e2e build)
+        run: golangci-lint run --build-tags e2e,sqlite_fts5 ./...
+
+      # Cgo off, as the type-checks above: no cross C compiler is needed, and
+      # MyGo is pure Go there.
+      - name: golangci-lint (Windows)
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: golangci-lint run ./...
+
+      - name: golangci-lint (macOS)
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+          CGO_ENABLED: "0"
         run: golangci-lint run ./...
 
       # Build values kept past their frame (MyGo's lifetime check).

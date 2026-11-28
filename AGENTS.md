@@ -25,7 +25,7 @@ The main checkout is read-only: it stays on `main` and you never edit, build or 
 
 Run everything as `devenv shell -- <cmd>` (devenv 2.4+; it sets `CGO_ENABLED`, `GOFLAGS=-tags=sqlite_fts5`, GStreamer paths, `.env`). Without it, `-tags` replaces `GOFLAGS`: name `sqlite_fts5` too. Each command is a recipe in the `justfile` (the devenv scripts run `just <cmd>`); on Windows, where Nix doesn't run, run `just <cmd>` with the cgo environment (`docs/development.md`, "On Windows").
 
-- `check`: vet (also `dev` and `probe` tags), Windows and macOS type-checks, golangci-lint on the whole tree, `mygo vet internal/ui`, i18n extract check, path case. `tests`: `go test -race` in `dbus-run-session`, `ui.Tester` and golden images included.
+- `check`: vet (also `dev` and `probe` tags), Windows and macOS type-checks, golangci-lint on the whole tree in six builds (host, `dev`, `probe`, `e2e`, Windows, macOS), `mygo vet internal/ui`, i18n extract check, path case. `tests`: `go test -race` in `dbus-run-session`, `ui.Tester` and golden images included.
 - `fmt` (gofumpt), `gen` (sqlc into `internal/db/dbq`), `go run ./cmd/i18ntool extract` (English `.po` catalogues; a test fails when stale).
 - One test: `devenv shell -- go test -race ./internal/<pkg> -run '^TestName$'`.
 - The rest (`dev`, `build`, `headless`, `e2e`, `probe`, `release`, spikes): `docs/development.md`, "Developer commands". DRM regression after CDM, playback or Apple changes: `go run ./cmd/playspike -seek 90`.

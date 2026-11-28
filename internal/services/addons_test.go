@@ -128,16 +128,6 @@ func waitUntil(t *testing.T, what string, ok func() bool) {
 	}
 }
 
-// waitClosed waits for ch to close.
-func waitClosed(t *testing.T, ch <-chan struct{}, what string) {
-	t.Helper()
-	select {
-	case <-ch:
-	case <-time.After(hangGuard):
-		t.Fatalf("timed out waiting for %s", what)
-	}
-}
-
 // waitSwitchedOff waits until an add-on has been given up on, and returns the
 // switch-off entries. giveUp marks the add-on crashed first, then saves the
 // switch and posts the entry: only the entry, the last of the three, says all
