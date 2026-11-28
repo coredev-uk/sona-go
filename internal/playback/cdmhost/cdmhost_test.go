@@ -50,7 +50,11 @@ func startHost(t *testing.T) *Host {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { h.Close() })
+	t.Cleanup(func() {
+		if err := h.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	return h
 }
 
@@ -211,7 +215,8 @@ func clearInit() []byte {
 	stsd := mkfull("stsd", 0, 0, be32(1), entry)
 	mdhd := mkfull("mdhd", 0, 0, be32(0), be32(0), be32(44100), be32(0), be32(0))
 	tkhd := mkfull("tkhd", 0, 7, be32(0), be32(0), be32(1), make([]byte, 68))
-	trak := mkbox("trak", tkhd, mkbox("mdia", mdhd, mkbox("minf", mkbox("stbl", stsd))))
+	hdlr := mkfull("hdlr", 0, 0, be32(0), []byte("soun"), make([]byte, 13))
+	trak := mkbox("trak", tkhd, mkbox("mdia", mdhd, hdlr, mkbox("minf", mkbox("stbl", stsd))))
 	return bytes.Join([][]byte{mkbox("ftyp", []byte("iso8"), be32(0)), mkbox("moov", trak, mkbox("mvex", mkfull("trex", 0, 0, be32(1), be32(1), be32(1024), be32(0), be32(0))))}, nil)
 }
 

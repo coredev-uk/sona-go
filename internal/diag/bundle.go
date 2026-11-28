@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -48,17 +47,22 @@ type BundleOptions struct {
 	Home string
 }
 
-// Bundle builds the plain-text diagnostics bundle. Everything in it passes
-// through Scrub.
+// Bundle builds the plain-text diagnostics bundle. Nothing in it is written
+// as it was read: sections, crash output and every log line pass through the
+// anonymiser (see anonymise.go), so a bundle holds no secret, no e-mail
+// address, no user path, and nothing that says which songs, albums,
+// playlists, stations or searches the person had. What identifies content
+// in the log tail is pseudonymised with a key made for this bundle alone.
 func Bundle(o BundleOptions) string {
 	if o.LogLines <= 0 {
 		o.LogLines = DefaultLogLines
 	}
+	a := newAnonymiser(o.Home)
 	var b strings.Builder
 	fmt.Fprintf(&b, "Sona diagnostics bundle\nGenerated: %s\n", o.Now.UTC().Format(time.RFC3339))
 	for _, s := range o.Sections {
 		fmt.Fprintf(&b, "\n## %s\n", s.Title)
-		b.WriteString(renderJSON(s.Value))
+		b.WriteString(a.renderJSON(s.Value))
 		b.WriteByte('\n')
 	}
 	for _, name := range []string{PrevCrashFile, CrashFile} {
@@ -72,7 +76,7 @@ func Bundle(o BundleOptions) string {
 			title = "Previous crash"
 		}
 		fmt.Fprintf(&b, "\n## %s (%s, %s)\n", title, name, fi.ModTime().UTC().Format(time.RFC3339))
-		b.Write(head(path, crashTail))
+		b.WriteString(a.text(string(head(path, crashTail))))
 		b.WriteByte('\n')
 	}
 	lines := tailLines(o.LogFile, o.LogLines)
@@ -81,32 +85,17 @@ func Bundle(o BundleOptions) string {
 	}
 	fmt.Fprintf(&b, "\n## Log (last %d lines)\n", len(lines))
 	for _, l := range lines {
-		b.WriteString(l)
+		b.WriteString(a.logLine(l))
 		b.WriteByte('\n')
 	}
-	return Scrub(b.String(), o.Home)
+	return b.String()
 }
 
-var emailRe = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
-
-// Scrub removes secrets and personal data from text: everything
-// logging.Redact removes (JWTs, token headers and keys, bearer
-// credentials, MUT-like base64 runs, -ldflags values and linker -X
-// assignments, which carry the build's Last.fm and Discord credentials),
-// e-mail addresses (Apple IDs), and the home directory (replaced by "~").
-// It runs over the log tail as read from disk, so lines written by a build
-// whose log handler did not yet redact something are scrubbed here too.
-func Scrub(s, home string) string {
-	s = logging.Redact(s)
-	s = emailRe.ReplaceAllString(s, logging.Redacted)
-	if home = strings.TrimRight(home, "/"); home != "" {
-		s = strings.ReplaceAll(s, home, "~")
-	}
-	return s
-}
-
-// renderJSON marshals v as indented JSON without the keys dropKey names.
-func renderJSON(v any) string {
+// renderJSON marshals v as indented JSON without the keys dropKey names,
+// with every string passed through the string pass and route-valued keys
+// ("startPage") reduced to their page type. Library counts, the storefront
+// and add-on IDs are not personal and stay.
+func (a *anonymiser) renderJSON(v any) string {
 	raw, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Sprintf("(unavailable: %v)", err)
@@ -117,14 +106,17 @@ func renderJSON(v any) string {
 	if err := dec.Decode(&tree); err != nil {
 		return fmt.Sprintf("(unavailable: %v)", err)
 	}
-	out, err := json.MarshalIndent(prune(tree), "", "  ")
+	out, err := json.MarshalIndent(a.prune("", tree), "", "  ")
 	if err != nil {
 		return fmt.Sprintf("(unavailable: %v)", err)
 	}
 	return string(out)
 }
 
-func prune(v any) any {
+// prune drops the keys dropKey names from v, the value of key, and
+// anonymises its strings. Section keys are Sona's own report fields, not
+// log attributes, so only route-valued ones change a value by their key.
+func (a *anonymiser) prune(key string, v any) any {
 	switch t := v.(type) {
 	case map[string]any:
 		for k, sub := range t {
@@ -132,12 +124,17 @@ func prune(v any) any {
 				delete(t, k)
 				continue
 			}
-			t[k] = prune(sub)
+			t[k] = a.prune(k, sub)
 		}
 	case []any:
 		for i, sub := range t {
-			t[i] = prune(sub)
+			t[i] = a.prune(key, sub)
 		}
+	case string:
+		if classify(key) == route && strings.HasPrefix(t, "/") {
+			return a.text(maskRoute(t))
+		}
+		return a.text(t)
 	}
 	return v
 }

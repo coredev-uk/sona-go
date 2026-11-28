@@ -940,7 +940,7 @@ func (e *Engine) idleShutdown() {
 	}
 	e.mu.Unlock()
 	e.log.Debug("ending idle playback host", "pid", h.Info().PID)
-	h.Close()
+	_ = h.Close()
 }
 
 // ensureHost returns the running host, starting one if needed.
@@ -986,7 +986,7 @@ func (e *Engine) ensureHost(ctx context.Context) (host, int, error) {
 	e.mu.Lock()
 	if e.closed {
 		e.mu.Unlock()
-		h.Close()
+		_ = h.Close()
 		return nil, 0, errClosed
 	}
 	e.hostGen++
@@ -1126,7 +1126,7 @@ func (e *Engine) handle(h host, gen int, ev cdmhost.Event) {
 			e.log.Warn("playback pipeline failed; reloading", "item", it.id, "err", ev.Err)
 			return
 		}
-		go e.fail(it, errors.New("native: "+ev.Err))
+		go func() { _ = e.fail(it, errors.New("native: "+ev.Err)) }() // fail records and logs the error
 	}
 }
 

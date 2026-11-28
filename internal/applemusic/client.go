@@ -424,7 +424,7 @@ func (c *Client) do(ctx context.Context, r Request, out any) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return resp.StatusCode, &StatusError{

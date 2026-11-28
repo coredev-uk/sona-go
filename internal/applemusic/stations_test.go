@@ -17,14 +17,16 @@ func TestNextTracksAndContinuous(t *testing.T) {
 			if r.Method != http.MethodPost || r.URL.Query().Get("limit") != "10" || r.URL.Query().Get("relate[songs]") != "albums,artists" {
 				t.Errorf("next-tracks %s %s", r.Method, r.URL.RawQuery)
 			}
-			w.Write([]byte(`{"data":[{"id":"7","type":"songs","attributes":{"name":"Seven","playParams":{"id":"7","kind":"song"}},
+			_, _ = w.Write([]byte(`{"data":[{"id":"7","type":"songs","attributes":{"name":"Seven","playParams":{"id":"7","kind":"song"}},
 				"relationships":{"albums":{"data":[{"id":"70","type":"albums"}]},"artists":{"data":[{"id":"700","type":"artists"}]}}}]}`))
+
 		case "/v1/me/stations/continuous":
 			b, _ := io.ReadAll(r.Body)
 			var m map[string]any
 			_ = json.Unmarshal(b, &m)
 			bodies = append(bodies, m)
-			w.Write([]byte(`{"results":{"station":{"id":"ra.cp-1","type":"stations","attributes":{"name":"One Station","kind":"songSeeded"}}}}`))
+			_, _ = w.Write([]byte(`{"results":{"station":{"id":"ra.cp-1","type":"stations","attributes":{"name":"One Station","kind":"songSeeded"}}}}`))
+
 		default:
 			http.NotFound(w, r)
 		}
@@ -56,7 +58,8 @@ func TestRadioAssetsAndLicense(t *testing.T) {
 			if q.Get("id") != "ra.9" || q.Get("kind") != "radioStation" || q.Get("hasDrm") != "true" || q.Get("keyFormat") != "web" || q.Has("stationHash") {
 				t.Errorf("assets query %s", r.URL.RawQuery)
 			}
-			w.Write([]byte(`{"results":{"assets":[{"url":"https://x/index.m3u8","keyServerUrl":"https://k/streaming-key-delivery","widevineKeyCertificateUrl":"https://c"}]}}`))
+			_, _ = w.Write([]byte(`{"results":{"assets":[{"url":"https://x/index.m3u8","keyServerUrl":"https://k/streaming-key-delivery","widevineKeyCertificateUrl":"https://c"}]}}`))
+
 		case "/key":
 			if r.Header.Get("X-Apple-Renewal") != "true" {
 				t.Errorf("renewal header %v", r.Header)
@@ -64,10 +67,12 @@ func TestRadioAssetsAndLicense(t *testing.T) {
 			b, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(b, &lic)
 			if lic["stkn"] == "bad" {
-				w.Write([]byte(`{"status":-1021,"message":"nope"}`))
+				_, _ = w.Write([]byte(`{"status":-1021,"message":"nope"}`))
+
 				return
 			}
-			w.Write([]byte(`{"status":0,"license":"` + base64.StdEncoding.EncodeToString([]byte("LIC")) + `","stkn":"t2"}`))
+			_, _ = w.Write([]byte(`{"status":0,"license":"` + base64.StdEncoding.EncodeToString([]byte("LIC")) + `","stkn":"t2"}`))
+
 		default:
 			http.NotFound(w, r)
 		}

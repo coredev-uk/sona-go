@@ -262,6 +262,18 @@
 // account go at sign-out. NotificationsService lists, marks read, dismisses
 // and clears them ("notifications:changed").
 //
+// Profile (profile.go): ProfileService keeps the name on the person's
+// Apple Music profile for the For You greeting (#732). The name is two columns
+// of the account row (profile_name, profile_checked_at), so a cold start reads
+// it from SQLite with no request and sign-out clears it with the row.
+// GreetingName returns the part the greeting uses (givenName: the first
+// word for a Latin, Cyrillic, Greek, Armenian or Georgian name, the whole
+// name for any other script) and "" for no profile or one not set up
+// (isOnboarded false); the handle is never stored. Apple is asked by
+// OwnSocialProfile once the network opens and when someone signs in, only
+// when the stored answer is missing or a day old, and the result goes out as
+// "profile:changed". The name is never logged, only that it was fetched.
+//
 // Lyrics (lyrics.go): LyricsService.Lyrics(songID) asks the lyrics
 // sources switched on in config.Settings.Lyrics (internal/lyrics: Apple
 // Music, Musixmatch, LRCLIB, NetEase) in parallel, matching them by the

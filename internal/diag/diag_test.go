@@ -167,7 +167,7 @@ func TestBundleScrubsBuildCredentialsFromOldLogs(t *testing.T) {
 	}
 	for _, want := range []string{
 		`"-ldflags":"` + logging.Redacted + `","CGO_ENABLED":"1"`, `-ldflags="` + logging.Redacted + `"`,
-		`"-tags":"sqlite_fts5"`, `"msg":"Platform Info:","Name":"MacOS","Version":"27.2"`,
+		`"-tags":"sqlite_fts5"`, `"msg":"Platform Info:","Name":"name~`, `,"Version":"27.2"}`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("bundle lacks %q", want)

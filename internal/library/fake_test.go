@@ -230,7 +230,7 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				data = append(data, map[string]any{"id": id, "type": "ratings", "attributes": map[string]any{"value": v}})
 			}
 		}
-		json.NewEncoder(w).Encode(map[string]any{"data": data})
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
 		return
 	default:
 		http.NotFound(w, r)
@@ -261,7 +261,7 @@ func (f *fakeApple) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if off+limit < len(items) {
 		body["next"] = fmt.Sprintf("%s?offset=%d", path, off+limit)
 	}
-	json.NewEncoder(w).Encode(body)
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 // reset forgets the requests seen so far.
@@ -304,7 +304,11 @@ func newEnv(t testing.TB) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	api := applemusic.New(srv.Client(), staticDev{}, func() string { return "mut" })
 	api.Base = srv.URL
 	api.AMPBase = srv.URL

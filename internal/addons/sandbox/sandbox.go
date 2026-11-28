@@ -29,7 +29,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"testing"
 )
 
 // Policy is what the confined add-on can reach. Nothing else of the user's
@@ -139,10 +138,6 @@ func ReasonOf(err error) (Reason, bool) {
 // supervisor's). Only a test binary honours it (testing.Testing): a Sona
 // build never runs an add-on outside the sandbox.
 const EnvUnsandboxed = "SONA_ADDON_UNSANDBOXED"
-
-func unsandboxedForTests() bool {
-	return testing.Testing() && os.Getenv(EnvUnsandboxed) == "1"
-}
 
 // validate checks what every OS needs of a spec.
 func (s Spec) validate() error {

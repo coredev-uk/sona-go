@@ -565,7 +565,7 @@ func TestFailureSkipping(t *testing.T) {
 		if s.State != playback.StateError || s.Error == "" {
 			t.Fatalf("stopped state %s %q", s.State, s.Error)
 		}
-		h.c.Close()
+		must(t, h.c.Close())
 		sawErr.Wait()
 		if len(errs) == 0 {
 			t.Fatal("subscribers never saw an error")

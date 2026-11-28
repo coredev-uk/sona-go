@@ -14,7 +14,7 @@ func goldenHome(t *testing.T, w, h int, dark bool) *rig {
 	if err := theme.RegisterFonts(); err != nil {
 		t.Fatal(err)
 	}
-	r := newRig(t, "/", w, h, withHome(samplePage()), withUI(uitest.Empty()))
+	r := newRig(t, "/", w, h, withHome(samplePage()), withName("Alex"), withUI(uitest.Empty()))
 	if dark {
 		theme.SetMode(theme.ModeDark)
 		t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
@@ -26,12 +26,12 @@ func goldenHome(t *testing.T, w, h int, dark bool) *rig {
 }
 
 func TestGoldenHomeLight(t *testing.T) {
-	r := goldenHome(t, 1132, 1253, false)
+	r := goldenHome(t, 1132, 1280, false)
 	uitest.Golden(t, r.tt.Image(), "home-light")
 }
 
 func TestGoldenHomeDark(t *testing.T) {
-	r := goldenHome(t, 1132, 1253, true)
+	r := goldenHome(t, 1132, 1280, true)
 	uitest.Golden(t, r.tt.Image(), "home-dark")
 }
 

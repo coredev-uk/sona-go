@@ -270,6 +270,10 @@ msgstr ""
 msgid "Adds each song you play to your public ListenBrainz history."
 msgstr ""
 
+#: internal/ui/features/settings/general.go
+msgid "Adds the first name on your Apple Music profile to the greeting, when you have one. It stays on this computer."
+msgstr ""
+
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/playback.go
 msgid "Advanced"
@@ -3079,11 +3083,23 @@ msgid "Good afternoon"
 msgstr ""
 
 #: internal/ui/features/home/greeting.go
+msgid "Good afternoon, {name}"
+msgstr ""
+
+#: internal/ui/features/home/greeting.go
 msgid "Good evening"
 msgstr ""
 
 #: internal/ui/features/home/greeting.go
+msgid "Good evening, {name}"
+msgstr ""
+
+#: internal/ui/features/home/greeting.go
 msgid "Good morning"
+msgstr ""
+
+#: internal/ui/features/home/greeting.go
+msgid "Good morning, {name}"
 msgstr ""
 
 #: internal/ui/i18n/cdm.go
@@ -5102,6 +5118,10 @@ msgstr ""
 msgid "Opens on {page}"
 msgstr ""
 
+#: internal/ui/features/settings/general.go
+msgid "Opens the page with good morning, good afternoon or good evening, by the time on this computer."
+msgstr ""
+
 #: internal/ui/features/settings/updates.go
 msgid "Opens the release notes the first time Sona starts after an update. Asks GitHub for them once the window has opened."
 msgstr ""
@@ -6334,10 +6354,6 @@ msgstr ""
 
 #: internal/ui/features/playlist/dialogs.go
 msgid "Saving…"
-msgstr ""
-
-#: internal/ui/features/settings/general.go
-msgid "Says good morning, good afternoon or good evening above the heading, by the time on this computer."
 msgstr ""
 
 #: internal/ui/features/radio/station.go
@@ -8220,11 +8236,11 @@ msgid "Token storage"
 msgstr ""
 
 #: internal/ui/features/settings/bugreport.go
-msgid "Tokens and your e-mail address are removed."
+msgid "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes."
 msgstr ""
 
 #: internal/ui/features/settings/bugreport.go
-msgid "Tokens and your e-mail address are removed. A copy is saved as {file} in the log folder."
+msgid "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes. A copy is saved as {file} in the log folder."
 msgstr ""
 
 #: internal/ui/features/discover/titles.go
@@ -8544,6 +8560,10 @@ msgstr ""
 
 #: internal/ui/features/settings/shortcuts.go
 msgid "Use it here"
+msgstr ""
+
+#: internal/ui/features/settings/general.go
+msgid "Use my name"
 msgstr ""
 
 #: internal/ui/features/concerts/location.go

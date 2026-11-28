@@ -6,8 +6,12 @@ import (
 	"time"
 )
 
-// ParseInit parses an init segment (ftyp + moov) with one track: audio
-// (AAC) or, for music videos, video (H.264 or HEVC).
+// ParseInit parses an init segment (ftyp + moov) and returns its media
+// track: the one audio (AAC) or, for music videos, video (H.264 or HEVC)
+// track, found by its handler ('soun' or 'vide'). Any other track is
+// ignored: Apple's video renditions carry a CEA-608 closed-caption track
+// ('clcp') beside the picture. Two media tracks, or none, is an error.
+// ParseFragment then reads only that track's traf.
 func ParseInit(b []byte) (*Init, error) {
 	top, err := boxes(b, 0)
 	if err != nil {
@@ -25,15 +29,15 @@ func ParseInit(b []byte) (*Init, error) {
 	var trak box
 	found := false
 	for _, t := range mc {
-		if t.typ == "trak" {
+		if t.typ == "trak" && isMediaTrack(t) {
 			if found {
-				return nil, errors.New("fmp4: init segment has more than one track")
+				return nil, errors.New("fmp4: init segment has more than one audio or video track")
 			}
 			trak, found = t, true
 		}
 	}
 	if !found {
-		return nil, errors.New("fmp4: init segment has no trak")
+		return nil, errors.New("fmp4: init segment has no audio or video track")
 	}
 	if err := in.parseTrak(trak); err != nil {
 		return nil, err
@@ -63,23 +67,49 @@ func ParseInit(b []byte) (*Init, error) {
 	return in, nil
 }
 
+// isMediaTrack reports whether trak's handler (mdia/hdlr) is audio ('soun')
+// or video ('vide'). A trak whose handler can't be read is not one: the
+// track the caller wants is parsed, and fails, in parseTrak.
+func isMediaTrack(trak box) bool {
+	tc, err := children(trak)
+	if err != nil {
+		return false
+	}
+	hdlr, err := path(tc, "mdia", "hdlr")
+	if err != nil {
+		return false
+	}
+	r := reader{b: hdlr.body}
+	r.full()
+	r.u32() // pre_defined
+	handler := string(r.take(4))
+	return r.err == nil && (handler == "soun" || handler == "vide")
+}
+
 func (in *Init) parseTrak(trak box) error {
 	tc, err := children(trak)
 	if err != nil {
 		return err
 	}
-	if tkhd, ok := find(tc, "tkhd"); ok {
-		r := reader{b: tkhd.body}
-		v, _ := r.full()
-		if v == 1 {
-			r.take(16)
-		} else {
-			r.take(8)
-		}
-		in.TrackID = r.u32()
-		if r.err != nil {
-			return fmt.Errorf("fmp4: tkhd: %w", r.err)
-		}
+	// The track ID is what ParseFragment picks the track's traf by, among
+	// the other tracks' in the same moof.
+	tkhd, ok := find(tc, "tkhd")
+	if !ok {
+		return errors.New("fmp4: trak has no tkhd")
+	}
+	r := reader{b: tkhd.body}
+	v, _ := r.full()
+	if v == 1 {
+		r.take(16)
+	} else {
+		r.take(8)
+	}
+	in.TrackID = r.u32()
+	if r.err != nil {
+		return fmt.Errorf("fmp4: tkhd: %w", r.err)
+	}
+	if in.TrackID == 0 {
+		return errors.New("fmp4: tkhd: track ID 0")
 	}
 	if edts, ok := find(tc, "edts"); ok {
 		if err := in.parseEdts(edts); err != nil {
@@ -98,7 +128,7 @@ func (in *Init) parseTrak(trak box) error {
 	if !ok {
 		return errors.New("fmp4: mdia has no mdhd")
 	}
-	r := reader{b: mdhd.body}
+	r = reader{b: mdhd.body}
 	if v, _ := r.full(); v == 1 {
 		r.take(16)
 	} else {

@@ -8,13 +8,13 @@ func TestFold(t *testing.T) {
 		{"Sigur Rós", "sigur ros"},
 		{"Ed O’Brien", "ed o'brien"},
 		{"ＡＢＣ", "abc"},
-		{"  Zara   Larsson ", "zara larsson"},
+		{"  Theo   Lund ", "theo lund"},
 	} {
 		if Fold(c.a) != Fold(c.b) {
 			t.Errorf("Fold(%q) = %q, Fold(%q) = %q: want equal", c.a, Fold(c.a), c.b, Fold(c.b))
 		}
 	}
-	if Fold("Alesso") == Fold("Alesso & Zara Larsson") {
+	if Fold("Mira Vale") == Fold("Mira Vale & Theo Lund") {
 		t.Error("a combined name folds like its first artist")
 	}
 }

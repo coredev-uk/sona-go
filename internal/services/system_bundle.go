@@ -17,8 +17,9 @@ import (
 // paths), the Memory section (the app's and the playback host's memory as
 // the OS counts it, the Go runtime's), the features' sections (Env.OnDiagnostics: motion artwork), the
 // settings (without the city, the open sidebar folders, the audio output
-// device and the add-ons' own text settings: see [config.ForDiagnostics]), crash output and the last log lines, with tokens, e-mail
-// addresses and the home directory scrubbed. It is also saved to a 0600
+// device and the add-ons' own text settings: see [config.ForDiagnostics]), crash output and the last log lines, anonymised by
+// [diag.Bundle]: tokens, e-mail addresses and the home directory are removed, and
+// the IDs, titles and searches of what was played and looked at become codes. It is also saved to a 0600
 // file in the state directory.
 func (s *SystemService) DiagnosticsBundle(ctx context.Context) (DiagBundle, error) {
 	d, err := s.Diagnostics(ctx)

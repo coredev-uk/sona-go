@@ -44,7 +44,7 @@ func userChoice(scheme string) string {
 	if err != nil {
 		return ""
 	}
-	defer k.Close()
+	defer func() { _ = k.Close() }()
 	v, _, err := k.GetStringValue("ProgId")
 	if err != nil {
 		return ""

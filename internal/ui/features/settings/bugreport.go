@@ -50,9 +50,9 @@ func (s *settings) copyBundle() {
 
 // bundleToast says the bundle is on the clipboard and where its copy is.
 func (s *settings) bundleToast(b services.DiagBundle) {
-	spec := kit.ToastSpec{Title: i18n.T("Diagnostics copied"), Description: i18n.T("Tokens and your e-mail address are removed.")}
+	spec := kit.ToastSpec{Title: i18n.T("Diagnostics copied"), Description: i18n.T("Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes.")}
 	if b.Path != "" {
-		spec.Description = i18n.T("Tokens and your e-mail address are removed. A copy is saved as {file} in the log folder.", "file", filepath.Base(b.Path))
+		spec.Description = i18n.T("Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes. A copy is saved as {file} in the log folder.", "file", filepath.Base(b.Path))
 		spec.Action = i18n.T("Show")
 		spec.OnAction = s.openLogFolder
 	}

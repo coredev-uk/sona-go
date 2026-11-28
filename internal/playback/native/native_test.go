@@ -308,7 +308,8 @@ var initSeg = func() []byte {
 	stsd := box("stsd", u32(0), u32(1), entry)
 	mdhd := box("mdhd", u32(0), u32(0), u32(0), u32(44100), u32(0), u32(0))
 	tkhd := box("tkhd", u32(7), u32(0), u32(0), u32(1), make([]byte, 68))
-	trak := box("trak", tkhd, box("mdia", mdhd, box("minf", box("stbl", stsd))))
+	hdlr := box("hdlr", u32(0), u32(0), []byte("soun"), make([]byte, 13))
+	trak := box("trak", tkhd, box("mdia", mdhd, hdlr, box("minf", box("stbl", stsd))))
 	return append(box("ftyp", []byte("iso8"), u32(0)), box("moov", trak)...)
 }()
 
@@ -356,15 +357,15 @@ func newFixture(t *testing.T) *fixture {
 					"hls-playlist-url":"https://play.test/mv/master.m3u8?dsid=1"}]}`)
 				return
 			}
-			fmt.Fprintf(w, `{"songList":[{"songId":"%s","hls-key-server-url":"https://play.test/lic","widevine-cert-url":"https://play.test/cert",
+			_, _ = fmt.Fprintf(w, `{"songList":[{"songId":"%s","hls-key-server-url":"https://play.test/lic","widevine-cert-url":"https://play.test/cert",
 				"assets":[{"flavor":"28:ctrp256","URL":"https://aod.test/%s/list.m3u8"},{"flavor":"32:ctrp64","URL":"https://aod.test/%s/64/list.m3u8"}]}]}`,
 				body.SalableAdamID, body.SalableAdamID, body.SalableAdamID)
 		case r.URL.Path == "/cert":
-			w.Write([]byte("cert"))
+			_, _ = w.Write([]byte("cert"))
 		case r.URL.Path == "/lic":
 			fx.licence(w, r)
 		case strings.HasSuffix(r.URL.Path, "/list.m3u8"):
-			fmt.Fprintf(w, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-KEY:METHOD=ISO-23001-7,URI=\"data:;base64,%s\"\n"+
+			_, _ = fmt.Fprintf(w, "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-KEY:METHOD=ISO-23001-7,URI=\"data:;base64,%s\"\n"+
 				"#EXT-X-MAP:URI=\"media.mp4\",BYTERANGE=\"%d@0\"\n"+
 				"#EXTINF:10,\n#EXT-X-BYTERANGE:100@%d\nmedia.mp4\n#EXTINF:10,\n#EXT-X-BYTERANGE:100\nmedia.mp4\n#EXTINF:10,\n#EXT-X-BYTERANGE:100\nmedia.mp4\n#EXT-X-ENDLIST\n", kidB64, initLen, initLen)
 		case strings.HasSuffix(r.URL.Path, "/media.mp4"):
@@ -472,7 +473,11 @@ func newHarness(t *testing.T, idle time.Duration, autoEnd bool) *harness {
 		h.libs = append(h.libs, lib)
 		return f, nil
 	}
-	t.Cleanup(func() { h.e.Close() })
+	t.Cleanup(func() {
+		if err := h.e.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	return h
 }
 
@@ -883,7 +888,11 @@ func TestFetchRetriesTransientFailures(t *testing.T) {
 	t.Cleanup(srv.Close)
 	e := New(Options{HTTP: srv.Client(), IdleTimeout: -1})
 	e.retry = retry
-	t.Cleanup(func() { e.Close() })
+	t.Cleanup(func() {
+		if err := e.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	for _, p := range []string{"/flaky", "/limited"} {
 		b, err := e.fetch(ctx(t), srv.URL+p, hlsRange(int64(initLen), 100))
 		if err != nil || !bytes.Equal(b, segment(0)) {

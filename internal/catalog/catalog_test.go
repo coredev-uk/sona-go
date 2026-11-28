@@ -47,7 +47,7 @@ func newFixture(t *testing.T) *fixture {
 		}
 		switch r.URL.Path {
 		case "/v1/catalog/gb/albums/7", "/v1/catalog/us/albums/7":
-			w.Write([]byte(albumJSON))
+			_, _ = w.Write([]byte(albumJSON))
 		case "/v1/catalog/gb/songs":
 			// Batched lookup: every ID but "404" is known.
 			var data []string
@@ -58,7 +58,7 @@ func newFixture(t *testing.T) *fixture {
 			}
 			_, _ = w.Write([]byte(`{"data":[` + strings.Join(data, ",") + `]}`))
 		case "/v1/catalog/gb/search":
-			w.Write([]byte(`{"results":{"song":{"data":[{"id":"1","type":"songs"}]}},"resources":{"songs":{"1":{"id":"1","type":"songs","attributes":{"name":"One"}}}}}`))
+			_, _ = w.Write([]byte(`{"results":{"song":{"data":[{"id":"1","type":"songs"}]}},"resources":{"songs":{"1":{"id":"1","type":"songs","attributes":{"name":"One"}}}}}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -68,7 +68,11 @@ func newFixture(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	api := applemusic.New(srv.Client(), staticDev{}, nil)
 	api.Base = srv.URL
 	api.AMPBase = srv.URL
@@ -165,9 +169,9 @@ func TestSongsBatchesAndStores(t *testing.T) {
 func TestStorefrontIsPartOfKey(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	f.cat.Album(ctx, "7")
+	_, _ = f.cat.Album(ctx, "7")
 	f.sf = "us"
-	f.cat.Album(ctx, "7")
+	_, _ = f.cat.Album(ctx, "7")
 	if f.hits.Load() != 2 {
 		t.Fatalf("hits = %d: storefronts share a cache entry", f.hits.Load())
 	}
@@ -217,12 +221,12 @@ func TestNotFoundIsNotCached(t *testing.T) {
 func TestSearchCachedPerQuery(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	f.cat.Search(ctx, "One", applemusic.SearchOptions{})
+	_, _ = f.cat.Search(ctx, "One", applemusic.SearchOptions{})
 	res, err := f.cat.Search(ctx, "  one ", applemusic.SearchOptions{})
 	if err != nil || len(res.Groups["song"].Data) != 1 || len(res.Resources.Resolve(res.Groups["song"].Data)) != 1 || f.hits.Load() != 1 {
 		t.Fatalf("res=%+v hits=%d err=%v", res, f.hits.Load(), err)
 	}
-	f.cat.Search(ctx, "one", applemusic.SearchOptions{Group: applemusic.GroupSong, Offset: 25})
+	_, _ = f.cat.Search(ctx, "one", applemusic.SearchOptions{Group: applemusic.GroupSong, Offset: 25})
 	if f.hits.Load() != 2 {
 		t.Fatalf("different page served from cache")
 	}
@@ -231,8 +235,8 @@ func TestSearchCachedPerQuery(t *testing.T) {
 func TestPrune(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	f.cat.Search(ctx, "one", applemusic.SearchOptions{})
-	f.cat.Album(ctx, "7")
+	_, _ = f.cat.Search(ctx, "one", applemusic.SearchOptions{})
+	_, _ = f.cat.Album(ctx, "7")
 	f.clock = f.clock.Add(SearchTTL + time.Second)
 	n, err := f.cat.Prune(ctx)
 	if err != nil || n != 1 {

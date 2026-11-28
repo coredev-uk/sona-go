@@ -36,6 +36,7 @@ var features = []feature{
 	{"storage", svc(newStorageService)},
 	{"private", svc(newPrivateService)},
 	{"platform", svc(newPlatformService)},
+	{"profile", svc(newProfileService)},
 	{"notifications", svc(newNotificationsService)},
 	{"reminders", svc(newRemindersService)},
 	{"artisttracker", svc(newArtistTrackerService)},

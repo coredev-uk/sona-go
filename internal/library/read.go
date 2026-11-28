@@ -259,7 +259,7 @@ func query[T any](ctx context.Context, l *Library, q string, scan func(scanner) 
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := []T{}
 	for rows.Next() {
 		v, err := scan(rows)

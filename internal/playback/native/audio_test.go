@@ -355,7 +355,11 @@ func TestUploadDownloadStopsWhenCancelledDuringBackoff(t *testing.T) {
 	t.Cleanup(srv.Close)
 	e := New(Options{HTTP: srv.Client(), IdleTimeout: -1})
 	e.retry = []time.Duration{time.Hour}
-	t.Cleanup(func() { e.Close() })
+	t.Cleanup(func() {
+		if err := e.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	u := &upload{url: srv.URL, wake: make(chan struct{}), size: -1}
 	c, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

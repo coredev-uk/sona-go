@@ -32,7 +32,7 @@ func TestRatingsBatchesAndStripsPrefix(t *testing.T) {
 				data = append(data, `{"id":"r.i.150","type":"ratings","attributes":{"value":-1}}`)
 			}
 		}
-		fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(data, ","))
+		_, _ = fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(data, ","))
 	}))
 	ids := make([]string, 250)
 	for i := range ids {
@@ -93,7 +93,7 @@ func TestAddToLibraryReturnsLibraryIDs(t *testing.T) {
 		}
 		q = r.URL.RawQuery
 		// Observed shape (representation=ids).
-		fmt.Fprint(w, `{"data":[{"id":"l.0EeC6mp","type":"library-albums"}],
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"l.0EeC6mp","type":"library-albums"}],
 			"meta":{"operation":{"albums":{"9":[{"id":"l.0EeC6mp","type":"library-albums"}]},"songs":{"1":[{"id":"i.1","type":"library-songs"}],"2":[]}}}}`)
 	}))
 	c.AMPBase = c.Base
@@ -122,13 +122,21 @@ func TestLibraryPlaylistTracksEmpty404(t *testing.T) {
 
 func TestCatalogIDs(t *testing.T) {
 	var lib Song
-	json.Unmarshal([]byte(`{"id":"i.1","type":"library-songs","attributes":{"playParams":{"catalogId":"99"}}}`), &lib)
+	if err := json.Unmarshal([]byte(`{"id":"i.1","type":"library-songs","attributes":{"playParams":{"catalogId":"99"}}}`), &lib); err != nil {
+		t.Fatal(err)
+	}
 	var cat Song
-	json.Unmarshal([]byte(`{"id":"5","type":"songs"}`), &cat)
+	if err := json.Unmarshal([]byte(`{"id":"5","type":"songs"}`), &cat); err != nil {
+		t.Fatal(err)
+	}
 	var alb Album
-	json.Unmarshal([]byte(`{"id":"l.1","type":"library-albums","relationships":{"catalog":{"data":[{"id":"77","type":"albums"}]}}}`), &alb)
+	if err := json.Unmarshal([]byte(`{"id":"l.1","type":"library-albums","relationships":{"catalog":{"data":[{"id":"77","type":"albums"}]}}}`), &alb); err != nil {
+		t.Fatal(err)
+	}
 	var pl Playlist
-	json.Unmarshal([]byte(`{"id":"p.1","type":"library-playlists","attributes":{"playParams":{"globalId":"pl.u-1"}}}`), &pl)
+	if err := json.Unmarshal([]byte(`{"id":"p.1","type":"library-playlists","attributes":{"playParams":{"globalId":"pl.u-1"}}}`), &pl); err != nil {
+		t.Fatal(err)
+	}
 	if lib.CatalogID() != "99" || cat.CatalogID() != "5" || alb.CatalogID() != "77" || pl.CatalogID() != "pl.u-1" {
 		t.Fatalf("%q %q %q %q", lib.CatalogID(), cat.CatalogID(), alb.CatalogID(), pl.CatalogID())
 	}

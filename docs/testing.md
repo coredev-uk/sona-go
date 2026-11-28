@@ -34,7 +34,7 @@ go vet ./...
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...   # see platforms.md
 go run ./cmd/typecheck -os darwin -arch arm64 ./...
 go test -race ./...    # CI's pull requests skip -race for internal/ui's page and app packages (see maintainers/ci-workflows.md)
-golangci-lint run --new-from-rev=origin/main ./...   # must be clean; devenv pins the version CI installs
+golangci-lint run ./...   # the whole tree; must print 0 issues; devenv pins the version CI installs
 go tool mygo vet internal/ui   # build values kept past their frame
 go run ./cmd/i18ntool extract -check   # the catalogue; go test checks it too
 go run ./cmd/pathcase                  # no paths differing only by case
@@ -42,7 +42,7 @@ go tool govulncheck -show verbose -tags sqlite_fts5 ./...   # reachable vulnerab
 sh build/gofumpt.sh   # lists the tracked Go files gofumpt (go.mod's, `go tool gofumpt`) would change, and fails; `fmt` fixes them
 ```
 
-CI (`.github/workflows/ci.yml`, the "Vet and type-check" job) runs what `check` runs, so a change that fails `check` fails there too: the vets, the type-checks, `golangci-lint`, `go tool mygo vet internal/ui`, the catalogue check, the path-case check and the gofumpt check. `golangci-lint` runs on pull requests only, on the lines they change against the pull request's base (a push to main carries what its pull request passed, and the tree still has findings from before the linter ran in CI). `govulncheck` is the one CI runs that `check` doesn't: on pull requests, the nightly and releases (not on a push to main), it needs the network and today's vulnerability database (policy: `maintainers/ci-workflows.md`).
+CI (`.github/workflows/ci.yml`, the "Vet and type-check" job) runs what `check` runs, so a change that fails `check` fails there too: the vets, the type-checks, `golangci-lint`, `go tool mygo vet internal/ui`, the catalogue check, the path-case check and the gofumpt check. `golangci-lint` runs on the whole tree on every run, a push to main included. `govulncheck` is the one CI runs that `check` doesn't: on pull requests, the nightly and releases (not on a push to main), it needs the network and today's vulnerability database (policy: `maintainers/ci-workflows.md`).
 
 ### Real-CDM tests
 

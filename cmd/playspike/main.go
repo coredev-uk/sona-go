@@ -238,7 +238,7 @@ func run(log *slog.Logger, envFile, songID, term string, seekTo float64, listen 
 	step("song", "id", song.ID, "name", fmt.Sprintf("%q", song.Attributes.Name), "catalog_ms", song.Attributes.DurationInMillis)
 
 	eng := native.New(native.Options{Client: api, CDM: native.CDMPath(lib), Logger: log, IdleTimeout: -1, Quality: quality, Sink: outputSink})
-	defer eng.Close()
+	defer func() { _ = eng.Close() }()
 	if err := eng.SetOutputDevice(ctx, outputDevice); err != nil {
 		return err
 	}

@@ -187,7 +187,7 @@ There is no inspector in the binary and MyGo runs in production mode. `build/ldf
 
 - `go vet`, plus `go vet -tags dev,sqlite_fts5` and `-tags probe,sqlite_fts5`, so development and probe builds type-check too.
 - The Windows and macOS type-checks.
-- `golangci-lint --new-from-rev=origin/main`. CI runs it on pull requests, against the pull request's base.
+- `golangci-lint run ./...`, on the whole tree. CI runs it on every run.
 - `go tool mygo vet internal/ui`, for build values kept past their frame.
 - The catalogue check (`i18ntool extract -check`) and the path-case check (`cmd/pathcase`).
 - `build/gofumpt.sh`: every tracked Go file formatted, with the gofumpt that `go.mod` pins (`go tool gofumpt`). `fmt` is the same script with `-w`.

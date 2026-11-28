@@ -25,19 +25,25 @@ func TestLoadMissingReturnsDefaults(t *testing.T) {
 	}
 }
 
-func TestGreetingIsOnUnlessTheFileTurnsItOff(t *testing.T) {
+func TestGreetingAndNameAreOnUnlessTheFileTurnsThemOff(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	if err := os.WriteFile(path, []byte(`{"volume": 0.5}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if s, err := LoadSettings(path); err != nil || !s.Home.Greeting {
-		t.Fatalf("a file without the key: greeting %v, err %v", s.Home.Greeting, err)
+	if s, err := LoadSettings(path); err != nil || !s.Home.Greeting || !s.Home.UseName {
+		t.Fatalf("a file without the keys: greeting %v, name %v, err %v", s.Home.Greeting, s.Home.UseName, err)
 	}
 	if err := os.WriteFile(path, []byte(`{"home": {"greeting": false}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if s, err := LoadSettings(path); err != nil || s.Home.Greeting {
-		t.Fatalf("a file with it off: greeting %v, err %v", s.Home.Greeting, err)
+	if s, err := LoadSettings(path); err != nil || s.Home.Greeting || !s.Home.UseName {
+		t.Fatalf("a file with the greeting off: greeting %v, name %v, err %v", s.Home.Greeting, s.Home.UseName, err)
+	}
+	if err := os.WriteFile(path, []byte(`{"home": {"useName": false}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := LoadSettings(path); err != nil || !s.Home.Greeting || s.Home.UseName {
+		t.Fatalf("a file with the name off: greeting %v, name %v, err %v", s.Home.Greeting, s.Home.UseName, err)
 	}
 }
 

@@ -32,11 +32,13 @@ func TestAlbumPage(t *testing.T) {
 				"audio-extras":{"attributes":{"title":"More to Hear"},"data":[{"id":"ra.1745191891","type":"stations","attributes":{"name":"No. 11: Rumours","kind":"streaming","isLive":false,"durationInMillis":1800000}}]},
 				"other-versions":{"attributes":{"title":"Other Versions"},"data":[]}},
 				"meta":{"views":{"order":["other-versions","related-videos","more-by-artist","appears-on","you-might-also-like","audio-extras"]}}}]}`))
+
 		case "/v1/catalog/gb/albums/7/tracks":
 			if q.Get("offset") != "1" || q.Get("limit") != "100" || q.Get("platform") != "web" || q.Get("include[songs]") != "artists" {
 				t.Errorf("tracks query = %s", r.URL.RawQuery)
 			}
-			w.Write([]byte(`{"data":[{"id":"2","type":"songs","meta":{"popularity":0.2},"attributes":{"name":"Two","discNumber":2}}]}`))
+			_, _ = w.Write([]byte(`{"data":[{"id":"2","type":"songs","meta":{"popularity":0.2},"attributes":{"name":"Two","discNumber":2}}]}`))
+
 		default:
 			http.NotFound(w, r)
 		}
@@ -74,7 +76,9 @@ func TestAlbumPage(t *testing.T) {
 	}
 	b, _ = json.Marshal(back.Views.MoreByArtist.Data[0])
 	var raw map[string]any
-	json.Unmarshal(b, &raw)
+	if err := json.Unmarshal(b, &raw); err != nil {
+		t.Fatal(err)
+	}
 	if _, ok := raw["views"]; ok {
 		t.Errorf("empty views serialised: %s", b)
 	}
@@ -88,18 +92,20 @@ func TestArtistPageAndView(t *testing.T) {
 			if q.Get("extend") != "artistBio,bornOrFormed,origin,editorialVideo" || q.Get("platform") != "web" {
 				t.Errorf("artist query = %s", r.URL.RawQuery)
 			}
-			w.Write([]byte(`{"data":[{"id":"657515","type":"artists","attributes":{"name":"Radiohead","genreNames":["Alternative"],"origin":"Abingdon, Oxfordshire, England","bornOrFormed":"1985","artistBio":"More than a band.<br/>Art."},
+			_, _ = w.Write([]byte(`{"data":[{"id":"657515","type":"artists","attributes":{"name":"Radiohead","genreNames":["Alternative"],"origin":"Abingdon, Oxfordshire, England","bornOrFormed":"1985","artistBio":"More than a band.<br/>Art."},
 				"views":{"latest-release":{"attributes":{"title":"Latest Release"},"data":[{"id":"1","type":"albums","attributes":{"name":"Hail"}}]},
 				"top-songs":{"attributes":{"title":"Top Songs"},"data":[{"id":"2","type":"songs","attributes":{"name":"Creep"},"relationships":{"albums":{"data":[{"id":"3","type":"albums"}]}}}],"next":"/v1/catalog/gb/artists/657515/view/top-songs?offset=10"},
 				"singles":{"attributes":{"title":"Singles & EPs"},"data":[{"id":"4","type":"albums","attributes":{"name":"Single","isSingle":true}}]},
 				"similar-artists":{"attributes":{"title":"Similar Artists"},"data":[{"id":"5","type":"artists","attributes":{"name":"Muse"}}]},
 				"music-videos":{"attributes":{"title":"Music Videos"},"data":[{"id":"6","type":"music-videos","attributes":{"name":"Clip"}}]},
 				"playlists":{"attributes":{"title":"Artist Playlists"},"data":[{"id":"pl.7","type":"playlists","attributes":{"name":"Essentials"}}]}}}]}`))
+
 		case "/v1/catalog/gb/artists/657515/view/top-songs":
 			if q.Get("offset") != "20" || q.Get("limit") != "100" || q.Get("with") != "attributes" {
 				t.Errorf("view query = %s", r.URL.RawQuery)
 			}
-			w.Write([]byte(`{"attributes":{"title":"Top Songs"},"data":[{"id":"9","type":"songs","attributes":{"name":"Nude"}}],"next":"/v1/catalog/gb/artists/657515/view/top-songs?offset=21"}`))
+			_, _ = w.Write([]byte(`{"attributes":{"title":"Top Songs"},"data":[{"id":"9","type":"songs","attributes":{"name":"Nude"}}],"next":"/v1/catalog/gb/artists/657515/view/top-songs?offset=21"}`))
+
 		default:
 			http.NotFound(w, r)
 		}
@@ -131,7 +137,7 @@ func TestSongPageCredits(t *testing.T) {
 			r.URL.Query().Get("extend") != "lyricsExcerpt" {
 			t.Errorf("request = %s?%s", r.URL.Path, r.URL.RawQuery)
 		}
-		w.Write([]byte(`{"data":[{"id":"1109715168","type":"songs","attributes":{"name":"Weird Fishes / Arpeggi","hasTimeSyncedLyrics":true,"lyricsExcerpt":"In the deepest ocean\nThe bottom of the sea"},
+		_, _ = w.Write([]byte(`{"data":[{"id":"1109715168","type":"songs","attributes":{"name":"Weird Fishes / Arpeggi","hasTimeSyncedLyrics":true,"lyricsExcerpt":"In the deepest ocean\nThe bottom of the sea"},
 			"relationships":{"albums":{"data":[{"id":"1109714933","type":"albums","attributes":{"name":"In Rainbows"}}]},
 			"credits":{"data":[{"id":"1109715168-4","type":"role-categories","attributes":{"kind":"performer","title":"PERFORMING ARTISTS"},
 				"relationships":{"credit-artists":{"data":[{"id":"4-ami:identity:x","type":"credit-artists","attributes":{"name":"Thom Yorke","roleNames":["Guitar","Lead Vocals"],"artwork":{"url":"https://is1-ssl.mzstatic.com/image/thumb/x/{w}x{h}bb.jpg","width":2400,"height":2400}}}]}}}]},
@@ -155,7 +161,7 @@ func TestMusicVideoPage(t *testing.T) {
 		if r.URL.Path != "/v1/catalog/gb/music-videos/1447440393" || r.URL.Query().Get("views") != "more-by-artist,more-in-genre" {
 			t.Errorf("request = %s?%s", r.URL.Path, r.URL.RawQuery)
 		}
-		w.Write([]byte(`{"data":[{"id":"1447440393","type":"music-videos","attributes":{"name":"Bodysnatchers","artistName":"Radiohead","durationInMillis":254612,"has4K":false,"hasHDR":true,"genreNames":["Alternative"],"url":"https://music.apple.com/gb/music-video/x/1447440393"},
+		_, _ = w.Write([]byte(`{"data":[{"id":"1447440393","type":"music-videos","attributes":{"name":"Bodysnatchers","artistName":"Radiohead","durationInMillis":254612,"has4K":false,"hasHDR":true,"genreNames":["Alternative"],"url":"https://music.apple.com/gb/music-video/x/1447440393"},
 			"relationships":{"artists":{"data":[{"id":"657515","type":"artists","attributes":{"name":"Radiohead"}}]},"songs":{"data":[{"id":"1109715161","type":"songs","attributes":{"name":"Bodysnatchers"}}]}},
 			"views":{"more-by-artist":{"attributes":{"title":"More by Radiohead"},"data":[{"id":"2","type":"music-videos","attributes":{"name":"Other"}}]},"more-in-genre":{"attributes":{"title":"You Might Also Like"},"data":[]}}}]}`))
 	}))
@@ -169,7 +175,9 @@ func TestMusicVideoPage(t *testing.T) {
 		t.Fatalf("video = %+v", v)
 	}
 	var lib MusicVideo
-	json.Unmarshal([]byte(`{"id":"i.9","type":"library-music-videos","attributes":{"playParams":{"catalogId":"99"}}}`), &lib)
+	if err := json.Unmarshal([]byte(`{"id":"i.9","type":"library-music-videos","attributes":{"playParams":{"catalogId":"99"}}}`), &lib); err != nil {
+		t.Fatal(err)
+	}
 	if lib.CatalogID() != "99" {
 		t.Fatalf("library CatalogID = %q", lib.CatalogID())
 	}

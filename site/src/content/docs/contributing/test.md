@@ -11,7 +11,7 @@ Run these in the [devenv environment](/contributing/setup/), or as `just <comman
 devenv shell -- check
 ```
 
-`check` runs the static half: `go vet` (also for the `dev` and `probe` builds), the Windows and macOS type-checks, `golangci-lint` on new code, `mygo vet internal/ui`, the translation catalogue check, the path-case check and the gofumpt formatting check (`fmt` fixes it). Fix what it reports. CI runs the same commands on every pull request, so what fails `check` fails there too.
+`check` runs the static half: `go vet` (also for the `dev` and `probe` builds), the Windows and macOS type-checks, `golangci-lint` on the whole tree, `mygo vet internal/ui`, the translation catalogue check, the path-case check and the gofumpt checks. Fix what it reports. CI runs the same commands on every pull request, so what fails `check` fails there too.
 
 ## Run the tests
 

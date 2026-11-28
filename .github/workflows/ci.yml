@@ -154,7 +154,7 @@ jobs:
   # seams (docs/platforms.md, "Type-check and cross-build"): every package must
   # type-check there with cgo off, which needs no system packages, and paths
   # that differ only by case break macOS and Windows checkouts. Then the lint
-  # (golangci-lint on what a pull request changes, MyGo's lifetime check), the
+  # (golangci-lint on the whole tree, MyGo's lifetime check), the
   # message catalogue and gofumpt formatting. The steps share compiled
   # dependencies, so one job beats several that each compile them. A step added
   # to `check` is added here, and the other way round.
@@ -213,20 +213,11 @@ jobs:
       - name: Type-check macOS (cgo off)
         run: go run ./cmd/typecheck -os darwin -arch arm64 ./...
 
-      # Only the lines a pull request changes: the tree still has findings
-      # from before the linter ran in CI, so a full run (a push to main, the
-      # nightly, a release) would fail on code nobody touched. A push to main
-      # carries what its pull request already passed. The base is fetched
-      # (the checkout is the merge commit, one commit deep) and named as
-      # `check` names it, origin/main. The binary is in the CI image, at the
-      # version devenv pins (build/ci/golangci-lint.sha256).
-      - name: golangci-lint (new code)
-        if: ${{ github.event_name == 'pull_request' }}
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-          golangci-lint run --new-from-rev="origin/$BASE_REF" ./...
+      # The whole tree, on every run (a pull request, a push to main, the
+      # nightly, a release), as `check` runs it. The binary is in the CI
+      # image, at the version devenv pins (build/ci/golangci-lint.sha256).
+      - name: golangci-lint
+        run: golangci-lint run ./...
 
       # Build values kept past their frame (MyGo's lifetime check).
       - name: MyGo vet (internal/ui)

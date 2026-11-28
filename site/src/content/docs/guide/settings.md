@@ -15,7 +15,8 @@ Some settings depend on your platform or build. Where a platform can't back a se
 | Start Sona when you log in | Adds Sona to your desktop's startup applications. | Needs Sona.app on _macOS_, not a source build. On _Windows_ Task Manager's startup apps list it; a portable copy must stay in its folder, or be turned on again after a move. |
 | Start in the tray | Starts Sona without a window at login, ready to play from the tray or your media keys. Shown when Start Sona when you log in is on. | Needs a tray icon |
 | Open on | Chooses the page Sona shows when it starts: the page you were last on, or a fixed page. Your queue is always kept. | |
-| Greeting on For You | Shows "Good morning", "Good afternoon" or "Good evening" above the For You heading, by the time on your computer. On by default. | |
+| Greeting on For You | Opens the For You page with "Good morning", "Good afternoon" or "Good evening" in large type, by the time on your computer. On by default. | |
+| Use my name | Adds your first name to the greeting ("Good evening, Alex"), taken from your Apple Music profile. It is shown only if you have set up a profile in Apple Music; the name is kept on this computer, refreshed about once a day and removed when you sign out. Where a name is written family name first (Chinese, Japanese, Korean) the whole name is used. On by default; it has no effect while Greeting on For You is off. | |
 | Open Apple Music links in Sona | Makes Sona the app that opens `music://` and `itms://` links. Links that start with `https://` stay with your browser. | Needs Sona.app on _macOS_; needs Sona's desktop entry on _Linux_, so not a source build, Flatpak or AppImage that isn't integrated. On _Windows_ an app you chose in Settings → Apps → Default apps, or the Apple Music app, keeps the links until you choose Sona there. |
 | First-run setup | Runs "Set up Sona again": the steps of [first-run setup](/guide/first-run/). | |
 | When the window is closed | Keeps playing in the background or quits Sona. In the background, Sona stays in the system tray. | Without a tray icon Sona quits. |
@@ -120,7 +121,7 @@ Lists every shortcut by group. Select one to record new keys, with a warning whe
 
 ## Diagnostics
 
-Runs checks of the playback host, database and keyring when you open it, and reports problems and warnings. Check again repeats them, Copy diagnostics copies a report with tokens, your email address, your Concerts city, the sidebar's open folders and your audio output device removed, and Open log folder opens the logs. See [Troubleshooting](/guide/troubleshooting/).
+Runs checks of the playback host, database and keyring when you open it, and reports problems and warnings. Check again repeats them, Copy diagnostics copies a report for a bug report, and Open log folder opens the logs. The report removes your tokens, email address and user name, and replaces what you played, looked at and searched for with short codes. It keeps your library's counts, your country and the IDs of your add-ons. [Troubleshooting](/guide/troubleshooting/) lists what is removed, replaced and kept.
 
 To copy one value, such as a version or a path, select it (triple-click takes a line) and press Ctrl+C, or right-click it and choose Copy. On a Mac, press Cmd+C.
 

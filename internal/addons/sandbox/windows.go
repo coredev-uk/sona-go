@@ -69,7 +69,7 @@ func Start(spec Spec) (*Child, error) {
 	copied := make(chan struct{})
 	go func() {
 		defer close(copied)
-		var w io.Writer = io.Discard
+		w := io.Discard
 		if spec.Stderr != nil {
 			w = spec.Stderr
 		}

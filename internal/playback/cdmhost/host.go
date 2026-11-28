@@ -159,7 +159,7 @@ func Start(ctx context.Context, o Options) (*Host, error) {
 	r, err := h.call(ctx, request{Op: opInit, CDMPath: o.CDMPath, Clear: o.Clear, Sink: o.Sink, Device: o.Device, EQ: &eq})
 	h.info = h.initInfo(r)
 	if err != nil {
-		h.Close()
+		_ = h.Close()
 		return nil, err
 	}
 	h.log.Debug("cdmhost: started", "pid", h.info.PID, "cdm", h.info.CDMVersion, "interface", h.info.CDMInterface,
@@ -794,7 +794,7 @@ func (h *Host) EndOfFile(ctx context.Context, track uint64) error {
 func (h *Host) Close() error {
 	h.closing.Store(true)
 	h.encMu.Lock()
-	h.stdin.Close()
+	_ = h.stdin.Close() // the child may already have exited
 	h.encMu.Unlock()
 	select {
 	case <-h.done:
@@ -841,7 +841,7 @@ func Probe(ctx context.Context, o Options) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 	r, err := h.call(ctx, request{Op: opInit, CDMPath: o.CDMPath, Clear: o.Clear, Sink: o.Sink})
 	return h.initInfo(r), err
 }

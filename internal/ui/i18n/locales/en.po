@@ -270,6 +270,10 @@ msgstr "Adds each song you play to your Last.fm profile."
 msgid "Adds each song you play to your public ListenBrainz history."
 msgstr "Adds each song you play to your public ListenBrainz history."
 
+#: internal/ui/features/settings/general.go
+msgid "Adds the first name on your Apple Music profile to the greeting, when you have one. It stays on this computer."
+msgstr "Adds the first name on your Apple Music profile to the greeting, when you have one. It stays on this computer."
+
 #: internal/ui/features/settings/find.go
 #: internal/ui/features/settings/playback.go
 msgid "Advanced"
@@ -3079,12 +3083,24 @@ msgid "Good afternoon"
 msgstr "Good afternoon"
 
 #: internal/ui/features/home/greeting.go
+msgid "Good afternoon, {name}"
+msgstr "Good afternoon, {name}"
+
+#: internal/ui/features/home/greeting.go
 msgid "Good evening"
 msgstr "Good evening"
 
 #: internal/ui/features/home/greeting.go
+msgid "Good evening, {name}"
+msgstr "Good evening, {name}"
+
+#: internal/ui/features/home/greeting.go
 msgid "Good morning"
 msgstr "Good morning"
+
+#: internal/ui/features/home/greeting.go
+msgid "Good morning, {name}"
+msgstr "Good morning, {name}"
 
 #: internal/ui/i18n/cdm.go
 msgid "Google doesn't make Widevine for this computer, so songs can't play here."
@@ -5102,6 +5118,10 @@ msgstr "Opens in your browser"
 msgid "Opens on {page}"
 msgstr "Opens on {page}"
 
+#: internal/ui/features/settings/general.go
+msgid "Opens the page with good morning, good afternoon or good evening, by the time on this computer."
+msgstr "Opens the page with good morning, good afternoon or good evening, by the time on this computer."
+
 #: internal/ui/features/settings/updates.go
 msgid "Opens the release notes the first time Sona starts after an update. Asks GitHub for them once the window has opened."
 msgstr "Opens the release notes the first time Sona starts after an update. Asks GitHub for them once the window has opened."
@@ -6335,10 +6355,6 @@ msgstr "Saving your sign-in in your keyring; unlock it if it asks."
 #: internal/ui/features/playlist/dialogs.go
 msgid "Saving…"
 msgstr "Saving…"
-
-#: internal/ui/features/settings/general.go
-msgid "Says good morning, good afternoon or good evening above the heading, by the time on this computer."
-msgstr "Says good morning, good afternoon or good evening above the heading, by the time on this computer."
 
 #: internal/ui/features/radio/station.go
 msgid "Schedule"
@@ -8220,12 +8236,12 @@ msgid "Token storage"
 msgstr "Token storage"
 
 #: internal/ui/features/settings/bugreport.go
-msgid "Tokens and your e-mail address are removed."
-msgstr "Tokens and your e-mail address are removed."
+msgid "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes."
+msgstr "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes."
 
 #: internal/ui/features/settings/bugreport.go
-msgid "Tokens and your e-mail address are removed. A copy is saved as {file} in the log folder."
-msgstr "Tokens and your e-mail address are removed. A copy is saved as {file} in the log folder."
+msgid "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes. A copy is saved as {file} in the log folder."
+msgstr "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes. A copy is saved as {file} in the log folder."
 
 #: internal/ui/features/discover/titles.go
 msgid "Top 100 Songs by Country"
@@ -8545,6 +8561,10 @@ msgstr "Use another number"
 #: internal/ui/features/settings/shortcuts.go
 msgid "Use it here"
 msgstr "Use it here"
+
+#: internal/ui/features/settings/general.go
+msgid "Use my name"
+msgstr "Use my name"
 
 #: internal/ui/features/concerts/location.go
 msgid "Use my storefront’s main city"

@@ -44,7 +44,7 @@ func playClient(t *testing.T, status int, response string) (*Client, *[]playRequ
 		}
 		seen = append(seen, pr)
 		w.WriteHeader(status)
-		io.WriteString(w, response)
+		_, _ = io.WriteString(w, response)
 	}))
 	t.Cleanup(srv.Close)
 	return New(&http.Client{Transport: rewrite{srv}}, &fakeDev{}, func() string { return "mut" }), &seen

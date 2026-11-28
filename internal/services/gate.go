@@ -94,7 +94,7 @@ func (t gatedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	case <-t.g.opened:
 	case <-r.Context().Done():
 		if r.Body != nil {
-			r.Body.Close()
+			_ = r.Body.Close()
 		}
 		return nil, r.Context().Err()
 	}

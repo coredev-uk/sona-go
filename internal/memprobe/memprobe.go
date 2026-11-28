@@ -62,7 +62,7 @@ func write(dir string) {
 	if err != nil {
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	_ = pprof.Lookup("heap").WriteTo(f, 0)
 }
 

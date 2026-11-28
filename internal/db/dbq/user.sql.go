@@ -103,7 +103,7 @@ func (q *Queries) FinishSync(ctx context.Context, arg FinishSyncParams) error {
 
 const getAccount = `-- name: GetAccount :one
 
-SELECT id, storefront, language, restricted, mut_obtained_at, mut_last_validated_at, updated_at, languages FROM accounts WHERE id = 1
+SELECT id, storefront, language, restricted, mut_obtained_at, mut_last_validated_at, updated_at, languages, profile_name, profile_checked_at FROM accounts WHERE id = 1
 `
 
 // Account, sync checkpoints, ratings mirror, pins and playback history.
@@ -119,7 +119,26 @@ func (q *Queries) GetAccount(ctx context.Context) (Account, error) {
 		&i.MutLastValidatedAt,
 		&i.UpdatedAt,
 		&i.Languages,
+		&i.ProfileName,
+		&i.ProfileCheckedAt,
 	)
+	return i, err
+}
+
+const getAccountProfile = `-- name: GetAccountProfile :one
+SELECT profile_name, profile_checked_at FROM accounts WHERE id = 1
+`
+
+type GetAccountProfileRow struct {
+	ProfileName      string
+	ProfileCheckedAt sql.NullInt64
+}
+
+// The profile name the greeting uses and when Apple was last asked for it.
+func (q *Queries) GetAccountProfile(ctx context.Context) (GetAccountProfileRow, error) {
+	row := q.db.QueryRowContext(ctx, getAccountProfile)
+	var i GetAccountProfileRow
+	err := row.Scan(&i.ProfileName, &i.ProfileCheckedAt)
 	return i, err
 }
 
@@ -367,6 +386,24 @@ type ResumeSyncParams struct {
 func (q *Queries) ResumeSync(ctx context.Context, arg ResumeSyncParams) error {
 	_, err := q.db.ExecContext(ctx, resumeSync, arg.LastStarted, arg.Domain)
 	return err
+}
+
+const setAccountProfile = `-- name: SetAccountProfile :execrows
+UPDATE accounts SET profile_name = ?, profile_checked_at = ? WHERE id = 1
+`
+
+type SetAccountProfileParams struct {
+	ProfileName      string
+	ProfileCheckedAt sql.NullInt64
+}
+
+// Does nothing without an account row (signed out meanwhile).
+func (q *Queries) SetAccountProfile(ctx context.Context, arg SetAccountProfileParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setAccountProfile, arg.ProfileName, arg.ProfileCheckedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const startSync = `-- name: StartSync :exec

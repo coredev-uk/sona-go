@@ -15,7 +15,8 @@ Allowed types: feat, fix, perf, refactor, docs, test, ci, build, chore, revert. 
 
 <!--
 Commands you ran and the tail of their output.
-UI changes: screenshots in light AND dark themes, with no personal account data, tokens or library names.
+UI changes: screenshots in light AND dark themes, from the fixture library or a test account.
+No personal data anywhere in this PR: names, handles, account IDs, real library or playlist contents, listening history, logs or diagnostics from a real account (AGENTS.md, Process).
 -->
 
 ## Tests
@@ -33,9 +34,9 @@ UI changes: screenshots in light AND dark themes, with no personal account data,
 ## Checklist
 
 - [ ] `go vet ./...` and `go test -race ./...` pass
-- [ ] `golangci-lint run --new-from-rev=origin/main ./...` is clean
+- [ ] `golangci-lint run ./...` is clean
 - [ ] `go tool mygo vet internal/ui`, `go run ./cmd/i18ntool extract -check` and `go run ./cmd/pathcase` pass
 - [ ] `sh build/gofumpt.sh` prints nothing (`fmt` formats the files)
 - [ ] Generated files (the catalogue, `internal/db/dbq`) regenerated, not hand-edited
 - [ ] Every playback run (tests, smokes, live checks) used private mode (`SONA_PRIVATE=1`), or there was none
-- [ ] No secrets, tokens or personal data in code, logs or screenshots
+- [ ] No secrets, tokens or personal data (a real account's names, IDs, library contents or logs) in code, tests, goldens, screenshots or this description
