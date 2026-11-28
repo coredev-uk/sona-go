@@ -56,6 +56,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [F28. On macOS any program could read Sona's keychain items without a prompt](#f28-on-macos-any-program-could-read-sonas-keychain-items-without-a-prompt)
   - [F29. Update checks used GitHub's rate-limited API, and said nothing useful when it refused](#f29-update-checks-used-githubs-rate-limited-api-and-said-nothing-useful-when-it-refused)
   - [F30. The diagnostics bundle carried what the person played, looked at and searched for](#f30-the-diagnostics-bundle-carried-what-the-person-played-looked-at-and-searched-for)
+  - [F31. The motion-artwork remuxer built a file many times the size of its input](#f31-the-motion-artwork-remuxer-built-a-file-many-times-the-size-of-its-input)
 - [Areas reviewed without findings](#areas-reviewed-without-findings)
 - [Run the tests](#run-the-tests)
 
@@ -859,6 +860,7 @@ Each finding has an issue, its impact, the fix and the test that keeps it fixed.
 | F28 | On macOS any program of the user's could read Sona's keychain items (the MUT, the scrobbler and lyrics tokens) without a prompt | Medium | Fixed (residual risks listed) | `internal/auth/store/keyring_darwin.go` |
 | F29 | Update checks used GitHub's rate-limited anonymous API and failed with a generic error; the Linux check and the notes read an unsigned answer | Low | Fixed (residual risks listed) | `internal/update/ratelimit.go`, `atom.go`, `releaseinfo.go`, `update.go`, `cmd/releasesign/main.go`, `.github/workflows/release.yml`, `internal/services/updates.go` |
 | F30 | The diagnostics bundle carried what the person played, looked at and searched for (song and station IDs, personal recommendation IDs and URLs, cache keys, routes) | Low | Fixed (residual risks listed) | `internal/diag/anonymise.go`, `internal/diag/bundle.go`, `internal/logging/redact.go` |
+| F31 | The motion-artwork remuxer built a file many times the size of its input (overlapping frames), and copied boxes of size 0 as they were | Low | Fixed | `internal/motion/remux.go` |
 
 ### F1. Settings import could set the CDM path
 
@@ -1621,6 +1623,22 @@ Severity: Low (privacy; the person pastes the bundle into a public issue themsel
 - Pseudonyms of one bundle can be compared with each other (that is their purpose). Three bytes of an HMAC under a key that is not in the bundle cannot be reversed or matched against a list of IDs, but two different values of one bundle can, rarely, share one.
 - The library counts, the storefront and the add-on IDs stay (the guide says so). They do not identify a person on their own: the counts and the country are coarse, and the IDs of catalogue add-ons are public. An add-on the person wrote or installed from a folder shows the ID in its manifest.
 - An ID that is a JSON number (none of Sona's today) is kept, as a count would be.
+
+### F31. The motion-artwork remuxer built a file many times the size of its input
+
+Severity: Low. Status: fixed.
+
+**Issue.**
+
+- `flatten` (`internal/motion/remux.go`) copied each frame the `trun` boxes named into one `mdat`. Frames were bounded in number (`maxSamples`, 2^18) and each inside its file, but nothing stopped them from overlapping: a `trun` per frame, each with the same data offset (or a default sample size and an offset that is not advanced), names the same bytes again and again. A rendition of about a megabyte could so describe 4096 frames of a megabyte each, and `write` allocated the whole plain file (up to the 4 GiB an `mdat` holds) and the cache wrote it to disk.
+- The sample description, handler, media header and data information boxes were copied into the output as they were. A box whose size field is 0 (it runs to the end of its container) swallowed the sample table that follows it there, so the output had none.
+- Found by fuzzing the remuxer's input.
+
+**Impact.** A rendition from a compromised CDN or a broken TLS session could exhaust the memory of the UI process, which Go cannot recover from, each time the album was viewed (the allow-list and redirect checks of [F6](#f6-motion-artwork-followed-redirects-anywhere) still apply). An unplayable cached file was the lesser effect of the second point. Availability only.
+
+**Fix** (`internal/motion/remux.go`): `flatten` refuses a stream whose frames together are larger than its files (`mp4: frames overlap`), as they are distinct parts of them, before `write` allocates anything; and the copied boxes are written with their size spelled out (`box.sized`).
+
+**Test.** `TestFlattenRefusesOverlappingFrames`, `TestFlattenSpellsOutTheSizeOfCopiedBoxes`.
 
 ## Areas reviewed without findings
 
