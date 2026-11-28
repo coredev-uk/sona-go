@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -94,10 +95,20 @@ func (s *Sample) Encrypted() bool { return s.IV != nil }
 func (s *Sample) PTS() int64 { return int64(s.DecodeTime) + int64(s.CTO) }
 
 // Time converts units of timescale to a duration without overflowing for
-// the large decode times of live streams.
+// the large decode times of live streams. A time beyond what a Duration
+// holds (292 years, from a damaged or hostile header) saturates at its
+// largest or smallest value instead of wrapping to the other sign.
 func Time(units int64, timescale uint32) time.Duration {
 	ts := int64(timescale)
-	return time.Duration(units/ts)*time.Second + time.Duration(units%ts)*time.Second/time.Duration(ts)
+	secs := units / ts
+	const limit = math.MaxInt64 / int64(time.Second)
+	switch {
+	case secs >= limit:
+		return math.MaxInt64
+	case secs <= -limit:
+		return math.MinInt64
+	}
+	return time.Duration(secs)*time.Second + time.Duration(units%ts)*time.Second/time.Duration(ts)
 }
 
 // ErrTruncated reports a box that runs past its container.

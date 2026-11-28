@@ -1,0 +1,2 @@
+go test fuzz v1
+string("METHOD=SAMPLE-AES,URI=\"skd://a,b\",KEYFORMAT=\"com.apple.streamingkeydelivery\",KEYFORMATVERSIONS=\"1\"")

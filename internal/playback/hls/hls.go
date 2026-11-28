@@ -181,12 +181,18 @@ func Parse(data []byte) (*Playlist, error) {
 						return nil, fmt.Errorf("hls: line %d: byte range without offset has no preceding range of %q", lineNo, line)
 					}
 				}
+				if off > math.MaxInt64-rngLen {
+					return nil, fmt.Errorf("hls: line %d: byte range [%d,+%d) past 2^63", lineNo, off, rngLen)
+				}
 				pending.Range = ByteRange{Offset: off, Length: rngLen}
 				lastEnd = off + rngLen
 			} else {
 				lastEnd = -1
 			}
 			lastURI = line
+			if start > math.MaxInt64-pending.Duration {
+				return nil, fmt.Errorf("hls: line %d: playlist longer than 292 years", lineNo)
+			}
 			p.Segments = append(p.Segments, pending)
 			start += pending.Duration
 			pending, haveInf, haveRng, rngOff = Segment{}, false, false, -1
@@ -247,13 +253,21 @@ func Resolve(base, ref string) (string, error) {
 	return b.ResolveReference(r).String(), nil
 }
 
+// maxSeconds bounds a playlist's duration: a Duration holds 292 years, and
+// no segment is longer than a few seconds. A longer one is damaged or
+// hostile (and would wrap into a negative Duration).
+const maxSeconds = 9e9
+
 func seconds(s string) (time.Duration, error) {
 	f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
 	if err != nil {
 		return 0, err
 	}
-	if f < 0 {
+	if !(f >= 0) { // negative or NaN
 		return 0, fmt.Errorf("negative duration %v", f)
+	}
+	if f > maxSeconds {
+		return 0, fmt.Errorf("duration %v is too long", f)
 	}
 	return time.Duration(math.Round(f * float64(time.Second))), nil
 }
@@ -274,6 +288,9 @@ func parseRange(s string) (length, off int64, err error) {
 		}
 		if off < 0 {
 			return 0, 0, fmt.Errorf("byte range offset %d", off)
+		}
+		if off > math.MaxInt64-length {
+			return 0, 0, fmt.Errorf("byte range [%d,+%d) past 2^63", off, length)
 		}
 	}
 	return length, off, nil
@@ -456,15 +473,11 @@ func ParseMaster(data []byte) ([]Variant, error) {
 // order (Apple lists its primary CDN first).
 func BestAAC(vs []Variant) Variant {
 	best := -1
-	score := func(v Variant) int {
-		s := v.Bandwidth
-		if strings.Contains(v.Codecs, "mp4a.40.2") {
-			s += 1 << 40
-		}
-		return s
-	}
+	// Bandwidth is whatever the playlist says, up to MaxInt: a sum with a
+	// bonus for AAC-LC would wrap, so the codec is compared first.
+	lc := func(v Variant) bool { return strings.Contains(v.Codecs, "mp4a.40.2") }
 	for i, v := range vs {
-		if best < 0 || score(v) > score(vs[best]) {
+		if best < 0 || lc(v) && !lc(vs[best]) || lc(v) == lc(vs[best]) && v.Bandwidth > vs[best].Bandwidth {
 			best = i
 		}
 	}

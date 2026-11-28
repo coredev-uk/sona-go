@@ -45,6 +45,8 @@ each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
 `issue-labels.yml` (the issue forms' `platform/*` and `area/*` labels, with
 `cmd/issuelabels`),
 `live.yml` (weekly Apple Music contract tests, private mode),
+`fuzz.yml` (weekly, Sundays 04:41 UTC, and on dispatch with a `fuzztime`: every Go fuzz target of the repository, one job
+per target, `go test -fuzz` for two minutes each, below),
 `release-please.yml` (the release PR and tag), `release.yml`
 (builds, smoke-tests, attests and publishes the Linux, macOS and Windows
 releases; nightly, the rc of main as a prerelease; dispatch = dry run, a
@@ -99,6 +101,15 @@ a line without one.
 - The fix is the release the finding names: a Go release bump (`go.mod`, the CI and release images' Go, the Go archive hashes, `build/linux/nix/go.nix`) or a module bump. There is no allowlist; a finding that can't be fixed yet is stated in the pull request, not muted.
 - It scans the host build (`-tags sqlite_fts5`); the Windows and macOS-only files are type-checked by the vet job but not scanned.
 - Run it locally with `devenv shell -- go tool govulncheck -show verbose -tags sqlite_fts5 ./...`. The CI log of a public repository shows the findings and their call stacks, so nothing here is private: a finding in Sona's own code that is not yet public is the only one to handle through a private security advisory; one in the standard library or a dependency is already public (pkg.go.dev/vuln), and is fixed in a pull request.
+
+**Fuzzing.** `ci.yml` runs every fuzz target's seed corpus (`testdata/fuzz/<Target>`) as ordinary tests, in the test shards. `fuzz.yml` is the search (what the targets are and assert: `docs/testing.md`, "Fuzzing"):
+
+- **When.** Weekly (Sundays 04:41 UTC) and on dispatch (`fuzztime`, default `2m`). Never on a pull request: a run costs two minutes of runner time for every target, plus its build, and a change to a parser is already tested through its seeds.
+- **How.** The `targets` job runs `.github/ci/fuzz-targets.sh`, which finds the Go files with a `func Fuzz…`, lists each package's targets with `go test -list '^Fuzz'` and prints the job matrix; the `fuzz` job is one matrix row per target (`fail-fast: false`, 30 minutes), which runs the target's seeds and then `go test -run '^$' -fuzz '^<Target>$' -fuzztime 2m <package>`. A new target needs no change to the workflow. A target that is only in a file with a build tag the default build lacks is not found: the script warns.
+- **Where.** The bare runner (`ubuntu-26.04`), pure Go (`CGO_ENABLED=0`, no system packages, no Go cache: the packages build in a minute), as `live.yml` does. A package that needs cgo fails the listing, and the fix is in the package, not a heavier job.
+- **Permissions.** `contents: read` and nothing else, at the workflow and on each job; no secret is read, no environment is used, the checkout keeps no credentials and the dispatch input reaches the script only through `env:`.
+- **A finding.** `go test` fails, the job is red, and the `Collect the crashers` step copies the untracked files under `testdata/fuzz` into the artifact `fuzz-crashers-<package>-<target>` (14 days). No issue is opened and `report-failure.sh` is not used: a crasher that a hostile server can reach is a vulnerability, which is reported through a private advisory (`SECURITY.md`) before the input is committed with its fix. The run's log and the artifact are readable by anyone who can read the repository's Actions, so look at a red run the day it fails. Download the artifact with `gh run download <run> -n fuzz-crashers-<id>`.
+- **Not stored.** Go's fuzz cache (the inputs that only found new coverage) is not saved between runs: each week starts from the seeds, which keeps a run reproducible from the repository alone.
 
 **What a release build downloads.** Every tool is fixed to a version and a
 checksum in the repository before it runs: linuxdeploy and its plugins

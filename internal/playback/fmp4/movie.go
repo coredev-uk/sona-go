@@ -40,5 +40,8 @@ func MovieDuration(b []byte) (time.Duration, bool) {
 	if r.err != nil || timescale == 0 || units == 0 || units == math.MaxUint32 || units > math.MaxInt64 {
 		return 0, false
 	}
-	return Time(int64(units), timescale), true
+	// A header of a few units at a timescale of billions is under a
+	// nanosecond: no length, not a length of 0.
+	d := Time(int64(units), timescale)
+	return d, d > 0
 }

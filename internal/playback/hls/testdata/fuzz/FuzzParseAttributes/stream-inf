@@ -1,0 +1,2 @@
+go test fuzz v1
+string("BANDWIDTH=720000,AVERAGE-BANDWIDTH=600000,CODECS=\"avc1.64001e,mp4a.40.5\",RESOLUTION=640x360,FRAME-RATE=23.976,HDCP-LEVEL=NONE,AUDIO=\"audio-HE-stereo-64\",ALLOWED-CPC=\"com.apple.streamingkeydelivery:AppleBaseline/AppleMain/Main,urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed:WIDEVINE_SOFTWARE/WIDEVINE_HARDWARE\"")
