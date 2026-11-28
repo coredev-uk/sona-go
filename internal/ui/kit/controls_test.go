@@ -410,6 +410,36 @@ func TestComboboxFiltersAndChooses(t *testing.T) {
 	}
 }
 
+// A long list stays inside the window: MyGo caps the popup to the room under
+// the field, and the options scroll within it.
+func TestComboboxLongListScrollsWithinTheWindow(t *testing.T) {
+	var opts []string
+	for i := 1; i <= 60; i++ {
+		opts = append(opts, fmt.Sprintf("Place %d", i))
+	}
+	choice := "Place 1"
+	tt := controlsTester(t, 300, 260, func(c *ui.Context) {
+		Combobox(c, &choice, opts, ComboboxOpts{A11yLabel: "Place", Width: 240})
+	})
+	controlsClick(t, tt, "Place")
+	tt.Key(0, ui.KeyDown)
+	tt.Frame()
+	if !tt.HasText("Place 3") {
+		t.Fatalf("no options: %q", tt.Texts())
+	}
+	if r := controlsFind(t, tt, "Place 60"); r.Y < 260 {
+		t.Errorf("the last option is at %v inside a window 260 high: the list is not capped", r.Y)
+	}
+	for range len(opts) - 1 {
+		tt.Key(0, ui.KeyDown)
+	}
+	tt.Frame()
+	tt.Advance(time.Second)
+	if r := controlsFind(t, tt, "Place 60"); r.H == 0 || r.Y+r.H > 260 {
+		t.Errorf("Down to the last option did not scroll it into view: at %v", r)
+	}
+}
+
 // --- Switch ----------------------------------------------------------------
 
 func TestSwitchTogglesByClickAndSpace(t *testing.T) {

@@ -538,7 +538,7 @@ func (e element) leafOf() (ui.Role, bool) {
 		ui.RoleRadioGroup, ui.RoleMenu, ui.RoleMenuBar, ui.RoleAlertDialog, ui.RoleHeading, ui.RoleNavigation,
 		ui.RoleRegion, ui.RoleLog, ui.RoleTimer, ui.RoleAlert, ui.RoleSearch, ui.RoleArticle, ui.RoleGrid,
 		ui.RoleTreeGrid, ui.RoleListBox, ui.RoleOption, ui.RoleDeletion, ui.RoleInsertion, ui.RoleTabPanel, ui.RoleMain,
-		ui.RoleBanner, ui.RoleContentInfo, ui.RoleComplementary:
+		ui.RoleBanner, ui.RoleContentInfo, ui.RoleComplementary, ui.RoleLink, ui.RoleForm:
 		return role, false
 	}
 	return role, true

@@ -64,7 +64,7 @@ The Apple Music web app is a reference for functionality only (`docs/apple-music
 
 | Part | Choice |
 | --- | --- |
-| Language and UI | Go 1.27.4 and MyGo v0.9.0 (`github.com/egoist/mygo/ui`) |
+| Language and UI | Go 1.27.4 and MyGo at main `996e46f55af3` (`v0.10.1-0.20261128152513-996e46f55af3`, with egoist/mygo#1903; `github.com/egoist/mygo/ui`) |
 | Database | SQLite through `github.com/mattn/go-sqlite3` (FTS5 via the `sqlite_fts5` build tag), a libSQL-compatible schema, goose migrations and sqlc queries |
 | Platform libraries | `github.com/zalando/go-keyring` (Secret Service, Credential Manager; the macOS Keychain is Security.framework through purego, `internal/auth/store`), `github.com/godbus/dbus/v5`, `golang.org/x/sync` |
 | Artwork decoding | The standard library's `image/jpeg` and `image/png` only, with resizing in `internal/artwork`, so no TIFF, BMP or WebP decoder is linked |

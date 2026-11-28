@@ -15,9 +15,12 @@ func controlsPopupPanel(panel ui.Element) ui.Element {
 		Background(theme.C("popover")).Border(1, theme.C("border")).Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color)
 }
 
-// controlsPopupHeight is how tall a popup's list may be: the room below its
-// anchor, or above it where that is more, less the panel's own padding
+// controlsPopupHeight is how tall a Select's list may be: the room below its
+// trigger, or above it where that is more, less the panel's own padding
 // (items past it scroll). The first frame, with no bounds yet, gets 320.
+// MyGo caps a panel attached on the trigger's own side (the item-aligned
+// Select's) only to the whole window, so this cap stays; a Combobox's panel,
+// attached below its field, gets MyGo's cap to the larger side.
 func controlsPopupHeight(c *ui.Context, anchor ui.Element) float32 {
 	_, wh := c.Size()
 	b := anchor.Bounds()
@@ -159,7 +162,7 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	open := false
 	sel.Popup(func(panel ui.Element) {
 		open = true
-		controlsPopupPanel(panel).MinWidth(max(width, 128)).Modal().Label(o.A11yLabel)
+		controlsPopupPanel(panel).MinWidth(max(width, 128)).Label(o.A11yLabel)
 		align.place(c, panel, trigger, placeholder)
 		ui.Scroll(c).MaxHeight(controlsPopupHeight(c, trigger)).Role(ui.RoleGroup).Children(func() {
 			for i, it := range items {
@@ -185,6 +188,11 @@ func Select(c *ui.Context, value *string, items []SelectItem, o SelectOpts) ui.E
 	})
 	if !open {
 		*align = selectAlign{}
+	} else {
+		// The trigger keeps the focus while the list is open: taking Tab
+		// (and Shift+Tab) keeps the keyboard in the list, as Modal on the
+		// panel did before MyGo took the focus from outside a modal.
+		_ = trigger.Shortcut(0, ui.KeyTab) || trigger.Shortcut(ui.Shift, ui.KeyTab)
 	}
 	return trigger
 }
