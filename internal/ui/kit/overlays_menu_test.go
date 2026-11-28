@@ -151,6 +151,52 @@ func TestMenuEscapeClosesAndReturnsFocus(t *testing.T) {
 	}
 }
 
+// A tip showing while the menu is open (the pointer rests on a button the
+// menu does not cover) leaves Escape to the menu, which holds the focus:
+// MyGo builds the tips after the view, over every overlay, so an overlay's
+// Escape alone would go to the tip and leave the menu open.
+func TestMenuEscapeClosesTheMenuUnderAShowingTip(t *testing.T) {
+	theme.SetMode(theme.ModeLight)
+	t.Cleanup(func() { theme.SetMode(theme.ModeSystem) })
+	a := &menuApp{}
+	a.items = []MenuItem{{Key: "play", Label: "Play next", Run: a.pick("play")}}
+	// The tip's button is in the page, built before the menu, as a toolbar
+	// button is; beside the trigger, where the menu below it does not cover it.
+	tt := ui.NewTester(func(c *ui.Context) {
+		theme.Apply(c)
+		ui.Row(c).Padding(20).Gap(200).Children(func() {
+			trigger := ui.ButtonBase(c.Key("trigger")).Label("Open").Padding(8)
+			trigger.Children(func() { ui.Text(c, "Open") })
+			if trigger.Clicked() {
+				a.menu.OpenFrom(trigger.FocusVisible())
+			}
+			ui.Button(c, "Far").Tooltip("Far away")
+			a.menu.Show(c, MenuOpts{ID: "m", Label: "Test menu", Width: 224}, trigger, a.items)
+		})
+	}, 480, 420)
+	tt.Key(0, ui.KeyTab)
+	tt.Key(0, ui.KeyEnter)
+	if !a.menu.IsOpen() {
+		t.Fatal("Enter did not open the menu")
+	}
+	r, ok := tt.Find("Far")
+	if !ok {
+		t.Fatal("no Far button")
+	}
+	tt.Move(r.X+r.W/2, r.Y+r.H/2)
+	tt.Frame()
+	tt.Advance(700 * time.Millisecond)
+	tt.Frame()
+	if !tt.HasText("Far away") {
+		t.Fatalf("the tip does not show while the menu is open: %q", tt.Texts())
+	}
+	tt.Key(0, ui.KeyEscape)
+	tt.Advance(50e6)
+	if a.menu.IsOpen() {
+		t.Error("Escape went to the tip and left the menu open")
+	}
+}
+
 func TestMenuDisabledAndReasonRowsCannotBeChosen(t *testing.T) {
 	a, tt := newMenuApp(t)
 	_ = tt.Click("Open")

@@ -2,7 +2,7 @@
 
 This page maps `internal/ui`: the packages, the module contract, the store, the kit, the theme, the shell and every feature. `docs/architecture.md` has the process model and the platform seams, `docs/design.md` the visual direction and `internal/services/doc.go` the service contracts.
 
-Sona's interface is Go all the way down: [MyGo](https://github.com/egoist/mygo)'s native UI (`github.com/egoist/mygo/ui`, main at `c0b8f37e1774`, which has egoist/mygo#1903; GTK3 on Linux, AppKit on macOS, Win32 on Windows) draws on the GPU from the process that holds the services, the library and the playback coordinator. There is no web view, no IPC and no generated bindings: a view calls a typed service and reads the DTO it returns.
+Sona's interface is Go all the way down: [MyGo](https://github.com/egoist/mygo)'s native UI (`github.com/egoist/mygo/ui`, main at `996e46f55af3`, which has egoist/mygo#1903; GTK3 on Linux, AppKit on macOS, Win32 on Windows) draws on the GPU from the process that holds the services, the library and the playback coordinator. There is no web view, no IPC and no generated bindings: a view calls a typed service and reads the DTO it returns.
 
 ## Contents
 

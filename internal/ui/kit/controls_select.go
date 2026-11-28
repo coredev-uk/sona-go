@@ -15,9 +15,12 @@ func controlsPopupPanel(panel ui.Element) ui.Element {
 		Background(theme.C("popover")).Border(1, theme.C("border")).Shadow(sh.X, sh.Y, sh.Blur, sh.Spread, sh.Color)
 }
 
-// controlsPopupHeight is how tall a popup's list may be: the room below its
-// anchor, or above it where that is more, less the panel's own padding
+// controlsPopupHeight is how tall a Select's list may be: the room below its
+// trigger, or above it where that is more, less the panel's own padding
 // (items past it scroll). The first frame, with no bounds yet, gets 320.
+// MyGo caps a panel attached on the trigger's own side (the item-aligned
+// Select's) only to the whole window, so this cap stays; a Combobox's panel,
+// attached below its field, gets MyGo's cap to the larger side.
 func controlsPopupHeight(c *ui.Context, anchor ui.Element) float32 {
 	_, wh := c.Size()
 	b := anchor.Bounds()

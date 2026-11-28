@@ -683,7 +683,12 @@ func (m *Menu) keys(panel ui.Element, lv int, items []MenuItem, choices []string
 		m.dismiss()
 		return
 	}
-	if panel.OverlayShortcut(0, ui.KeyEscape) {
+	// The focus is in the panel, which takes Escape first: MyGo builds the
+	// tips after the view, over every overlay, so a tip showing elsewhere
+	// (the pointer resting on a toolbar button) would take an overlay's
+	// Escape and leave the menu open. The overlay's is for a menu the focus
+	// has left.
+	if panel.Shortcut(0, ui.KeyEscape) || panel.OverlayShortcut(0, ui.KeyEscape) {
 		if lv == 0 {
 			m.dismiss()
 		} else {

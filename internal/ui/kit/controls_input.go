@@ -199,7 +199,7 @@ func Combobox(c *ui.Context, selected *string, options []string, o ComboboxOpts)
 	width := box.Bounds().W
 	cb.Popup(func(panel ui.Element) {
 		controlsPopupPanel(panel).AttachTo(box, ui.AnchorBottomStart, ui.AnchorTopStart).MinWidth(width)
-		ui.Scroll(c).MaxHeight(controlsPopupHeight(c, box)).Children(func() {
+		ui.Scroll(c).Shrink(1).Children(func() {
 			for _, opt := range shown {
 				item := cb.Item(opt)
 				controlsOption(c, item, opt, item.Highlighted(), opt == *selected, false)
