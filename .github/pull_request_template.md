@@ -34,7 +34,7 @@ No personal data anywhere in this PR: names, handles, account IDs, real library 
 ## Checklist
 
 - [ ] `go vet ./...` and `go test -race ./...` pass
-- [ ] `golangci-lint run --new-from-rev=origin/main ./...` is clean
+- [ ] `golangci-lint run ./...` is clean
 - [ ] `go tool mygo vet internal/ui`, `go run ./cmd/i18ntool extract -check` and `go run ./cmd/pathcase` pass
 - [ ] `sh build/gofumpt.sh` prints nothing (`fmt` formats the files)
 - [ ] Generated files (the catalogue, `internal/db/dbq`) regenerated, not hand-edited

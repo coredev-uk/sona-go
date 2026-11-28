@@ -340,15 +340,8 @@ func newMediaCoverApp(t *testing.T, e *mediaMotionEnv, motion string, set ...fun
 	return a, ui.NewTester(a.view, 200, 200)
 }
 
-// frames builds the view twice (the second sees what the first laid out) and
-// runs what posted.
-// mediaSetClock moves the policy's clock.
-func mediaSetClock(p *MotionPolicy, f func() time.Time) {
-	p.mu.Lock()
-	p.now = f
-	p.mu.Unlock()
-}
-
+// mediaFrames builds the view twice (the second sees what the first laid out)
+// and runs what posted.
 func mediaFrames(t *testing.T, tt *ui.Tester, mt *mainThread) {
 	t.Helper()
 	tt.Frame()

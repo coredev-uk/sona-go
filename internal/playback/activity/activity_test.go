@@ -57,7 +57,7 @@ func newApple(t *testing.T) (*apple, *applemusic.Client) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/me/storefront":
-			io.WriteString(w, `{"data":[{"id":"gb","type":"storefronts"}]}`)
+			_, _ = io.WriteString(w, `{"data":[{"id":"gb","type":"storefronts"}]}`)
 		case "/play":
 			var body struct {
 				Data []map[string]any `json:"data"`
@@ -143,7 +143,7 @@ func TestListenBecomesMusicKitEvents(t *testing.T) {
 func TestLibraryItemUsesCloudID(t *testing.T) {
 	a, client := newApple(t)
 	r, _ := New(Options{Client: client, Storefront: func() string { return "us" }})
-	defer r.Close(context.Background())
+	defer func() { _ = r.Close(context.Background()) }()
 	r.Observe(coordinator.Activity{Kind: coordinator.ActivityStart, Item: coordinator.Item{ID: "i.AbC123"}, Duration: time.Minute})
 	eventually(t, "event", func() bool { return len(a.got()) == 1 })
 	e := a.got()[0]
@@ -195,7 +195,7 @@ func TestRetriesTransientFailuresAndDropsRejected(t *testing.T) {
 	a, client := newApple(t)
 	a.setStatus(http.StatusBadGateway)
 	r, _ := newReporter(Options{Client: client}, func(int) time.Duration { return 10 * time.Millisecond })
-	defer r.Close(context.Background())
+	defer func() { _ = r.Close(context.Background()) }()
 	r.Observe(act(coordinator.ActivityStart, 0))
 	eventually(t, "retries", func() bool { a.mu.Lock(); defer a.mu.Unlock(); return a.posts >= 2 })
 	a.setStatus(200)

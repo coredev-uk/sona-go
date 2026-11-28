@@ -17,7 +17,11 @@ func detailsService(t *testing.T) *CatalogService {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	return &CatalogService{e: &Env{members: newMembership(d)}}
 }
 

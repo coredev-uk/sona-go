@@ -37,10 +37,11 @@ func TestAMPResourceAndResources(t *testing.T) {
 			for _, id := range strings.Split(ids, ",") {
 				data = append(data, fmt.Sprintf(`{"id":%q,"type":"stations","attributes":{"name":"S%s"}}`, id, id))
 			}
-			fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(data, ","))
+			_, _ = fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(data, ","))
+
 			return
 		}
-		w.Write([]byte(`{"data":[{"id":"ra.1","type":"stations","attributes":{"name":"Radio"}}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"ra.1","type":"stations","attributes":{"name":"Radio"}}]}`))
 	}))
 	c.AMPBase = c.Base
 	type station = Resource[struct {

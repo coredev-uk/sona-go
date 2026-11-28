@@ -821,7 +821,7 @@ func (s *Session) do(ctx context.Context, method, u string, body io.Reader, h ht
 	if err != nil {
 		return nil, nil, fmt.Errorf("appleid: %s %s: %w", method, req.URL.Host+req.URL.Path, scrub(err))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
 	if err != nil {
 		return nil, nil, fmt.Errorf("appleid: read %s: %w", req.URL.Path, err)

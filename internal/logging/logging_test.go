@@ -317,7 +317,9 @@ func TestRotatingFileAppendsAcrossOpens(t *testing.T) {
 		if _, err := f.Write([]byte("line\n")); err != nil {
 			t.Fatal(err)
 		}
-		f.Close()
+		if err := f.Close(); err != nil {
+			t.Fatal(err)
+		}
 	}
 	b, _ := os.ReadFile(path)
 	if string(b) != "line\nline\n" {

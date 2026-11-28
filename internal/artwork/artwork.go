@@ -754,7 +754,7 @@ func (c *Cache) fetch(ctx context.Context, u string) ([]byte, image.Config, erro
 		}
 		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %w", shown(req.URL), err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, image.Config{}, fmt.Errorf("artwork: fetch %s: %s", shown(req.URL), resp.Status)
 	}

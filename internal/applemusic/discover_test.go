@@ -59,7 +59,7 @@ func TestDiscoverEndpoints(t *testing.T) {
 	var calls []call
 	c, _, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls = append(calls, call{r.Method, r.URL.Path, r.URL.Query()})
-		w.Write([]byte(`{"data":[],"resources":{},"results":{}}`))
+		_, _ = w.Write([]byte(`{"data":[],"resources":{},"results":{}}`))
 	}))
 	c.AMPBase = c.Base
 	ctx := t.Context()

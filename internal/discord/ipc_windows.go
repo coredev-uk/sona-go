@@ -94,12 +94,12 @@ func processUser(pid uint32) (*windows.SID, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer windows.CloseHandle(p)
+	defer func() { _ = windows.CloseHandle(p) }()
 	var tok windows.Token
 	if err := windows.OpenProcessToken(p, windows.TOKEN_QUERY, &tok); err != nil {
 		return nil, err
 	}
-	defer tok.Close()
+	defer func() { _ = tok.Close() }()
 	u, err := tok.GetTokenUser()
 	if err != nil {
 		return nil, err

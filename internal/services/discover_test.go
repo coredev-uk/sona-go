@@ -55,7 +55,7 @@ func (f *fakeAMP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		file = "home.json"
 	case strings.HasPrefix(p, "/v1/me/recommendations/") && r.Method == http.MethodPost:
 		// A refreshed Recently Played shelf: the same shelf, one item fewer.
-		w.Write([]byte(`{"data":[{"id":"7-2Tqlz47h9yro","type":"personal-recommendation"}],"resources":{"personal-recommendation":{"7-2Tqlz47h9yro":{"id":"7-2Tqlz47h9yro","type":"personal-recommendation","attributes":{"title":{"stringForDisplay":"Recently Played"},"kind":"recently-played","display":{"kind":"MusicCoverShelf"},"hasSeeAll":true,"nextUpdateDate":"2026-10-30T12:30:00Z"},"relationships":{"contents":{"data":[{"id":"6812476961","type":"albums"}]}}}}}}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"7-2Tqlz47h9yro","type":"personal-recommendation"}],"resources":{"personal-recommendation":{"7-2Tqlz47h9yro":{"id":"7-2Tqlz47h9yro","type":"personal-recommendation","attributes":{"title":{"stringForDisplay":"Recently Played"},"kind":"recently-played","display":{"kind":"MusicCoverShelf"},"hasSeeAll":true,"nextUpdateDate":"2026-10-30T12:30:00Z"},"relationships":{"contents":{"data":[{"id":"6812476961","type":"albums"}]}}}}}}`))
 		return
 	case p == "/v1/editorial/gb/groupings":
 		file = "new.json"
@@ -68,7 +68,7 @@ func (f *fakeAMP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case p == "/v1/catalog/gb/charts":
 		file = "charts.json"
 	case p == "/v1/catalog/gb/genres":
-		w.Write([]byte(`{"data":[{"id":"34","type":"genres","attributes":{"name":"Music"}},{"id":"14","type":"genres","attributes":{"name":"Pop","parentId":"34"}}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"34","type":"genres","attributes":{"name":"Music"}},{"id":"14","type":"genres","attributes":{"name":"Pop","parentId":"34"}}]}`))
 		return
 	default:
 		http.NotFound(w, r)
@@ -78,7 +78,7 @@ func (f *fakeAMP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	w.Write(b)
+	_, _ = w.Write(b)
 }
 
 func (f *fakeAMP) requests() []string {
@@ -104,7 +104,11 @@ func newDiscoverEnv(t *testing.T) discoverEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	amp := &fakeAMP{t: t}
 	srv := httptest.NewServer(amp)
 	t.Cleanup(srv.Close)

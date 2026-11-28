@@ -33,7 +33,11 @@ func newSearchEnv(t *testing.T, h http.Handler) (*SearchService, *db.DB, *time.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	api := applemusic.New(srv.Client(), staticToken{}, func() string { return "mut" })
@@ -127,11 +131,11 @@ func TestSearchCatalogSections(t *testing.T) {
 		case "/v1/catalog/gb/search":
 			if g := r.URL.Query().Get("groups"); g != "" {
 				groupQuery = r.URL.RawQuery
-				w.Write([]byte(`{"results":{"song":{"data":[{"id":"2","type":"songs"}]}},
+				_, _ = w.Write([]byte(`{"results":{"song":{"data":[{"id":"2","type":"songs"}]}},
 					"resources":{"songs":{"2":{"id":"2","type":"songs","attributes":{"name":"Blue Two","playParams":{"id":"2","kind":"song"}}}}}}`))
 				return
 			}
-			w.Write([]byte(`{"results":{
+			_, _ = w.Write([]byte(`{"results":{
 				"top":{"data":[{"id":"9","type":"artists"},{"id":"1","type":"songs"}]},
 				"song":{"next":"/v1/catalog/gb/search?groups=song&offset=21&term=blue","data":[{"id":"1","type":"songs"}]},
 				"video_extra":{"data":[{"id":"u1","type":"uploaded-videos"}]}},
@@ -142,14 +146,14 @@ func TestSearchCatalogSections(t *testing.T) {
 				"meta":{"results":{"order":["top","song","video_extra"]}}}`))
 		case "/v1/social/gb/search":
 			social = r.URL.RawQuery
-			w.Write([]byte(`{"results":{
+			_, _ = w.Write([]byte(`{"results":{
 				"profile":{"next":"/v1/social/gb/search?groups=profile&offset=21","data":[{"id":"sp.1","type":"social-profiles"}]},
 				"playlist":{"data":[{"id":"pl.u-1","type":"playlists"}]}},
 				"resources":{
 				"social-profiles":{"sp.1":{"id":"sp.1","type":"social-profiles","attributes":{"name":"Taylor","handle":"taylor","url":"https://music.apple.com/profile/taylor"}}},
 				"playlists":{"pl.u-1":{"id":"pl.u-1","type":"playlists","attributes":{"name":"Mix","curatorName":"Taylor"}}}}}`))
 		case "/v1/recommendations/gb":
-			w.Write([]byte(`{"data":[{"id":"r1","type":"personal-recommendation"},{"id":"r2","type":"personal-recommendation"}],"resources":{
+			_, _ = w.Write([]byte(`{"data":[{"id":"r1","type":"personal-recommendation"},{"id":"r2","type":"personal-recommendation"}],"resources":{
 				"personal-recommendation":{
 					"r1":{"id":"r1","type":"personal-recommendation","relationships":{"contents":{"data":[{"id":"988556214","type":"apple-curators"}]}}},
 					"r2":{"id":"r2","type":"personal-recommendation","relationships":{"contents":{"data":[{"id":"6447688262","type":"editorial-items"}]}}}},

@@ -181,7 +181,9 @@ func TestSyncRemovesDeletedItems(t *testing.T) {
 		t.Fatalf("search index kept removed song: %+v", hits)
 	}
 	var orphans int
-	e.db.R.QueryRow(`SELECT count(*) FROM tracks WHERE library_id IS NOT NULL`).Scan(&orphans)
+	if err := e.db.R.QueryRow(`SELECT count(*) FROM tracks WHERE library_id IS NOT NULL`).Scan(&orphans); err != nil {
+		t.Fatal(err)
+	}
 	if orphans != 60 {
 		t.Fatalf("library track rows = %d, want 60", orphans)
 	}
