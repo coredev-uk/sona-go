@@ -1,0 +1,111 @@
+# Fuzzes the parsers of untrusted bytes (docs/testing.md, "Fuzzing"): every
+# Go fuzz target of the repository, each for a couple of minutes, weekly.
+# ci.yml runs the targets' seed corpora (testdata/fuzz/<Target>) as ordinary
+# tests on every change; this is the part that searches for new inputs.
+#
+# A target that finds an input that breaks it fails its job, and the new
+# crasher (an untracked file under testdata/fuzz) is kept as an artifact. No
+# issue is opened: a crasher a hostile server can reach is a vulnerability,
+# and is reported privately (SECURITY.md) before the input is committed as a
+# seed with its fix. The run's log is public and shows the failure message of
+# the target (what it checked, with a few values), not the input itself.
+#
+# The targets are pure Go (no cgo, no system packages), so the jobs run on
+# the bare runner like live.yml. A pull request cannot run this workflow.
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "41 4 * * 0" # Sundays 04:41 UTC
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: How long each target runs (go test -fuzztime, e.g. 30s, 10m)
+        default: 2m
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Pure Go: a package that needs cgo fails the listing, not a run.
+  CGO_ENABLED: "0"
+
+jobs:
+  targets:
+    name: List the fuzz targets
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: List the targets
+        id: list
+        run: .github/ci/fuzz-targets.sh | tee -a "$GITHUB_OUTPUT"
+
+  fuzz:
+    name: Fuzz ${{ matrix.pkg }} ${{ matrix.target }}
+    needs: targets
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # The seeds run first, as ordinary tests, so a regression in one is
+      # named as that and not as a fuzzing failure.
+      - name: Fuzz
+        env:
+          PKG: ${{ matrix.pkg }}
+          TARGET: ${{ matrix.target }}
+          FUZZTIME: ${{ inputs.fuzztime || '2m' }}
+        run: |
+          go test -run "^${TARGET}\$" "$PKG"
+          go test -run '^$' -fuzz "^${TARGET}\$" -fuzztime "$FUZZTIME" "$PKG"
+
+      # A crasher is a file go test wrote under testdata/fuzz: untracked.
+      - name: Collect the crashers
+        if: ${{ failure() }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/crashers"
+          git ls-files --others --exclude-standard -z -- '*testdata/fuzz/*' | xargs -0 -r cp --parents -t "$RUNNER_TEMP/crashers"
+          find "$RUNNER_TEMP/crashers" -type f
+
+      - name: Keep the crashers
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-crashers-${{ matrix.id }}
+          path: ${{ runner.temp }}/crashers
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("#EXTM3U\n#EXT-X-MAP:URI=\"a.mp4\"\n#EXTINF:2,\n1.m4s\n#EXT-X-DISCONTINUITY\n#EXT-X-MAP:URI=\"b.mp4\"\n#EXTINF:2,\n2.m4s\n")

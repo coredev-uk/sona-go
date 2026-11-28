@@ -1,6 +1,6 @@
 # Testing reference
 
-The detail behind the [Test Your Change](https://sona.coredev.uk/contributing/test/) page: the checks, preview playback, the real-CDM and sandbox tests, packaging checks, the UI tests and end-to-end smoke, the desktop VM tests and secret scanning.
+The detail behind the [Test Your Change](https://sona.coredev.uk/contributing/test/) page: the checks, preview playback, the real-CDM and sandbox tests, packaging checks, the UI tests and end-to-end smoke, the desktop VM tests, fuzzing and secret scanning.
 
 ## Contents
 
@@ -23,6 +23,10 @@ The detail behind the [Test Your Change](https://sona.coredev.uk/contributing/te
   - [The end-to-end smoke](#the-end-to-end-smoke)
   - [The Orca walk](#the-orca-walk)
 - [Desktop VM tests](#desktop-vm-tests)
+- [Fuzzing](#fuzzing)
+  - [When a target finds something](#when-a-target-finds-something)
+  - [Writing a target](#writing-a-target)
+  - [The targets](#the-targets)
 - [Secret scanning](#secret-scanning)
 
 ## Checks
@@ -315,6 +319,66 @@ nix-build tests/vm -A sona      # the Nix package the VMs install
 Screenshots land in `result/`. `tests/vm/README.md` lists each check, the checklist rows it covers, the interactive driver, and how to update the package's hashes after a lockfile change.
 
 They never run on pull requests: a CI run takes about an hour of runner time. Start the "VM tests" workflow by hand (`workflow_dispatch`) before a major release, or run them locally.
+
+## Fuzzing
+
+The parsers that read bytes from outside Sona (a CDN, Apple's API, a lyrics provider, a release asset, a file the user picks) have Go fuzz targets, `func FuzzXxx(f *testing.F)` in the package's tests. A target does more than check that the parser does not panic. Its doc comment lists the invariants it asserts, and the target fails on a broken one: allocation bounded by the input (the bounds of F21 and F22 in [security-review.md](security-review.md)), offsets and slices within the buffer, counts consistent with sizes, numbers that do not wrap, and a round trip wherever the package has a writer.
+
+**The seeds run in every test run.** A target's seed corpus is committed under `testdata/fuzz/<Target>/` in Go's corpus format, a few small files each: valid inputs built by the package's test helpers (or taken from its scrubbed `testdata`), and the shape of each advisory that was found in that parser (the file names say which). `go test ./...` runs them as ordinary tests, so `check`, `tests` and CI run them on every change, and a fix for a parser bug keeps its input as a seed.
+
+**The search runs weekly in CI** (`.github/workflows/fuzz.yml`, Sundays 04:41 UTC, and "Run workflow"): one job per target, `go test -fuzz` for two minutes each (the dispatch takes another `fuzztime`). `.github/ci/fuzz-targets.sh` finds the targets with `go test -list '^Fuzz'` in every package that has one, so a new target is picked up without a change to the workflow. A target that finds an input fails its job, and the new input (an untracked file under `testdata/fuzz`) is kept for 14 days as the artifact `fuzz-crashers-<package>-<target>`. No issue is opened: see "When a target finds something".
+
+Run a target yourself:
+
+```sh
+go test -run '^$' -list '^Fuzz' ./internal/...                            # every target
+go test -run 'Fuzz' ./internal/playback/fmp4/                             # a package's seeds, as tests
+go test -run '^$' -fuzz '^FuzzParseInit$' -fuzztime 2m ./internal/playback/fmp4/   # search: one target of one package
+```
+
+`-fuzz` takes one target in one package, and `-parallel` limits the workers (the default is `GOMAXPROCS`). The "execs/sec" figure drops to 0 for tens of seconds while the engine minimises a new input; that is not a hang (`-fuzzminimizetime` shortens it). Go keeps what it learns in its build cache (`go env GOCACHE`), and only a failing input is written into the repository.
+
+### When a target finds something
+
+`go test` writes the input to `testdata/fuzz/<Target>/<hash>` and fails; `go test -run '<Target>/<hash>' <package>` reproduces it.
+
+1. **Decide whether a hostile server, file or peer can reach it.** The parsers here read what a compromised CDN, a broken TLS session or a crafted download hands them, so most of what a target finds is reachable. A reachable crash, unbounded allocation or wrong result is a vulnerability: report it as [SECURITY.md](../SECURITY.md) says, and keep the input out of public branches, issues and logs until the fix is released. The failing run of the weekly job, its log and its artifact are public to anyone who can read the repository's Actions.
+2. **Fix the parser**, not the target: an invariant that fails is a claim about the parser, and weakening it hides the bug. Change a target only where the invariant itself was wrong, and say why in its comment.
+3. **Commit the input as a seed** with the fix, under a name that says what it is (`wrapping-saio-x52q`, not the hash), and add a plain unit test beside the code that states the property in words.
+
+### Writing a target
+
+- Put it in the package's `_test.go` files (`fuzz_test.go`, or beside the tests it shares helpers with), and take its seeds from those tests' builders: nothing personal, nothing downloaded.
+- Write what it asserts in its doc comment, as a list, and make the assertions independent of the code under test where you can (re-walk the boxes, re-compute the bound, write the value out and parse it back).
+- Keep an execution fast. Where the parser's own limit is large (artwork's 40 megapixels), the target skips decoding past a small size after it has checked the parser's refusal, and says so (`fuzzPixels`).
+- Commit three to eight seeds, a few KB each. Go's corpus format is `go test fuzz v1` followed by one line per argument (`[]byte("…")`, `string("…")`, `uint8(3)`); generate the files with a throwaway test and delete it.
+- The package must build with the default tags and without cgo, as the weekly job does.
+
+### The targets
+
+| Target | Package | Reads | Asserts |
+| --- | --- | --- | --- |
+| **Playback and the CDM** | | | |
+| `FuzzWalkProto` | `internal/playback/cdm` | protobuf fields of a CRX3 header | no field is longer than its input; nested fields parse or fail |
+| `FuzzVerifyCRX3` | `internal/playback/cdm` | a CRX3 package | an accepted archive lies inside the file; every failure is `CodeSignature` |
+| `FuzzParseManifest` | `internal/playback/cdm` | Mozilla's Widevine manifest | a release has a dotted-number version, a size of 1 to 64 MiB, a SHA-512 and only HTTPS URLs on Google's hosts, once each |
+| `FuzzParseInit` | `internal/playback/fmp4` | an fMP4 init segment | track ID and timescale not 0; kept slices lie in the input; IV size 0, 8 or 16; picture and audio fields in range; the same answer twice; `Priming` not negative |
+| `FuzzParseFragment` | `internal/playback/fmp4` | a fragment, with an init (the track's samples among other tracks') | 1 to 65536 samples, of a track some traf names; sample data lies in the buffer; encrypted samples have an IV; subsamples cover their sample, and fit in the buffer; the input is not changed |
+| `FuzzMovieDuration` | `internal/playback/fmp4` | the head of an MP4 | a duration is positive, and does not wrap |
+| `FuzzLoudness` | `internal/playback/fmp4` | an init's `tlou`/`alou`, a file's `iTunNORM` | loudness and peaks are finite and in the range their coding has; the tag is a part of the input |
+| `FuzzParse` | `internal/playback/hls` | a media playlist | segments numbered and timed without gaps or wrapping; byte ranges end within int64 and make a valid `Range` header; keys have a method and a 16-byte key ID; `SegmentAt` stays in range; writing the segments out and parsing them back gives the same ones |
+| `FuzzParseMaster` | `internal/playback/hls` | a master playlist | variants have a URI; `BestAAC`, `SelectVideo` and `SelectAudio` return what their documentation says, whatever the bandwidths |
+| `FuzzParseAttributes` | `internal/playback/hls` | an attribute list | writing the list out quoted and parsing it back gives the same list |
+| **Artwork and motion artwork** | | | |
+| `FuzzFlatten` | `internal/motion` | the fragmented MP4 of a motion rendition (one file, or an init and a segment) | the output is a plain MP4 whose sample table locates every sample; the samples are at most the input's size; the timeline starts at 0; the output is bounded by the input; the same output twice |
+| `FuzzParsePlaylists` | `internal/motion` | a master or media playlist | `choose` returns the rendition its rules name; a media playlist with a key is refused, and one that is read lists at least one file |
+| `FuzzDecodeImage` | `internal/artwork` | a source image (JPEG or PNG) | a header with no area or over the pixel limit is refused with `ErrTooManyPixels` before any pixel is allocated; a decoded picture has the declared size and can be scaled |
+| `FuzzPrepareCover` | `internal/artwork` | an uploaded cover | a refusal is `ErrCoverImage`; a cover is a JPEG that decodes, square, at most 1024 px and at least 300, and is itself a valid cover |
+| `FuzzExifOrientation` | `internal/artwork` | a JPEG's Exif header | an orientation of 1 to 8 |
+| **Data parsers** | | | |
+| *lyrics, applemusic, config, update and diag targets are added in their own change* | | | |
+
+Details: [security-review.md](security-review.md), "Fuzzing"; the workflow: [maintainers/ci-workflows.md](maintainers/ci-workflows.md).
 
 ## Secret scanning
 

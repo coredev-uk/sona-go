@@ -23,6 +23,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [Sona's own add-ons](#sonas-own-add-ons)
   - [Secret scanning](#secret-scanning)
   - [Vulnerability scanning](#vulnerability-scanning)
+  - [Fuzzing](#fuzzing)
   - [Updates](#updates)
 - [Findings](#findings)
   - [Summary](#summary)
@@ -804,6 +805,20 @@ nix run nixpkgs#gitleaks -- dir --config .gitleaks.toml --redact .
 - The scan is the host build; Windows- and macOS-only files are type-checked, not scanned. Dependabot alerts cover the `site/` npm tree.
 
 **Residual risks.** The database lists only known, reported vulnerabilities, and a reachable call through reflection or a plugin can be missed. The CI log is public and shows each finding with its call stacks, as the advisory itself already is.
+
+### Fuzzing
+
+**What it does.** The parsers that read untrusted bytes have Go fuzz targets, listed in [testing.md](testing.md), "Fuzzing", with what each asserts: the CDM's manifest and CRX3 parsers (`internal/playback/cdm`), the fMP4 and CENC parser (`internal/playback/fmp4`: init segments, fragments, the movie header, loudness), HLS playlists (`internal/playback/hls`), the motion-artwork remuxer and its playlists (`internal/motion`) and the artwork decoder with its pixel limit and the cover-upload check (`internal/artwork`). The targets of the data parsers (lyrics, Apple's decoders, the settings import, update archives and manifests, the diagnostics bundle) are listed with theirs. The seeds run in every `go test`; `.github/workflows/fuzz.yml` searches for new inputs, two minutes a target, every week.
+
+**Threats.** A parser bug that whoever controls a response (a compromised CDN, a broken TLS session, a crafted file) can reach: a panic in a goroutine nothing recovers ([F19](#f19-the-motion-artwork-remuxer-panicked-on-a-huge-tfhd-base-offset), [F20](#f20-the-fmp4-parser-panicked-on-crafted-init-segments-and-fragments)), an allocation sized by a declared count or dimension ([F21](#f21-server-declared-counts-and-lengths-allocated-without-limit), [F22](#f22-artwork-from-the-cdn-was-decoded-without-a-pixel-limit)), or a number that wraps into a wrong, negative or oversized one.
+
+**Controls.**
+
+- **A target asserts the parser's invariants, not only that it returns.** Bounds relative to the input (the output of the remuxer, the samples and subsamples of a fragment, the allocation a refused image header costs), offsets and slices within the buffer, counts consistent with sizes, durations and byte ranges that do not wrap, and a round trip where the package has a writer. Each target's comment lists them.
+- **The seeds are the known shapes.** Each advisory's input is a seed of its parser's target (`wrapping-saio-x52q`, `sample-count-q88j`, `huge-base-data-offset-587h`, `png-bomb-40000-v66p`), so a regression fails `go test` at once, and every input a target has found is kept as a seed with its fix.
+- **The weekly job finds the rest.** A failing target fails its job and keeps the input as an artifact for 14 days; it opens no issue, because a crasher that can be reached is a vulnerability, reported privately ([SECURITY.md](../SECURITY.md)) before the input is committed. The workflow, and what to do with a finding, are in [testing.md](testing.md), "When a target finds something", and `docs/maintainers/ci-workflows.md`.
+
+**Residual risks.** Fuzzing shows the inputs it reached and the invariants say what to look for: two minutes a target a week is a floor, and a bug that needs a structure the fuzzer does not build (a large, valid file; a long sequence of boxes that must agree) may take many runs. The artwork targets decode only pictures up to 4 megapixels, so the refusal of a header over the 40-megapixel limit is checked, and the decoding between the two sizes is not. Code that is not Go (the Widevine CDM, GStreamer, WebKit) is not fuzzed here. The failing run's log of a public repository shows its failure message, which can quote values of the input.
 
 ### Updates
 
@@ -1632,7 +1647,7 @@ Severity: Low. Status: fixed.
 
 - `flatten` (`internal/motion/remux.go`) copied each frame the `trun` boxes named into one `mdat`. Frames were bounded in number (`maxSamples`, 2^18) and each inside its file, but nothing stopped them from overlapping: a `trun` per frame, each with the same data offset (or a default sample size and an offset that is not advanced), names the same bytes again and again. A rendition of about a megabyte could so describe 4096 frames of a megabyte each, and `write` allocated the whole plain file (up to the 4 GiB an `mdat` holds) and the cache wrote it to disk.
 - The sample description, handler, media header and data information boxes were copied into the output as they were. A box whose size field is 0 (it runs to the end of its container) swallowed the sample table that follows it there, so the output had none.
-- Found by fuzzing the remuxer's input.
+- Found by the fuzz target `FuzzFlatten` ([Fuzzing](#fuzzing)).
 
 **Impact.** A rendition from a compromised CDN or a broken TLS session could exhaust the memory of the UI process, which Go cannot recover from, each time the album was viewed (the allow-list and redirect checks of [F6](#f6-motion-artwork-followed-redirects-anywhere) still apply). An unplayable cached file was the lesser effect of the second point. Availability only.
 
@@ -1658,5 +1673,5 @@ Severity: Low. Status: fixed.
 ## Run the tests
 
 ```sh
-go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/... ./internal/i18n/... ./internal/lyrics/... ./internal/addons/...
+go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/playback/fmp4/... ./internal/playback/hls/... ./internal/artwork/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/... ./internal/i18n/... ./internal/lyrics/... ./internal/addons/...
 ```
