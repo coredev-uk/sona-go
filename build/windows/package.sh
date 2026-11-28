@@ -92,7 +92,10 @@ gocmd() { # go ARGS...: for Windows, with GStreamer
 }
 dir=$work/Sona
 mkdir "$dir"
-gocmd build -tags mygo_noinspector,sqlite_fts5 -trimpath -buildvcs=false -ldflags "$ldflags" -o "$dir/sona.exe" ./cmd/sona
+# mygo_nowebview: Sona's windows are all native UI, so MyGo's WebView2 code
+# and its loader's names are left out of sona.exe (docs/platforms.md).
+gocmd build -tags mygo_noinspector,mygo_nowebview,sqlite_fts5 -trimpath -buildvcs=false -ldflags "$ldflags" -o "$dir/sona.exe" ./cmd/sona
+if grep -qa WebView2Loader "$dir/sona.exe"; then die "sona.exe links MyGo's WebView2 code: build it with mygo_nowebview"; fi
 # smoke.sh runs playspike against the bundle's GStreamer; it is built here,
 # beside the package, never in it.
 if [[ -n ${SONA_SMOKE_TOOLS:-} ]]; then
