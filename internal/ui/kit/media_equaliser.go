@@ -17,8 +17,33 @@ const (
 	// eqLowest is the shortest a moving bar gets, as a scale of eqHeight;
 	// the tallest is eqHeight itself.
 	eqLowest = 0.25
+	// eqFloor is a paused bar, as a scale of eqHeight: dropped to a 2 DIP
+	// stub, as short as the corners allow, so the row keeps its mark.
+	eqFloor  = 2.0 / eqHeight
 	eqRadius = 1 // DIPs: the bars' corners
+	// eqSettle is how long the bars take to drop as the track pauses, or to
+	// rise into their movement as it plays again.
+	eqSettle = 300 * time.Millisecond
 )
+
+// eqMode is what the bars are doing: moving, standing at rest or dropped.
+type eqMode uint8
+
+const (
+	eqLive eqMode = iota // playing, moving
+	eqRest               // playing, still: covered or motion reduced
+	eqDown               // paused
+)
+
+// eqState is what the bars keep from paint to paint: the mode they last
+// showed, when it began and the heights it began from, so that a change of
+// mode eases from where the bars stood rather than jumping.
+type eqState struct {
+	mode  eqMode
+	since time.Time // zero: the mode the bars were built in, settled
+	from  [len(eqBars)]float32
+	last  [len(eqBars)]float32
+}
 
 // eqBars are the bars' height at rest, as a scale of eqHeight (index.css:
 // 60%, 100%, 40%), and how long each takes to go up and back down while the
@@ -46,34 +71,67 @@ func eqLevel(period, t time.Duration) float32 {
 	return eqLowest + (1-eqLowest)*float32(s)
 }
 
+// eqEase is an ease-out: quick to leave, slow to land, as a bar that drops
+// and settles.
+func eqEase(u float32) float32 {
+	v := 1 - u
+	return 1 - v*v*v
+}
+
 // EqualiserBars is the now-playing mark: three amber bars (60, 100 and 40% of
-// 12 DIPs at rest, 4 wide, 3 apart), moving while the track plays and still when
-// paused, when the page is covered by Now Playing or full-screen lyrics (an
-// unseen loop still costs every frame) or when motion is reduced. Each bar
+// 12 DIPs at rest, 4 wide, 3 apart), moving while the track plays. Each bar
 // rises and falls between a quarter of the height and all of it on a period
-// of its own, quick through the middle and slow at the turns. The bars are
-// painted at up to 60 a second (AmbientFrames) by painting this element alone again: the
-// view is not built nor laid out for it, so a long list around it costs
-// nothing per frame, and an element that is off screen is not painted, so it
-// asks for no frame. It replaces a row's index wherever the playing track
+// of its own, quick through the middle and slow at the turns. Paused, the
+// bars drop to 2 DIP stubs over eqSettle from wherever they stood, and rise
+// back into their movement as the track plays again. They hold still at rest
+// height while playing under Now Playing or full-screen lyrics (an unseen
+// loop still costs every frame) or with motion reduced, where a pause drops
+// them at once. The bars are painted at up to 60 a second (AmbientFrames) by
+// painting this element alone again: the view is not built nor laid out for
+// it, so a long list around it costs nothing per frame, and an element that
+// is off screen is not painted, so it asks for no frame. Settled and paused,
+// they ask for none. It replaces a row's index wherever the playing track
 // appears. It is an image named "Now playing" or "Paused".
 // p says whether the page is covered (nil: never).
 func EqualiserBars(c *ui.Context, playing bool, p *MotionPolicy) ui.Element {
-	live := playing && !p.Covered() && !theme.ReducedMotion()
+	still := p.Covered() || theme.ReducedMotion()
+	mode := eqDown
 	label := i18n.T("Paused")
 	if playing {
 		label = i18n.T("Now playing")
+		mode = eqLive
+		if still {
+			mode = eqRest
+		}
 	}
 	amber := theme.C("amber")
 	width := float32(len(eqBars))*eqBarW + float32(len(eqBars)-1)*eqGap
 	box := ui.Box(c).Size(width, eqHeight).Role(ui.RoleImage).Label(label)
+	st := ui.Local(box, "eq", func() eqState { return eqState{mode: mode} })
 	box.Draw(func(pt *ui.Painter, r ui.Rect) {
-		now := time.Duration(pt.Now().UnixNano()) // any steady origin will do: only the cycles matter
+		at := pt.Now()
+		if st.mode != mode {
+			st.mode, st.since, st.from = mode, at, st.last
+		}
+		k := float32(1) // how far the bars are from where the mode began to where it puts them
+		if d := at.Sub(st.since); !still && !st.since.IsZero() && d < eqSettle {
+			k = eqEase(float32(d) / float32(eqSettle))
+		}
+		now := time.Duration(at.UnixNano()) // any steady origin will do: only the cycles matter
 		bottom := r.Y + r.H
 		for i, b := range eqBars {
+			to := float32(eqFloor)
+			switch mode {
+			case eqLive:
+				to = eqLevel(b.period, now)
+			case eqRest:
+				to = b.rest
+			}
+			level := st.from[i] + (to-st.from[i])*k
+			st.last[i] = level
 			x := r.X + float32(i)*(eqBarW+eqGap)
-			if !live {
-				h := eqHeight * b.rest
+			if k == 1 && mode != eqLive {
+				h := eqHeight * level
 				pt.Fill(ui.Rect{X: x, Y: bottom - h, W: eqBarW, H: h}, amber, eqRadius)
 				continue
 			}
@@ -82,11 +140,11 @@ func EqualiserBars(c *ui.Context, playing bool, p *MotionPolicy) ui.Element {
 			// frame would move its top a pixel at a time, a few times a
 			// second at 1x; a transform is applied to the pixels, and the
 			// top edge's partial coverage shows as it is.
-			pt.Transform(ui.Scaling(1, eqLevel(b.period, now)), x, bottom, func() {
+			pt.Transform(ui.Scaling(1, level), x, bottom, func() {
 				pt.Fill(ui.Rect{X: x, Y: bottom - eqHeight, W: eqBarW, H: eqHeight}, amber, eqRadius)
 			})
 		}
-		if live {
+		if mode == eqLive || k < 1 {
 			AmbientFrames(pt)
 		}
 	})
