@@ -92,7 +92,7 @@ func TestCodeOf(t *testing.T) {
 
 func TestGateHoldsRequestsUntilOpen(t *testing.T) {
 	var hits sync.WaitGroup
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "ok") }))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "ok") }))
 	defer srv.Close()
 
 	g := NewGate(time.Hour, nil)
@@ -108,13 +108,13 @@ func TestGateHoldsRequestsUntilOpen(t *testing.T) {
 		defer hits.Done()
 		resp, err := c.Get(srv.URL)
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		done <- err
 	}()
 	select {
-	case <-done:
-		t.Fatal("request completed before the gate opened")
+	case err := <-done:
+		t.Fatalf("request completed before the gate opened (err %v)", err)
 	case <-time.After(50 * time.Millisecond):
 	}
 

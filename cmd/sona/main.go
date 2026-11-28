@@ -149,7 +149,7 @@ func run(started time.Time) error {
 	if err != nil {
 		return err
 	}
-	defer closeLog()
+	defer func() { _ = closeLog() }() // nothing is left to log a failure to
 	defer log.Info("shutdown complete")
 	slog.SetDefault(log)
 	log.Info("startup: process start", "version", version, "pid", os.Getpid())
@@ -195,7 +195,11 @@ func run(started time.Time) error {
 	if err != nil {
 		return err
 	}
-	defer d.Close()
+	defer func() {
+		if err := d.Close(); err != nil {
+			log.Warn("shutdown: close database", "err", err)
+		}
+	}()
 
 	// The user's language (Settings → General → Language, else the
 	// system's) for Go's own text and Apple's content language.
@@ -294,7 +298,11 @@ func run(started time.Time) error {
 	vid := video.NewSurface()
 	engine := newEngine(api, cur, log, cdmMgr, storefront, vid)
 	engine = e2eEngine(engine, log) // the e2e smoke's probe build only
-	defer engine.Close()
+	defer func() {
+		if err := engine.Close(); err != nil {
+			log.Warn("shutdown: close playback engine", "err", err)
+		}
+	}()
 
 	// GStreamer's plugin registry is readied in a child after the first
 	// paint, off the play path: on a computer's first run its scan can
@@ -357,7 +365,11 @@ func run(started time.Time) error {
 	if err != nil {
 		return err
 	}
-	defer coord.Close() // saves the queue; runs before engine.Close
+	defer func() { // saves the queue; runs before engine.Close
+		if err := coord.Close(); err != nil {
+			log.Warn("shutdown: close coordinator", "err", err)
+		}
+	}()
 	history.Context = func() string { return coord.Snapshot().Context }
 	if err := coord.Restore(ctx); err != nil {
 		log.Warn("restore queue", "err", err)

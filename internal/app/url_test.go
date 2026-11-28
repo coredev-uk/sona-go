@@ -95,8 +95,8 @@ func TestParseURL(t *testing.T) {
 			Target{Kind: KindMusicVideo, ID: "1442907386", Storefront: "us"},
 		},
 		{
-			"https://music.apple.com/us/station/the-beatles-station/ra.u-1d3c3a5bd1e22e4eb31aef1ab0d0d9b9",
-			Target{Kind: KindStation, ID: "ra.u-1d3c3a5bd1e22e4eb31aef1ab0d0d9b9", Storefront: "us"},
+			"https://music.apple.com/us/station/the-beatles-station/ra.u-00000000000000000000000000000002",
+			Target{Kind: KindStation, ID: "ra.u-00000000000000000000000000000002", Storefront: "us"},
 		},
 		{
 			"https://music.apple.com/gb/station/apple-music-1/ra.978194965",

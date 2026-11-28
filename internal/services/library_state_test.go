@@ -54,14 +54,14 @@ func (f *fakeState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if q.Get("ids[albums]") == "200" {
 			data = append(data, `{"id":"200","type":"albums","attributes":{"inLibrary":false},"relationships":{"library":{"data":[]}}}`)
 		}
-		fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(data, ","))
+		_, _ = fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(data, ","))
 	case r.URL.Path == "/v1/me/library" && q.Get("ids[library-songs]") == "i.100":
 		// Apple acknowledged the DELETE but kept the song (add→remove race).
-		fmt.Fprint(w, `{"data":[{"id":"i.100","type":"library-songs","attributes":{"name":"x"}}]}`)
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"i.100","type":"library-songs","attributes":{"name":"x"}}]}`)
 	case r.URL.Path == "/v1/me/library":
-		fmt.Fprint(w, `{"data":[{"id":"p.9","type":"library-playlists","attributes":{"name":"Mine"}}]}`)
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"p.9","type":"library-playlists","attributes":{"name":"Mine"}}]}`)
 	case r.URL.Path == "/v1/me/ratings/artists":
-		fmt.Fprint(w, `{"data":[{"id":"300","type":"ratings","attributes":{"value":-1}}]}`)
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"300","type":"ratings","attributes":{"value":-1}}]}`)
 	default:
 		http.NotFound(w, r)
 	}
@@ -85,7 +85,11 @@ func newStateService(t *testing.T) (*LibraryService, *fakeState, *db.DB, *string
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	api := applemusic.New(srv.Client(), stubDev{}, func() string { return "mut" })
 	api.Base, api.AMPBase = srv.URL, srv.URL
 	e := &Env{Deps: Deps{

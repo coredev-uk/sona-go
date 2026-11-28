@@ -70,7 +70,7 @@ func (s *pagedServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Total int `json:"total"`
 		}{s.n}
 	}
-	json.NewEncoder(w).Encode(p)
+	_ = json.NewEncoder(w).Encode(p)
 }
 
 type idItem struct {

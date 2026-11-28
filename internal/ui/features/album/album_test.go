@@ -34,8 +34,8 @@ func TestDiscsAreIndexedByWhereTheyStart(t *testing.T) {
 
 func TestCompilationsGetAnArtistColumn(t *testing.T) {
 	by := func(name string) services.Song { return song(func(s *services.Song) { s.Artist = name }) }
-	own, feat := by("Zara Larsson"), by("Zara Larsson & David Guetta")
-	if isCompilation([]services.Song{own, own, own, feat}, "Zara Larsson") {
+	own, feat := by("Zoe Whitfield"), by("Zoe Whitfield & Mira Vale")
+	if isCompilation([]services.Song{own, own, own, feat}, "Zoe Whitfield") {
 		t.Error("a featured artist on one song made a compilation")
 	}
 	if !isCompilation([]services.Song{by("A"), by("B")}, "Various Artists") {

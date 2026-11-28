@@ -79,7 +79,7 @@ func TestShelfPageFollowsTheShelfTheRouteNames(t *testing.T) {
 }
 
 func TestSeeAllOnHomeLeadsToTheShelfPage(t *testing.T) {
-	r := newRig(t, "/", 1132, 1253, withDisc(func(f *fakeDiscover) {
+	r := newRig(t, "/", 1132, 1280, withDisc(func(f *fakeDiscover) {
 		f.page = samplePage()
 		f.shelves = map[string]services.Section{"made": shelfOf("made", "Made for You", 5)}
 	}))

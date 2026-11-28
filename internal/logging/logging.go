@@ -148,7 +148,7 @@ func (r *RotatingFile) open() error {
 	}
 	fi, err := f.Stat()
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return fmt.Errorf("logging: stat %s: %w", r.path, err)
 	}
 	r.f, r.size = f, fi.Size()

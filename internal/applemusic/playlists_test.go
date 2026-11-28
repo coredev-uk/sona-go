@@ -38,7 +38,7 @@ func TestCatalogPlaylistPagesAllTracks(t *testing.T) {
 			for i := range 300 {
 				tracks = append(tracks, songJSON(i))
 			}
-			json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]any{
 				"id": "pl.1", "type": "playlists",
 				"attributes": map[string]any{"name": "Big", "trackCount": total, "playlistType": "editorial"},
 				"relationships": map[string]any{
@@ -47,6 +47,7 @@ func TestCatalogPlaylistPagesAllTracks(t *testing.T) {
 				},
 				"views": map[string]any{"more-by-curator": map[string]any{"data": []any{}}},
 			}}})
+
 		case "/v1/catalog/gb/playlists/pl.1/tracks":
 			off, _ := strconv.Atoi(q.Get("offset"))
 			mu.Lock()
@@ -59,20 +60,23 @@ func TestCatalogPlaylistPagesAllTracks(t *testing.T) {
 			for i := off; i < min(off+300, total); i++ {
 				tracks = append(tracks, songJSON(i))
 			}
-			json.NewEncoder(w).Encode(map[string]any{"data": tracks})
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": tracks})
+
 		case "/v1/catalog/gb/playlists/pl.1/view/featured-artists":
 			// Their own request, asking for their motion artwork.
 			if q.Get("extend") != "editorialVideo" || q.Get("fields[artists]") != "name,url,artwork,editorialVideo" {
 				t.Errorf("featured artists query = %s", r.URL.RawQuery)
 			}
 			_, _ = w.Write([]byte(`{"data":[{"id":"1","type":"artists","attributes":{"name":"A","editorialVideo":{"motionArtistSquare1x1":{"video":"https://mvod.itunes.apple.com/a.m3u8"}}}}]}`))
+
 		case "/v1/catalog/gb/apple-curators/976439548/playlists":
 			if q.Get("extend") != "editorialVideo" {
 				t.Errorf("curator playlists query = %s", r.URL.RawQuery)
 			}
 			// The curator's own list stands in for an empty view, without
 			// the playlist itself.
-			w.Write([]byte(`{"data":[{"id":"pl.1","type":"playlists","attributes":{"name":"Big"}},{"id":"pl.2","type":"playlists","attributes":{"name":"Other"}}]}`))
+			_, _ = w.Write([]byte(`{"data":[{"id":"pl.1","type":"playlists","attributes":{"name":"Big"}},{"id":"pl.2","type":"playlists","attributes":{"name":"Other"}}]}`))
+
 		default:
 			http.NotFound(w, r)
 		}
@@ -116,11 +120,14 @@ func TestPlaylistTreeWalksFoldersSkippingTombstones(t *testing.T) {
 			return
 		}
 		var items []json.RawMessage
-		json.Unmarshal([]byte(body), &items)
+		if err := json.Unmarshal([]byte(body), &items); err != nil {
+			t.Errorf("unmarshal children: %v", err)
+			return
+		}
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 		off, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 		page := items[min(off, len(items)):min(off+limit, len(items))]
-		json.NewEncoder(w).Encode(map[string]any{"data": page, "meta": map[string]any{"total": len(items)}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": page, "meta": map[string]any{"total": len(items)}})
 	}))
 	c.AMPBase = c.Base
 	got, err := c.PlaylistTree(t.Context())
@@ -163,7 +170,8 @@ func TestPlaylistMutationRequests(t *testing.T) {
 		case r.URL.Path == "/v1/me/library/pins/p.full":
 			http.Error(w, `{"errors":[{"title":"Too many pins"}]}`, http.StatusBadRequest)
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/me/library/playlists":
-			w.Write([]byte(`{"data":[{"id":"p.new","type":"library-playlists","attributes":{"name":"N","canEdit":true,"canDelete":true}}]}`))
+			_, _ = w.Write([]byte(`{"data":[{"id":"p.new","type":"library-playlists","attributes":{"name":"N","canEdit":true,"canDelete":true}}]}`))
+
 		default:
 			w.WriteHeader(http.StatusNoContent)
 		}

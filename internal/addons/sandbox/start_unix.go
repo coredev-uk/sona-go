@@ -7,8 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"testing"
 	"time"
 )
+
+// unsandboxedForTests reports whether a test binary asked for its add-ons to
+// start without the sandbox (EnvUnsandboxed). Windows always sandboxes.
+func unsandboxedForTests() bool {
+	return testing.Testing() && os.Getenv(EnvUnsandboxed) == "1"
+}
 
 // waitDelay bounds the wait for the add-on's standard error to close after
 // it exits: a grandchild that kept the pipe open must not hold Wait.

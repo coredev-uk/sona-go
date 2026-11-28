@@ -90,7 +90,7 @@ func (m *Manager) SignInWithPassword(ctx context.Context, account, password stri
 			return false // no visible change
 		})
 		if errors.Is(context.Cause(actx), mut.ErrTimeout) {
-			m.failAttempt(id, mut.ErrTimeout)
+			_ = m.failAttempt(id, mut.ErrTimeout) // it returns the error it was given
 		}
 		end()
 	}()

@@ -114,7 +114,7 @@ func (s *Server) nextSCNT(w http.ResponseWriter) {
 func serviceErr(w http.ResponseWriter, status int, code, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	fmt.Fprintf(w, `{"serviceErrors":[{"code":%q,"message":%q}]}`, code, msg)
+	_, _ = fmt.Fprintf(w, `{"serviceErrors":[{"code":%q,"message":%q}]}`, code, msg)
 }
 
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +146,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			"appReturnUrl":     "https://p32-buy.itunes.apple.com/commerce/account/validateMusicKitToken?Pod=32&liteSessionId=" + LiteID,
 			"authWidgetConfig": map[string]any{"widgetKey": WidgetKey, "skVersion": "7"},
 		}})
-		fmt.Fprintf(w, `<html><body><script type="application/json" id="oauth2_widget_login_boot_args">%s</script>
+		_, _ = fmt.Fprintf(w, `<html><body><script type="application/json" id="oauth2_widget_login_boot_args">%s</script>
 <form id="callBackForm" action="/auth" method="post"><input type="hidden" id="rememberMe" name="rememberMe" value="false"/>
 <input type="hidden" id="oAuthToken" name="oAuthToken" value="%s"/><input type="hidden" id="scnt" name="scnt" value="%s" /></form></body></html>`,
 			boot, OAuthToken, FormSCNT)
@@ -160,7 +160,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.nextSCNT(w)
 		w.Header().Set("X-Apple-HC-Challenge", "chal-1")
 		w.Header().Set("X-Apple-HC-Bits", strconv.Itoa(HCBits))
-		fmt.Fprint(w, "<html>widget</html>")
+		_, _ = fmt.Fprint(w, "<html>widget</html>")
 
 	case "POST /appleauth/auth/signin/init":
 		var in struct {
@@ -181,7 +181,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		B.Add(B, new(big.Int).Mul(k(), v)).Mod(B, n)
 		s.B = B.Bytes()
 		s.nextSCNT(w)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"iteration": 1000, "salt": base64.StdEncoding.EncodeToString(s.salt),
 			"protocol": s.cfg.Protocol, "b": base64.StdEncoding.EncodeToString(s.B), "c": "c-1",
 		})
@@ -191,7 +191,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			AccountName string `json:"accountName"`
 			M1, M2, C   string
 		}
-		json.NewDecoder(r.Body).Decode(&in)
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		s.nextSCNT(w)
 		w.Header().Set("X-Apple-HC-Challenge", "chal-2")
 		w.Header().Set("X-Apple-HC-Bits", strconv.Itoa(HCBits))
@@ -211,7 +214,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			s.pending, s.codeTo = true, 0
 			w.Header().Set("Location", "/auth")
 			w.WriteHeader(http.StatusConflict)
-			fmt.Fprint(w, `{"authType":"hsa2"}`)
+			_, _ = fmt.Fprint(w, `{"authType":"hsa2"}`)
 			return
 		}
 		s.signedIn(w)
@@ -255,7 +258,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			PhoneNumber struct{ ID int } `json:"phoneNumber"`
 			Mode        string           `json:"mode"`
 		}
-		json.NewDecoder(r.Body).Decode(&in)
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		if !s.pending || (in.PhoneNumber.ID != 1 && (!s.cfg.NoAutoSend || in.PhoneNumber.ID != 2)) ||
 			(in.Mode != "sms" && in.Mode != "voice") {
 			serviceErr(w, http.StatusBadRequest, "-1", "bad phone")
@@ -287,7 +293,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			} `json:"phoneNumber"`
 			Mode string `json:"mode"`
 		}
-		json.NewDecoder(r.Body).Decode(&in)
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		s.nextSCNT(w)
 		ok := s.pending && in.SecurityCode.Code == Code
 		if in.PhoneNumber == nil {
@@ -310,7 +319,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.signedIn(w)
 
 	case "POST /auth":
-		r.ParseForm()
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		c, err := r.Cookie("myacinfo")
 		if err != nil || c.Value != "ok" || !s.authed ||
 			r.PostForm.Get("oAuthToken") != OAuthToken || r.PostForm.Get("scnt") != FormSCNT {
@@ -340,7 +352,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		if s.cfg.Restricted {
 			itre = "1"
 		}
-		json.NewEncoder(w).Encode(map[string]any{"musicUserToken": s.cfg.MUT, "itre": itre})
+		_ = json.NewEncoder(w).Encode(map[string]any{"musicUserToken": s.cfg.MUT, "itre": itre})
 
 	default:
 		http.NotFound(w, r)
@@ -352,7 +364,7 @@ func (s *Server) signedIn(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{Name: "myacinfo", Value: "ok", Path: "/"})
 	w.Header().Set("X-Apple-Session-Token", "session-token")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, `{"authType":"hsa2"}`)
+	_, _ = fmt.Fprint(w, `{"authType":"hsa2"}`)
 }
 
 // checkWidgetHeaders reports the first missing widget header, or "".

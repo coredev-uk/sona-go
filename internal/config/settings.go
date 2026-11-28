@@ -175,7 +175,7 @@ func Defaults() Settings {
 		Crossfade:         Crossfade{Seconds: defaultCrossfadeSeconds},
 		TitleBar:          TitleBar{Style: TitleBarAuto},
 		Lyrics:            defaultLyrics(),
-		Home:              Home{Greeting: true},
+		Home:              Home{Greeting: true, UseName: true},
 	}
 }
 

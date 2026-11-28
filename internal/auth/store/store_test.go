@@ -18,7 +18,7 @@ type fakeKeyring struct {
 	down  bool
 }
 
-var errNoService = errors.New("The name org.freedesktop.secrets was not provided by any .service files")
+var errNoService = errors.New("the name org.freedesktop.secrets was not provided by any .service files")
 
 func (k *fakeKeyring) Get(service, user string) (string, error) {
 	if k.down {

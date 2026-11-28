@@ -17,7 +17,11 @@ func openTemp(t *testing.T) (*DB, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
 	return d, path
 }
 
@@ -41,14 +45,16 @@ func TestOpenPragmasAndReopen(t *testing.T) {
 	if err := d.Q.UpsertAccount(ctx, dbq.UpsertAccountParams{Storefront: "gb", Language: "en-GB", UpdatedAt: 1}); err != nil {
 		t.Fatal(err)
 	}
-	d.Close()
+	if err := d.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	// Reopening runs no migration twice and keeps the data.
 	d2, err := Open(ctx, path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer d2.Close()
+	defer func() { _ = d2.Close() }()
 	acc, err := d2.RQ.GetAccount(ctx)
 	if err != nil || acc.Storefront != "gb" {
 		t.Fatalf("account = %+v, %v", acc, err)

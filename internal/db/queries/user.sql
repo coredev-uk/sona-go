@@ -15,6 +15,14 @@ ON CONFLICT (id) DO UPDATE SET
     mut_last_validated_at = coalesce(excluded.mut_last_validated_at, accounts.mut_last_validated_at),
     updated_at = excluded.updated_at;
 
+-- name: GetAccountProfile :one
+-- The profile name the greeting uses and when Apple was last asked for it.
+SELECT profile_name, profile_checked_at FROM accounts WHERE id = 1;
+
+-- name: SetAccountProfile :execrows
+-- Does nothing without an account row (signed out meanwhile).
+UPDATE accounts SET profile_name = ?, profile_checked_at = ? WHERE id = 1;
+
 -- name: GetSyncState :one
 SELECT * FROM sync_state WHERE domain = ?;
 

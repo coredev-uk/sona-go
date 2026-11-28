@@ -72,10 +72,9 @@ type MotionPolicy struct {
 	quit   chan struct{}
 	closed sync.Once
 
-	mu       sync.Mutex // the registry and the clock, which the sweep reads
-	now      func() time.Time
-	slots    map[*motionSlot]struct{}
-	sweeping bool
+	mu    sync.Mutex // the registry and the clock, which the sweep reads
+	now   func() time.Time
+	slots map[*motionSlot]struct{}
 }
 
 // NewMotionPolicy returns the policy, following "power:changed" on bus. Call

@@ -37,15 +37,15 @@ func TestCatalogLibraryStatesBatchesAndMapsFormerIDs(t *testing.T) {
 			}
 			for _, id := range strings.Split(v[0], ",") {
 				n++
-				switch {
-				case id == "old-7":
+				switch id {
+				case "old-7":
 					// Answered under the new ID with the requested one in formerIds.
 					res = append(res, `{"id":"7","type":"songs","attributes":{"inLibrary":true,"personalRating":-1},
 						"relationships":{"library":{"data":[{"id":"i.7","type":"library-songs"}]}},"meta":{"formerIds":["old-7"]}}`)
-				case id == "a5":
+				case "a5":
 					res = append(res, `{"id":"a5","type":"albums","attributes":{"inLibrary":true},
 						"relationships":{"library":{"data":[{"id":"l.5","type":"library-albums"}]}}}`)
-				case id == "gone":
+				case "gone":
 				default:
 					res = append(res, fmt.Sprintf(`{"id":%q,"type":%q,"attributes":{"inLibrary":false,"personalRating":1},"relationships":{"library":{"data":[]}}}`, id, typ))
 				}
@@ -54,7 +54,7 @@ func TestCatalogLibraryStatesBatchesAndMapsFormerIDs(t *testing.T) {
 		mu.Lock()
 		sizes = append(sizes, n)
 		mu.Unlock()
-		fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(res, ","))
+		_, _ = fmt.Fprintf(w, `{"data":[%s]}`, strings.Join(res, ","))
 	}))
 	c.AMPBase = c.Base
 
@@ -97,7 +97,7 @@ func TestLibraryItemStates(t *testing.T) {
 			t.Errorf("%s ? %s", r.URL.Path, r.URL.RawQuery)
 		}
 		// i.2 was deleted: Apple leaves it out.
-		fmt.Fprint(w, `{"data":[{"id":"i.1","type":"library-songs","attributes":{"name":"x","personalRating":1}}]}`)
+		_, _ = fmt.Fprint(w, `{"data":[{"id":"i.1","type":"library-songs","attributes":{"name":"x","personalRating":1}}]}`)
 	}))
 	c.AMPBase = c.Base
 	got, err := c.LibraryItemStates(context.Background(), map[string][]string{TypeLibrarySongs: {"i.1", "i.2"}})

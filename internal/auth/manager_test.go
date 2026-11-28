@@ -66,7 +66,7 @@ func (f *fakeApple) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if offline {
 		conn, _, _ := w.(http.Hijacker).Hijack()
-		conn.Close()
+		_ = conn.Close()
 		return
 	}
 	if r.Header.Get("Origin") != "https://music.apple.com" || !devOK || r.Header.Get("Authorization") != "Bearer dev" {
@@ -83,7 +83,7 @@ func (f *fakeApple) serve(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"gb","type":"storefronts","attributes":{"name":"United Kingdom","defaultLanguageTag":"en-GB","supportedLanguageTags":["en-GB","cy-GB"]}}]}`))
 	case strings.HasPrefix(r.URL.Path, "/v1/storefronts/"):
 		f.catalog.Add(1)
-		w.Write([]byte(`{"data":[{"id":"gb","type":"storefronts"}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":"gb","type":"storefronts"}]}`))
 	default:
 		http.NotFound(w, r)
 	}
@@ -176,6 +176,7 @@ func (a *memAccounts) get() *Account {
 }
 
 type env struct {
+	t        *testing.T
 	apple    *fakeApple
 	dev      *fakeDev
 	store    *memStore
@@ -187,7 +188,7 @@ type env struct {
 }
 
 func newEnv(t *testing.T) *env {
-	return &env{apple: newFakeApple(t), dev: &fakeDev{}, store: &memStore{}, accounts: &memAccounts{}}
+	return &env{t: t, apple: newFakeApple(t), dev: &fakeDev{}, store: &memStore{}, accounts: &memAccounts{}}
 }
 
 // manager builds a Manager recording every published Status.
@@ -260,9 +261,13 @@ func (r *recorder) count(state State) int {
 func is(state State) func(Status) bool { return func(s Status) bool { return s.State == state } }
 
 func (e *env) stored(tok string, withAccount bool) {
-	e.store.Set(store.Record{Token: tok, ObtainedAt: time.Now().Add(-time.Hour), Restricted: true})
+	if err := e.store.Set(store.Record{Token: tok, ObtainedAt: time.Now().Add(-time.Hour), Restricted: true}); err != nil {
+		e.t.Fatal(err)
+	}
 	if withAccount {
-		e.accounts.Save(context.Background(), Account{StorefrontID: "gb", StorefrontName: "United Kingdom", Language: "en-GB"})
+		if err := e.accounts.Save(context.Background(), Account{StorefrontID: "gb", StorefrontName: "United Kingdom", Language: "en-GB"}); err != nil {
+			e.t.Fatal(err)
+		}
 	}
 }
 
@@ -600,7 +605,7 @@ func TestCancelSignIn(t *testing.T) {
 		t.Fatalf("SignIn = %v", err)
 	}
 	if resp, err := http.Get(u); err == nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		t.Fatal("loopback server still serving after cancel")
 	}
 	m.CancelSignIn() // no attempt: no-op
