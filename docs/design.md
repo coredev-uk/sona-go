@@ -568,7 +568,8 @@ Home ("For You") answers one question first: what shall I play now. It is set li
 
 ```text
 ┌───────────────────────────────────────────────────────────┐
-│ For You  Picked for you 3 min. ago              ⟳ Refresh │  one line; wash of the lead's
+│ Good evening, Alex                                        │  the greeting, 32/36
+│ For You  Picked for you 3 min. ago              ⟳ Refresh │  the title line; wash of the lead's
 │ Top Picks for You ───────────────────────── Show all 12 ⌄ │  cover, full bleed
 │ [ cover 280 ]     [40] Apple Music Live       New Release │
 │                   ──────────────────────────────────────  │  the running order:
@@ -588,8 +589,13 @@ Home ("For You") answers one question first: what shall I play now. It is set li
 └───────────────────────────────────────────────────────────┘
 ```
 
-- **The page's head** is one line of the lead band: "For You" at 24/650, when Home was picked (13 muted, on the title's baseline) and the ghost Refresh at the far end. Under it the first section's ruled head.
-- **The greeting** is a line of 13 muted text above "For You": "Good morning" from 05:00, "Good afternoon" from 12:00, "Good evening" from 18:00 to 05:00, by the clock on this computer, with no name. It is decoration: "For You" stays the page's level-1 heading and its window title. Settings → General → "Greeting on For You" turns it off.
+- **The masthead** is the greeting, then one line of the lead band. With the greeting on (the default) the greeting is the opening statement and "For You" is the title line under it; with it off, "For You" is the page title at 24/650 on that line, as on every page. Under the masthead the first section's ruled head.
+- **The greeting** is one line at the display size (32/36, 700, ink: no new size or weight): "Good morning" from 05:00, "Good afternoon" from 12:00, "Good evening" from 18:00 to 05:00, by the clock on this computer, and "Good evening, Alex" when the person has an Apple Music profile. It is plain ink: no accent, gradient, emoji or motion, and the name is not styled apart from the rest. It wraps to a second line before it is cut. It is the only 32px type on the page (the lead's title is 24).
+  - **The title line** under it is "For You" at 16/600 (the section size), when Home was picked (13 muted, on its baseline) and the ghost Refresh at the far end. "For You" stays the page's level-1 heading and its window title; the greeting is decoration and no heading, so the page has one h1.
+  - **Assistive technology** reads the greeting first, as one text ("Good evening, Alex"), then the heading. The name is never a node of its own, so it is never announced alone.
+  - **The name** is the first given name on the account's Apple Music profile (`GET /v1/me/social/profile`, `personal-social-profiles.name`). Go keeps it on this computer (two columns of the account row in SQLite), so a cold start reads it with no request; Go asks for it after the first paint, at sign-in and at most once a day, and sign-out clears it. With no profile, or one the person has not set up (`isOnboarded` false), the greeting has no name, and it never uses the handle. It is never logged, only that it was fetched.
+  - **Which part of the name.** The first word of `name` when every letter is in a script that puts the given name first (Latin, Cyrillic, Greek, Armenian, Georgian): "Alex Morgan" is "Alex". Any other script, or a name that mixes scripts, is used whole: "山田 太郎" stays "山田 太郎", because Han, Kana and Hangul names put the family name first and other scripts vary too much to cut at a space. A name of one word is that word. The rule is `givenName` in `internal/services/profile.go`, with its table test.
+  - **Settings.** Settings → General → "Greeting on For You" turns the greeting off. "Use my name" under it (on by default, dimmed while the greeting is off) takes the name out and keeps the rest; it travels with settings export and import. Until the name has been read (the first frame of a cold start) the greeting's line is held empty at its height, so the plain greeting is not shown for a frame first.
 - **Ruled heads**: every section of Home (`rule.go`) is its heading at 16/600, a 1px hairline (ink at 14%, so it reads on the ground and on a cover's wash) that runs to the right edge, and the section's controls on the line's end: "See all" to the section's own page, or "Show all N" / "Show fewer" in place. Sections sit 48px apart, so the page keeps a rhythm of rule, content, space.
 - **The lead**: the first "feature" shelf (Top Picks).
   - **Its first pick is large**: the cover at 280px as the left column (360px from 1400px of lead width; a 144px cover beside the name when the page is under 900px wide), then the name at 24/650, the artist or curator at 16/500, the catalogue line (`Station · Made for You`: what it is, then Apple's reason) and the amber play disc with the item's menu.

@@ -11,6 +11,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/coredev-uk/sona-go/internal/config"
 	"github.com/coredev-uk/sona-go/internal/services"
 	"github.com/coredev-uk/sona-go/internal/ui/module"
 	"github.com/coredev-uk/sona-go/internal/ui/store"
@@ -159,6 +160,20 @@ func (l *fakeLib) Playlists(_ context.Context, sort string, desc bool, off, limi
 	return services.PlaylistPage{Items: l.playlists, Total: len(l.playlists)}, l.playlistErr
 }
 
+// fakeProfile is the greeting's name: what a test sets, counting the reads.
+type fakeProfile struct {
+	mu    sync.Mutex
+	name  string
+	reads int
+}
+
+func (p *fakeProfile) GreetingName(context.Context) (services.GreetingName, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.reads++
+	return services.GreetingName{Name: p.name}, nil
+}
+
 // recorder notes what the registered players were asked to play.
 type recorder struct {
 	mu    sync.Mutex
@@ -191,6 +206,7 @@ type rig struct {
 	auth   services.AuthStatus
 	noAuth bool
 	lib    *fakeLib
+	prof   *fakeProfile
 	rec    *recorder
 	bus    *store.Bus
 	ui     []uitest.Option
@@ -214,6 +230,23 @@ func withDisc(f func(*fakeDiscover)) rigOpt  { return func(r *rig) { f(r.disc) }
 func withLib(f func(*fakeLib)) rigOpt        { return func(r *rig) { f(r.lib) } }
 func withAuth(st services.AuthStatus) rigOpt { return func(r *rig) { r.auth = st } }
 
+// withName gives the person a first name on their Apple Music profile, as
+// ProfileService reports it.
+func withName(name string) rigOpt { return func(r *rig) { r.prof.name = name } }
+
+// withSettings saves settings before the first frame (the harness exists
+// only on the second pass over the options).
+func withSettings(f func(*config.Settings)) rigOpt {
+	return func(r *rig) {
+		if r.h == nil {
+			return
+		}
+		if _, err := r.h.Settings.Update(func(s *config.Settings) { f(s) }); err != nil {
+			r.t.Fatal(err)
+		}
+	}
+}
+
 // withUI gives the harness these options (the real Core, for the covers).
 func withUI(o ...uitest.Option) rigOpt { return func(r *rig) { r.ui = o } }
 
@@ -236,7 +269,7 @@ func withUnknownAuth() rigOpt { return func(r *rig) { r.noAuth = true } }
 // window of w by h.
 func newRig(t *testing.T, path string, w, hgt int, opts ...rigOpt) *rig {
 	t.Helper()
-	r := &rig{t: t, router: ui.NewRouter(path), disc: &fakeDiscover{}, auth: signedIn, lib: &fakeLib{}, rec: &recorder{}}
+	r := &rig{t: t, router: ui.NewRouter(path), disc: &fakeDiscover{}, auth: signedIn, lib: &fakeLib{}, prof: &fakeProfile{}, rec: &recorder{}}
 	for _, o := range opts {
 		o(r)
 	}
@@ -285,7 +318,7 @@ func newRig(t *testing.T, path string, w, hgt int, opts ...rigOpt) *rig {
 	} else {
 		store.Set(env.Queries, store.KeyAuth, r.auth)
 	}
-	r.home = newHome(env, r.disc, r.lib)
+	r.home = newHome(env, r.disc, r.lib, r.prof)
 	r.home.init()
 	r.tt = h.Tester(t, func(c *ui.Context) {
 		c.DisableAnimations() // frames settle at once; motion is not what these tests check

@@ -308,7 +308,8 @@ var initSeg = func() []byte {
 	stsd := box("stsd", u32(0), u32(1), entry)
 	mdhd := box("mdhd", u32(0), u32(0), u32(0), u32(44100), u32(0), u32(0))
 	tkhd := box("tkhd", u32(7), u32(0), u32(0), u32(1), make([]byte, 68))
-	trak := box("trak", tkhd, box("mdia", mdhd, box("minf", box("stbl", stsd))))
+	hdlr := box("hdlr", u32(0), u32(0), []byte("soun"), make([]byte, 13))
+	trak := box("trak", tkhd, box("mdia", mdhd, hdlr, box("minf", box("stbl", stsd))))
 	return append(box("ftyp", []byte("iso8"), u32(0)), box("moov", trak)...)
 }()
 

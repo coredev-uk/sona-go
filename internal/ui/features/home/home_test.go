@@ -380,7 +380,7 @@ func TestAHeroShelfWithSeveralItemsIsAnEditorialSection(t *testing.T) {
 }
 
 func TestShelvesWithAPageLinkToIt(t *testing.T) {
-	r := newRig(t, "/", 1132, 1253, withHome(samplePage()))
+	r := newRig(t, "/", 1132, 1280, withHome(samplePage()))
 	r.until("the page", "Made for You", "See all")
 	r.click("See all")
 	if got := r.path(); got != "/for-you/made" {
@@ -421,7 +421,7 @@ func TestIndexLinesOpenTheirShelfInPlace(t *testing.T) {
 }
 
 func TestIndexLineClosesAgain(t *testing.T) {
-	r := newRig(t, "/", 1132, 1253, withHome(indexPage()))
+	r := newRig(t, "/", 1132, 1280, withHome(indexPage()))
 	r.until("the page", "Because You Like Rock")
 	r.click("Because You Like Rock")
 	r.tt.Until("open", r.tt.Shows("Rock 1", "Rock 2"))
@@ -451,7 +451,7 @@ func TestHomeBuildsTheConcertsShelfTheConcertsModuleHandsOver(t *testing.T) {
 }
 
 func TestItemsWhosePageIsNotServedArePlainText(t *testing.T) {
-	r := newRig(t, "/", 1132, 1253, withHome(samplePage()),
+	r := newRig(t, "/", 1132, 1280, withHome(samplePage()),
 		withRoutes(func(p string) bool { return strings.HasPrefix(p, "/for-you/") }))
 	r.until("the page", "Lead Album", "Pick 2", "Recent One", "Featured Station")
 	// No page to open: a click on a name, a row or the hero goes nowhere.

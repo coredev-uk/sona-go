@@ -125,15 +125,25 @@ func (h *home) homeBody(c *ui.Context) {
 	}
 }
 
-// pageHead is the page's header: the greeting when it is on, then one line
-// of the band: the title, when Home was picked on the same baseline, and
-// Refresh at the far end.
+// pageHead is the page's masthead. With the greeting on (the default) it opens
+// with the greeting at the display size, as the page's opening statement,
+// and "For You", still the level-1 heading, is the title line under it: at
+// the section size, with when Home was picked on its baseline and Refresh
+// at the far end. With the greeting off the title is the page title at 24,
+// as on every page.
 func (h *home) pageHead(c *ui.Context, subline string, actions func()) {
+	settings, known := h.homeSettings()
+	titleStyle := "page"
+	if settings.Greeting {
+		titleStyle = "heading"
+	}
 	ui.Column(c.Key("page-head")).FillWidth().Margin(0, 0, 28, 0).Shrink(0).Children(func() {
-		h.greeting(c)
+		if settings.Greeting {
+			h.greeting(c, settings, known)
+		}
 		ui.Row(c.Key("line")).FillWidth().MinHeight(32).AlignItems(ui.Center).Gap(24).Shrink(0).Children(func() {
 			ui.Row(c.Key("words")).Grow(1).Basis(0).MinWidth(0).AlignItems(ui.Baseline).Gap(14).Children(func() {
-				theme.Text(c, i18n.T("For You"), "page").TextColor(theme.C("ink")).SingleLine().Shrink(0).Role(ui.RoleHeading).Level(1)
+				theme.Text(c, i18n.T("For You"), titleStyle).TextColor(theme.C("ink")).SingleLine().Shrink(0).Role(ui.RoleHeading).Level(1)
 				if subline != "" {
 					theme.Text(c, subline, "sub").TextColor(theme.C("ink-muted")).SingleLine().Shrink(1).MinWidth(0)
 				}

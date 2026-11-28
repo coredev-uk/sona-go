@@ -144,3 +144,34 @@ func (c *Client) OwnSocialProfileID(ctx context.Context) (string, error) {
 	p, err := first(me.Relationships.Profile.Data, "own social profile")
 	return p.ID, err
 }
+
+// OwnProfile is what the signed-in user's own profile resource
+// (personal-social-profiles) says about them: the name they gave Apple Music
+// and whether they finished setting the profile up. The handle is left out:
+// Sona never shows it.
+type OwnProfile struct {
+	Name        string
+	IsOnboarded bool
+}
+
+// OwnSocialProfile reads the signed-in user's own profile, the web player's
+// call for it (GET /v1/me/social/profile). ErrNotFound when they have none.
+func (c *Client) OwnSocialProfile(ctx context.Context) (OwnProfile, error) {
+	var body struct {
+		Data []struct {
+			Attributes struct {
+				Name        string `json:"name"`
+				IsOnboarded bool   `json:"isOnboarded"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+	q := url.Values{"include": {"social-profile"}}
+	if err := c.amp(ctx, http.MethodGet, "/v1/me/social/profile", q, nil, &body); err != nil {
+		return OwnProfile{}, err
+	}
+	me, err := first(body.Data, "own social profile")
+	if err != nil {
+		return OwnProfile{}, err
+	}
+	return OwnProfile{Name: me.Attributes.Name, IsOnboarded: me.Attributes.IsOnboarded}, nil
+}

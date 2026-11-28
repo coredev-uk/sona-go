@@ -39,7 +39,7 @@ func custom() Settings {
 	s.LyricsView = LyricsView{Translation: true, Pronunciation: true}
 	s.Addons = Addons{"demo": {Enabled: true, Granted: []string{"playback.read"}}}
 	s.DeveloperTools = true
-	s.Home.Greeting = false
+	s.Home = Home{Greeting: false, UseName: false}
 	return s.Normalized()
 }
 
