@@ -515,3 +515,14 @@ sleep 1
 		t.Errorf("stderr %q", errOut.String())
 	}
 }
+
+// waitClosed waits for ch to close. It lives here, beside its one user, as
+// this file is Linux-only and addons_test.go also builds on macOS.
+func waitClosed(t *testing.T, ch <-chan struct{}, what string) {
+	t.Helper()
+	select {
+	case <-ch:
+	case <-time.After(hangGuard):
+		t.Fatalf("timed out waiting for %s", what)
+	}
+}
