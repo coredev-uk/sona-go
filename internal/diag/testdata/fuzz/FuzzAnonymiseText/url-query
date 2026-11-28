@@ -1,0 +1,2 @@
+go test fuzz v1
+string("GET https://amp-api.music.apple.com/v1/catalog/gb/search?term=secret+song&l=en-GB#frag failed.")

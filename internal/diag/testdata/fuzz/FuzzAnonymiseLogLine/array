@@ -1,0 +1,2 @@
+go test fuzz v1
+string("{\"songs\":[\"1700000001\",\"1700000002\"],\"x\":[{\"id\":\"i.FakeLibSong7\"}]}")

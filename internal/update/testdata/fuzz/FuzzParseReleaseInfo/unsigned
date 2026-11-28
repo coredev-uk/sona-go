@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"version\":\"0.6.0\",\"published\":\"2026-11-01T12:00:00Z\"}")

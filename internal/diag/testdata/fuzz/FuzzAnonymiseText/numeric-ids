@@ -1,0 +1,2 @@
+go test fuzz v1
+string("song 1700000001 failed, adamId: 1700000002 /rooms/12345678 albums/1700000003")

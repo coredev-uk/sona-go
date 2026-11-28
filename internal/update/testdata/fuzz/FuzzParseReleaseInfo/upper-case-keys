@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"VERSION\":\"0.6.0\",\"Published\":\"2026-11-01T12:00:00Z\",\"NOTES\":\"## Changes\\n- one\",\"Signature\":\"ShKmkEUFn/dF/qpo16hHcZX1AWOxcAW4gTrXxMQM0nv0IYGgW7TsyaqICoBM6VV/VdbVdtPZAvqKFQu3FHYxDA==\"}")

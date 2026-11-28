@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"format\":\"sona-settings\",\"version\":1,\"settings\":{\"audio\":{\"equalizer\":{\"custom\":[1e308,-1e308],\"preamp\":1e999}},\"storage\":{\"artCacheMiB\":-5}}}")

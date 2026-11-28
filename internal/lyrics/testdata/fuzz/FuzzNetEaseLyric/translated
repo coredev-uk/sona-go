@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"code\":200,\"lrc\":{\"lyric\":\"[00:01.00]作词 : X\\n[00:02.50]hello\\n[00:04.00]world\"},\"tlyric\":{\"lyric\":\"[00:02.50]你好\\n[00:04.00]世界\"},\"romalrc\":{\"lyric\":\"[00:02.50]ni hao\"}}")

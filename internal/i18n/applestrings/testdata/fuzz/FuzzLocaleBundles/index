@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"./locales/en-GB/translations.json\":()=>import(\"./translations~0a1b2c.js\"),\"./locales/fr-FR/translations.json\":()=>import(\"./translations~3d4e5f.js\")}")

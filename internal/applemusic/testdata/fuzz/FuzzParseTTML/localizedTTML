@@ -1,0 +1,2 @@
+go test fuzz v1
+string("<tt xmlns=\"http://www.w3.org/ns/ttml\" xmlns:itunes=\"http://music.apple.com/lyric-ttml-internal\" xmlns:ttm=\"http://www.w3.org/ns/ttml#metadata\" itunes:timing=\"Word\" xml:lang=\"ko\"><head><metadata><ttm:agent type=\"person\" xml:id=\"v1\"><ttm:name type=\"full\">방탄소년단</ttm:name></ttm:agent><iTunesMetadata xmlns=\"http://music.apple.com/lyric-ttml-internal\">")

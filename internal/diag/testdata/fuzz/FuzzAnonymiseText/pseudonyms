@@ -1,0 +1,2 @@
+go test fuzz v1
+string("already id~3fa2ab and [redacted] in text")

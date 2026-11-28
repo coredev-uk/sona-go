@@ -252,7 +252,17 @@ func (a *anonymiser) appleIDs(s string) string {
 // "p.cmd"): the part after the prefix has a digit, or a lower case letter
 // with an upper case one after its first character ("p.vQDQYvBsRK"). rest
 // is what follows the token.
+//
+// A token that ends in "-id" or "_id" with "~" and six hex digits after it
+// is not one: it is text that stood before an ID ("i.0-") with the ID's
+// pseudonym ("id~3fa2ab") written after it. A second pass must leave that
+// alone, or the pass is not idempotent.
 func isAppleID(id, rest string) bool {
+	if strings.HasSuffix(id, "-id") || strings.HasSuffix(id, "_id") {
+		if len(rest) >= 7 && rest[0] == '~' && pseudonymHex.MatchString(rest[1:7]) {
+			return false
+		}
+	}
 	if rest != "" {
 		if rest[0] == '(' {
 			return false
@@ -298,6 +308,9 @@ var (
 	versionRe     = regexp.MustCompile(`^v\d{1,2}$`)
 	sizeRe        = regexp.MustCompile(`^(?:\d+|\{w\})x(?:\d+|\{h\})[A-Za-z-]*(?:\.[A-Za-z0-9]+)?$`)
 )
+
+// pseudonymHex is the six hex digits of a pseudonym.
+var pseudonymHex = regexp.MustCompile(`^[0-9a-f]{6}$`)
 
 func hostIn(host string, domains ...string) bool {
 	for _, d := range domains {
@@ -351,8 +364,10 @@ func maskSegments(path string, from int, sizes bool) string {
 func reduceURL(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
+		// What is left of a URL that doesn't parse reads again, so a second
+		// pass changes nothing (the cut URL may parse).
 		if i := strings.IndexAny(raw, "?#"); i >= 0 {
-			raw = raw[:i]
+			return reduceURL(raw[:i])
 		}
 		return raw
 	}

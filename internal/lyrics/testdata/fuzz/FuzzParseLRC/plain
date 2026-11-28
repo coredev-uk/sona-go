@@ -1,0 +1,2 @@
+go test fuzz v1
+string("[ti:T]\n[offset:500]\n[00:01.00]first\n[00:02.5][01:00]second\r\n[00:03.000]\n")

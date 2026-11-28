@@ -552,6 +552,15 @@ func stripMxmFooter(body string) string {
 	return body
 }
 
+// maxTime is the longest time a parsed lyric may name: a day. A song is
+// minutes long, so a longer value is hostile or broken, and converting a huge
+// one to a time.Duration would overflow.
+const maxTime = 24 * time.Hour
+
+// seconds is s seconds as a Duration, within 0 and maxTime.
 func seconds(s float64) time.Duration {
-	return time.Duration(s * float64(time.Second)).Round(time.Millisecond)
+	if !(s > 0) { // also NaN
+		return 0
+	}
+	return time.Duration(min(s, maxTime.Seconds()) * float64(time.Second)).Round(time.Millisecond)
 }

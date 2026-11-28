@@ -1,0 +1,2 @@
+go test fuzz v1
+string("login failed for someone@example.com, retry")
