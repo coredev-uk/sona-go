@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"theme\":\"light\",\"audioQuality\":\"64\",\"shortcuts\":{\"a\":\"b\"},\"addons\":{\"x\":{\"enabled\":true}}}")

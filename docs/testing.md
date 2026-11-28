@@ -376,7 +376,27 @@ go test -run '^$' -fuzz '^FuzzParseInit$' -fuzztime 2m ./internal/playback/fmp4/
 | `FuzzPrepareCover` | `internal/artwork` | an uploaded cover | a refusal is `ErrCoverImage`; a cover is a JPEG that decodes, square, at most 1024 px and at least 300, and is itself a valid cover |
 | `FuzzExifOrientation` | `internal/artwork` | a JPEG's Exif header | an orientation of 1 to 8 |
 | **Data parsers** | | | |
-| *lyrics, applemusic, config, update and diag targets are added in their own change* | | | |
+| `FuzzParseLRC` | `internal/lyrics` | LRC text (offset, enhanced word tags, plain text) | lines in time order; times within 0–24 h; output bounded by the input; word timing means words on every line |
+| `FuzzFromAppleTTML` | `internal/lyrics` | Apple TTML mapped for the UI | known timing; times in range; line and word counts bounded by the document; the document kept |
+| `FuzzLRCLIBRecord` | `internal/lyrics` | LRCLIB JSON | success means lyrics with text; times in range; output bounded |
+| `FuzzNetEaseLyric` | `internal/lyrics` | NetEase lyric JSON (with translation and romanisation) | the same; no credit lines |
+| `FuzzMusixmatchMacro` | `internal/lyrics` | Musixmatch macro answer (richsync, subtitles, lyrics) | known timing; times in range; output bounded |
+| `FuzzDecodeMapResponse` | `internal/applemusic` | normalised amp-api responses and editorial nodes | references resolve to at most as many nodes; nodes keep valid raw JSON and round-trip; a typed decode of the wrong shape errors |
+| `FuzzDecodeResourcePage` | `internal/applemusic` | `Page[T]` bodies from `AMPResource` | no data is `ErrNotFound`; otherwise the first element, with no error |
+| `FuzzParseTTML` | `internal/applemusic` | lyrics TTML | times within 0–24 h; the document kept; localisation lookups return the right kind |
+| `FuzzParseBundleModule` | `internal/i18n/applestrings` | Apple's string bundle (a JS module, never run) | a bundle or an error, never both; entries bounded; valid UTF-8; the same answer twice |
+| `FuzzLocaleBundles` | `internal/i18n/applestrings` | the index script's locale table | every URL is the given origin, `/assets/` and a bare file name |
+| `FuzzMessages` | `internal/i18n/applestrings` | Apple message text into Sona's ICU messages | Apple's text cannot add an ICU argument or unbalance braces |
+| `FuzzParseExport` | `internal/config` | a settings export | only the named import errors; an accepted file leaves local settings alone, normalises idempotently and exports back to the same settings |
+| `FuzzExportRoundTrip` | `internal/config` | any `Settings` JSON, exported then imported | `Export` never fails; the document has no local keys; the import is the normalised settings plus the local ones |
+| `FuzzParseManifest` | `internal/update` | `update-<target>.json`: decoded, checked, its signed statement verified | accepted means the signed version, digest and signature, a usable URL and size, and the right channel or tag; never accepted under another key |
+| `FuzzVerifyStatement` | `internal/update` | a statement's signature fields | nil means exactly the signed version, target, digest and signature; errors are `ErrSignature`; nothing verifies under another key |
+| `FuzzParseReleaseInfo` | `internal/update` | `release.json` | nil means exactly the signed record; nothing verifies under another key |
+| `FuzzReleaseTag` | `internal/update` | GitHub's `releases.atom` | a tag returned is a version with no `/`, `?` or `#` |
+| `FuzzCheckArchive` | `internal/update` | an update's gzip tar (in `releasesign`) | errors are `ErrArchive`; an accepted archive has only safe names and links, no links on Windows, and the right layout |
+| `FuzzAnonymiseText` | `internal/diag` | the diagnostics string pass | no e-mail, Apple ID, URL query, fragment or userinfo, API-path query or home folder in the output; idempotent; bounded growth |
+| `FuzzAnonymiseValue` | `internal/diag` | one value under a key | identifying keys give a stable `label~hex6`; other kinds leak nothing and are idempotent |
+| `FuzzAnonymiseLogLine` | `internal/diag` | a log line | a JSON record stays an object with no leaking string value; any other line is the string pass's output |
 
 Details: [security-review.md](security-review.md), "Fuzzing"; the workflow: [maintainers/ci-workflows.md](maintainers/ci-workflows.md).
 

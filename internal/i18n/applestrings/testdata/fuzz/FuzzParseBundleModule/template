@@ -1,0 +1,2 @@
+go test fuzz v1
+string("const o={\"A\":`${x}`};export{o as default};")

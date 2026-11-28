@@ -1,0 +1,2 @@
+go test fuzz v1
+string("fetch https://user:pass@example.org/a/b/c?token=abc123 done")

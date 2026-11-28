@@ -253,25 +253,38 @@ func attr(e xml.StartElement, local string) string {
 	return ""
 }
 
+// maxClock is the longest time a lyric may name, in seconds: a day. A
+// longer, negative or non-finite value is refused, because converting it to
+// a time.Duration overflows.
+const maxClock = 24 * 60 * 60
+
 // parseClock parses TTML clock values: "12.3", "1:02.345", "1:02:03.4",
-// with an optional "s" or "ms" suffix.
+// with an optional "s" or "ms" suffix. A time under 0 or over a day is an
+// error.
 func parseClock(s string) (time.Duration, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return 0, errors.New("empty time")
 	}
+	var total float64
 	if v, ok := strings.CutSuffix(s, "ms"); ok {
 		f, err := strconv.ParseFloat(v, 64)
-		return time.Duration(f * float64(time.Millisecond)), err
-	}
-	s = strings.TrimSuffix(s, "s")
-	var total float64
-	for _, part := range strings.Split(s, ":") {
-		f, err := strconv.ParseFloat(part, 64)
 		if err != nil {
 			return 0, fmt.Errorf("bad time %q", s)
 		}
-		total = total*60 + f
+		total = f / 1000
+	} else {
+		s = strings.TrimSuffix(s, "s")
+		for _, part := range strings.Split(s, ":") {
+			f, err := strconv.ParseFloat(part, 64)
+			if err != nil {
+				return 0, fmt.Errorf("bad time %q", s)
+			}
+			total = total*60 + f
+		}
+	}
+	if !(total >= 0 && total <= maxClock) {
+		return 0, fmt.Errorf("time %q is out of range", s)
 	}
 	return time.Duration(total*float64(time.Second) + 0.5), nil
 }

@@ -2,6 +2,7 @@ package update
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -103,23 +104,33 @@ func (f Feed) Manifest(ctx context.Context, target string, prerelease bool) (Man
 	if err != nil {
 		return Manifest{}, nil, err
 	}
+	m, err := parseManifest(raw, pub, target, prerelease, tag)
+	if err != nil {
+		return Manifest{}, nil, err
+	}
+	return m, raw, nil
+}
+
+// parseManifest decodes the manifest of target in raw, and checks it (see
+// Manifest): tag is the release it was read from, for a prerelease read.
+func parseManifest(raw []byte, pub ed25519.PublicKey, target string, prerelease bool, tag string) (Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(raw, &m); err != nil {
-		return Manifest{}, nil, fmt.Errorf("update: decode manifest: %w", err)
+		return Manifest{}, fmt.Errorf("update: decode manifest: %w", err)
 	}
 	if err := m.validate(); err != nil {
-		return Manifest{}, nil, err
+		return Manifest{}, err
 	}
 	if err := VerifyStatement(pub, m, target); err != nil {
-		return Manifest{}, nil, err
+		return Manifest{}, err
 	}
 	switch {
 	case !prerelease && ChannelOf(m.Version) != ChannelStable:
-		return Manifest{}, nil, fmt.Errorf("update: the stable feed names the pre-release %s", m.Version)
+		return Manifest{}, fmt.Errorf("update: the stable feed names the pre-release %s", m.Version)
 	case prerelease && m.Version != strings.TrimPrefix(tag, "v"):
-		return Manifest{}, nil, fmt.Errorf("update: release %s carries the manifest of %s", tag, m.Version)
+		return Manifest{}, fmt.Errorf("update: release %s carries the manifest of %s", tag, m.Version)
 	}
-	return m, raw, nil
+	return m, nil
 }
 
 func (m Manifest) validate() error {

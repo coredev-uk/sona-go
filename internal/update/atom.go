@@ -36,6 +36,11 @@ func newestTag(ctx context.Context, hc *http.Client, web, repo string) (string, 
 	if err != nil {
 		return "", err
 	}
+	return releaseTag(raw, web, repo)
+}
+
+// releaseTag is newestTag's reading of the feed's bytes.
+func releaseTag(raw []byte, web, repo string) (string, error) {
 	var feed atomFeed
 	if err := xml.Unmarshal(raw, &feed); err != nil {
 		return "", fmt.Errorf("update: decode the releases feed: %w", err)

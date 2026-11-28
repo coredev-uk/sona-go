@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"data\":[{\"id\":\"1\",\"type\":\"nowhere\"}],\"resources\":{\"albums\":null}}")

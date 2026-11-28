@@ -1,0 +1,2 @@
+go test fuzz v1
+string("calling /v1/me/recommendations/1700000001?extend=x&with=y now")
