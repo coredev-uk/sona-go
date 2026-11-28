@@ -32,7 +32,7 @@ func artistsTestNames(list []indexedArtist) []string {
 
 func artistsTestLibrary() []indexedArtist {
 	return indexArtists(artistsTestEntries(
-		"Zara Larsson", "björk", "Beyoncé", "The Beatles", "Édith Piaf", "Eric Clapton", "AC/DC", "2Pac",
+		"Zoe Whitfield", "björk", "Beyoncé", "The Beatles", "Édith Piaf", "Eric Clapton", "AC/DC", "2Pac",
 		"坂本龍一", "Sigur Rós", "Mötley Crüe", "Röyksopp", "Radiohead", "Band 10", "Band 9",
 	))
 }
@@ -40,7 +40,7 @@ func artistsTestLibrary() []indexedArtist {
 func TestIndexArtistsOrdersAToZThenOthers(t *testing.T) {
 	want := []string{
 		"AC/DC", "Band 9", "Band 10", "Beyoncé", "björk", "Édith Piaf", "Eric Clapton", "Mötley Crüe",
-		"Radiohead", "Röyksopp", "Sigur Rós", "The Beatles", "Zara Larsson", "2Pac", "坂本龍一",
+		"Radiohead", "Röyksopp", "Sigur Rós", "The Beatles", "Zoe Whitfield", "2Pac", "坂本龍一",
 	}
 	if got := artistsTestNames(artistsTestLibrary()); !slices.Equal(got, want) {
 		t.Errorf("order %q, want %q", got, want)

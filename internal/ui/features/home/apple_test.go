@@ -103,8 +103,8 @@ func TestHomeOverTheRealDiscoverService(t *testing.T) {
 		})
 	}, 1132, 3000)
 
-	tt.Until("Home", tt.Shows("For You", "Top Picks for You", "New Music", "Grand Theft Auto VI: The Album", "Hits Station",
-		"Replay: Your Top Music", "Replay All Time", "Recently Played", "Apple Music 1", "Parachutes"))
+	tt.Until("Home", tt.Shows("For You", "Top Picks for You", "Fresh Finds", "Midnight Anthology", "Chart Station",
+		"Replay: Your Top Music", "Replay All Time", "Recently Played", "Harbour Radio", "Paper Lanterns"))
 	// The concerts shelf is the concerts feature's: nothing stands in for it.
 	if tt.HasText("Concerts") {
 		t.Error("a concerts placeholder is shown")
@@ -113,11 +113,11 @@ func TestHomeOverTheRealDiscoverService(t *testing.T) {
 		t.Error("a signed-in Home shows the sign-in notice")
 	}
 	// The lead's play control plays the first pick through the item players.
-	if err := tt.Click("Play New Music"); err != nil {
+	if err := tt.Click("Play Fresh Finds"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Drain()
-	if got := played.all(); !slices.Equal(got, []string{"playlist:New Music"}) {
+	if got := played.all(); !slices.Equal(got, []string{"playlist:Fresh Finds"}) {
 		t.Errorf("played %q", got)
 	}
 	// Recently Played has a page of its own: See all leads to it.
@@ -125,7 +125,7 @@ func TestHomeOverTheRealDiscoverService(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Drain()
-	if got := router.Path(); got != "/for-you/7-2Tqlz47h9yro" {
+	if got := router.Path(); got != "/for-you/7-FixtureRecent01" {
 		t.Errorf("See all went to %q", got)
 	}
 	if n := amp.count("/v1/me/recommendations"); n != 1 {
