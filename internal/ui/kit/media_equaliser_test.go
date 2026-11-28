@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"slices"
 	"testing"
 	"time"
 
@@ -132,25 +133,92 @@ func mediaBarCoverage(tt *ui.Tester, scale float64) [3]float64 {
 	return h
 }
 
-func TestEqualiserBarsAreStillWhenPaused(t *testing.T) {
+// Paused, the bars lie dropped to 2 DIP stubs; playing under reduced motion
+// they stand still at 60, 100 and 40% of 12 DIPs. Neither moves.
+func TestEqualiserBarsAreStillWhenPausedOrReduced(t *testing.T) {
 	theme.SetMode(theme.ModeLight)
 	defer theme.SetMode(theme.ModeSystem)
-	tt := ui.NewTester((&mediaEqApp{}).view, 60, 40)
-	tt.Frame()
-	if _, ok := tt.Find("Paused"); !ok {
-		t.Error("not named Paused")
+	for _, w := range []struct {
+		playing, reduced bool
+		name             string
+		want             [][3]int // any of: exact pixel heights are Linux's rasteriser (as the goldens are)
+	}{
+		{false, false, "Paused", [][3]int{{2, 2, 2}}},
+		{true, true, "Now playing", [][3]int{{7, 12, 5}, {8, 12, 5}, {7, 12, 4}}},
+	} {
+		theme.SetReducedMotion(w.reduced)
+		tt := ui.NewTester((&mediaEqApp{playing: w.playing}).view, 60, 40)
+		tt.Frame()
+		if _, ok := tt.Find(w.name); !ok {
+			t.Errorf("playing=%v: not named %s", w.playing, w.name)
+		}
+		h := mediaBarHeights(tt)
+		if runtime.GOOS == "linux" && !slices.Contains(w.want, h) {
+			t.Errorf("playing=%v reduced=%v: bar heights %v, want about %v", w.playing, w.reduced, h, w.want[0])
+		}
+		tt.Advance(time.Second)
+		tt.Frame()
+		if got := mediaBarHeights(tt); got != h {
+			t.Errorf("playing=%v reduced=%v: a still equaliser moved: %v then %v", w.playing, w.reduced, h, got)
+		}
 	}
-	// 60%, 100% and 40% of 12 DIPs.
-	h := mediaBarHeights(tt)
-	// Exact pixel heights are Linux's rasteriser (as the goldens are); the
-	// stillness below holds everywhere.
-	if runtime.GOOS == "linux" && h != [3]int{7, 12, 5} && h != [3]int{8, 12, 5} && h != [3]int{7, 12, 4} {
-		t.Errorf("bar heights %v, want about 7, 12, 5", h)
-	}
-	tt.Advance(time.Second)
+	theme.SetReducedMotion(false)
+}
+
+// Pausing drops the bars from where they stood to their stubs over
+// eqSettle, falling every frame and never jumping, and then the glyph asks
+// for no more frames. Playing again lifts them from the stubs, not from a
+// jump to wherever the cycle is.
+func TestEqualiserBarsDropWhenPausedAndRiseWhenPlayed(t *testing.T) {
+	theme.SetMode(theme.ModeLight)
+	defer theme.SetMode(theme.ModeSystem)
+	a := &mediaEqApp{playing: true}
+	tt := ui.NewTester(a.view, 60, 40)
 	tt.Frame()
-	if got := mediaBarHeights(tt); got != h {
-		t.Errorf("a paused equaliser moved: %v then %v", h, got)
+	tt.Advance(400 * time.Millisecond)
+	before := mediaBarCoverage(tt, 1)
+	const floor = eqFloor * eqHeight
+
+	a.playing = false
+	tt.Frame()
+	prev := mediaBarCoverage(tt, 1)
+	for i := range prev {
+		if math.Abs(prev[i]-before[i]) > 0.9 {
+			t.Errorf("bar %d jumped from %.1f to %.1f as the track paused", i, before[i], prev[i])
+		}
+	}
+	for at := time.Duration(0); at < eqSettle; at += time.Second / 60 {
+		tt.Advance(time.Second / 60)
+		cov := mediaBarCoverage(tt, 1)
+		for i := range cov {
+			if cov[i] > prev[i]+0.05 {
+				t.Errorf("bar %d rose from %.2f to %.2f while dropping", i, prev[i], cov[i])
+			}
+		}
+		prev = cov
+	}
+	tt.Advance(eqSettle)
+	for i, h := range mediaBarCoverage(tt, 1) {
+		if math.Abs(h-floor) > 0.5 {
+			t.Errorf("bar %d settled at %.1f pixels, want the %v DIP stub", i, h, floor)
+		}
+	}
+	if tt.FramePending() {
+		t.Error("dropped bars still ask for frames")
+	}
+
+	a.playing = true
+	tt.Frame()
+	for i, h := range mediaBarCoverage(tt, 1) {
+		if math.Abs(h-floor) > 0.9 {
+			t.Errorf("bar %d jumped to %.1f pixels as the track played again, want it to rise from the stub", i, h)
+		}
+	}
+	tt.Advance(eqSettle + time.Second/2)
+	for i, h := range mediaBarCoverage(tt, 1) {
+		if h < eqLowest*eqHeight-0.5 {
+			t.Errorf("bar %d is %.1f pixels after playing again, want it back in its movement", i, h)
+		}
 	}
 }
 
