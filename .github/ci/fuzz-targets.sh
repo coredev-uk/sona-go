@@ -7,8 +7,11 @@
 #   .github/ci/fuzz-targets.sh | sed 's/^matrix=//' | jq -r '.[] | .pkg + " " + .target'
 #
 # Only the packages that have a Fuzz function in a _test.go file are built
-# (listing every package compiles every test binary), so a target in a file
-# with a build tag that the default build lacks is not found: it warns.
+# (listing every package compiles every test binary). A package whose test
+# binary does not build here (CGO_ENABLED=0), or whose targets the default
+# build does not list (a build tag), fails the job: a target that never runs
+# would otherwise pass unnoticed. Keep cgo-only tests out of a fuzzed
+# package's default build with a `cgo` constraint.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -20,10 +23,15 @@ fi
 
 list=$(
 	for dir in $dirs; do
-		names=$(go test -run '^$' -list '^Fuzz' "$dir" | grep '^Fuzz' || true)
+		if ! out=$(go test -run '^$' -list '^Fuzz' "$dir" 2>&1); then
+			printf '%s\n' "$out" >&2
+			echo "::error::$dir: its test binary does not build without cgo, so its fuzz targets cannot run" >&2
+			exit 1
+		fi
+		names=$(grep '^Fuzz' <<<"$out" || true)
 		if [ -z "$names" ]; then
-			echo "::warning::$dir has a Fuzz function that the default build does not list (a build tag?)" >&2
-			continue
+			echo "::error::$dir has a Fuzz function that the default build does not list (a build tag?)" >&2
+			exit 1
 		fi
 		for name in $names; do
 			echo "$dir $name"
