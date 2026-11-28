@@ -121,7 +121,7 @@ Lists every shortcut by group. Select one to record new keys, with a warning whe
 
 ## Diagnostics
 
-Runs checks of the playback host, database and keyring when you open it, and reports problems and warnings. Check again repeats them, Copy diagnostics copies a report with tokens, your email address, your Concerts city, the sidebar's open folders and your audio output device removed, and Open log folder opens the logs. See [Troubleshooting](/guide/troubleshooting/).
+Runs checks of the playback host, database and keyring when you open it, and reports problems and warnings. Check again repeats them, Copy diagnostics copies a report for a bug report, and Open log folder opens the logs. The report removes your tokens, email address and user name, and replaces what you played, looked at and searched for with short codes. It keeps your library's counts, your country and the IDs of your add-ons. [Troubleshooting](/guide/troubleshooting/) lists what is removed, replaced and kept.
 
 To copy one value, such as a version or a path, select it (triple-click takes a line) and press Ctrl+C, or right-click it and choose Copy. On a Mac, press Cmd+C.
 

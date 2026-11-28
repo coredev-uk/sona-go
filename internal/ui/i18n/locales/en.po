@@ -8236,12 +8236,12 @@ msgid "Token storage"
 msgstr "Token storage"
 
 #: internal/ui/features/settings/bugreport.go
-msgid "Tokens and your e-mail address are removed."
-msgstr "Tokens and your e-mail address are removed."
+msgid "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes."
+msgstr "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes."
 
 #: internal/ui/features/settings/bugreport.go
-msgid "Tokens and your e-mail address are removed. A copy is saved as {file} in the log folder."
-msgstr "Tokens and your e-mail address are removed. A copy is saved as {file} in the log folder."
+msgid "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes. A copy is saved as {file} in the log folder."
+msgstr "Tokens, your e-mail address and personal paths are removed. What you played and searched for is replaced by codes. A copy is saved as {file} in the log folder."
 
 #: internal/ui/features/discover/titles.go
 msgid "Top 100 Songs by Country"

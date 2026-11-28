@@ -55,6 +55,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [F27. The loopback sign-in could be completed with another account's token](#f27-the-loopback-sign-in-could-be-completed-with-another-accounts-token)
   - [F28. On macOS any program could read Sona's keychain items without a prompt](#f28-on-macos-any-program-could-read-sonas-keychain-items-without-a-prompt)
   - [F29. Update checks used GitHub's rate-limited API, and said nothing useful when it refused](#f29-update-checks-used-githubs-rate-limited-api-and-said-nothing-useful-when-it-refused)
+  - [F30. The diagnostics bundle carried what the person played, looked at and searched for](#f30-the-diagnostics-bundle-carried-what-the-person-played-looked-at-and-searched-for)
 - [Areas reviewed without findings](#areas-reviewed-without-findings)
 - [Run the tests](#run-the-tests)
 
@@ -71,7 +72,7 @@ Each row is a trust boundary. The sections below give the detail.
 | Add-ons, native (out of process) | Their own folder, a private data folder and what the user approved (`network` included); nothing else of the user's system | On every OS the process is confined by the system, and where that can't be set up it does not run: user, mount and PID namespaces, Landlock and seccomp on Linux, a Seatbelt profile on macOS, an AppContainer in a job object on Windows ([Native add-ons](#native-add-ons)) |
 | Network fetches | Fixed `https` hosts for each feature | Host allow-lists checked on every redirect (at most 5), size caps, timeouts, no cookies or Apple credentials where none are needed |
 | Local files and settings | The user's own data | Imported settings cannot name a library or a local key. The child cannot read or write Sona's folders. Files are written atomically |
-| Secrets and tokens | The keyring, with a 0600 file fallback | Tokens never reach URLs, errors or logs. Build credentials are redacted from logs and diagnostics ([F10](#f10-development-builds-logged-the-build-credentials)). Secret scanning guards the repository ([Secret scanning](#secret-scanning)) |
+| Secrets and tokens | The keyring, with a 0600 file fallback | Tokens never reach URLs, errors or logs. Build credentials are redacted from logs and diagnostics ([F10](#f10-development-builds-logged-the-build-credentials)). The diagnostics bundle replaces what was played and searched for with per-bundle codes ([F30](#f30-the-diagnostics-bundle-carried-what-the-person-played-looked-at-and-searched-for)). Secret scanning guards the repository ([Secret scanning](#secret-scanning)) |
 | Loopback sign-in server | Apple's sign-in redirect on `127.0.0.1` | The owner uid of each connection, single-use start links, a cookie ([F7](#f7-another-local-user-could-complete-the-loopback-sign-in)) and a per-attempt state in the callback path ([F27](#f27-the-loopback-sign-in-could-be-completed-with-another-accounts-token)) |
 | Add-ons, WebAssembly runtime | Running a third party's module inside Sona's process, with the user's grant | No ambient authority: no file but its data folder (links refused), no network, no process; memory and CPU capped. The module is checked and read once; the compiled cache is private ([WebAssembly add-ons](#webassembly-add-ons)). The exposure is the runtime itself: a bug in wazero is a bug in Sona's process |
 | Item inspector (Settings → Diagnostics → Developer tools) | The user's own item data, shown to the user | Off by default and only offered when the person turns it on (always in a development build). Reads Go's caches through one service method, never Apple; every text passes `logging.Redact`; no request header, token or credential is ever held. Nothing leaves the machine ([The item inspector](#the-item-inspector)) |
@@ -857,6 +858,7 @@ Each finding has an issue, its impact, the fix and the test that keeps it fixed.
 | F27 | The loopback sign-in could be completed with another account's token (login CSRF) | Low | Fixed | `internal/auth/mut/loopback.go` |
 | F28 | On macOS any program of the user's could read Sona's keychain items (the MUT, the scrobbler and lyrics tokens) without a prompt | Medium | Fixed (residual risks listed) | `internal/auth/store/keyring_darwin.go` |
 | F29 | Update checks used GitHub's rate-limited anonymous API and failed with a generic error; the Linux check and the notes read an unsigned answer | Low | Fixed (residual risks listed) | `internal/update/ratelimit.go`, `atom.go`, `releaseinfo.go`, `update.go`, `cmd/releasesign/main.go`, `.github/workflows/release.yml`, `internal/services/updates.go` |
+| F30 | The diagnostics bundle carried what the person played, looked at and searched for (song and station IDs, personal recommendation IDs and URLs, cache keys, routes) | Low | Fixed (residual risks listed) | `internal/diag/anonymise.go`, `internal/diag/bundle.go`, `internal/logging/redact.go` |
 
 ### F1. Settings import could set the CDM path
 
@@ -1109,7 +1111,7 @@ Severity: Low. Status: fixed.
   - An attribute named `-ldflags` (any case, `-`/`_` ignored) is replaced whole with `[REDACTED]`.
   - The whole value goes rather than only credential-named `-X` symbols, because a name list misses the next credential someone injects, and nothing else in the flags is worth a log line (the version is logged by `startup: process start`).
   - In free text, `Redact` replaces a quoted or bare `-ldflags` value, and the value of every linker `-X name=value` assignment whatever the symbol is called.
-- **Diagnostics bundle** (`internal/diag/bundle.go`): `Scrub` runs `logging.Redact` over the log tail as read from disk, so a log written by an older build still loses the values.
+- **Diagnostics bundle** (`internal/diag/anonymise.go`, `bundle.go`): every string of the bundle passes `logging.Redact` and the log tail's JSON keys pass `logging.SensitiveKey`, as read from disk, so a log written by an older build still loses the values. [F30](#f30-the-diagnostics-bundle-carried-what-the-person-played-looked-at-and-searched-for) covers the rest of what the bundle anonymises.
 - **Build** (`build/ldflags.sh`, used by `build/linux/Taskfile.yml`, `build/darwin/Taskfile.yml`, `bundle.sh`, `package.sh`, devenv's `build` and CI's build steps; `cmd/devloop`):
   - Development builds (what `dev` builds through `cmd/devloop`, whose `-ldflags` are only `-w`) do not compile the credentials in. Sona reads the same variables from the environment at runtime (`internal/scrobble/lastfm.go`, `internal/discord/discord.go`). devenv loads `.env`; outside devenv (Windows) `cmd/devloop` adds `.env`'s variables to the app's environment only, never to `go build`'s, and logs their names, never their values.
   - The Taskfiles' production and release builds keep the injection, with `-trimpath`, so `go version -m bin/sona` shows no `-ldflags`.
@@ -1566,6 +1568,59 @@ Severity: Low (availability; the Linux check and the notes also read an answer t
 - The anonymous API still answers a release published without `release.json` (every release up to `v0.8.0-rc.4`), so a network that has used its allowance is still refused for those, and the message says when it is over.
 - Atom lists the ten newest releases by publication date. A release with the highest version that ten others were published after would not be named there, so Test versions would not offer it until it is one of the ten newest.
 - A reset that GitHub names is believed only within a minute to an hour.
+
+### F30. The diagnostics bundle carried what the person played, looked at and searched for
+
+Severity: Low (privacy; the person pastes the bundle into a public issue themselves). Status: fixed (residual risks listed).
+
+**Issue.** The bundle removed secrets, e-mail addresses and the home directory by shape (`Scrub`), dropped a list of keys from its sections (`dropKey`) and, since [F18](#f18-the-diagnostics-bundle-carried-the-persons-city-and-device-names), three settings. The log tail it carried as read from disk. A bundle from a real 0.7.0-rc.8 installation still held:
+
+- The listening history, in the log tail: the `prepared` lines (one per song played) with the song's catalogue ID and the playlist; `playback failed`, `coordinator: skipping failed item` and `spatial audio unavailable…` with the song's ID; `playback: command` with the station.
+- Personal recommendations: `home shelf refresh` with the shelf's ID, and an `err` that held the whole `amp-api.music.apple.com/v1/me/recommendations/<id>?…` URL with its query.
+- What was looked at: `motion: fetched` and `discover cache: write` with their cache `key`.
+- In the sections: the library counts, the storefront, the add-on IDs and the `startPage` setting, which is a route and can name a playlist or an album.
+
+**Impact.** A catalogue ID resolves to a title on Apple's public API, so the bundle, pasted into a public issue, published the person's recent listening and their personal recommendation IDs. The guide said only tokens and the e-mail address were removed (and the F18 settings), but nobody could tell from it what else was in the log tail.
+
+**Fix** (`internal/diag/anonymise.go`, `bundle.go`; `internal/logging/redact.go` exports `SensitiveKey`):
+
+- **Design.** The bundle is anonymised by what a value is, not by the messages that carry it today. Sections, crash output and every log line pass through one `anonymiser` made for the bundle, with a random 32-byte key that is thrown away with it.
+- **Log attributes.** A JSON log line is parsed (keys keep their order). `classify` names the keys that can identify content or a person; their string values become pseudonyms (`id~3fa2ab`: the first three bytes of an HMAC-SHA-256 of the value under the bundle's key). One value has one pseudonym in one bundle (so "the same song failed twice" can be read) and another in the next (so two bundles cannot be matched).
+  - Keys: the IDs of content (`id`, `ids`, `song`, `album`, `artist`, `playlist`, `station`, `shelf`, `key`, `item`, `folder`, `catalog*`, `library*`, anything ending in `id`), what the person typed or sees (`title`, `name`, `term`, `query`, `events`, `body`), who they are (`user`, `account`, `email`, `dsid`) and the hardware (`device`, `sink`). Route keys keep the page type and mask the IDs (`/playlist/{id}`). URL keys go through the URL rule and path keys through the path rule below; a path key outside the home folder and the operating system's folders keeps only its first folder (`/mnt/{path}`).
+  - Numbers, booleans and nulls are never changed: they are sizes, counts, durations, flags and codes (a `playlist` attribute that holds a duration stays a duration). A key that names a secret (`logging.SensitiveKey`) is replaced whole by `[REDACTED]`, so a log an older build wrote without that rule is covered too.
+- **Every string**, whatever its key (`msg`, `err`, crash text, a line that is not JSON):
+  - Apple IDs (`i.`, `l.`, `p.`, `pl.`, `pl.u-`, `mv.`, `ra.`, `sp.`, `r.`) and bare numbers of six or more digits after a word that names them (`id`, `song`, `album`, `webPlayback`, `/albums/`, a path segment) become pseudonyms. An ID-shaped token must have a digit, or an upper case letter after its first, so `r.go` and `p.Name()` in a stack stay readable.
+  - Every `http(s)` URL loses its query, fragment and user info. On Apple's hosts the IDs, slugs and hashes of the path become `{id}`, which keeps the endpoint (`/v1/me/recommendations/{id}`); on `music.apple.com` only the storefront and the page type stay, since the slug is a title. Other hosts keep the host and the first path segment. Bare `/v1/…` paths are masked the same way.
+  - Paths below `~/Music`, `~/Documents`, `~/Downloads` and the other personal folders become `~/Music/{path}`, and a path to a media or lyrics file anywhere becomes `{path}.m4a`. Another user's home folder (`/home/x`, `/Users/x`, `C:\Users\x`) becomes `~`, like the current user's.
+- **Sections.** Their strings pass the string pass, and a route-valued key (`startPage`) keeps its page type. The library counts, the storefront and the add-on IDs stay (catalogue add-ons are public). `dropKey` and `config.ForDiagnostics` are unchanged.
+- **Keeping it honest.** `docs/architecture.md` ("Diagnostics and crashes") says how to choose a log key. `TestEveryLogAttributeIsAudited` parses every log call under `internal/` and `cmd/` and fails for a literal attribute key that `classify` does not anonymise and `keptLogKeys` does not list as harmless.
+- **The user-facing promise** says what is removed, replaced and kept: the guide (`guide/settings.md`, `guide/troubleshooting.md`) and the "Diagnostics copied" toast.
+
+**Audit of the log calls** (about 450 call sites in `internal/` and `cmd/`; the attributes that can carry a name, title, term, route, URL, Apple ID or device name, and what the bundle does with them):
+
+- IDs of content, `id` (the song, in 40 calls of `playback/native`, `coordinator`, `services`), `item`, `song`, `album`, `artist`, `playlist`, `station`, `shelf`, `folder`, `key` (cache keys of the catalogue, discover, artwork and motion caches): pseudonymised.
+- Titles and names: `title` and `artist` of the `on air` line, `name`, `term`, `query`, `events` (the play-activity batch the debug log sends, a JSON string of IDs), `body` (Apple's refusal): pseudonymised.
+- Locations: `route` (`remember route`), `url` (artwork, retrying fetch), `path` (credentials file, settings import and export, the diagnostics bundle's own file, KWin's buttons, the CDM), `file`, `dir`, `crash_file`, `cdm_path`, `device` and `sink` (the audio output, as the playback host reports it): masked or pseudonymised by their kind.
+- Kept, because they are counts, sizes, durations, flags, codes, versions or names of Sona's own parts (`keptLogKeys` lists them, about 130 keys): among them `err` (its strings pass the string pass), `storefront`, `locale`, `provider`, `addon`, `component`, `reason`, `code`, `status`, `kind`, `domain`, `cmd`, `from`, `to`, `version`, `host`, `line` (the playback host's stderr, which also passes the string pass).
+- The three messages built from variables (`audio: apply …`, `tray: …`, the motion log) name a setting and a tray item, not content.
+- Attributes that reach a log call as a variable list (`cdmhost/host.go` forwards the playback host's own log lines, `ui/app/motion.go` the motion policy's) are not seen by the audit test; they are keys at run time, and `classify` applies to them in the bundle whatever they are.
+
+**Test** (`internal/diag`):
+
+- `TestBundleAnonymisesTheLogTail` (a synthetic log with song, library and playlist IDs, a station, a shelf, a recommendations URL with its query, a search term, a route, an e-mail address, a token, a device and a path in the home folder: none of the values is in the bundle, and the counts, durations, error codes and the endpoint shape are).
+- `TestPseudonymsAreStableWithinABundleAndDifferBetweenBundles`, `TestKeptValuesStayUnderIdentifyingKeys`.
+- `TestNonJSONLogLinesGetTheStringPass` (an older build's text lines, a truncated record), `TestCrashTextIsAnonymised`.
+- `TestSectionsKeepCountsStorefrontAndAddonsAndMaskRoutes`.
+- `TestStringPass` (every ID shape, URL and path form, what must stay, idempotence), `TestReduceURL`, `TestMaskRoute`, `TestJSONLinesStayJSONInOrder`, `TestClassify`.
+- `TestEveryLogAttributeIsAudited`, `TestKeptLogKeysAreNotAnonymised` (the audit).
+
+**Residual risks.**
+
+- The bundle still shows what the person did and when: the order of the log lines, their times, the durations and the counts. It says that some song failed twice and when, not which.
+- Free text can hold something no rule names: a title in an error message built by another library, or a playlist name Sona never logs as an attribute. The string pass knows IDs, URLs, paths and e-mail addresses, not titles. The guide still asks the person to check the report before pasting it.
+- Pseudonyms of one bundle can be compared with each other (that is their purpose). Three bytes of an HMAC under a key that is not in the bundle cannot be reversed or matched against a list of IDs, but two different values of one bundle can, rarely, share one.
+- The library counts, the storefront and the add-on IDs stay (the guide says so). They do not identify a person on their own: the counts and the country are coarse, and the IDs of catalogue add-ons are public. An add-on the person wrote or installed from a folder shows the ID in its manifest.
+- An ID that is a JSON number (none of Sona's today) is kept, as a count would be.
 
 ## Areas reviewed without findings
 
