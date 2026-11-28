@@ -807,7 +807,7 @@ SQLite, libSQL-compatible, with migrations in `internal/db/migrations` numbered 
 - `release_reminders`: pre-release albums to tell the user about on release day, or at the next start after it (user data, wiped on sign-out).
 - `notifications`: the notification centre's entries: kind, key, names, artwork template, target, whether read, whether about the account ([Notification centre](#notification-centre)).
 - `tracked_artists`, `artist_releases`, `artist_tracker_state`: the artist tracker's seeded artists, the releases it has seen (found, read and dismissed times) and when its last check finished (user data, wiped on sign-out; [Artist tracker](#artist-tracker)).
-- `accounts`: storefront, its default and supported content languages, restricted flag, when the MUT was obtained and last validated. Never tokens.
+- `accounts`: storefront, its default and supported content languages, restricted flag, when the MUT was obtained and last validated, and the name on the account's Apple Music profile (`profile_name`, "" for none; `profile_checked_at`) that the For You greeting uses, read at cold start with no request. Never tokens, never the profile handle. The row is deleted at sign-out, and the name with it.
 - A catalogue response cache (key, fetched at, expiry).
 
 Sign-out runs `db.WipeUserData`, which keeps only catalogue rows and that cache, and removes the artwork only user data references.

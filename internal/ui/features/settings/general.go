@@ -31,6 +31,7 @@ func (s *settings) general(c *ui.Context) {
 			s.startupRows(c, cfg, cp)
 			s.startPageRow(c, cfg)
 			s.greetingRow(c, cfg)
+			s.useNameRow(c, cfg)
 			s.linkHandlerRow(c, cp)
 			s.setupRow(c)
 		})
@@ -112,12 +113,23 @@ func (s *settings) startPageRow(c *ui.Context, cfg config.Settings) {
 	})
 }
 
-// greetingRow turns the greeting above For You's heading on or off.
+// greetingRow turns the greeting that opens For You on or off.
 func (s *settings) greetingRow(c *ui.Context, cfg config.Settings) {
 	s.switchRow(c, rowOpts{
 		ID: "home-greeting", Title: i18n.T("Greeting on For You"),
-		Desc: i18n.T("Says good morning, good afternoon or good evening above the heading, by the time on this computer."),
+		Desc: i18n.T("Opens the page with good morning, good afternoon or good evening, by the time on this computer."),
 	}, cfg.Home.Greeting, false, func(on bool) {
 		s.save(func(n *config.Settings) { n.Home.Greeting = on })
+	})
+}
+
+// useNameRow adds the first name from the person's Apple Music profile to
+// the greeting. It has nothing to act on while the greeting is off.
+func (s *settings) useNameRow(c *ui.Context, cfg config.Settings) {
+	s.switchRow(c, rowOpts{
+		ID: "home-use-name", Title: i18n.T("Use my name"),
+		Desc: i18n.T("Adds the first name on your Apple Music profile to the greeting, when you have one. It stays on this computer."),
+	}, cfg.Home.UseName, !cfg.Home.Greeting, func(on bool) {
+		s.save(func(n *config.Settings) { n.Home.UseName = on })
 	})
 }
