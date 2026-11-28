@@ -95,7 +95,7 @@ func recv(t *testing.T, ch <-chan devResult) devResult {
 	select {
 	case r := <-ch:
 		return r
-	case <-time.After(20 * time.Second):
+	case <-time.After(hangGuard):
 		t.Fatal("DevStart never returned")
 		return devResult{}
 	}
@@ -309,6 +309,13 @@ func TestDevRefusesAFolderThatChangedWhileAsking(t *testing.T) {
 // manifest's permissions without any grant being saved.
 func TestDevEndsWhenItsClientStopsAskingAndHoldsOnlyTheManifestsPermissions(t *testing.T) {
 	a := newAddonEnv(t)
+	// The lease is read off the services' clock, which stands still until the
+	// test moves it: the run lives while its client asks however slowly a
+	// loaded machine answers, and ends when the test says a lease has passed.
+	// (The lease looks at that clock every tenth of a lease in real time,
+	// which only decides how soon it notices.)
+	clk := &testClock{t: time.Date(2026, 11, 28, 12, 0, 0, 0, time.UTC)}
+	a.e.Now = clk.Now
 	a.svc.opts.devLease = 400 * time.Millisecond
 	mark := filepath.Join(t.TempDir(), "mark")
 	// It asks for the volume (not in its manifest) and logs what Sona answered.
@@ -325,6 +332,7 @@ while read -r line; do :; done
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
+	run := a.svc.devRun(r.d.Token)
 	var lines []string
 	next := int64(0)
 	waitUntil(t, "the refusal in its log", func() bool {
@@ -332,15 +340,22 @@ while read -r line; do :; done
 		lines, next = append(lines, l.Lines...), l.Next
 		return strings.Contains(strings.Join(lines, "\n"), "permission_denied")
 	})
-	// No more asking: the lease runs out and the run ends.
-	waitUntil(t, "the run to end", func() bool {
-		a.svc.mu.Lock()
-		defer a.svc.mu.Unlock()
-		_, ok := a.svc.runners["devadd"]
-		return !ok
-	})
-	l := a.svc.devRun(r.d.Token).buf.since(0)
-	if !l.Ended || l.Exit == "" {
+	select {
+	case <-run.runner.done:
+		t.Fatal("the run ended while its client was asking")
+	default:
+	}
+	// No more asking: a lease passes and the run ends. Its runner is done
+	// once it has left the runners and its buffer is ended.
+	clk.set(clk.Now().Add(a.svc.opts.devLease + time.Millisecond))
+	waitClosed(t, run.runner.done, "the run to end")
+	a.svc.mu.Lock()
+	_, running := a.svc.runners["devadd"]
+	a.svc.mu.Unlock()
+	if running {
+		t.Error("the ended run is still registered")
+	}
+	if l := run.buf.since(0); !l.Ended || l.Exit == "" {
 		t.Errorf("the buffer of the ended run = %+v", l)
 	}
 	if got := a.e.Settings.Get().Addons["devadd"]; !reflect.DeepEqual(got, config.AddonSetting{}) {

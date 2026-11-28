@@ -296,7 +296,7 @@ func (s *AddonsService) beginDev(en addons.Entry, dir string, prog devProgram) (
 		return nil, fmt.Errorf("%w: %s is already running", ErrInvalidArgument, en.ID)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	run := &devRun{token: newToken(), id: en.ID, dir: dir, buf: &devBuffer{}, last: time.Now()}
+	run := &devRun{token: newToken(), id: en.ID, dir: dir, buf: &devBuffer{}, last: s.e.Now()}
 	r := &addonRunner{s: s, dir: en.Dir, id: en.ID, cancel: cancel, done: make(chan struct{}), state: AddonStarting, dev: run}
 	run.runner = r
 	s.runners[en.ID] = r
@@ -309,7 +309,10 @@ func (s *AddonsService) beginDev(en addons.Entry, dir string, prog devProgram) (
 	return run, nil
 }
 
-// lease ends a run whose client stopped asking for the log.
+// lease ends a run whose client stopped asking for the log. How long it has
+// been quiet is read off the services' clock (Env.Now); the ticker only
+// decides how often that is looked at, so a test that owns the clock decides
+// when the lease has run out.
 func (s *AddonsService) lease(ctx context.Context, run *devRun) {
 	tick := time.NewTicker(max(s.opts.devLease/10, 5*time.Millisecond))
 	defer tick.Stop()
@@ -319,8 +322,8 @@ func (s *AddonsService) lease(ctx context.Context, run *devRun) {
 			return
 		case <-run.runner.done:
 			return
-		case now := <-tick.C:
-			if run.idle(now) > s.opts.devLease {
+		case <-tick.C:
+			if run.idle(s.e.Now()) > s.opts.devLease {
 				run.runner.stop()
 				return
 			}
@@ -389,7 +392,7 @@ func (s *AddonsService) DevLog(token string, next int64) (cli.AddonDevLog, error
 	if run == nil {
 		return cli.AddonDevLog{}, ErrNotFoundAddon
 	}
-	run.touch(time.Now())
+	run.touch(s.e.Now())
 	l := run.buf.since(next)
 	if l.Ended {
 		s.forget(run)
