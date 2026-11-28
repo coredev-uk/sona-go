@@ -1,0 +1,3 @@
+go test fuzz v1
+string("url")
+string("https://music.apple.com/gb/album/some-title-here/1700000001?i=1700000002")

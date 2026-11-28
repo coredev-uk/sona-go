@@ -165,8 +165,10 @@ func TestWasmAddonCrashesAreBackedOffAndGivenUpOn(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.svc.start()
-	i := a.waitState(t, "wasmcrash", AddonCrashed)
-	if i.Restarts != 3 || i.Enabled {
+	// Given up on: the state, the switch and the entry are all there only
+	// once the entry is (waitSwitchedOff).
+	a.waitSwitchedOff(t)
+	if i := a.info(t, "wasmcrash"); i.State != AddonCrashed || i.Restarts != 3 || i.Enabled {
 		t.Errorf("after the crashes: %+v", i)
 	}
 	lines, _ := a.svc.Log("wasmcrash")

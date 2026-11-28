@@ -34,7 +34,7 @@ func parseLRC(s string) []lrcLine {
 			if strings.EqualFold(m[1], "offset") {
 				// A positive offset shows the lyrics earlier.
 				if ms, err := strconv.Atoi(strings.TrimSpace(m[2])); err == nil {
-					offset = time.Duration(ms) * time.Millisecond
+					offset = max(min(time.Duration(ms), maxTime/time.Millisecond), -maxTime/time.Millisecond) * time.Millisecond
 				}
 			}
 			continue
@@ -56,11 +56,14 @@ func parseLRC(s string) []lrcLine {
 			out = append(out, lrcLine{At: at, Text: text, Words: words})
 		}
 	}
+	shift := func(d time.Duration) time.Duration { return min(max(d-offset, 0), maxTime) }
 	for i := range out {
-		out[i].At = max(out[i].At-offset, 0)
-		for j := range out[i].Words {
-			out[i].Words[j].Begin = max(out[i].Words[j].Begin-offset, 0)
-			out[i].Words[j].End = max(out[i].Words[j].End-offset, 0)
+		out[i].At = shift(out[i].At)
+		// The stamps of one line share its words: shift them once.
+		if ws := out[i].Words; len(ws) > 0 && (i == 0 || len(out[i-1].Words) == 0 || &out[i-1].Words[0] != &ws[0]) {
+			for j := range ws {
+				ws[j].Begin, ws[j].End = shift(ws[j].Begin), shift(ws[j].End)
+			}
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].At < out[j].At })

@@ -114,13 +114,33 @@ func (a *addonEnv) waitState(t *testing.T, id string, want AddonState) AddonInfo
 	return got
 }
 
+// hangGuard only turns a lost wake-up into a failure: what a test waits for
+// arrives as soon as the machine lets it, however loaded it is (docs/testing.md,
+// "Timing in tests").
+const hangGuard = 30 * time.Second
+
 func waitUntil(t *testing.T, what string, ok func() bool) {
 	t.Helper()
-	for deadline := time.Now().Add(15 * time.Second); !ok(); time.Sleep(10 * time.Millisecond) {
+	for deadline := time.Now().Add(hangGuard); !ok(); time.Sleep(10 * time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out waiting for %s", what)
 		}
 	}
+}
+
+// waitSwitchedOff waits until an add-on has been given up on, and returns the
+// switch-off entries. giveUp marks the add-on crashed first, then saves the
+// switch and posts the entry: only the entry, the last of the three, says all
+// three are done. A test that reads the state, the switch or the entry waits
+// for it, not for the state alone (read at once, they failed on a slow runner).
+func (a *addonEnv) waitSwitchedOff(t *testing.T) []Notification {
+	t.Helper()
+	var got []Notification
+	waitUntil(t, "the switch-off entry", func() bool {
+		got = a.notices(t)
+		return len(got) > 0
+	})
+	return got
 }
 
 func fileHas(path, text string) func() bool {
@@ -270,15 +290,7 @@ func TestAddonsRestartWithBackoffThenSwitchOff(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.svc.start()
-	a.waitState(t, "crashy", AddonCrashed)
-	// giveUp marks the add-on crashed first, then saves the switch and posts
-	// the entry: wait for the entry, the last of the three, before reading
-	// any of them (the test read them at once and failed on a slow runner).
-	var got []Notification
-	waitUntil(t, "the switch-off entry", func() bool {
-		got = a.notices(t)
-		return len(got) > 0
-	})
+	got := a.waitSwitchedOff(t)
 	if n := got[0]; len(got) != 1 || n.Subject != "Add-on crashy" || n.Target != (OpenTarget{Kind: OpenSettings, ID: "addons"}) || n.Read {
 		t.Errorf("entries = %+v, want one unread, naming the add-on and opening Settings → Add-ons", got)
 	}

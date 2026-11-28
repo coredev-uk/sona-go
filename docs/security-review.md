@@ -23,6 +23,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [Sona's own add-ons](#sonas-own-add-ons)
   - [Secret scanning](#secret-scanning)
   - [Vulnerability scanning](#vulnerability-scanning)
+  - [Fuzzing](#fuzzing)
   - [Updates](#updates)
 - [Findings](#findings)
   - [Summary](#summary)
@@ -56,6 +57,7 @@ To report a vulnerability, follow [SECURITY.md](../SECURITY.md). The CI threat m
   - [F28. On macOS any program could read Sona's keychain items without a prompt](#f28-on-macos-any-program-could-read-sonas-keychain-items-without-a-prompt)
   - [F29. Update checks used GitHub's rate-limited API, and said nothing useful when it refused](#f29-update-checks-used-githubs-rate-limited-api-and-said-nothing-useful-when-it-refused)
   - [F30. The diagnostics bundle carried what the person played, looked at and searched for](#f30-the-diagnostics-bundle-carried-what-the-person-played-looked-at-and-searched-for)
+  - [F31. The motion-artwork remuxer built a file many times the size of its input](#f31-the-motion-artwork-remuxer-built-a-file-many-times-the-size-of-its-input)
 - [Areas reviewed without findings](#areas-reviewed-without-findings)
 - [Run the tests](#run-the-tests)
 
@@ -804,6 +806,20 @@ nix run nixpkgs#gitleaks -- dir --config .gitleaks.toml --redact .
 
 **Residual risks.** The database lists only known, reported vulnerabilities, and a reachable call through reflection or a plugin can be missed. The CI log is public and shows each finding with its call stacks, as the advisory itself already is.
 
+### Fuzzing
+
+**What it does.** The parsers that read untrusted bytes have Go fuzz targets, listed in [testing.md](testing.md), "Fuzzing", with what each asserts: the CDM's manifest and CRX3 parsers (`internal/playback/cdm`), the fMP4 and CENC parser (`internal/playback/fmp4`: init segments, fragments, the movie header, loudness), HLS playlists (`internal/playback/hls`), the motion-artwork remuxer and its playlists (`internal/motion`) and the artwork decoder with its pixel limit and the cover-upload check (`internal/artwork`). The targets of the data parsers (lyrics, Apple's decoders, the settings import, update archives and manifests, the diagnostics bundle) are listed with theirs. The seeds run in every `go test`; `.github/workflows/fuzz.yml` searches for new inputs, two minutes a target, every week.
+
+**Threats.** A parser bug that whoever controls a response (a compromised CDN, a broken TLS session, a crafted file) can reach: a panic in a goroutine nothing recovers ([F19](#f19-the-motion-artwork-remuxer-panicked-on-a-huge-tfhd-base-offset), [F20](#f20-the-fmp4-parser-panicked-on-crafted-init-segments-and-fragments)), an allocation sized by a declared count or dimension ([F21](#f21-server-declared-counts-and-lengths-allocated-without-limit), [F22](#f22-artwork-from-the-cdn-was-decoded-without-a-pixel-limit)), or a number that wraps into a wrong, negative or oversized one.
+
+**Controls.**
+
+- **A target asserts the parser's invariants, not only that it returns.** Bounds relative to the input (the output of the remuxer, the samples and subsamples of a fragment, the allocation a refused image header costs), offsets and slices within the buffer, counts consistent with sizes, durations and byte ranges that do not wrap, and a round trip where the package has a writer. Each target's comment lists them.
+- **The seeds are the known shapes.** Each advisory's input is a seed of its parser's target (`wrapping-saio-x52q`, `sample-count-q88j`, `huge-base-data-offset-587h`, `png-bomb-40000-v66p`), so a regression fails `go test` at once, and every input a target has found is kept as a seed with its fix.
+- **The weekly job finds the rest.** A failing target fails its job and keeps the input as an artifact for 14 days; it opens no issue, because a crasher that can be reached is a vulnerability, reported privately ([SECURITY.md](../SECURITY.md)) before the input is committed. The workflow, and what to do with a finding, are in [testing.md](testing.md), "When a target finds something", and `docs/maintainers/ci-workflows.md`.
+
+**Residual risks.** Fuzzing shows the inputs it reached and the invariants say what to look for: two minutes a target a week is a floor, and a bug that needs a structure the fuzzer does not build (a large, valid file; a long sequence of boxes that must agree) may take many runs. The artwork targets decode only pictures up to 4 megapixels, so the refusal of a header over the 40-megapixel limit is checked, and the decoding between the two sizes is not. Code that is not Go (the Widevine CDM, GStreamer, WebKit) is not fuzzed here. The failing run's log of a public repository shows its failure message, which can quote values of the input.
+
 ### Updates
 
 **What it does.** `internal/update` and `internal/services/updates.go` find a newer release and, on macOS and Windows, install it (`docs/architecture.md`, "Updates"). It makes anonymous GETs with a fixed User-Agent and no cookies or identifiers, to `github.com` (the release's files and `releases.atom`) and, for a release published without `release.json` only, to `api.github.com`.
@@ -859,6 +875,7 @@ Each finding has an issue, its impact, the fix and the test that keeps it fixed.
 | F28 | On macOS any program of the user's could read Sona's keychain items (the MUT, the scrobbler and lyrics tokens) without a prompt | Medium | Fixed (residual risks listed) | `internal/auth/store/keyring_darwin.go` |
 | F29 | Update checks used GitHub's rate-limited anonymous API and failed with a generic error; the Linux check and the notes read an unsigned answer | Low | Fixed (residual risks listed) | `internal/update/ratelimit.go`, `atom.go`, `releaseinfo.go`, `update.go`, `cmd/releasesign/main.go`, `.github/workflows/release.yml`, `internal/services/updates.go` |
 | F30 | The diagnostics bundle carried what the person played, looked at and searched for (song and station IDs, personal recommendation IDs and URLs, cache keys, routes) | Low | Fixed (residual risks listed) | `internal/diag/anonymise.go`, `internal/diag/bundle.go`, `internal/logging/redact.go` |
+| F31 | The motion-artwork remuxer built a file many times the size of its input (overlapping frames), and copied boxes of size 0 as they were | Low | Fixed | `internal/motion/remux.go` |
 
 ### F1. Settings import could set the CDM path
 
@@ -1622,6 +1639,22 @@ Severity: Low (privacy; the person pastes the bundle into a public issue themsel
 - The library counts, the storefront and the add-on IDs stay (the guide says so). They do not identify a person on their own: the counts and the country are coarse, and the IDs of catalogue add-ons are public. An add-on the person wrote or installed from a folder shows the ID in its manifest.
 - An ID that is a JSON number (none of Sona's today) is kept, as a count would be.
 
+### F31. The motion-artwork remuxer built a file many times the size of its input
+
+Severity: Low. Status: fixed.
+
+**Issue.**
+
+- `flatten` (`internal/motion/remux.go`) copied each frame the `trun` boxes named into one `mdat`. Frames were bounded in number (`maxSamples`, 2^18) and each inside its file, but nothing stopped them from overlapping: a `trun` per frame, each with the same data offset (or a default sample size and an offset that is not advanced), names the same bytes again and again. A rendition of about a megabyte could so describe 4096 frames of a megabyte each, and `write` allocated the whole plain file (up to the 4 GiB an `mdat` holds) and the cache wrote it to disk.
+- The sample description, handler, media header and data information boxes were copied into the output as they were. A box whose size field is 0 (it runs to the end of its container) swallowed the sample table that follows it there, so the output had none.
+- Found by the fuzz target `FuzzFlatten` ([Fuzzing](#fuzzing)).
+
+**Impact.** A rendition from a compromised CDN or a broken TLS session could exhaust the memory of the UI process, which Go cannot recover from, each time the album was viewed (the allow-list and redirect checks of [F6](#f6-motion-artwork-followed-redirects-anywhere) still apply). An unplayable cached file was the lesser effect of the second point. Availability only.
+
+**Fix** (`internal/motion/remux.go`): `flatten` refuses a stream whose frames together are larger than its files (`mp4: frames overlap`), as they are distinct parts of them, before `write` allocates anything; and the copied boxes are written with their size spelled out (`box.sized`).
+
+**Test.** `TestFlattenRefusesOverlappingFrames`, `TestFlattenSpellsOutTheSizeOfCopiedBoxes`.
+
 ## Areas reviewed without findings
 
 - native Apple ID input handling
@@ -1640,5 +1673,5 @@ Severity: Low (privacy; the person pastes the bundle into a public issue themsel
 ## Run the tests
 
 ```sh
-go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/... ./internal/i18n/... ./internal/lyrics/... ./internal/addons/...
+go test -race ./internal/playback/cdm/... ./internal/playback/cdmhost/... ./internal/playback/fmp4/... ./internal/playback/hls/... ./internal/artwork/... ./internal/config/... ./internal/discord/... ./internal/motion/... ./internal/mpris/... ./internal/playback/ ./internal/playback/coordinator/... ./internal/logging/ ./internal/diag/ ./internal/auth/... ./internal/i18n/... ./internal/lyrics/... ./internal/addons/...
 ```

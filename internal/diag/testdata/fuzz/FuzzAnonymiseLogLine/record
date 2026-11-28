@@ -1,0 +1,2 @@
+go test fuzz v1
+string("{\"time\":\"2026-11-01T12:00:00Z\",\"level\":\"INFO\",\"msg\":\"played\",\"song\":\"1700000001\",\"url\":\"https://amp-api.music.apple.com/v1/me/x?term=abc\",\"err\":\"a@b.example\",\"nested\":{\"title\":\"Song\",\"paths\":[\"/home/tester/Music/a.flac\"],\"n\":3,\"ok\":true,\"none\":null}}")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("[{\"id\":1,\"trackName\":\"T\",\"artistName\":\"A\",\"duration\":180.5,\"syncedLyrics\":\"[00:01.00] a\\n[00:02.00] b\"}]")

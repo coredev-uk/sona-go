@@ -1,0 +1,2 @@
+go test fuzz v1
+string("const e=\"Back\",i='Done',o={\"ASE.Web.Music.A\":\"Caf\\u00e9 \\\"quoted\\\"\",\"ASE.Web.Music.B\":\"Line\\nnext \\x41 \\ud83c\\udfb5 \\u{1F3B5}\",Back:e,\"ASE.Done\":i,Next:\"Weiter\"};export{e as Back,i as Done,o as default};")

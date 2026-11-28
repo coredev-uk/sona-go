@@ -1,0 +1,2 @@
+go test fuzz v1
+string("<tt xmlns=\"http://www.w3.org/ns/ttml\" xmlns:itunes=\"http://music.apple.com/lyric-ttml-internal\" itunes:timing=\"Line\" xml:lang=\"en-GB\"><head><metadata/></head><body><div itunes:songPart=\"Verse\"><p begin=\"8.481\" end=\"11.6\">First line here</p><p begin=\"1:00:01.25\" end=\"1:00:03\">Second &amp; last</p></div></body></tt>")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://k\"\n#EXTINF:2,\nv.mp4\n")

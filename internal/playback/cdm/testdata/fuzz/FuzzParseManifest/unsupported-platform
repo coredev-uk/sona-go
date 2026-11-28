@@ -1,0 +1,3 @@
+go test fuzz v1
+[]byte("{\"hashFunction\":\"sha512\",\"name\":\"Widevine-1.2.3.4\",\"schema_version\":1000,\"vendors\":{\"gmp-widevinecdm\":{\"platforms\":{\"Darwin_aarch64-gcc3\":{\"fileUrl\":\"https://dl.test/p.crx3\",\"filesize\":1234,\"hashValue\":\"abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab\",\"mirrorUrls\":[\"https://mirror.test/p.crx3\"]}},\"version\":\"1.2.3.4\"}}}")
+uint8(0)

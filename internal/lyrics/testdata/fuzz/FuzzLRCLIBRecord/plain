@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"id\":3,\"plainLyrics\":\"one\\r\\ntwo\\n\\nthree\",\"duration\":1e308}")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("goroutine 1 [running]:\nmain.main()\n\t/home/tester/src/sona/main.go:12 +0x1d")

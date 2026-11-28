@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"format\":\"sona-settings\",\"version\":1,\"settings\":{\"Shortcuts\":{\"player.toggle\":\"Ctrl+P\"},\"VOLUME\":0.1,\"Window\":{\"width\":1}}}")

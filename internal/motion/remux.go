@@ -61,6 +61,21 @@ func boxes(b []byte, at int) ([]box, error) {
 
 func (b box) children() ([]box, error) { return boxes(b.body, b.at+len(b.raw)-len(b.body)) }
 
+// sized is the box's bytes with its size spelled out. A box of size 0 runs
+// to the end of its container: copied into the middle of another one, as
+// the output's sample table is, it would swallow the boxes that follow it.
+func (b box) sized() ([]byte, error) {
+	if binary.BigEndian.Uint32(b.raw) != 0 {
+		return b.raw, nil
+	}
+	if uint64(len(b.raw)) > math.MaxUint32 {
+		return nil, fmt.Errorf("mp4: %q box of %d bytes", b.typ, len(b.raw))
+	}
+	out := append([]byte(nil), b.raw...)
+	binary.BigEndian.PutUint32(out, uint32(len(out)))
+	return out, nil
+}
+
 func first(bs []box, typ string) (box, bool) {
 	for _, b := range bs {
 		if b.typ == typ {
@@ -178,6 +193,14 @@ func flatten(files ...[]byte) ([]byte, error) {
 	}
 	var samples []sample
 	var runs []run
+	// The frames are distinct parts of the files: together they cannot
+	// outweigh them. Without the check a trun per frame, each pointing at
+	// the same data, builds a plain file of many times its input (up to
+	// the 4 GiB an mdat holds, from a megabyte).
+	var input, payload int64
+	for _, src := range files {
+		input += int64(len(src))
+	}
 	for i, src := range files {
 		if i > 0 {
 			if top, err = boxes(src, 0); err != nil {
@@ -188,8 +211,15 @@ func flatten(files ...[]byte) ([]byte, error) {
 			if b.typ != "moof" {
 				continue
 			}
+			n := len(samples)
 			if samples, runs, err = parseFragment(src, b, tr, samples, runs); err != nil {
 				return nil, err
+			}
+			for _, s := range samples[n:] {
+				payload += int64(len(s.data))
+			}
+			if payload > input {
+				return nil, errors.New("mp4: frames overlap")
 			}
 		}
 	}
@@ -307,7 +337,9 @@ func (tr *track) parseTrak(trak box) (bool, error) {
 	if r.bad || m.bad || tr.scale == 0 {
 		return false, errors.New("mp4: bad tkhd or mdhd")
 	}
-	tr.hdlr = hdlr.raw
+	if tr.hdlr, err = hdlr.sized(); err != nil {
+		return false, err
+	}
 	for _, p := range []struct {
 		dst   *[]byte
 		types []string
@@ -320,7 +352,9 @@ func (tr *track) parseTrak(trak box) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		*p.dst = b.raw
+		if *p.dst, err = b.sized(); err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }

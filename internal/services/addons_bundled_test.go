@@ -66,6 +66,22 @@ cat > /dev/null
 	return exe, started
 }
 
+// replaceProgram swaps the program at exe for script while it may be running:
+// a running program can't be opened for writing (ETXTBSY), and a supervisor
+// that starts a failing one again every few milliseconds always has one
+// running. The new file takes the old one's place at once; a run in progress
+// keeps the old.
+func replaceProgram(t *testing.T, exe, script string) {
+	t.Helper()
+	next := exe + ".next"
+	if err := os.WriteFile(next, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(next, exe); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Sona's own add-ons are listed first-hand, on by default (idle until their
 // integration is used), with their
 // permissions granted and no approval to ask.
@@ -241,8 +257,13 @@ func TestAddonsBundledAreNeverSwitchedOffByTheCrashRule(t *testing.T) {
 	a.svc.start()
 
 	// Well past the rule's three, and the user's add-on is switched off by it.
+	// A bundled add-on is never given up on, so lastfm has nothing to wait for
+	// but its count (its state is only ever starting or restarting, and its
+	// reason and log line were set before the count passed 2*maxCrashes); the
+	// user's add-on is marked crashed before its switch is saved and its entry
+	// posted, so the test waits for the entry (waitSwitchedOff).
 	waitUntil(t, "lastfm to stop on its own more than maxCrashes times", func() bool { return a.info(t, "lastfm").Restarts > 2*a.svc.opts.maxCrashes })
-	a.waitState(t, "demo", AddonCrashed)
+	a.waitSwitchedOff(t)
 	for _, id := range []string{"lastfm", "discord", "listenbrainz"} {
 		i := a.info(t, id)
 		if i.State == AddonCrashed || !i.Enabled {
@@ -271,9 +292,7 @@ func TestAddonsBundledAreNeverSwitchedOffByTheCrashRule(t *testing.T) {
 
 	// The program starts to run: the same supervisor takes it up with no
 	// one's help, and the reason goes.
-	if err := os.WriteFile(exe, []byte("#!/bin/sh\nprintf '{\"id\":1,\"method\":\"hello\",\"params\":{\"id\":\"lastfm\",\"protocol\":{\"min\":\"2.0.0\",\"max\":\"2.0.0\"},\"permissions\":[]}}\\n'\ncat >/dev/null\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	replaceProgram(t, exe, "#!/bin/sh\nprintf '{\"id\":1,\"method\":\"hello\",\"params\":{\"id\":\"lastfm\",\"protocol\":{\"min\":\"2.0.0\",\"max\":\"2.0.0\"},\"permissions\":[]}}\\n'\ncat >/dev/null\n")
 	if i := a.waitState(t, "lastfm", AddonRunning); i.Reason != "" || i.Restarts == 0 {
 		t.Errorf("lastfm = %+v, want running with no reason", i)
 	}

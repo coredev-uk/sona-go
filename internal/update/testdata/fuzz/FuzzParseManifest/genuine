@@ -1,0 +1,4 @@
+go test fuzz v1
+[]byte("{\"version\":\"0.6.0\",\"notes\":\"notes\",\"date\":\"2026-11-01\",\"url\":\"https://github.com/coredev-uk/sona-go/releases/download/v0.6.0/sona.tar.gz\",\"size\":1234,\"signature\":\"LgGVubhccgrKS2OE4PJ5C3Odt9M3r1YicodWTRtnfjZuqAa2qV5gQsI4usVYid+SdThbWJ4OL2moRCYF9ZxrDw==\",\"sha256\":\"0eb3e36bfb24dcd9bb1d1bece1531216b59539a8fde17ee80224af0653c92aa3\",\"statement_signature\":\"HR1YaunfVp1NNbDX8/Gkuf4o44dIPiN5rPJgwRcnNPIjh+yLKXs1QOc8k2K/fc9ExzCrOmn2lPIOkAfcUd2lBw==\"}")
+bool(false)
+string("")

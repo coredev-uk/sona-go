@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\"x/locales/EN-gb/translations.json\":()=>\"./translations~abc.js\" \"x/locales/a/translations.json\" : () => \"./translations~00.js\"")

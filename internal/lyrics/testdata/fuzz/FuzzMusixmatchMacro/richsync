@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"message\":{\"header\":{\"status_code\":200},\"body\":{\"macro_calls\":{\"track.richsync.get\":{\"message\":{\"header\":{\"status_code\":200},\"body\":{\"richsync\":{\"richsync_body\":\"[{\\\"ts\\\":1.0,\\\"te\\\":3.0,\\\"l\\\":[{\\\"c\\\":\\\"Hel\\\",\\\"o\\\":0},{\\\"c\\\":\\\"lo\\\",\\\"o\\\":0.4},{\\\"c\\\":\\\" \\\",\\\"o\\\":0.8}],\\\"x\\\":\\\"Hello\\\"}]\",\"lyrics_copyright\":\"Writer(s): A, B\\nCopyright: C\"}}}}}}}}")

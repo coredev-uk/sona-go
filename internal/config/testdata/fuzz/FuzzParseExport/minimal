@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"format\":\"sona-settings\",\"version\":1,\"settings\":{\"theme\":\"dark\"}}")

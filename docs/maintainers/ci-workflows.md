@@ -6,7 +6,7 @@ What each GitHub Actions workflow does, the CI image, and the rules for changing
 
 `.github/workflows/`: `ci.yml` (every push to main, every pull request and a
 nightly schedule: "Vet and type-check" (what `check` runs: vet for the host, development and
-probe builds, the macOS and Windows type-checks, `golangci-lint` on the whole tree, `mygo vet internal/ui`, the catalogue check, gofumpt, and `govulncheck`); the Linux tests, in
+probe builds, the macOS and Windows type-checks, `golangci-lint` on the whole tree in six builds, `mygo vet internal/ui`, the catalogue check, gofumpt, and `govulncheck`); the Linux tests, in
 pools that `.github/ci/shard.sh` packs by measured time (`timings.txt`):
 core, playback, and the native UI's, split into `ui-race` (`ui/store`,
 `ui/kit`, `ui/lyricsync`, which start goroutines) and `ui` (the page and app
@@ -45,6 +45,8 @@ each kind and deletes the rest, so the 10 GB cap never evicts what matters; a
 `issue-labels.yml` (the issue forms' `platform/*` and `area/*` labels, with
 `cmd/issuelabels`),
 `live.yml` (weekly Apple Music contract tests, private mode),
+`fuzz.yml` (weekly, Sundays 04:41 UTC, and on dispatch with a `fuzztime`: every Go fuzz target of the repository, one job
+per target, `go test -fuzz` for two minutes each, below),
 `release-please.yml` (the release PR and tag), `release.yml`
 (builds, smoke-tests, attests and publishes the Linux, macOS and Windows
 releases; nightly, the rc of main as a prerelease; dispatch = dry run, a
@@ -89,7 +91,7 @@ a line without one.
 **The static checks in CI.** The "Vet and type-check" job runs `check`'s list (`justfile`; `devenv shell -- check`): a change to one is a change to the other, and each names the other in a comment. A failing `check` command fails the job, and so the required "Go vet and test (-race)" check. Three of the commands need a note:
 
 - *gofumpt* is a `tool` of `go.mod` (`go tool gofumpt`), so a machine, `check`, `fmt` and CI run one version, and Renovate moves it like any module. `build/gofumpt.sh` holds the file list (every tracked Go file but `internal/db/dbq`) for all three; the step prints the files it would change.
-- *golangci-lint* is not in `go.mod` (its dependency tree is large, and its maintainers advise against `go tool`). The CI image has the release binary, checked against `build/ci/golangci-lint.sha256` before it is unpacked, like the Go archive; the version in that file is the one devenv's pinned nixpkgs ships (`devenv shell -- golangci-lint --version`). **The two pins move together:** a nixpkgs bump that moves golangci-lint changes that file in the same pull request (`docs/maintainers/repository.md`, "Pinned inputs"). Renovate moves neither: it cannot compute a hash. The step lints the whole tree, `golangci-lint run ./...`, on every run (a pull request, a push to main, the nightly and a release), as `check` does. The tree has no findings, so a new one fails the job whatever lines it touches; fix it, and don't add a `//nolint` without its reason on the same line.
+- *golangci-lint* is not in `go.mod` (its dependency tree is large, and its maintainers advise against `go tool`). The CI image has the release binary, checked against `build/ci/golangci-lint.sha256` before it is unpacked, like the Go archive; the version in that file is the one devenv's pinned nixpkgs ships (`devenv shell -- golangci-lint --version`). **The two pins move together:** a nixpkgs bump that moves golangci-lint changes that file in the same pull request (`docs/maintainers/repository.md`, "Pinned inputs"). Renovate moves neither: it cannot compute a hash. The job lints the whole tree on every run (a pull request, a push to main, the nightly and a release), as `check` does, once for each of six builds, because a package lints only in the build that compiles it and a finding in Windows-only, macOS-only or tag-gated code shows only there: `golangci-lint run ./...` for the host, `--build-tags dev,sqlite_fts5`, `--build-tags probe,sqlite_fts5` and `--build-tags e2e,sqlite_fts5`, and `GOOS=windows GOARCH=amd64` and `GOOS=darwin GOARCH=arm64`, both with `CGO_ENABLED=0` as the type-checks (no cross C compiler; MyGo is pure Go there). They are separate steps of the one job, so they share golangci-lint's cache and the Go build cache: a build compiles only what differs from the ones before it. A new build tag or platform seam goes into this list, in `check` and in the job. The tree has no findings in any of the six, so a new one fails the job whatever lines it touches; fix it, and don't add a `//nolint` without its reason on the same line.
 - *`go tool mygo vet internal/ui` and `go run ./cmd/i18ntool extract -check`* need nothing the image lacks: the first is a `tool` of `go.mod` and runs on the packages the vets already type-check, the second is pure Go.
 
 **Vulnerability scan.** The "Vet and type-check" job ends its checks with `go tool govulncheck -show verbose -tags sqlite_fts5 ./...`. The tool is a `tool` of `go.mod`, so Renovate moves it like any module. The policy:
@@ -99,6 +101,15 @@ a line without one.
 - The fix is the release the finding names: a Go release bump (`go.mod`, the CI and release images' Go, the Go archive hashes, `build/linux/nix/go.nix`) or a module bump. There is no allowlist; a finding that can't be fixed yet is stated in the pull request, not muted.
 - It scans the host build (`-tags sqlite_fts5`); the Windows and macOS-only files are type-checked by the vet job but not scanned.
 - Run it locally with `devenv shell -- go tool govulncheck -show verbose -tags sqlite_fts5 ./...`. The CI log of a public repository shows the findings and their call stacks, so nothing here is private: a finding in Sona's own code that is not yet public is the only one to handle through a private security advisory; one in the standard library or a dependency is already public (pkg.go.dev/vuln), and is fixed in a pull request.
+
+**Fuzzing.** `ci.yml` runs every fuzz target's seed corpus (`testdata/fuzz/<Target>`) as ordinary tests, in the test shards. `fuzz.yml` is the search (what the targets are and assert: `docs/testing.md`, "Fuzzing"):
+
+- **When.** Weekly (Sundays 04:41 UTC) and on dispatch (`fuzztime`, default `2m`). Never on a pull request: a run costs two minutes of runner time for every target, plus its build, and a change to a parser is already tested through its seeds.
+- **How.** The `targets` job runs `.github/ci/fuzz-targets.sh`, which finds the Go files with a `func Fuzz…`, lists each package's targets with `go test -list '^Fuzz'` and prints the job matrix; the `fuzz` job is one matrix row per target (`fail-fast: false`, 30 minutes), which runs the target's seeds and then `go test -run '^$' -fuzz '^<Target>$' -fuzztime 2m <package>`. A new target needs no change to the workflow. A target that is only in a file with a build tag the default build lacks is not found: the script warns.
+- **Where.** The bare runner (`ubuntu-26.04`), pure Go (`CGO_ENABLED=0`, no system packages, no Go cache: the packages build in a minute), as `live.yml` does. A package that needs cgo fails the listing, and the fix is in the package, not a heavier job.
+- **Permissions.** `contents: read` and nothing else, at the workflow and on each job; no secret is read, no environment is used, the checkout keeps no credentials and the dispatch input reaches the script only through `env:`.
+- **A finding.** `go test` fails, the job is red, and the `Collect the crashers` step copies the untracked files under `testdata/fuzz` into the artifact `fuzz-crashers-<package>-<target>` (14 days). No issue is opened and `report-failure.sh` is not used: a crasher that a hostile server can reach is a vulnerability, which is reported through a private advisory (`SECURITY.md`) before the input is committed with its fix. The run's log and the artifact are readable by anyone who can read the repository's Actions, so look at a red run the day it fails. Download the artifact with `gh run download <run> -n fuzz-crashers-<id>`.
+- **Not stored.** Go's fuzz cache (the inputs that only found new coverage) is not saved between runs: each week starts from the seeds, which keeps a run reproducible from the repository alone.
 
 **What a release build downloads.** Every tool is fixed to a version and a
 checksum in the repository before it runs: linuxdeploy and its plugins

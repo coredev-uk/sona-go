@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("#EXTM3U\n#EXT-X-MAP:URI=\"a.mp4\",BYTERANGE=\"100@0\"\n#EXTINF:1,\n#EXT-X-BYTERANGE:281474976710656\na.mp4\n#EXTINF:1,\n#EXT-X-BYTERANGE:4096\na.mp4\n")

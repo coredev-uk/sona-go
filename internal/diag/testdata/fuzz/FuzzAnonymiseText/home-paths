@@ -1,0 +1,2 @@
+go test fuzz v1
+string("open /home/tester/Music/Artist - Song.flac and /Users/other/Music/x.mp3 and ~/Music/Album/track.m4a")

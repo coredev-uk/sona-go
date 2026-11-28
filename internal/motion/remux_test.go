@@ -442,3 +442,41 @@ func TestFlattenHugeBaseDataOffset(t *testing.T) {
 		}
 	}
 }
+
+// A trun per frame, each at the same data offset, names the same bytes
+// again: a megabyte of mdat and 4096 truns of 20 bytes would flatten to
+// 4 GiB. Frames are distinct parts of the file, so together they cannot
+// outweigh it.
+func TestFlattenRefusesOverlappingFrames(t *testing.T) {
+	src := testFile{movieScale: 30, scale: 30, base: 300, trunVersion: 1, frags: [][]frame{gop}}.build()
+	head := src[:bytes.Index(src, []byte("moof"))-4]
+	const size, runs = 1000, 30
+	moof := func(dataOffset uint32) []byte {
+		var truns []byte
+		for range runs {
+			truns = append(truns, mkbox("trun", be(uint32(trunDataOffset), uint32(1), dataOffset))...)
+		}
+		return mkbox("moof", mkbox("mfhd", be(uint32(0), uint32(1))),
+			mkbox("traf", mkbox("tfhd", be(uint32(tfhdBaseIsMoof|tfhdDefaultSize), uint32(1), uint32(size))), truns))
+	}
+	file := slices.Concat(head, moof(uint32(len(moof(0)))+8), mkbox("mdat", bytes.Repeat([]byte("A"), size)))
+	if out, err := flatten(file); err == nil {
+		t.Fatalf("%d bytes of frames flattened to %d bytes from %d", runs*size, len(out), len(file))
+	}
+}
+
+// A box whose size field is 0 ("to the end of the box that holds it")
+// copied as it was into the output swallowed the sample table that follows
+// it there: the file had no stts.
+func TestFlattenSpellsOutTheSizeOfCopiedBoxes(t *testing.T) {
+	src := testFile{movieScale: 30, scale: 30, base: 300, trunVersion: 1, frags: [][]frame{gop}}.build()
+	at := bytes.Index(src, []byte("stsd")) - 4
+	binary.BigEndian.PutUint32(src[at:], 0)
+	out, err := flatten(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(readFlat(t, out).samples); n != len(gop) {
+		t.Errorf("%d samples, want %d", n, len(gop))
+	}
+}
