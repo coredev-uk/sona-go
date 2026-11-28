@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.9.0](https://github.com/coredev-uk/sona-go/compare/v0.8.0...v0.9.0) (2026-11-28)
+
+
+### Features
+
+* **home:** a larger greeting that uses your Apple Music name ([#737](https://github.com/coredev-uk/sona-go/issues/737)) ([be9d0b7](https://github.com/coredev-uk/sona-go/commit/be9d0b78fda4777570f0ff767e2941c3d3408662))
+* **ui:** drop the equaliser bars when paused ([#747](https://github.com/coredev-uk/sona-go/issues/747)) ([7b4474e](https://github.com/coredev-uk/sona-go/commit/7b4474e03552e32cc1447056a2535f1c0f5417fe))
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/pressly/goose/v3 to v3.30.2 ([#705](https://github.com/coredev-uk/sona-go/issues/705)) ([305672d](https://github.com/coredev-uk/sona-go/commit/305672d0ff1c6c096e6b83c4ad408890fc24f7bc))
+* **diagnostics:** anonymise what was played, looked at and searched for before copying ([#740](https://github.com/coredev-uk/sona-go/issues/740)) ([1398513](https://github.com/coredev-uk/sona-go/commit/139851325707c7190222f0520a702cf8926f4b10))
+* **motion:** refuse a stream whose frames overlap, and spell out copied box sizes ([#743](https://github.com/coredev-uk/sona-go/issues/743)) ([89cfb14](https://github.com/coredev-uk/sona-go/commit/89cfb14154a559bcf8e6880793aac1538bf09a21))
+* **playback:** a music video plays when its init segment has more than its video track ([#735](https://github.com/coredev-uk/sona-go/issues/735)) ([e41a790](https://github.com/coredev-uk/sona-go/commit/e41a790eee812e1e6c08fc799134f0f30be2c460))
+
 ## [0.8.0](https://github.com/coredev-uk/sona-go/compare/v0.7.0...v0.8.0) (2026-11-27)
 
 
